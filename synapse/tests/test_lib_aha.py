@@ -14,7 +14,6 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 
 import synapse.tools.aha.list as s_a_list
-import synapse.tools.backup as s_tools_backup
 
 import synapse.tools.aha.enroll as s_tools_enroll
 import synapse.tools.aha.provision.user as s_tools_provision_user
@@ -44,30 +43,40 @@ class ExecTeleCaller(s_cell.Cell):
 
 class AhaTest(s_test.SynTest):
 
-    async def test_lib_aha_mirrors(self):
+    async def test_lib_aha_clone(self):
+
+        zoinks = 'zoinks.aha.loop.vertex.link'
 
         with self.getTestDir() as dirn:
+
             dir0 = s_common.gendir(dirn, 'aha0')
             dir1 = s_common.gendir(dirn, 'aha1')
 
-            conf = {'nexslog:en': True}
+            async with self.getTestAha(dirn=dir0) as aha0:
 
-            async with self.getTestAha(conf={'nexslog:en': True}, dirn=dir0) as aha0:
-                user = await aha0.auth.addUser('reguser', passwd='secret')
-                await user.setAdmin(True)
+                ahacount = len(await aha0.getAhaUrls())
+                async with aha0.getLocalProxy() as proxy0:
+                    self.len(ahacount, await proxy0.getAhaUrls())
+                    self.len(ahacount, await proxy0.getAhaServers())
 
-            s_tools_backup.backup(dir0, dir1)
+                    purl = await proxy0.addAhaClone(zoinks)
 
-            async with self.getTestAha(conf=conf, dirn=dir0) as aha0:
-                upstream_url = aha0.getLocalUrl()
+                conf1 = {'clone': purl}
+                async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
 
-                mirrorconf = {
-                    'nexslog:en': True,
-                    'mirror': upstream_url,
-                }
+                    await aha1.sync()
 
-                async with self.getTestAha(conf=mirrorconf, dirn=dir1) as aha1:
-                    # CA is nexus-fied
+                    self.eq(aha0.iden, aha1.iden)
+                    self.nn(aha1.conf.get('mirror'))
+
+                    serv0 = await aha0.getAhaServers()
+                    serv1 = await aha1.getAhaServers()
+
+                    self.len(ahacount + 1, serv0)
+                    self.eq(serv0, serv1)
+
+                    # ensure some basic functionality is being properly mirrored
+
                     cabyts = await aha0.genCaCert('mirrorca')
                     await aha1.sync()
                     mirbyts = await aha1.genCaCert('mirrorca')
@@ -82,55 +91,74 @@ class AhaTest(s_test.SynTest):
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.eq(mnfo.get('name'), 'test.example.net')
 
-                    wait00 = aha0.waiter(1, 'aha:svcdown')
-                    await aha0.setAhaSvcDown('test', iden, network='example.net')
-                    self.isin(len(await wait00.wait(timeout=6)), (1, 2))
+                    async with aha0.waiter(1, 'aha:svcdown', timeout=6):
+                        await aha0.setAhaSvcDown('test', iden, network='example.net')
 
                     await aha1.sync()
+
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.notin('online', mnfo)
 
                     await aha0.delAhaSvc('test', network='example.net')
                     await aha1.sync()
+
                     mnfo = await aha1.getAhaSvc('test.example.net')
                     self.none(mnfo)
+
+                    self.true(aha0.isactive)
+                    self.false(aha1.isactive)
+
+                    async with aha1.getLocalProxy() as proxy:
+                        await proxy.promote(graceful=True)
+
+                    self.false(aha0.isactive)
+                    self.true(aha1.isactive)
+
+            # Remove 00.aha.loop.vertex.link since we're done with him + coverage
+            async with self.getTestAha(conf={'dns:name': zoinks}, dirn=dir1) as aha1:
+                async with aha1.getLocalProxy() as proxy1:
+                    srvs = await proxy1.getAhaServers()
+                    self.len(2, srvs)
+                    aha00 = [info for info in srvs if info.get('host') == '00.aha.loop.vertex.link'][0]
+                    data = await proxy1.delAhaServer(aha00.get('host'), aha00.get('port'))
+                    self.eq(data.get('host'), aha00.get('host'))
+                    self.eq(data.get('port'), aha00.get('port'))
+
+                    srvs = await proxy1.getAhaServers()
+                    self.len(1, srvs)
+                    urls = await proxy1.getAhaUrls()
+                    self.len(1, urls)
 
     async def test_lib_aha_offon(self):
         with self.getTestDir() as dirn:
             cryo0_dirn = s_common.gendir(dirn, 'cryo0')
-            conf = {'auth:passwd': 'secret'}
-            async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
-                host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
+            async with self.getTestAha(dirn=dirn) as aha:
+                purl = await aha.addAhaSvcProv('0.cryo')
 
                 wait00 = aha.waiter(1, 'aha:svcadd')
-                cryo_conf = {
-                    'aha:name': '0.cryo.mynet',
-                    'aha:admin': 'root@cryo.mynet',
-                    'aha:registry': f'tcp://root:secret@127.0.0.1:{port}',
-                    'dmon:listen': 'tcp://0.0.0.0:0/',
-                }
-                async with self.getTestCryo(dirn=cryo0_dirn, conf=cryo_conf) as cryo:
+
+                conf = {'aha:provision': purl}
+                async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
                     self.isin(len(await wait00.wait(timeout=6)), (1, 2))
 
-                    svc = await aha.getAhaSvc('0.cryo.mynet')
+                    svc = await aha.getAhaSvc('0.cryo...')
                     linkiden = svc.get('svcinfo', {}).get('online')
-                    self.nn(linkiden)
 
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
 
-            async with self.getTestAha(conf=conf.copy(), dirn=dirn) as aha:
+            async with self.getTestAha(dirn=dirn) as aha:
                 wait01 = aha.waiter(1, 'aha:svcdown')
                 await wait01.wait(timeout=6)
-                svc = await aha.getAhaSvc('0.cryo.mynet')
+                svc = await aha.getAhaSvc('0.cryo...')
                 self.notin('online', svc.get('svcinfo'))
 
                 # Try setting something down a second time
-                await aha.setAhaSvcDown('0.cryo.mynet', linkiden, network=None)
-                svc = await aha.getAhaSvc('0.cryo.mynet')
+                await aha.setAhaSvcDown('0.cryo', linkiden, network='synapse')
+                svc = await aha.getAhaSvc('0.cryo...')
                 self.notin('online', svc.get('svcinfo'))
 
-    async def test_lib_aha(self):
+    async def test_lib_aha_basics(self):
 
         with self.raises(s_exc.NoSuchName):
             await s_telepath.getAhaProxy({})
@@ -158,121 +186,80 @@ class AhaTest(s_test.SynTest):
 
             cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
 
-            host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
-            await aha.auth.rootuser.setPasswd('hehehaha')
+            ahaurls = await aha.getAhaUrls()
 
             wait00 = aha.waiter(1, 'aha:svcadd')
-            conf = {
-                'aha:name': '0.cryo.mynet',
-                'aha:leader': 'cryo.mynet',
-                'aha:admin': 'root@cryo.mynet',
-                'aha:registry': [f'tcp://root:hehehaha@127.0.0.1:{port}',
-                                 f'tcp://root:hehehaha@127.0.0.1:{port}'],
-                'dmon:listen': 'tcp://0.0.0.0:0/',
-            }
+
+            conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
             async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
-
-                await cryo.auth.rootuser.setPasswd('secret')
-
-                ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
-                self.nn(ahaadmin)
-                self.true(ahaadmin.isAdmin())
 
                 await wait00.wait(timeout=2)
 
                 with self.raises(s_exc.NoSuchName):
                     await s_telepath.getAhaProxy({'host': 'hehe.haha'})
 
-                async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
+                async with await s_telepath.openurl('aha://cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 with self.raises(s_exc.BadArg):
                     _proxy = await cryo.ahaclient.proxy(timeout=2)
-                    await _proxy.modAhaSvcInfo('cryo.mynet', {'newp': 'newp'})
+                    await _proxy.modAhaSvcInfo('cryo...', {'newp': 'newp'})
 
-                async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                async with await s_telepath.openurl('aha://0.cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 # force a reconnect...
-                waiter = aha.waiter(1, 'aha:svcadd')
                 proxy = await cryo.ahaclient.proxy(timeout=2)
-                await proxy.fini()
-                self.nn(await waiter.wait(timeout=6))
+                async with aha.waiter(2, 'aha:svcadd'):
+                    await proxy.fini()
 
-                async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
+                async with await s_telepath.openurl('aha://cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                waiter = aha.waiter(1, 'aha:svcadd')
                 # force the service into passive mode...
-                await cryo.setCellActive(False)
+                async with aha.waiter(3, 'aha:svcdown', 'aha:svcadd', timeout=6):
+                    await cryo.setCellActive(False)
 
                 with self.raises(s_exc.NoSuchName):
-                    async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
+                    async with await s_telepath.openurl('aha://cryo...') as proxy:
                         pass
 
-                self.nn(await waiter.wait(timeout=6))
-
-                async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                async with await s_telepath.openurl('aha://0.cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                await cryo.setCellActive(True)
+                async with aha.waiter(1, 'aha:svcadd', timeout=6):
+                    await cryo.setCellActive(True)
 
-                async with await s_telepath.openurl('aha://root:secret@cryo.mynet') as proxy:
+                async with await s_telepath.openurl('aha://cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                # some coverage edge cases...
-                cryo.conf.pop('aha:leader', None)
-                await cryo.setCellActive(False)
+            wait01 = aha.waiter(2, 'aha:svcadd')
 
-                # lock the aha:admin account so we can confirm it is unlocked upon restart
-                # remove the admin flag from the account.
-                self.false(ahaadmin.isLocked())
-                await ahaadmin.setLocked(True, logged=False)
-                self.true(ahaadmin.isLocked())
-                # remove the admin status so we can confirm its an admin upon restart
-                await ahaadmin.setAdmin(False, logged=False)
-                self.false(ahaadmin.isAdmin())
-
-            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
-                ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
-                # And we should be unlocked and admin now
-                self.false(ahaadmin.isLocked())
-                self.true(ahaadmin.isAdmin())
-
-            wait01 = aha.waiter(1, 'aha:svcadd')
-            conf = {
-                'aha:name': '0.cryo',
-                'aha:leader': 'cryo',
-                'aha:network': 'foo',
-                'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
-                'dmon:listen': 'tcp://0.0.0.0:0/',
-            }
+            conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
             async with self.getTestCryo(conf=conf) as cryo:
 
                 info = await cryo.getCellInfo()
-                cnfo = info.get('cell')
-                anfo = cnfo.get('aha')
-                self.eq(cnfo.get('aha'), {'name': '0.cryo', 'leader': 'cryo', 'network': 'foo'})
 
-                await cryo.auth.rootuser.setPasswd('secret')
+                self.eq(info['cell']['aha'], {'name': '0.cryo', 'leader': 'cryo', 'network': 'synapse'})
 
                 await wait01.wait(timeout=2)
 
-                async with await s_telepath.openurl('aha://root:secret@cryo.foo') as proxy:
+                async with await s_telepath.openurl('aha://cryo.synapse') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                async with await s_telepath.openurl('aha://root:secret@0.cryo.foo') as proxy:
+                async with await s_telepath.openurl('aha://0.cryo.synapse') as proxy:
                     self.nn(await proxy.getCellIden())
                     await proxy.puts('hehe', ('hehe', 'haha'))
 
-                async with await s_telepath.openurl('aha://root:secret@0.cryo.foo/*/hehe') as proxy:
+                async with await s_telepath.openurl('aha://0.cryo.synapse/*/hehe') as proxy:
                     self.nn(await proxy.iden())
 
-                async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
-                    svcs = [x async for x in ahaproxy.getAhaSvcs('foo')]
+                async with aha.getLocalProxy() as ahaproxy:
+
+                    svcs = [x async for x in ahaproxy.getAhaSvcs('synapse')]
                     self.len(2, svcs)
                     names = [s['name'] for s in svcs]
-                    self.sorteq(('cryo.foo', '0.cryo.foo'), names)
+                    self.sorteq(('cryo.synapse', '0.cryo.synapse'), names)
 
                     self.none(await ahaproxy.getCaCert('vertex.link'))
                     cacert0 = await ahaproxy.genCaCert('vertex.link')
@@ -299,20 +286,10 @@ class AhaTest(s_test.SynTest):
                     self.nn(usercert01)
                     self.ne(usercert00, usercert01)
 
-            async with await s_telepath.openurl(f'tcp://root:hehehaha@127.0.0.1:{port}') as ahaproxy:
-                await ahaproxy.delAhaSvc('cryo', network='foo')
-                await ahaproxy.delAhaSvc('0.cryo', network='foo')
-                self.none(await ahaproxy.getAhaSvc('cryo.foo'))
-                self.none(await ahaproxy.getAhaSvc('0.cryo.foo'))
-                self.len(2, [s async for s in ahaproxy.getAhaSvcs()])
-
-                with self.raises(s_exc.BadArg):
-                    info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080, 'scheme': 'tcp'}}
-                    await ahaproxy.addAhaSvc('newp', info, network=None)
-
             # We can use HTTP API to get the registered services
             await aha.addUser('lowuser', passwd='lowuser')
             await aha.auth.rootuser.setPasswd('secret')
+
             host, httpsport = await aha.addHttpsPort(0)
             svcsurl = f'https://localhost:{httpsport}/api/v1/aha/services'
 
@@ -322,15 +299,16 @@ class AhaTest(s_test.SynTest):
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
                     self.len(2, result)
-                    self.eq({'0.cryo.mynet', 'cryo.mynet'},
+                    self.eq({'0.cryo.synapse', 'cryo.synapse'},
                             {svcinfo.get('name') for svcinfo in result})
 
-                async with sess.get(svcsurl, json={'network': 'mynet'}) as resp:
+                async with sess.get(svcsurl, json={'network': 'synapse'}) as resp:
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
-                    self.len(1, result)
-                    self.eq('cryo.mynet', result[0].get('name'))
+                    self.len(2, result)
+                    self.eq({'0.cryo.synapse', 'cryo.synapse'},
+                            {svcinfo.get('name') for svcinfo in result})
 
                 async with sess.get(svcsurl, json={'network': 'newp'}) as resp:
                     info = await resp.json()
@@ -356,36 +334,42 @@ class AhaTest(s_test.SynTest):
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'AuthDeny')
 
-        # The aha service can also be configured with a set of URLs that could represent itself.
-        urls = ('cell://home0', 'cell://home1')
-        conf = {'aha:urls': urls}
-        async with self.getTestAha(conf=conf) as aha:
             async with aha.getLocalProxy() as ahaproxy:
-                aurls = await ahaproxy.getAhaUrls()
-                self.eq(urls, aurls)
+                await ahaproxy.delAhaSvc('cryo', network='synapse')
+                await ahaproxy.delAhaSvc('0.cryo', network='synapse')
+                self.none(await ahaproxy.getAhaSvc('cryo.synapse'))
+                self.none(await ahaproxy.getAhaSvc('0.cryo.synapse'))
+                self.len(0, [s async for s in ahaproxy.getAhaSvcs()])
 
-        with self.getTestDir() as dirn:
-            conf = {
-                'aha:name': '0.test',
-                'aha:leader': 'test',
-                'aha:network': 'foo',
-                'aha:registry': f'tcp://root:hehehaha@127.0.0.1:{port}',
-                'dmon:listen': f'unix://{dirn}/sock'
-            }
-            async with self.getTestAha(conf=conf) as aha:
-                ahainfo = await aha.getAhaInfo()
-                uinfo = ahainfo.get('urlinfo', {})
-                self.eq(uinfo.get('scheme'), 'unix')
-                self.none(uinfo.get('port'))
-                self.none(aha._getAhaUrls())
+                with self.raises(s_exc.BadArg):
+                    info = {'urlinfo': {'host': '127.0.0.1', 'port': 8080, 'scheme': 'tcp'}}
+                    await ahaproxy.addAhaSvc('newp', info, network=None)
 
-            conf['dmon:listen'] = 'tcp://0.0.0.0:0/'
-            async with self.getTestAha(conf=conf) as aha:
-                ahainfo = await aha.getAhaInfo()
-                uinfo = ahainfo.get('urlinfo', {})
-                self.eq(uinfo.get('scheme'), 'tcp')
-                self.gt(uinfo.get('port'), 0)
-                self.eq(aha._getAhaUrls()[0], f'ssl://0.test.foo:{aha.sockaddr[1]}')
+            # test that services get updated aha server list
+            with self.getTestDir() as dirn:
+
+                conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
+
+                # can't assume just one due to enterprise tests with raft...
+                ahacount = len(await aha.getAhaUrls())
+
+                async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                    self.len(ahacount, cell.conf.get('aha:registry'))
+
+                await aha.addAhaServer({'host': 'zoinks.aha.loop.vertex.link'})
+
+                self.len(ahacount + 1, await aha.getAhaServers())
+
+                async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                    await cell.ahaclient.proxy()
+                    self.len(ahacount + 1, cell.conf.get('aha:registry'))
+
+                self.nn(await aha.delAhaServer('zoinks.aha.loop.vertex.link', 27492))
+                self.len(ahacount, await aha.getAhaServers())
+
+                async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                    await cell.ahaclient.proxy()
+                    self.len(ahacount, cell.conf.get('aha:registry'))
 
     async def test_lib_aha_loadenv(self):
 
@@ -430,53 +414,25 @@ class AhaTest(s_test.SynTest):
 
         async with self.getTestAha() as aha:
 
-            cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
-
-            host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
-            await aha.auth.rootuser.setPasswd('hehehaha')
-
-            aharegistry = [f'tcp://root:hehehaha@127.0.0.1:{port}',
-                          f'tcp://root:hehehaha@127.0.0.1:{port}']
-            atup = tuple(aharegistry)
-
             wait00 = aha.waiter(1, 'aha:svcadd')
-            conf = {
-                'aha:name': '0.cryo.mynet',
-                'aha:admin': 'root@cryo.mynet',
-                'aha:registry': aharegistry,
-                'dmon:listen': 'tcp://0.0.0.0:0/',
-            }
-            async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
+            conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
 
-                await cryo.auth.rootuser.setPasswd('secret')
+            async with self.getTestCryo(conf=conf) as cryo:
 
-                ahaadmin = await cryo.auth.getUserByName('root@cryo.mynet')
-                self.nn(ahaadmin)
-                self.true(ahaadmin.isAdmin())
+                self.true(await wait00.wait(timeout=2))
 
-                await wait00.wait(timeout=2)
-
-                self.isin(atup, s_telepath.aha_clients)
-
-                async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                async with await s_telepath.openurl('aha://0.cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                _ahaclient = s_telepath.aha_clients.get(atup).get('client')
-                _aprx = await _ahaclient.proxy()
+                proxy = await cryo.ahaclient.proxy()
 
-                await aha.fini()
+                # avoid race to notify client...
+                async with cryo.ahaclient.waiter(1, 'tele:client:linkloop', timeout=2):
+                    await aha.fini()
+                    self.true(await proxy.waitfini(timeout=10))
 
-                self.true(await _aprx.waitfini(timeout=10))
-
-                orig = s_telepath.Client.proxy
-                async def quickproxy(self, timeout):
-                    return await orig(self, timeout=0.1)
-
-                with mock.patch('synapse.telepath.Client.proxy', quickproxy):
-                    with self.raises(asyncio.TimeoutError):
-
-                        async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
-                            self.fail('Should never reach a connection.')
+                with self.raises(asyncio.TimeoutError):
+                    await cryo.ahaclient.proxy(timeout=0.1)
 
     async def test_lib_aha_onlink_fail(self):
 
@@ -484,27 +440,14 @@ class AhaTest(s_test.SynTest):
 
             async with self.getTestAha() as aha:
 
-                cryo0_dirn = s_common.gendir(aha.dirn, 'cryo0')
-
-                host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
-                await aha.auth.rootuser.setPasswd('secret')
-
                 aha.testerr = True
-
                 wait00 = aha.waiter(1, 'aha:svcadd')
-                conf = {
-                    'aha:name': '0.cryo.mynet',
-                    'aha:admin': 'root@cryo.mynet',
-                    'aha:registry': f'tcp://root:secret@127.0.0.1:{port}',
-                    'dmon:listen': 'tcp://0.0.0.0:0/',
-                }
-                async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
-
-                    await cryo.auth.rootuser.setPasswd('secret')
+                conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
+                async with self.getTestCryo(conf=conf) as cryo:
 
                     self.none(await wait00.wait(timeout=2))
 
-                    svc = await aha.getAhaSvc('0.cryo.mynet')
+                    svc = await aha.getAhaSvc('0.cryo...')
                     self.none(svc)
 
                     wait01 = aha.waiter(1, 'aha:svcadd')
@@ -512,11 +455,11 @@ class AhaTest(s_test.SynTest):
 
                     self.nn(await wait01.wait(timeout=2))
 
-                    svc = await aha.getAhaSvc('0.cryo.mynet')
+                    svc = await aha.getAhaSvc('0.cryo...')
                     self.nn(svc)
                     self.nn(svc.get('svcinfo', {}).get('online'))
 
-                    async with await s_telepath.openurl('aha://root:secret@0.cryo.mynet') as proxy:
+                    async with await s_telepath.openurl('aha://0.cryo...') as proxy:
                         self.nn(await proxy.getCellIden())
 
     async def test_lib_aha_bootstrap(self):
@@ -532,12 +475,12 @@ class AhaTest(s_test.SynTest):
                 }
 
                 async with self.getTestAha(dirn=dirn, conf=conf) as aha:
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'cas', 'do.vertex.link.crt')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'cas', 'do.vertex.link.key')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'hosts', 'aha.do.vertex.link.crt')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'hosts', 'aha.do.vertex.link.key')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'users', 'root@do.vertex.link.crt')))
-                    self.true(os.path.isfile(os.path.join(dirn, 'certs', 'users', 'root@do.vertex.link.key')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'cas', 'do.vertex.link.crt')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'cas', 'do.vertex.link.key')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'hosts', 'aha.do.vertex.link.crt')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'hosts', 'aha.do.vertex.link.key')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'users', 'root@do.vertex.link.crt')))
+                    self.true(os.path.isfile(os.path.join(aha.dirn, 'certs', 'users', 'root@do.vertex.link.key')))
 
                     host, port = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.do.vertex.link&ca=do.vertex.link')
 
@@ -546,7 +489,8 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_noconf(self):
 
-        async with self.getTestAha() as aha:
+        conf = {'dns:name': None}
+        async with self.getTestAha(conf=conf) as aha:
 
             with self.raises(s_exc.NeedConfValu):
                 await aha.addAhaSvcProv('hehe')
@@ -559,35 +503,17 @@ class AhaTest(s_test.SynTest):
             with self.raises(s_exc.NeedConfValu):
                 await aha.addAhaUserEnroll('hehe')
 
-            aha.conf['provision:listen'] = 'tcp://127.0.0.1:27272'
-
-            with self.raises(s_exc.NeedConfValu):
-                await aha.addAhaSvcProv('hehe')
-
             with self.raises(s_exc.NeedConfValu):
                 await aha.addAhaUserEnroll('hehe')
-
-            aha.conf['aha:network'] = 'haha'
-            await aha.addAhaSvcProv('hehe')
 
     async def test_lib_aha_provision(self):
 
         with self.getTestDir() as dirn:
 
-            conf = {
-                'aha:name': 'aha',
-                'aha:network': 'loop.vertex.link',
-                'provision:listen': 'ssl://aha.loop.vertex.link:0'
-            }
+            conf = {'dns:name': 'aha.loop.vertex.link'}
             async with self.getTestAha(dirn=dirn, conf=conf) as aha:
 
-                addr, port = aha.provdmon.addr
-                # update the config to reflect the dynamically bound port
-                aha.conf['provision:listen'] = f'ssl://aha.loop.vertex.link:{port}'
-
-                # do this config ex-post-facto due to port binding...
-                host, ahaport = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
-                aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
+                ahaport = aha.sockaddr[1]
 
                 url = aha.getLocalUrl()
 
@@ -655,19 +581,20 @@ class AhaTest(s_test.SynTest):
                     self.none(await axon.auth.getUserByName('axon@loop.vertex.link'))
 
                     self.true(os.path.isfile(s_common.genpath(axon.dirn, 'prov.done')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'cas', 'loop.vertex.link.crt')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.loop.vertex.link.crt')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.loop.vertex.link.key')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'root@loop.vertex.link.crt')))
-                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'root@loop.vertex.link.key')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'cas', 'synapse.crt')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.synapse.crt')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'hosts', '00.axon.synapse.key')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'root@synapse.crt')))
+                    self.true(os.path.isfile(s_common.genpath(axon.dirn, 'certs', 'users', 'root@synapse.key')))
 
                     yamlconf = s_common.yamlload(axon.dirn, 'cell.yaml')
                     self.eq('axon', yamlconf.get('aha:leader'))
                     self.eq('00.axon', yamlconf.get('aha:name'))
-                    self.eq('loop.vertex.link', yamlconf.get('aha:network'))
+                    self.eq('synapse', yamlconf.get('aha:network'))
                     self.none(yamlconf.get('aha:admin'))
-                    self.eq((f'ssl://root@aha.loop.vertex.link:{ahaport}',), yamlconf.get('aha:registry'))
-                    self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.loop.vertex.link&ca=loop.vertex.link', yamlconf.get('dmon:listen'))
+
+                    self.eq(await aha.getAhaUrls(), yamlconf.get('aha:registry'))
+                    self.eq(f'ssl://0.0.0.0:0?hostname=00.axon.synapse&ca=synapse', yamlconf.get('dmon:listen'))
 
                     unfo = await axon.addUser('visi')
 
@@ -678,9 +605,9 @@ class AhaTest(s_test.SynTest):
                     provurl = str(outp).split(':', 1)[1].strip()
                     with self.getTestSynDir() as syndir:
 
-                        capath = s_common.genpath(syndir, 'certs', 'cas', 'loop.vertex.link.crt')
-                        crtpath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.crt')
-                        keypath = s_common.genpath(syndir, 'certs', 'users', 'visi@loop.vertex.link.key')
+                        capath = s_common.genpath(syndir, 'certs', 'cas', 'synapse.crt')
+                        crtpath = s_common.genpath(syndir, 'certs', 'users', 'visi@synapse.crt')
+                        keypath = s_common.genpath(syndir, 'certs', 'users', 'visi@synapse.key')
 
                         for path in (capath, crtpath, keypath):
                             s_common.genfile(path)
@@ -693,7 +620,7 @@ class AhaTest(s_test.SynTest):
 
                         teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                         self.eq(teleyaml.get('version'), 1)
-                        self.eq(teleyaml.get('aha:servers'), (f'ssl://visi@aha.loop.vertex.link:{ahaport}',))
+                        self.sorteq(teleyaml.get('aha:servers'), await aha.getAhaUrls(user='visi'))
 
                         certdir = s_telepath.s_certdir.CertDir(os.path.join(syndir, 'certs'))
                         async with await s_telepath.openurl('aha://visi@axon...', certdir=certdir) as prox:
@@ -776,7 +703,7 @@ class AhaTest(s_test.SynTest):
                             await axon2.sync()
                             self.true(axon.isactive)
                             self.false(axon2.isactive)
-                            self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
+                            self.eq('aha://root@axon...', axon2.conf.get('mirror'))
 
                             with s_common.genfile(axn2path, 'prov.done') as fd:
                                 axon2providen = fd.read().decode().strip()
@@ -787,7 +714,7 @@ class AhaTest(s_test.SynTest):
                             await axon2.sync()
                             self.true(axon.isactive)
                             self.false(axon2.isactive)
-                            self.eq('aha://root@axon.loop.vertex.link', axon2.conf.get('mirror'))
+                            self.eq('aha://root@axon...', axon2.conf.get('mirror'))
 
                 # Provision a mirror using aha:provision in the mirror cell.yaml as well.
                 # This is similar to the previous test block.
@@ -815,7 +742,7 @@ class AhaTest(s_test.SynTest):
                         await axon03.sync()
                         self.true(axon.isactive)
                         self.false(axon03.isactive)
-                        self.eq('aha://root@axon.loop.vertex.link', axon03.conf.get('mirror'))
+                        self.eq('aha://root@axon...', axon03.conf.get('mirror'))
 
                         with s_common.genfile(axn3path, 'prov.done') as fd:
                             axon3providen = fd.read().decode().strip()
@@ -831,15 +758,15 @@ class AhaTest(s_test.SynTest):
                         await axon3.sync()
                         self.true(axon.isactive)
                         self.false(axon3.isactive)
-                        self.eq('aha://root@axon.loop.vertex.link', axon03.conf.get('mirror'))
+                        self.eq('aha://root@axon...', axon03.conf.get('mirror'))
 
                         retn, outp = await self.execToolMain(s_a_list._main, [aha.getLocalUrl()])
                         self.eq(retn, 0)
                         outp.expect('Service              network                        leader')
-                        outp.expect('00.axon              loop.vertex.link               True')
-                        outp.expect('01.axon              loop.vertex.link               False')
-                        outp.expect('02.axon              loop.vertex.link               False')
-                        outp.expect('axon                 loop.vertex.link               True')
+                        outp.expect('00.axon              synapse                        True')
+                        outp.expect('01.axon              synapse                        False')
+                        outp.expect('02.axon              synapse                        False')
+                        outp.expect('axon                 synapse                        True')
 
                 # Ensure we can provision a service on a given listening ports
                 outp.clear()
@@ -852,14 +779,6 @@ class AhaTest(s_test.SynTest):
                 args = ('--url', aha.getLocalUrl(), 'bazfaz', '--https-port', '123456')
                 ret = await s_tools_provision_service.main(args, outp=outp)
                 outp.expect('ERROR: Invalid HTTPS port: 123456')
-                self.eq(1, ret)
-
-                outp.clear()
-                bad_conf_path = s_common.genpath(dirn, 'badconf.yaml')
-                s_common.yamlsave({'aha:network': 'aha.newp.net'}, bad_conf_path)
-                args = ('--url', aha.getLocalUrl(), 'bazfaz', '--cellyaml', bad_conf_path)
-                ret = await s_tools_provision_service.main(args, outp=outp)
-                outp.expect('ERROR: Provisioning aha:network must be equal to the Aha servers network')
                 self.eq(1, ret)
 
                 outp = self.getTestOutp()
@@ -876,27 +795,21 @@ class AhaTest(s_test.SynTest):
                     https_port = conf.get('https:port')
                     self.eq(https_port, 443)
 
-                # provisioning against a network that differs from the aha network fails.
-                bad_netw = 'stuff.goes.beep'
-                provinfo = {'conf': {'aha:network': bad_netw}}
-                with self.raises(s_exc.BadConfValu) as cm:
-                    async with self.addSvcToAha(aha, '00.exec', ExecTeleCaller,
-                                                provinfo=provinfo) as conn:
-                        pass
-                self.isin('Provisioning aha:network must be equal to the Aha servers network',
-                          cm.exception.get('mesg'))
-
                 # We can generate urls and then drop them en-mass. They will not usable.
                 provurls = []
                 enrlursl = []
+                clonurls = []
                 async with aha.getLocalProxy() as proxy:
                     provurls.append(await proxy.addAhaSvcProv('00.cell'))
                     provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
                     enrlursl.append(await proxy.addAhaUserEnroll('bob'))
                     enrlursl.append(await proxy.addAhaUserEnroll('alice'))
+                    clonurls.append(await proxy.addAhaClone('hehe.haha.com'))
+                    clonurls.append(await proxy.addAhaClone('wow.haha.com', port='12345'))
 
                     await proxy.clearAhaSvcProvs()
                     await proxy.clearAhaUserEnrolls()
+                    await proxy.clearAhaClones()
 
                 for url in provurls:
                     with self.raises(s_exc.NoSuchName) as cm:
@@ -906,24 +819,16 @@ class AhaTest(s_test.SynTest):
                     with self.raises(s_exc.NoSuchName) as cm:
                         async with await s_telepath.openurl(url) as prox:
                             self.fail(f'Connected to an expired enrollment URL {url}')  # pragma: no cover
+                for url in clonurls:
+                    with self.raises(s_exc.NoSuchName) as cm:
+                        async with await s_telepath.openurl(url) as prox:
+                            self.fail(f'Connected to an expired clone URL {url}')  # pragma: no cover
 
     async def test_aha_httpapi(self):
 
-        conf = {
-            'aha:name': 'aha',
-            'aha:network': 'loop.vertex.link',
-            'provision:listen': 'ssl://aha.loop.vertex.link:0'
-        }
-        async with self.getTestAha(conf=conf) as aha:
+        async with self.getTestAha() as aha:
+
             await aha.auth.rootuser.setPasswd('secret')
-
-            addr, port = aha.provdmon.addr
-            # update the config to reflect the dynamically bound port
-            aha.conf['provision:listen'] = f'ssl://aha.loop.vertex.link:{port}'
-
-            # do this config ex-post-facto due to port binding...
-            host, ahaport = await aha.dmon.listen('ssl://0.0.0.0:0?hostname=aha.loop.vertex.link&ca=loop.vertex.link')
-            aha.conf['aha:urls'] = f'ssl://aha.loop.vertex.link:{ahaport}'
 
             host, httpsport = await aha.addHttpsPort(0)
             url = f'https://localhost:{httpsport}/api/v1/aha/provision/service'
@@ -997,13 +902,6 @@ class AhaTest(s_test.SynTest):
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
 
-                # Break the Aha cell - not will provision after this.
-                _network = aha.conf.pop('aha:network')
-                async with sess.post(url, json={'name': '00.newp'}) as resp:
-                    info = await resp.json()
-                    self.eq(info.get('status'), 'err')
-                    self.eq(info.get('code'), 'NeedConfValu')
-
             # Not an admin
             await aha.addUser('lowuser', passwd='lowuser')
             async with self.getHttpSess(auth=('lowuser', 'lowuser'), port=httpsport) as sess:
@@ -1013,15 +911,11 @@ class AhaTest(s_test.SynTest):
                     self.eq(info.get('code'), 'AuthDeny')
 
     async def test_aha_connect_back(self):
-        async with self.getTestAhaProv() as aha:  # type: s_aha.AhaCell
+
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
             async with self.addSvcToAha(aha, '00.exec', ExecTeleCaller) as conn:
-
-                ahaurl = aha.conf.get('aha:urls')[0]
-                ahaurl = s_telepath.modurl(ahaurl, user='root')
-
-                # This adminapi fails if the ssl://root@aha.loop.vertex.link
-                # session is not an admin user.
+                ahaurl = aha.getMyUrl()
                 await conn.exectelecall(ahaurl, 'getNexsIndx')
 
             self.true(conn.ahaclient.isfini)
@@ -1029,26 +923,7 @@ class AhaTest(s_test.SynTest):
     async def test_aha_util_helpers(self):
 
         # Mainly for test helper coverage.
-
-        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
-            root = await aha.auth.getUserByName('root')
-            self.true(await root.tryPasswd('secret'))
-
-            import synapse.cortex as s_cortex
-
-            with self.getTestDir() as dirn:
-                cdr0 = s_common.genpath(dirn, 'core00')
-                cdr1 = s_common.genpath(dirn, 'core01')
-
-                async with self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=cdr0) as core00:
-                    async with self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=cdr1,
-                                                provinfo={'mirror': 'core'}) as core01:
-                        self.len(1, await core00.nodes('[inet:asn=0]'))
-                        await core01.sync()
-                        self.len(1, await core01.nodes('inet:asn=0'))
-
-        # Simple test setups should work without issue
-        async with self.getTestAhaProv() as aha:
+        async with self.getTestAha() as aha:
             async with self.addSvcToAha(aha, '00.cell', s_cell.Cell) as cell00:  # type: s_cell.Cell
                 async with self.addSvcToAha(aha, '01.cell', s_cell.Cell,
                                             provinfo={'mirror': 'cell'}) as cell01:  # type: s_cell.Cell
@@ -1056,96 +931,53 @@ class AhaTest(s_test.SynTest):
                     # This should teardown cleanly.
 
     async def test_aha_restart(self):
-        with self.withNexusReplay() as stack:
 
-            with self.getTestDir() as dirn:
-                ahadirn = s_common.gendir(dirn, 'aha')
-                svc0dirn = s_common.gendir(dirn, 'svc00')
-                svc1dirn = s_common.gendir(dirn, 'svc01')
-                async with await s_base.Base.anit() as cm:
-                    aconf = {
-                        'aha:name': 'aha',
-                        'aha:network': 'loop.vertex.link',
-                        'provision:listen': 'ssl://aha.loop.vertex.link:0'
-                    }
-                    name = aconf.get('aha:name')
-                    netw = aconf.get('aha:network')
-                    dnsname = f'{name}.{netw}'
+        with self.getTestDir() as dirn:
 
-                    aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
-                    await cm.enter_context(aha)
+            ahadirn = s_common.gendir(dirn, 'aha')
+            svc0dirn = s_common.gendir(dirn, 'svc00')
+            svc1dirn = s_common.gendir(dirn, 'svc01')
 
-                    addr, port = aha.provdmon.addr
-                    # update the config to reflect the dynamically bound port
-                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+            async with await s_base.Base.anit() as cm:
 
-                    # do this config ex-post-facto due to port binding...
-                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
-                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+                async with self.getTestAha(dirn=ahadirn) as aha:
 
-                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
-                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
-                    await cm.enter_context(svc0)
+                    async with aha.waiter(3, 'aha:svcadd', timeout=10):
 
-                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
-                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
-                    await cm.enter_context(svc1)
+                        onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
+                        conf = {'aha:provision': onetime}
+                        svc0 = await cm.enter_context(self.getTestCell(conf=conf))
+
+                        onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                        conf = {'aha:provision': onetime}
+                        svc1 = await cm.enter_context(self.getTestCell(conf=conf))
 
                     # Ensure that services have connected
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
                     await svc1.sync()
 
                     # Get Aha services
-                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    self.true(ready)
+                    snfo = await aha.getAhaSvc('01.svc...')
+                    self.true(snfo['svcinfo']['ready'])
 
-                    # Fini the Aha service.
-                    await aha.fini()
+                    online = snfo['svcinfo']['online']
+                    self.nn(online)
 
-                    # Reuse our listening port we just deployed services with
-                    aconf = {
-                        'aha:name': 'aha',
-                        'aha:network': 'loop.vertex.link',
-                        'provision:listen': 'ssl://aha.loop.vertex.link:0',  # we do not care about provisioning
-                        'dmon:listen': f'ssl://{dnsname}:{ahaport}?hostname={dnsname}&ca={netw}'
-                    }
+                # Restart aha
+                async with self.getTestAha(dirn=ahadirn) as aha:
 
-                    # Restart aha
-                    aha = await s_aha.AhaCell.anit(ahadirn, conf=aconf)
-                    await cm.enter_context(aha)
-
-                    # services are cleared
-                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    online = svcinfo.get('online')
-                    self.none(online)
-                    self.false(ready)  # Ready is cleared upon restart / setting service down.
-
-                    n = 3
-                    if len(stack._exit_callbacks) > 0:
-                        n = n * 2
-
-                    waiter = aha.waiter(n, 'aha:svcadd')
-                    self.ge(len(await waiter.wait(timeout=12)), n)
+                    snfo = await aha._waitAhaSvcDown('01.svc...', timeout=10)
+                    self.none(snfo['svcinfo'].get('online'))
+                    self.false(snfo['svcinfo']['ready'])
 
                     # svc01 has reconnected and the ready state has been re-registered
-                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    online = svcinfo.get('online')
-                    self.nn(online)
-                    self.true(ready)
+                    snfo = await aha._waitAhaSvcOnline('01.svc...', timeout=10)
+                    self.nn(snfo['svcinfo']['online'])
+                    self.true(snfo['svcinfo']['ready'])
 
     async def test_aha_service_pools(self):
 
-        async with self.getTestAhaProv() as aha:
+        async with self.getTestAha() as aha:
 
             async with await s_base.Base.anit() as base:
 
@@ -1166,18 +998,17 @@ class AhaTest(s_test.SynTest):
 
                     msgs = await core00.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
 
                     # Pool has no members....
                     pool = await s_telepath.open('aha://pool00...')
                     self.eq(0, pool.size())
-                    waiter = pool.waiter(0, 'svc:add')
 
-                    msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
-                    self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (00...) added to service pool (pool00.loop.vertex.link)', msgs)
+                    async with pool.waiter(1, 'svc:add', timeout=12):
+                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 00...')
+                        self.stormHasNoWarnErr(msgs)
+                        self.stormIsInPrint('AHA service (00...) added to service pool (pool00.synapse)', msgs)
 
-                    self.len(1, await waiter.wait(timeout=12))
                     prox = await pool.proxy(timeout=12)
                     info = await prox.getCellInfo()
                     self.eq('00', info.get('cell').get('aha').get('name'))
@@ -1190,40 +1021,38 @@ class AhaTest(s_test.SynTest):
                     self.len(1, poolinfo['services'])
 
                     msgs = await core00.stormlist('aha.pool.list')
-                    self.stormIsInPrint('Pool: pool00.loop.vertex.link', msgs)
-                    self.stormIsInPrint('    00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('Pool: pool00.synapse', msgs)
+                    self.stormIsInPrint('    00.synapse', msgs)
                     self.stormIsInPrint('1 pools', msgs)
 
-                    msgs = await core00.stormlist('$lib.print($lib.aha.pool.get(pool00.loop.vertex.link))')
-                    self.stormIsInPrint('aha:pool: pool00.loop.vertex.link', msgs)
+                    msgs = await core00.stormlist('$lib.print($lib.aha.pool.get(pool00.synapse))')
+                    self.stormIsInPrint('aha:pool: pool00.synapse', msgs)
 
                     async with await s_telepath.open('aha://pool00...') as pool:
 
                         replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
                         nevents = 5 if replay else 3
 
-                        waiter = pool.waiter(nevents, 'svc:add')
+                        async with pool.waiter(nevents, 'svc:add', timeout=3):
 
-                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (01...) added to service pool (pool00.loop.vertex.link)', msgs)
+                            msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
+                            self.stormHasNoWarnErr(msgs)
+                            self.stormIsInPrint('AHA service (01...) added to service pool (pool00.synapse)', msgs)
 
-                        msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (01...) added to service pool (pool00.loop.vertex.link)', msgs)
-
-                        await waiter.wait(timeout=3)
+                            msgs = await core00.stormlist('aha.pool.svc.add pool00... 01...')
+                            self.stormHasNoWarnErr(msgs)
+                            self.stormIsInPrint('AHA service (01...) added to service pool (pool00.synapse)', msgs)
 
                         poolinfo = await aha.getAhaPool('pool00...')
                         self.len(2, poolinfo['services'])
 
                         self.nn(poolinfo['created'])
-                        self.nn(poolinfo['services']['00.loop.vertex.link']['created'])
-                        self.nn(poolinfo['services']['01.loop.vertex.link']['created'])
+                        self.nn(poolinfo['services']['00.synapse']['created'])
+                        self.nn(poolinfo['services']['01.synapse']['created'])
 
                         self.eq(core00.auth.rootuser.iden, poolinfo['creator'])
-                        self.eq(core00.auth.rootuser.iden, poolinfo['services']['00.loop.vertex.link']['creator'])
-                        self.eq(core00.auth.rootuser.iden, poolinfo['services']['01.loop.vertex.link']['creator'])
+                        self.eq(core00.auth.rootuser.iden, poolinfo['services']['00.synapse']['creator'])
+                        self.eq(core00.auth.rootuser.iden, poolinfo['services']['01.synapse']['creator'])
 
                         for client in pool.clients.values():
                             await client.proxy(timeout=3)
@@ -1235,24 +1064,21 @@ class AhaTest(s_test.SynTest):
 
                         waiter = pool.waiter(1, 'pool:reset')
 
-                        ahaproxy = await pool.aha.proxy()
-                        await ahaproxy.fini()
-
-                        await waiter.wait(timeout=3)
+                        async with pool.waiter(1, 'pool:reset', timeout=3):
+                            ahaproxy = await pool.aha.proxy()
+                            await ahaproxy.fini()
 
                         # wait for the pool to be notified of the topology change
-                        waiter = pool.waiter(1, 'svc:del')
+                        async with pool.waiter(1, 'svc:del', timeout=10):
 
-                        msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('AHA service (00.loop.vertex.link) removed from service pool (pool00.loop.vertex.link)',
-                                            msgs)
+                            msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
+                            self.stormHasNoWarnErr(msgs)
+                            self.stormIsInPrint('AHA service (00.synapse) removed from service pool (pool00.synapse)', msgs)
 
-                        msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
-                        self.stormHasNoWarnErr(msgs)
-                        self.stormIsInPrint('Did not remove (00...) from the service pool.', msgs)
+                            msgs = await core00.stormlist('aha.pool.svc.del pool00... 00...')
+                            self.stormHasNoWarnErr(msgs)
+                            self.stormIsInPrint('Did not remove (00...) from the service pool.', msgs)
 
-                        await waiter.wait(timeout=3)
                         run00 = await (await pool.proxy(timeout=3)).getCellRunId()
                         self.eq(run00, await (await pool.proxy(timeout=3)).getCellRunId())
 
@@ -1261,104 +1087,60 @@ class AhaTest(s_test.SynTest):
 
                     msgs = await core00.stormlist('aha.pool.del pool00...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Removed AHA service pool: pool00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('Removed AHA service pool: pool00.synapse', msgs)
 
     async def test_aha_reprovision(self):
+
         with self.withNexusReplay() as stack:
             with self.getTestDir() as dirn:
+
                 aha00dirn = s_common.gendir(dirn, 'aha00')
                 aha01dirn = s_common.gendir(dirn, 'aha01')
                 svc0dirn = s_common.gendir(dirn, 'svc00')
                 svc1dirn = s_common.gendir(dirn, 'svc01')
+
                 async with await s_base.Base.anit() as cm:
-                    aconf = {
-                        'aha:name': 'aha',
-                        'aha:network': 'loop.vertex.link',
-                        'provision:listen': 'ssl://aha.loop.vertex.link:0'
-                    }
-                    name = aconf.get('aha:name')
-                    netw = aconf.get('aha:network')
-                    dnsname = f'{name}.{netw}'
 
-                    aha = await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
-                    await cm.enter_context(aha)
+                    aha = await cm.enter_context(self.getTestAha(dirn=aha00dirn))
 
-                    addr, port = aha.provdmon.addr
-                    # update the config to reflect the dynamically bound port
-                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+                    async with aha.waiter(2, 'aha:svcadd', timeout=6):
+                        purl = await aha.addAhaSvcProv('00.svc')
+                        svc0 = await s_cell.Cell.anit(svc0dirn, conf={'aha:provision': purl})
+                        await cm.enter_context(svc0)
 
-                    # do this config ex-post-facto due to port binding...
-                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
-                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+                    async with aha.waiter(1, 'aha:svcadd', timeout=6):
+                        purl = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                        svc1 = await s_cell.Cell.anit(svc1dirn, conf={'aha:provision': purl})
+                        await cm.enter_context(svc1)
 
-                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
-                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
-                    await cm.enter_context(svc0)
-
-                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
-                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
-                    await cm.enter_context(svc1)
-
-                    # Ensure that services have connected
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
                     await svc1.sync()
 
-                    # Get Aha services
-                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    self.true(ready)
-
-                    await aha.fini()
+                    snfo = self.nn(await aha.getAhaSvc('01.svc...'))
+                    self.true(snfo['svcinfo']['ready'])
 
                 # Now re-deploy the AHA Service and re-provision the two cells
                 # with the same AHA configuration
                 async with await s_base.Base.anit() as cm:
-                    aconf = {
-                        'aha:name': 'aha',
-                        'aha:network': 'loop.vertex.link',
-                        'provision:listen': 'ssl://aha.loop.vertex.link:0'
-                    }
-                    name = aconf.get('aha:name')
-                    netw = aconf.get('aha:network')
-                    dnsname = f'{name}.{netw}'
 
-                    aha = await s_aha.AhaCell.anit(aha01dirn, conf=aconf)
-                    await cm.enter_context(aha)
+                    aha = await cm.enter_context(self.getTestAha(dirn=aha01dirn))
 
-                    addr, port = aha.provdmon.addr
-                    # update the config to reflect the dynamically bound port
-                    aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+                    async with aha.waiter(2, 'aha:svcadd', timeout=6):
+                        purl = await aha.addAhaSvcProv('00.svc')
+                        svc0 = await s_cell.Cell.anit(svc0dirn, conf={'aha:provision': purl})
+                        await cm.enter_context(svc0)
 
-                    # do this config ex-post-facto due to port binding...
-                    host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
-                    aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+                    async with aha.waiter(1, 'aha:svcadd', timeout=6):
+                        purl = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
+                        svc1 = await s_cell.Cell.anit(svc1dirn, conf={'aha:provision': purl})
+                        await cm.enter_context(svc1)
 
-                    onetime = await aha.addAhaSvcProv('00.svc', provinfo=None)
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc0dirn, 'cell.yaml')
-                    svc0 = await s_cell.Cell.anit(svc0dirn, conf=sconf)
-                    await cm.enter_context(svc0)
-
-                    onetime = await aha.addAhaSvcProv('01.svc', provinfo={'mirror': 'svc'})
-                    sconf = {'aha:provision': onetime}
-                    s_common.yamlsave(sconf, svc1dirn, 'cell.yaml')
-                    svc1 = await s_cell.Cell.anit(svc1dirn, conf=sconf)
-                    await cm.enter_context(svc1)
-
-                    # Ensure that services have connected
                     await asyncio.wait_for(svc1.nexsroot._mirready.wait(), timeout=6)
                     await svc1.sync()
 
                     # Get Aha services
-                    snfo = await aha.getAhaSvc('01.svc.loop.vertex.link')
-                    svcinfo = snfo.get('svcinfo')
-                    ready = svcinfo.get('ready')
-                    self.true(ready)
+                    snfo = self.nn(await aha.getAhaSvc('01.svc...'))
+                    self.true(snfo['svcinfo']['ready'])
 
     async def test_aha_provision_longname(self):
         # Run a long network name and try provisioning with values that would exceed CSR
@@ -1446,3 +1228,63 @@ class AhaTest(s_test.SynTest):
                     with self.raises(s_exc.CryptoErr) as errcm:
                         await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
                     self.isin('Certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
+
+    async def test_aha_prov_with_user(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    user = 'synuser'
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    axon00 = await base.enter_context(self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=dirn00,
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(axon00.conf.get('aha:user'), user)
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn01,
+                                                                       conf={'axon': 'aha://axon...'},
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(core00.conf.get('aha:user'), user)
+                    # Svc to svc connections use the hinted aha:user value
+                    prox = self.nn(await asyncio.wait_for(core00.axon.proxy(), timeout=12))
+                    unfo = await prox.getCellUser()
+                    self.eq(unfo.get('name'), user)
+
+    async def test_aha_cell_with_tcp(self):
+        # It's an older code, sir, but it checks out.
+        # This should be removed in Synapse v3.0.0
+
+        with self.getTestDir() as dirn:
+            ahadir = s_common.gendir(dirn, 'aha')
+            clldir = s_common.gendir(dirn, 'cell')
+            ahaconf = {
+                'aha:name': '00.aha',
+                'aha:network': 'loop.vertex.link',
+                'dmon:listen': 'tcp://127.0.0.1:0/',
+                'auth:passwd': 'secret',
+            }
+            async with await s_aha.AhaCell.anit(dirn=ahadir, conf=ahaconf) as aha:
+                urls = await aha.getAhaUrls()
+                self.len(1, urls)
+                self.true(urls[0].startswith('ssl://'))
+                ahaurl = f'tcp://root:secret@127.0.0.1:{aha.sockaddr[1]}/'
+                cllconf = {
+                    'aha:name': '00.cell',
+                    'aha:network': 'loop.vertex.link',
+                    'aha:registry': ahaurl,
+                    'dmon:listen': None,
+                }
+                async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+                    self.eq(cell.conf.get('aha:registry'), ahaurl)
+
+                    prox = await cell.ahaclient.proxy()
+                    await prox.fini()
+                    self.false(cell.ahaclient._t_ready.is_set())
+
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+
+                # No change when restarting
+                async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+                    self.eq(cell.conf.get('aha:registry'), ahaurl)

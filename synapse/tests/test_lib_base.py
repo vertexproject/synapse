@@ -201,6 +201,7 @@ class BaseTest(s_t_utils.SynTest):
         self.eq(data['count'], 1)
 
     async def test_base_waiter(self):
+
         base0 = await s_base.Base.anit()
 
         wait0 = base0.waiter(3, 'foo:bar')
@@ -223,6 +224,10 @@ class BaseTest(s_t_utils.SynTest):
         await base0.fire('haha')
         evts = await wait2.wait(1)
         self.len(2, evts)
+
+        with self.raises(s_exc.TimeOut):
+            async with base0.waiter(1, 'newp', 'nuuh', timeout=0.01):
+                pass
 
     async def test_baseref(self):
 

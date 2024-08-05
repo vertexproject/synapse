@@ -1,0 +1,5 @@
+---
+desc: Added ``synapse.tools.aha.clone`` command to make it easy to bootstrap AHA mirrors.
+prs: []
+type: feat
+...
