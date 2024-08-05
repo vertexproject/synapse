@@ -179,6 +179,13 @@ class Base:
         '''
         Add a function/coroutine/Base to be called on fini().
         '''
+        if self.isfini:
+            if isinstance(func, Base):
+                s_coro.create_task(func.fini())
+            else:
+                s_coro.create_task(s_coro.ornot(func))
+            return
+
         if isinstance(func, Base):
             self.tofini.add(func)
             return

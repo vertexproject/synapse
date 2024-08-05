@@ -60,6 +60,22 @@ class BaseTest(s_t_utils.SynTest):
         event = await base.fire('woot', x=3, y=5, ret=[])
         self.eq(event[1]['ret'], 8)
 
+        base00 = await s_base.Base.anit()
+        base01 = await s_base.Base.anit()
+        data = {}
+        async def onfini():
+            data['woot'] = True
+            raise s_exc.SynErr(mesg='lulz')
+
+        await base00.fini()
+        base00.onfini(onfini)
+        await asyncio.sleep(0)
+        self.true(data.get('woot'))
+
+        base00.onfini(base01)
+        await asyncio.sleep(0)
+        self.true(base01.isfini)
+
     async def test_base_anit(self):
 
         afoo = await Hehe.anit(20)
