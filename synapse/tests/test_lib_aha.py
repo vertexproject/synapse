@@ -190,6 +190,10 @@ class AhaTest(s_test.SynTest):
 
             wait00 = aha.waiter(1, 'aha:svcadd')
 
+            replaymult = 1
+            if os.getenv('SYNDEV_NEXUS_REPLAY'):
+                replaymult = 2
+
             conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
             async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
 
@@ -210,14 +214,14 @@ class AhaTest(s_test.SynTest):
 
                 # force a reconnect...
                 proxy = await cryo.ahaclient.proxy(timeout=2)
-                async with aha.waiter(2, 'aha:svcadd'):
+                async with aha.waiter(2 * replaymult, 'aha:svcadd'):
                     await proxy.fini()
 
                 async with await s_telepath.openurl('aha://cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
                 # force the service into passive mode...
-                async with aha.waiter(3, 'aha:svcdown', 'aha:svcadd', timeout=6):
+                async with aha.waiter(3 * replaymult, 'aha:svcdown', 'aha:svcadd', timeout=6):
                     await cryo.setCellActive(False)
 
                 with self.raises(s_exc.NoSuchName):
@@ -227,13 +231,13 @@ class AhaTest(s_test.SynTest):
                 async with await s_telepath.openurl('aha://0.cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-                async with aha.waiter(1, 'aha:svcadd', timeout=6):
+                async with aha.waiter(1 * replaymult, 'aha:svcadd', timeout=6):
                     await cryo.setCellActive(True)
 
                 async with await s_telepath.openurl('aha://cryo...') as proxy:
                     self.nn(await proxy.getCellIden())
 
-            wait01 = aha.waiter(2, 'aha:svcadd')
+            wait01 = aha.waiter(2 * replaymult, 'aha:svcadd')
 
             conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
             async with self.getTestCryo(conf=conf) as cryo:
