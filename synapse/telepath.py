@@ -1038,6 +1038,15 @@ class ClientV2(s_base.Base):
             self.bootdeque.extend(self.booturls)
         return self.bootdeque.popleft()
 
+    async def _retryBootProxy(self, sleep):
+
+        await self.waitfini(timeout=sleep)
+
+        if self.isfini: # pragma: no cover
+            return
+
+        await self._initBootProxy()
+
     async def _initBootProxy(self):
 
         lastlog = 0.0
@@ -1063,13 +1072,15 @@ class ClientV2(s_base.Base):
 
                 # regular telepath client behavior
                 proxy = await openinfo(urlinfo)
-                await self._onPoolLink(proxy, urlinfo)
 
                 async def reconnect():
                     if not self.isfini:
-                        self.schedCoro(self._initBootProxy())
+                        retrysleep = float(urlinfo.get('retrysleep', 0.2))
+                        self.schedCoro(self._retryBootProxy(retrysleep))
 
                 proxy.onfini(reconnect)
+
+                await self._onPoolLink(proxy, urlinfo)
                 return
 
             except Exception as e:
