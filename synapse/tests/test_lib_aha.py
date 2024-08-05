@@ -191,7 +191,7 @@ class AhaTest(s_test.SynTest):
             wait00 = aha.waiter(1, 'aha:svcadd')
 
             replaymult = 1
-            if os.getenv('SYNDEV_NEXUS_REPLAY'):
+            if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
                 replaymult = 2
 
             conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
