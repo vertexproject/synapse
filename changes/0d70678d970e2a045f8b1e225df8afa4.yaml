@@ -1,0 +1,6 @@
+---
+desc: Move data model update information for the ``v2.133.0`` release and above from
+  the changelog and into their own section of the User Guide.
+prs: []
+type: doc
+...
