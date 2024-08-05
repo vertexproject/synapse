@@ -1159,18 +1159,7 @@ class AhaCell(s_cell.Cell):
 
         return cacert
 
-    async def _genCaCert(self, network):
-
-        # generate a CA cert if one does not exist
-        if self.certdir.getCaCertPath(network) is not None:
-            return
-
-        await self.genCaCert(network)
-
     async def _genHostCert(self, hostname, signas=None):
-
-        if signas is not None:
-            await self._genCaCert(signas)
 
         if self.certdir.getHostCertPath(hostname) is not None:
             return
