@@ -635,7 +635,6 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCell(s_cell.Cell, dirn=dir0, conf=conf) as cell00, \
                 cell00.getLocalProxy() as prox00:
 
-                self.true(cell00.nexsroot.map_async)
                 self.true(cell00.nexsroot.donexslog)
 
                 await prox00.addUser('test')
@@ -932,7 +931,7 @@ class CellTest(s_t_utils.SynTest):
                         pass
                 stream.seek(0)
                 buf = stream.read()
-                self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
+                self.isin(f'...cell API (telepath): tcp://0.0.0.0:27492', buf)
                 self.isin('...cell API (https): disabled', buf)
 
     async def test_cell_initargv_conf(self):
@@ -954,11 +953,11 @@ class CellTest(s_t_utils.SynTest):
                         # 1) cmdline
                         # 2) envars
                         # 3) cell.yaml
-                        self.true(cell.conf.reqConfValu('nexslog:en'))
-                        self.true(cell.conf.reqConfValu('nexslog:async'))
-                        self.none(cell.conf.reqConfValu('dmon:listen'))
-                        self.none(cell.conf.reqConfValu('https:port'))
-                        self.eq(cell.conf.reqConfValu('aha:name'), 'some:cell')
+                        self.true(cell.conf.req('nexslog:en'))
+                        self.true(cell.conf.req('nexslog:async'))
+                        self.none(cell.conf.req('dmon:listen'))
+                        self.none(cell.conf.req('https:port'))
+                        self.eq(cell.conf.req('aha:name'), 'some:cell')
                         root = cell.auth.rootuser
                         self.true(await root.tryPasswd('secret'))
 
@@ -966,7 +965,7 @@ class CellTest(s_t_utils.SynTest):
                 with self.getTestDir() as dirn:
                     s_common.yamlsave({'nexslog:en': False}, dirn, 'cell.mods.yaml')
                     async with await s_cell.Cell.initFromArgv([dirn]) as cell:
-                        self.false(cell.conf.reqConfValu('nexslog:en'))
+                        self.false(cell.conf.req('nexslog:en'))
                         # We can remove the valu from the overrides file with the pop API
                         # This is NOT reactive API which causes the whole behavior
                         # of the cell to suddenly change. This is intended to be used with
@@ -1744,7 +1743,7 @@ class CellTest(s_t_utils.SynTest):
                                                'has different iden') as stream:
                     async with self.getTestCell(s_cell.Cell, dirn=path01, conf=conf01) as cell01:
                         await stream.wait(timeout=2)
-                        self.true(await cell01.waitfini(6))
+                        self.true(await cell01.nexsroot.waitfini(6))
 
     async def test_backup_restore_base(self):
 
@@ -1845,9 +1844,7 @@ class CellTest(s_t_utils.SynTest):
         # ensure the mirror has a
         # backup the mirror
         # restore the backup
-        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
-            root = await aha.auth.getUserByName('root')
-            self.true(await root.tryPasswd('secret'))
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')
@@ -1930,9 +1927,7 @@ class CellTest(s_t_utils.SynTest):
         # ensure the mirror has a
         # backup the mirror
         # restore the backup
-        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
-            root = await aha.auth.getUserByName('root')
-            self.true(await root.tryPasswd('secret'))
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')

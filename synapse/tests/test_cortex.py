@@ -54,40 +54,21 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_handoff(self):
 
         with self.getTestDir() as dirn:
-            ahadir = s_common.genpath(dirn, 'aha00')
-            coredir0 = s_common.genpath(dirn, 'core00')
-            coredir1 = s_common.genpath(dirn, 'core01')
-            coredir2 = s_common.genpath(dirn, 'core02',)
+            async with self.getTestAha() as aha:
 
-            conf = {
-                'aha:name': 'aha',
-                'aha:network': 'newp',
-                'provision:listen': 'tcp://127.0.0.1:0',
-            }
-            async with self.getTestAha(dirn=ahadir, conf=conf) as aha:
+                conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
 
-                provaddr, provport = aha.provdmon.addr
-                aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
-
-                ahahost, ahaport = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.newp&ca=newp')
-                aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.newp',)
-
-                provurl = await aha.addAhaSvcProv('00.cortex')
-                coreconf = {'aha:provision': provurl, 'nexslog:en': False}
-
-                async with self.getTestCore(dirn=coredir0, conf=coreconf) as core00:
+                async with self.getTestCore(conf=conf) as core00:
 
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
 
                     self.false((await core00.getCellInfo())['cell']['uplink'])
 
-                    provinfo = {'mirror': '00.cortex'}
-                    provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
-
                     # provision with the new hostname and mirror config
-                    coreconf = {'aha:provision': provurl}
-                    async with self.getTestCore(dirn=coredir1, conf=coreconf) as core01:
+                    provinfo = {'mirror': '00.cortex'}
+                    conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)}
+                    async with self.getTestCore(conf=conf) as core01:
 
                         # test out connecting to the leader but having aha chose a mirror
                         async with s_telepath.loadTeleCell(core01.dirn):
@@ -117,9 +98,9 @@ class CortexTest(s_t_utils.SynTest):
                         self.true((await core00.getCellInfo())['cell']['uplink'])
                         self.false((await core01.getCellInfo())['cell']['uplink'])
 
-                        mods00 = s_common.yamlload(coredir0, 'cell.mods.yaml')
-                        mods01 = s_common.yamlload(coredir1, 'cell.mods.yaml')
-                        self.eq(mods00, {'mirror': 'aha://01.cortex.newp'})
+                        mods00 = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
+                        mods01 = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
+                        self.eq(mods00, {'mirror': 'aha://01.cortex.synapse'})
                         self.eq(mods01, {'mirror': None})
 
                         await core00.nodes('[inet:ipv4=5.5.5.5]')
@@ -129,12 +110,11 @@ class CortexTest(s_t_utils.SynTest):
                         # This pops the mirror config out of the mods file we copied
                         # from the backup.
                         provinfo = {'mirror': '01.cortex'}
-                        provurl = await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)
-                        coreconf = {'aha:provision': provurl}
-                        async with self.getTestCore(dirn=coredir2, conf=coreconf) as core02:
+                        conf = {'aha:provision': await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)}
+                        async with self.getTestCore(conf=conf) as core02:
                             self.false(core02.isactive)
-                            self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex.newp')
-                            mods02 = s_common.yamlload(coredir2, 'cell.mods.yaml')
+                            self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex...')
+                            mods02 = s_common.yamlload(core02.dirn, 'cell.mods.yaml')
                             self.eq(mods02, {})
                             # The mirror writeback and change distribution works
                             self.len(0, await core01.nodes('inet:ipv4=6.6.6.6'))
@@ -144,7 +124,7 @@ class CortexTest(s_t_utils.SynTest):
                             self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
                             self.len(1, await core00.nodes('inet:ipv4=6.6.6.6'))
                             # list mirrors
-                            exp = ['aha://00.cortex.newp', 'aha://02.cortex.newp']
+                            exp = ['aha://00.cortex.synapse', 'aha://02.cortex.synapse']
                             self.sorteq(exp, await core00.getMirrorUrls())
                             self.sorteq(exp, await core01.getMirrorUrls())
                             self.sorteq(exp, await core02.getMirrorUrls())
@@ -4433,10 +4413,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Everything still works when no nexus log is kept
         '''
-        conf = {'layer:lmdb:map_async': True,
-                'nexslog:en': False,
-                'layers:logedits': True,
-                }
+        conf = {'nexslog:en': False, 'layers:logedits': True}
         async with self.getTestCore(conf=conf) as core:
             self.len(2, await core.nodes('[test:str=foo test:str=bar]'))
             self.len(2, await core.nodes('test:str'))
@@ -4445,10 +4422,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Everything still works when no layer log is kept
         '''
-        conf = {'layer:lmdb:map_async': True,
-                'nexslog:en': True,
-                'layers:logedits': False,
-                }
+        conf = {'nexslog:en': True, 'layers:logedits': False}
         async with self.getTestCore(conf=conf) as core:
             self.len(2, await core.nodes('[test:str=foo test:str=bar]'))
             self.len(2, await core.nodes('test:str'))
@@ -4466,18 +4440,12 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Make sure settings make it down to the slab
         '''
-        conf = {
-            'layer:lmdb:map_async': False,
-            'layer:lmdb:max_replay_log': 500,
-            'layers:lockmemory': True,
-        }
+        conf = {'layers:lockmemory': True}
         async with self.getTestCore(conf=conf) as core:
             layr = core.getLayer()
             slab = layr.layrslab
 
             self.true(slab.lockmemory)
-            self.eq(500, slab.max_xactops_len)
-            self.true(500, slab.mapasync)
 
     async def test_feed_syn_nodes(self):
 
@@ -5375,11 +5343,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core00.callStorm('return($lib.dmon.del($iden))', opts={'vars': {'iden': ddef.get('iden')}})
 
                 url = core00.getLocalUrl()
-
-                core01conf = {'nexslog:en': False, 'mirror': url}
-                with self.raises(s_exc.BadConfValu):
-                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
-                        self.fail('Should never get here.')
 
                 core01conf = {'mirror': url}
 
@@ -7945,7 +7908,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.delHttpExtApi('notAGuid')
 
     async def test_cortex_query_offload(self):
-        async with self.getTestAhaProv() as aha:
+
+        async with self.getTestAha() as aha:
 
             async with await s_base.Base.anit() as base:
 
@@ -7968,11 +7932,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await core00.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
 
                     msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.synapse)', msgs)
 
                     msgs = await core00.stormlist('cortex.storm.pool.set newp')
                     self.stormIsInErr(':// not found in [newp]', msgs)
@@ -8120,7 +8084,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core.loop.vertex.link) removed from service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core.synapse) removed from service pool (pool00.synapse)', msgs)
 
                     # TODO: this wait should not return None
                     await waiter.wait(timeout=3)
@@ -8210,7 +8174,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 return ret
 
         conf = {
-            'layer:lmdb:map_async': True,
             'nexslog:en': True,
             'layers:logedits': True,
         }
