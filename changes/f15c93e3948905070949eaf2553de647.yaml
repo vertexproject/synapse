@@ -1,6 +1,0 @@
----
-desc: Add ``$lib.model.migration.s.inetSslCertToTlsServercert()`` migration helper
-  to migrate ``inet:ssl:cert`` nodes to ``inet:tls:servercert`` nodes.
-prs: []
-type: feat
-...

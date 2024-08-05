@@ -1,5 +1,0 @@
----
-desc: Fix ``Bad file descriptor`` errors that could happen during link teardown.
-prs: []
-type: bug
-...

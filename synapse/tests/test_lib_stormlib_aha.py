@@ -146,8 +146,7 @@ Member:     00.cell.synapse'''
                                     network='synapse')
 
                 msgs = await core00.stormlist('aha.svc.list --nexus')
-                emsg = '00.newp.synapse null   false  null  0.0.0.0         3030  ' \
-                       'Service is not online. Will not attempt to retrieve its nexus offset.'
+                emsg = '00.newp.synapse                      null   false  null  0.0.0.0         3030  <offline>'
                 self.stormIsInPrint(emsg, msgs, whitespace=False)
 
                 self.none(await core00.callStorm('return($lib.aha.del(00.newp...))'))

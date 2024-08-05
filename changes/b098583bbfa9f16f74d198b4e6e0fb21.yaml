@@ -1,6 +1,0 @@
----
-desc: Add ``$lib.gen.fileBytesBySha256()`` helper function to create
-  ``file:bytes`` nodes from a SHA256.
-prs: []
-type: feat
-...
