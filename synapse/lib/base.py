@@ -181,9 +181,9 @@ class Base:
         '''
         if self.isfini:
             if isinstance(func, Base):
-                s_coro.create_task(func.fini())
+                asyncio.get_running_loop().create_task(func.fini())
             else:
-                s_coro.create_task(s_coro.ornot(func))
+                asyncio.get_running_loop().create_task(s_coro.ornot(func))
             return
 
         if isinstance(func, Base):

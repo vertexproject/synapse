@@ -148,21 +148,6 @@ async def ornot(func, *args, **kwargs):
         return await retn
     return retn
 
-def create_task(coro):
-
-    task = asyncio.get_running_loop().create_task(coro)
-
-    def done(task):
-        try:
-            if not task.done():
-                task.result()
-        except Exception:
-            logger.exception('Task raised an exception!')
-
-    task.add_done_callback(done)
-
-    return task
-
 class GenrHelp:
 
     def __init__(self, genr):
