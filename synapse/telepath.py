@@ -1038,15 +1038,6 @@ class ClientV2(s_base.Base):
             self.bootdeque.extend(self.booturls)
         return self.bootdeque.popleft()
 
-    async def _retryBootProxy(self, sleep):
-
-        await self.waitfini(timeout=sleep)
-
-        if self.isfini: # pragma: no cover
-            return
-
-        await self._initBootProxy()
-
     async def _initBootProxy(self):
 
         lastlog = 0.0
@@ -1075,8 +1066,7 @@ class ClientV2(s_base.Base):
 
                 async def reconnect():
                     if not self.isfini:
-                        retrysleep = float(urlinfo.get('retrysleep', 0.2))
-                        self.schedCoro(self._retryBootProxy(retrysleep))
+                        self.schedCoro(self._initBootProxy())
 
                 proxy.onfini(reconnect)
 
