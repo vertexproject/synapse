@@ -2,7 +2,7 @@
 .. _userguide_model_v2_170_0:
 
 ######################
-v2.177.0 Model Updates
+v2.170.0 Model Updates
 ######################
 
 The following model updates were made during the ``v2.170.0`` Synapse release.

@@ -1492,7 +1492,7 @@ Model Changes
 -------------
 - Update to the ``it`` model.
   (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
-- See :ref:`userguide_model_v2_152_0` for more detailed model changes.
+- See :ref:`userguide_model_v2_151_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
