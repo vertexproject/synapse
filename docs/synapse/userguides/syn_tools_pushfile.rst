@@ -44,8 +44,7 @@ Upload the file ``myreport.pdf`` to the specified Axon, create a ``file:bytes`` 
 
 ::
   
-  python -m synapse.tools.pushfile -a tcp://axon.vertex.link:5555/axon00
-    -c tcp://cortex.vertex.link:4444/cortex00 -t sometag /home/user/reports/myreport.pdf
+  python -m synapse.tools.pushfile -a aha://axon... -c aha://cortex... -t sometag /home/user/reports/myreport.pdf
   
 Executing the command will result in various status messages (lines are wrapped for readability):
 
@@ -78,8 +77,8 @@ For example (lines wrapped for readability):
 
 ::
   
-  python -m synapse.tools.pushfile -a tcp://axon.vertex.link:5555/axon00 
-    -c tcp://cortex.vertex.link:4444/cortex00 -t anothertag,athirdtag
+  python -m synapse.tools.pushfile -a aha://axon...
+    -c aha://cortex... -t anothertag,athirdtag
       /home/user/reports/anotherreport.pdf
   
   2019-07-03 11:59:03,366 [INFO] log level set to DEBUG
@@ -120,7 +119,7 @@ Alternatively, a glob pattern could be used to upload all PDF files in a given d
 
 ::
 
-  python -m synapse.tools.pushfile -a tcp://axon.vertex.link:5555/axon00 
-    -c tcp://cortex.vertex.link:4444/cortex00 -t anothertag,athirdtag
+  python -m synapse.tools.pushfile -a aha://axon...
+    -c aha://cortex... -t anothertag,athirdtag
       /home/user/reports/*.pdf
  
