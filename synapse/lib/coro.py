@@ -148,6 +148,19 @@ async def ornot(func, *args, **kwargs):
         return await retn
     return retn
 
+bgtasks = set()
+def create_task(coro):
+
+    task = asyncio.get_running_loop().create_task(coro)
+    bgtasks.add(task)
+
+    def done(t):
+        bgtasks.remove(t)
+
+    task.add_done_callback(done)
+
+    return task
+
 class GenrHelp:
 
     def __init__(self, genr):
