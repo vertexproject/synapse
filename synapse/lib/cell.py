@@ -1697,7 +1697,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 state, leadterm = await proxy.mayLeadTerm(self.iden, name, term, nexs)
 
                 realterm = leadterm.get('term')
-                if realterm > term:
+                if realterm > term or self.getCellMeta('aha:term') is None:
                     self.setCellMeta('aha:term', realterm)
 
                 if state == s_aha.STATE_LEAD:
@@ -1721,9 +1721,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # TODO: should we find the leader and re-provision?
         await self.fini()
 
+    def getAhaRegistry(self):
+
+        urls = self.conf.get('aha:registry')
+        if isinstance(urls, str):
+            return (urls,)
+
+        if isinstance(urls, list):
+            urls = tuple(urls)
+
+        return urls
+
+    def setAhaRegistry(self, urls):
+        self.modCellConf({'aha:registry': urls})
+        self.ahaclient.setBootUrls(urls)
+
     async def _initAhaRegistry(self):
 
-        ahaurls = self.conf.get('aha:registry')
+        ahaurls = self.getAhaRegistry()
         if ahaurls is not None:
 
             await s_telepath.addAhaUrl(ahaurls)
@@ -1731,21 +1746,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 await self.ahaclient.fini()
 
             async def onlink(proxy):
+
                 ahauser = self.conf.get('aha:user', 'root')
+
+                oldurls = self.getAhaRegistry()
                 newurls = await proxy.getAhaUrls(user=ahauser)
-                oldurls = self.conf.get('aha:registry')
-                if isinstance(oldurls, str):
-                    oldurls = (oldurls,)
-                elif isinstance(oldurls, list):
-                    oldurls = tuple(oldurls)
+
                 if newurls and newurls != oldurls:
                     if oldurls[0].startswith('tcp://'):
                         s_common.deprecated('aha:registry: tcp:// client values.')
                         logger.warning('tcp:// based aha:registry options are deprecated and will be removed in Synapse v3.0.0')
                         return
 
-                    self.modCellConf({'aha:registry': newurls})
-                    self.ahaclient.setBootUrls(newurls)
+                    self.setAhaRegistry(newurls)
 
                 if self.conf.get('mirror') is None:
 
