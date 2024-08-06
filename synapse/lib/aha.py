@@ -1272,11 +1272,14 @@ class AhaCell(s_cell.Cell):
         if byts is not None:
             return s_msgpack.un(byts)
 
-    @s_cell.from_leader()
     async def setLeadTerm(self, termdef):
         '''
         Set the current leader term for the specified service cluster.
         '''
+        if not self.isactive:
+            mesg = 'setLeadTerm() may only be called on the leader.'
+            raise s_exc.BadState(mesg=mesg)
+
         termdef['time'] = s_common.now()
         s_schema.reqValidLeadTerm(termdef)
         return await self._push('aha:lead:set', termdef)
@@ -1305,7 +1308,7 @@ class AhaCell(s_cell.Cell):
                 'term': term,
                 'nexs': nexs,
             }
-            return await self.addLeadTerm(leadterm)
+            return await self.setLeadTerm(leadterm)
 
     @s_cell.from_leader()
     async def mayLeadTerm(self, iden, name, term, nexs):
@@ -1330,7 +1333,7 @@ class AhaCell(s_cell.Cell):
                     'term': term,
                     'nexs': nexs,
                 }
-                await self.addLeadTerm(leadterm)
+                await self.setLeadTerm(leadterm)
                 return (STATE_LEAD, leadterm)
 
             # if we were the last known leader, we can jump right in
