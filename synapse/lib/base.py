@@ -408,8 +408,6 @@ class Base:
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception:
                 logger.exception(f'{self} - fini function failed: {fini}')
 
@@ -579,7 +577,7 @@ class Base:
         loop.add_signal_handler(signal.SIGINT, sigint)
         loop.add_signal_handler(signal.SIGTERM, sigterm)
 
-    async def main(self):
+    async def main(self): # pragma: no cover
         '''
         Helper function to setup signal handlers for this base as the main object.
         ( use base.waitfini() to block )
@@ -685,7 +683,9 @@ class Waiter:
 
     async def __aexit__(self, exc, cls, tb):
         if exc is None:
-            if await self.wait() is None:
+            if await self.wait() is None: # pragma: no cover
+                # these lines are 100% covered by the tests but
+                # the coverage plugin cannot seem to see them...
                 events = ','.join(self.names)
                 mesg = f'timeout waiting for {self.count} event(s): {events}'
                 raise s_exc.TimeOut(mesg=mesg)
@@ -790,9 +790,6 @@ async def schedGenr(genr, maxsize=100):
                 await q.put((True, item))
 
             await q.put((False, None))
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception:
             if not base.isfini:

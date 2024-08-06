@@ -419,12 +419,15 @@ class StormSvcTest(s_test.SynTest):
             self.stormIsInPrint(f'List the storm services configured in the cortex.', msgs)
 
             msgs = await core.stormlist('service.add fake tcp://localhost:3333/foo')
-            iden = core.getStormSvcs()[0].iden
+            ssvc = core.getStormSvcs()[0]
+            iden = ssvc.iden
             self.stormIsInPrint(f'added {iden} (fake): tcp://localhost:3333/foo', msgs)
 
             msgs = await core.stormlist('service.list')
             self.stormIsInPrint('Storm service list (iden, ready, name, service name, service version, url):', msgs)
             self.stormIsInPrint(f'    {iden} false (fake) (Unknown @ Unknown): tcp://localhost:3333/foo', msgs)
+
+            self.eq(ssvc.sdef, await core._addStormSvc({'iden': iden}))
 
             msgs = await core.stormlist(f'service.del {iden[:4]}')
             self.stormIsInPrint(f'removed {iden} (fake): tcp://localhost:3333/foo', msgs)

@@ -21,6 +21,7 @@ current sections are:
    userguides/index_tools
    userguides/index_storm_ref
    userguides/index_storm_adv
+   userguides/index_model_updates
 
 Many of the concepts above are closely related and this outline represents a reasonable effort to
 introduce concepts in a logical order. However, it is difficult to fully understand the potential of

@@ -6,6 +6,103 @@
 Synapse Changelog
 *****************
 
+v2.177.0 - 2024-08-01
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate Axon metrics from hive to hotcounts. Migrate Cryotank names storage
+  from hive to SafeKeyVal storage. Migrate Cortex configuration data from hive
+  to SafeKeyVal storage. Migrate Cell info and auth configuration from hive to
+  SafeKeyVal storage.
+  (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
+  (`#3825 <https://github.com/vertexproject/synapse/pull/3825>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Add model elements to represent the DriveSerialNumber and MachineID
+  properties of an LNK file.
+  (`#3817 <https://github.com/vertexproject/synapse/pull/3817>`_)
+- Add ``biz:deal:id`` property to track deal identifiers.
+  (`#3832 <https://github.com/vertexproject/synapse/pull/3832>`_)
+- Add ``inet:service:message:type`` property to capture message types.
+  (`#3832 <https://github.com/vertexproject/synapse/pull/3832>`_)
+- Added ``meta:rule:type`` taxonomy.
+  (`#3834 <https://github.com/vertexproject/synapse/pull/3834>`_)
+- See :ref:`userguide_model_v2_177_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Add a new Cell configuration option, ``auth:password:policy``. This can be
+  used to configure password policy options for authentication.
+  (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
+- Add ``$lib.gen.cryptoX509CertBySha256()`` helper function to create
+  ``crypto:x509:cert`` nodes from a SHA256.
+  (`#3801 <https://github.com/vertexproject/synapse/pull/3801>`_)
+- Add ``$lib.gen.fileBytesBySha256()`` helper function to create ``file:bytes``
+  nodes from a SHA256.
+  (`#3801 <https://github.com/vertexproject/synapse/pull/3801>`_)
+- Add ``$lib.model.migration.s.inetSslCertToTlsServercert()`` migration helper
+  to migrate ``inet:ssl:cert`` nodes to ``inet:tls:servercert`` nodes.
+  (`#3801 <https://github.com/vertexproject/synapse/pull/3801>`_)
+- Add ``$lib.gen.inetTlsServerCertByServerAndSha256()`` helper function to
+  create ``inet:tls:servercert`` nodes from a server (or URI) and SHA256.
+  (`#3801 <https://github.com/vertexproject/synapse/pull/3801>`_)
+- Added Storm library for creating printable tables: ``$lib.tabular``.
+  (`#3818 <https://github.com/vertexproject/synapse/pull/3818>`_)
+- Add ``$lib.model.ext.addEdge()`` and ``$lib.model.ext.delEdge()`` APIs for
+  managing extended model edge definitions.
+  (`#3824 <https://github.com/vertexproject/synapse/pull/3824>`_)
+- Added ``--wipe`` option to the ``merge`` command which replaces the top layer
+  of the view once the merge is complete. Using ``--wipe`` makes incremental
+  merges more performant.
+  (`#3828 <https://github.com/vertexproject/synapse/pull/3828>`_)
+- Updated ``view.merge`` command to use ``$view.swapLayer()`` for improved
+  performance.
+  (`#3828 <https://github.com/vertexproject/synapse/pull/3828>`_)
+- Added ``$view.swapLayer()`` API to allow users to start fresh with an
+  existing view.
+  (`#3828 <https://github.com/vertexproject/synapse/pull/3828>`_)
+- Update the ``aiohttp`` library constraints to ``>=3.10.0,<4.0``. Update the
+  ``aiohttp-socks`` library constraints to ``>=0.10.0,<0.11.0``.
+  (`#3830 <https://github.com/vertexproject/synapse/pull/3830>`_)
+- Tightened up ``aha.svc.list`` Storm command output when using ``--nexus``.
+  (`#3835 <https://github.com/vertexproject/synapse/pull/3835>`_)
+
+Bugfixes
+--------
+- Prevent the root user for a Synapse service from being locked, archived, or
+  having its admin status removed.
+  (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
+- Catch Python ``TypeError`` exceptions that could be raised by
+  ``$lib.base64.decode()`` and now raise ``StormRuntimeError`` detailing the
+  problem.
+  (`#3827 <https://github.com/vertexproject/synapse/pull/3827>`_)
+- Fix ``Bad file descriptor`` errors that could happen during link teardown.
+  (`#3831 <https://github.com/vertexproject/synapse/pull/3831>`_)
+
+v2.176.0 - 2024-07-18
+=====================
+
+Model Changes
+-------------
+- Updates to the ``inet`` model.
+  (`#3811 <https://github.com/vertexproject/synapse/pull/3811>`_)
+  (`#3814 <https://github.com/vertexproject/synapse/pull/3814>`_)
+- See :ref:`userguide_model_v2_176_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Add ``storm.exec`` command for executing arbitrary text as Storm.
+  (`#3807 <https://github.com/vertexproject/synapse/pull/3807>`_)
+  (`#3812 <https://github.com/vertexproject/synapse/pull/3812>`_)
+- Ensure the ``synapse.storm`` structured log messages contain the view iden.
+  (`#3812 <https://github.com/vertexproject/synapse/pull/3812>`_)
+- Added ``$lib.storm.run()`` to programmatically invoke Storm.
+  (`#3813 <https://github.com/vertexproject/synapse/pull/3813>`_)
+- Remove the per-node pivot errors from the Cortex log output.
+  (`#3819 <https://github.com/vertexproject/synapse/pull/3819>`_)
 
 v2.175.0 - 2024-07-15
 =====================
@@ -241,7 +338,7 @@ v2.172.0 - 2024-06-24
 Model Changes
 -------------
 - Updates to the ``biz``, ``econ``, ``inet``, ``meta``, ``ou`` ``risk``,
- and ``transit`` models.
+  and ``transit`` models.
   (`#3561 <https://github.com/vertexproject/synapse/pull/3561>`_)
   (`#3756 <https://github.com/vertexproject/synapse/pull/3756>`_)
 
@@ -1490,7 +1587,7 @@ Features and Enhancements
 -------------------------
 - Add Storm API methods for inspecting and manipulating dictionary objects
   in Storm. These are ``$lib.dict.has()``, ``$lib.dict.keys()``,
-  ``$lib.dict.pop()``, ``$lib.dict.update()``, and ``$lib.dict.values()`
+  ``$lib.dict.pop()``, ``$lib.dict.update()``, and ``$lib.dict.values()``.
   (`#3548 <https://github.com/vertexproject/synapse/pull/3548>`_)
 - Add a ``json()`` method to the ``str`` type in Storm to deserialize a string
   as JSON data.

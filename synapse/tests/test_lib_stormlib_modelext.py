@@ -22,6 +22,9 @@ class StormtypesModelextTest(s_test.SynTest):
 
                 $pinfo = ({"doc": "Extended a core model."})
                 $lib.model.ext.addFormProp(test:int, _tick, (time, ({})), $propinfo)
+
+                $edgeinfo = ({"doc": "A test edge."})
+                $lib.model.ext.addEdge(inet:user, _copies, *, $edgeinfo)
             ''')
 
             nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
@@ -44,6 +47,12 @@ class StormtypesModelextTest(s_test.SynTest):
                 q = '''$lib.model.ext.addUnivProp(_woot, (time, ({})), ({}))'''
                 await core.callStorm(q)
 
+            with self.raises(s_exc.DupEdgeType):
+                q = '''$lib.model.ext.addEdge(inet:user, _copies, *, ({}))'''
+                await core.callStorm(q)
+
+            self.nn(core.model.edge(('inet:user', '_copies', None)))
+
             # Grab the extended model definitions
             model_defs = await core.callStorm('return ( $lib.model.ext.getExtModel() )')
             self.isinstance(model_defs, dict)
@@ -55,6 +64,7 @@ class StormtypesModelextTest(s_test.SynTest):
                 $lib.model.ext.delFormProp(_visi:int, tick)
                 $lib.model.ext.delFormProp(test:int, _tick)
                 $lib.model.ext.delForm(_visi:int)
+                $lib.model.ext.delEdge(inet:user, _copies, *)
             ''')
 
             self.none(core.model.form('_visi:int'))
@@ -62,6 +72,7 @@ class StormtypesModelextTest(s_test.SynTest):
             self.none(core.model.prop('_visi:int:tick'))
             self.none(core.model.prop('test:int:_tick'))
             self.none(core.model.tagprop('score'))
+            self.none(core.model.edge(('inet:user', '_copies', None)))
 
             # Underscores can exist in extended names but only at specific locations
             q = '''$l =$lib.list('str', ({})) $d=({"doc": "Foo"})
@@ -105,6 +116,26 @@ class StormtypesModelextTest(s_test.SynTest):
                 q = '''$lib.model.ext.addTagProp(_someones:_score^value, (int, ({})), ({}))'''
                 await core.callStorm(q)
 
+            with self.raises(s_exc.BadEdgeDef):
+                q = '''$lib.model.ext.addEdge(*, does, *, ({}))'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadEdgeDef):
+                q = '''$lib.model.ext.addEdge(*, _NEWP, *, ({}))'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadEdgeDef):
+                q = '''$lib.model.ext.addEdge(*, "_ne wp", *, ({}))'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadEdgeDef):
+                q = f'''$lib.model.ext.addEdge(*, "_{'a'*201}", *, ({{}}))'''
+                await core.callStorm(q)
+
+            with self.raises(s_exc.BadEdgeDef):
+                q = '''$lib.model.ext.delEdge(*, "_ne wp", *)'''
+                await core.callStorm(q)
+
             # Permission errors
             visi = await core.auth.addUser('visi')
             opts = {'user': visi.iden}
@@ -132,6 +163,10 @@ class StormtypesModelextTest(s_test.SynTest):
                     $tagpropinfo = ({"doc": "A test tagprop doc."})
                     $lib.model.ext.addTagProp(score, (int, ({})), $tagpropinfo)
                 ''', opts=opts)
+
+            with self.raises(s_exc.AuthDeny):
+                q = '''$lib.model.ext.addEdge(*, _does, *, ({}))'''
+                await core.callStorm(q, opts=opts)
 
         # Reload the model extensions automatically
         async with self.getTestCore() as core:
@@ -174,6 +209,9 @@ class StormtypesModelextTest(s_test.SynTest):
 
                 $pinfo = ({"doc": "NEWP"})
                 $lib.model.ext.addFormProp(test:int, _tick, (time, ({})), $propinfo)
+
+                $edgeinfo = ({"doc": "NEWP"})
+                $lib.model.ext.addEdge(inet:user, _copies, *, $edgeinfo)
             ''')
 
             q = '''return ($lib.model.ext.addExtModel($model_defs))'''
@@ -196,6 +234,11 @@ class StormtypesModelextTest(s_test.SynTest):
                 opts = {'vars': {'model_defs': {'univs': model_defs['univs']}}}
                 await core.callStorm(q, opts)
 
+            q = '''return ($lib.model.ext.addExtModel($model_defs))'''
+            with self.raises(s_exc.BadEdgeDef) as cm:
+                opts = {'vars': {'model_defs': {'edges': model_defs['edges']}}}
+                await core.callStorm(q, opts)
+
         # Reload the model extensions from the dump by hand
         async with self.getTestCore() as core:
             opts = {'vars': {'model_defs': model_defs}}
@@ -212,6 +255,10 @@ class StormtypesModelextTest(s_test.SynTest):
             for ($prop, $def, $info) in $model_defs.univs {
                 $lib.model.ext.addUnivProp($prop, $def, $info)
             }
+            for ($edge, $info) in $model_defs.edges {
+                ($n1form, $verb, $n2form) = $edge
+                $lib.model.ext.addEdge($n1form, $verb, $n2form, $info)
+            }
             '''
             await core.nodes(q, opts)
 
@@ -226,6 +273,8 @@ class StormtypesModelextTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
             self.eq(nodes[0].get('_tick'), 1609459200000)
+
+            self.nn(core.model.edge(('inet:user', '_copies', None)))
 
     async def test_lib_stormlib_behold_modelext(self):
         self.skipIfNexusReplay()
@@ -252,6 +301,7 @@ class StormtypesModelextTest(s_test.SynTest):
                         $lib.model.ext.addFormProp(_behold:score, rank, (int, ({})), ({"doc": "second string"}))
                         $lib.model.ext.addUnivProp(_beep, (int, ({})), ({"doc": "third string"}))
                         $lib.model.ext.addTagProp(thingy, (int, ({})), ({"doc": "fourth string"}))
+                        $lib.model.ext.addEdge(*, _goes, geo:place, ({"doc": "fifth string"}))
                     ''')
 
                     formmesg = await sock.receive_json()
@@ -279,11 +329,17 @@ class StormtypesModelextTest(s_test.SynTest):
                     self.eq(tagpmesg['data']['info']['name'], 'thingy')
                     self.eq(tagpmesg['data']['info']['info'], {'doc': 'fourth string'})
 
+                    edgemesg = await sock.receive_json()
+                    self.eq(edgemesg['data']['event'], 'model:edge:add')
+                    self.eq(edgemesg['data']['info']['edge'], (None, '_goes', 'geo:place'))
+                    self.eq(edgemesg['data']['info']['info'], {'doc': 'fifth string'})
+
                     await core.callStorm('''
                         $lib.model.ext.delTagProp(thingy)
                         $lib.model.ext.delUnivProp(_beep)
                         $lib.model.ext.delFormProp(_behold:score, rank)
                         $lib.model.ext.delForm(_behold:score)
+                        $lib.model.ext.delEdge(*, _goes, geo:place)
                     ''')
                     deltagp = await sock.receive_json()
                     self.eq(deltagp['data']['event'], 'model:tagprop:del')
@@ -301,6 +357,10 @@ class StormtypesModelextTest(s_test.SynTest):
                     delform = await sock.receive_json()
                     self.eq(delform['data']['event'], 'model:form:del')
                     self.eq(delform['data']['info']['form'], '_behold:score')
+
+                    deledge = await sock.receive_json()
+                    self.eq(deledge['data']['event'], 'model:edge:del')
+                    self.eq(deledge['data']['info']['edge'], (None, '_goes', 'geo:place'))
 
     async def test_lib_stormlib_modelext_delform(self):
         '''
@@ -384,6 +444,10 @@ class StormtypesModelextTest(s_test.SynTest):
             (
                 '$lib.model.ext.addTagProp(_foo:bar, (), ())',
                 'Tag property definitions should be a dict.'
+            ),
+            (
+                '$lib.model.ext.addEdge(*, _foo, *, ())',
+                'Edge info should be a dict.'
             ),
         )
 
