@@ -1037,6 +1037,7 @@ class CellTest(s_t_utils.SynTest):
                     errinfo = info.get('lastexception')
                     laststart1 = info['laststart']
                     self.eq(errinfo['err'], 'SynErr')
+                    self.eq(errinfo['errinfo']['mesg'], 'backup subprocess start timed out')
 
                     # Test runners can take an unusually long time to spawn a process
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
@@ -1049,15 +1050,17 @@ class CellTest(s_t_utils.SynTest):
                         self.ne(laststart1, laststart2)
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SynErr')
+                        self.eq(errinfo['errinfo']['mesg'], 'backup subprocess start timed out')
 
-                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
+                    with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                        await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
-                        info = await proxy.getBackupInfo()
-                        laststart3 = info['laststart']
-                        self.ne(laststart2, laststart3)
-                        errinfo = info.get('lastexception')
-                        self.eq(errinfo['err'], 'SpawnExit')
+                    info = await proxy.getBackupInfo()
+                    laststart3 = info['laststart']
+                    self.ne(laststart2, laststart3)
+                    errinfo = info.get('lastexception')
+                    self.eq(errinfo['err'], 'SpawnExit')
+                    self.eq(errinfo['errinfo']['code'], 1)
 
                     # Create rando slabs inside cell dir
                     slabpath = s_common.genpath(coredirn, 'randoslab')
