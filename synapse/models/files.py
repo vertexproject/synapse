@@ -715,13 +715,15 @@ class FileModule(s_module.CoreModule):
                     ('entry:extended', ('file:path', {}), {
                         'doc': 'The extended file path contained within the extended FileEntry structure of the LNK file.'}),
                     ('entry:localized', ('file:path', {}), {
-                        'doc': 'The localized file path contained within the extended FileEntry structure of the LNK file.'}),
+                        'doc': 'The localized file path reconstructed from references within the extended FileEntry structure of the LNK file.'}),
                     ('entry:icon', ('file:path', {}), {
                         'doc': 'The icon file path contained within the StringData structure of the LNK file.'}),
                     ('environment:path', ('file:path', {}), {
                         'doc': 'The target file path contained within the EnvironmentVariableDataBlock structure of the LNK file.'}),
                     ('environment:icon', ('file:path', {}), {
                         'doc': 'The icon file path contained within the IconEnvironmentDataBlock structure of the LNK file.'}),
+                    ('iconindex', ('int', {}), {
+                        'doc': 'A resource index for an icon within an icon location.'}),
                     ('working', ('file:path', {}), {
                         'doc': 'The working directory used when activating the link target.'}),
                     ('relative', ('str', {'strip': True}), {
@@ -741,6 +743,11 @@ class FileModule(s_module.CoreModule):
                         'doc': 'The access time of the target file according to the LNK header.'}),
                     ('target:written', ('time', {}), {
                         'doc': 'The write time of the target file according to the LNK header.'}),
+
+                    ('driveserial', ('int', {}), {
+                        'doc': 'The drive serial number of the volume the link target is stored on.'}),
+                    ('machineid', ('it:hostname', {}), {
+                        'doc': 'The NetBIOS name of the machine where the link target was last located.'}),
                 )),
             ),
 

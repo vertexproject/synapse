@@ -77,7 +77,14 @@ using AHA, the only host that needs DNS or other external name resolution is the
 
 .. note::
 
-    FIXME AHA FLAT NETWORK STUFF
+    The AHA service resolver requires that registered services connect directly using IP addresses which
+    must also be reachable to AHA clients. Using an ``aha://`` telepath URL requires direct routes to the
+    service via its AHA facing network address. If you need to provide telepath access from outside the
+    Synapse service network via any network address translation (NAT) method such as an inbound TCP proxy
+    or docker/kubernetes port mapping, you will need to use ``ssl://`` based URIs and specify ``hostname``,
+    ``certname``, and ``ca`` parameters which match the service's AHA registration info. You will also need
+    to specify a specific ``--dmon-port`` option when using the  ``synapse.tools.aha.provision.service``
+    command to provision the services with static ports that you can provide mappings to.
 
 Choose an AHA Network Name
 --------------------------
@@ -168,8 +175,9 @@ For this example, we will assume you chose a DNS name for your primary AHA serve
 listed above. If so, you can simply replace ``00`` with sequential numbers and repeat this step to deploy
 however many AHA mirrors you deem appropriate.
 
-NOTE: AHA uses two default ports ETC. The following steps assume you will be running each of your AHA servers
-on a different host. The use of ``network_mode; host`` ETC
+By default, AHA uses port ``27492`` to listen for RPC connections from other Synapse services and port ``27272``
+for the provisioning listener. The following example steps assume you will be running each AHA server on separate
+hosts or in a containerized deployment to avoid port collisions.
 
 **Inside the AHA container**
 

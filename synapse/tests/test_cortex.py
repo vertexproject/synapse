@@ -376,7 +376,7 @@ class CortexTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
-                self.nn(await core.cellinfo.pop('cortex:version'))
+                self.nn(core.cellinfo.pop('cortex:version'))
 
             with self.raises(s_exc.BadStorageVersion):
                 async with self.getTestCore(dirn=dirn) as core:
@@ -2673,6 +2673,8 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('.hehe [ -.hehe ]'))
             self.len(0, await core.nodes('.hehe'))
 
+            self.none(await core._addUnivProp('hehe', None, None))
+
         # ensure that we can delete univ props in a authenticated setting
         async with self.getTestCoreAndProxy() as (realcore, core):
 
@@ -3124,6 +3126,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             pkgs = await proxy.getStormPkgs()
             self.len(0, pkgs)
             await self.asyncraises(s_exc.NoSuchPkg, proxy.delStormPkg('foosball'))
+
+            self.none(await core._delStormPkg('foosball'))
 
             # This segfaults in regex < 2022.9.11
             query = '''test:str~="(?(?<=A)|(?(?![^B])C|D))"'''
@@ -3866,16 +3870,15 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.addStormPkg(otherpkg)
 
             visi = await core.auth.addUser('visi')
-            async with core.getLocalProxy(user='visi') as asvisi:
-                uopts = dict(opts)
-                uopts['user'] = visi.iden
-                opts['vars']['useriden'] = visi.iden
+            uopts = dict(opts)
+            uopts['user'] = visi.iden
+            opts['vars']['useriden'] = visi.iden
 
-                await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
-                await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
-                await core.nodes('$lib.graph.del($iden2)', opts=uopts)
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
+            await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
+            await core.nodes('$lib.graph.del($iden2)', opts=uopts)
 
-                self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
+            self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
 
             q = '$lib.graph.del($lib.guid(graph.powerup, testgraph))'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
@@ -5868,7 +5871,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # nexus recover() previously failed on adding to the hive
                 # although the dmon would get successfully started
                 self.nn(await core.callStorm('return($lib.dmon.get($iden))', opts=asuser))
-                self.nn(core.stormdmonhive.get(iden))
+                self.nn(core.stormdmondefs.get(iden))
 
     async def test_cortex_storm_dmon_view(self):
 
@@ -5911,7 +5914,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 visi = await core.auth.addUser('visi')
                 await visi.setAdmin(True)
-                await visi.profile.set('cortex:view', view2_iden)
+                await visi.setProfileValu('cortex:view', view2_iden)
 
                 await core.nodes('$q=$lib.queue.add(dmon2)')
                 q = '''
@@ -5962,6 +5965,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.CantDelCmd):
                 await core.delStormCmd('sleep')
+
+            self.none(await core._delStormCmd('newp'))
 
     async def test_cortex_storm_lib_dmon_cmds(self):
         async with self.getTestCore() as core:
@@ -6078,12 +6083,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
                 self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
 
-                # manually edit in a borked form entry
-                await core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                await core.addEdge(('test:int', '_goes', None), {})
+                await core._addEdge(('test:int', '_goes', None), {})
+
+                with self.raises(s_exc.DupEdgeType):
+                    await core.addEdge(('test:int', '_goes', None), {})
+
+                # manually edit in borked entries
+                core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
             async with self.getTestCore(dirn=dirn) as core:
 
                 self.none(core.model.form('_hehe:bork'))
+                self.none(core.model.edge((None, '_does', 'newp')))
+
+                self.nn(core.model.edge(('test:int', '_goes', None)))
 
                 self.len(1, await core.nodes('_hehe:haha=10'))
                 self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
@@ -6135,6 +6150,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadFormDef):
                     await core.delForm('hehe:haha')
+
+                with self.raises(s_exc.NoSuchEdge):
+                    await core.delEdge(('newp', 'newp', 'newp'))
+
+                await core._delEdge(('newp', 'newp', 'newp'))
 
                 await core.nodes('_hehe:haha [ -:visi ]')
                 await core.delFormProp('_hehe:haha', 'visi')
@@ -6264,100 +6284,121 @@ class CortexBasicTest(s_t_utils.SynTest):
                             await core.axon.metrics())
 
     async def test_cortex_delLayerView(self):
-        async with self.getTestCore() as core:
 
-            # Can't delete the default view
-            await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
-            await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
 
-            # Can't delete a layer in a view
-            await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
+                # Can't delete the default view
+                await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
+                await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
 
-            # Can't delete a nonexistent view
-            await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
-            await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
+                # Can't delete a layer in a view
+                await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
 
-            # Can't delete a nonexistent layer
-            await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
+                # Can't delete a nonexistent view
+                await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
+                await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
 
-            # Fork the main view
-            vdef2 = await core.view.fork()
-            view2_iden = vdef2.get('iden')
+                # Can't delete a nonexistent layer
+                await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
 
-            # Can't delete a view twice
-            await core.delView(view2_iden)
-            await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
+                # Fork the main view
+                vdef2 = await core.view.fork()
+                view2_iden = vdef2.get('iden')
 
-            layr = await core.addLayer()
-            layriden = layr['iden']
-            vdef3 = {'layers': (layriden,)}
-            view3_iden = (await core.addView(vdef3)).get('iden')
+                # Can't delete a view twice
+                await core.delView(view2_iden)
+                await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
 
-            opts = {'view': view3_iden}
-            await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
+                layr = await core.addLayer()
+                layriden = layr['iden']
+                vdef3 = {'layers': (layriden,)}
+                view3_iden = (await core.addView(vdef3)).get('iden')
 
-            await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
+                opts = {'view': view3_iden}
+                await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
 
-            await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
+                await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
 
-            view3 = core.getView(view3_iden)
-            vdef4 = await view3.fork()
+                await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
 
-            deadlayr = view3.layers[0].iden
-            view4_iden = vdef4.get('iden')
-            view4 = core.getView(view4_iden)
+                view3 = core.getView(view3_iden)
+                vdef4 = await view3.fork()
 
-            self.eq(view4.parent, view3)
-            self.len(2, view4.layers)
+                deadlayr = view3.layers[0].iden
+                view4_iden = vdef4.get('iden')
+                view4 = core.getView(view4_iden)
 
-            await core.auth.rootuser.setPasswd('secret')
-            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
-            layr2 = await core.callStorm('$layer=$lib.layer.add() return($layer)')
-            varz = {'iden': layriden, 'tgt': layr2.get('iden'), 'port': port}
-            opts = {'vars': varz, 'view': view3_iden}
+                self.eq(view4.parent, view3)
+                self.len(2, view4.layers)
 
-            pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
-            pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
-            msgs = await core.stormlist(pullq, opts=opts)
-            self.stormHasNoWarnErr(msgs)
+                await core.auth.rootuser.setPasswd('secret')
+                host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+                layr2 = await core.callStorm('$layer=$lib.layer.add() return($layer)')
+                varz = {'iden': layriden, 'tgt': layr2.get('iden'), 'port': port}
+                opts = {'vars': varz, 'view': view3_iden}
 
-            msgs = await core.stormlist(pushq, opts=opts)
-            self.stormHasNoWarnErr(msgs)
+                pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                msgs = await core.stormlist(pullq, opts=opts)
+                self.stormHasNoWarnErr(msgs)
 
-            coros = len(core.activecoros)
+                msgs = await core.stormlist(pushq, opts=opts)
+                self.stormHasNoWarnErr(msgs)
 
-            layridens = [lyr.iden for lyr in view4.layers if lyr.iden != view3.layers[0].iden]
-            events = [
-                {'event': 'view:setlayers', 'info': {'iden': view4.iden, 'layers': layridens}},
-                {'event': 'view:set', 'info': {'iden': view4.iden, 'name': 'parent', 'valu': None}}
-            ]
-            task = core.schedCoro(s_t_utils.waitForBehold(core, events))
+                coros = len(core.activecoros)
 
-            await core.delViewWithLayer(view3_iden)
+                layridens = [lyr.iden for lyr in view4.layers if lyr.iden != view3.layers[0].iden]
+                events = [
+                    {'event': 'view:setlayers', 'info': {'iden': view4.iden, 'layers': layridens}},
+                    {'event': 'view:set', 'info': {'iden': view4.iden, 'name': 'parent', 'valu': None}}
+                ]
+                task = core.schedCoro(s_t_utils.waitForBehold(core, events))
 
-            await asyncio.wait_for(task, timeout=1)
+                await core.delViewWithLayer(view3_iden)
 
-            # push/pull activecoros have been deleted
-            self.len(coros - 2, core.activecoros)
+                await asyncio.wait_for(task, timeout=1)
 
-            self.none(view4.parent)
-            self.len(1, view4.layers)
-            self.none(core.getLayer(deadlayr))
+                # push/pull activecoros have been deleted
+                self.len(coros - 2, core.activecoros)
 
-            vdef5 = await view4.fork()
-            view5 = core.getView(vdef5.get('iden'))
+                self.none(view4.parent)
+                self.len(1, view4.layers)
+                self.none(core.getLayer(deadlayr))
 
-            usedlayr = view4.layers[0].iden
-            vdef6 = {'layers': (usedlayr,)}
-            view6 = core.getView((await core.addView(vdef6)).get('iden'))
+                vdef5 = await view4.fork()
+                view5 = core.getView(vdef5.get('iden'))
 
-            await core.delViewWithLayer(view4_iden)
+                usedlayr = view4.layers[0].iden
+                vdef6 = {'layers': (usedlayr,)}
+                view6 = core.getView((await core.addView(vdef6)).get('iden'))
 
-            self.none(view5.parent)
-            self.len(1, view5.layers)
+                await core.delViewWithLayer(view4_iden)
 
-            self.nn(core.getLayer(usedlayr))
-            self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
+                self.none(view5.parent)
+                self.len(1, view5.layers)
+
+                self.nn(core.getLayer(usedlayr))
+                self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
+
+                layrs = list(core.layers.keys())
+                viewdefs = {}
+                for vdef in await core.getViewDefs():
+                    vdef['layers'] = [layr['iden'] for layr in vdef['layers']]
+                    viewdefs[vdef['iden']] = vdef
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.sorteq(layrs, list(core.layers.keys()))
+
+                viewdefs2 = {}
+                for vdef in await core.getViewDefs():
+                    vdef['layers'] = [layr['iden'] for layr in vdef['layers']]
+                    viewdefs2[vdef['iden']] = vdef
+
+                self.eq(len(viewdefs), len(viewdefs2))
+
+                for iden, vdef in viewdefs.items():
+                    self.eq(vdef, viewdefs2.get(iden))
 
     async def test_cortex_view_opts(self):
         '''
@@ -6638,7 +6679,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await proxy.popStormVar('hehe')
 
             async with core.getLocalProxy() as proxy:
-                self.none(await proxy.setStormVar('hehe', 'haha'))
+                self.eq('haha', await proxy.setStormVar('hehe', 'haha'))
                 self.eq('haha', await proxy.getStormVar('hehe'))
                 self.eq('hoho', await proxy.getStormVar('lolz', default='hoho'))
                 self.eq('haha', await proxy.popStormVar('hehe'))
@@ -8097,6 +8138,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 # The cortex authgate does nothing
                 with self.raises(s_exc.AuthDeny) as cm:
                     await core.nodes('[test:str=hello]', opts=aslow)
+
+                # Coverage for nonexistent users/roles
+                core.auth.stor.set('gate:cortex:user:newp', {'iden': 'newp'})
+                core.auth.stor.set('gate:cortex:role:newp', {'iden': 'newp'})
 
             with self.getAsyncLoggerStream('synapse.cortex') as stream:
                 async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex

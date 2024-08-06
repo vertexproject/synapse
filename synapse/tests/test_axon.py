@@ -941,13 +941,13 @@ bar baz",vv
         conf = {'http:proxy': 'socks5://user:pass@127.0.0.1:1'}
         async with self.getTestAxon(conf=conf) as axon:
             async with axon.getLocalProxy() as proxy:
-                resp = await proxy.wget('http://vertex.link')
+                resp = await proxy.wget('http://vertex.link/')
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
             resp = await proxy.wget('vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+            self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
     async def test_axon_wput(self):
 
@@ -1027,11 +1027,11 @@ bar baz",vv
 
             resp = await proxy.wput(sha256, 'vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('mesg', ''))
+            self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
             resp = await proxy.postfiles(fields, 'vertex.link')
             self.false(resp.get('ok'))
-            self.isin('InvalidURL: vertex.link', resp.get('reason'))
+            self.isin('InvalidUrlClientError: vertex.link', resp.get('reason'))
 
             # Bypass the Axon proxy configuration from Storm
             url = axon.getLocalUrl()
@@ -1130,6 +1130,9 @@ bar baz",vv
 
             bytslist = [b async for b in axon.get(sha256, 2, size=6)]
             self.eq(b'dfqwer', b''.join(bytslist))
+
+            metrics = await axon.metrics()
+            self.eq(metrics, {'size:bytes': 12, 'file:count': 1})
 
     async def test_axon_mirror(self):
 

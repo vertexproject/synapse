@@ -164,7 +164,8 @@ class ConfTest(s_test.SynTest):
         # We can ensure that certain vars are loaded
         self.eq('Funky string time!', conf.req('key:string'))
         # And throw if they are not, or if the requested key isn't even schema valid
-        self.raises(s_exc.NeedConfValu, conf.req, 'key:bool:nodefval')
+        self.raises(s_exc.NeedConfValu, conf.reqConfValu, 'key:bool:nodefval')
+        self.raises(s_exc.BadArg, conf.reqConfValu, 'key:newp')
 
         # Since we're an Mutable mapping, we have some dict methods available to us
         self.len(8, conf)  # __len__

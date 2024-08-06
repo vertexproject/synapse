@@ -771,7 +771,7 @@ class ModelRev:
         await self._propArrayToForm(layers, 'ou:conference:names', 'entity:name')
 
     async def revModel_0_2_26(self, layers):
-        for name, prop in self.core.model.props.items():
+        for name, prop in list(self.core.model.props.items()):
             if prop.isform:
                 continue
 
@@ -780,6 +780,7 @@ class ModelRev:
                 stortype = stortype & 0x7fff
 
             if stortype == s_layer.STOR_TYPE_NDEF:
+                logger.info(f'Updating ndef indexing for {name}')
                 await self._updatePropStortype(layers, prop.full)
 
     async def runStorm(self, text, opts=None):
@@ -820,7 +821,7 @@ class ModelRev:
         # that we are not able to rev ourselves and bail...
 
         layers = []
-        for layr in self.core.layers.values():
+        for layr in list(self.core.layers.values()):
 
             if layr.fresh:
                 await layr.setModelVers(version)

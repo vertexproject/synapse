@@ -14,7 +14,6 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 
 import synapse.tools.aha.list as s_a_list
-import synapse.tools.backup as s_tools_backup
 
 import synapse.tools.aha.enroll as s_tools_enroll
 import synapse.tools.aha.provision.user as s_tools_provision_user
@@ -46,6 +45,8 @@ class AhaTest(s_test.SynTest):
 
     async def test_lib_aha_clone(self):
 
+        zoinks = 'zoinks.aha.loop.vertex.link'
+
         with self.getTestDir() as dirn:
 
             dir0 = s_common.gendir(dirn, 'aha0')
@@ -58,7 +59,7 @@ class AhaTest(s_test.SynTest):
                     self.len(ahacount, await proxy0.getAhaUrls())
                     self.len(ahacount, await proxy0.getAhaServers())
 
-                    purl = await proxy0.addAhaClone('zoinks.aha.loop.vertex.link')
+                    purl = await proxy0.addAhaClone(zoinks)
 
                 conf1 = {'clone': purl}
                 async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
@@ -112,6 +113,21 @@ class AhaTest(s_test.SynTest):
 
                     self.false(aha0.isactive)
                     self.true(aha1.isactive)
+
+            # Remove 00.aha.loop.vertex.link since we're done with him + coverage
+            async with self.getTestAha(conf={'dns:name': zoinks}, dirn=dir1) as aha1:
+                async with aha1.getLocalProxy() as proxy1:
+                    srvs = await proxy1.getAhaServers()
+                    self.len(2, srvs)
+                    aha00 = [info for info in srvs if info.get('host') == '00.aha.loop.vertex.link'][0]
+                    data = await proxy1.delAhaServer(aha00.get('host'), aha00.get('port'))
+                    self.eq(data.get('host'), aha00.get('host'))
+                    self.eq(data.get('port'), aha00.get('port'))
+
+                    srvs = await proxy1.getAhaServers()
+                    self.len(1, srvs)
+                    urls = await proxy1.getAhaUrls()
+                    self.len(1, urls)
 
     async def test_lib_aha_offon(self):
         with self.getTestDir() as dirn:
@@ -347,6 +363,13 @@ class AhaTest(s_test.SynTest):
                 async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
                     await cell.ahaclient.proxy()
                     self.len(ahacount + 1, cell.conf.get('aha:registry'))
+
+                self.nn(await aha.delAhaServer('zoinks.aha.loop.vertex.link', 27492))
+                self.len(ahacount, await aha.getAhaServers())
+
+                async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:
+                    await cell.ahaclient.proxy()
+                    self.len(ahacount, cell.conf.get('aha:registry'))
 
     async def test_lib_aha_loadenv(self):
 
@@ -775,14 +798,18 @@ class AhaTest(s_test.SynTest):
                 # We can generate urls and then drop them en-mass. They will not usable.
                 provurls = []
                 enrlursl = []
+                clonurls = []
                 async with aha.getLocalProxy() as proxy:
                     provurls.append(await proxy.addAhaSvcProv('00.cell'))
                     provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
                     enrlursl.append(await proxy.addAhaUserEnroll('bob'))
                     enrlursl.append(await proxy.addAhaUserEnroll('alice'))
+                    clonurls.append(await proxy.addAhaClone('hehe.haha.com'))
+                    clonurls.append(await proxy.addAhaClone('wow.haha.com', port='12345'))
 
                     await proxy.clearAhaSvcProvs()
                     await proxy.clearAhaUserEnrolls()
+                    await proxy.clearAhaClones()
 
                 for url in provurls:
                     with self.raises(s_exc.NoSuchName) as cm:
@@ -792,6 +819,10 @@ class AhaTest(s_test.SynTest):
                     with self.raises(s_exc.NoSuchName) as cm:
                         async with await s_telepath.openurl(url) as prox:
                             self.fail(f'Connected to an expired enrollment URL {url}')  # pragma: no cover
+                for url in clonurls:
+                    with self.raises(s_exc.NoSuchName) as cm:
+                        async with await s_telepath.openurl(url) as prox:
+                            self.fail(f'Connected to an expired clone URL {url}')  # pragma: no cover
 
     async def test_aha_httpapi(self):
 
@@ -1197,3 +1228,63 @@ class AhaTest(s_test.SynTest):
                     with self.raises(s_exc.CryptoErr) as errcm:
                         await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
                     self.isin('Certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
+
+    async def test_aha_prov_with_user(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    user = 'synuser'
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    axon00 = await base.enter_context(self.addSvcToAha(aha, '00.axon', s_axon.Axon, dirn=dirn00,
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(axon00.conf.get('aha:user'), user)
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn01,
+                                                                       conf={'axon': 'aha://axon...'},
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(core00.conf.get('aha:user'), user)
+                    # Svc to svc connections use the hinted aha:user value
+                    prox = self.nn(await asyncio.wait_for(core00.axon.proxy(), timeout=12))
+                    unfo = await prox.getCellUser()
+                    self.eq(unfo.get('name'), user)
+
+    async def test_aha_cell_with_tcp(self):
+        # It's an older code, sir, but it checks out.
+        # This should be removed in Synapse v3.0.0
+
+        with self.getTestDir() as dirn:
+            ahadir = s_common.gendir(dirn, 'aha')
+            clldir = s_common.gendir(dirn, 'cell')
+            ahaconf = {
+                'aha:name': '00.aha',
+                'aha:network': 'loop.vertex.link',
+                'dmon:listen': 'tcp://127.0.0.1:0/',
+                'auth:passwd': 'secret',
+            }
+            async with await s_aha.AhaCell.anit(dirn=ahadir, conf=ahaconf) as aha:
+                urls = await aha.getAhaUrls()
+                self.len(1, urls)
+                self.true(urls[0].startswith('ssl://'))
+                ahaurl = f'tcp://root:secret@127.0.0.1:{aha.sockaddr[1]}/'
+                cllconf = {
+                    'aha:name': '00.cell',
+                    'aha:network': 'loop.vertex.link',
+                    'aha:registry': ahaurl,
+                    'dmon:listen': None,
+                }
+                async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+                    self.eq(cell.conf.get('aha:registry'), ahaurl)
+
+                    prox = await cell.ahaclient.proxy()
+                    await prox.fini()
+                    self.false(cell.ahaclient._t_ready.is_set())
+
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+
+                # No change when restarting
+                async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
+                    self.none(await cell.ahaclient.waitready(timeout=12))
+                    self.eq(cell.conf.get('aha:registry'), ahaurl)

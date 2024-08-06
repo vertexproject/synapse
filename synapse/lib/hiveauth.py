@@ -277,7 +277,6 @@ class Auth(s_nexus.Pusher):
 
         return user
 
-    @s_nexus.Pusher.onPushAuto('user:name')
     async def setUserName(self, iden, name):
         if not isinstance(name, str):
             raise s_exc.BadArg(mesg='setUserName() name must be a string')
@@ -302,7 +301,6 @@ class Auth(s_nexus.Pusher):
         }
         await self.feedBeholder('user:name', beheld)
 
-    @s_nexus.Pusher.onPushAuto('role:name')
     async def setRoleName(self, iden, name):
         if not isinstance(name, str):
             raise s_exc.BadArg(mesg='setRoleName() name must be a string')
@@ -346,7 +344,6 @@ class Auth(s_nexus.Pusher):
 
             await self.fire('cell:beholder', **behold)
 
-    @s_nexus.Pusher.onPushAuto('user:info')
     async def setUserInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
 
         user = await self.reqUser(iden)
@@ -373,7 +370,6 @@ class Auth(s_nexus.Pusher):
         # since any user info *may* effect auth
         user.clearAuthCache()
 
-    @s_nexus.Pusher.onPushAuto('role:info')
     async def setRoleInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
         role = await self.reqRole(iden)
 
@@ -528,7 +524,6 @@ class Auth(s_nexus.Pusher):
 
         return user
 
-    @s_nexus.Pusher.onPush('user:add')
     async def _addUser(self, iden, name):
 
         user = self.usersbyname.get(name)
@@ -554,7 +549,6 @@ class Auth(s_nexus.Pusher):
 
         return self.role(iden)
 
-    @s_nexus.Pusher.onPush('role:add')
     async def _addRole(self, iden, name):
 
         role = self.rolesbyname.get(name)
@@ -574,7 +568,6 @@ class Auth(s_nexus.Pusher):
         await self.reqUser(iden)
         return await self._push('user:del', iden)
 
-    @s_nexus.Pusher.onPush('user:del')
     async def _delUser(self, iden):
 
         if iden == self.rootuser.iden:
@@ -608,7 +601,6 @@ class Auth(s_nexus.Pusher):
         await self.reqRole(iden)
         return await self._push('role:del', iden)
 
-    @s_nexus.Pusher.onPush('role:del')
     async def _delRole(self, iden):
 
         if iden == self.allrole.iden:
@@ -838,10 +830,7 @@ class HiveRole(HiveRuler):
         }
 
     async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True, mesg=None):
-        if nexs:
-            return await self.auth.setRoleInfo(self.iden, name, valu, gateiden=gateiden, mesg=mesg)
-        else:
-            return await self.auth._hndlsetRoleInfo(self.iden, name, valu, gateiden=gateiden, logged=nexs, mesg=mesg)
+        return await self.auth.setRoleInfo(self.iden, name, valu, gateiden=gateiden, logged=nexs, mesg=mesg)
 
     async def setName(self, name):
         return await self.auth.setRoleName(self.iden, name)
@@ -929,10 +918,7 @@ class HiveUser(HiveRuler):
         }
 
     async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True, mesg=None):
-        if nexs:
-            return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden, mesg=mesg)
-        else:
-            return await self.auth._hndlsetUserInfo(self.iden, name, valu, gateiden=gateiden, logged=nexs, mesg=mesg)
+        return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden, logged=nexs, mesg=mesg)
 
     async def setName(self, name):
         return await self.auth.setUserName(self.iden, name)
@@ -1232,10 +1218,7 @@ class HiveUser(HiveRuler):
 
         roles.remove(role.iden)
         mesg = {'name': 'role:revoke', 'iden': self.iden, 'role': role.pack()}
-        if nexs:
-            await self.auth.setUserInfo(self.iden, 'roles', roles, mesg=mesg)
-        else:
-            await self.auth._hndlsetUserInfo(self.iden, 'roles', roles, logged=nexs, mesg=mesg)
+        await self.auth.setUserInfo(self.iden, 'roles', roles, logged=nexs, mesg=mesg)
 
     def isLocked(self):
         return self.info.get('locked')
@@ -1271,18 +1254,12 @@ class HiveUser(HiveRuler):
     async def setAdmin(self, admin, gateiden=None, logged=True):
         if not isinstance(admin, bool):
             raise s_exc.BadArg(mesg='setAdmin requires a boolean')
-        if logged:
-            await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
-        else:
-            await self.auth._hndlsetUserInfo(self.iden, 'admin', admin, gateiden=gateiden, logged=logged)
+        await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden, logged=logged)
 
     async def setLocked(self, locked, logged=True):
         if not isinstance(locked, bool):
             raise s_exc.BadArg(mesg='setLocked requires a boolean')
-        if logged:
-            await self.auth.setUserInfo(self.iden, 'locked', locked)
-        else:
-            await self.auth._hndlsetUserInfo(self.iden, 'locked', locked, logged=logged)
+        await self.auth.setUserInfo(self.iden, 'locked', locked, logged=logged)
 
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
@@ -1347,7 +1324,4 @@ class HiveUser(HiveRuler):
             shadow = await s_passwd.getShadowV2(passwd=passwd)
         else:
             raise s_exc.BadArg(mesg='Password must be a string')
-        if nexs:
-            await self.auth.setUserInfo(self.iden, 'passwd', shadow)
-        else:
-            await self.auth._hndlsetUserInfo(self.iden, 'passwd', shadow, logged=nexs)
+        await self.auth.setUserInfo(self.iden, 'passwd', shadow, logged=nexs)

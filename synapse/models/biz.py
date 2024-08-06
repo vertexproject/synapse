@@ -89,6 +89,10 @@ class BizModule(s_module.CoreModule):
                     ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {}),
                 )),
                 ('biz:deal', {}, (
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An identifier for the deal.',
+                    }),
+
                     ('title', ('str', {}), {
                         'doc': 'A title for the deal.',
                     }),

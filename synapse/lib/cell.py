@@ -29,6 +29,7 @@ import synapse.common as s_common
 import synapse.daemon as s_daemon
 import synapse.telepath as s_telepath
 
+import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
@@ -50,7 +51,6 @@ import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
-import synapse.lib.hiveauth as s_hiveauth
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
@@ -59,6 +59,8 @@ import synapse.lib.crypto.passwd as s_passwd
 import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
+
+NEXUS_VERSION = (2, 177)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -891,6 +893,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'type': 'object',
             'hideconf': True,
         },
+        'auth:passwd:policy': {
+            'description': 'Specify password policy/complexity requirements.',
+            'type': 'object',
+        },
         'max:users': {
             'default': 0,
             'description': 'Maximum number of users allowed on system, not including root or locked/archived users (0 is no limit).',
@@ -1100,6 +1106,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.inaugural = False
         self.activecoros = {}
         self.sockaddr = None  # Default value...
+        self.https_listeners = []
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
@@ -1215,10 +1222,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.hive = await self._initCellHive()
 
-        # self.cellinfo, a HiveDict for general purpose persistent storage
-        node = await self.hive.open(('cellinfo',))
-        self.cellinfo = await node.dict()
-        self.onfini(node)
+        self.cellinfo = self.slab.getSafeKeyVal('cell:info')
+        self.cellvers = self.slab.getSafeKeyVal('cell:vers')
+
+        await self._bumpCellVers('cell:storage', (
+            (1, self._storCellHiveMigration),
+        ), nexs=False)
+
+        if self.inaugural:
+            self.cellinfo.set('nexus:version', NEXUS_VERSION)
 
         # Check the cell version didn't regress
         if (lastver := self.cellinfo.get('cell:version')) is not None and self.VERSION < lastver:
@@ -1226,7 +1238,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.error(mesg)
             raise s_exc.BadVersion(mesg=mesg, currver=self.VERSION, lastver=lastver)
 
-        await self.cellinfo.set('cell:version', self.VERSION)
+        self.cellinfo.set('cell:version', self.VERSION)
 
         # Check the synapse version didn't regress
         if (lastver := self.cellinfo.get('synapse:version')) is not None and s_version.version < lastver:
@@ -1234,10 +1246,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.error(mesg)
             raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
 
-        await self.cellinfo.set('synapse:version', s_version.version)
+        self.cellinfo.set('synapse:version', s_version.version)
 
-        node = await self.hive.open(('cellvers',))
-        self.cellvers = await node.dict(nexs=True)
+        self.nexsvers = self.cellinfo.get('nexus:version', (0, 0))
+        self.nexspatches = ()
+
+        await self._bumpCellVers('cell:storage', (
+            (2, self._storCellAuthMigration),
+        ), nexs=False)
 
         self.auth = await self._initCellAuth()
 
@@ -1245,8 +1261,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if auth_passwd is not None:
             user = await self.auth.getUserByName('root')
 
-            if not await user.tryPasswd(auth_passwd, nexs=False):
-                await user.setPasswd(auth_passwd, nexs=False)
+            if not await user.tryPasswd(auth_passwd, nexs=False, enforce_policy=False):
+                await user.setPasswd(auth_passwd, nexs=False, enforce_policy=False)
 
         self.boss = await s_boss.Boss.anit()
         self.onfini(self.boss)
@@ -1255,11 +1271,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'auth': self.auth,
             'cell': self
         }
-
-        # a tuple of (vers, func) tuples
-        # it is expected that this is set by
-        # initServiceStorage
-        self.cellupdaters = ()
 
         self.permdefs = None
         self.permlook = None
@@ -1279,6 +1290,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # phase 3 - nexus subsystem
         await self.initNexusSubsystem()
 
+        await self.configNexsVers()
+
         # We can now do nexus-safe operations
         await self._initInauguralConfig()
 
@@ -1297,6 +1310,128 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # NOTE: these changes are NOT nexus enabled!
         self.slab.put(name.encode(), s_msgpack.en(valu), db='cell:meta')
         return valu
+
+    async def _storCellHiveMigration(self):
+        logger.warning(f'migrating Cell ({self.getCellType()}) info out of hive')
+
+        async with await self.hive.open(('cellvers',)) as versnode:
+            versdict = await versnode.dict()
+            for key, valu in versdict.items():
+                self.cellvers.set(key, valu)
+
+        async with await self.hive.open(('cellinfo',)) as infonode:
+            infodict = await infonode.dict()
+            for key, valu in infodict.items():
+                self.cellinfo.set(key, valu)
+
+        logger.warning(f'...Cell ({self.getCellType()}) info migration complete!')
+
+    async def _storCellAuthMigration(self):
+        if self.conf.get('auth:ctor') is not None:
+            return
+
+        logger.warning(f'migrating Cell ({self.getCellType()}) auth out of hive')
+
+        authkv = self.slab.getSafeKeyVal('auth')
+
+        async with await self.hive.open(('auth',)) as rootnode:
+
+            rolekv = authkv.getSubKeyVal('role:info:')
+            rolenamekv = authkv.getSubKeyVal('role:name:')
+
+            async with await rootnode.open(('roles',)) as roles:
+                for iden, node in roles:
+                    roledict = await node.dict()
+                    roleinfo = roledict.pack()
+
+                    roleinfo['iden'] = iden
+                    roleinfo['name'] = node.valu
+                    roleinfo['authgates'] = {}
+                    roleinfo.setdefault('admin', False)
+                    roleinfo.setdefault('rules', ())
+
+                    rolekv.set(iden, roleinfo)
+                    rolenamekv.set(node.valu, iden)
+
+            userkv = authkv.getSubKeyVal('user:info:')
+            usernamekv = authkv.getSubKeyVal('user:name:')
+
+            async with await rootnode.open(('users',)) as users:
+                for iden, node in users:
+                    userdict = await node.dict()
+                    userinfo = userdict.pack()
+
+                    userinfo['iden'] = iden
+                    userinfo['name'] = node.valu
+                    userinfo['authgates'] = {}
+                    userinfo.setdefault('admin', False)
+                    userinfo.setdefault('rules', ())
+                    userinfo.setdefault('locked', False)
+                    userinfo.setdefault('passwd', None)
+                    userinfo.setdefault('archived', False)
+
+                    realroles = []
+                    for userrole in userinfo.get('roles', ()):
+                        if rolekv.get(userrole) is None:
+                            mesg = f'Unknown role {userrole} on user {iden} during migration, ignoring.'
+                            logger.warning(mesg)
+                            continue
+
+                        realroles.append(userrole)
+
+                    userinfo['roles'] = tuple(realroles)
+
+                    userkv.set(iden, userinfo)
+                    usernamekv.set(node.valu, iden)
+
+                    varskv = authkv.getSubKeyVal(f'user:{iden}:vars:')
+                    async with await node.open(('vars',)) as varnodes:
+                        for name, varnode in varnodes:
+                            varskv.set(name, varnode.valu)
+
+                    profkv = authkv.getSubKeyVal(f'user:{iden}:profile:')
+                    async with await node.open(('profile',)) as profnodes:
+                        for name, profnode in profnodes:
+                            profkv.set(name, profnode.valu)
+
+            gatekv = authkv.getSubKeyVal('gate:info:')
+            async with await rootnode.open(('authgates',)) as authgates:
+                for gateiden, node in authgates:
+                    gateinfo = {
+                        'iden': gateiden,
+                        'type': node.valu
+                    }
+                    gatekv.set(gateiden, gateinfo)
+
+                    async with await node.open(('users',)) as usernodes:
+                        for useriden, usernode in usernodes:
+                            if (user := userkv.get(useriden)) is None:
+                                mesg = f'Unknown user {useriden} on gate {gateiden} during migration, ignoring.'
+                                logger.warning(mesg)
+                                continue
+
+                            userinfo = await usernode.dict()
+                            userdict = userinfo.pack()
+                            authkv.set(f'gate:{gateiden}:user:{useriden}', userdict)
+
+                            user['authgates'][gateiden] = userdict
+                            userkv.set(useriden, user)
+
+                    async with await node.open(('roles',)) as rolenodes:
+                        for roleiden, rolenode in rolenodes:
+                            if (role := rolekv.get(roleiden)) is None:
+                                mesg = f'Unknown role {roleiden} on gate {gateiden} during migration, ignoring.'
+                                logger.warning(mesg)
+                                continue
+
+                            roleinfo = await rolenode.dict()
+                            roledict = roleinfo.pack()
+                            authkv.set(f'gate:{gateiden}:role:{roleiden}', roledict)
+
+                            role['authgates'][gateiden] = roledict
+                            rolekv.set(roleiden, role)
+
+        logger.warning(f'...Cell ({self.getCellType()}) auth migration complete!')
 
     def getPermDef(self, perm):
         perm = tuple(perm)
@@ -1429,10 +1564,52 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # ( and do so using _bumpCellVers )
         pass
 
+    async def setNexsVers(self, vers):
+        if self.nexsvers < NEXUS_VERSION:
+            await self._push('nexs:vers:set', NEXUS_VERSION)
+
+    @s_nexus.Pusher.onPush('nexs:vers:set')
+    async def _setNexsVers(self, vers):
+        if vers > self.nexsvers:
+            self.cellvers.set('nexus:version', vers)
+            self.nexsvers = vers
+            await self.configNexsVers()
+
+    async def configNexsVers(self):
+        for meth, orig in self.nexspatches:
+            setattr(self, meth, orig)
+
+        if self.nexsvers == NEXUS_VERSION:
+            return
+
+        patches = []
+        if self.nexsvers < (2, 177):
+            patches.extend([
+                ('popUserVarValu', self._popUserVarValuV0),
+                ('setUserVarValu', self._setUserVarValuV0),
+                ('popUserProfInfo', self._popUserProfInfoV0),
+                ('setUserProfInfo', self._setUserProfInfoV0),
+            ])
+
+        self.nexspatches = []
+        for meth, repl in patches:
+            self.nexspatches.append((meth, getattr(self, meth)))
+            setattr(self, meth, repl)
+
+    async def setCellVers(self, name, vers, nexs=True):
+        if nexs:
+            await self._push('cell:vers:set', name, vers)
+        else:
+            await self._setCellVers(name, vers)
+
+    @s_nexus.Pusher.onPush('cell:vers:set')
+    async def _setCellVers(self, name, vers):
+        self.cellvers.set(name, vers)
+
     async def _bumpCellVers(self, name, updates, nexs=True):
 
         if self.inaugural:
-            await self.cellvers.set(name, updates[-1][0], nexs=nexs)
+            await self.setCellVers(name, updates[-1][0], nexs=nexs)
             return
 
         curv = self.cellvers.get(name, 0)
@@ -1444,7 +1621,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             await callback()
 
-            await self.cellvers.set(name, vers, nexs=nexs)
+            await self.setCellVers(name, vers, nexs=nexs)
 
             curv = vers
 
@@ -1549,15 +1726,24 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahaurls = self.conf.get('aha:registry')
         if ahaurls is not None:
 
-            info = await s_telepath.addAhaUrl(ahaurls)
+            await s_telepath.addAhaUrl(ahaurls)
             if self.ahaclient is not None:
                 await self.ahaclient.fini()
 
             async def onlink(proxy):
                 ahauser = self.conf.get('aha:user', 'root')
                 newurls = await proxy.getAhaUrls(user=ahauser)
-                oldurls = tuple(self.conf.get('aha:registry'))
+                oldurls = self.conf.get('aha:registry')
+                if isinstance(oldurls, str):
+                    oldurls = (oldurls,)
+                elif isinstance(oldurls, list):
+                    oldurls = tuple(oldurls)
                 if newurls and newurls != oldurls:
+                    if oldurls[0].startswith('tcp://'):
+                        s_common.deprecated('aha:registry: tcp:// client values.')
+                        logger.warning('tcp:// based aha:registry options are deprecated and will be removed in Synapse v3.0.0')
+                        return
+
                     self.modCellConf({'aha:registry': newurls})
                     self.ahaclient.setBootUrls(newurls)
 
@@ -1576,8 +1762,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.ahaclient.onfini(fini)
 
         ahaadmin = self.conf.get('aha:admin')
+        ahauser = self.conf.get('aha:user')
+
         if ahaadmin is not None:
             await self._addAdminUser(ahaadmin)
+
+        if ahauser is not None:
+            await self._addAdminUser(ahauser)
 
     def _getDmonListen(self):
 
@@ -1642,7 +1833,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _bindDmonListen(self):
 
-        # functionalized so Raft code can bind early...
+        # functionalized so downstream code can bind early.
         if self.sockaddr is not None:
             return
 
@@ -1852,16 +2043,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'promote() called on non-mirror'
             raise s_exc.BadConfValu(mesg=mesg)
 
-        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful}.')
+        _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
+        logger.warning(f'PROMOTION: Performing leadership promotion graceful={graceful}{_dispname}.')
 
         if graceful:
 
             myurl = self.getMyUrl()
 
-            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff.')
+            logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff{_dispname}.')
             async with await s_telepath.openurl(mirurl) as lead:
                 await lead.handoff(myurl)
-                logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}')
+                logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}{_dispname}')
                 return
 
         if self.ahaclient:
@@ -1875,18 +2067,20 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 leadterm = await proxy.nextLeadTerm(self.iden, name, nexs)
                 self.setCellMeta('aha:term', leadterm.get('term'))
 
+        logger.debug(f'PROMOTION: Clearing mirror configuration{_dispname}.')
         await self.setMirror(None)
 
-        logger.warning(f'PROMOTION: Finished leadership promotion!')
+        logger.warning(f'PROMOTION: Finished leadership promotion{_dispname}.')
 
     async def handoff(self, turl, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
-        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}.')
+        _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
+        logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
         async with await s_telepath.openurl(turl) as cell:
 
-            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}.')
+            logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
             if self.iden != await cell.getCellIden(): # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
@@ -1896,28 +2090,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            logger.debug(f'HANDOFF: Obtaining nexus lock.')
+            logger.debug(f'HANDOFF: Obtaining nexus lock{_dispname}.')
 
             async with self.nexslock:
 
-                logger.debug(f'HANDOFF: Obtained nexus lock.')
+                logger.debug(f'HANDOFF: Obtained nexus lock{_dispname}.')
                 indx = await self.getNexsIndx()
 
-                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}.')
+                logger.debug(f'HANDOFF: Waiting {timeout} seconds for mirror to reach {indx=}{_dispname}.')
                 if not await cell.waitNexsOffs(indx - 1, timeout=timeout): # pragma: no cover
                     mndx = await cell.getNexsIndx()
                     mesg = f'Remote mirror did not catch up in time: {mndx}/{indx}.'
                     raise s_exc.NotReady(mesg=mesg)
 
-                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion.')
+                logger.debug(f'HANDOFF: Mirror has caught up to the current leader, performing promotion{_dispname}.')
                 await cell.promote()
 
-                logger.debug(f'HANDOFF: Configuring service to sync from new leader.')
+                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname}.')
                 await self.setMirror(turl)
 
-            logger.debug(f'HANDOFF: Released nexus lock.')
+            logger.debug(f'HANDOFF: Released nexus lock{_dispname}.')
 
-        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}.')
+        logger.warning(f'HANDOFF: Done performing the leadership handoff with {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
     async def reqAhaProxy(self, timeout=None):
         if self.ahaclient is None:
@@ -2060,6 +2254,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.onfini(self.activebase)
             self._fireActiveCoros()
             await self._execCellUpdates()
+            await self.setNexsVers(NEXUS_VERSION)
             await self.initServiceActive()
         else:
             await self._killActiveCoros()
@@ -2462,7 +2657,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.backupstreaming = False
 
     async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
-        user = self.auth.user(iden)  # type: s_hiveauth.HiveUser
+        user = self.auth.user(iden)  # type: s_auth.User
         if user is None:
             return False
 
@@ -2487,36 +2682,59 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def getUserProfile(self, iden):
         user = await self.auth.reqUser(iden)
-        return user.profile.pack()
+        return dict(user.profile.items())
 
-    async def getUserProfInfo(self, iden, name):
+    async def getUserProfInfo(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return user.profile.get(name)
+        return user.profile.get(name, defv=default)
+
+    async def _setUserProfInfoV0(self, iden, name, valu):
+        path = ('auth', 'users', iden, 'profile', name)
+        return await self.hive._push('hive:set', path, valu)
 
     async def setUserProfInfo(self, iden, name, valu):
         user = await self.auth.reqUser(iden)
-        return await user.profile.set(name, valu)
+        return await user.setProfileValu(name, valu)
+
+    async def _popUserProfInfoV0(self, iden, name, default=None):
+        path = ('auth', 'users', iden, 'profile', name)
+        return await self.hive._push('hive:pop', path)
 
     async def popUserProfInfo(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return await user.profile.pop(name, default=default)
+        return await user.popProfileValu(name, default=default)
 
     async def iterUserVars(self, iden):
         user = await self.auth.reqUser(iden)
         for item in user.vars.items():
             yield item
+            await asyncio.sleep(0)
 
-    async def getUserVarValu(self, iden, name):
+    async def iterUserProfInfo(self, iden):
         user = await self.auth.reqUser(iden)
-        return user.vars.get(name)
+        for item in user.profile.items():
+            yield item
+            await asyncio.sleep(0)
+
+    async def getUserVarValu(self, iden, name, default=None):
+        user = await self.auth.reqUser(iden)
+        return user.vars.get(name, defv=default)
+
+    async def _setUserVarValuV0(self, iden, name, valu):
+        path = ('auth', 'users', iden, 'vars', name)
+        return await self.hive._push('hive:set', path, valu)
 
     async def setUserVarValu(self, iden, name, valu):
         user = await self.auth.reqUser(iden)
-        return await user.vars.set(name, valu)
+        return await user.setVarValu(name, valu)
+
+    async def _popUserVarValuV0(self, iden, name, default=None):
+        path = ('auth', 'users', iden, 'vars', name)
+        return await self.hive._push('hive:pop', path)
 
     async def popUserVarValu(self, iden, name, default=None):
         user = await self.auth.reqUser(iden)
-        return await user.vars.pop(name, default=default)
+        return await user.popVarValu(name, default=default)
 
     async def addUserRule(self, iden, rule, indx=None, gateiden=None):
         user = await self.auth.reqUser(iden)
@@ -2924,6 +3142,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             self.addReloadableSystem('https:certs', reload)
 
+        self.https_listeners.append({'host': lhost, 'port': lport})
+
         return (lhost, lport)
 
     def initSslCtx(self, certpath, keypath):
@@ -3066,7 +3286,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellHive(self):
         db = self.slab.initdb('hive')
-        hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.getCellNexsRoot())
+        hive = await s_hive.SlabHive.anit(self.slab, db=db, nexsroot=self.getCellNexsRoot(), cell=self)
         self.onfini(hive)
 
         return hive
@@ -3092,37 +3312,27 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initCellAuth(self):
 
+        # Add callbacks
+        self.on('user:del', self._onUserDelEvnt)
+
         authctor = self.conf.get('auth:ctor')
         if authctor is not None:
             s_common.deprecated('auth:ctor cell config option', curv='2.157.0')
             ctor = s_dyndeps.getDynLocal(authctor)
-            auth = await ctor(self)
-        else:
-            auth = await self._initCellHiveAuth()
-
-        # Add callbacks
-        self.on('user:del', self._onUserDelEvnt)
-
-        return auth
-
-    def getCellNexsRoot(self):
-        # the "cell scope" nexusroot only exists if we are *not* embedded
-        # (aka we dont have a self.cellparent)
-        if self.cellparent is None:
-            return self.nexsroot
-
-    async def _initCellHiveAuth(self):
+            return await ctor(self)
 
         maxusers = self.conf.get('max:users')
+        policy = self.conf.get('auth:passwd:policy')
 
         seed = s_common.guid((self.iden, 'hive', 'auth'))
 
-        node = await self.hive.open(('auth',))
-        auth = await s_hiveauth.Auth.anit(
-            node,
+        auth = await s_auth.Auth.anit(
+            self.slab,
+            'auth',
             seed=seed,
             nexsroot=self.getCellNexsRoot(),
-            maxusers=maxusers
+            maxusers=maxusers,
+            policy=policy
         )
 
         auth.link(self.dist)
@@ -3135,6 +3345,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.onfini(auth.fini)
         return auth
 
+    def getCellNexsRoot(self):
+        # the "cell scope" nexusroot only exists if we are *not* embedded
+        # (aka we dont have a self.cellparent)
+        if self.cellparent is None:
+            return self.nexsroot
+
     async def _initInauguralConfig(self):
         if self.inaugural:
             icfg = self.conf.get('inaugural')
@@ -3144,7 +3360,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     name = rnfo.get('name')
                     logger.debug(f'Adding inaugural role {name}')
                     iden = s_common.guid((self.iden, 'auth', 'role', name))
-                    role = await self.auth.addRole(name, iden)  # type: s_hiveauth.HiveRole
+                    role = await self.auth.addRole(name, iden)  # type: s_auth.Role
 
                     for rule in rnfo.get('rules', ()):
                         await role.addRule(rule)
@@ -3154,7 +3370,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     email = unfo.get('email')
                     iden = s_common.guid((self.iden, 'auth', 'user', name))
                     logger.debug(f'Adding inaugural user {name}')
-                    user = await self.auth.addUser(name, email=email, iden=iden)  # type: s_hiveauth.HiveUser
+                    user = await self.auth.addUser(name, email=email, iden=iden)  # type: s_auth.User
 
                     if unfo.get('admin'):
                         await user.setAdmin(True)
@@ -3321,7 +3537,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         Args:
             link (s_link.Link): The link object.
-            user (s_hive.HiveUser): The heavy user object.
+            user (s_auth.User): The heavy user object.
             path (str): The path requested.
 
         Notes:
@@ -3345,7 +3561,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         extra = {**kwargs}
         sess = s_scope.get('sess')  # type: s_daemon.Sess
-        user = s_scope.get('user')  # type: s_hiveauth.HiveUser
+        user = s_scope.get('user')  # type: s_auth.User
         if user:
             extra['user'] = user.iden
             extra['username'] = user.name
@@ -3925,15 +4141,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         try:
 
-            if 'dmon:listen' not in cell.conf:
-                await cell.dmon.listen(opts.telepath)
-                logger.info(f'...{cell.getCellType()} API (telepath): {opts.telepath}')
-            else:
-                lisn = cell.conf.get('dmon:listen')
-                if lisn is None:
-                    lisn = cell.getLocalUrl()
+            turl = cell._getDmonListen()
+            if turl is None:
+                turl = opts.telepath
+                await cell.dmon.listen(turl)
 
-                logger.info(f'...{cell.getCellType()} API (telepath): {lisn}')
+            logger.info(f'...{cell.getCellType()} API (telepath): {turl}')
 
             if 'https:port' not in cell.conf:
                 await cell.addHttpsPort(opts.https)
@@ -4101,6 +4314,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _onLoadHiveTree(self, tree, path, trim):
         return await self.hive.loadHiveTree(tree, path=path, trim=trim)
 
+    async def iterSlabData(self, name, prefix=''):
+        slabkv = self.slab.getSafeKeyVal(name, prefix=prefix, create=False)
+        for key, valu in slabkv.items():
+            yield key, valu
+            await asyncio.sleep(0)
+
     @s_nexus.Pusher.onPushAuto('sync')
     async def sync(self):
         '''
@@ -4181,6 +4400,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),
                     'network': self.conf.get('aha:network'),
+                },
+                'network': {
+                    'https': self.https_listeners,
                 }
             },
             'features': {

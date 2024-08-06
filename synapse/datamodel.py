@@ -467,8 +467,8 @@ class Model:
         self.arraysbytype = collections.defaultdict(dict)
         self.ifaceprops = collections.defaultdict(list)
         self.formsbyiface = collections.defaultdict(list)
-        self.edgesbyn1 = collections.defaultdict(list)
-        self.edgesbyn2 = collections.defaultdict(list)
+        self.edgesbyn1 = collections.defaultdict(set)
+        self.edgesbyn2 = collections.defaultdict(set)
 
         self.formprefixcache = s_cache.LruDict(PREFIX_CACHE_SIZE)
 
@@ -820,8 +820,18 @@ class Model:
         edge = Edge(self, edgetype, edgeinfo)
 
         self.edges[edgetype] = edge
-        self.edgesbyn1[n1form].append(edge)
-        self.edgesbyn2[n2form].append(edge)
+        self.edgesbyn1[n1form].add(edge)
+        self.edgesbyn2[n2form].add(edge)
+
+    def delEdge(self, edgetype):
+        if self.edges.get(edgetype) is None:
+            return
+
+        n1form, verb, n2form = edgetype
+
+        self.edges.pop(edgetype, None)
+        self.edgesbyn1[n1form].discard(edgetype)
+        self.edgesbyn2[n2form].discard(edgetype)
 
     def _reqFormName(self, name):
         form = self.forms.get(name)
@@ -1109,3 +1119,6 @@ class Model:
 
     def tagprop(self, name):
         return self.tagprops.get(name)
+
+    def edge(self, edgetype):
+        return self.edges.get(edgetype)
