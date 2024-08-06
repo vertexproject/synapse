@@ -1067,13 +1067,14 @@ class ClientV2(s_base.Base):
 
                 # regular telepath client behavior
                 proxy = await openinfo(urlinfo)
-                await self._onPoolLink(proxy, urlinfo)
 
                 async def reconnect():
                     if not self.isfini:
                         self.schedCoro(self._initBootProxy())
 
                 proxy.onfini(reconnect)
+
+                await self._onPoolLink(proxy, urlinfo)
                 return
 
             except Exception as e:

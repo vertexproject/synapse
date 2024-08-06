@@ -1,0 +1,5 @@
+---
+desc: Remove a potential race condition in onfini handler registration.
+prs: []
+type: bug
+...
