@@ -3654,7 +3654,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             # 1. self.dirn/cell.guid file is NOT present in the service directory.
             # 2. mirror config is present.
             # 3. aha:provision config is not set OR the aha:provision guid matches the self.dirn/prov.done file.
-            mesg = 'Service has been configured too boot from an upstream mirror, but has entered into an invalid ' \
+            mesg = 'Service has been configured to boot from an upstream mirror, but has entered into an invalid ' \
                    'state. This may have been caused by manipulation of the service storage or an error during a ' \
                    f'backup / restore operation. {pnfo.get("mesg")}'
             raise s_exc.BadState(mesg=mesg)
