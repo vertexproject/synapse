@@ -1,0 +1,6 @@
+---
+desc: Cause service startup to fail with a clear error message when a rare error condition occurs when attempting
+  to boot a service mirror.
+prs: []
+type: bug
+...

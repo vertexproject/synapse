@@ -1838,6 +1838,35 @@ class CellTest(s_t_utils.SynTest):
                         self.true(s_common.isguid(second_doneiden))
                     self.ne(doneiden, second_doneiden)
 
+    async def test_cell_mirrorboot_failure(self):
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'cell00')
+                cdr1 = s_common.genpath(dirn, 'cell01')
+
+                async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=cdr0) as cell00:
+
+                    conf = {'mirror': 'aha://cell...'}
+                    with self.raises(s_exc.BadState) as cm:
+                        async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                            self.fail('Cell01 should never boot')
+                    self.isin('No aha:provision configuration has been provided to allow the service to bootstrap',
+                              cm.exception.get('mesg'))
+
+                    provurl = await aha.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'})
+                    conf = self.getCellConf({'aha:provision': provurl})
+                    async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                        await cell01.sync()
+                    os.unlink(s_common.genpath(cdr1, 'cell.guid'))
+
+                    conf = self.getCellConf({'aha:provision': provurl})
+                    with self.raises(s_exc.BadState) as cm:
+                        async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                            self.fail('Cell01 should never boot')
+                    self.isin('The aha:provision URL guid matches the service prov.done guid',
+                              cm.exception.get('mesg'))
+
     async def test_backup_restore_aha(self):
         # do a mirror provisioning of a Cell
         # promote the mirror to being a leader
