@@ -1,3 +1,4 @@
+import ssl
 import asyncio
 
 from unittest import mock
@@ -124,8 +125,13 @@ class ImapTest(s_test.SynTest):
 
     async def test_storm_imap(self):
 
-        with mock.patch('aioimaplib.IMAP4.create_client', mock_create_client), \
-            mock.patch('aioimaplib.IMAP4_SSL.create_client', mock_create_client):
+        client_args = []
+        def client_mock(*args, **kwargs):
+            client_args.append((args, kwargs))
+            return mock_create_client(*args, **kwargs)
+
+        with mock.patch('aioimaplib.IMAP4.create_client', client_mock), \
+            mock.patch('aioimaplib.IMAP4_SSL.create_client', client_mock):
 
             async with self.getTestCore() as core:
 
@@ -137,16 +143,20 @@ class ImapTest(s_test.SynTest):
                 '''
                 retn = await core.callStorm(scmd)
                 self.eq((True, ('INBOX',)), retn)
+                ctx = self.nn(client_args[-1][0][5])  # type: ssl.SSLContext
+                self.eq(ctx.verify_mode, ssl.CERT_REQUIRED)
 
                 # search for UIDs
                 scmd = '''
-                    $server = $lib.inet.imap.connect(hello)
+                    $server = $lib.inet.imap.connect(hello, ssl_verify=(false))
                     $server.login("vtx@email.com", "secret")
                     $server.select("INBOX")
                     return($server.search("FROM", "foo@mail.com"))
                 '''
                 retn = await core.callStorm(scmd)
                 self.eq((True, ('8181', '8192', '8194')), retn)
+                ctx = self.nn(client_args[-1][0][5])  # type: ssl.SSLContext
+                self.eq(ctx.verify_mode, ssl.CERT_NONE)
 
                 # search for UIDs with specific charset
                 scmd = '''
@@ -186,6 +196,8 @@ class ImapTest(s_test.SynTest):
                 '''
                 retn = await core.callStorm(scmd)
                 self.eq((True, None), retn)
+                pprint(client_args[-1])
+                self.none(client_args[-1][0][5])  # type: ssl.SSLContext
 
                 # delete
                 scmd = '''
