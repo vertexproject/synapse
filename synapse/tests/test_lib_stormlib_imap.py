@@ -196,7 +196,6 @@ class ImapTest(s_test.SynTest):
                 '''
                 retn = await core.callStorm(scmd)
                 self.eq((True, None), retn)
-                pprint(client_args[-1])
                 self.none(client_args[-1][0][5])  # type: ssl.SSLContext
 
                 # delete
