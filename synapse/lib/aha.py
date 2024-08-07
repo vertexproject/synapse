@@ -147,6 +147,25 @@ class AhaApi(s_cell.CellApi):
         async for item in self.cell.runGatherGenr(iden, todo, timeout=timeout):
             yield item
 
+    async def addNexsTracker(self, name, iden, network=None):
+        '''
+        Add an explicit nexus tracker which consumes the transactions
+        produced by the iden leader.
+        '''
+        return await self.cell.addNexsTracker(name, iden, network=network)
+
+    async def delNexsTracker(self, name, iden, network=None):
+        '''
+        Remove a nexus tracker entry.
+        '''
+        return await self.cell.delNexsTracker(name, iden, network=network)
+
+    async def getNexsTrackers(self, iden):
+        # services which have the same iden are all automatically trackers
+        # explicitly registered trackers are also yielded here
+        async for item in self.cell.getNexsTrackers(iden):
+            yield item
+
     async def getAhaSvc(self, name, filters=None):
         '''
         Return an AHA service description dictionary for a service name.
