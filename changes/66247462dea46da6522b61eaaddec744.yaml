@@ -1,0 +1,5 @@
+---
+desc: Update the ``aioimaplib`` library constraints to ``>=1.1.0,<1.2.0``.
+prs: []
+type: feat
+...
