@@ -257,25 +257,20 @@ class StormReporter(coverage.FileReporter):
 
         block = None
         for (lineno, text) in nocov:
-            # Invalid condition
-            if stop in text and block is None:
-                continue
-
-            # Invalid condition
-            if start in text and block is not None:
+            if stop in text:
+                if block is not None:
+                    # End a multi-line block
+                    excluded_lines |= set(range(block, lineno + 1))
+                    block = None
                 continue
 
             if start in text:
-                # Start a multi-line block
-                block = lineno
+                if block is None:
+                    # Start a multi-line block
+                    block = lineno
                 continue
 
-            if stop in text:
-                excluded_lines |= set(range(block, lineno + 1))
-                block = None
-                continue
-
-            if pragma in text and start not in text and stop not in text:
+            if pragma in text:
                 excluded_lines.add(lineno)
 
         return excluded_lines

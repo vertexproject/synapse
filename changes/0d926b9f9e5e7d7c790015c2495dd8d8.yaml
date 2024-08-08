@@ -4,7 +4,7 @@ desc: Migrate invalid ``it:sec:cpe`` nodes if possible. Expanding on the
   migrate invalid ``it:sec:cpe`` nodes.
 
   Migration of these nodes will only be successful if one of the CPE2.3 (primary
-  property) or the CPE2.2 (``:v2_2``) strings are valid CPE.  If both CPE
+  property) or the CPE2.2 (``:v2_2``) strings are valid CPEs.  If both CPE
   strings are invalid, the node will be removed from the cortex and stored in a
   queue (``model_0_2_27:nodes``). All references to these invalid nodes will
   also be removed and stored in a separate queue (``model_0_2_27:nodes:refs``).

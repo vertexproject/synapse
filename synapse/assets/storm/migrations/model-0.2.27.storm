@@ -131,7 +131,7 @@ function removeNode(n, viewiden, layriden) {
 
             spin |
 
-            iden $iden |
+            yield $iden |
 
             // Get sources and store them in the queue
             // Do this before we store/delete edges.
@@ -144,7 +144,7 @@ function removeNode(n, viewiden, layriden) {
                 ($verb, $dst) = $edge
                 $edges.append($edge)
 
-                [ -($verb)> { iden $dst } ]
+                [ -($verb)> { yield $dst } ]
 
                 // Flush to the queue if the list grows too large
                 if ($edges.size() > 1000) { // pragma: no cover start
@@ -177,7 +177,7 @@ function removeNode(n, viewiden, layriden) {
                 ($verb, $src) = $edge
                 $edges.append($edge)
 
-                [ <($verb)- { iden $src } ]
+                [ <($verb)- { yield $src } ]
 
                 // Flush to the queue if the list grows too large
                 if ($edges.size() > 1000) { // pragma: no cover start
@@ -329,7 +329,7 @@ function main() {
 
                     spin |
 
-                    iden $oldcpe.iden() |
+                    yield $oldcpe |
                     delnode --deledges --force
 
                 } else {
@@ -340,7 +340,7 @@ function main() {
 
                     $removeNode($oldcpe, $view.iden, $view.layers.0.iden)
 
-                    iden $oldcpe.iden() |
+                    yield $oldcpe |
                     delnode --deledges --force
                 }
             }

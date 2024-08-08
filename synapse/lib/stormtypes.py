@@ -5068,7 +5068,7 @@ class List(Prim):
                       {'name': 'all', 'type': 'boolean', 'default': False,
                        'desc': 'Remove all instances of item from the list.'},
                   ),
-                  'returns': {'type': 'null'}}},
+                  'returns': {'type': 'bool', 'desc': 'Boolean indicating if the item was removed from the list.'}}},
     )
     _storm_typename = 'list'
     _ismutable = True
