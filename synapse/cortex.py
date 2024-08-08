@@ -774,13 +774,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'layer:lmdb:map_async': {
             'default': True,
-            'description': 'Set the default lmdb:map_async value in LMDB layers.',
-            'type': 'boolean'
+            'description': 'Deprecated. This value is ignored.',
+            'type': 'boolean',
+            'hidecmdl': True,
+            'hideconf': True,
         },
         'layer:lmdb:max_replay_log': {
             'default': 10000,
-            'description': 'Set the max size of the replay log for all layers.',
-            'type': 'integer'
+            'description': 'Deprecated. This value is ignored.',
+            'type': 'integer',
+            'hidecmdl': True,
+            'hideconf': True,
         },
         'layers:lockmemory': {
             'default': False,

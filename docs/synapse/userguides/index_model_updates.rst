@@ -8,6 +8,7 @@ The following are model updates which have been made with different Synapse rele
 
 .. toctree::
     :titlesonly:
+    :reversed:
     :glob:
 
-    model_update_*
+    model_updates/update_*

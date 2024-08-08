@@ -1,0 +1,5 @@
+---
+desc: Updated service base class to retrieve updated AHA servers on startup.
+prs: []
+type: feat
+...
