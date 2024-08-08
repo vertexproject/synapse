@@ -1996,7 +1996,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2019,7 +2019,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -4994,7 +4994,7 @@ class List(Prim):
         {'name': 'sort', 'desc': 'Sort the list in place.',
          'type': {'type': 'function', '_funcname': '_methListSort',
                   'args': (
-                      {'name': 'reverse', 'type': 'bool', 'desc': 'Sort the list in reverse order.',
+                      {'name': 'reverse', 'type': 'boolean', 'desc': 'Sort the list in reverse order.',
                        'default': False},
                   ),
                   'returns': {'type': 'null', }}},
@@ -5068,7 +5068,7 @@ class List(Prim):
                       {'name': 'all', 'type': 'boolean', 'default': False,
                        'desc': 'Remove all instances of item from the list.'},
                   ),
-                  'returns': {'type': 'bool', 'desc': 'Boolean indicating if the item was removed from the list.'}}},
+                  'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the item was removed from the list.'}}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -6084,7 +6084,7 @@ class Node(Prim):
                       {'name': 'glob', 'type': 'str', 'default': None,
                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression '
                                'are returned.'},
-                      {'name': 'leaf', 'type': 'bool', 'default': False,
+                      {'name': 'leaf', 'type': 'boolean', 'default': False,
                        'desc': 'If true, only leaf tags are included in the returned tags.'},
                   ),
                   'returns': {'type': 'list',
@@ -7390,7 +7390,7 @@ class LibView(Lib):
         {'name': 'list', 'desc': 'List the Views in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methViewList',
                   'args': (
-                      {'name': 'deporder', 'type': 'bool', 'default': False,
+                      {'name': 'deporder', 'type': 'boolean', 'default': False,
                         'desc': 'Return the lists in bottom-up dependency order.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'List of ``view`` objects.', }}},
