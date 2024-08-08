@@ -1848,7 +1848,7 @@ class CellTest(s_t_utils.SynTest):
                 async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=cdr0) as cell00:
 
                     conf = {'mirror': 'aha://cell...'}
-                    with self.raises(s_exc.BadState) as cm:
+                    with self.raises(s_exc.FatalErr) as cm:
                         async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
                             self.fail('Cell01 should never boot')
                     self.isin('No aha:provision configuration has been provided to allow the service to bootstrap',
@@ -1861,7 +1861,7 @@ class CellTest(s_t_utils.SynTest):
                     os.unlink(s_common.genpath(cdr1, 'cell.guid'))
 
                     conf = self.getCellConf({'aha:provision': provurl})
-                    with self.raises(s_exc.BadState) as cm:
+                    with self.raises(s_exc.FatalErr) as cm:
                         async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
                             self.fail('Cell01 should never boot')
                     self.isin('The aha:provision URL guid matches the service prov.done guid',
