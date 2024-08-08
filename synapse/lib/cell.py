@@ -3657,7 +3657,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Service has been configured to boot from an upstream mirror, but has entered into an invalid ' \
                    'state. This may have been caused by manipulation of the service storage or an error during a ' \
                    f'backup / restore operation. {pnfo.get("mesg")}'
-            raise s_exc.BadState(mesg=mesg)
+            raise s_exc.FatalErr(mesg=mesg)
 
         async with s_telepath.loadTeleCell(self.dirn):
             await self._bootCellMirror(pnfo)
