@@ -3873,7 +3873,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             s_config.Config: The new config object to be used.
         '''
         # replace our runtime config with the updated config with provconf data
-        new_conf = self.initCellConf(self.conf)
+        new_conf = self._initCellConf(self.conf)
         new_conf.setdefault('_log_conf', await self._getSpawnLogConf())
 
         # Load any opts we have and environment variables.

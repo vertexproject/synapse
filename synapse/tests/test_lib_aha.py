@@ -1292,3 +1292,38 @@ class AhaTest(s_test.SynTest):
                 async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
                     self.none(await cell.ahaclient.waitready(timeout=12))
                     self.eq(cell.conf.get('aha:registry'), ahaurl)
+
+    async def test_aha_cell_with_conf(self):
+
+        class MyCell(s_cell.Cell):
+            confdefs = {
+                'foobar': {
+                    'type': 'string',
+                    'description': 'The foobar config value.',
+                },
+            }
+
+        ahaconf = {
+            'aha:network': 'foonet',
+        }
+
+        async with self.getTestAha(conf=ahaconf) as aha:
+            host, port = await aha.dmon.listen('tcp://127.0.0.1:0')
+            await aha.auth.rootuser.setPasswd('secret')
+
+            aha_url = f'tcp://root:secret@127.0.0.1:{port}'
+
+            ahawait = aha.waiter(1, 'aha:svcadd')
+
+            provurl = await aha.addAhaSvcProv('mycell')
+
+            myconf = {
+                'aha:name': 'mycell',
+                'aha:provision': provurl,
+                'dmon:listen': 'tcp://0.0.0.0:0',
+                'foobar': 'baz'
+            }
+
+            async with self.getTestCell(MyCell, conf=myconf) as cell:
+                self.nn(await ahawait.wait(timeout=2))
+                self.eq(cell.conf.req('foobar'), 'baz')

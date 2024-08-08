@@ -1,0 +1,6 @@
+---
+desc: Fix bug when initializing AHA config on the cell that would remove valid cell
+  configuration options from the cell config.
+prs: []
+type: bug
+...
