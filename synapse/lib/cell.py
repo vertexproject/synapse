@@ -4741,6 +4741,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sslctx.check_hostname = False
             sslctx.verify_mode = ssl.CERT_NONE
 
+        if opts.get('ca_cert'):
+            ca_cert = opts.get('ca_cert').encode()
+            with self.getTempDir() as tmpdir:
+                with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                    fh.write(ca_cert)
+                try:
+                    sslctx.load_verify_locations(cafile=fh.name)
+                except Exception as e:  # pragma: no cover
+                    raise s_exc.BadArg(mesg=f'Error loading CA cert: {str(e)}') from None
+
         if not opts['client_cert']:
             return sslctx
 

@@ -1,0 +1,5 @@
+---
+desc: Add support for ca_certificate to $ssl_opts
+prs: []
+type: feat
+...
