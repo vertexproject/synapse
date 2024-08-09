@@ -37,6 +37,7 @@ import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
+import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
@@ -1285,7 +1286,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initAhaRegistry()
 
         # phase 2 - service storage
+        await self.initCellStorage()
         await self.initServiceStorage()
+
         # phase 3 - nexus subsystem
         await self.initNexusSubsystem()
 
@@ -1740,6 +1743,103 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initServiceEarly(self):
         pass
+
+    async def initCellStorage(self):
+        self.drive = s_drive.Drive.anit(self.slab, 'celldrive')
+        self.onfini(self.drive.fini)
+
+    async def addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
+
+        iden = info.get('iden')
+        if await self.getDriveInfo(iden) is not None:
+            raise s_exc.TODO()
+
+        return self._push('drive:add', info, path=path, reldir=reldir)
+
+    @s_nexus.onPushAuto('drive:add')
+    async def _addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
+
+        # replay safety...
+        iden = info.get('iden')
+        if self.getDriveInfo(iden) is not None:
+            return
+
+        await self.drive.addItemInfo(info, path=path, reldir=reldir)
+
+    async def getDriveInfo(self, iden):
+        return self.drive.getItemInfo(iden)
+
+    async def getDrivePath(self, path, reldir=s_drive.rootdir):
+        '''
+        Return a list of drive info elements for each step in path.
+
+        This may be used as a sort of "open" which returns all the
+        path info entries. You may then operate directly on drive iden
+        entries and/or check easyperm entries on them before you do...
+        '''
+        return self.drive.getPathInfo(path, reldir=reldir)
+
+    async def addDrivePath(self, path, perm=None, reldir=s_drive.rootdir):
+        '''
+        Create the given path using the specified permissions.
+
+        The specified permissions are only used when creating new directories.
+
+        NOTE: We must do this outside the Drive class to allow us to generate
+              iden and tick but remain nexus compatible.
+        '''
+        tick = s_common.now()
+        user = self.auth.rootuser.iden
+        path = self.drive.getPathNorm()
+
+        if perm is None:
+            perm = {}
+
+        pathinfo = []
+
+        for name in path:
+
+            info = self.drive.getStepInfo(reldir, name)
+
+            if info is not None:
+                pathinfo.append(info)
+                reldir = info.get('iden')
+                continue
+
+            info = {
+                'type': 'dir',
+                'name': name,
+                'perm': perm,
+                'iden': s_common.guid(),
+                'created': tick,
+                'creator': user,
+            }
+            pathinfo.extend(self.addDriveItem(info, reldir=reldir))
+            reldir = pathinfo[-1].get('iden')
+
+        return pathinfo
+
+    async def getDriveData(self, iden, vers=None):
+        '''
+        Return the data associated with the drive item by iden.
+        If vers is specified, return that specific version.
+        '''
+        return self.drive.getItemData(iden, vers=vers)
+
+    #async def getDriveItem(self, iden):
+        #return self.drive.getItemInfo(iden)
+
+    @s_nexus.onPushAuto('drive:del')
+    async def delDriveInfo(self, iden):
+        await self.drive.delItemInfo(iden)
+
+    @s_nexus.onPushAuto('drive:set:perm')
+    async def setDriveInfoPerm(self, iden, perm):
+        await self.drive.setItemPerm(iden, perm)
+
+    @s_nexus.onPushAuto('drive:data:set')
+    async def setDriveData(self, iden, data, versinfo=None):
+        await self.drive.setItemData(iden, data, versinfo=versinfo)
 
     async def initServiceStorage(self):
         pass
