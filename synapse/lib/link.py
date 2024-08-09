@@ -164,7 +164,7 @@ class Link(s_base.Base):
                 self.reader._transport.abort()
             try:
                 await self.writer.wait_closed()
-            except (BrokenPipeError, ConnectionResetError) as e:
+            except Exception as e:
                 logger.debug('Link error waiting on close: %s', str(e))
 
         self.onfini(fini)
