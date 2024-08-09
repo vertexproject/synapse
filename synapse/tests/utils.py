@@ -1390,22 +1390,9 @@ class SynTest(unittest.TestCase):
         '''
         Get a test Cell.
         '''
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-
-        conf = copy.deepcopy(conf)
-
+        conf = self.getCellConf(conf=conf)
         with self.withNexusReplay():
-            if dirn is not None:
-
-                async with await ctor.anit(dirn, conf=conf) as cell:
-                    yield cell
-
-                return
-
-            with self.getTestDir() as dirn:
+            with self.mayTestDir(dirn) as dirn:
                 async with await ctor.anit(dirn, conf=conf) as cell:
                     yield cell
 
