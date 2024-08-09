@@ -27,6 +27,11 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.eq(reporter.lines(), {1, 2, 3, 6})
         self.eq(reporter.translate_lines({1, 2}), {1, 2})
 
+        # no cover, no cover start, and no cover stop
+        reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/pragma-nocov.storm'))
+        self.eq(reporter.lines(), {1, 2, 3, 12, 18})
+        self.eq(reporter.excluded_lines(), {6, 8, 9, 10, 14, 15, 16})
+
         # We no longer do whitespace transformations of lines.
         reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/spin.storm'))
         self.eq(reporter.translate_lines({1, 2}), {1, 2})
