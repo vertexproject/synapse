@@ -19,7 +19,7 @@ Features and Enhancements
   (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
 - Updated service base class to retrieve updated AHA servers on startup.
   (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
-- Update ``$lib.inet.imap`` and ``$lib.inet.stmp`` APIs to use certificates
+- Update ``$lib.inet.imap`` and ``$lib.inet.smtp`` APIs to use certificates
   present in the Cortex ``tls:ca:dir`` directory. Add ``ssl_verify`` options to
   the ``$lib.inet.imap.connect()`` and ``inet:smtp:message.send()`` APIs to
   disable TLS verification.
