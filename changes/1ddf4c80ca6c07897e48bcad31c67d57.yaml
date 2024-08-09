@@ -1,0 +1,6 @@
+---
+desc: Fix bug where trigger name and doc updates set via runtnodes did not go through
+  a nexus handler.
+prs: []
+type: bug
+...

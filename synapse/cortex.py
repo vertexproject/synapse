@@ -2093,17 +2093,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def onSetTrigDoc(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            trig = node.snap.view.triggers.get(iden)
             node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
-            await trig.set('doc', valu)
+            await node.snap.view.setTriggerInfo(iden, 'doc', valu)
             node.props[prop.name] = valu
 
         async def onSetTrigName(node, prop, valu):
             valu = str(valu)
             iden = node.ndef[1]
-            trig = node.snap.view.triggers.get(iden)
             node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
-            await trig.set('name', valu)
+            await node.snap.view.setTriggerInfo(iden, 'name', valu)
             node.props[prop.name] = valu
 
         async def onSetCronDoc(node, prop, valu):
