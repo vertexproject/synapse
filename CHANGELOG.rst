@@ -12,6 +12,9 @@ v2.178.0 - 2024-08-09
 
 Features and Enhancements
 -------------------------
+- Setting the ``aha:network`` value on the AHA service, as demonstrated in the
+  deployment guide, is now mandatory.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
 - Added ``synapse.tools.aha.clone`` command to make it easy to bootstrap AHA
   mirrors.
   (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
