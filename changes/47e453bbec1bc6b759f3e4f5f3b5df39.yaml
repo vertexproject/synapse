@@ -1,6 +1,7 @@
 ---
-desc: Cause service startup to fail with a clear error message when a rare error condition occurs when attempting
-  to boot a service mirror.
+desc: Cause service startup to fail with a clear error message when attempting to bootstrap a service with a
+  ``mirror`` configuration and the ``aha:provision`` configuration option is missing, or the service storage
+  has been manipulated into a invalid state.
 prs: []
 type: bug
 ...
