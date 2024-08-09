@@ -6,6 +6,60 @@
 Synapse Changelog
 *****************
 
+
+v2.178.0 - 2024-08-09
+=====================
+
+Features and Enhancements
+-------------------------
+- Added ``synapse.tools.aha.clone`` command to make it easy to bootstrap AHA
+  mirrors.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Added support for dynamically registered AHA mirrors.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Updated service base class to retrieve updated AHA servers on startup.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Update ``$lib.inet.imap`` and ``$lib.inet.smtp`` APIs to use certificates
+  present in the Cortex ``tls:ca:dir`` directory. Add ``ssl_verify`` options to
+  the ``$lib.inet.imap.connect()`` and ``inet:smtp:message.send()`` APIs to
+  disable TLS verification.
+  (`#3842 <https://github.com/vertexproject/synapse/pull/3842>`_)
+- Update the ``aioimaplib`` library constraints to ``>=1.1.0,<1.2.0``.
+  (`#3842 <https://github.com/vertexproject/synapse/pull/3842>`_)
+- Log the path of the LMDB file that was backed up in
+  ``synapse.tools.backup.backup_lmdb``.
+  (`#3843 <https://github.com/vertexproject/synapse/pull/3843>`_)
+
+Bugfixes
+--------
+- Remove a potential race condition in onfini handler registration.
+  (`#3840 <https://github.com/vertexproject/synapse/pull/3840>`_)
+- Cause service startup to fail with a clear error message when attempting to
+  bootstrap a service with a ``mirror`` configuration and the ``aha:provision``
+  configuration option is missing, or the service storage has been manipulated
+  into a invalid state.
+  (`#3844 <https://github.com/vertexproject/synapse/pull/3844>`_)
+
+Improved documentation
+----------------------
+- Update deployment guide to include optional steps to deploy AHA mirrors.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Update deployment guide to clarify ``aha:network`` selection vs ``dns:name``
+  selection.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Move data model update information for the ``v2.133.0`` release and above
+  from the changelog and into their own section of the User Guide.
+  (`#3839 <https://github.com/vertexproject/synapse/pull/3839>`_)
+- Update Synapse tool examples to use ``aha://`` URLs.
+  (`#3839 <https://github.com/vertexproject/synapse/pull/3839>`_)
+
+Deprecations
+------------
+- Deprecate the ``Cell.conf.reqConfValu()`` API. This has been replaced with
+  ``Cell.conf.req()``.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+
+
 v2.177.0 - 2024-08-01
 =====================
 

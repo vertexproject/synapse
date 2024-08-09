@@ -1,7 +1,0 @@
----
-desc: Update ``$lib.inet.imap`` and ``$lib.inet.stmp`` APIs to use certificates present
-  in the Cortex ``tls:ca:dir`` directory. Add ``ssl_verify`` options to the ``$lib.inet.imap.connect()``
-  and ``inet:smtp:message.send()`` APIs to disable TLS verification.
-prs: []
-type: feat
-...
