@@ -1,0 +1,5 @@
+---
+desc: Log the path of the LMDB file that was backed up in ``synapse.tools.backup.backup_lmdb``.
+prs: []
+type: feat
+...
