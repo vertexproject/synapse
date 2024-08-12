@@ -428,7 +428,7 @@ langcodes = (
     (0x7C28, 'tg-Cyrl'),  # TAJIK (CYRILLIC)
     (0x0428, 'tg-Cyrl-TJ'),  # TAJIK (CYRILLIC) TAJIKISTAN
     (0x005F, 'tzm'),  # TAMAZIGHT (LATIN)
-    (0x0C5F, "tzm-MA"),  # TODO: Manual says this is "tmz" but the code points to tzm?
+    (0x0C5F, "tzm-MA"),
     (0x7C5F, 'tzm-Latn'),  # TAMAZIGHT (LATIN)
     (0x085F, 'tzm-Latn-DZ'),  # TAMAZIGHT (LATIN) ALGERIA
     (0x045F, 'tzm-Arab-MA'),  # CENTRAL ATLAS TAMAZIGHT (ARABIC) MOROCCO
