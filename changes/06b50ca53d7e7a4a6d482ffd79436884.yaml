@@ -1,0 +1,6 @@
+---
+desc: Fix bug where the calling fini() on the cell slab might cause a hang/timeout
+  due to a race with other fini functions.
+prs: []
+type: bug
+...
