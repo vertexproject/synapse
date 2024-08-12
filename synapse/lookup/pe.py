@@ -30,6 +30,8 @@ def getRsrcTypes():
 
 # Language identifier constants and strings
 # https://docs.microsoft.com/en-us/windows/desktop/intl/language-identifier-constants-and-strings#language-identifier-notes
+# https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-LCID/%5bMS-LCID%5d.pdf
+# https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid/63d3d639-7fd2-4afb-abbe-0d5b5551eef8
 langcodes = (
     (0x0C00, 'custom default'),  # Default custom locale language-Default custom sublanguage'
     (0x1400, 'ui_custom_default'),  # Default custom MUI locale language-Default custom MUI sublanguage
@@ -63,6 +65,8 @@ langcodes = (
     (0x1C01, 'ar-TN'),  # ARABIC_TUNISIA
     (0x3801, 'ar-AE'),  # ARABIC_UAE
     (0x2401, 'ar-YE'),  # ARABIC_YEMEN
+    (0x4401, "ar-Ploc-SA"),
+    (0x4801, "ar-145"),
     (0x002B, 'hy'),  # ARMENIAN
     (0x042B, 'hy-AM'),  # ARMENIAN_ARMENIA
     (0x004D, 'as'),  # ASSAMESE
@@ -484,6 +488,43 @@ langcodes = (
     (0x046A, 'yo-NG'),  # YORUBA_NIGERIA
     (0x0035, 'zu'),  # ZULU
     (0x0435, 'zu-ZA'),  # ZULU_SOUTH_AFRICA
+
+    # See Section 2.2.1 of MS-LCID
+    (0x2000, "custom transient"),
+    (0x2400, "custom transient"),
+    (0x2800, "custom transient"),
+    (0x2C00, "custom transient"),
+    (0x3000, "custom transient"),
+    (0x3400, "custom transient"),
+    (0x3800, "custom transient"),
+    (0x3C00, "custom transient"),
+    (0x4000, "custom transient"),
+    (0x4400, "custom transient"),
+    (0x4800, "custom transient"),
+    (0x4C00, "custom transient"),
+
+    (0x007B, "undefined and unreserved"),
+    (0x007D, "undefined and unreserved"),
+    (0x0089, "undefined and unreserved"),
+    (0x008A, "undefined and unreserved"),
+    (0x008B, "undefined and unreserved"),
+    (0x008D, "undefined and unreserved"),
+    (0x008E, "undefined and unreserved"),
+    (0x008F, "undefined and unreserved"),
+    (0x0090, "undefined and unreserved"),
+    (0x0827, "undefined and unreserved"),
+    (0x2008, "undefined and unreserved"),
+
+    (0xF2EE, "reserved"),
+    (0xEEEE, "reserved"),
+
+    (0x048D, "plt-MG"),
+    (0x048E, "zh-yue-HK"),
+    (0x048F, "tdd-Tale-CN"),
+    (0x0490, "khb-Talu-CN"),
+
+    (0x0093, "quc"),
+    (0x0493, "quc-CO"),
 )
 
 def getLangCodes():
