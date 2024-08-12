@@ -273,7 +273,7 @@ commands:
         type: string
         default: ''
       python_smoke_code:
-        descriptsion: Code used to smoke test the package before publication.
+        description: Code used to smoke test the package before publication.
         type: string
     steps:
       - restore_cache:
@@ -625,6 +625,7 @@ jobs:
           devpi_index: vertex/synapse-3xx
           python_tag: py311
           tag_verify: false
+          python_smoke_code: import synapse; print(synapse.version)
 
 workflows:
   version: 2
