@@ -80,9 +80,6 @@ class Base:
         One should not create instances directly via its initializer, i.e. Base().  One shall always use the class
         method anit.
     '''
-
-    FINI_PRIORITY = 0
-
     def __init__(self):
         self.anitted = False
         assert inspect.stack()[1].function == 'anit', 'Objects from Base must be constructed solely via "anit"'
@@ -178,7 +175,7 @@ class Base:
         assert entr is not None
         return entr()
 
-    def onfini(self, func, priority=0):
+    def onfini(self, func):
         '''
         Add a function/coroutine/Base to be called on fini().
         '''
@@ -194,7 +191,7 @@ class Base:
             return
 
         assert self.anitted
-        self._fini_funcs.append((priority, func))
+        self._fini_funcs.append(func)
 
     async def __aenter__(self):
         assert asyncio.get_running_loop() == self.loop
@@ -391,9 +388,7 @@ class Base:
 
         self.isfini = True
 
-        tofini = sorted(self.tofini, key=lambda x: x.FINI_PRIORITY)
-
-        for base in tofini:
+        for base in list(self.tofini):
             await base.fini()
 
         await self._kill_active_tasks()
@@ -417,8 +412,7 @@ class Base:
                         logger.exception(f'{self} {item} - context exit failed!')
                     continue
 
-        _fini_funcs = sorted(self._fini_funcs, key=lambda x: x[0])
-        for (_, fini) in _fini_funcs:
+        for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
             except Exception:
