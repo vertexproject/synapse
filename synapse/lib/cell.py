@@ -3217,7 +3217,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _initSlabFile(self, path, readonly=False):
         slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
         slab.addResizeCallback(self.checkFreeSpace)
-        self.onfini(slab.fini)
+        self.onfini(slab)
         return slab
 
     async def _initCellSlab(self, readonly=False):

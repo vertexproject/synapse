@@ -780,6 +780,8 @@ class Slab(s_base.Base):
     DEFAULT_MAPSIZE = s_const.gibibyte
     DEFAULT_GROWSIZE = None
 
+    FINI_PRIORITY = 999
+
     @classmethod
     def getSlabsInDir(clas, dirn):
         '''
