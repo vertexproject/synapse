@@ -69,40 +69,25 @@ langcodes = (
     (0x044D, 'as-IN'),  # ASSAMESE_INDIA
     (0x002C, 'az'),  # AZERBAIJANI (LATIN)
     (0x742C, 'az-Cyrl'),  # AZERBAIJANI (CYRILLIC)
-    (0x082C, 'az-Cyrl-AZ'),  # AZERBAIJANI (CYRILLIC) AZERBAIJAN  # <--- CHECK ME: Used to be az-AZ-Cyrillic
-    (0x082C, 'az-AZ-Cyrillic'),  # AZERI_CYRILLIC
+    (0x082C, 'az-Cyrl-AZ'),  # AZERBAIJANI (CYRILLIC) AZERBAIJAN
     (0x782C, 'az-Latn'),  # AZERBAIJANI (LATIN)
-    (0x042C, 'az-Latn-AZ'),  # AZERBAIJANI (LATIN) AZERBAIJAN  # <--- CHECK ME: Used to be az-AZ-Latin
-    (0x042C, 'az-AZ-Latin'),  # AZERI_LATIN
+    (0x042C, 'az-Latn-AZ'),  # AZERBAIJANI (LATIN) AZERBAIJAN
     (0x0045, 'bn'),  # BANGLA
-    (0x0445, 'bn-Bangledesh'),  # BANGLA_BANGLADESH AND BANGLA_INDIA
-
-    # TODO
-    (0x0845, 'bn-BD'),  # BANGLA BANGLADESH  # <--- CHECK ME: Used to be bn-IN
-    (0x0845, 'bn-IN'),  # BANGLA_INDIA
-    (0x0445, 'bn-IN'),  # BANGLA INDIA  # <--- CHECK ME: Used to be bn-Bangledesh
-
+    (0x0845, 'bn-BD'),  # BANGLA BANGLADESH
+    (0x0445, 'bn-IN'),  # BANGLA INDIA
     (0x006D, 'ba'),  # BASHKIR
     (0x046D, 'ba-RU'),  # BASHKIR_RUSSIA
-
-    # TODO
     (0x002D, 'eu'),  # BASQUE
-    (0x042D, 'eu-ES'),  # BASQUE SPAIN  # <--- CHECK ME: Used to be Basque-Basque
-    (0x042D, 'Basque-Basque'),  # BASQUE_BASQUE
-
+    (0x042D, 'eu-ES'),  # BASQUE SPAIN
     (0x0023, 'be'),  # BELARUSIAN
     (0x0423, 'be-BY'),  # BELARUSIAN_BELARUS
-
-    # TODO
+    (0x0066, "bin"),  # BINI
+    (0x0466, "bin-NG"),
     (0x641A, 'bs-Cyrl'),  # BOSNIAN (CYRILLIC)
-    (0x201A, 'bs-Cyrl-BA'),  # BOSNIAN (CYRILLIC) BOSNIA AND HERZEGOVINA  # <--- CHECK ME: Used to be bs-BA-Cyrillic
-    (0x781A, 'bs'),  # BOSNIAN (LATIN)  # <--- CHECK ME: Used to be bs-neutral
+    (0x201A, 'bs-Cyrl-BA'),  # BOSNIAN (CYRILLIC) BOSNIA AND HERZEGOVINA
+    (0x781A, 'bs'),  # BOSNIAN (LATIN)
     (0x681A, 'bs-Latn'),  # BOSNIAN (LATIN)
-    (0x141A, 'bs-Latn-BA'),  # BOSNIAN (LATIN) BOSNIA AND HERZEGOVINA  # <--- CHECK ME: Used to be bs-BA-Latin
-    (0x781A, 'bs-neutral'),  # BOSNIAN NEUTRAL
-    (0x201A, 'bs-BA-Cyrillic'),  # BOSNIAN_BOSNIA_HERZEGOVINA_CYRILLIC
-    (0x141A, 'bs-BA-Latin'),  # BOSNIAN_BOSNIA_HERZEGOVINA_LATIN
-
+    (0x141A, 'bs-Latn-BA'),  # BOSNIAN (LATIN) BOSNIA AND HERZEGOVINA
     (0x007E, 'br'),  # BRETON
     (0x047E, 'br-FR'),  # BRETON_FRANCE
     (0x0002, 'bg'),  # BULGARIAN
@@ -111,29 +96,20 @@ langcodes = (
     (0x0455, 'my-MM'),  # BURMESE MYANMAR
     (0x0003, 'ca'),  # CATALAN
     (0x0403, 'ca-ES'),  # CATALAN_CATALAN
-    (0x045F, 'tzm-Arab-MA'),  # CENTRAL ATLAS TAMAZIGHT (ARABIC) MOROCCO
     (0x0092, 'ku'),  # CENTRAL KURDISH
-    (0x0492, 'ku-IQ'),  # CENTRAL_KURDISH_IRAQ
     (0x7C92, 'ku-Arab'),  # CENTRAL KURDISH
-    (0x0492, 'ku-Arab-IQ'),  # CENTRAL KURDISH IRAQ  # <--- CHECK ME: Used to be ku-IQ
-
-    # TODO
+    (0x0492, 'ku-Arab-IQ'),  # CENTRAL KURDISH IRAQ
     (0x005C, 'chr'),  # CHEROKEE
-    (0x045C, 'chr-Cher'),  # CHEROKEE_CHEROKEE
-    (0x045C, 'chr-Cher-US'),  # CHEROKEE UNITED STATES  # <--- CHECK ME: Used to be chr-Cher
+    (0x045C, 'chr-Cher-US'),  # CHEROKEE UNITED STATES
     (0x7C5C, 'chr-Cher'),  # CHEROKEE
-
     (0x7804, 'zh'),  # CHINESE (SIMPLIFIED)
     (0x0C04, 'zh-HK'),  # CHINESE_HONGKONG
     (0x1404, 'zh-MO'),  # CHINESE_MACAU
     (0x1004, 'zh-SG'),  # CHINESE_SINGAPORE
-
-    # TODO
     (0x0804, 'zh-CN'),  # CHINESE (SIMPLIFIED) PEOPLE'S REPUBLIC OF CHINA
     (0x0404, 'zh-TW'),  # CHINESE (TRADITIONAL) TAIWAN
     (0x0004, 'zh-Hans'),  # CHINESE_SIMPLIFIED
     (0x7C04, 'zh-Hant'),  # CHINESE_TRADITIONAL
-
     (0x0083, 'co'),  # CORSICAN
     (0x0483, 'co-FR'),  # CORSICAN_FRANCE
     (0x001A, 'hr'),  # CROATIAN Neutral
@@ -170,6 +146,13 @@ langcodes = (
     (0x0409, 'en-US'),  # ENGLISH_US
     (0x4C09, 'en-AE'),  # ENGLISH UNITED ARAB EMIRATES
     (0x3009, 'en-ZW'),  # ENGLISH_ZIMBABWE
+    (0x3809, "en-ID"),
+    (0x5009, "en-BH"),
+    (0x5409, "en-EG"),
+    (0x5809, "en-JO"),
+    (0x5C09, "en-KW"),
+    (0x6009, "en-TR"),
+    (0x6409, "en-YE"),
     (0x0025, 'et'),  # ESTONIAN
     (0x0425, 'et-EE'),  # ESTONIAN_ESTONIA
     (0x0038, 'fo'),  # FAROESE
@@ -194,16 +177,13 @@ langcodes = (
     (0x200C, 'fr-RE'),  # FRENCH REUNION
     (0x280C, 'fr-SN'),  # FRENCH SENEGAL
     (0x100C, 'fr-CH'),  # FRENCH_SWISS
+    (0xE40C, "fr-015"),
     (0x0062, 'fy'),  # FRISIAN
     (0x0462, 'fy-NL'),  # FRISIAN_NETHERLANDS
     (0x0067, 'ff'),  # FULAH
     (0x7C67, 'ff-Latn'),  # FULAH (LATIN)
     (0x0467, 'ff-NG'),  # FULAH NIGERIA
-    (0x0467, 'ff-Latn-NG'),  # FULAH (LATIN) NIGERIA
-    # TODO?
-    (0x0867, 'ff-Latn-SN'),  # FULAH SENEGAL  # <--- CHECK ME: Used to be ff-SN
-    (0x0867, 'ff-SN'),  # PULAR_SENEGAL
-
+    (0x0867, 'ff-Latn-SN'),  # FULAH SENEGAL
     (0x0056, 'gl'),  # GALICIAN
     (0x0456, 'gl-ES'),  # GALICIAN_GALICIAN
     (0x0037, 'ka'),  # GEORGIAN
@@ -224,17 +204,11 @@ langcodes = (
     (0x0447, 'gu-IN'),  # GUJARATI_INDIA
     (0x0068, 'ha'),  # HAUSA (LATIN)
     (0x7C68, 'ha-Latn'),  # HAUSA (LATIN)
-
-    # TODO
-    (0x0468, 'ha-Latn-NG'),  # HAUSA (LATIN) NIGERIA  # <--- CHECK ME: Used to be ha-NG
-    (0x0468, 'ha-NG'),  # HAUSA_NIGERIA_LATIN
-
+    (0x0468, 'ha-Latn-NG'),  # HAUSA (LATIN) NIGERIA
     (0x0075, 'haw'),  # HAWAIIAN
     (0x0475, 'haw-US'),  # HAWAIIAN_US
-
     (0x000D, 'he'),  # HEBREW
     (0x040D, 'he-IL'),  # HEBREW_ISRAEL
-
     (0x0039, 'hi'),  # HINDI
     (0x0439, 'hi-IN'),  # HINDI_INDIA
     (0x000E, 'hu'),  # HUNGARIAN
@@ -245,15 +219,13 @@ langcodes = (
     (0x0470, 'ig-NG'),  # IGBO_NIGERIA
     (0x0021, 'id'),  # INDONESIAN
     (0x0421, 'id-ID'),  # INDONESIAN_INDONESIA
-    # TODO
+    (0x0069, "ibb"),  # IBIBIO
+    (0x0469, "ibb-NG"),
     (0x005D, 'iu'),  # INUKTITUT (LATIN)
     (0x7C5D, 'iu-Latn'),  # INUKTITUT (LATIN)
-    (0x085D, 'iu-CA-Latin'),  # INUKTITUT_CANADA_LATIN
-    (0x045D, 'iu-CA'),  # INUKTITUT_CANADA
-    (0x085D, 'iu-Latn-CA'),  # INUKTITUT (LATIN) CANADA  # <--- CHECK ME: Used to be iu-CA-Latin
+    (0x085D, 'iu-Latn-CA'),  # INUKTITUT (LATIN) CANADA
     (0x785D, 'iu-Cans'),  # INUKTITUT (SYLLABICS)
-    (0x045D, 'iu-Cans-CA'),  # INUKTITUT (SYLLABICS) CANADA  # <--- CHECK ME: Used to be iu-CA
-
+    (0x045D, 'iu-Cans-CA'),  # INUKTITUT (SYLLABICS) CANADA
     (0x003C, 'ga'),  # IRISH
     (0x083C, 'ga-IE'),  # IRISH_IRELAND
     (0x0010, 'it'),  # ITALIAN
@@ -261,6 +233,8 @@ langcodes = (
     (0x0810, 'it-CH'),  # ITALIAN_SWISS
     (0x0011, 'ja'),  # JAPANESE
     (0x0411, 'ja-JP'),  # JAPANESE_JAPAN
+    (0x0811, "ja-Ploc-JP"),
+    (0x0071, "kr"),
     (0x0471, 'kr-Latn-NG'),  # KANURI (LATIN) NIGERIA
     (0x004B, 'kn'),  # KANNADA
     (0x044B, 'kn-IN'),  # KANNADA_INDIA
@@ -269,15 +243,13 @@ langcodes = (
     (0x0860, 'ks-Deva-IN'),  # KASHMIRI (DEVANAGARI) INDIA
     (0x003F, 'kk'),  # KAZAKH
     (0x043F, 'kk-KZ'),  # KAZAK_KAZAKHSTAN
+    (0x083F, "kk-Latn-KZ"),
+    (0x7C3F, "kk-Latn"),
+    (0x783F, "kk-Cyrl"),
     (0x0053, 'km'),  # KHMER
-    # TODO
-    (0x0453, 'km-KH'),  # KHMER CAMBODIA  # <--- CHECK ME: Used to be kh-KH
-    (0x0453, 'kh-KH'),  # KHMER_CAMBODIA
+    (0x0453, 'km-KH'),  # KHMER CAMBODIA
     (0x0086, 'quc'),  # K'ICHE
-
-    # TODO
-    (0x0486, 'qut-GT'),  # KICHE_GUATEMALA
-    (0x0486, 'quc-Latn-GT'),  # K'ICHE GUATEMALA  # <--- CHECK ME: Used to be qut-GT
+    (0x0486, 'quc-Latn-GT'),  # K'ICHE GUATEMALA
     (0x0087, 'rw'),  # KINYARWANDA
     (0x0487, 'rw-RW'),  # KINYARWANDA_RWANDA
     (0x0057, 'kok'),  # KONKANI
@@ -288,6 +260,7 @@ langcodes = (
     (0x0440, 'ky-KG'),  # KYRGYZ_KYRGYZSTAN
     (0x0054, 'lo'),  # LAO
     (0x0454, 'lo-LA'),  # LAO_LAO
+    (0x0076, "la"),
     (0x0476, 'la-VA'),  # LATIN VATICAN CITY
     (0x0026, 'lv'),  # LATVIAN
     (0x0426, 'lv-LV'),  # LATVIAN_LATVIA
@@ -306,6 +279,8 @@ langcodes = (
     (0x044C, 'ml-IN'),  # MALAYALAM_INDIA
     (0x003A, 'mt'),  # MALTESE
     (0x043A, 'mt-MT'),  # MALTESE_MALTA
+    (0x0058, "mni"),  # MANIPURI
+    (0x0458, "mni-IN"),
     (0x0081, 'mi'),  # MAORI
     (0x0481, 'mi-NZ'),  # MAORI_NEW_ZEALAND
     (0x007A, 'arn'),  # MAPUDUNGUN
@@ -318,29 +293,24 @@ langcodes = (
     (0x7850, 'mn-Cyrl'),  # MONGOLIAN (CYRILLIC)
     (0x7C50, 'mn-Mong'),  # MONGOLIAN (TRADITIONAL MONGOLIAN)
     (0x0C50, 'mn-Mong-MN'),  # MONGOLIAN (TRADITIONAL MONGOLIAN) MONGOLIA
-    (0x0450, 'mn-MN'),  # MONGOLIAN (CYRILLIC) MONGOLIA  # <--- CHECK ME: Used to be mn-MN-Cyrllic
-    (0x0450, 'mn-MN-Cyrllic'),  # MONGOLIAN_CYRILLIC_MONGOLIA
-    (0x0850, 'mn-Mong-CN'),  # MONGOLIAN (TRADITIONAL MONGOLIAN) PEOPLE'S REPUBLIC OF CHINA  # <--- CHECK ME: Used to be mn-MN-Prc
-    (0x0850, 'mn-MN-Prc'),  # MONGOLIAN_PRC
+    (0x0450, 'mn-MN'),  # MONGOLIAN (CYRILLIC) MONGOLIA
+    (0x0850, 'mn-Mong-CN'),  # MONGOLIAN (TRADITIONAL MONGOLIAN) PEOPLE'S REPUBLIC OF CHINA
     (0x0061, 'ne'),  # NEPALI
     (0x0861, 'ne-IN'),  # NEPALI INDIA
     (0x0461, 'ne-NP'),  # NEPALI_NEPAL
-
-    # TODO
     (0x0014, 'no'),  # NORWEGIAN (BOKMAL)
     (0x7C14, 'nb'),  # NORWEGIAN (BOKMAL)
     (0x7814, 'nn'),  # NORWEGIAN (NYNORSK)
-    (0x0814, 'nn-NO'),  # NORWEGIAN (NYNORSK) NORWAY  # <--- CHECK ME: Used to be no-NO
+    (0x0814, 'nn-NO'),  # NORWEGIAN (NYNORSK) NORWAY
     (0x0414, 'nb-NO'),  # NORWEGIAN_BOKMAL
-    (0x0814, 'no-NO'),  # NORWEGIAN_NYNORSK
     (0x0082, 'oc'),  # OCCITAN
     (0x0482, 'oc-FR'),  # OCCITAN_FRANCE
-    # TODO: update outdated terms
     (0x0048, 'or'),  # ODIA
     (0x0448, 'or-IN'),  # ORIYA_INDIA
     (0x0472, 'om-ET'),  # OROMO ETHIOPIA
     (0x0072, 'om'),  # OROMO
-
+    (0x0079, "pap"),  # PAPIAMENTO
+    (0x0479, "pap-029"),
     (0x0063, 'ps'),  # PASHTO
     (0x0463, 'ps-AF'),  # PASHTO_AFGHANISTAN
     (0x0029, 'fa'),  # PERSIAN
@@ -356,10 +326,7 @@ langcodes = (
     (0x0046, 'pa'),  # PUNJABI
     (0x7C46, 'pa-Arab'),  # PUNJABI
     (0x0446, 'pa-IN'),  # PUNJABI_INDIA
-
-    # TODO
-    (0x0846, 'pa-Arab-PK'),  # PUNJABI ISLAMIC REPUBLIC OF PAKISTAN  # <--- CHECK ME: Used to be pa-PK
-    (0x0846, 'pa-PK'),  # PUNJABI_PAKISTAN
+    (0x0846, 'pa-Arab-PK'),  # PUNJABI ISLAMIC REPUBLIC OF PAKISTAN
     (0x006B, 'quz'),  # QUECHUA
     (0x046B, 'quz-BO'),  # QUECHUA_BOLIVIA
     (0x086B, 'quz-EC'),  # QUECHUA_ECUADOR
@@ -375,9 +342,7 @@ langcodes = (
     (0x0085, 'sah'),  # SAKHA
     (0x0485, 'sah-RU'),  # SAKHA_RUSSIA
     (0x703B, 'smn'),  # SAMI (INARI)
-    # TODO?
-    (0x243B, 'smn-FIl'),  # SAMI_INARI_FINLAND
-    (0x243B, 'smn-FI'),  # SAMI (INARI) FINLAND  # <--- CHECK ME: Used to be smn-FIl
+    (0x243B, 'smn-FI'),  # SAMI (INARI) FINLAND
     (0x7C3B, 'smj'),  # SAMI (LULE)
     (0x103B, 'smj-NO'),  # SAMI_LULE_NORWAY
     (0x143B, 'smj-SE'),  # SAMI_LULE_SWEDEN
@@ -394,32 +359,24 @@ langcodes = (
     (0x044F, 'sa-IN'),  # SANSKRIT_INDIA
     (0x0091, 'gd'),  # SCOTTISH GAELIC
     (0x0491, 'gd-GB'),  # SCOTTISH GAELIC UNITED KINGDOM
-    (0x7C1A, 'sr-Neutral'),  # SERBIAN_NEUTRAL
-    (0x1C1A, 'sr-BA'),  # SERBIAN_BOSNIA_HERZEGOVINA_CYRILLIC
-    (0x181A, 'sr-code-Latin'),  # SERBIAN_BOSNIA_HERZEGOVINA_LATIN
-    (0x0C1A, 'sr-CS-Cyrillic'),  # SERBIAN_CYRILLIC
-    (0x081A, 'sr-CS-Latin'),  # SERBIAN_LATIN
     (0x6C1A, 'sr-Cyrl'),  # SERBIAN (CYRILLIC)
-    (0x1C1A, 'sr-Cyrl-BA'),  # SERBIAN (CYRILLIC) BOSNIA AND HERZEGOVINA  # <--- CHECK ME: Used to be sr-BA
+    (0x1C1A, 'sr-Cyrl-BA'),  # SERBIAN (CYRILLIC) BOSNIA AND HERZEGOVINA
     (0x301A, 'sr-Cyrl-ME'),  # SERBIAN (CYRILLIC) MONTENEGRO
     (0x281A, 'sr-Cyrl-RS'),  # SERBIAN (CYRILLIC) SERBIA
-    (0x0C1A, 'sr-Cyrl-CS'),  # SERBIAN (CYRILLIC) SERBIA AND MONTENEGRO (FORMER)  # <--- CHECK ME: Used to be sr-CS-Cyrillic
+    (0x0C1A, 'sr-Cyrl-CS'),  # SERBIAN (CYRILLIC) SERBIA AND MONTENEGRO (FORMER)
     (0x701A, 'sr-Latn'),  # SERBIAN (LATIN)
-    (0x7C1A, 'sr'),  # SERBIAN (LATIN)  # <--- CHECK ME: Used to be sr-Neutral
-    (0x181A, 'sr-Latn-BA'),  # SERBIAN (LATIN) BOSNIA AND HERZEGOVINA  # <--- CHECK ME: Used to be sr-code-Latin
+    (0x7C1A, 'sr'),  # SERBIAN (LATIN)
+    (0x181A, 'sr-Latn-BA'),  # SERBIAN (LATIN) BOSNIA AND HERZEGOVINA
     (0x2C1A, 'sr-Latn-ME'),  # SERBIAN (LATIN) MONTENEGRO
     (0x241A, 'sr-Latn-RS'),  # SERBIAN (LATIN) SERBIA
-    (0x081A, 'sr-Latn-CS'),  # SERBIAN (LATIN) SERBIA AND MONTENEGRO (FORMER)  # <--- CHECK ME: Used to be sr-CS-Latin
-
+    (0x081A, 'sr-Latn-CS'),  # SERBIAN (LATIN) SERBIA AND MONTENEGRO (FORMER)
     (0x0032, 'tn'),  # SETSWANA
     (0x0832, 'tn-BW'),  # TSWANA_BOTSWANA
     (0x0432, 'tn-ZA'),  # TSWANA_SOUTH_AFRICA
     (0x0059, 'sd'),  # SINDHI
     (0x7C59, 'sd-Arab'),  # SINDHI
-
-    # TODO
-    (0x0859, 'sd-PK'),  # SINDHI_PAKISTAN
-    (0x0859, 'sd-Arab-PK'),  # SINDHI ISLAMIC REPUBLIC OF PAKISTAN  # <--- CHECK ME: Used to be sd-PK
+    (0x0459, "sd-Deva-IN"),
+    (0x0859, 'sd-Arab-PK'),  # SINDHI ISLAMIC REPUBLIC OF PAKISTAN
     (0x005B, 'si'),  # SINHALA
     (0x045B, 'si-LK'),  # SINHALESE_SRI_LANKA
     (0x001B, 'sk'),  # SLOVAK
@@ -428,7 +385,6 @@ langcodes = (
     (0x0424, 'sl-SI'),  # SLOVENIAN_SLOVENIA
     (0x0077, 'so'),  # SOMALI
     (0x0477, 'so-SO'),  # SOMALI SOMALIA
-    # TODO: Is one pair of these defunct?
     (0x0030, 'st'),  # SOTHO
     (0x0430, 'st-ZA'),  # SOTHO SOUTH AFRICA
     (0x006C, 'nso'),  # SESOTHO SA LEBOA
@@ -452,11 +408,8 @@ langcodes = (
     (0x3C0A, 'es-PY'),  # SPANISH_PARAGUAY
     (0x280A, 'es-PE'),  # SPANISH_PERU
     (0x500A, 'es-PR'),  # SPANISH_PUERTO_RICO
-    # TODO
-    (0x040A, 'es-ES_tradnl'),  # SPANISH SPAIN  # <--- CHECK ME: Used to be es-ES-traditional
-    (0x0C0A, 'es-ES'),  # SPANISH SPAIN  # <--- CHECK ME: Used to be es-ES-modern
-    (0x0C0A, 'es-ES-modern'),  # SPANISH_MODERN
-    (0x040A, 'es-ES-traditional'),  # SPANISH
+    (0x040A, 'es-ES_tradnl'),  # SPANISH SPAIN
+    (0x0C0A, 'es-ES'),  # SPANISH SPAIN
     (0x540A, 'es-US'),  # SPANISH_US
     (0x380A, 'es-UY'),  # SPANISH_URUGUAY
     (0x200A, 'es-VE'),  # SPANISH_VENEZUELA
@@ -467,17 +420,16 @@ langcodes = (
     (0x041D, 'sv-SE'),  # SWEDISH_SWEDEN
     (0x005A, 'syr'),  # SYRIAC
     (0x045A, 'syr-SY'),  # SYRIAC
-
-    # TODO
     (0x0028, 'tg'),  # TAJIK (CYRILLIC)
-    (0x0428, 'tg-TJ'),  # TAJIK_TAJIKISTAN
     (0x7C28, 'tg-Cyrl'),  # TAJIK (CYRILLIC)
-    (0x0428, 'tg-Cyrl-TJ'),  # TAJIK (CYRILLIC) TAJIKISTAN  # <--- CHECK ME: Used to be tg-TJ
-    # TODO
+    (0x0428, 'tg-Cyrl-TJ'),  # TAJIK (CYRILLIC) TAJIKISTAN
     (0x005F, 'tzm'),  # TAMAZIGHT (LATIN)
+    (0x0C5F, "tzm-MA"),  # TODO: Manual says this is "tmz" but the code points to tzm?
     (0x7C5F, 'tzm-Latn'),  # TAMAZIGHT (LATIN)
-    (0x085F, 'tzm-DZ'),  # TAMAZIGHT_ALGERIA_LATIN
-    (0x085F, 'tzm-Latn-DZ'),  # TAMAZIGHT (LATIN) ALGERIA  # <--- CHECK ME: Used to be tzm-DZ
+    (0x085F, 'tzm-Latn-DZ'),  # TAMAZIGHT (LATIN) ALGERIA
+    (0x045F, 'tzm-Arab-MA'),  # CENTRAL ATLAS TAMAZIGHT (ARABIC) MOROCCO
+    (0x785F, "tzm-Tfng"),
+    (0x105F, "tzm-Tfng-MA"),
     (0x0049, 'ta'),  # TAMIL
     (0x0449, 'ta-IN'),  # TAMIL_INDIA
     (0x0849, 'ta-LK'),  # TAMIL_SRI_LANKA
@@ -489,6 +441,7 @@ langcodes = (
     (0x041E, 'th-TH'),  # THAI_THAILAND
     (0x0051, 'bo'),  # TIBETAN
     (0x0451, 'bo-CN'),  # TIBETAN_PRC
+    (0x0851, "bo-BT"),
     (0x0073, 'ti'),  # TIGRINYA
     (0x0873, 'ti-ER'),  # TIGRINYA_ERITREA
     (0x0473, 'ti-ET'),  # TIGRINYA_ETHIOPIA
@@ -504,18 +457,14 @@ langcodes = (
     (0x0422, 'uk-UA'),  # UKRAINIAN_UKRAINE
     (0x002E, 'hsb'),  # UPPER SORBIAN
     (0x042E, 'hsb-DE'),  # UPPER_SORBIAN_GERMANY
-
     (0x0020, 'ur'),  # URDU
     (0x0820, 'ur-IN'),  # URDU_INDIA
     (0x0420, 'ur-PK'),  # URDU_PAKISTAN
-    # TODO
     (0x0043, 'uz'),  # UZBEK (LATIN)
     (0x7C43, 'uz-Latn'),  # UZBEK (LATIN)
-    (0x0443, 'uz-Latn-UZ'),  # UZBEK (LATIN) UZBEKISTAN  # <--- CHECK ME: Used to be uz-UZ-Latin
+    (0x0443, 'uz-Latn-UZ'),  # UZBEK (LATIN) UZBEKISTAN
     (0x7843, 'uz-Cyrl'),  # UZBEK (CYRILLIC)
-    (0x0843, 'uz-Cyrl-UZ'),  # UZBEK (CYRILLIC) UZBEKISTAN  # <--- CHECK ME: Used to be uz-UZ-Cyrillic
-    (0x0843, 'uz-UZ-Cyrillic'),  # UZBEK_CYRILLIC
-    (0x0443, 'uz-UZ-Latin'),  # UZBEK_LATIN
+    (0x0843, 'uz-Cyrl-UZ'),  # UZBEK (CYRILLIC) UZBEKISTAN
     (0x0803, 'ca-ES-Valencia'),  # VALENCIAN_VALENCIA
     (0x0033, 've'),  # VENDA
     (0x0433, 've-ZA'),  # VENDA SOUTH AFRICA
@@ -529,6 +478,7 @@ langcodes = (
     (0x0434, 'xh-ZA'),  # XHOSA_SOUTH_AFRICA
     (0x0078, 'ii'),  # YI
     (0x0478, 'ii-CN'),  # YI_PRC
+    (0x003D, "yi"),  # YIDDISH
     (0x043D, 'yi-001'),  # YIDDISH WORLD
     (0x006A, 'yo'),  # YORUBA
     (0x046A, 'yo-NG'),  # YORUBA_NIGERIA
