@@ -54,40 +54,21 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_handoff(self):
 
         with self.getTestDir() as dirn:
-            ahadir = s_common.genpath(dirn, 'aha00')
-            coredir0 = s_common.genpath(dirn, 'core00')
-            coredir1 = s_common.genpath(dirn, 'core01')
-            coredir2 = s_common.genpath(dirn, 'core02',)
+            async with self.getTestAha() as aha:
 
-            conf = {
-                'aha:name': 'aha',
-                'aha:network': 'newp',
-                'provision:listen': 'tcp://127.0.0.1:0',
-            }
-            async with self.getTestAha(dirn=ahadir, conf=conf) as aha:
+                conf = {'aha:provision': await aha.addAhaSvcProv('00.cortex')}
 
-                provaddr, provport = aha.provdmon.addr
-                aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
-
-                ahahost, ahaport = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.newp&ca=newp')
-                aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.newp',)
-
-                provurl = await aha.addAhaSvcProv('00.cortex')
-                coreconf = {'aha:provision': provurl, 'nexslog:en': False}
-
-                async with self.getTestCore(dirn=coredir0, conf=coreconf) as core00:
+                async with self.getTestCore(conf=conf) as core00:
 
                     with self.raises(s_exc.BadArg):
                         await core00.handoff(core00.getLocalUrl())
 
                     self.false((await core00.getCellInfo())['cell']['uplink'])
 
-                    provinfo = {'mirror': '00.cortex'}
-                    provurl = await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)
-
                     # provision with the new hostname and mirror config
-                    coreconf = {'aha:provision': provurl}
-                    async with self.getTestCore(dirn=coredir1, conf=coreconf) as core01:
+                    provinfo = {'mirror': '00.cortex'}
+                    conf = {'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=provinfo)}
+                    async with self.getTestCore(conf=conf) as core01:
 
                         # test out connecting to the leader but having aha chose a mirror
                         async with s_telepath.loadTeleCell(core01.dirn):
@@ -117,9 +98,9 @@ class CortexTest(s_t_utils.SynTest):
                         self.true((await core00.getCellInfo())['cell']['uplink'])
                         self.false((await core01.getCellInfo())['cell']['uplink'])
 
-                        mods00 = s_common.yamlload(coredir0, 'cell.mods.yaml')
-                        mods01 = s_common.yamlload(coredir1, 'cell.mods.yaml')
-                        self.eq(mods00, {'mirror': 'aha://01.cortex.newp'})
+                        mods00 = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
+                        mods01 = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
+                        self.eq(mods00, {'mirror': 'aha://01.cortex.synapse'})
                         self.eq(mods01, {'mirror': None})
 
                         await core00.nodes('[inet:ipv4=5.5.5.5]')
@@ -129,12 +110,11 @@ class CortexTest(s_t_utils.SynTest):
                         # This pops the mirror config out of the mods file we copied
                         # from the backup.
                         provinfo = {'mirror': '01.cortex'}
-                        provurl = await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)
-                        coreconf = {'aha:provision': provurl}
-                        async with self.getTestCore(dirn=coredir2, conf=coreconf) as core02:
+                        conf = {'aha:provision': await aha.addAhaSvcProv('02.cortex', provinfo=provinfo)}
+                        async with self.getTestCore(conf=conf) as core02:
                             self.false(core02.isactive)
-                            self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex.newp')
-                            mods02 = s_common.yamlload(coredir2, 'cell.mods.yaml')
+                            self.eq(core02.conf.get('mirror'), 'aha://root@01.cortex...')
+                            mods02 = s_common.yamlload(core02.dirn, 'cell.mods.yaml')
                             self.eq(mods02, {})
                             # The mirror writeback and change distribution works
                             self.len(0, await core01.nodes('inet:ipv4=6.6.6.6'))
@@ -144,7 +124,7 @@ class CortexTest(s_t_utils.SynTest):
                             self.len(1, await core01.nodes('inet:ipv4=6.6.6.6'))
                             self.len(1, await core00.nodes('inet:ipv4=6.6.6.6'))
                             # list mirrors
-                            exp = ['aha://00.cortex.newp', 'aha://02.cortex.newp']
+                            exp = ['aha://00.cortex.synapse', 'aha://02.cortex.synapse']
                             self.sorteq(exp, await core00.getMirrorUrls())
                             self.sorteq(exp, await core01.getMirrorUrls())
                             self.sorteq(exp, await core02.getMirrorUrls())
@@ -4190,10 +4170,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Everything still works when no nexus log is kept
         '''
-        conf = {'layer:lmdb:map_async': True,
-                'nexslog:en': False,
-                'layers:logedits': True,
-                }
+        conf = {'nexslog:en': False, 'layers:logedits': True}
         async with self.getTestCore(conf=conf) as core:
             self.len(2, await core.nodes('[test:str=foo test:str=bar]'))
             self.len(2, await core.nodes('test:str'))
@@ -4202,10 +4179,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Everything still works when no layer log is kept
         '''
-        conf = {'layer:lmdb:map_async': True,
-                'nexslog:en': True,
-                'layers:logedits': False,
-                }
+        conf = {'nexslog:en': True, 'layers:logedits': False}
         async with self.getTestCore(conf=conf) as core:
             self.len(2, await core.nodes('[test:str=foo test:str=bar]'))
             self.len(2, await core.nodes('test:str'))
@@ -4223,18 +4197,12 @@ class CortexBasicTest(s_t_utils.SynTest):
         '''
         Make sure settings make it down to the slab
         '''
-        conf = {
-            'layer:lmdb:map_async': False,
-            'layer:lmdb:max_replay_log': 500,
-            'layers:lockmemory': True,
-        }
+        conf = {'layers:lockmemory': True}
         async with self.getTestCore(conf=conf) as core:
             layr = core.getLayer()
             slab = layr.layrslab
 
             self.true(slab.lockmemory)
-            self.eq(500, slab.max_xactops_len)
-            self.true(500, slab.mapasync)
 
     async def test_feed_syn_nodes(self):
 
@@ -5151,11 +5119,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 url = core00.getLocalUrl()
 
-                core01conf = {'nexslog:en': False, 'mirror': url}
-                with self.raises(s_exc.BadConfValu):
-                    async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
-                        self.fail('Should never get here.')
-
                 core01conf = {'mirror': url}
 
                 async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
@@ -5892,12 +5855,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
                 self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
 
-                # manually edit in a borked form entry
+                await core.addEdge(('test:int', '_goes', None), {})
+                await core._addEdge(('test:int', '_goes', None), {})
+
+                with self.raises(s_exc.DupEdgeType):
+                    await core.addEdge(('test:int', '_goes', None), {})
+
+                # manually edit in borked entries
                 core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
+                core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
             async with self.getTestCore(dirn=dirn) as core:
 
                 self.none(core.model.form('_hehe:bork'))
+                self.none(core.model.edge((None, '_does', 'newp')))
+
+                self.nn(core.model.edge(('test:int', '_goes', None)))
 
                 self.len(1, await core.nodes('_hehe:haha=10'))
                 self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
@@ -5950,6 +5923,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.BadFormDef):
                     await core.delForm('hehe:haha')
+
+                with self.raises(s_exc.NoSuchEdge):
+                    await core.delEdge(('newp', 'newp', 'newp'))
+
+                await core._delEdge(('newp', 'newp', 'newp'))
 
                 prop = core.model.prop('_hehe:haha:visi')
                 await core.nodes('_hehe:haha [ -:visi ]')
@@ -6080,100 +6058,121 @@ class CortexBasicTest(s_t_utils.SynTest):
                             await core.axon.metrics())
 
     async def test_cortex_delLayerView(self):
-        async with self.getTestCore() as core:
 
-            # Can't delete the default view
-            await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
-            await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
+        with self.getTestDir() as dirn:
+            async with self.getTestCore(dirn=dirn) as core:
 
-            # Can't delete a layer in a view
-            await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
+                # Can't delete the default view
+                await self.asyncraises(s_exc.SynErr, core.delView(core.view.iden))
+                await self.asyncraises(s_exc.SynErr, core._delViewWithLayer(core.view.iden, None, None))
 
-            # Can't delete a nonexistent view
-            await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
-            await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
+                # Can't delete a layer in a view
+                await self.asyncraises(s_exc.SynErr, core.delLayer(core.view.layers[0].iden))
 
-            # Can't delete a nonexistent layer
-            await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
+                # Can't delete a nonexistent view
+                await self.asyncraises(s_exc.NoSuchView, core.delView('XXX'))
+                await self.asyncraises(s_exc.NoSuchView, core.delViewWithLayer('XXX'))
 
-            # Fork the main view
-            vdef2 = await core.view.fork()
-            view2_iden = vdef2.get('iden')
+                # Can't delete a nonexistent layer
+                await self.asyncraises(s_exc.NoSuchLayer, core.delLayer('XXX'))
 
-            # Can't delete a view twice
-            await core.delView(view2_iden)
-            await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
+                # Fork the main view
+                vdef2 = await core.view.fork()
+                view2_iden = vdef2.get('iden')
 
-            layr = await core.addLayer()
-            layriden = layr['iden']
-            vdef3 = {'layers': (layriden,)}
-            view3_iden = (await core.addView(vdef3)).get('iden')
+                # Can't delete a view twice
+                await core.delView(view2_iden)
+                await self.asyncraises(s_exc.NoSuchView, core.delView(view2_iden))
 
-            opts = {'view': view3_iden}
-            await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
+                layr = await core.addLayer()
+                layriden = layr['iden']
+                vdef3 = {'layers': (layriden,)}
+                view3_iden = (await core.addView(vdef3)).get('iden')
 
-            await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
+                opts = {'view': view3_iden}
+                await core.callStorm('$lib.view.get().set(protected, $lib.true)', opts=opts)
 
-            await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
+                await self.asyncraises(s_exc.CantDelView, core.delViewWithLayer(view3_iden))
 
-            view3 = core.getView(view3_iden)
-            vdef4 = await view3.fork()
+                await core.callStorm('$lib.view.get().set(protected, $lib.false)', opts=opts)
 
-            deadlayr = view3.layers[0].iden
-            view4_iden = vdef4.get('iden')
-            view4 = core.getView(view4_iden)
+                view3 = core.getView(view3_iden)
+                vdef4 = await view3.fork()
 
-            self.eq(view4.parent, view3)
-            self.len(2, view4.layers)
+                deadlayr = view3.layers[0].iden
+                view4_iden = vdef4.get('iden')
+                view4 = core.getView(view4_iden)
 
-            await core.auth.rootuser.setPasswd('secret')
-            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
-            layr2 = await core.callStorm('$layer=$lib.layer.add() return($layer)')
-            varz = {'iden': layriden, 'tgt': layr2.get('iden'), 'port': port}
-            opts = {'vars': varz, 'view': view3_iden}
+                self.eq(view4.parent, view3)
+                self.len(2, view4.layers)
 
-            pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
-            pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
-            msgs = await core.stormlist(pullq, opts=opts)
-            self.stormHasNoWarnErr(msgs)
+                await core.auth.rootuser.setPasswd('secret')
+                host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+                layr2 = await core.callStorm('$layer=$lib.layer.add() return($layer)')
+                varz = {'iden': layriden, 'tgt': layr2.get('iden'), 'port': port}
+                opts = {'vars': varz, 'view': view3_iden}
 
-            msgs = await core.stormlist(pushq, opts=opts)
-            self.stormHasNoWarnErr(msgs)
+                pullq = '$layer=$lib.layer.get($iden).addPull(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                pushq = '$layer=$lib.layer.get($iden).addPush(`tcp://root:secret@127.0.0.1:{$port}/*/layer/{$tgt}`)'
+                msgs = await core.stormlist(pullq, opts=opts)
+                self.stormHasNoWarnErr(msgs)
 
-            coros = len(core.activecoros)
+                msgs = await core.stormlist(pushq, opts=opts)
+                self.stormHasNoWarnErr(msgs)
 
-            layridens = [lyr.iden for lyr in view4.layers if lyr.iden != view3.layers[0].iden]
-            events = [
-                {'event': 'view:setlayers', 'info': {'iden': view4.iden, 'layers': layridens}},
-                {'event': 'view:set', 'info': {'iden': view4.iden, 'name': 'parent', 'valu': None}}
-            ]
-            task = core.schedCoro(s_t_utils.waitForBehold(core, events))
+                coros = len(core.activecoros)
 
-            await core.delViewWithLayer(view3_iden)
+                layridens = [lyr.iden for lyr in view4.layers if lyr.iden != view3.layers[0].iden]
+                events = [
+                    {'event': 'view:setlayers', 'info': {'iden': view4.iden, 'layers': layridens}},
+                    {'event': 'view:set', 'info': {'iden': view4.iden, 'name': 'parent', 'valu': None}}
+                ]
+                task = core.schedCoro(s_t_utils.waitForBehold(core, events))
 
-            await asyncio.wait_for(task, timeout=1)
+                await core.delViewWithLayer(view3_iden)
 
-            # push/pull activecoros have been deleted
-            self.len(coros - 2, core.activecoros)
+                await asyncio.wait_for(task, timeout=1)
 
-            self.none(view4.parent)
-            self.len(1, view4.layers)
-            self.none(core.getLayer(deadlayr))
+                # push/pull activecoros have been deleted
+                self.len(coros - 2, core.activecoros)
 
-            vdef5 = await view4.fork()
-            view5 = core.getView(vdef5.get('iden'))
+                self.none(view4.parent)
+                self.len(1, view4.layers)
+                self.none(core.getLayer(deadlayr))
 
-            usedlayr = view4.layers[0].iden
-            vdef6 = {'layers': (usedlayr,)}
-            view6 = core.getView((await core.addView(vdef6)).get('iden'))
+                vdef5 = await view4.fork()
+                view5 = core.getView(vdef5.get('iden'))
 
-            await core.delViewWithLayer(view4_iden)
+                usedlayr = view4.layers[0].iden
+                vdef6 = {'layers': (usedlayr,)}
+                view6 = core.getView((await core.addView(vdef6)).get('iden'))
 
-            self.none(view5.parent)
-            self.len(1, view5.layers)
+                await core.delViewWithLayer(view4_iden)
 
-            self.nn(core.getLayer(usedlayr))
-            self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
+                self.none(view5.parent)
+                self.len(1, view5.layers)
+
+                self.nn(core.getLayer(usedlayr))
+                self.eq([usedlayr], [lyr.iden for lyr in view6.layers])
+
+                layrs = list(core.layers.keys())
+                viewdefs = {}
+                for vdef in await core.getViewDefs():
+                    vdef['layers'] = [layr['iden'] for layr in vdef['layers']]
+                    viewdefs[vdef['iden']] = vdef
+
+            async with self.getTestCore(dirn=dirn) as core:
+                self.sorteq(layrs, list(core.layers.keys()))
+
+                viewdefs2 = {}
+                for vdef in await core.getViewDefs():
+                    vdef['layers'] = [layr['iden'] for layr in vdef['layers']]
+                    viewdefs2[vdef['iden']] = vdef
+
+                self.eq(len(viewdefs), len(viewdefs2))
+
+                for iden, vdef in viewdefs.items():
+                    self.eq(vdef, viewdefs2.get(iden))
 
     async def test_cortex_view_opts(self):
         '''
@@ -7629,7 +7628,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.raises(s_exc.NoSuchAbrv, core.getAbrvIndx, s_common.int64en(offs + 2))
 
     async def test_cortex_query_offload(self):
-        async with self.getTestAhaProv() as aha:
+
+        async with self.getTestAha() as aha:
 
             async with await s_base.Base.anit() as base:
 
@@ -7652,11 +7652,11 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     msgs = await core00.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
 
                     msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.synapse)', msgs)
 
                     msgs = await core00.stormlist('cortex.storm.pool.set newp')
                     self.stormIsInErr(':// not found in [newp]', msgs)
@@ -7804,7 +7804,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     waiter = core01.stormpool.waiter(1, 'svc:del')
                     msgs = await core01.stormlist('aha.pool.svc.del pool00... 01.core...', opts={'mirror': False})
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core.loop.vertex.link) removed from service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core.synapse) removed from service pool (pool00.synapse)', msgs)
 
                     # TODO: this wait should not return None
                     await waiter.wait(timeout=3)
@@ -7860,7 +7860,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                 return ret
 
         conf = {
-            'layer:lmdb:map_async': True,
             'nexslog:en': True,
             'layers:logedits': True,
         }

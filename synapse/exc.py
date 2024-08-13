@@ -104,6 +104,7 @@ class BadCtorType(SynErr): pass
 class BadFormDef(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
+class BadEdgeDef(SynErr): pass
 class BadTypeDef(SynErr): pass
 class BadTypeValu(SynErr): pass
 class BadJsonText(SynErr): pass
@@ -188,6 +189,15 @@ class DupTagPropName(SynErr): pass
 class DupUserName(SynErr): pass
 class DupStormSvc(SynErr): pass
 
+class DupEdgeType(SynErr):
+
+    @classmethod
+    def init(cls, edge, mesg=None):
+        if mesg is None:
+            (n1form, verb, n2form) = edge
+            mesg = f'Edge already exists: {n1form} -({verb})> {n2form}.'
+        return DupEdgeType(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
+
 class FileExists(SynErr): pass
 
 class InconsistentStorage(SynErr):
@@ -238,6 +248,15 @@ class NoSuchProp(SynErr):
         if mesg is None:
             mesg = f'No property named {name}.'
         return NoSuchProp(mesg=mesg, name=name)
+
+class NoSuchEdge(SynErr):
+
+    @classmethod
+    def init(cls, edge, mesg=None):
+        if mesg is None:
+            (n1form, verb, n2form) = edge
+            mesg = f'No edge defined for {n1form} -({verb})> {n2form}.'
+        return NoSuchEdge(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
 
 class NoSuchAbrv(SynErr): pass
 class NoSuchAct(SynErr): pass

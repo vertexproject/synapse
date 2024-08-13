@@ -506,7 +506,7 @@ Managing Password Policies
 
 Services can be configured with password policies. These can be used to define the complexity of a password, the number
 of allowed login attempts, and the number of previous passwords to check against. This is configured by setting the
-``auth:password:policy`` configuration value for the service, with the desired policy settings. The policy object
+``auth:passwd:policy`` configuration value for the service, with the desired policy settings. The policy object
 accepts the following keys:
 
 ``attempts``

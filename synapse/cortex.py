@@ -687,13 +687,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'layer:lmdb:map_async': {
             'default': True,
-            'description': 'Set the default lmdb:map_async value in LMDB layers.',
-            'type': 'boolean'
+            'description': 'Deprecated. This value is ignored.',
+            'type': 'boolean',
+            'hidecmdl': True,
+            'hideconf': True,
         },
         'layer:lmdb:max_replay_log': {
             'default': 10000,
-            'description': 'Set the max size of the replay log for all layers.',
-            'type': 'integer'
+            'description': 'Deprecated. This value is ignored.',
+            'type': 'integer',
+            'hidecmdl': True,
+            'hideconf': True,
         },
         'layers:lockmemory': {
             'default': False,
@@ -2694,6 +2698,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.extforms = self.cortexdata.getSubKeyVal('model:forms:')
         self.extprops = self.cortexdata.getSubKeyVal('model:props:')
         self.extunivs = self.cortexdata.getSubKeyVal('model:univs:')
+        self.extedges = self.cortexdata.getSubKeyVal('model:edges:')
         self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
 
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
@@ -2731,6 +2736,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             except Exception as e:
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
+        for edge, info in self.extedges.values():
+            try:
+                self.model.addEdge(edge, info)
+            except Exception as e:
+                logger.warning(f'ext edge ({edge}) error: {e}')
+
     async def getExtModel(self):
         '''
         Get all extended model properties in the Cortex.
@@ -2750,6 +2761,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for prop, tdef, info in self.exttagprops.values():
             ret['tagprops'].append((prop, tdef, info))
+
+        for edge, info in self.extedges.values():
+            ret['edges'].append((edge, info))
+
         ret['version'] = (1, 0)
         return copy.deepcopy(dict(ret))
 
@@ -2764,9 +2779,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             Bool: True when the model was added.
 
         Raises:
-            s_exc.BadFormDef: If a form exists with a different definition the provided definition.
-            s_exc.BadPropDef: If a propery, tagprop, or universal propert from exists with a different definition
+            s_exc.BadFormDef: If a form exists with a different definition than the provided definition.
+            s_exc.BadPropDef: If a property, tagprop, or universal property exists with a different definition
                               than the provided definition.
+            s_exc.BadEdgeDef: If an edge exists with a different definition than the provided definition.
         '''
 
         # Get our current model definition
@@ -2777,11 +2793,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         props = {(info[0], info[1]): info for info in model.get('props', ())}
         tagprops = {info[0]: info for info in model.get('tagprops', ())}
         univs = {info[0]: info for info in model.get('univs', ())}
+        edges = {info[0]: info for info in model.get('edges', ())}
 
         efrms = {info[0]: info for info in emodl.get('forms', ())}
         eprops = {(info[0], info[1]): info for info in emodl.get('props', ())}
         etagprops = {info[0]: info for info in emodl.get('tagprops', ())}
         eunivs = {info[0]: info for info in emodl.get('univs', ())}
+        eedges = {info[0]: info for info in emodl.get('edges', ())}
 
         for (name, info) in forms.items():
             enfo = efrms.get(name)
@@ -2791,7 +2809,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if enfo == info:
                 continue
             mesg = f'Extended form definition differs from existing definition for {name}.'
-            raise s_exc.BadFormDef(mesg)
+            raise s_exc.BadFormDef(mesg=mesg, name=name)
 
         for (name, info) in props.items():
             enfo = eprops.get(name)
@@ -2801,7 +2819,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if enfo == info:
                 continue
             mesg = f'Extended prop definition differs from existing definition for {name}'
-            raise s_exc.BadPropDef(mesg)
+            raise s_exc.BadPropDef(mesg=mesg, name=name)
 
         for (name, info) in tagprops.items():
             enfo = etagprops.get(name)
@@ -2811,7 +2829,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if enfo == info:
                 continue
             mesg = f'Extended tagprop definition differs from existing definition for {name}'
-            raise s_exc.BadPropDef(mesg)
+            raise s_exc.BadPropDef(mesg=mesg, name=name)
 
         for (name, info) in univs.items():
             enfo = eunivs.get(name)
@@ -2820,8 +2838,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 continue
             if enfo == info:
                 continue
-            mesg = f'Extended universal poroperty definition differs from existing definition for {name}'
-            raise s_exc.BadPropDef(mesg)
+            mesg = f'Extended universal property definition differs from existing definition for {name}'
+            raise s_exc.BadPropDef(mesg=mesg, name=name)
+
+        for (name, info) in edges.items():
+            enfo = eedges.get(name)
+            if enfo is None:
+                amodl['edges'].append(info)
+                continue
+            if enfo == info:
+                continue
+
+            (n1form, verb, n2form) = info[0]
+            mesg = f'Extended edge definition differs from existing definition for {info[0]}'
+            raise s_exc.BadEdgeDef(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
 
         for formname, basetype, typeopts, typeinfo in amodl['forms']:
             await self.addForm(formname, basetype, typeopts, typeinfo)
@@ -2834,6 +2864,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for prop, tdef, info in amodl['univs']:
             await self.addUnivProp(prop, tdef, info)
+
+        for edge, info in amodl['edges']:
+            await self.addEdge(edge, info)
 
         return True
 
@@ -3091,6 +3124,56 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.exttagprops.pop(name, None)
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
+
+    async def addEdge(self, edge, edgeinfo):
+        if not isinstance(edgeinfo, dict):
+            mesg = 'Edge info should be a dict.'
+            raise s_exc.BadArg(mesg=mesg, edgeinfo=edgeinfo)
+
+        (n1form, verb, n2form) = edge
+        if not verb.startswith('_'):
+            mesg = f'Extended edge verb must begin with "_"; got {verb}'
+            raise s_exc.BadEdgeDef(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
+
+        if n1form is not None:
+            self.model._reqFormName(n1form)
+
+        if n2form is not None:
+            self.model._reqFormName(n2form)
+
+        if self.model.edge(edge) is not None:
+            raise s_exc.DupEdgeType.init(edge)
+
+        return await self._push('model:edge:add', edge, edgeinfo)
+
+    @s_nexus.Pusher.onPush('model:edge:add')
+    async def _addEdge(self, edge, edgeinfo):
+        if self.model.edge(edge) is not None:
+            return
+
+        self.model.addEdge(edge, edgeinfo)
+
+        self.extedges.set(s_common.guid(edge), (edge, edgeinfo))
+        await self.fire('core:extmodel:change', edge=edge, act='add', type='edge')
+        await self.feedBeholder('model:edge:add', {'edge': edge, 'info': edgeinfo})
+
+    async def delEdge(self, edge):
+        if self.extedges.get(s_common.guid(edge)) is None:
+            raise s_exc.NoSuchEdge.init(edge)
+
+        return await self._push('model:edge:del', edge)
+
+    @s_nexus.Pusher.onPush('model:edge:del')
+    async def _delEdge(self, edge):
+        edgeguid = s_common.guid(edge)
+        if self.extedges.get(edgeguid) is None:
+            return
+
+        self.model.delEdge(edge)
+
+        self.extedges.pop(edgeguid, None)
+        await self.fire('core:extmodel:change', edge=edge, act='del', type='edge')
+        await self.feedBeholder('model:edge:del', {'edge': edge})
 
     async def _onCoreFini(self):
         '''
@@ -4076,8 +4159,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.auth.delAuthGate(layriden)
             self.dynitems.pop(layriden)
 
-            self.layerdefs.delete(layriden)
-
+            self.layerdefs.pop(layriden)
             await layr.delete()
 
             layr.deloffs = nexsitem[0]
@@ -4148,7 +4230,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.auth.delAuthGate(iden)
         self.dynitems.pop(iden)
 
-        self.layerdefs.delete(iden)
+        self.layerdefs.pop(iden)
 
         await layr.delete()
 
@@ -4283,6 +4365,60 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return await self._push('layer:add', ldef)
         else:
             return await self._addLayer(ldef, (None, None))
+
+    async def _twinLayer(self, oldlayr):
+
+        newldef = s_msgpack.deepcopy(oldlayr.layrinfo)
+
+        newldef.pop('iden', None)
+
+        newldef = await self.addLayer(newldef)
+        newlayr = self.reqLayer(newldef.get('iden'))
+
+        oldinfo = self.auth.reqAuthGate(oldlayr.iden).pack()
+
+        for userinfo in oldinfo.get('users', ()):
+
+            user = self.auth.user(userinfo.get('iden'))
+            if user is None: # pragma: no cover
+                continue
+
+            if userinfo.get('admin'):
+                await user.setAdmin(True, gateiden=newlayr.iden)
+
+            for rule in userinfo.get('rules', ()):
+                await user.addRule(rule, gateiden=newlayr.iden)
+
+        for roleinfo in oldinfo.get('roles', ()):
+
+            role = self.auth.role(roleinfo.get('iden'))
+            if role is None: # pragma: no cover
+                continue
+
+            for rule in roleinfo.get('rules', ()):
+                await role.addRule(rule, gateiden=newlayr.iden)
+
+        return newlayr
+
+    @s_nexus.Pusher.onPushAuto('layer:swap')
+    async def swapLayer(self, oldiden, newiden):
+        '''
+        Atomically swap out a layer from all views that contain it.
+        '''
+        self.reqLayer(oldiden)
+        self.reqLayer(newiden)
+
+        for view in list(self.views.values()):
+            await asyncio.sleep(0)
+
+            oldlayers = view.info.get('layers')
+            if oldiden not in oldlayers:
+                continue
+
+            newlayers = list(oldlayers)
+            newlayers[oldlayers.index(oldiden)] = newiden
+
+            await view._setLayerIdens(newlayers)
 
     @s_nexus.Pusher.onPush('layer:add', passitem=True)
     async def _addLayer(self, ldef, nexsitem):

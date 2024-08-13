@@ -1,4 +1,3 @@
 [report]
 omit =
     */synapse/tests/test_*
-    */synapse/tools/changelog.py

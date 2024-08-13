@@ -91,7 +91,6 @@ class NexsRoot(s_base.Base):
         self.writeholds = set()
 
         self.applytask = None
-        self.applylock = asyncio.Lock()
 
         self.ready = asyncio.Event()
         self.donexslog = self.cell.conf.get('nexslog:en')
@@ -110,9 +109,7 @@ class NexsRoot(s_base.Base):
 
         logpath = s_common.genpath(self.dirn, 'slabs', 'nexuslog')
 
-        self.map_async = self.cell.conf.get('nexslog:async')
-        self.nexsslab = await s_lmdbslab.Slab.anit(path, map_async=self.map_async)
-        self.nexsslab.addResizeCallback(cell.checkFreeSpace)
+        self.nexsslab = await cell._initSlabFile(path)
 
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
@@ -126,8 +123,7 @@ class NexsRoot(s_base.Base):
         elif vers != 2:
             raise s_exc.BadStorageVersion(mesg=f'Got nexus log version {vers}.  Expected 2.  Accidental downgrade?')
 
-        slabopts = {'map_async': self.map_async}
-        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, slabopts=slabopts, cell=cell)
+        self.nexslog = await s_multislabseqn.MultiSlabSeqn.anit(logpath, cell=cell)
 
         # just in case were previously configured differently
         logindx = self.nexslog.index()
@@ -146,6 +142,9 @@ class NexsRoot(s_base.Base):
             await self.nexslog.fini()
 
         self.onfini(fini)
+
+    def getNexsKids(self):
+        return list(self._nexskids.values())
 
     async def _migrateV1toV2(self, nexspath, logpath):
         '''
@@ -195,8 +194,7 @@ class NexsRoot(s_base.Base):
 
         # Open a fresh slab where the old one used to be
         logger.warning(f'Re-opening fresh nexslog slab at {nexspath} for nexshot')
-        self.nexsslab = await s_lmdbslab.Slab.anit(nexspath, map_async=self.map_async)
-        self.nexsslab.addResizeCallback(self.cell.checkFreeSpace)
+        self.nexsslab = await self.cell._initSlabFile(nexspath)
 
         self.nexshot = await self.nexsslab.getHotCount('nexs:indx')
 
@@ -230,7 +228,7 @@ class NexsRoot(s_base.Base):
 
     async def enNexsLog(self):
 
-        async with self.applylock:
+        async with self.cell.nexslock:
 
             if self.donexslog:
                 return
@@ -309,7 +307,6 @@ class NexsRoot(s_base.Base):
         If I'm not a follower, mutate, otherwise, ask the leader to make the change and wait for the follower loop
         to hand me the result through a future.
         '''
-
         # pick up a reference to avoid race when we eventually can promote
         client = self.client
 
@@ -365,7 +362,7 @@ class NexsRoot(s_base.Base):
             meta = {}
 
         if lock:
-            async with self.applylock:
+            async with self.cell.nexslock:
                 self.reqNotReadOnly()
                 # Keep a reference to the shielded task to ensure it isn't GC'd
                 item = (nexsiden, event, args, kwargs, meta, etime)
@@ -604,6 +601,9 @@ class NexsRoot(s_base.Base):
                         if respfutu is not None:
                             respfutu.set_result(retn)
 
+            except s_exc.LinkShutDown:
+                logger.warning(f'mirror loop: leader closed the connection.')
+
             except Exception as exc:  # pragma: no cover
                 logger.exception(f'error in mirror loop: {exc}')
 
@@ -661,8 +661,20 @@ class Pusher(s_base.Base, metaclass=RegMethType):
             assert prev is not None, f'Failed removing {self.nexsiden}'
 
         self.onfini(onfini)
-
         self.nexsroot = nexsroot
+
+    async def modNexsRoot(self, ctor):
+
+        kids = [self]
+        if self.nexsroot is not None:
+            kids = self.nexsroot.getNexsKids()
+            await self.nexsroot.fini()
+
+        nexsroot = await ctor()
+
+        [kid.setNexsRoot(nexsroot) for kid in kids]
+
+        await nexsroot.startup()
 
     @classmethod
     def onPush(cls, event: str, passitem=False) -> Callable:

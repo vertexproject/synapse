@@ -926,12 +926,6 @@ class ClientV2(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        # some ugly stuff in order to be backward compatible...
-        if not isinstance(urlinfo, (list, tuple)):
-            urlinfo = (urlinfo,)
-
-        urlinfo = [chopurl(u) for u in urlinfo]
-
         self.aha = None
 
         self.clients = {}
@@ -941,9 +935,9 @@ class ClientV2(s_base.Base):
 
         self.onlink = onlink
 
-        self.booturls = urlinfo
         self.bootdeque = collections.deque()
-        self.bootdeque.extend(self.booturls)
+
+        self.setBootUrls(urlinfo)
 
         self.ready = asyncio.Event()
         self.deque = collections.deque()
@@ -961,6 +955,16 @@ class ClientV2(s_base.Base):
         self.onfini(fini)
 
         self.schedCoro(self._initBootProxy())
+
+    def setBootUrls(self, urlinfo):
+
+        if not isinstance(urlinfo, (list, tuple)):
+            urlinfo = (urlinfo,)
+
+        self.booturls = [chopurl(u) for u in urlinfo]
+
+        self.bootdeque.clear()
+        self.bootdeque.extend(self.booturls)
 
     def getNextBootUrl(self):
         if not self.bootdeque:
@@ -992,13 +996,14 @@ class ClientV2(s_base.Base):
 
                 # regular telepath client behavior
                 proxy = await openinfo(urlinfo)
-                await self._onPoolLink(proxy, urlinfo)
 
                 async def reconnect():
                     if not self.isfini:
                         self.schedCoro(self._initBootProxy())
 
                 proxy.onfini(reconnect)
+
+                await self._onPoolLink(proxy, urlinfo)
                 return
 
             except Exception as e:
@@ -1139,19 +1144,15 @@ class Client(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        if isinstance(urlinfo, (str, dict)):
-            urlinfo = (urlinfo,)
-
-        urlinfo = [chopurl(u) for u in urlinfo]
-
         if conf is None:
             conf = {}
 
         if opts is None:
             opts = {}
 
-        self._t_urlinfo = urlinfo
         self._t_urldeque = collections.deque()
+
+        self.setBootUrls(urlinfo)
 
         self._t_opts = opts
         self._t_conf = conf
@@ -1176,6 +1177,16 @@ class Client(s_base.Base):
 
         await self._fireLinkLoop()
 
+    def setBootUrls(self, urlinfo):
+
+        if not isinstance(urlinfo, (list, tuple)):
+            urlinfo = (urlinfo,)
+
+        self._t_urlinfo = [chopurl(u) for u in urlinfo]
+
+        self._t_urldeque.clear()
+        self._t_urldeque.extend(self._t_urlinfo)
+
     def _getNextUrl(self):
         if not self._t_urldeque:
             self._t_urldeque.extend(self._t_urlinfo)
@@ -1192,6 +1203,7 @@ class Client(s_base.Base):
     async def _fireLinkLoop(self):
         self._t_proxy = None
         self._t_ready.clear()
+        await self.fire('tele:client:linkloop')
         self.schedCoro(self._teleLinkLoop())
 
     async def _teleLinkLoop(self):
@@ -1210,7 +1222,7 @@ class Client(s_base.Base):
                 now = time.monotonic()
                 if now > lastlog + 60.0:  # don't logspam the disconnect message more than 1/min
                     url = s_urlhelp.sanitizeUrl(zipurl(urlinfo))
-                    logger.exception(f'telepath client ({url}) encountered an error: {e}')
+                    logger.warning(f'telepath client ({url}) encountered an error: {e}', exc_info=e)
                     lastlog = now
                 await self.waitfini(timeout=self._t_conf.get('retrysleep', 0.2))
 
@@ -1471,7 +1483,7 @@ async def openinfo(info):
             path, name = path.split(':')
         link = await s_link.unixconnect(path)
 
-    else:
+    elif scheme in ('tcp', 'ssl'):
 
         path = info.get('path')
         name = info.get('name', path[1:])
@@ -1519,6 +1531,9 @@ async def openinfo(info):
             linkinfo['ssl'] = sslctx
 
         link = await s_link.connect(host, port, linkinfo=linkinfo)
+
+    else:
+        raise s_exc.BadUrl(mesg=f'Invalid URL scheme: {scheme}')
 
     prox = await Proxy.anit(link, name)
     prox.onfini(link)

@@ -1,9 +1,0 @@
----
-desc: Migrate Axon metrics from hive to hotcounts. Migrate Cryotank names storage
-  from hive to SafeKeyVal storage. Migrate Cortex configuration data from hive to
-  SafeKeyVal storage. Migrate Cell info and auth configuration from hive to SafeKeyVal
-  storage.
-prs:
-- 3698
-type: migration
-...

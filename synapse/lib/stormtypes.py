@@ -3918,7 +3918,7 @@ class LibBase64(Lib):
             if urlsafe:
                 return base64.urlsafe_b64decode(valu)
             return base64.b64decode(valu)
-        except binascii.Error as e:
+        except (binascii.Error, TypeError) as e:
             mesg = f'Error during base64 decoding - {str(e)}: {s_common.trimText(repr(valu))}'
             raise s_exc.StormRuntimeError(mesg=mesg, urlsafe=urlsafe) from None
 
@@ -7314,6 +7314,9 @@ class View(Prim):
         {'name': 'wipeLayer', 'desc': 'Delete all nodes and nodedata from the write layer. Triggers will be run.',
          'type': {'type': 'function', '_funcname': '_methWipeLayer',
                   'returns': {'type': 'null', }}},
+        {'name': 'swapLayer', 'desc': 'Swaps the top layer for a fresh one and deletes the old layer.',
+         'type': {'type': 'function', '_funcname': '_methSwapLayer',
+                  'returns': {'type': 'null', }}},
         {'name': 'addNode', 'desc': '''Transactionally add a single node and all it's properties. If any validation fails, no changes are made.''',
          'type': {'type': 'function', '_funcname': 'addNode',
                   'args': (
@@ -7499,6 +7502,7 @@ class View(Prim):
             'addNode': self.addNode,
             'getEdges': self._methGetEdges,
             'wipeLayer': self._methWipeLayer,
+            'swapLayer': self._methSwapLayer,
             'addNodeEdits': self._methAddNodeEdits,
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
@@ -7805,6 +7809,15 @@ class View(Prim):
         viewiden = self.valu.get('iden')
         view = self.runt.view.core.getView(viewiden)
         await view.wipeLayer(useriden=useriden)
+
+    async def _methSwapLayer(self):
+
+        view = self._reqView()
+
+        self.runt.reqAdmin(gateiden=view.iden)
+        self.runt.confirm(('layer', 'del'), gateiden=view.layers[0].iden)
+
+        await view.swapLayer()
 
     async def getMerges(self):
         view = self._reqView()
