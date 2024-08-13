@@ -1,0 +1,6 @@
+---
+desc: Deprecate the ``$tag`` variable in triggers in favor of ``$auto``
+prs:
+- 3854
+type: deprecation
+...
