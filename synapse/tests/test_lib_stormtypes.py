@@ -4198,7 +4198,7 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ test:str=foo ]')
             self.len(1, await core.nodes('test:int'))
 
-            await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$tag ]}')
+            await core.nodes('trigger.add tag:add --form test:str --tag footag.* --query {[ +#count test:str=$auto.opts.tag ]}')
 
             await core.nodes('[ test:str=bar +#footag.bar ]')
             await core.nodes('[ test:str=bar +#footag.bar ]')

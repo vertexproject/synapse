@@ -165,7 +165,7 @@ class TrigTest(s_t_utils.SynTest):
 
             # tag:add globbing and storm var
             tdef = {'cond': 'tag:add',
-                    'storm': '$lib.log.info($auto.opts.tag) [ +#count test:str=$tag ]',
+                    'storm': '$lib.log.info($auto.opts.tag) [ +#count test:str=$auto.opts.tag ]',
                     'tag': 'a.*.c'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=foo +#a.b ]')
@@ -177,7 +177,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('#count'))
             self.len(1, await core.nodes('test:str=a.b.c'))
 
-            tdef = {'cond': 'tag:add', 'storm': '[ +#count test:str=$tag ]', 'tag': 'foo.**.baz'}
+            tdef = {'cond': 'tag:add', 'storm': '[ +#count test:str=$auto.opts.tag ]', 'tag': 'foo.**.baz'}
             await view.addTrigger(tdef)
             await core.nodes('[ test:str=foo +#foo.1.2.3.baz ]')
             self.len(1, await core.nodes('test:str=foo.1.2.3.baz'))

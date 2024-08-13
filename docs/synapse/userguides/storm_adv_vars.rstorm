@@ -185,28 +185,13 @@ node, setting a node’s property value, or applying a tag to a node) to fire ("
 predefined Storm query. Storm uses a built-in variable specifically within the context of trigger-initiated
 Storm queries.
 
-.. _vars-trigger-tag:
+.. _vars-trigger-auto:
 
-$tag
-####
+$auto
+#####
 
-For triggers that fire on ``tag:add`` events, the ``$tag`` variable represents the name of the tag that
-caused the trigger to fire.
-
-For example:
-
-You write a trigger to fire when any tag matching the expression ``#foo.bar.*`` is added to a ``file:bytes``
-node. The trigger executes the following Storm command:
-
-.. storm-pre:: [file:bytes="*"] $tag=malware -> hash:md5 [ +#$tag ]
-::
-
-  -> hash:md5 [ +#$tag ]
-
-Because the trigger uses a tag glob ("wildcard") expression, it will fire on any tag that matches that expression
-(e.g., ``#foo.bar.hurr``, ``#foo.bar.derp``, etc.). The Storm snippet above will take the inbound ``file:bytes``
-node, pivot to the file’s associated MD5 node (``hash:md5``), and apply the same tag that fired the trigger to 
-the MD5.
+The ``$auto`` variable is a dictionary which is automatically populated when a trigger executes, containing
+information about the trigger and the event which caused the trigger to execute.
 
 See the :ref:`auto-triggers` section of the :ref:`storm-ref-automation` document and the Storm :ref:`storm-trigger`
 command for a more detailed discussion of triggers and associated Storm commands.
