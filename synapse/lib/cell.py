@@ -1745,26 +1745,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def initCellStorage(self):
-        self.drive = s_drive.Drive.anit(self.slab, 'celldrive')
+        self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
         self.onfini(self.drive.fini)
 
     async def addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
 
         iden = info.get('iden')
-        if await self.getDriveInfo(iden) is not None:
-            raise s_exc.TODO()
+        if iden is None:
+            iden = info['iden'] = s_common.guid()
 
-        return self._push('drive:add', info, path=path, reldir=reldir)
+        info.setdefault('created', s_common.now())
+        info.setdefault('creator', self.auth.rootuser.iden)
 
-    @s_nexus.onPushAuto('drive:add')
+        return await self._push('drive:add', info, path=path, reldir=reldir)
+
+    @s_nexus.Pusher.onPushAuto('drive:add')
     async def _addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
 
         # replay safety...
         iden = info.get('iden')
-        if self.getDriveInfo(iden) is not None:
-            return
+        if self.drive.hasItemInfo(iden):
+            return await self.drive.getItemPath(iden)
 
-        await self.drive.addItemInfo(info, path=path, reldir=reldir)
+        return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
     async def getDriveInfo(self, iden):
         return self.drive.getItemInfo(iden)
@@ -1777,7 +1780,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path info entries. You may then operate directly on drive iden
         entries and/or check easyperm entries on them before you do...
         '''
-        return self.drive.getPathInfo(path, reldir=reldir)
+        return await self.drive.getPathInfo(path, reldir=reldir)
 
     async def addDrivePath(self, path, perm=None, reldir=s_drive.rootdir):
         '''
@@ -1826,20 +1829,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         return self.drive.getItemData(iden, vers=vers)
 
+    async def getDriveDataVersions(self, iden):
+        async for item in self.drive.getItemDataVersions(iden):
+            yield item
+
     #async def getDriveItem(self, iden):
         #return self.drive.getItemInfo(iden)
 
-    @s_nexus.onPushAuto('drive:del')
+    @s_nexus.Pusher.onPushAuto('drive:del')
     async def delDriveInfo(self, iden):
         await self.drive.delItemInfo(iden)
 
-    @s_nexus.onPushAuto('drive:set:perm')
+    @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
         await self.drive.setItemPerm(iden, perm)
 
-    @s_nexus.onPushAuto('drive:data:set')
-    async def setDriveData(self, iden, data, versinfo=None):
-        await self.drive.setItemData(iden, data, versinfo=versinfo)
+    @s_nexus.Pusher.onPushAuto('drive:data:set')
+    async def setDriveData(self, iden, versinfo, data):
+        return self.drive.setItemData(iden, versinfo, data)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:del')
+    async def delDriveData(self, iden, vers=None):
+        return self.drive.delItemData(iden, vers=vers)
 
     async def initServiceStorage(self):
         pass

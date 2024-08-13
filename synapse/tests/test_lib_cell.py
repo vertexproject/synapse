@@ -155,7 +155,132 @@ async def altAuthCtor(cell):
     cell.onfini(auth.fini)
     return auth
 
+testDataSchema_v0 = {
+    'type': 'object',
+    'properties': {
+        'type': {'type': 'string'},
+        'size': {'type': 'number'},
+    },
+    'required': ['type', 'size'],
+    'additionalProperties': False,
+}
+
+testDataSchema_v1 = {
+    'type': 'object',
+    'properties': {
+        'type': {'type': 'string'},
+        'size': {'type': 'number'},
+        'woot': {'type': 'string'},
+    },
+    'required': ['type', 'size', 'woot'],
+    'additionalProperties': False,
+}
+
 class CellTest(s_t_utils.SynTest):
+
+    async def test_cell_basics(self):
+
+        async with self.getTestCell() as cell:
+
+            info = {'name': 'users'}
+            info = await cell.addDriveItem(info)
+
+            info = {'name': 'root'}
+            info = await cell.addDriveItem(info, path='users')
+
+            rootdir = info[-1].get('iden')
+
+            info = {'name': 'win32k.sys', 'type': 'hehe'}
+            with self.raises(s_exc.NoSuchType):
+                info = await cell.addDriveItem(info, reldir=rootdir)
+
+            # TODO how to handle iden match with additional property mismatch
+
+            await cell.drive.setTypeSchema('woot', testDataSchema_v0)
+
+            info = {'name': 'win32k.sys', 'type': 'woot'}
+            info = await cell.addDriveItem(info, reldir=rootdir)
+
+            iden = info[-1].get('iden')
+
+            tick = s_common.now()
+            rootuser = cell.auth.rootuser.iden
+
+            with self.raises(s_exc.SchemaViolation):
+                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updator': rootuser}
+                await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
+
+            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updator': rootuser}
+            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 20})
+            self.eq(info.get('version'), (1, 1, 0))
+            self.eq(versinfo.get('version'), (1, 1, 0))
+
+            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updator': rootuser}
+            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
+            self.eq(info.get('version'), (1, 1, 0))
+            self.eq(versinfo.get('version'), (1, 0, 0))
+
+            versinfo10, data10 = await cell.getDriveData(iden, vers=(1, 0, 0))
+            self.eq(versinfo10.get('updated'), tick)
+            self.eq(versinfo10.get('updator'), rootuser)
+            self.eq(versinfo10.get('version'), (1, 0, 0))
+
+            versinfo11, data11 = await cell.getDriveData(iden, vers=(1, 1, 0))
+            self.eq(versinfo11.get('updated'), tick + 10)
+            self.eq(versinfo11.get('updator'), rootuser)
+            self.eq(versinfo11.get('version'), (1, 1, 0))
+
+            versions = [vers async for vers in cell.getDriveDataVersions(iden)]
+            self.len(2, versions)
+            self.eq(versions[0], versinfo11)
+            self.eq(versions[1], versinfo10)
+
+            info = await cell.delDriveData(iden, vers=(0, 0, 0))
+
+            versions = [vers async for vers in cell.getDriveDataVersions(iden)]
+            self.len(2, versions)
+            self.eq(versions[0], versinfo11)
+            self.eq(versions[1], versinfo10)
+
+            info = await cell.delDriveData(iden, vers=(1, 1, 0))
+            self.eq(info.get('updated'), tick)
+            self.eq(info.get('version'), (1, 0, 0))
+
+            info = await cell.delDriveData(iden, vers=(1, 0, 0))
+            self.eq(info.get('size'), 0)
+            self.eq(info.get('version'), (0, 0, 0))
+            self.none(info.get('updated'))
+            self.none(info.get('updator'))
+
+            # repopulate a couple data versions to test migration and delete
+            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updator': rootuser}
+            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
+            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updator': rootuser}
+            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17})
+
+            # This will be done by the cell in a cell storage version migration...
+            async def migrate_v1(info, versinfo, data):
+                data['woot'] = 'woot'
+                return data
+
+            await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
+
+            versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
+            self.eq('woot', data.get('woot'))
+
+            versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
+            self.eq('woot', data.get('woot'))
+
+            self.nn(await cell.getDriveInfo(iden))
+            self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+
+            await cell.delDriveInfo(iden)
+
+            self.none(await cell.getDriveInfo(iden))
+            self.len(0, [vers async for vers in cell.getDriveDataVersions(iden)])
+
+            with self.raises(s_exc.NoSuchPath):
+                await cell.getDrivePath('users/root/win32k.sys')
 
     async def test_cell_auth(self):
 
