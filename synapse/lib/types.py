@@ -78,6 +78,14 @@ class Type:
 
         self.postTypeInit()
 
+        normopts = dict(self.opts)
+        for optn, valu in normopts.items():
+            if isinstance(valu, float):
+                normopts[optn] = str(valu)
+
+        ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
+        self.typehash = s_common.guid((ctor, s_common.flatten(normopts)))
+
     def _storLiftSafe(self, cmpr, valu):
         try:
             return self.storlifts['=']('=', valu)
