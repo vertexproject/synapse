@@ -3939,8 +3939,8 @@ class MergeCmd(Cmd):
 
         if self.opts.wipe:
             mesg = 'merge --wipe requires view admin'
-            runt.reqAdmin(gateiden=runt.snap.view.iden, mesg=mesg)
-            runt.confirm(('layer', 'del'), gateiden=runt.snap.view.layers[0].iden)
+            runt.reqAdmin(gateiden=runt.view.iden, mesg=mesg)
+            runt.confirm(('layer', 'del'), gateiden=runt.view.layers[0].iden)
 
         notags = self.opts.no_tags
         onlytags = self.opts.only_tags
@@ -4251,7 +4251,7 @@ class MergeCmd(Cmd):
                 yield node, path
 
             if doapply and self.opts.wipe:
-                await runt.snap.view.swapLayer()
+                await runt.view.swapLayer()
 
 class MoveNodesCmd(Cmd):
     '''

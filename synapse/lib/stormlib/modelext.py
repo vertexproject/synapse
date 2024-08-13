@@ -204,7 +204,7 @@ class LibModelExt(s_stormtypes.Lib):
             n2form = None
 
         s_stormtypes.confirm(('model', 'edge', 'add'))
-        await self.runt.snap.core.addEdge((n1form, verb, n2form), edgeinfo)
+        await self.runt.view.core.addEdge((n1form, verb, n2form), edgeinfo)
 
     async def delEdge(self, n1form, verb, n2form):
         verb = await s_stormtypes.tostr(verb)
@@ -222,4 +222,4 @@ class LibModelExt(s_stormtypes.Lib):
             n2form = None
 
         s_stormtypes.confirm(('model', 'edge', 'del'))
-        await self.runt.snap.core.delEdge((n1form, verb, n2form))
+        await self.runt.view.core.delEdge((n1form, verb, n2form))

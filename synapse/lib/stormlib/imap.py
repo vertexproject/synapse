@@ -82,7 +82,7 @@ class ImapLib(s_stormtypes.Lib):
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         if ssl:
-            ctx = self.runt.snap.core.getCachedSslCtx(opts=None, verify=ssl_verify)
+            ctx = self.runt.view.core.getCachedSslCtx(opts=None, verify=ssl_verify)
             imap_cli = aioimaplib.IMAP4_SSL(host=host, port=port, timeout=timeout, ssl_context=ctx)
         else:
             imap_cli = aioimaplib.IMAP4(host=host, port=port, timeout=timeout)
