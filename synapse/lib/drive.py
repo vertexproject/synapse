@@ -10,21 +10,13 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 
 nameregex = regex.compile(s_schemas.re_drivename)
-#LKEY_META = b'\x00'
-#LKEY_ABRV = b'\x00'
-#LKEY_VRBA = b'\x00'
-#LKEY_META = b'\x00'
 
 LKEY_TYPE = b'\x00' # <type> = <schema>
 LKEY_DIRN = b'\x01' # <bidn> <name> = <kid>
 LKEY_INFO = b'\x02' # <bidn> = <info>
 LKEY_DATA = b'\x03' # <bidn> <vers> = <data>
 LKEY_VERS = b'\x04' # <bidn> <vers> = <versinfo>
-
-LKEY_INFO_BYTYPE = b'\x06' # <type> 00 <bidn> = 01
-
-#LKEY_BYNAME = b'\x02'
-#LKEY_BYPATH = b'\x02'
+LKEY_INFO_BYTYPE = b'\x05' # <type> 00 <bidn> = 01
 
 rootdir = '00000000000000000000000000000000'
 
@@ -305,17 +297,6 @@ class Drive(s_base.Base):
 
             yield info
 
-    #def setPathData(self, path, data, reldir=rootdir):
-        #path = self.getPathNorm(path)
-        #infos = self.getPathInfo(path, reldir=reldir)
-
-        #iden = infos[-1].get('iden')
-        #typename = infos[-1].get('type')
-
-        #self.reqValidData(typename, data)
-        #byts = s_msgpack.en(data)
-        #self.slab.put(LKEY_DATA + s_common.uhex(iden), 
-
     def setItemData(self, iden, versinfo, data):
         return self._setItemData(s_common.uhex(iden), versinfo, data)
 
@@ -435,17 +416,6 @@ class Drive(s_base.Base):
         if byts is not None:
             return s_msgpack.un(byts)
 
-    #def addTypeSchema(self, typename, schema):
-
-        #lkey = LKEY_TYPE + typename.encode()
-        #if self.slab.get(lkey, db=self.dbname) is not None:
-            #raise s_exc.TODO()
-
-        #vtor = s_config.getJsValidator(schema)
-        #self.validators[typename] = vtor
-
-        #self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
-
     async def setTypeSchema(self, typename, schema, callback=None):
 
         vtor = s_config.getJsValidator(schema)
@@ -468,7 +438,6 @@ class Drive(s_base.Base):
                     self.reqValidData(typename, data)
                     self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
-
 
     async def getItemsByType(self, typename):
         tkey = typename.encode() + b'\x00'
