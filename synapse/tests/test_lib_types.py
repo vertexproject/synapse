@@ -1606,3 +1606,9 @@ class TypesTest(s_t_utils.SynTest):
 
             core.getLayer()._testAddPropArrayIndx(buid, 'test:int', '_hehe', ('newp' * 100,))
             self.len(0, await core.nodes('test:int:_hehe*[~=newp]'))
+
+    async def test_typehash(self):
+        async with self.getTestCore() as core:
+            self.eq(core.model.form('inet:fqdn').type.typehash, core.model.prop('inet:dns:a:fqdn').type.typehash)
+            self.eq(core.model.form('it:prod:softname').type.typehash, core.model.prop('it:network:name').type.typehash)
+            self.ne(core.model.form('inet:asn').type.typehash, core.model.prop('inet:proto:port').type.typehash)

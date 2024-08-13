@@ -2436,8 +2436,7 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-                    pivo = await runt.snap.getNodeByNdef((fname, item))
-                    if pivo:
+                    async for pivo in runt.snap.nodesByPropValu(fname, '=', item, norm=False):
                         yield pivo, path.fork(pivo)
 
                 continue
