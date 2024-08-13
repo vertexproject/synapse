@@ -145,9 +145,7 @@ class Triggers:
             [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
 
     async def runPropSet(self, node, prop, oldv):
-        vars = {'propname': prop.name, 'propfull': prop.full,
-                'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, }},
-                }
+        vars = {'auto': {'opts': {'propname': prop.name, 'propfull': prop.full}}}
         with self._recursion_check():
             [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
@@ -155,7 +153,7 @@ class Triggers:
 
     async def runTagAdd(self, node, tag):
 
-        vars = {'tag': tag, 'auto': {'opts': {'tag': tag}}}
+        vars = {'auto': {'opts': {'tag': tag}}}
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
@@ -178,9 +176,7 @@ class Triggers:
 
     async def runTagDel(self, node, tag):
 
-        vars = {'tag': tag,
-                'auto': {'opts': {'tag': tag}},
-                }
+        vars = {'auto': {'opts': {'tag': tag}}}
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
