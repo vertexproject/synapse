@@ -1,1 +1,2 @@
 /usr/local/lib/python3.11/dist-packages/synapse/tests/files/certdir/
+/usr/local/lib/python3.11/dist-packages/synapse/tests/files/aha/certs/

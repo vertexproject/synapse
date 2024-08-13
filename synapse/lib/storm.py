@@ -1048,7 +1048,7 @@ stormcmds = (
                 $lib.view.del($view.iden)
                 $lib.layer.del($layriden)
             } else {
-                $view.wipeLayer()
+                $view.swapLayer()
             }
             $lib.print("View merged: {iden}", iden=$cmdopts.iden)
         ''',
@@ -3775,6 +3775,8 @@ class MergeCmd(Cmd):
         pars = Cmd.getArgParser(self)
         pars.add_argument('--apply', default=False, action='store_true',
                           help='Execute the merge changes.')
+        pars.add_argument('--wipe', default=False, action='store_true',
+                          help='Replace the top layer in the view with a fresh layer.')
         pars.add_argument('--no-tags', default=False, action='store_true',
                           help='Do not merge tags/tagprops or syn:tag nodes.')
         pars.add_argument('--only-tags', default=False, action='store_true',
@@ -3853,13 +3855,15 @@ class MergeCmd(Cmd):
             return
 
         if not allows['forms'] and sode.get('valu') is not None:
-            runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
+            if not self.opts.wipe:
+                runt.confirm(('node', 'del', node.form.name), gateiden=layr0)
             runt.confirm(('node', 'add', node.form.name), gateiden=layr1)
 
         if not allows['props']:
             for name in sode.get('props', {}).keys():
                 prop = node.form.prop(name)
-                runt.confirmPropDel(prop, layriden=layr0)
+                if not self.opts.wipe:
+                    runt.confirmPropDel(prop, layriden=layr0)
                 runt.confirmPropSet(prop, layriden=layr1)
 
         if not allows['proptombs']:
@@ -3875,7 +3879,8 @@ class MergeCmd(Cmd):
                 if valu != (None, None):
                     tagadds.append(tag)
                     tagperm = tuple(tag.split('.'))
-                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                    if not self.opts.wipe:
+                        runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                     runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
                 else:
                     tags.append((len(tag), tag))
@@ -3887,12 +3892,14 @@ class MergeCmd(Cmd):
 
                 tagadds.append(tag)
                 tagperm = tuple(tag.split('.'))
-                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                if not self.opts.wipe:
+                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
             for tag in sode.get('tagprops', {}).keys():
                 tagperm = tuple(tag.split('.'))
-                runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
+                if not self.opts.wipe:
+                    runt.confirm(('node', 'tag', 'del') + tagperm, gateiden=layr0)
                 runt.confirm(('node', 'tag', 'add') + tagperm, gateiden=layr1)
 
         if not allows['tagtombs']:
@@ -3910,7 +3917,8 @@ class MergeCmd(Cmd):
                 if tomb:
                     runt.confirm(('node', 'data', 'pop', name), gateiden=layr1)
                 else:
-                    runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                    if not self.opts.wipe:
+                        runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
                     runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
         if not (allows['edges'] and allows['edgetombs']):
@@ -3919,7 +3927,8 @@ class MergeCmd(Cmd):
                 if tomb:
                     runt.confirm(('node', 'edge', 'del', verb), gateiden=layr1)
                 else:
-                    runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
+                    if not self.opts.wipe:
+                        runt.confirm(('node', 'edge', 'del', verb), gateiden=layr0)
                     runt.confirm(('node', 'edge', 'add', verb), gateiden=layr1)
 
     async def execStormCmd(self, runt, genr):
@@ -3927,6 +3936,11 @@ class MergeCmd(Cmd):
         if runt.view.parent is None:
             mesg = 'You may only merge nodes in forked views'
             raise s_exc.CantMergeView(mesg=mesg)
+
+        if self.opts.wipe:
+            mesg = 'merge --wipe requires view admin'
+            runt.reqAdmin(gateiden=runt.view.iden, mesg=mesg)
+            runt.confirm(('layer', 'del'), gateiden=runt.view.layers[0].iden)
 
         notags = self.opts.no_tags
         onlytags = self.opts.only_tags
@@ -3942,23 +3956,37 @@ class MergeCmd(Cmd):
         doperms = doapply and not (runt.isAdmin(gateiden=layr0.iden) and runt.isAdmin(gateiden=layr1.iden))
 
         if doperms:
-            allows = {
-                'forms': runt.user.allowed(('node', 'del'), gateiden=layr0.iden, deepdeny=True) and
-                         runt.user.allowed(('node', 'add'), gateiden=layr1.iden, deepdeny=True),
-                'props': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr0.iden, deepdeny=True) and
-                         runt.user.allowed(('node', 'prop', 'set'), gateiden=layr1.iden, deepdeny=True),
-                'tags': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr0.iden, deepdeny=True) and
-                        runt.user.allowed(('node', 'tag', 'add'), gateiden=layr1.iden, deepdeny=True),
-                'ndata': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr0.iden, deepdeny=True) and
-                         runt.user.allowed(('node', 'data', 'set'), gateiden=layr1.iden, deepdeny=True),
-                'edges': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr0.iden, deepdeny=True) and
-                         runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
-                'formtombs': runt.user.allowed(('node', 'del'), gateiden=layr1.iden, deepdeny=True),
-                'proptombs': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr1.iden, deepdeny=True),
-                'tagtombs': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr1.iden, deepdeny=True),
-                'ndatatombs': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr1.iden, deepdeny=True),
-                'edgetombs': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr1.iden, deepdeny=True),
-            }
+            if not self.opts.wipe:
+                allows = {
+                    'forms': runt.user.allowed(('node', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                             runt.user.allowed(('node', 'add'), gateiden=layr1.iden, deepdeny=True),
+                    'props': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                             runt.user.allowed(('node', 'prop', 'set'), gateiden=layr1.iden, deepdeny=True),
+                    'tags': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                            runt.user.allowed(('node', 'tag', 'add'), gateiden=layr1.iden, deepdeny=True),
+                    'ndata': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr0.iden, deepdeny=True) and
+                             runt.user.allowed(('node', 'data', 'set'), gateiden=layr1.iden, deepdeny=True),
+                    'edges': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr0.iden, deepdeny=True) and
+                             runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
+                    'formtombs': runt.user.allowed(('node', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'proptombs': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'tagtombs': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'ndatatombs': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr1.iden, deepdeny=True),
+                    'edgetombs': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr1.iden, deepdeny=True),
+                }
+            else:
+                allows = {
+                    'forms': runt.user.allowed(('node', 'add'), gateiden=layr1.iden, deepdeny=True),
+                    'props': runt.user.allowed(('node', 'prop', 'set'), gateiden=layr1.iden, deepdeny=True),
+                    'tags': runt.user.allowed(('node', 'tag', 'add'), gateiden=layr1.iden, deepdeny=True),
+                    'ndata': runt.user.allowed(('node', 'data', 'set'), gateiden=layr1.iden, deepdeny=True),
+                    'edges': runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
+                    'formtombs': runt.user.allowed(('node', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'proptombs': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'tagtombs': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr1.iden, deepdeny=True),
+                    'ndatatombs': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr1.iden, deepdeny=True),
+                    'edgetombs': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr1.iden, deepdeny=True),
+                }
 
             doperms = not all(allows.values())
 
@@ -4037,8 +4065,9 @@ class MergeCmd(Cmd):
                         if addedits:
                             await runt.view.parent.storNodeEdits(addedits, meta=meta)
 
-                        subedits = [(node.nid, node.form.name, [(s_layer.EDIT_NODE_TOMB_DEL, ())])]
-                        await runt.view.saveNodeEdits(subedits, meta=meta)
+                        if not self.opts.wipe:
+                            subedits = [(node.nid, node.form.name, [(s_layer.EDIT_NODE_TOMB_DEL, ())])]
+                            await runt.view.saveNodeEdits(subedits, meta=meta)
 
                     continue
 
@@ -4072,7 +4101,8 @@ class MergeCmd(Cmd):
                         if name == '.created':
                             if doapply:
                                 protonode.props['.created'] = valu
-                                subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
+                                if not self.opts.wipe:
+                                    subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
                             continue
 
                         isset = False
@@ -4096,14 +4126,16 @@ class MergeCmd(Cmd):
                         await runt.printf(f'{nodeiden} {form}:{name} = {valurepr}')
                     else:
                         await protonode.set(name, valu)
-                        subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
 
                 for name in sode.get('antiprops', {}).keys():
                     if not doapply:
                         await runt.printf(f'{nodeiden} delete {form}:{name}')
                     else:
                         await protonode.pop(name)
-                        subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
 
             if doapply and protonode is None:
                 protonode = await editor.addNode(form, node.ndef[1], norminfo={})
@@ -4122,7 +4154,8 @@ class MergeCmd(Cmd):
                         await runt.printf(f'{nodeiden} {form}#{tag}{valurepr}')
                     else:
                         await protonode.addTag(tag, valu)
-                        subs.append((s_layer.EDIT_TAG_DEL, (tag, valu)))
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_TAG_DEL, (tag, valu)))
 
                 for tag in sode.get('antitags', {}).keys():
 
@@ -4133,7 +4166,8 @@ class MergeCmd(Cmd):
                         await runt.printf(f'{nodeiden} delete {form}#{tag}')
                     else:
                         await protonode.delTag(tag)
-                        subs.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
+                        if not self.opts.wipe:
+                            subs.append((s_layer.EDIT_TAG_TOMB_DEL, (tag,)))
 
                 for tag, tagdict in sode.get('tagprops', {}).items():
 
@@ -4146,7 +4180,8 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} {form}#{tag}:{prop} = {valurepr}')
                         else:
                             await protonode.setTagProp(tag, prop, valu)
-                            subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_TAGPROP_DEL, (tag, prop, valu, stortype)))
 
                 for tag, tagdict in sode.get('antitagprops', {}).items():
 
@@ -4158,7 +4193,8 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} delete {form}#{tag}:{prop}')
                         else:
                             await protonode.delTagProp(tag, prop)
-                            subs.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop)))
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, prop)))
 
             if not onlytags or form == 'syn:tag':
 
@@ -4169,14 +4205,16 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} delete {form} DATA {name}')
                         else:
                             await protonode.popData(name)
-                            subs.append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_NODEDATA_TOMB_DEL, (name,)))
                     else:
                         if not doapply:
                             valurepr = repr(valu)
                             await runt.printf(f'{nodeiden} {form} DATA {name} = {valurepr}')
                         else:
                             await protonode.setData(name, valu)
-                            subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu)))
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_NODEDATA_DEL, (name, valu)))
 
                 async for abrv, n2nid, tomb in s_coro.pause(layr0.iterNodeEdgesN1(node.nid)):
                     verb = core.getAbrvIndx(abrv)[0]
@@ -4186,16 +4224,18 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} delete {form} -({verb})> {dest}')
                         else:
                             await protonode.delEdge(verb, n2nid)
-                            subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
                     else:
                         if not doapply:
                             dest = s_common.ehex(core.getBuidByNid(n2nid))
                             await runt.printf(f'{nodeiden} {form} +({verb})> {dest}')
                         else:
                             await protonode.addEdge(verb, n2nid)
-                            subs.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
+                            if not self.opts.wipe:
+                                subs.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
 
-            if delnode:
+            if delnode and not self.opts.wipe:
                 subs.append((s_layer.EDIT_NODE_DEL, valu))
 
             if doapply:
@@ -4209,6 +4249,9 @@ class MergeCmd(Cmd):
 
             if node.hasvalu():
                 yield node, path
+
+            if doapply and self.opts.wipe:
+                await runt.view.swapLayer()
 
 class MoveNodesCmd(Cmd):
     '''

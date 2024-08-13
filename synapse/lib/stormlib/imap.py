@@ -50,6 +50,8 @@ class ImapLib(s_stormtypes.Lib):
                      'desc': 'The time to wait for all commands on the server to execute.'},
                     {'type': 'bool', 'name': 'ssl', 'default': True,
                      'desc': 'Use SSL to connect to the IMAP server.'},
+                    {'type': 'bool', 'name': 'ssl_verify', 'default': True,
+                     'desc': 'Perform SSL/TLS verification.'},
                 ),
                 'returns': {
                     'type': 'inet:imap:server',
@@ -69,17 +71,19 @@ class ImapLib(s_stormtypes.Lib):
             'connect': self.connect,
         }
 
-    async def connect(self, host, port=993, timeout=30, ssl=True):
+    async def connect(self, host, port=993, timeout=30, ssl=True, ssl_verify=True):
 
         self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
 
         ssl = await s_stormtypes.tobool(ssl)
         host = await s_stormtypes.tostr(host)
         port = await s_stormtypes.toint(port)
+        ssl_verify = await s_stormtypes.tobool(ssl_verify)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
 
         if ssl:
-            imap_cli = aioimaplib.IMAP4_SSL(host=host, port=port, timeout=timeout)
+            ctx = self.runt.view.core.getCachedSslCtx(opts=None, verify=ssl_verify)
+            imap_cli = aioimaplib.IMAP4_SSL(host=host, port=port, timeout=timeout, ssl_context=ctx)
         else:
             imap_cli = aioimaplib.IMAP4(host=host, port=port, timeout=timeout)
 

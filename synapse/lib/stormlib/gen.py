@@ -136,6 +136,34 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the place.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'A geo:place node with the given name.'}}},
+        {'name': 'fileBytesBySha256',
+         'desc': 'Returns a file:bytes node by SHA256, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'sha256', 'type': ['str', 'hash:sha256'], 'desc': 'The SHA256 fingerprint for the file:bytes node.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'A file:bytes node with the given SHA256.'}}},
+        {'name': 'cryptoX509CertBySha256',
+         'desc': 'Returns a crypto:x509:cert node by SHA256, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'sha256', 'type': ['str', 'hash:sha256'], 'desc': 'The SHA256 fingerprint for the certificate.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'A crypto:x509:cert node with the given SHA256.'}}},
+        {'name': 'inetTlsServerCertByServerAndSha256',
+         'desc': 'Returns an inet:tls:servercert node by server and SHA256, adding the node if it does not exist.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'server', 'type': ['str', 'inet:server'], 'desc': 'The server associated with the x509 certificate.'},
+                      {'name': 'sha256', 'type': ['str', 'hash:sha256'], 'desc': 'The SHA256 fingerprint for the certificate.'},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'An inet:tls:servercert node with the given server and SHA256.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -423,6 +451,58 @@ class LibGen(s_stormtypes.Lib):
             return($node)
 
             [ geo:place=(gen, name, $geoname) :name=$geoname ]
+            return($node)
+        }
+
+        function fileBytesBySha256(sha256, try=$lib.false) {
+            ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
+            if (not $ok) { return() }
+
+            file:bytes=$sha256
+            return($node)
+
+            file:bytes:sha256=$sha256
+            return($node)
+
+            [ file:bytes=$sha256 ]
+            return($node)
+        }
+
+        function cryptoX509CertBySha256(sha256, try=$lib.false) {
+            ($ok, $sha256) = $__maybeCast($try, hash:sha256, $sha256)
+            if (not $ok) { return() }
+
+            $guid = $lib.guid(valu=$sha256)
+
+            // Try to lift crypto:x509:cert by guid
+            crypto:x509:cert=$guid
+            return($node)
+
+            // Try to lift crypto:x509:cert by sha256
+            crypto:x509:cert:sha256=$sha256
+            return($node)
+
+            // Try to lift crypto:x509:cert by file
+            file:bytes:sha256=$sha256 -> crypto:x509:cert:file
+            { -:sha256 [ :sha256 = $sha256 ] }
+            return($node)
+
+            // Create a new crypto:x509:cert with file and sha256
+            [ crypto:x509:cert=$guid
+                :file = $fileBytesBySha256($sha256)
+                :sha256 = $sha256
+            ]
+            return($node)
+        }
+
+        function inetTlsServerCertByServerAndSha256(server, sha256, try=$lib.false) {
+            ($ok, $server) = $__maybeCast($try, inet:server, $server)
+            if (not $ok) { return() }
+
+            $crypto = $cryptoX509CertBySha256($sha256, try=$try)
+            if (not $crypto) { return() }
+
+            [ inet:tls:servercert=($server, $crypto) ]
             return($node)
         }
     '''

@@ -76,18 +76,7 @@ class StormCellTest(s_test.SynTest):
 
     async def test_stormlib_cell_getmirrors(self):
 
-        conf = {
-            'aha:name': 'aha',
-            'aha:network': 'mynet',
-            'provision:listen': 'tcp://127.0.0.1:0',
-        }
-        async with self.getTestCell(s_aha.AhaCell, conf=conf) as aha:
-
-            provaddr, provport = aha.provdmon.addr
-            aha.conf['provision:listen'] = f'tcp://127.0.0.1:{provport}'
-
-            ahahost, ahaport = await aha.dmon.listen('ssl://127.0.0.1:0?hostname=aha.mynet&ca=mynet')
-            aha.conf['aha:urls'] = (f'ssl://127.0.0.1:{ahaport}?hostname=aha.mynet',)
+        async with self.getTestAha() as aha:
 
             provurl = await aha.addAhaSvcProv('00.cortex')
             coreconf = {'aha:provision': provurl}
@@ -116,7 +105,7 @@ class StormCellTest(s_test.SynTest):
                     await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
                     self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
 
-                    expurls = ['aha://01.cortex.mynet']
+                    expurls = ['aha://01.cortex.synapse']
 
                     self.eq(expurls, await core00.callStorm('return($lib.cell.getMirrorUrls())'))
                     self.eq(expurls, await core01.callStorm('return($lib.cell.getMirrorUrls())'))
@@ -148,11 +137,11 @@ class StormCellTest(s_test.SynTest):
 
                         await svc01.sync()
 
-                        expurls = ('aha://01.testsvc.mynet',)
+                        expurls = ('aha://01.testsvc.synapse',)
 
                         self.eq(expurls, await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))'))
 
-                    await aha.delAhaSvc('00.testsvc.mynet')
+                    await aha.delAhaSvc('00.testsvc.synapse')
 
                     with self.raises(s_exc.NoSuchName):
                         await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))')

@@ -77,6 +77,27 @@ class LibModelExt(s_stormtypes.Lib):
                       {'name': 'model', 'type': 'dict', 'desc': 'A model dictionary from getExtModel().', },
                   ),
                   'returns': {'type': 'boolean'}}},
+        {'name': 'addEdge', 'desc': 'Add an extended edge definition to the data model.',
+         'type': {'type': 'function', '_funcname': 'addEdge',
+                  'args': (
+                      {'name': 'n1form', 'type': 'str',
+                       'desc': 'The form of the n1 node. May be "*" or null to specify "any".'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb, which must begin with "_".'},
+                      {'name': 'n2form', 'type': 'str',
+                       'desc': 'The form of the n2 node. May be "*" or null to specify "any".'},
+                      {'name': 'edgeinfo', 'type': 'dict', 'desc': 'A Synapse edge info dictionary.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'delEdge', 'desc': 'Remove an extended edge definition from the data model.',
+         'type': {'type': 'function', '_funcname': 'delEdge',
+                  'args': (
+                      {'name': 'n1form', 'type': 'str',
+                       'desc': 'The form of the n1 node. May be "*" or null to specify "any".'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The edge verb, which must begin with "_".'},
+                      {'name': 'n2form', 'type': 'str',
+                       'desc': 'The form of the n2 node. May be "*" or null to specify "any".'},
+                  ),
+                  'returns': {'type': 'null'}}},
     )
     _storm_lib_path = ('model', 'ext')
 
@@ -92,6 +113,8 @@ class LibModelExt(s_stormtypes.Lib):
             'delTagProp': self.delTagProp,
             'getExtModel': self.getExtModel,
             'addExtModel': self.addExtModel,
+            'addEdge': self.addEdge,
+            'delEdge': self.delEdge,
         }
 
     # TODO type docs in the new convention
@@ -163,3 +186,40 @@ class LibModelExt(s_stormtypes.Lib):
     async def addExtModel(self, model):
         model = await s_stormtypes.toprim(model)
         return await self.runt.view.core.addExtModel(model)
+
+    async def addEdge(self, n1form, verb, n2form, edgeinfo):
+        verb = await s_stormtypes.tostr(verb)
+        n1form = await s_stormtypes.tostr(n1form, noneok=True)
+        n2form = await s_stormtypes.tostr(n2form, noneok=True)
+        edgeinfo = await s_stormtypes.toprim(edgeinfo)
+
+        if not (s_grammar.isEdgeVerb(verb) and verb.islower()):
+            mesg = f'Invalid edge verb {verb}'
+            raise s_exc.BadEdgeDef(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
+
+        if n1form == '*':
+            n1form = None
+
+        if n2form == '*':
+            n2form = None
+
+        s_stormtypes.confirm(('model', 'edge', 'add'))
+        await self.runt.view.core.addEdge((n1form, verb, n2form), edgeinfo)
+
+    async def delEdge(self, n1form, verb, n2form):
+        verb = await s_stormtypes.tostr(verb)
+        n1form = await s_stormtypes.tostr(n1form, noneok=True)
+        n2form = await s_stormtypes.tostr(n2form, noneok=True)
+
+        if not (s_grammar.isEdgeVerb(verb) and verb.islower()):
+            mesg = f'Invalid edge verb {verb}'
+            raise s_exc.BadEdgeDef(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
+
+        if n1form == '*':
+            n1form = None
+
+        if n2form == '*':
+            n2form = None
+
+        s_stormtypes.confirm(('model', 'edge', 'del'))
+        await self.runt.view.core.delEdge((n1form, verb, n2form))

@@ -486,7 +486,7 @@ The ready column indicates that a service has entered into the realtime change w
                     if $svcinfo.online {
                         $nexusOffset = $_getNexus($name)
                     } else {
-                        $nexusOffset = 'Service is not online. Will not attempt to retrieve its nexus offset.'
+                        $nexusOffset = '<offline>'
                     }
                 }
                 $name=$name.ljust(45)

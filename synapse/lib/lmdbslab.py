@@ -927,7 +927,7 @@ class Slab(s_base.Base):
                 'recovering': slab.recovering,
                 'maxsize': slab.maxsize,
                 'growsize': slab.growsize,
-                'mapasync': slab.mapasync,
+                'mapasync': True,
 
             })
         return retn
@@ -939,6 +939,8 @@ class Slab(s_base.Base):
         kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
         kwargs.setdefault('map_async', True)
+
+        assert kwargs.get('map_async')
 
         opts = kwargs
 
@@ -983,8 +985,6 @@ class Slab(s_base.Base):
             if lockmem_override:
                 logger.info(f'SYN_LOCKMEM_DISABLE envar set, skipping lockmem for {self.path}')
                 self.lockmemory = False
-
-        self.mapasync = opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:

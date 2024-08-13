@@ -244,7 +244,7 @@ Once we have validated that our data has loaded correctly, we can modify our ``c
 ::
   
   python -m synapse.tools.csvtool --logfile mylog.json --csv-header
-    --cortex tcp://cortex.vertex.link:4444/cortex00 stormfile testfile.csv
+    --cortex aha://cortex... stormfile testfile.csv
 
 .. _ingest-2:
 
@@ -399,7 +399,7 @@ Once the data has been validated, we can load it into our live Cortex (replace t
 ::
   
   python -m synapse.tools.csvtool --logfile mylog.json --csv-header
-    --cortex tcp://cortex.vertex.link:4444/cortex00 stormfile testfile.csv
+    --cortex aha://cortex... stormfile testfile.csv
 
 .. _csvtool-examples-export:
 
@@ -468,7 +468,7 @@ We can now test our export of the data we ingested in :ref:`ingest-2` (replace t
 ::
   
   python -m synapse.tools.csvtool --debug --export
-    --cortex tcp://cortex.vertex.link:4444/cortex00 stormfile export.csv
+    --cortex aha://cortex... stormfile export.csv
 
 If we view the contents of ``export.csv``, we should see our list of indicators:
 
@@ -582,7 +582,7 @@ We can now test our export of the data we ingested in :ref:`ingest-1` (replace t
 ::
   
   python -m synapse.tools.csvtool --debug --export
-    --cortex tcp://cortex.vertex.link:4444/cortex00 stormfile export.csv
+    --cortex aha://cortex... stormfile export.csv
 
 If we view the contents of ``export.csv``, we should see the following:
 

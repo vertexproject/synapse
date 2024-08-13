@@ -1517,9 +1517,6 @@ class Layer(s_nexus.Pusher):
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
 
-        self.mapasync = core.conf.get('layer:lmdb:map_async')
-        self.maxreplaylog = core.conf.get('layer:lmdb:max_replay_log')
-
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
         self.nodeDelHook = None
@@ -2208,8 +2205,6 @@ class Layer(s_nexus.Pusher):
         slabopts = {
             'readahead': True,
             'lockmemory': self.lockmemory,
-            'map_async': self.mapasync,
-            'max_replay_log': self.maxreplaylog,
         }
 
         if self.growsize is not None:
@@ -2698,7 +2693,7 @@ class Layer(s_nexus.Pusher):
                 await self.core.nexsroot.waitOffs(indx)
             return indx, changes
 
-        async with self.core.nexsroot.applylock:
+        async with self.core.nexsroot.cell.nexslock:
             if (realedits := await self.calcEdits(edits, meta)):
                 return await self.saveToNexs('edits', realedits, meta)
             return None, ()
