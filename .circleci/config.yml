@@ -618,7 +618,7 @@ jobs:
             python3 -m pip install bump2version
             DATE=`date '+%Y%m%d%H%M'`
             CURRENT_VERSION=`grep "current_version =" .bumpversion.cfg | cut -f 2 -d "=" | tr -d '[:space:]'`
-            # The "patch" value here just to fulfill a required argument.
+            # The "patch" value is used here just to fulfill a required argument.
             python3 -m bumpversion --allow-dirty --no-tag --no-commit --new-version "${CURRENT_VERSION}a${DATE}" patch
       - deploy_to_devpi:
           devpi_base_url: ${DEVPI_BASE_URL}
