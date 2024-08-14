@@ -65,8 +65,8 @@ langcodes = (
     (0x1C01, 'ar-TN'),  # ARABIC_TUNISIA
     (0x3801, 'ar-AE'),  # ARABIC_UAE
     (0x2401, 'ar-YE'),  # ARABIC_YEMEN
-    (0x4401, "ar-Ploc-SA"),
-    (0x4801, "ar-145"),
+    (0x4401, 'ar-Ploc-SA'),
+    (0x4801, 'ar-145'),
     (0x002B, 'hy'),  # ARMENIAN
     (0x042B, 'hy-AM'),  # ARMENIAN_ARMENIA
     (0x004D, 'as'),  # ASSAMESE
@@ -85,8 +85,8 @@ langcodes = (
     (0x042D, 'eu-ES'),  # BASQUE SPAIN
     (0x0023, 'be'),  # BELARUSIAN
     (0x0423, 'be-BY'),  # BELARUSIAN_BELARUS
-    (0x0066, "bin"),  # BINI
-    (0x0466, "bin-NG"),
+    (0x0066, 'bin'),  # BINI
+    (0x0466, 'bin-NG'),
     (0x641A, 'bs-Cyrl'),  # BOSNIAN (CYRILLIC)
     (0x201A, 'bs-Cyrl-BA'),  # BOSNIAN (CYRILLIC) BOSNIA AND HERZEGOVINA
     (0x781A, 'bs'),  # BOSNIAN (LATIN)
@@ -150,13 +150,13 @@ langcodes = (
     (0x0409, 'en-US'),  # ENGLISH_US
     (0x4C09, 'en-AE'),  # ENGLISH UNITED ARAB EMIRATES
     (0x3009, 'en-ZW'),  # ENGLISH_ZIMBABWE
-    (0x3809, "en-ID"),
-    (0x5009, "en-BH"),
-    (0x5409, "en-EG"),
-    (0x5809, "en-JO"),
-    (0x5C09, "en-KW"),
-    (0x6009, "en-TR"),
-    (0x6409, "en-YE"),
+    (0x3809, 'en-ID'),
+    (0x5009, 'en-BH'),
+    (0x5409, 'en-EG'),
+    (0x5809, 'en-JO'),
+    (0x5C09, 'en-KW'),
+    (0x6009, 'en-TR'),
+    (0x6409, 'en-YE'),
     (0x0025, 'et'),  # ESTONIAN
     (0x0425, 'et-EE'),  # ESTONIAN_ESTONIA
     (0x0038, 'fo'),  # FAROESE
@@ -181,7 +181,7 @@ langcodes = (
     (0x200C, 'fr-RE'),  # FRENCH REUNION
     (0x280C, 'fr-SN'),  # FRENCH SENEGAL
     (0x100C, 'fr-CH'),  # FRENCH_SWISS
-    (0xE40C, "fr-015"),
+    (0xE40C, 'fr-015'),
     (0x0062, 'fy'),  # FRISIAN
     (0x0462, 'fy-NL'),  # FRISIAN_NETHERLANDS
     (0x0067, 'ff'),  # FULAH
@@ -223,8 +223,8 @@ langcodes = (
     (0x0470, 'ig-NG'),  # IGBO_NIGERIA
     (0x0021, 'id'),  # INDONESIAN
     (0x0421, 'id-ID'),  # INDONESIAN_INDONESIA
-    (0x0069, "ibb"),  # IBIBIO
-    (0x0469, "ibb-NG"),
+    (0x0069, 'ibb'),  # IBIBIO
+    (0x0469, 'ibb-NG'),
     (0x005D, 'iu'),  # INUKTITUT (LATIN)
     (0x7C5D, 'iu-Latn'),  # INUKTITUT (LATIN)
     (0x085D, 'iu-Latn-CA'),  # INUKTITUT (LATIN) CANADA
@@ -237,8 +237,8 @@ langcodes = (
     (0x0810, 'it-CH'),  # ITALIAN_SWISS
     (0x0011, 'ja'),  # JAPANESE
     (0x0411, 'ja-JP'),  # JAPANESE_JAPAN
-    (0x0811, "ja-Ploc-JP"),
-    (0x0071, "kr"),
+    (0x0811, 'ja-Ploc-JP'),
+    (0x0071, 'kr'),
     (0x0471, 'kr-Latn-NG'),  # KANURI (LATIN) NIGERIA
     (0x004B, 'kn'),  # KANNADA
     (0x044B, 'kn-IN'),  # KANNADA_INDIA
@@ -247,9 +247,9 @@ langcodes = (
     (0x0860, 'ks-Deva-IN'),  # KASHMIRI (DEVANAGARI) INDIA
     (0x003F, 'kk'),  # KAZAKH
     (0x043F, 'kk-KZ'),  # KAZAK_KAZAKHSTAN
-    (0x083F, "kk-Latn-KZ"),
-    (0x7C3F, "kk-Latn"),
-    (0x783F, "kk-Cyrl"),
+    (0x083F, 'kk-Latn-KZ'),
+    (0x7C3F, 'kk-Latn'),
+    (0x783F, 'kk-Cyrl'),
     (0x0053, 'km'),  # KHMER
     (0x0453, 'km-KH'),  # KHMER CAMBODIA
     (0x0086, 'quc'),  # K'ICHE
@@ -264,7 +264,7 @@ langcodes = (
     (0x0440, 'ky-KG'),  # KYRGYZ_KYRGYZSTAN
     (0x0054, 'lo'),  # LAO
     (0x0454, 'lo-LA'),  # LAO_LAO
-    (0x0076, "la"),
+    (0x0076, 'la'),
     (0x0476, 'la-VA'),  # LATIN VATICAN CITY
     (0x0026, 'lv'),  # LATVIAN
     (0x0426, 'lv-LV'),  # LATVIAN_LATVIA
@@ -283,8 +283,8 @@ langcodes = (
     (0x044C, 'ml-IN'),  # MALAYALAM_INDIA
     (0x003A, 'mt'),  # MALTESE
     (0x043A, 'mt-MT'),  # MALTESE_MALTA
-    (0x0058, "mni"),  # MANIPURI
-    (0x0458, "mni-IN"),
+    (0x0058, 'mni'),  # MANIPURI
+    (0x0458, 'mni-IN'),
     (0x0081, 'mi'),  # MAORI
     (0x0481, 'mi-NZ'),  # MAORI_NEW_ZEALAND
     (0x007A, 'arn'),  # MAPUDUNGUN
@@ -313,8 +313,8 @@ langcodes = (
     (0x0448, 'or-IN'),  # ORIYA_INDIA
     (0x0472, 'om-ET'),  # OROMO ETHIOPIA
     (0x0072, 'om'),  # OROMO
-    (0x0079, "pap"),  # PAPIAMENTO
-    (0x0479, "pap-029"),
+    (0x0079, 'pap'),  # PAPIAMENTO
+    (0x0479, 'pap-029'),
     (0x0063, 'ps'),  # PASHTO
     (0x0463, 'ps-AF'),  # PASHTO_AFGHANISTAN
     (0x0029, 'fa'),  # PERSIAN
@@ -379,7 +379,7 @@ langcodes = (
     (0x0432, 'tn-ZA'),  # TSWANA_SOUTH_AFRICA
     (0x0059, 'sd'),  # SINDHI
     (0x7C59, 'sd-Arab'),  # SINDHI
-    (0x0459, "sd-Deva-IN"),
+    (0x0459, 'sd-Deva-IN'),
     (0x0859, 'sd-Arab-PK'),  # SINDHI ISLAMIC REPUBLIC OF PAKISTAN
     (0x005B, 'si'),  # SINHALA
     (0x045B, 'si-LK'),  # SINHALESE_SRI_LANKA
@@ -428,12 +428,12 @@ langcodes = (
     (0x7C28, 'tg-Cyrl'),  # TAJIK (CYRILLIC)
     (0x0428, 'tg-Cyrl-TJ'),  # TAJIK (CYRILLIC) TAJIKISTAN
     (0x005F, 'tzm'),  # TAMAZIGHT (LATIN)
-    (0x0C5F, "tzm-MA"),
+    (0x0C5F, 'tzm-MA'),
     (0x7C5F, 'tzm-Latn'),  # TAMAZIGHT (LATIN)
     (0x085F, 'tzm-Latn-DZ'),  # TAMAZIGHT (LATIN) ALGERIA
     (0x045F, 'tzm-Arab-MA'),  # CENTRAL ATLAS TAMAZIGHT (ARABIC) MOROCCO
-    (0x785F, "tzm-Tfng"),
-    (0x105F, "tzm-Tfng-MA"),
+    (0x785F, 'tzm-Tfng'),
+    (0x105F, 'tzm-Tfng-MA'),
     (0x0049, 'ta'),  # TAMIL
     (0x0449, 'ta-IN'),  # TAMIL_INDIA
     (0x0849, 'ta-LK'),  # TAMIL_SRI_LANKA
@@ -445,7 +445,7 @@ langcodes = (
     (0x041E, 'th-TH'),  # THAI_THAILAND
     (0x0051, 'bo'),  # TIBETAN
     (0x0451, 'bo-CN'),  # TIBETAN_PRC
-    (0x0851, "bo-BT"),
+    (0x0851, 'bo-BT'),
     (0x0073, 'ti'),  # TIGRINYA
     (0x0873, 'ti-ER'),  # TIGRINYA_ERITREA
     (0x0473, 'ti-ET'),  # TIGRINYA_ETHIOPIA
@@ -482,7 +482,7 @@ langcodes = (
     (0x0434, 'xh-ZA'),  # XHOSA_SOUTH_AFRICA
     (0x0078, 'ii'),  # YI
     (0x0478, 'ii-CN'),  # YI_PRC
-    (0x003D, "yi"),  # YIDDISH
+    (0x003D, 'yi'),  # YIDDISH
     (0x043D, 'yi-001'),  # YIDDISH WORLD
     (0x006A, 'yo'),  # YORUBA
     (0x046A, 'yo-NG'),  # YORUBA_NIGERIA
@@ -490,39 +490,39 @@ langcodes = (
     (0x0435, 'zu-ZA'),  # ZULU_SOUTH_AFRICA
 
     # See Section 2.2.1 of MS-LCID
-    (0x2000, "custom transient 0x2000"),
-    (0x2400, "custom transient 0x2400"),
-    (0x2800, "custom transient 0x2800"),
-    (0x2C00, "custom transient 0x2C00"),
-    (0x3000, "custom transient 0x3000"),
-    (0x3400, "custom transient 0x3400"),
-    (0x3800, "custom transient 0x3800"),
-    (0x3C00, "custom transient 0x3C00"),
-    (0x4000, "custom transient 0x4000"),
-    (0x4400, "custom transient 0x4400"),
-    (0x4800, "custom transient 0x4800"),
-    (0x4C00, "custom transient 0x4C00"),
-    (0x007B, "undefined and unreserved 0x007B"),
-    (0x007D, "undefined and unreserved 0x007D"),
-    (0x0089, "undefined and unreserved 0x0089"),
-    (0x008A, "undefined and unreserved 0x008A"),
-    (0x008B, "undefined and unreserved 0x008B"),
-    (0x008D, "undefined and unreserved 0x008D"),
-    (0x008E, "undefined and unreserved 0x008E"),
-    (0x008F, "undefined and unreserved 0x008F"),
-    (0x0090, "undefined and unreserved 0x0090"),
-    (0x0827, "undefined and unreserved 0x0827"),
-    (0x2008, "undefined and unreserved 0x2008"),
-    (0xF2EE, "reserved 0xF2EE"),
-    (0xEEEE, "reserved 0xEEEE"),
+    (0x2000, 'custom transient 0x2000'),
+    (0x2400, 'custom transient 0x2400'),
+    (0x2800, 'custom transient 0x2800'),
+    (0x2C00, 'custom transient 0x2C00'),
+    (0x3000, 'custom transient 0x3000'),
+    (0x3400, 'custom transient 0x3400'),
+    (0x3800, 'custom transient 0x3800'),
+    (0x3C00, 'custom transient 0x3C00'),
+    (0x4000, 'custom transient 0x4000'),
+    (0x4400, 'custom transient 0x4400'),
+    (0x4800, 'custom transient 0x4800'),
+    (0x4C00, 'custom transient 0x4C00'),
+    (0x007B, 'undefined and unreserved 0x007B'),
+    (0x007D, 'undefined and unreserved 0x007D'),
+    (0x0089, 'undefined and unreserved 0x0089'),
+    (0x008A, 'undefined and unreserved 0x008A'),
+    (0x008B, 'undefined and unreserved 0x008B'),
+    (0x008D, 'undefined and unreserved 0x008D'),
+    (0x008E, 'undefined and unreserved 0x008E'),
+    (0x008F, 'undefined and unreserved 0x008F'),
+    (0x0090, 'undefined and unreserved 0x0090'),
+    (0x0827, 'undefined and unreserved 0x0827'),
+    (0x2008, 'undefined and unreserved 0x2008'),
+    (0xF2EE, 'reserved 0xF2EE'),
+    (0xEEEE, 'reserved 0xEEEE'),
 
-    (0x048D, "plt-MG"),
-    (0x048E, "zh-yue-HK"),
-    (0x048F, "tdd-Tale-CN"),
-    (0x0490, "khb-Talu-CN"),
+    (0x048D, 'plt-MG'),
+    (0x048E, 'zh-yue-HK'),
+    (0x048F, 'tdd-Tale-CN'),
+    (0x0490, 'khb-Talu-CN'),
 
-    (0x0093, "quc, reserved"),
-    (0x0493, "quc-CO, reserved"),
+    (0x0093, 'quc, reserved'),
+    (0x0493, 'quc-CO, reserved'),
 )
 
 def getLangCodes():
