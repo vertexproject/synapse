@@ -780,7 +780,7 @@ class Path:
         nodes.append(node)
 
         edges = list(self.edges)
-        edges.append(edge)
+        edges.append((node.iden(), edge))
 
         path = Path(self.vars.copy(), nodes, edges=edges)
 

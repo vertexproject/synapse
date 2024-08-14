@@ -4116,65 +4116,85 @@ class AstTest(s_test.SynTest):
             opts = {'path': True}
 
             # FormPivot
-            ## -> baz:ndef
-            # nodes = await core.stormlist('test:guid -> test:edge:n1', opts=opts)
+            # -> baz:ndef
+            # msgs = await core.stormlist('test:guid -> test:edge:n1', opts=opts)
 
-            ## plain old pivot
-            # nodes = await core.stormlist('test:int=176 -> test:guid:size', opts=opts)
+            # plain old pivot
+            # msgs = await core.stormlist('test:int=176 -> test:guid:size', opts=opts)
 
-            ## graph edge dest form uses n1 automagically
-            # nodes = await core.stormlist('test:guid -> test:edge', opts=opts)
+            # graph edge dest form uses n1 automagically
+            # msgs = await core.stormlist('test:guid -> test:edge', opts=opts)
 
-            ## <syn:tag> -> <form>
-            # nodes = await core.stormlistsyn:tag=foo.bar -> test:complexcomp', opts=opts)
+            # <syn:tag> -> <form>
+            # msgs = await core.stormlistsyn:tag=foo.bar -> test:complexcomp', opts=opts)
 
-            ## source node is a graph edge, use n2
-            # nodes = await core.stormlist('test:edge -> test:str', opts=opts)
+            # source node is a graph edge, use n2
+            # msgs = await core.stormlist('test:edge -> test:str', opts=opts)
 
-            ## refs out - prop
-            #nodes = await core.stormlist('test:complexcomp -> test:int', opts=opts)
+            # refs out - prop
+            # msgs = await core.stormlist('test:complexcomp -> test:int', opts=opts)
 
-            ## refs out - array
-            # nodes = await core.stormlist('test:arrayprop -> test:int', opts=opts)
+            # refs out - array
+            # msgs = await core.stormlist('test:arrayprop -> test:int', opts=opts)
 
-            ## refs out - ndef
-            # nodes = await core.stormlist('test:str -> test:ro', opts=opts)
+            # refs out - ndef
+            # msgs = await core.stormlist('test:str -> test:ro', opts=opts)
 
-            ## refs out - ndefarray
-            #nodes = await core.stormlist('test:str -> test:auto', opts=opts)
+            # refs out - ndefarray
+            # msgs = await core.stormlist('test:str -> test:auto', opts=opts)
 
-            ## reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
+            # reverse prop refs
+            # msgs = await core.stormlist('test:int -> test:complexcomp', opts=opts)
 
-            ## reverse prop refs
-            nodes = await core.stormlist('test:int -> test:complexcomp', opts=opts)
+            # reverse array refs
+            # msgs = await core.stormlist('test:int -> test:arrayprop', opts=opts)
 
-            ## reverse array refs
-            nodes = await core.stormlist('test:int -> test:arrayprop', opts=opts)
+            # reverse ndef refs
+            # msgs = await core.stormlist('test:ro -> test:str', opts=opts)
 
-            ## reverse ndef refs
-            nodes = await core.stormlist('test:ro -> test:str', opts=opts)
-
-            ## reverse ndefarray refs
-            nodes = await core.stormlist('test:auto -> test:str', opts=opts)
+            # reverse ndefarray refs
+            # msgs = await core.stormlist('test:auto -> test:str', opts=opts)
 
             # PivotOut
-            ## syn:tag
-            ## edge
-            ## prop
-            ## prop array
+            # syn:tag
+            msgs = await core.stormlist('syn:tag -> *', opts=opts)
 
-            # PivotToTag    
+            # edge
+            msgs = await core.stormlist('test:edge -> *', opts=opts)
+
+            # prop
+            msgs = await core.stormlist('', opts=opts)
+
+            # prop ndef
+            msgs = await core.stormlist('', opts=opts)
+
+            # prop array
+            msgs = await core.stormlist('', opts=opts)
+
+            # prop ndef array
+            msgs = await core.stormlist('', opts=opts)
+
+            # PivotToTag
+            msgs = await core.stormlist('test:complexcomp -> syn:tag', opts=opts)
 
             # N1WalkNPivo
+            msgs = await core.stormlist('', opts=opts)
 
             # PivotIn
             # N2WalNkPivo
+            msgs = await core.stormlist('', opts=opts)
 
             # PivotInFrom
+            msgs = await core.stormlist('', opts=opts)
 
             # PropPivotOut
+            msgs = await core.stormlist('', opts=opts)
 
             # PropPivot
+            msgs = await core.stormlist('', opts=opts)
 
             # N1Walk
+            msgs = await core.stormlist('', opts=opts)
+
             # N2Walk
+            msgs = await core.stormlist('', opts=opts)
