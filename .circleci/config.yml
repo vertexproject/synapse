@@ -689,7 +689,6 @@ workflows:
             branches:
               only:
                 - synapse-3xx
-                - synapse-3xx-devpi-publish
 
       - gh-release/dorelease:
           requires:
