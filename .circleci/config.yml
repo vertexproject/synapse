@@ -259,7 +259,7 @@ commands:
         description: Base URL for the devpi service
         type: string
       devpi_index:
-        description: Index to push packages too and install requirements from.
+        description: Index to push packages to and install requirements from.
         type: string
       python_tag:
         description: Python tag to use when building wheels
