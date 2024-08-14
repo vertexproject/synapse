@@ -1,3 +1,4 @@
+import sys
 import asyncio
 import decimal
 import logging
@@ -84,7 +85,7 @@ class Type:
                 normopts[optn] = str(valu)
 
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
-        self.typehash = s_common.guid((ctor, s_common.flatten(normopts)))
+        self.typehash = sys.intern(s_common.guid((ctor, s_common.flatten(normopts))))
 
     def _storLiftSafe(self, cmpr, valu):
         try:

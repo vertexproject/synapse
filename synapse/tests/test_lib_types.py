@@ -1609,6 +1609,6 @@ class TypesTest(s_t_utils.SynTest):
 
     async def test_typehash(self):
         async with self.getTestCore() as core:
-            self.eq(core.model.form('inet:fqdn').type.typehash, core.model.prop('inet:dns:a:fqdn').type.typehash)
-            self.eq(core.model.form('it:prod:softname').type.typehash, core.model.prop('it:network:name').type.typehash)
-            self.ne(core.model.form('inet:asn').type.typehash, core.model.prop('inet:proto:port').type.typehash)
+            self.true(core.model.form('inet:fqdn').type.typehash is core.model.prop('inet:dns:a:fqdn').type.typehash)
+            self.true(core.model.form('it:prod:softname').type.typehash is core.model.prop('it:network:name').type.typehash)
+            self.true(core.model.form('inet:asn').type.typehash is not core.model.prop('inet:proto:port').type.typehash)
