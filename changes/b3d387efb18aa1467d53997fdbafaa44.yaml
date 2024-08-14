@@ -1,5 +1,5 @@
 ---
-desc: Deprecate the ``$tag`` variable in triggers in favor of ``$auto``
+desc: Deprecate the ``$tag`` variable in triggers in favor of ``$auto.opts.tag``
 prs:
 - 3854
 type: deprecation
