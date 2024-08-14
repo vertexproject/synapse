@@ -32,11 +32,6 @@ class Node:
         self.ndef = sode[1].get('ndef')
         self.form = snap.core.model.form(self.ndef[0])
 
-        self.typehash = self.form.typehash
-
-        if self.form.type.isarray:
-            self.arraytypehash = self.form.arraytypehash
-
         self.props = sode[1].get('props')
         if self.props is None:
             self.props = {}

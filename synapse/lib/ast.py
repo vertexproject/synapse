@@ -2090,12 +2090,12 @@ class PivotIn(PivotOper):
         name, valu = node.ndef
 
         for prop in runt.model.getPropsByType(name):
-            norm = node.typehash is not prop.typehash
+            norm = node.form.typehash is not prop.typehash
             async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo)
 
         for prop in runt.model.getArrayPropsByType(name):
-            norm = node.typehash is not prop.arraytypehash
+            norm = node.form.typehash is not prop.arraytypehash
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo)
 
@@ -2194,10 +2194,10 @@ class FormPivot(PivotOper):
                     if isinstance(prop.type.arraytype, s_types.Ndef):
                         ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef, norm=False)
                     else:
-                        norm = prop.arraytypehash is not node.typehash
+                        norm = prop.arraytypehash is not node.form.typehash
                         ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef[1], norm=norm)
                 else:
-                    norm = prop.typehash is not node.typehash
+                    norm = prop.typehash is not node.form.typehash
                     ngenr = runt.snap.nodesByPropValu(prop.full, '=', node.ndef[1], norm=norm)
 
                 async for pivo in ngenr:
