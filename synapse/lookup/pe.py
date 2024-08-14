@@ -32,6 +32,7 @@ def getRsrcTypes():
 # https://docs.microsoft.com/en-us/windows/desktop/intl/language-identifier-constants-and-strings#language-identifier-notes
 # https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-LCID/%5bMS-LCID%5d.pdf
 # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid/63d3d639-7fd2-4afb-abbe-0d5b5551eef8
+# https://www.iana.org/assignments/language-subtag-registry/language-subtag-registry
 langcodes = (
     (0x0C00, 'custom default'),  # Default custom locale language-Default custom sublanguage'
     (0x1400, 'ui_custom_default'),  # Default custom MUI locale language-Default custom MUI sublanguage
@@ -516,10 +517,10 @@ langcodes = (
     (0xF2EE, 'reserved 0xF2EE'),
     (0xEEEE, 'reserved 0xEEEE'),
 
-    (0x048D, 'plt-MG'),
-    (0x048E, 'zh-yue-HK'),
-    (0x048F, 'tdd-Tale-CN'),
-    (0x0490, 'khb-Talu-CN'),
+    (0x048D, 'plt-MG'),  # MALAGASY
+    (0x048E, 'zh-yue-HK'),  # CHINESE (YUE) HONG KONG
+    (0x048F, 'tdd-Tale-CN'),  # TAI NÜA (TAI LE) PEOPLE'S REPUBLIC OF CHINA
+    (0x0490, 'khb-Talu-CN'),  # LÜ  (NEW TAI LUE) PEOPLE'S REPUBLIC OF CHINA
 
     (0x0093, 'quc, reserved'),
     (0x0493, 'quc-CO, reserved'),
