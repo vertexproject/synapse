@@ -2180,7 +2180,7 @@ class FormPivot(PivotOper):
 
             async def pgenr(node, strict=True):
                 async for pivo in runt.snap.nodesByPropValu(prop.full, '=', node.ndef):
-                    yield pivo
+                    yield pivo, {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
         elif not prop.isform:
 
@@ -2198,7 +2198,7 @@ class FormPivot(PivotOper):
 
                 # TODO cache/bypass normalization in loop!
                 async for pivo in ngenr:
-                    yield pivo
+                    yield pivo, {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
         # if dest form is a subtype of a graph "edge", use N1 automatically
         elif isinstance(prop.type, s_types.Edge):
@@ -2207,7 +2207,7 @@ class FormPivot(PivotOper):
 
             async def pgenr(node, strict=True):
                 async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
-                    yield pivo
+                    yield pivo, {'type': 'prop', 'prop': 'n1'}
 
         else:
             # form -> form pivot is nonsensical. Lets help out...
@@ -2220,7 +2220,7 @@ class FormPivot(PivotOper):
                 # <syn:tag> -> <form> is "from tags to nodes" pivot
                 if node.form.name == 'syn:tag' and prop.isform:
                     async for pivo in runt.snap.nodesByTag(node.ndef[1], form=prop.name):
-                        yield pivo
+                        yield pivo, {'type': 'tag', 'tag': node.ndef[1]}
 
                     return
 
@@ -2233,7 +2233,7 @@ class FormPivot(PivotOper):
 
                     pivo = await runt.snap.getNodeByNdef(node.get('n2'))
                     if pivo:
-                        yield pivo
+                        yield pivo, {'type': 'prop', 'prop': 'n2'}
 
                     return
 
@@ -2252,7 +2252,7 @@ class FormPivot(PivotOper):
                     refsvalu = node.get(refsname)
                     if refsvalu is not None:
                         async for pivo in runt.snap.nodesByPropValu(refsform, '=', refsvalu):
-                            yield pivo
+                            yield pivo, {'type': 'prop', 'prop': refsname}
 
                 for refsname, refsform in refs.get('array'):
 
@@ -2265,7 +2265,7 @@ class FormPivot(PivotOper):
                     if refsvalu is not None:
                         for refselem in refsvalu:
                             async for pivo in runt.snap.nodesByPropValu(destform.name, '=', refselem):
-                                yield pivo
+                                yield pivo, {'type': 'prop', 'prop': refsname}
 
                 for refsname in refs.get('ndef'):
 
@@ -2275,7 +2275,7 @@ class FormPivot(PivotOper):
                     if refsvalu is not None and refsvalu[0] == destform.name:
                         pivo = await runt.snap.getNodeByNdef(refsvalu)
                         if pivo is not None:
-                            yield pivo
+                            yield pivo, {'type': 'prop', 'prop': refsname}
 
                 for refsname in refs.get('ndefarray'):
 
@@ -2285,7 +2285,7 @@ class FormPivot(PivotOper):
                         for aval in refsvalu:
                             if aval[0] == destform.name:
                                 if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
-                                    yield pivo
+                                    yield pivo, {'type': 'prop', 'prop': refsname}
 
                 #########################################################################
                 # reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
@@ -2301,7 +2301,7 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef[1]):
-                        yield pivo
+                        yield pivo, {'type': 'prop', 'prop': refsname, 'reverse': True}
 
                 # "reverse" array references...
                 for refsname, refsform in refs.get('array'):
@@ -2313,7 +2313,7 @@ class FormPivot(PivotOper):
 
                     destprop = destform.props.get(refsname)
                     async for pivo in runt.snap.nodesByPropArray(destprop.full, '=', node.ndef[1]):
-                        yield pivo
+                        yield pivo, {'type': 'prop', 'prop': refsname, 'reverse': True}
 
                 # "reverse" ndef references...
                 for refsname in refs.get('ndef'):
@@ -2322,7 +2322,7 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef):
-                        yield pivo
+                        yield pivo, {'type': 'prop', 'prop': refsname, 'reverse': True}
 
                 for refsname in refs.get('ndefarray'):
 
@@ -2330,7 +2330,7 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     async for pivo in runt.snap.nodesByPropArray(refsprop.full, '=', node.ndef):
-                        yield pivo
+                        yield pivo, {'type': 'prop', 'prop': refsname, 'reverse': True}
 
                 if strict and not found:
                     mesg = f'No pivot found for {node.form.name} -> {destform.name}.'
@@ -2354,12 +2354,12 @@ class FormPivot(PivotOper):
                 if prop is None:
                     raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
 
-                pgenrs.append(self.pivogenr(runt, prop))
+                pgenrs.append((self.pivogenr(runt, prop), prop))
 
             async def listpivot(node):
                 for pgenr in pgenrs:
-                    async for pivo in pgenr(node, strict=False):
-                        yield pivo
+                    async for pivo, valu in pgenr(node, strict=False):
+                        yield pivo, valu
 
             return listpivot
 
@@ -2380,8 +2380,8 @@ class FormPivot(PivotOper):
                 yield node, path
 
             try:
-                async for pivo in pgenr(node):
-                    yield pivo, path.fork(pivo)
+                async for pivo, edge in pgenr(node):
+                    yield pivo, path.fork(pivo, edge=edge)
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 if not warned:
                     logger.warning(f'Caught error during pivot: {e.items()}')

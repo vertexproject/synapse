@@ -4100,3 +4100,81 @@ class AstTest(s_test.SynTest):
             q = 'media:news=(m0,) [-:published]'
             msgs = await core.stormlist(q, opts=aslow)
             self.stormIsInErr('must have permission node.prop.del.media:news.published', msgs)
+
+    async def test_ast_path_provenance(self):
+
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+
+            guid = s_common.guid()
+            opts = {'vars': {'guid': guid}}
+            self.len(1, await core.nodes('[test:guid=$guid :size=176]', opts=opts))
+            self.len(1, await core.nodes('[test:edge=(("test:guid", $guid), ("test:str", abcd))]', opts=opts))
+            self.len(1, await core.nodes('[test:complexcomp=(1234, STUFF) +#foo.bar]'))
+            self.len(1, await core.nodes('[test:arrayprop=* :ints=(3245, 678) :strs=("foo", "bar")]'))
+            self.len(1, await core.nodes('[test:str=foobar :bar=(test:ro, "ackbar") :ndefs=((test:guid, $guid), (test:auto, "auto"))]', opts=opts))
+
+            opts = {'path': True}
+
+            # FormPivot
+            ## -> baz:ndef
+            # nodes = await core.stormlist('test:guid -> test:edge:n1', opts=opts)
+
+            ## plain old pivot
+            # nodes = await core.stormlist('test:int=176 -> test:guid:size', opts=opts)
+
+            ## graph edge dest form uses n1 automagically
+            # nodes = await core.stormlist('test:guid -> test:edge', opts=opts)
+
+            ## <syn:tag> -> <form>
+            # nodes = await core.stormlistsyn:tag=foo.bar -> test:complexcomp', opts=opts)
+
+            ## source node is a graph edge, use n2
+            # nodes = await core.stormlist('test:edge -> test:str', opts=opts)
+
+            ## refs out - prop
+            #nodes = await core.stormlist('test:complexcomp -> test:int', opts=opts)
+
+            ## refs out - array
+            # nodes = await core.stormlist('test:arrayprop -> test:int', opts=opts)
+
+            ## refs out - ndef
+            # nodes = await core.stormlist('test:str -> test:ro', opts=opts)
+
+            ## refs out - ndefarray
+            #nodes = await core.stormlist('test:str -> test:auto', opts=opts)
+
+            ## reverse "-> form" pivots (ie inet:fqdn -> inet:dns:a)
+
+            ## reverse prop refs
+            nodes = await core.stormlist('test:int -> test:complexcomp', opts=opts)
+
+            ## reverse array refs
+            nodes = await core.stormlist('test:int -> test:arrayprop', opts=opts)
+
+            ## reverse ndef refs
+            nodes = await core.stormlist('test:ro -> test:str', opts=opts)
+
+            ## reverse ndefarray refs
+            nodes = await core.stormlist('test:auto -> test:str', opts=opts)
+
+            # PivotOut
+            ## syn:tag
+            ## edge
+            ## prop
+            ## prop array
+
+            # PivotToTag    
+
+            # N1WalkNPivo
+
+            # PivotIn
+            # N2WalNkPivo
+
+            # PivotInFrom
+
+            # PropPivotOut
+
+            # PropPivot
+
+            # N1Walk
+            # N2Walk
