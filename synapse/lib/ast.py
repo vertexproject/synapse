@@ -2090,12 +2090,12 @@ class PivotIn(PivotOper):
         name, valu = node.ndef
 
         for prop in runt.model.getPropsByType(name):
-            norm = node.form.type.typehash != prop.type.typehash
+            norm = node.typehash is not prop.typehash
             async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo)
 
         for prop in runt.model.getArrayPropsByType(name):
-            norm = node.form.type.typehash != prop.type.arraytype.typehash
+            norm = node.typehash is not prop.arraytypehash
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo)
 
@@ -2194,10 +2194,10 @@ class FormPivot(PivotOper):
                     if isinstance(prop.type.arraytype, s_types.Ndef):
                         ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef, norm=False)
                     else:
-                        norm = prop.type.arraytype.typehash != node.form.type.typehash
+                        norm = prop.arraytypehash is not node.typehash
                         ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef[1], norm=norm)
                 else:
-                    norm = prop.type.typehash != node.form.type.typehash
+                    norm = prop.typehash is not node.typehash
                     ngenr = runt.snap.nodesByPropValu(prop.full, '=', node.ndef[1], norm=norm)
 
                 async for pivo in ngenr:
@@ -2488,7 +2488,7 @@ class PropPivot(PivotOper):
                             yield pivo
                     return
 
-                norm = srcprop.type.arraytype.typehash != prop.type.typehash
+                norm = srcprop.arraytypehash is not prop.typehash
                 for arrayval in valu:
                     async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval, norm=norm):
                         yield pivo
@@ -2508,10 +2508,10 @@ class PropPivot(PivotOper):
                 return
 
             if prop.type.isarray and not srcprop.type.isarray:
-                norm = prop.type.arraytype.typehash != srcprop.type.typehash
+                norm = prop.arraytypehash is not srcprop.typehash
                 genr = runt.snap.nodesByPropArray(prop.full, '=', valu, norm=norm)
             else:
-                norm = prop.type.typehash != srcprop.type.typehash
+                norm = prop.typehash is not srcprop.typehash
                 genr = runt.snap.nodesByPropValu(prop.full, '=', valu, norm=norm)
 
             async for pivo in genr:
