@@ -65,7 +65,7 @@ langcodes = (
     (0x1C01, 'ar-TN'),  # ARABIC_TUNISIA
     (0x3801, 'ar-AE'),  # ARABIC_UAE
     (0x2401, 'ar-YE'),  # ARABIC_YEMEN
-    (0x4401, 'ar-Ploc-SA'),
+    (0x4401, 'ar-Ploc-SA'),  # ARABIC PSEUDO LOCALE
     (0x4801, 'ar-145'),
     (0x002B, 'hy'),  # ARMENIAN
     (0x042B, 'hy-AM'),  # ARMENIAN_ARMENIA
@@ -86,7 +86,7 @@ langcodes = (
     (0x0023, 'be'),  # BELARUSIAN
     (0x0423, 'be-BY'),  # BELARUSIAN_BELARUS
     (0x0066, 'bin'),  # BINI
-    (0x0466, 'bin-NG'),
+    (0x0466, 'bin-NG'),  # BINI NIGERIA
     (0x641A, 'bs-Cyrl'),  # BOSNIAN (CYRILLIC)
     (0x201A, 'bs-Cyrl-BA'),  # BOSNIAN (CYRILLIC) BOSNIA AND HERZEGOVINA
     (0x781A, 'bs'),  # BOSNIAN (LATIN)
@@ -150,13 +150,13 @@ langcodes = (
     (0x0409, 'en-US'),  # ENGLISH_US
     (0x4C09, 'en-AE'),  # ENGLISH UNITED ARAB EMIRATES
     (0x3009, 'en-ZW'),  # ENGLISH_ZIMBABWE
-    (0x3809, 'en-ID'),
-    (0x5009, 'en-BH'),
-    (0x5409, 'en-EG'),
-    (0x5809, 'en-JO'),
-    (0x5C09, 'en-KW'),
-    (0x6009, 'en-TR'),
-    (0x6409, 'en-YE'),
+    (0x3809, 'en-ID'),  # ENGLISH INDONESIAN
+    (0x5009, 'en-BH'),  # ENGLISH BAHRAIN
+    (0x5409, 'en-EG'),  # ENGLISH EGYPT
+    (0x5809, 'en-JO'),  # ENGLISH JORDAN
+    (0x5C09, 'en-KW'),  # ENGLISH KUWAIT
+    (0x6009, 'en-TR'),  # ENGLISH TURKEY
+    (0x6409, 'en-YE'),  # ENGLISH YEMEN
     (0x0025, 'et'),  # ESTONIAN
     (0x0425, 'et-EE'),  # ESTONIAN_ESTONIA
     (0x0038, 'fo'),  # FAROESE
@@ -224,7 +224,7 @@ langcodes = (
     (0x0021, 'id'),  # INDONESIAN
     (0x0421, 'id-ID'),  # INDONESIAN_INDONESIA
     (0x0069, 'ibb'),  # IBIBIO
-    (0x0469, 'ibb-NG'),
+    (0x0469, 'ibb-NG'),  # IBIBIO NIGERIA
     (0x005D, 'iu'),  # INUKTITUT (LATIN)
     (0x7C5D, 'iu-Latn'),  # INUKTITUT (LATIN)
     (0x085D, 'iu-Latn-CA'),  # INUKTITUT (LATIN) CANADA
@@ -237,8 +237,8 @@ langcodes = (
     (0x0810, 'it-CH'),  # ITALIAN_SWISS
     (0x0011, 'ja'),  # JAPANESE
     (0x0411, 'ja-JP'),  # JAPANESE_JAPAN
-    (0x0811, 'ja-Ploc-JP'),
-    (0x0071, 'kr'),
+    (0x0811, 'ja-Ploc-JP'),  # JAPANESE PSEUDO LOCALE
+    (0x0071, 'kr'),  # KANURI
     (0x0471, 'kr-Latn-NG'),  # KANURI (LATIN) NIGERIA
     (0x004B, 'kn'),  # KANNADA
     (0x044B, 'kn-IN'),  # KANNADA_INDIA
@@ -247,9 +247,9 @@ langcodes = (
     (0x0860, 'ks-Deva-IN'),  # KASHMIRI (DEVANAGARI) INDIA
     (0x003F, 'kk'),  # KAZAKH
     (0x043F, 'kk-KZ'),  # KAZAK_KAZAKHSTAN
-    (0x083F, 'kk-Latn-KZ'),
-    (0x7C3F, 'kk-Latn'),
-    (0x783F, 'kk-Cyrl'),
+    (0x083F, 'kk-Latn-KZ'),  # KAZAK (LATIN) KAZAKHSTAN
+    (0x7C3F, 'kk-Latn'),  # KAZAK (LATIN)
+    (0x783F, 'kk-Cyrl'),  # KAZAK (CYRILLIC)
     (0x0053, 'km'),  # KHMER
     (0x0453, 'km-KH'),  # KHMER CAMBODIA
     (0x0086, 'quc'),  # K'ICHE
@@ -264,7 +264,7 @@ langcodes = (
     (0x0440, 'ky-KG'),  # KYRGYZ_KYRGYZSTAN
     (0x0054, 'lo'),  # LAO
     (0x0454, 'lo-LA'),  # LAO_LAO
-    (0x0076, 'la'),
+    (0x0076, 'la'),  # LATIN
     (0x0476, 'la-VA'),  # LATIN VATICAN CITY
     (0x0026, 'lv'),  # LATVIAN
     (0x0426, 'lv-LV'),  # LATVIAN_LATVIA
@@ -284,7 +284,7 @@ langcodes = (
     (0x003A, 'mt'),  # MALTESE
     (0x043A, 'mt-MT'),  # MALTESE_MALTA
     (0x0058, 'mni'),  # MANIPURI
-    (0x0458, 'mni-IN'),
+    (0x0458, 'mni-IN'),  # MANIPURI INDIA
     (0x0081, 'mi'),  # MAORI
     (0x0481, 'mi-NZ'),  # MAORI_NEW_ZEALAND
     (0x007A, 'arn'),  # MAPUDUNGUN
@@ -379,7 +379,7 @@ langcodes = (
     (0x0432, 'tn-ZA'),  # TSWANA_SOUTH_AFRICA
     (0x0059, 'sd'),  # SINDHI
     (0x7C59, 'sd-Arab'),  # SINDHI
-    (0x0459, 'sd-Deva-IN'),
+    (0x0459, 'sd-Deva-IN'),  # SINDHI (DEVANAGARI) INDIA
     (0x0859, 'sd-Arab-PK'),  # SINDHI ISLAMIC REPUBLIC OF PAKISTAN
     (0x005B, 'si'),  # SINHALA
     (0x045B, 'si-LK'),  # SINHALESE_SRI_LANKA
@@ -428,12 +428,12 @@ langcodes = (
     (0x7C28, 'tg-Cyrl'),  # TAJIK (CYRILLIC)
     (0x0428, 'tg-Cyrl-TJ'),  # TAJIK (CYRILLIC) TAJIKISTAN
     (0x005F, 'tzm'),  # TAMAZIGHT (LATIN)
-    (0x0C5F, 'tzm-MA'),
+    (0x0C5F, 'tzm-MA'),  # TAMAZIGHT MOROCCO
     (0x7C5F, 'tzm-Latn'),  # TAMAZIGHT (LATIN)
     (0x085F, 'tzm-Latn-DZ'),  # TAMAZIGHT (LATIN) ALGERIA
     (0x045F, 'tzm-Arab-MA'),  # CENTRAL ATLAS TAMAZIGHT (ARABIC) MOROCCO
-    (0x785F, 'tzm-Tfng'),
-    (0x105F, 'tzm-Tfng-MA'),
+    (0x785F, 'tzm-Tfng'),  # TAMAZIGHT (TIFINAGH)
+    (0x105F, 'tzm-Tfng-MA'),  # TAMAZIGHT (TIFINAGH MOROCCO)
     (0x0049, 'ta'),  # TAMIL
     (0x0449, 'ta-IN'),  # TAMIL_INDIA
     (0x0849, 'ta-LK'),  # TAMIL_SRI_LANKA
@@ -445,7 +445,7 @@ langcodes = (
     (0x041E, 'th-TH'),  # THAI_THAILAND
     (0x0051, 'bo'),  # TIBETAN
     (0x0451, 'bo-CN'),  # TIBETAN_PRC
-    (0x0851, 'bo-BT'),
+    (0x0851, 'bo-BT'),  # TIBETAN BHUTAN
     (0x0073, 'ti'),  # TIGRINYA
     (0x0873, 'ti-ER'),  # TIGRINYA_ERITREA
     (0x0473, 'ti-ET'),  # TIGRINYA_ETHIOPIA
