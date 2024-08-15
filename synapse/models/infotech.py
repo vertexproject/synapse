@@ -3064,7 +3064,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:app:yara:netmatch', {}, (
                     ('rule', ('it:app:yara:rule', {}), {
-                        'doc': 'The YARA rule that triggerted the match.'}),
+                        'doc': 'The YARA rule that triggered the match.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
                     ('node', ('ndef', {'forms': ('inet:fqdn', 'inet:ipv4', 'inet:ipv6', 'inet:url')}), {
