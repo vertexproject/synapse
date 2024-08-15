@@ -2991,14 +2991,27 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The STIX id field from the indicator pattern.'}),
                     ('name', ('str', {}), {
                         'doc': 'The name of the STIX indicator pattern.'}),
+                    ('confidence', ('int', {'min': 0, 'max': 100}), {
+                        'doc': 'The confidence field from the STIX indicator.'}),
+                    ('revoked', ('bool', {}), {
+                        'doc': 'The revoked field from the STIX indicator.'}),
+                    ('description', ('str', {}), {
+                        'doc': 'The description field from the STIX indicator.'}),
                     ('pattern', ('str', {}), {
                         'doc': 'The STIX indicator pattern text.'}),
+                    ('pattern_type', ('str', {'strip': True, 'lower': True,
+                                              'enums': 'stix,pcre,sigma,snort,suricata,yara'}), {
+                        'doc': 'The STIX indicator pattern type.'}),
                     ('created', ('time', {}), {
                         'doc': 'The time that the indicator pattern was first created.'}),
                     ('updated', ('time', {}), {
                         'doc': 'The time that the indicator pattern was last modified.'}),
                     ('labels', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                         'doc': 'The label strings embedded in the STIX indicator pattern.'}),
+                    ('valid_from', ('time', {}), {
+                        'doc': 'The valid_from field from the STIX indicator.'}),
+                    ('valid_until', ('time', {}), {
+                        'doc': 'The valid_until field from the STIX indicator.'}),
                 )),
 
                 ('it:app:yara:rule', {}, (
