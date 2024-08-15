@@ -509,6 +509,8 @@ class Base:
             self._active_tasks.remove(task)
             try:
                 task.result()
+            except asyncio.CancelledError:
+                pass
             except Exception:
                 logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
 
