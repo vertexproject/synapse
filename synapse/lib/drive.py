@@ -46,7 +46,8 @@ class Drive(s_base.Base):
 
         for part in path:
             if not isValidName(part):
-                raise s_exc.TODO()
+                mesg = f'Path name is invalid: {part}.'
+                raise s_exc.BadName(mesg=mesg)
 
         return path
 
@@ -136,14 +137,16 @@ class Drive(s_base.Base):
         name = info.get('name')
         typename = info.get('type')
 
-        lkey = LKEY_DIRN + bidn + name.encode()
-
-        # TODO multiput
-        self.slab.put(lkey, newbidn, db=self.dbname)
-        self.slab.put(LKEY_INFO + newbidn, s_msgpack.en(info), db=self.dbname)
+        rows = [
+            (LKEY_DIRN + bidn + name.encode(), newbidn),
+            (LKEY_INFO + newbidn, s_msgpack.en(info)),
+        ]
 
         if typename is not None:
-            self.slab.put(LKEY_INFO_BYTYPE + typename.encode() + b'\x00' + newbidn, b'\x01', db=self.dbname)
+            typekey = LKEY_INFO_BYTYPE + typename.encode() + b'\x00' + newbidn
+            rows.append((typekey, b'\x01'))
+
+        self.slab.putmulti(rows, db=self.dbname)
 
     def setItemPerm(self, iden, perm):
         return self._setItemPerm(s_common.uhex(iden), perm)
@@ -419,8 +422,6 @@ class Drive(s_base.Base):
     async def setTypeSchema(self, typename, schema, callback=None):
 
         vtor = s_config.getJsValidator(schema)
-        if vtor is None:
-            raise s_exc.TODO()
 
         self.validators[typename] = vtor
 

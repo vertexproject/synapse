@@ -135,6 +135,7 @@ class BadStorageVersion(SynErr):
     ''' Stored persistent data is incompatible with running software '''
     pass
 
+class BadName(SynErr): pass
 class BadSyntax(SynErr): pass
 class BadTag(SynErr): pass
 class BadTime(SynErr): pass
