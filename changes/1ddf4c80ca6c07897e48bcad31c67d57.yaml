@@ -1,5 +1,5 @@
 ---
-desc: Fix a bug where trigger name and doc updates set via syn:trigger nodes did
+desc: Fix a bug where trigger name and doc updates set via ``syn:trigger`` nodes did
   not persist.
 prs: []
 type: bug
