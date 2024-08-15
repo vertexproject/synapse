@@ -2999,7 +2999,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The description field from the STIX indicator.'}),
                     ('pattern', ('str', {}), {
                         'doc': 'The STIX indicator pattern text.'}),
-                    ('pattern_type', ('str', {'strip': True, 'lower': True, 'enums': 'stix,snort,yara'}), {
+                    ('pattern_type', ('str', {'strip': True, 'lower': True,
+                                              'enums': 'stix,pcre,sigma,snort,suricata,yara'}), {
                         'doc': 'The STIX indicator pattern type.'}),
                     ('created', ('time', {}), {
                         'doc': 'The time that the indicator pattern was first created.'}),
