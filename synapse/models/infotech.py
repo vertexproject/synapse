@@ -983,6 +983,9 @@ class ItModule(s_module.CoreModule):
                 ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
                     'doc': 'A YARA rule match to a file.',
                 }),
+                ('it:app:yara:netmatch', ('guid', {}), {
+                    'doc': 'An instance of a YARA rule network hunting match.',
+                }),
                 ('it:app:yara:procmatch', ('guid', {}), {
                     'doc': 'An instance of a YARA rule match to a process.',
                 }),
@@ -3059,9 +3062,18 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
                 )),
 
+                ('it:app:yara:netmatch', {}, (
+                    ('rule', ('it:app:yara:rule', {}), {
+                        'doc': 'The YARA rule that triggerted the match.'}),
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The most recent version of the rule evaluated as a match.'}),
+                    ('node', ('ndef', {'forms': ('inet:fqdn', 'inet:ipv4', 'inet:ipv6', 'inet:url')}), {
+                        'doc': 'The node which matched the rule.'}),
+                )),
+
                 ('it:app:yara:procmatch', {}, (
                     ('rule', ('it:app:yara:rule', {}), {
-                        'doc': 'The YARA rule that matched the file.'}),
+                        'doc': 'The YARA rule that matched the process.'}),
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The process that matched the YARA rule.'}),
                     ('time', ('time', {}), {
