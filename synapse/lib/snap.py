@@ -1029,7 +1029,7 @@ class Snap(s_base.Base):
             if node is not None:
                 yield node
 
-    async def nodesByPropValu(self, full, cmpr, valu, reverse=False):
+    async def nodesByPropValu(self, full, cmpr, valu, reverse=False, norm=True):
         if cmpr == 'type=':
             if reverse:
                 async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
@@ -1050,10 +1050,13 @@ class Snap(s_base.Base):
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        cmprvals = prop.type.getStorCmprs(cmpr, valu)
-        # an empty return probably means ?= with invalid value
-        if not cmprvals:
-            return
+        if norm:
+            cmprvals = prop.type.getStorCmprs(cmpr, valu)
+            # an empty return probably means ?= with invalid value
+            if not cmprvals:
+                return
+        else:
+            cmprvals = ((cmpr, valu, prop.type.stortype),)
 
         if prop.isrunt:
             for storcmpr, storvalu, _ in cmprvals:
@@ -1108,7 +1111,7 @@ class Snap(s_base.Base):
             async for node in self.nodesByPropArray(prop.full, '=', valu, reverse=reverse):
                 yield node
 
-    async def nodesByPropArray(self, full, cmpr, valu, reverse=False):
+    async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -1119,7 +1122,10 @@ class Snap(s_base.Base):
             mesg = f'Array syntax is invalid on non array type: {prop.type.name}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
+        if norm:
+            cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
+        else:
+            cmprvals = ((cmpr, valu, prop.type.arraytype.stortype),)
 
         if prop.isform:
             async for (buid, sodes) in self.core._liftByPropArray(prop.name, None, cmprvals, self.layers, reverse=reverse):
