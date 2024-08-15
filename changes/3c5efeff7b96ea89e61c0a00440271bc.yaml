@@ -1,0 +1,6 @@
+---
+desc: Optimize pivot behavior in Storm to avoid unnecessarily re-normalizing values.
+prs:
+- 3853
+type: feat
+...
