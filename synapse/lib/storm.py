@@ -53,7 +53,9 @@ When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
 those forms.
 
-The added tag is provided to the query as an embedded variable '$tag'.
+The added tag is provided to the query in the ``$auto`` dictionary variable under
+``$auto.opts.tag``. Usage of the ``$tag`` variable is deprecated and it will no longer
+be populated in Synapse v3.0.0.
 
 Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
