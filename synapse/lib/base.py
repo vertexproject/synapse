@@ -508,10 +508,7 @@ class Base:
         def taskDone(task):
             self._active_tasks.remove(task)
             try:
-                if not task.done():
-                    task.result()
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                pass
+                task.result()
             except Exception:
                 logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
 
