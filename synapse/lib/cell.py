@@ -1833,9 +1833,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async for item in self.drive.getItemDataVersions(iden):
             yield item
 
-    #async def getDriveItem(self, iden):
-        #return self.drive.getItemInfo(iden)
-
     @s_nexus.Pusher.onPushAuto('drive:del')
     async def delDriveInfo(self, iden):
         await self.drive.delItemInfo(iden)
@@ -1851,6 +1848,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('drive:data:del')
     async def delDriveData(self, iden, vers=None):
         return self.drive.delItemData(iden, vers=vers)
+
+    async def getDriveKids(self, iden):
+        async for info in self.drive.getItemKids(iden):
+            yield info
 
     async def initServiceStorage(self):
         pass

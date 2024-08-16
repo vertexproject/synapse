@@ -154,9 +154,17 @@ class Drive(s_base.Base):
     def _setItemPerm(self, bidn, perm):
         info = self._reqItemInfo(bidn)
         info['perm'] = perm
+        s_schema.reqValidDriveInfo(info)
         sefl.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
 
     async def getPathInfo(self, path, reldir=rootdir):
+        '''
+        Return a list of item info for each step in the given path
+        relative to rootdir.
+
+        This API is designed to allow the caller to retrieve the path info
+        and potentially check permissions on each level to control access.
+        '''
 
         path = self.getPathNorm(path)
         parbidn = s_common.uhex(reldir)
@@ -182,11 +190,14 @@ class Drive(s_base.Base):
         return self.slab.has(LKEY_INFO + bidn, db=self.dbname)
 
     async def hasPathInfo(self, path, reldir=rootdir):
-
+        '''
+        Check for a path existing relative to reldir.
+        '''
         path = self.getPathNorm(path)
         parbidn = s_common.uhex(reldir)
 
         for part in path:
+
             await asyncio.sleep(0)
 
             info = self._getStepInfo(parbidn, part)
@@ -197,23 +208,10 @@ class Drive(s_base.Base):
 
         return True
 
-    async def getPathData(self, path, reldir=rootdir, vers=None):
-        '''
-        Return a (pathinfo, versinfo, data) tuple for the given data.
-        '''
-        path = self.getPathNorm(path)
-        pathinfo = await self.getPathInfo(path, reldir=reldir)
-
-        iden = pathinfo[-1].get('iden')
-        if vers is None:
-            vers = pathinfo[-1].get('version')
-
-        data = self.getItemData(iden, vers=vers)
-
-        return (pathinfo, data)
-
     async def addItemInfo(self, info, path=None, reldir=rootdir):
-
+        '''
+        Add a new item at the specified path relative to reldir.
+        '''
         parent = reldir
         pathinfo = []
 
@@ -254,20 +252,21 @@ class Drive(s_base.Base):
         pathinfo.append(info)
         return pathinfo
 
-    async def delPathItem(self, path):
-        path = self.getPathNorm(path)
-        async for info in self.walkPathInfo(path):
-            bidn = s_common.uhex(info.get('iden'))
-            await self._delItemDatas(bidn)
-            await self._delItemInfo(bidn, info)
-            await asyncio.sleep(0)
-
     async def delItemInfo(self, iden):
-        path = [i.get('name') for i in await self.getItemPath(iden)]
-        await self.delPathItem(path)
+        '''
+        Recursively remove the info and all associated data versions.
+        '''
+        return await self._delItemInfo(s_common.uhex(iden))
 
-    async def _delItemInfo(self, bidn, info):
+    async def _delItemInfo(self, bidn):
+        async for info in self._walkItemInfo(bidn):
+            await self._delOneInfo(info)
+
+    async def _delOneInfo(self, info):
+        iden = info.get('iden')
         parent = info.get('parent')
+
+        bidn = s_common.uhex(iden)
         parbidn = s_common.uhex(parent)
 
         name = info.get('name').encode()
@@ -275,27 +274,61 @@ class Drive(s_base.Base):
         self.slab.delete(LKEY_INFO + bidn, db=self.dbname)
         self.slab.delete(LKEY_DIRN + parbidn + name, db=self.dbname)
 
+        pref = LKEY_VERS + bidn
+        for lkey in self.slab.scanKeysByPref(pref, db=self.dbname):
+            self.slab.delete(lkey, db=self.dbname)
+            await asyncio.sleep(0)
+
+        pref = LKEY_DATA + bidn
+        for lkey in self.slab.scanKeysByPref(pref, db=self.dbname):
+            self.slab.delete(lkey, db=self.dbname)
+            await asyncio.sleep(0)
+
+    async def walkItemInfo(self, iden):
+        async for item in self._walkItemInfo(s_common.uhex(iden)):
+            yield item
+
+    async def _walkItemInfo(self, bidn):
+        async for knfo in self._walkItemKids(bidn):
+            yield knfo
+        yield self._getItemInfo(bidn)
+
     async def walkPathInfo(self, path, reldir=rootdir):
 
         path = self.getPathNorm(path)
         pathinfo = await self.getPathInfo(path, reldir=reldir)
 
         bidn = s_common.uhex(pathinfo[-1].get('iden'))
-        async for info in self._walkItemInfo(bidn):
+        async for info in self._walkItemKids(bidn):
             yield info
 
         yield pathinfo[-1]
 
-    async def _walkItemInfo(self, bidn):
-
+    async def getItemKids(self, iden):
+        '''
+        Yield each of the children of the specified item.
+        '''
+        bidn = s_common.uhex(iden)
         for lkey, bidn in self.slab.scanByPref(LKEY_DIRN + bidn, db=self.dbname):
+            await asyncio.sleep(0)
 
             info = self._getItemInfo(bidn)
-            if info is None:
+            if info is None: # pragma no cover
+                continue
+
+            yield info
+
+    async def _walkItemKids(self, bidn):
+
+        for lkey, bidn in self.slab.scanByPref(LKEY_DIRN + bidn, db=self.dbname):
+            await asyncio.sleep(0)
+
+            info = self._getItemInfo(bidn)
+            if info is None: # pragma: no cover
                 continue
 
             nidn = s_common.uhex(info.get('iden'))
-            async for item in self._walkItemInfo(nidn):
+            async for item in self._walkItemKids(nidn):
                 yield item
 
             yield info
@@ -341,6 +374,10 @@ class Drive(s_base.Base):
         return info, versinfo
 
     def getItemData(self, iden, vers=None):
+        '''
+        Return a (versinfo, data) tuple for the given iden. If
+        version is not specified, the current version is returned.
+        '''
         return self._getItemData(s_common.uhex(iden), vers=vers)
 
     def _getItemData(self, bidn, vers=None):
@@ -387,18 +424,6 @@ class Drive(s_base.Base):
 
         self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
         return info
-
-    async def _delItemDatas(self, bidn):
-
-        pref = LKEY_VERS + bidn
-        for lkey in self.slab.scanKeysByPref(pref, db=self.dbname):
-            self.slab.delete(lkey, db=self.dbname)
-            await asyncio.sleep(0)
-
-        pref = LKEY_DATA + bidn
-        for lkey in self.slab.scanKeysByPref(pref, db=self.dbname):
-            self.slab.delete(lkey, db=self.dbname)
-            await asyncio.sleep(0)
 
     def _getLastDataVers(self, bidn):
         for lkey, byts in self.slab.scanByPrefBack(LKEY_VERS + bidn, db=self.dbname):

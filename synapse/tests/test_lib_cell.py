@@ -28,6 +28,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
@@ -193,6 +194,10 @@ class CellTest(s_t_utils.SynTest):
             info = {'name': 'win32k.sys', 'type': 'hehe'}
             with self.raises(s_exc.NoSuchType):
                 info = await cell.addDriveItem(info, reldir=rootdir)
+
+            infos = [i async for i in cell.getDriveKids(s_drive.rootdir)]
+            self.len(1, infos)
+            self.eq('users', infos[0].get('name'))
 
             # TODO how to handle iden match with additional property mismatch
 
