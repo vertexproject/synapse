@@ -3325,10 +3325,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return hive
 
-    async def _initSlabFile(self, path, readonly=False):
+    async def _initSlabFile(self, path, readonly=False, ephemeral=False):
         slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
         slab.addResizeCallback(self.checkFreeSpace)
-        self.onfini(slab)
+        fini = slab.fini
+        if ephemeral:
+            fini = slab
+        self.onfini(fini)
         return slab
 
     async def _initCellSlab(self, readonly=False):

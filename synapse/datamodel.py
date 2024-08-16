@@ -127,6 +127,10 @@ class Prop:
         self.deprecated = self.info.get('deprecated', False)
 
         self.type = self.modl.getTypeClone(typedef)
+        self.typehash = self.type.typehash
+
+        if self.type.isarray:
+            self.arraytypehash = self.type.arraytype.typehash
 
         if form is not None:
             form.setProp(name, self)
@@ -268,6 +272,11 @@ class Form:
         self.type = modl.types.get(name)
         if self.type is None:
             raise s_exc.NoSuchType(name=name)
+
+        self.typehash = self.type.typehash
+
+        if self.type.isarray:
+            self.arraytypehash = self.type.arraytype.typehash
 
         self.form = self
 

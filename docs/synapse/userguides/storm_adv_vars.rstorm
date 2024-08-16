@@ -190,6 +190,10 @@ Storm queries.
 $tag
 ####
 
+.. warning::
+
+    The ``$tag`` variable is deprecated and will be removed in Synapse ``v3.0.0``. See the :ref:`auto-trigger-vars` documentation for details on using the ``$auto`` variable instead.
+
 For triggers that fire on ``tag:add`` events, the ``$tag`` variable represents the name of the tag that
 caused the trigger to fire.
 

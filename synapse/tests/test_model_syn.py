@@ -340,10 +340,21 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'syn:trigger={iden}')
             self.len(1, nodes)
 
+            indx = await core.getNexsIndx()
+
             # set the trigger doc
             nodes = await core.nodes(f'syn:trigger={iden} [ :doc=hehe ]')
             self.len(1, nodes)
             self.eq('hehe', nodes[0].get('doc'))
+
+            self.eq(await core.getNexsIndx(), indx + 1)
+
+            # set the trigger name
+            nodes = await core.nodes(f'syn:trigger={iden} [ :name=trigname ]')
+            self.len(1, nodes)
+            self.eq('trigname', nodes[0].get('name'))
+
+            self.eq(await core.getNexsIndx(), indx + 2)
 
             # Trigger reloads and make some more triggers to play with
             tdef = {'cond': 'prop:set', 'prop': 'inet:ipv4:asn', 'storm': '[inet:user=1] | testcmd'}
