@@ -4152,8 +4152,7 @@ class AstTest(s_test.SynTest):
 
             # <syn:tag> -> <form>
             msgs = await core.stormlist('syn:tag=foo.bar -> test:complexcomp', opts=opts)
-            # TODO: reverse?
-            _assert_edge(msgs, tag, {'type': 'tag', 'tag': 'foo.bar'})
+            _assert_edge(msgs, tag, {'type': 'tag', 'tag': 'foo.bar', 'reverse': True})
 
             # source node is a graph edge, use n2
             msgs = await core.stormlist('test:edge -> test:str', opts=opts)
@@ -4196,10 +4195,9 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs', 'reverse': True})
 
             # PivotOut syn:tag
-            # TODO: reverse?
             msgs = await core.stormlist('syn:tag -> *', opts=opts)
-            _assert_edge(msgs, basetag, {'type': 'tag', 'tag': 'foo'})
-            _assert_edge(msgs, tag, {'type': 'tag', 'tag': 'foo.bar'}, nidx=1)
+            _assert_edge(msgs, basetag, {'type': 'tag', 'tag': 'foo', 'reverse': True})
+            _assert_edge(msgs, tag, {'type': 'tag', 'tag': 'foo.bar', 'reverse': True}, nidx=1)
 
             # PivotOut edge uses n2 automatically
             msgs = await core.stormlist('test:edge -> *', opts=opts)
@@ -4229,35 +4227,32 @@ class AstTest(s_test.SynTest):
 
             # PivotIn prop
             msgs = await core.stormlist('test:int=176 <- *', opts=opts)
-            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size'})
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
 
             # PivotIn array prop
             msgs = await core.stormlist('test:str=foobar <- *', opts=opts)
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'strs'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'strs', 'reverse': True})
 
             # PivotIn edge uses n1 automatically
             msgs = await core.stormlist('test:edge <- *', opts=opts)
-            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n1'})
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n1', 'reverse': True})
 
             # PivotIn ndef
-            # TODO: check this. this one feels awkward
             msgs = await core.stormlist('test:ro <- *', opts=opts)
-            _assert_edge(msgs, ro, {'type': 'prop', 'prop': 'bar'})
+            _assert_edge(msgs, ro, {'type': 'prop', 'prop': 'bar', 'reverse': True})
 
             # PivotIn array ndef
-            # TODO: reverse?
             msgs = await core.stormlist('test:auto <- *', opts=opts)
-            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs'})
+            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs', 'reverse': True})
 
-            # TODO: Check these
             # PivotInFrom "<- edge"
             abcd = (await core.nodes('test:str=abcd'))[0]
             msgs = await core.stormlist('test:str <- test:edge', opts=opts)
-            _assert_edge(msgs, abcd, {'type': 'prop', 'prop': 'n2'})
+            _assert_edge(msgs, abcd, {'type': 'prop', 'prop': 'n2', 'reverse': True})
 
             # PivotInFrom "edge <- form"
             msgs = await core.stormlist('test:edge <- test:guid', opts=opts)
-            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n1'})
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n1', 'reverse': True})
 
             # PropPivotOut prop
             msgs = await core.stormlist('test:guid :size -> *', opts=opts)
@@ -4283,8 +4278,7 @@ class AstTest(s_test.SynTest):
 
             # N2Walk
             msgs = await core.stormlist('test:edge <(*)- *', opts=opts)
-            # TODO: reverse?
-            _assert_edge(msgs, edge, {'type': 'edge', 'edge': 'seen'})
+            _assert_edge(msgs, edge, {'type': 'edge', 'edge': 'seen', 'reverse': True})
 
             # N1WalkNPivo
             msgs = await core.stormlist('test:complexcomp --> *', opts=opts)
@@ -4293,7 +4287,6 @@ class AstTest(s_test.SynTest):
 
             # N2WalNkPivo
             msgs = await core.stormlist('test:int=176 <-- *', opts=opts)
-            # TODO: reverse?
-            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size'})
-            _assert_edge(msgs, small, {'type': 'edge', 'edge': 'seen'}, nidx=1)
-            _assert_edge(msgs, small, {'type': 'edge', 'edge': 'someedge'}, nidx=2)
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
+            _assert_edge(msgs, small, {'type': 'edge', 'edge': 'seen', 'reverse': True}, nidx=1)
+            _assert_edge(msgs, small, {'type': 'edge', 'edge': 'someedge', 'reverse': True}, nidx=2)

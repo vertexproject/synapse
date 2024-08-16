@@ -1914,7 +1914,7 @@ class PivotOut(PivotOper):
         if node.form.name == 'syn:tag':
 
             async for pivo in runt.snap.nodesByTag(node.ndef[1]):
-                yield pivo, path.fork(pivo, edge={'type': 'tag', 'tag': node.ndef[1]})
+                yield pivo, path.fork(pivo, edge={'type': 'tag', 'tag': node.ndef[1], 'reverse': True})
 
             return
 
@@ -2083,7 +2083,7 @@ class PivotIn(PivotOper):
 
             pivo = await runt.snap.getNodeByNdef(ndef)
             if pivo is not None:
-                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n1'})
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n1', 'reverse': True})
 
             return
 
@@ -2091,15 +2091,15 @@ class PivotIn(PivotOper):
 
         for prop in runt.model.getPropsByType(name):
             async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
-                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name, 'reverse': True})
 
         for prop in runt.model.getArrayPropsByType(name):
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
-                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name, 'reverse': True})
 
         async for refsbuid, prop in runt.snap.getNdefRefProps(node.buid):
             pivo = await runt.snap.getNodeByBuid(refsbuid)
-            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop})
+            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop, 'reverse': True})
 
 class N2WalkNPivo(PivotIn):
 
@@ -2116,7 +2116,7 @@ class N2WalkNPivo(PivotIn):
             async for (verb, iden) in node.iterEdgesN2():
                 wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
                 if wnode is not None:
-                    yield wnode, path.fork(wnode, edge={'type': 'edge', 'edge': verb})
+                    yield wnode, path.fork(wnode, edge={'type': 'edge', 'edge': verb, 'reverse': True})
 
 class PivotInFrom(PivotOper):
     '''
@@ -2142,7 +2142,7 @@ class PivotInFrom(PivotOper):
                     yield node, path
 
                 async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
-                    yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n2'})
+                    yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n2', 'reverse': True})
 
             return
 
@@ -2166,7 +2166,7 @@ class PivotInFrom(PivotOper):
             if pivo is None:
                 continue
 
-            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n1'})
+            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n1', 'reverse': True})
 
 class FormPivot(PivotOper):
     '''
@@ -2220,7 +2220,7 @@ class FormPivot(PivotOper):
                 # <syn:tag> -> <form> is "from tags to nodes" pivot
                 if node.form.name == 'syn:tag' and prop.isform:
                     async for pivo in runt.snap.nodesByTag(node.ndef[1], form=prop.name):
-                        yield pivo, {'type': 'tag', 'tag': node.ndef[1]}
+                        yield pivo, {'type': 'tag', 'tag': node.ndef[1], 'reverse': True}
 
                     return
 
@@ -4214,9 +4214,10 @@ class EditUnivDel(Edit):
 
 class N1Walk(Oper):
 
-    def __init__(self, astinfo, kids=(), isjoin=False):
+    def __init__(self, astinfo, kids=(), isjoin=False, reverse=False):
         Oper.__init__(self, astinfo, kids=kids)
         self.isjoin = isjoin
+        self.reverse = reverse
 
     def repr(self):
         return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
@@ -4331,9 +4332,15 @@ class N1Walk(Oper):
                     if destfilt and not await destfilt(walknode, path, cmprvalu):
                         continue
 
-                    yield walknode, path.fork(walknode, edge={'type': 'edge', 'edge': verbname})
+                    if self.reverse:
+                        yield walknode, path.fork(walknode, edge={'type': 'edge', 'edge': verbname, 'reverse': True})
+                    else:
+                        yield walknode, path.fork(walknode, edge={'type': 'edge', 'edge': verbname})
 
 class N2Walk(N1Walk):
+
+    def __init__(self, astinfo, kids=(), isjoin=False):
+        N1Walk.__init__(self, astinfo, kids=kids, isjoin=isjoin, reverse=True)
 
     async def walkNodeEdges(self, runt, node, verb=None):
         async for verb, iden in node.iterEdgesN2(verb=verb):
