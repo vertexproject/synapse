@@ -514,7 +514,7 @@ class RStormLibTest(s_test.SynTest):
         HI
         ##
         .. storm-cortex:: default
-        .. storm:: --hide-query version | -(refs)> *
+        .. storm:: --hide-query [ps:person=(p0,) :name='1.2.3.4'] | scrape --refs | -(refs)> *
         ''')
 
         with self.getTestDir() as dirn:
@@ -524,4 +524,5 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(rst_cmdargs.encode())
 
             text = await get_rst_text(path)
-            print(text)
+            self.notin('[ps:person=(p0,)', text)
+            self.isin('inet:ipv4=1.2.3.4', text)
