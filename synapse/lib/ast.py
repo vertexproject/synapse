@@ -1440,6 +1440,7 @@ class LiftOper(Oper):
 
             yield node, path
 
+            breakpoint()
             async for subn in self.lift(runt, path):
                 yield subn, path.fork(subn)
 
@@ -2484,26 +2485,31 @@ class PropPivot(PivotOper):
                             continue
 
                         if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
-                            yield pivo
+                            yield pivo, {'type': 'prop', 'prop': srcprop.name}
                     return
 
                 for arrayval in valu:
                     async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
-                        yield pivo
+                        yield pivo, {'type': 'prop', 'prop': srcprop.name}
 
                 return
 
             if isinstance(srcprop.type, s_types.Ndef) and prop.isform:
-                if valu[0] != prop.form.name:
+                if prop.type.isarray:
+                    async for pivo in runt.snap.nodesByPropArray(prop.full, 'in=', (valu,)):
+                        yield pivo, {'type': 'prop', 'prop': srcprop.name}
                     return
+                else:
+                    if valu[0] != prop.form.name:
+                        return
 
-                pivo = await runt.snap.getNodeByNdef(valu)
-                if pivo is None:
-                    await runt.snap.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
+                    pivo = await runt.snap.getNodeByNdef(valu)
+                    if pivo is None:
+                        await runt.snap.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
+                        return
+                    yield pivo, {'type': 'prop', 'prop': srcprop.name}
+
                     return
-                yield pivo
-
-                return
 
             if prop.type.isarray and not srcprop.type.isarray:
                 genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
@@ -2511,7 +2517,7 @@ class PropPivot(PivotOper):
                 genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
 
             async for pivo in genr:
-                yield pivo
+                yield pivo, {'type': 'prop', 'prop': srcprop.name}
 
         return pgenr
 
@@ -2565,8 +2571,8 @@ class PropPivot(PivotOper):
                 continue
 
             try:
-                async for pivo in pgenr(node, srcprop, valu):
-                    yield pivo, path.fork(pivo)
+                async for pivo, edge in pgenr(node, srcprop, valu):
+                    yield pivo, path.fork(pivo, edge=edge)
 
             except (s_exc.BadTypeValu, s_exc.BadLiftValu) as e:
                 if not warned:
