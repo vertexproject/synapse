@@ -1914,7 +1914,7 @@ class PivotOut(PivotOper):
         if node.form.name == 'syn:tag':
 
             async for pivo in runt.snap.nodesByTag(node.ndef[1]):
-                yield pivo, path.fork(pivo)
+                yield pivo, path.fork(pivo, edge={'type': 'tag', 'tag': node.ndef[1]})
 
             return
 
@@ -1925,7 +1925,7 @@ class PivotOut(PivotOper):
                 logger.warning(f'Missing node corresponding to ndef {n2def} on edge')
                 return
 
-            yield pivo, path.fork(pivo)
+            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n2'})
             return
 
         for name, prop in node.form.props.items():
@@ -1940,21 +1940,21 @@ class PivotOut(PivotOper):
                 if pivo is None:
                     continue
 
-                yield pivo, path.fork(pivo)
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
                 continue
 
             if isinstance(prop.type, s_types.Array):
                 if isinstance(prop.type.arraytype, s_types.Ndef):
                     for item in valu:
                         if (pivo := await runt.snap.getNodeByNdef(item)) is not None:
-                            yield pivo, path.fork(pivo)
+                            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
                     continue
 
                 typename = prop.type.opts.get('type')
                 if runt.model.forms.get(typename) is not None:
                     for item in valu:
                         async for pivo in runt.snap.nodesByPropValu(typename, '=', item):
-                            yield pivo, path.fork(pivo)
+                            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
 
             form = runt.model.forms.get(prop.type.name)
             if form is None:
@@ -1962,7 +1962,7 @@ class PivotOut(PivotOper):
 
             if prop.isrunt:
                 async for pivo in runt.snap.nodesByPropValu(form.name, '=', valu):
-                    yield pivo, path.fork(pivo)
+                    yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
                 continue
 
             pivo = await runt.snap.getNodeByNdef((form.name, valu))
@@ -1973,7 +1973,7 @@ class PivotOut(PivotOper):
             if pivo.buid == node.buid:
                 continue
 
-            yield pivo, path.fork(pivo)
+            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
 
 class N1WalkNPivo(PivotOut):
 
@@ -1990,7 +1990,7 @@ class N1WalkNPivo(PivotOut):
             async for (verb, iden) in node.iterEdgesN1():
                 wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
                 if wnode is not None:
-                    yield wnode, path.fork(wnode)
+                    yield wnode, path.fork(wnode, edge={'type': 'edge', 'edge': verb})
 
 class PivotToTags(PivotOper):
     '''
@@ -2057,7 +2057,7 @@ class PivotToTags(PivotOper):
                 if pivo is None:
                     continue
 
-                yield pivo, path.fork(pivo)
+                yield pivo, path.fork(pivo, edge={'type': 'tag', 'tag': name})
 
 class PivotIn(PivotOper):
     '''
@@ -2083,7 +2083,7 @@ class PivotIn(PivotOper):
 
             pivo = await runt.snap.getNodeByNdef(ndef)
             if pivo is not None:
-                yield pivo, path.fork(pivo)
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n1'})
 
             return
 
@@ -2091,15 +2091,15 @@ class PivotIn(PivotOper):
 
         for prop in runt.model.getPropsByType(name):
             async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
-                yield pivo, path.fork(pivo)
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
 
         for prop in runt.model.getArrayPropsByType(name):
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
-                yield pivo, path.fork(pivo)
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
 
-        async for refsbuid in runt.snap.getNdefRefs(node.buid):
+        async for refsbuid, prop in runt.snap.getNdefRefProps(node.buid):
             pivo = await runt.snap.getNodeByBuid(refsbuid)
-            yield pivo, path.fork(pivo)
+            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop})
 
 class N2WalkNPivo(PivotIn):
 
@@ -2116,7 +2116,7 @@ class N2WalkNPivo(PivotIn):
             async for (verb, iden) in node.iterEdgesN2():
                 wnode = await runt.snap.getNodeByBuid(s_common.uhex(iden))
                 if wnode is not None:
-                    yield wnode, path.fork(wnode)
+                    yield wnode, path.fork(wnode, edge={'type': 'edge', 'edge': verb})
 
 class PivotInFrom(PivotOper):
     '''
@@ -2142,7 +2142,7 @@ class PivotInFrom(PivotOper):
                     yield node, path
 
                 async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
-                    yield pivo, path.fork(pivo)
+                    yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n2'})
 
             return
 
@@ -2166,7 +2166,7 @@ class PivotInFrom(PivotOper):
             if pivo is None:
                 continue
 
-            yield pivo, path.fork(pivo)
+            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': 'n1'})
 
 class FormPivot(PivotOper):
     '''
@@ -2207,7 +2207,7 @@ class FormPivot(PivotOper):
 
             async def pgenr(node, strict=True):
                 async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
-                    yield pivo, {'type': 'prop', 'prop': 'n1'}
+                    yield pivo, {'type': 'prop', 'prop': 'n1', 'reverse': True}
 
         else:
             # form -> form pivot is nonsensical. Lets help out...
@@ -2354,7 +2354,7 @@ class FormPivot(PivotOper):
                 if prop is None:
                     raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
 
-                pgenrs.append((self.pivogenr(runt, prop), prop))
+                pgenrs.append(self.pivogenr(runt, prop))
 
             async def listpivot(node):
                 for pgenr in pgenrs:
@@ -2421,7 +2421,7 @@ class PropPivotOut(PivotOper):
                 if isinstance(prop.type.arraytype, s_types.Ndef):
                     for item in valu:
                         if (pivo := await runt.snap.getNodeByNdef(item)) is not None:
-                            yield pivo, path.fork(pivo)
+                            yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
                     continue
 
                 fname = prop.type.arraytype.name
@@ -2434,7 +2434,7 @@ class PropPivotOut(PivotOper):
 
                 for item in valu:
                     async for pivo in runt.snap.nodesByPropValu(fname, '=', item):
-                        yield pivo, path.fork(pivo)
+                        yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
 
                 continue
 
@@ -2445,7 +2445,7 @@ class PropPivotOut(PivotOper):
                 if pivo is None:
                     logger.warning(f'Missing node corresponding to ndef {valu}')
                     continue
-                yield pivo, path.fork(pivo)
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
                 continue
 
             # :prop -> *
@@ -2462,7 +2462,7 @@ class PropPivotOut(PivotOper):
             # A node explicitly deleted in the graph or missing from a underlying layer
             # could cause this lift to return None.
             if pivo:
-                yield pivo, path.fork(pivo)
+                yield pivo, path.fork(pivo, edge={'type': 'prop', 'prop': prop.name})
 
 
 class PropPivot(PivotOper):
@@ -4222,11 +4222,11 @@ class N1Walk(Oper):
         return f'{self.__class__.__name__}: {self.kids}, isjoin={self.isjoin}'
 
     async def walkNodeEdges(self, runt, node, verb=None):
-        async for _, iden in node.iterEdgesN1(verb=verb):
+        async for verb, iden in node.iterEdgesN1(verb=verb):
             buid = s_common.uhex(iden)
             walknode = await runt.snap.getNodeByBuid(buid)
             if walknode is not None:
-                yield walknode
+                yield verb, walknode
 
     def buildfilter(self, runt, destforms, cmpr):
 
@@ -4326,21 +4326,21 @@ class N1Walk(Oper):
                 if verb == '*':
                     verb = None
 
-                async for walknode in self.walkNodeEdges(runt, node, verb=verb):
+                async for verbname, walknode in self.walkNodeEdges(runt, node, verb=verb):
 
                     if destfilt and not await destfilt(walknode, path, cmprvalu):
                         continue
 
-                    yield walknode, path.fork(walknode)
+                    yield walknode, path.fork(walknode, edge={'type': 'edge', 'edge': verbname})
 
 class N2Walk(N1Walk):
 
     async def walkNodeEdges(self, runt, node, verb=None):
-        async for _, iden in node.iterEdgesN2(verb=verb):
+        async for verb, iden in node.iterEdgesN2(verb=verb):
             buid = s_common.uhex(iden)
             walknode = await runt.snap.getNodeByBuid(buid)
             if walknode is not None:
-                yield walknode
+                yield verb, walknode
 
 class EditEdgeAdd(Edit):
 

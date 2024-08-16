@@ -1615,6 +1615,24 @@ class Snap(s_base.Base):
 
             yield refsbuid
 
+    async def _getLayrNdefs(self, layr, buid):
+        async for refsbuid, refsabrv in layr.getNdefRefs(buid):
+            yield refsbuid, layr.getAbrvProp(refsabrv)
+
+    # TODO: merge with getNdefRefs
+    async def getNdefRefProps(self, buid):
+        last = None
+        gens = [self._getLayrNdefs(layr, buid) for layr in self.layers]
+
+        async for refsbuid, abrvprop in s_common.merggenr2(gens):
+            if refsbuid == last:
+                continue
+
+            await asyncio.sleep(0)
+            last = refsbuid
+
+            yield refsbuid, abrvprop[1]
+
     async def hasNodeData(self, buid, name):
         '''
         Return True if the buid has nodedata set on it under the given name

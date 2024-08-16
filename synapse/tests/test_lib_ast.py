@@ -4104,97 +4104,196 @@ class AstTest(s_test.SynTest):
     async def test_ast_path_provenance(self):
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
-
+            from pprint import pprint
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}
-            self.len(1, await core.nodes('[test:guid=$guid :size=176]', opts=opts))
-            self.len(1, await core.nodes('[test:edge=(("test:guid", $guid), ("test:str", abcd))]', opts=opts))
-            self.len(1, await core.nodes('[test:complexcomp=(1234, STUFF) +#foo.bar]'))
-            self.len(1, await core.nodes('[test:arrayprop=* :ints=(3245, 678) :strs=("foo", "bar")]'))
-            self.len(1, await core.nodes('[test:str=foobar :bar=(test:ro, "ackbar") :ndefs=((test:guid, $guid), (test:auto, "auto"))]', opts=opts))
+
+            guid = (await core.nodes('[test:guid=$guid :size=176 :tick=now]', opts=opts))[0]
+            edge = (await core.nodes('[test:edge=(("test:guid", $guid), ("test:str", abcd))]', opts=opts))[0]
+            comp = (await core.nodes('[test:complexcomp=(1234, STUFF) +#foo.bar]'))[0]
+            tstr = (await core.nodes('[test:str=foobar :bar=(test:ro, "ackbar") :ndefs=((test:guid, $guid), (test:auto, "auto"))]', opts=opts))[0]
+            arry = (await core.nodes('[test:arrayprop=* :ints=(3245, 678) :strs=("foo", "bar", "foobar")]'))[0]
+
+            await core.nodes('test:int=176 [ <(seen)+ { test:guid } ]')
+            await core.nodes('test:int=176 [ <(someedge)+ { test:guid } ]')
+            await core.nodes('test:complexcomp [ <(refs)+ { test:arrayprop } ]')
+            await core.nodes('test:complexcomp [ +(concerns)> { test:ro } ]')
+            await core.nodes('test:edge [ <(seen)+ { test:guid } ]')
+
+            small = (await core.nodes('test:int=176'))[0]
+            large = (await core.nodes('test:int=1234'))[0]
+            auto = (await core.nodes('test:auto'))[0]
+            basetag = (await core.nodes('syn:tag=foo'))[0]
+            tag = (await core.nodes('syn:tag=foo.bar'))[0]
+            ro = (await core.nodes('test:ro'))[0]
+
+            def _assert_edge(msgs, src, edge, nidx=0, eidx=0):
+                nodes = [m[1] for m in msgs if m[0] == 'node']
+                self.nn(nodes[nidx][1].get('path'))
+                edges = nodes[nidx][1]['path'].get('edges')
+                self.nn(edges)
+                self.lt(eidx, len(edges))
+                self.eq(edges[eidx], (src.iden(), edge))
 
             opts = {'path': True}
 
             # FormPivot
             # -> baz:ndef
-            # msgs = await core.stormlist('test:guid -> test:edge:n1', opts=opts)
+            msgs = await core.stormlist('test:guid -> test:edge:n1', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'n1', 'reverse': True})
 
             # plain old pivot
-            # msgs = await core.stormlist('test:int=176 -> test:guid:size', opts=opts)
+            msgs = await core.stormlist('test:int=176 -> test:guid:size', opts=opts)
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
 
             # graph edge dest form uses n1 automagically
-            # msgs = await core.stormlist('test:guid -> test:edge', opts=opts)
+            msgs = await core.stormlist('test:guid -> test:edge', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'n1', 'reverse': True})
 
             # <syn:tag> -> <form>
-            # msgs = await core.stormlistsyn:tag=foo.bar -> test:complexcomp', opts=opts)
+            msgs = await core.stormlist('syn:tag=foo.bar -> test:complexcomp', opts=opts)
+            # TODO: reverse?
+            _assert_edge(msgs, tag, {'type': 'tag', 'tag': 'foo.bar'})
 
             # source node is a graph edge, use n2
-            # msgs = await core.stormlist('test:edge -> test:str', opts=opts)
+            msgs = await core.stormlist('test:edge -> test:str', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n2'})
 
             # refs out - prop
-            # msgs = await core.stormlist('test:complexcomp -> test:int', opts=opts)
+            msgs = await core.stormlist('test:complexcomp -> test:int', opts=opts)
+            _assert_edge(msgs, comp, {'type': 'prop', 'prop': 'foo'})
 
             # refs out - array
-            # msgs = await core.stormlist('test:arrayprop -> test:int', opts=opts)
+            msgs = await core.stormlist('test:arrayprop -> test:int', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
 
             # refs out - ndef
-            # msgs = await core.stormlist('test:str -> test:ro', opts=opts)
+            msgs = await core.stormlist('test:str -> test:ro', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
 
             # refs out - ndefarray
-            # msgs = await core.stormlist('test:str -> test:auto', opts=opts)
+            msgs = await core.stormlist('test:str -> test:auto', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
 
             # reverse prop refs
-            # msgs = await core.stormlist('test:int -> test:complexcomp', opts=opts)
+            msgs = await core.stormlist('test:int -> test:complexcomp', opts=opts)
+            _assert_edge(msgs, large, {'type': 'prop', 'prop': 'foo', 'reverse': True})
 
             # reverse array refs
-            # msgs = await core.stormlist('test:int -> test:arrayprop', opts=opts)
+            msgs = await core.stormlist('test:int -> test:arrayprop', opts=opts)
+            sixer = (await core.nodes('test:int=678'))[0]
+            thou = (await core.nodes('test:int=3245'))[0]
+            _assert_edge(msgs, sixer, {'type': 'prop', 'prop': 'ints', 'reverse': True})
+            _assert_edge(msgs, thou, {'type': 'prop', 'prop': 'ints', 'reverse': True}, nidx=1)
 
             # reverse ndef refs
-            # msgs = await core.stormlist('test:ro -> test:str', opts=opts)
+            msgs = await core.stormlist('test:ro -> test:str', opts=opts)
+            _assert_edge(msgs, ro, {'type': 'prop', 'prop': 'bar', 'reverse': True})
 
             # reverse ndefarray refs
-            # msgs = await core.stormlist('test:auto -> test:str', opts=opts)
+            msgs = await core.stormlist('test:auto -> test:str', opts=opts)
+            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs', 'reverse': True})
 
-            # PivotOut
-            # syn:tag
+            # PivotOut syn:tag
+            # TODO: reverse?
             msgs = await core.stormlist('syn:tag -> *', opts=opts)
+            _assert_edge(msgs, basetag, {'type': 'tag', 'tag': 'foo'})
+            _assert_edge(msgs, tag, {'type': 'tag', 'tag': 'foo.bar'}, nidx=1)
 
-            # edge
+            # PivotOut edge uses n2 automatically
             msgs = await core.stormlist('test:edge -> *', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n2'})
 
-            # prop
-            msgs = await core.stormlist('', opts=opts)
+            # PivotOut prop
+            msgs = await core.stormlist('test:guid -> *', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
 
-            # prop ndef
-            msgs = await core.stormlist('', opts=opts)
+            # PivotOut prop array
+            msgs = await core.stormlist('test:arrayprop -> *', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'strs'}, nidx=2)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'strs'}, nidx=3)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'strs'}, nidx=4)
 
-            # prop array
-            msgs = await core.stormlist('', opts=opts)
+            # PivotOut prop ndef and ndef array
+            msgs = await core.stormlist('test:str=foobar -> *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=2)
 
-            # prop ndef array
-            msgs = await core.stormlist('', opts=opts)
+            # PivotToTags
+            msgs = await core.stormlist('test:complexcomp -> #', opts=opts)
+            _assert_edge(msgs, comp, {'type': 'tag', 'tag': 'foo.bar'})
 
-            # PivotToTag
-            msgs = await core.stormlist('test:complexcomp -> syn:tag', opts=opts)
+            # PivotIn prop
+            msgs = await core.stormlist('test:int=176 <- *', opts=opts)
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size'})
 
-            # N1WalkNPivo
-            msgs = await core.stormlist('', opts=opts)
+            # PivotIn array prop
+            msgs = await core.stormlist('test:str=foobar <- *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'strs'})
 
-            # PivotIn
-            # N2WalNkPivo
-            msgs = await core.stormlist('', opts=opts)
+            # PivotIn edge uses n1 automatically
+            msgs = await core.stormlist('test:edge <- *', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n1'})
 
-            # PivotInFrom
-            msgs = await core.stormlist('', opts=opts)
+            # PivotIn ndef
+            # TODO: check this. this one feels awkward
+            msgs = await core.stormlist('test:ro <- *', opts=opts)
+            _assert_edge(msgs, ro, {'type': 'prop', 'prop': 'bar'})
 
-            # PropPivotOut
-            msgs = await core.stormlist('', opts=opts)
+            # PivotIn array ndef
+            # TODO: reverse?
+            msgs = await core.stormlist('test:auto <- *', opts=opts)
+            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs'})
 
-            # PropPivot
-            msgs = await core.stormlist('', opts=opts)
+            # TODO: Check these
+            # PivotInFrom "<- edge"
+            abcd = (await core.nodes('test:str=abcd'))[0]
+            msgs = await core.stormlist('test:str <- test:edge', opts=opts)
+            _assert_edge(msgs, abcd, {'type': 'prop', 'prop': 'n2'})
+
+            # PivotInFrom "edge <- form"
+            msgs = await core.stormlist('test:edge <- test:guid', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n1'})
+
+            # PropPivotOut prop
+            msgs = await core.stormlist('test:guid :size -> *', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
+
+            # PropPivotOut ndef
+            msgs = await core.stormlist('test:str=foobar :bar -> *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
+
+            # PropPivotOut array
+            msgs = await core.stormlist('test:arrayprop :ints -> *', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
+
+            # PropPivotOut array ndef
+            msgs = await core.stormlist('test:str :ndefs -> *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
 
             # N1Walk
-            msgs = await core.stormlist('', opts=opts)
+            msgs = await core.stormlist('test:arrayprop -(*)> *', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'edge', 'edge': 'refs'})
 
             # N2Walk
-            msgs = await core.stormlist('', opts=opts)
+            msgs = await core.stormlist('test:edge <(*)- *', opts=opts)
+            # TODO: reverse?
+            _assert_edge(msgs, edge, {'type': 'edge', 'edge': 'seen'})
+
+            # N1WalkNPivo
+            msgs = await core.stormlist('test:complexcomp --> *', opts=opts)
+            _assert_edge(msgs, comp, {'type': 'prop', 'prop': 'foo'})
+            _assert_edge(msgs, comp, {'type': 'edge', 'edge': 'concerns'}, nidx=1)
+
+            # N2WalNkPivo
+            msgs = await core.stormlist('test:int=176 <-- *', opts=opts)
+            # TODO: reverse?
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size'})
+            _assert_edge(msgs, small, {'type': 'edge', 'edge': 'seen'}, nidx=1)
+            _assert_edge(msgs, small, {'type': 'edge', 'edge': 'someedge'}, nidx=2)

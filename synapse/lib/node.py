@@ -776,11 +776,12 @@ class Path:
 
     def fork(self, node, edge=None):
 
+        edges = list(self.edges)
+        if self.node:
+            edges.append((self.node.iden(), edge))
+
         nodes = list(self.nodes)
         nodes.append(node)
-
-        edges = list(self.edges)
-        edges.append((node.iden(), edge))
 
         path = Path(self.vars.copy(), nodes, edges=edges)
 
