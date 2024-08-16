@@ -1,4 +1,5 @@
 import os
+import textwrap
 
 import vcr
 
@@ -507,3 +508,20 @@ class RStormLibTest(s_test.SynTest):
 
             finally:
                 s_rstorm.ONLOAD_TIMEOUT = oldv
+
+    async def test_lib_rstorm_cmdargs(self):
+        rst_cmdargs = textwrap.dedent('''
+        HI
+        ##
+        .. storm-cortex:: default
+        .. storm:: --hide-query version | -(refs)> *
+        ''')
+
+        with self.getTestDir() as dirn:
+
+            path = s_common.genpath(dirn, 'test.rst')
+            with s_common.genfile(path) as fd:
+                fd.write(rst_cmdargs.encode())
+
+            text = await get_rst_text(path)
+            print(text)

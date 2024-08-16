@@ -236,7 +236,7 @@ class StormRst(s_base.Base):
 
         try:
             args = s_parser.Parser(text).cmdargs()
-            opts = stormopts.parse_args(args)
+            opts = stormopts.parse_known_args(args)[0]
 
             if opts.hide_query:
                 cli.echoline = False
