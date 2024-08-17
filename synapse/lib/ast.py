@@ -1440,9 +1440,8 @@ class LiftOper(Oper):
 
             yield node, path
 
-            breakpoint()
             async for subn in self.lift(runt, path):
-                yield subn, path.fork(subn)
+                yield subn, path.fork(subn, edge={'type': 'runtime'})
 
     async def lift(self, runt, path):  # pragma: no cover
         raise NotImplementedError('Must define lift(runt, path)')
@@ -2477,6 +2476,10 @@ class PropPivot(PivotOper):
 
             # TODO cache/bypass normalization in loop!
 
+            edge = {'type': 'prop', 'prop': srcprop.name}
+            if not prop.isform:
+                edge['dest'] = prop.name
+
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srcprop.type.isarray and not prop.type.isarray:
                 if isinstance(srcprop.type.arraytype, s_types.Ndef) and prop.isform:
@@ -2485,39 +2488,35 @@ class PropPivot(PivotOper):
                             continue
 
                         if (pivo := await runt.snap.getNodeByNdef(aval)) is not None:
-                            yield pivo, {'type': 'prop', 'prop': srcprop.name}
+                            yield pivo, edge
                     return
 
                 for arrayval in valu:
                     async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
-                        yield pivo, {'type': 'prop', 'prop': srcprop.name}
+                        yield pivo, edge
 
                 return
 
             if isinstance(srcprop.type, s_types.Ndef) and prop.isform:
-                if prop.type.isarray:
-                    async for pivo in runt.snap.nodesByPropArray(prop.full, 'in=', (valu,)):
-                        yield pivo, {'type': 'prop', 'prop': srcprop.name}
+                if valu[0] != prop.form.name:
                     return
-                else:
-                    if valu[0] != prop.form.name:
-                        return
 
-                    pivo = await runt.snap.getNodeByNdef(valu)
-                    if pivo is None:
-                        await runt.snap.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
-                        return
-                    yield pivo, {'type': 'prop', 'prop': srcprop.name}
-
+                pivo = await runt.snap.getNodeByNdef(valu)
+                if pivo is None:
+                    await runt.snap.warn(f'Missing node corresponding to ndef {valu}', log=False, ndef=valu)
                     return
+                yield pivo, edge
+
+                return
 
             if prop.type.isarray and not srcprop.type.isarray:
                 genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
             else:
                 genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
 
-            async for pivo in genr:
-                yield pivo, {'type': 'prop', 'prop': srcprop.name}
+            if prop.isform:
+                async for pivo in genr:
+                    yield pivo, edge
 
         return pgenr
 

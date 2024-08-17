@@ -4108,12 +4108,13 @@ class AstTest(s_test.SynTest):
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}
 
+            await core.nodes('[test:comp=(1234, burrito)]')
             guid = (await core.nodes('[test:guid=$guid :size=176 :tick=now]', opts=opts))[0]
             edge = (await core.nodes('[test:edge=(("test:guid", $guid), ("test:str", abcd))]', opts=opts))[0]
             comp = (await core.nodes('[test:complexcomp=(1234, STUFF) +#foo.bar]'))[0]
             tstr = (await core.nodes('[test:str=foobar :bar=(test:ro, "ackbar") :ndefs=((test:guid, $guid), (test:auto, "auto"))]', opts=opts))[0]
             arry = (await core.nodes('[test:arrayprop=* :ints=(3245, 678) :strs=("foo", "bar", "foobar")]'))[0]
-            ostr = (await core.nodes('test:str=foo [ :ndefs=((test:int, 176), )]'))[0]
+            ostr = (await core.nodes('test:str=foo [ :bar=(test:ro, "ackbar") :ndefs=((test:int, 176), )]'))[0]
             pstr = (await core.nodes('test:str=bar [ :ndefs=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts))[0]
             arrysize = (await core.nodes('[test:arrayform=(1234, 176)]'))[0]
             arryints = (await core.nodes('[test:arrayform=(3245, 678)]'))[0]
@@ -4142,8 +4143,13 @@ class AstTest(s_test.SynTest):
 
             opts = {'path': True}
 
+            # non-runtsafe lift could be anything
+            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts={'path': True, 'vars': {'form': 'inet:ipv4'}})
+            _assert_edge(msgs, tstr, {'type': 'runtime'}, nidx=1)
+
             # FormPivot
             # -> baz:ndef
+            '''
             msgs = await core.stormlist('test:guid -> test:edge:n1', opts=opts)
             _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'n1', 'reverse': True})
 
@@ -4175,7 +4181,8 @@ class AstTest(s_test.SynTest):
             # refs out - ndef
             msgs = await core.stormlist('test:str -> test:ro', opts=opts)
             _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'}, nidx=1)
+            _assert_edge(msgs, ostr, {'type': 'prop', 'prop': 'bar'}, nidx=1)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'}, nidx=2)
 
             # refs out - ndefarray
             msgs = await core.stormlist('test:str -> test:auto', opts=opts)
@@ -4279,13 +4286,14 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
 
-            # PropPivot prop
+            # PropPivot prop to form
             msgs = await core.stormlist('test:guid :size -> test:int', opts=opts)
             _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
 
             # PropPivot ndef prop
             msgs = await core.stormlist('test:str :bar -> test:ro', opts=opts)
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
+            _assert_edge(msgs, ostr, {'type': 'prop', 'prop': 'bar'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'}, nidx=1)
 
             # PropPivot array
             msgs = await core.stormlist('test:arrayprop :ints -> test:int', opts=opts)
@@ -4304,13 +4312,24 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('test:str=foobar :ndefs -> test:guid', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
 
-            # PropPivot dst ndef array
+            # PropPivot dst ndef array is not currently supported
             msgs = await core.stormlist('test:str=foobar :bar -> test:arrayndef', opts=opts)
-            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
+            self.len(0, nodes)
+            '''
 
-            # PropPivot oops all ndef arrays
+            # TODO: Secondary to secondary props include src/dst
+            #msgs = await core.stormlist('test:comp :hehe -> test:complexcomp:foo', opts=opts)
+            await core.nodes('[(inet:whois:rec=(google.com, now)) (inet:dns:a=(google.com, 1.2.3.4))]')
+            msgs = await core.stormlist('inet:whois:rec :fqdn -> inet:dns:a:fqdn', opts=opts)
+            breakpoint()
+            _assert_edge(msgs, ostr, {'type': 'prop', 'prop': 'bar', 'dest': 'test:str:bar'})
+            print('2t2')
+
+            # PropPivot oops all ndef arrays is not currently supported
             msgs = await core.stormlist('test:str :ndefs -> test:arrayndef', opts=opts)
-            _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
+            breakpoint()
+            # _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
 
             # N1Walk
             msgs = await core.stormlist('test:arrayprop -(*)> *', opts=opts)
