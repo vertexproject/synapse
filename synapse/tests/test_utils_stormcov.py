@@ -83,7 +83,7 @@ class TestUtilsStormcov(s_utils.SynTest):
                 await core.stormlist(s_files.getAssetStr('stormcov/lookup.storm'), opts={'mode': 'lookup'})
 
             orig = s_snap.Snap.nodesByPropValu
-            async def nodesByPropValu(self, full, cmpr, valu):
+            async def nodesByPropValu(self, full, cmpr, valu, norm=True):
                 frame = inspect.currentframe()
                 if pivotracer.dynamic_source_filename(None, frame) is not None:
                     assert (2, 2) == pivotracer.line_number_range(frame)

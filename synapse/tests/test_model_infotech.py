@@ -407,6 +407,35 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('net6'), ('fe80::', 'fe80::ffff:ffff:ffff:ffff'))
             self.eq(nodes[0].get('type'), 'virtual.sdn.')
 
+            nodes = await core.nodes('''[
+                it:sec:stix:indicator=*
+                    :id=zoinks
+                    :name=woot
+                    :confidence=90
+                    :revoked=(false)
+                    :description="my neato indicator"
+                    :pattern="some rule text"
+                    :pattern_type=yara
+                    :created=20240815
+                    :updated=20240815
+                    :labels=(hehe, haha)
+                    :valid_from=20240815
+                    :valid_until=20240815
+            ]''')
+            self.len(1, nodes)
+            self.eq('zoinks', nodes[0].get('id'))
+            self.eq('woot', nodes[0].get('name'))
+            self.eq(90, nodes[0].get('confidence'))
+            self.eq(False, nodes[0].get('revoked'))
+            self.eq('my neato indicator', nodes[0].get('description'))
+            self.eq('some rule text', nodes[0].get('pattern'))
+            self.eq('yara', nodes[0].get('pattern_type'))
+            self.eq(('haha', 'hehe'), nodes[0].get('labels'))
+            self.eq(1723680000000, nodes[0].get('created'))
+            self.eq(1723680000000, nodes[0].get('updated'))
+            self.eq(1723680000000, nodes[0].get('valid_from'))
+            self.eq(1723680000000, nodes[0].get('valid_until'))
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:
