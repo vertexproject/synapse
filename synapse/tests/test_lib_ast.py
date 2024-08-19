@@ -4104,7 +4104,6 @@ class AstTest(s_test.SynTest):
     async def test_ast_path_provenance(self):
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
-            from pprint import pprint
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}
 
