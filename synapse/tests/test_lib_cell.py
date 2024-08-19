@@ -190,6 +190,7 @@ class CellTest(s_t_utils.SynTest):
             info = await cell.addDriveItem(info, path='users')
 
             rootdir = info[-1].get('iden')
+            self.eq(0, info[-1].get('kids'))
 
             info = {'name': 'win32k.sys', 'type': 'hehe'}
             with self.raises(s_exc.NoSuchType):
@@ -197,6 +198,7 @@ class CellTest(s_t_utils.SynTest):
 
             infos = [i async for i in cell.getDriveKids(s_drive.rootdir)]
             self.len(1, infos)
+            self.eq(1, infos[0].get('kids'))
             self.eq('users', infos[0].get('name'))
 
             # TODO how to handle iden match with additional property mismatch

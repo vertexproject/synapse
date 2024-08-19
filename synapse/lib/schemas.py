@@ -466,7 +466,7 @@ driveInfoSchema = {
         'type': {'type': 'string', 'pattern': re_drivename},
         'name': {'type': 'string', 'pattern': re_drivename},
         'perm': s_msgpack.deepcopy(easyPermSchema),
-        #'kids': {'type': 'number'},
+        'kids': {'type': 'number'},
         'created': {'type': 'number'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         # these are also data version info...
@@ -475,7 +475,7 @@ driveInfoSchema = {
         'updator': {'type': 'string', 'pattern': s_config.re_iden},
         'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
     },
-    'required': ('iden', 'parent', 'name', 'created', 'creator'),
+    'required': ('iden', 'parent', 'name', 'created', 'creator', 'kids'),
     'additionalProperties': False,
 }
 reqValidDriveInfo = s_config.getJsValidator(driveInfoSchema)
