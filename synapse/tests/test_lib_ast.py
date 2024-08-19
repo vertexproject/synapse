@@ -4309,18 +4309,9 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('test:str=foobar :ndefs -> test:guid', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
 
-            # PropPivot dst ndef array is not currently supported
-            # msgs = await core.stormlist('test:str=foobar :bar -> test:arrayndef', opts=opts)
-            # nodes = [m[1] for m in msgs if m[0] == 'node']
-            # self.len(0, nodes)
-
+            # prop to prop
             msgs = await core.stormlist('test:comp :hehe -> test:complexcomp:foo', opts=opts)
             _assert_edge(msgs, burr, {'type': 'prop', 'prop': 'hehe', 'dest': 'test:complexcomp:foo'})
-            print('2t2')
-
-            # PropPivot oops all ndef arrays is not currently supported
-            # msgs = await core.stormlist('test:str :ndefs -> test:arrayndef', opts=opts)
-            # _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
 
             # N1Walk
             msgs = await core.stormlist('test:arrayprop -(*)> *', opts=opts)
