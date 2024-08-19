@@ -57,12 +57,24 @@ class StormtypesModelextTest(s_test.SynTest):
             model_defs = await core.callStorm('return ( $lib.model.ext.getExtModel() )')
             self.isinstance(model_defs, dict)
 
+            self.len(1, await core.nodes('_visi:int:tick'))
+            await core._delAllFormProp('_visi:int', 'tick', {})
+            self.len(0, await core.nodes('_visi:int:tick'))
+
+            self.len(1, await core.nodes('._woot'))
+            await core._delAllUnivProp('_woot', {})
+            self.len(0, await core.nodes('._woot'))
+
+            self.len(1, await core.nodes('#lol:score'))
+            await core._delAllTagProp('score', {})
+            self.len(0, await core.nodes('#lol:score'))
+
             await core.callStorm('_visi:int=10 test:int=1234 | delnode')
             await core.callStorm('''
-                $lib.model.ext.delTagProp(score)
-                $lib.model.ext.delUnivProp(_woot)
+                $lib.model.ext.delTagProp(score, force=(true))
+                $lib.model.ext.delUnivProp(_woot, force=(true))
                 $lib.model.ext.delFormProp(_visi:int, tick)
-                $lib.model.ext.delFormProp(test:int, _tick)
+                $lib.model.ext.delFormProp(test:int, _tick, force=(true))
                 $lib.model.ext.delForm(_visi:int)
                 $lib.model.ext.delEdge(inet:user, _copies, *)
             ''')
