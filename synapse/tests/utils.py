@@ -293,7 +293,6 @@ testmodel = {
 
         ('test:arrayprop', ('guid', {}), {}),
         ('test:arrayform', ('array', {'type': 'int'}), {}),
-        ('test:arrayndef', ('array', {'type': 'ndef'}), {}),
 
         ('test:comp', ('comp', {'fields': (
             ('hehe', 'test:int'),
@@ -349,8 +348,6 @@ testmodel = {
             ('strsnosplit', ('array', {'type': 'test:str'}), {}),
         )),
         ('test:arrayform', {}, (
-        )),
-        ('test:arrayndef', {}, (
         )),
         ('test:taxonomy', {}, ()),
         ('test:type10', {}, (

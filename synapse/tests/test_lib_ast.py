@@ -4108,7 +4108,7 @@ class AstTest(s_test.SynTest):
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}
 
-            await core.nodes('[test:comp=(1234, burrito)]')
+            burr = (await core.nodes('[test:comp=(1234, burrito)]'))[0]
             guid = (await core.nodes('[test:guid=$guid :size=176 :tick=now]', opts=opts))[0]
             edge = (await core.nodes('[test:edge=(("test:guid", $guid), ("test:str", abcd))]', opts=opts))[0]
             comp = (await core.nodes('[test:complexcomp=(1234, STUFF) +#foo.bar]'))[0]
@@ -4116,9 +4116,8 @@ class AstTest(s_test.SynTest):
             arry = (await core.nodes('[test:arrayprop=* :ints=(3245, 678) :strs=("foo", "bar", "foobar")]'))[0]
             ostr = (await core.nodes('test:str=foo [ :bar=(test:ro, "ackbar") :ndefs=((test:int, 176), )]'))[0]
             pstr = (await core.nodes('test:str=bar [ :ndefs=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts))[0]
-            arrysize = (await core.nodes('[test:arrayform=(1234, 176)]'))[0]
-            arryints = (await core.nodes('[test:arrayform=(3245, 678)]'))[0]
-            await core.nodes('[test:arrayndef=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts)
+            (await core.nodes('[test:arrayform=(1234, 176)]'))[0]
+            (await core.nodes('[test:arrayform=(3245, 678)]'))[0]
 
             await core.nodes('test:int=176 [ <(seen)+ { test:guid } ]')
             await core.nodes('test:int=176 [ <(someedge)+ { test:guid } ]')
@@ -4136,10 +4135,10 @@ class AstTest(s_test.SynTest):
             def _assert_edge(msgs, src, edge, nidx=0, eidx=0):
                 nodes = [m[1] for m in msgs if m[0] == 'node']
                 self.nn(nodes[nidx][1].get('path'))
-                edges = nodes[nidx][1]['path'].get('edges')
-                self.nn(edges)
-                self.lt(eidx, len(edges))
-                self.eq(edges[eidx], (src.iden(), edge))
+                links = nodes[nidx][1]['path'].get('links')
+                self.nn(links)
+                self.lt(eidx, len(links))
+                self.eq(links[eidx], (src.iden(), edge))
 
             opts = {'path': True}
 
@@ -4149,7 +4148,6 @@ class AstTest(s_test.SynTest):
 
             # FormPivot
             # -> baz:ndef
-            '''
             msgs = await core.stormlist('test:guid -> test:edge:n1', opts=opts)
             _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'n1', 'reverse': True})
 
@@ -4313,22 +4311,16 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
 
             # PropPivot dst ndef array is not currently supported
-            msgs = await core.stormlist('test:str=foobar :bar -> test:arrayndef', opts=opts)
-            nodes = [m[1] for m in msgs if m[0] == 'node']
-            self.len(0, nodes)
-            '''
+            # msgs = await core.stormlist('test:str=foobar :bar -> test:arrayndef', opts=opts)
+            # nodes = [m[1] for m in msgs if m[0] == 'node']
+            # self.len(0, nodes)
 
-            # TODO: Secondary to secondary props include src/dst
-            #msgs = await core.stormlist('test:comp :hehe -> test:complexcomp:foo', opts=opts)
-            await core.nodes('[(inet:whois:rec=(google.com, now)) (inet:dns:a=(google.com, 1.2.3.4))]')
-            msgs = await core.stormlist('inet:whois:rec :fqdn -> inet:dns:a:fqdn', opts=opts)
-            breakpoint()
-            _assert_edge(msgs, ostr, {'type': 'prop', 'prop': 'bar', 'dest': 'test:str:bar'})
+            msgs = await core.stormlist('test:comp :hehe -> test:complexcomp:foo', opts=opts)
+            _assert_edge(msgs, burr, {'type': 'prop', 'prop': 'hehe', 'dest': 'test:complexcomp:foo'})
             print('2t2')
 
             # PropPivot oops all ndef arrays is not currently supported
-            msgs = await core.stormlist('test:str :ndefs -> test:arrayndef', opts=opts)
-            breakpoint()
+            # msgs = await core.stormlist('test:str :ndefs -> test:arrayndef', opts=opts)
             # _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
 
             # N1Walk
