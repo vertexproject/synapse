@@ -30,7 +30,21 @@ def getVersIndx(vers):
     return maji + mini + pati
 
 class Drive(s_base.Base):
+    '''
+    Drive is a hierarchical storage abstraction which:
 
+    * Provides enveloping which includes meta data for each item:
+      * creator iden / time
+      * updated iden / time / version
+      * number of children
+      * data type for the item
+      * easy perms (enforcement is up to the caller)
+
+    * Enforces schemas for data
+    * Allows storage of historical versions of data
+    * Provides a "path traversal" based API
+    * Provides an iden based API that does not require traversal
+    '''
     async def __anit__(self, slab, name):
         await s_base.Base.__anit__(self)
         self.slab = slab
