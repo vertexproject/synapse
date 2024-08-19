@@ -3487,28 +3487,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.reqExtProp(form, prop)
         return await self._push('model:prop:del', form, prop)
 
-    def reqExtProp(self, form, prop):
-        full = f'{form}:{prop}'
-        pdef = self.extprops.get(full)
-        if pdef is None:
-            mesg = f'No ext prop named {full}'
-            raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
-        return pdef
-
-    def reqExtUniv(self, prop):
-        udef = self.extunivs.get(prop)
-        if udef is None:
-            mesg = f'No ext univ named {prop}'
-            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
-        return udef
-
-    def reqExtTagProp(self, name):
-        pdef = self.exttagprops.get(name)
-        if pdef is None:
-            mesg = f'No tag prop named {name}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
-        return pdef
-
     async def _delAllFormProp(self, formname, propname, meta):
         '''
         Delete all instances of a property from all layers.
@@ -3589,6 +3567,28 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                     await layr.saveNodeEdits(nodeedits, meta)
                     await asyncio.sleep(0)
+
+    def reqExtProp(self, form, prop):
+        full = f'{form}:{prop}'
+        pdef = self.extprops.get(full)
+        if pdef is None:
+            mesg = f'No ext prop named {full}'
+            raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
+        return pdef
+
+    def reqExtUniv(self, prop):
+        udef = self.extunivs.get(prop)
+        if udef is None:
+            mesg = f'No ext univ named {prop}'
+            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
+        return udef
+
+    def reqExtTagProp(self, name):
+        pdef = self.exttagprops.get(name)
+        if pdef is None:
+            mesg = f'No tag prop named {name}'
+            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+        return pdef
 
     @s_nexus.Pusher.onPush('model:prop:del')
     async def _delFormProp(self, form, prop):
