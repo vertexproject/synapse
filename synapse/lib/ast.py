@@ -1956,7 +1956,7 @@ class PivotOut(PivotOper):
                 typename = prop.type.opts.get('type')
                 if runt.model.forms.get(typename) is not None:
                     for item in valu:
-                        async for pivo in runt.snap.nodesByPropValu(typename, '=', item):
+                        async for pivo in runt.snap.nodesByPropValu(typename, '=', item, norm=False):
                             yield pivo, path.fork(pivo, link=link)
 
             form = runt.model.forms.get(prop.type.name)
@@ -2094,12 +2094,14 @@ class PivotIn(PivotOper):
 
         for prop in runt.model.getPropsByType(name):
             link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
-            async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu):
+            norm = node.form.typehash is not prop.typehash
+            async for pivo in runt.snap.nodesByPropValu(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo, link=link)
 
         for prop in runt.model.getArrayPropsByType(name):
+            norm = node.form.typehash is not prop.arraytypehash
             link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
-            async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu):
+            async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo, link=link)
 
         async for refsbuid, prop in runt.snap.getNdefRefProps(node.buid):
@@ -2146,7 +2148,7 @@ class PivotInFrom(PivotOper):
                 if self.isjoin:
                     yield node, path
 
-                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
+                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef, norm=False):
                     yield pivo, path.fork(pivo, link=link)
 
             return
@@ -2185,7 +2187,7 @@ class FormPivot(PivotOper):
         if isinstance(prop.type, s_types.Ndef):
 
             async def pgenr(node, strict=True):
-                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', node.ndef):
+                async for pivo in runt.snap.nodesByPropValu(prop.full, '=', node.ndef, norm=False):
                     yield pivo, {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
         elif not prop.isform:
@@ -2196,13 +2198,14 @@ class FormPivot(PivotOper):
             async def pgenr(node, strict=True):
                 if isarray:
                     if isinstance(prop.type.arraytype, s_types.Ndef):
-                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef)
+                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef, norm=False)
                     else:
-                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef[1])
+                        norm = prop.arraytypehash is not node.form.typehash
+                        ngenr = runt.snap.nodesByPropArray(prop.full, '=', node.ndef[1], norm=norm)
                 else:
-                    ngenr = runt.snap.nodesByPropValu(prop.full, '=', node.ndef[1])
+                    norm = prop.typehash is not node.form.typehash
+                    ngenr = runt.snap.nodesByPropValu(prop.full, '=', node.ndef[1], norm=norm)
 
-                # TODO cache/bypass normalization in loop!
                 async for pivo in ngenr:
                     yield pivo, {'type': 'prop', 'prop': prop.name, 'reverse': True}
 
@@ -2213,7 +2216,7 @@ class FormPivot(PivotOper):
 
             async def pgenr(node, strict=True):
                 link = {'type': 'prop', 'prop': 'n1', 'reverse': True}
-                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef):
+                async for pivo in runt.snap.nodesByPropValu(full, '=', node.ndef, norm=False):
                     yield pivo, link
 
         else:
@@ -2260,7 +2263,7 @@ class FormPivot(PivotOper):
                     refsvalu = node.get(refsname)
                     if refsvalu is not None:
                         link = {'type': 'prop', 'prop': refsname}
-                        async for pivo in runt.snap.nodesByPropValu(refsform, '=', refsvalu):
+                        async for pivo in runt.snap.nodesByPropValu(refsform, '=', refsvalu, norm=False):
                             yield pivo, link
 
                 for refsname, refsform in refs.get('array'):
@@ -2274,7 +2277,7 @@ class FormPivot(PivotOper):
                     if refsvalu is not None:
                         link = {'type': 'prop', 'prop': refsname}
                         for refselem in refsvalu:
-                            async for pivo in runt.snap.nodesByPropValu(destform.name, '=', refselem):
+                            async for pivo in runt.snap.nodesByPropValu(destform.name, '=', refselem, norm=False):
                                 yield pivo, link
 
                 for refsname in refs.get('ndef'):
@@ -2312,7 +2315,7 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     link = {'type': 'prop', 'prop': refsname, 'reverse': True}
-                    async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef[1]):
+                    async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef[1], norm=False):
                         yield pivo, link
 
                 # "reverse" array references...
@@ -2325,7 +2328,7 @@ class FormPivot(PivotOper):
 
                     destprop = destform.props.get(refsname)
                     link = {'type': 'prop', 'prop': refsname, 'reverse': True}
-                    async for pivo in runt.snap.nodesByPropArray(destprop.full, '=', node.ndef[1]):
+                    async for pivo in runt.snap.nodesByPropArray(destprop.full, '=', node.ndef[1], norm=False):
                         yield pivo, link
 
                 # "reverse" ndef references...
@@ -2335,7 +2338,7 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     link = {'type': 'prop', 'prop': refsname, 'reverse': True}
-                    async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef):
+                    async for pivo in runt.snap.nodesByPropValu(refsprop.full, '=', node.ndef, norm=False):
                         yield pivo, link
 
                 for refsname in refs.get('ndefarray'):
@@ -2344,7 +2347,7 @@ class FormPivot(PivotOper):
 
                     refsprop = destform.props.get(refsname)
                     link = {'type': 'prop', 'prop': refsname, 'reverse': True}
-                    async for pivo in runt.snap.nodesByPropArray(refsprop.full, '=', node.ndef):
+                    async for pivo in runt.snap.nodesByPropArray(refsprop.full, '=', node.ndef, norm=False):
                         yield pivo, link
 
                 if strict and not found:
@@ -2449,7 +2452,7 @@ class PropPivotOut(PivotOper):
                     continue
 
                 for item in valu:
-                    async for pivo in runt.snap.nodesByPropValu(fname, '=', item):
+                    async for pivo in runt.snap.nodesByPropValu(fname, '=', item, norm=False):
                         yield pivo, path.fork(pivo, link=link)
 
                 continue
@@ -2490,12 +2493,9 @@ class PropPivot(PivotOper):
 
         async def pgenr(node, srcprop, valu, strict=True):
 
-            # TODO cache/bypass normalization in loop!
-
             link = {'type': 'prop', 'prop': srcprop.name}
             if not prop.isform:
                 link['dest'] = prop.full
-
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srcprop.type.isarray and not prop.type.isarray:
                 if isinstance(srcprop.type.arraytype, s_types.Ndef) and prop.isform:
@@ -2507,8 +2507,9 @@ class PropPivot(PivotOper):
                             yield pivo, link
                     return
 
+                norm = srcprop.arraytypehash is not prop.typehash
                 for arrayval in valu:
-                    async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval):
+                    async for pivo in runt.snap.nodesByPropValu(prop.full, '=', arrayval, norm=norm):
                         yield pivo, link
 
                 return
@@ -2526,9 +2527,11 @@ class PropPivot(PivotOper):
                 return
 
             if prop.type.isarray and not srcprop.type.isarray:
-                genr = runt.snap.nodesByPropArray(prop.full, '=', valu)
+                norm = prop.arraytypehash is not srcprop.typehash
+                genr = runt.snap.nodesByPropArray(prop.full, '=', valu, norm=norm)
             else:
-                genr = runt.snap.nodesByPropValu(prop.full, '=', valu)
+                norm = prop.typehash is not srcprop.typehash
+                genr = runt.snap.nodesByPropValu(prop.full, '=', valu, norm=norm)
 
             async for pivo in genr:
                 yield pivo, link
