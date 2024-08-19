@@ -56,14 +56,7 @@ class Drive(s_base.Base):
         if isinstance(path, str):
             path = path.strip().strip('/').split('/')
 
-        path = [p.strip().lower() for p in path]
-
-        for part in path:
-            if not isValidName(part):
-                mesg = f'Path name is invalid: {part}.'
-                raise s_exc.BadName(mesg=mesg)
-
-        return path
+        return [p.strip().lower() for p in path]
 
     def getItemInfo(self, iden):
         return self._getItemInfo(s_common.uhex(iden))
