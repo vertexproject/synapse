@@ -1832,7 +1832,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPushAuto('drive:del')
     async def delDriveInfo(self, iden):
-        await self.drive.delItemInfo(iden)
+        if self.drive.getItemInfo(iden) is not None:
+            await self.drive.delItemInfo(iden)
 
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
@@ -1840,6 +1841,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPushAuto('drive:set:path')
     async def setDriveInfoPath(self, iden, path):
+
+        path = self.drive.getPathNorm(path)
+        pathinfo = await self.drive.getItemPath(iden)
+        if path == [p.get('name') for p in pathinfo]:
+            return pathinfo
+
         return await self.drive.setItemPath(iden, path)
 
     @s_nexus.Pusher.onPushAuto('drive:data:set')

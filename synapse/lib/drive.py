@@ -286,7 +286,7 @@ class Drive(s_base.Base):
 
     def _reqFreeStep(self, bidn, name):
         if self._hasStepItem(bidn, name):
-            mesg = f'A drive entry with name {name} already exists in parent {s_common.uhex(bidn)}.'
+            mesg = f'A drive entry with name {name} already exists in parent {s_common.ehex(bidn)}.'
             raise s_exc.DupName(mesg=mesg)
 
     async def delItemInfo(self, iden):
