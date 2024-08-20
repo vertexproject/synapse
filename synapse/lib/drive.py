@@ -20,9 +20,6 @@ LKEY_INFO_BYTYPE = b'\x05' # <type> 00 <bidn> = 01
 
 rootdir = '00000000000000000000000000000000'
 
-def isValidName(name):
-    return nameregex.match(name) is not None
-
 def getVersIndx(vers):
     maji = vers[0].to_bytes(3, 'big')
     mini = vers[1].to_bytes(3, 'big')
@@ -99,6 +96,8 @@ class Drive(s_base.Base):
         path = self.getPathNorm(path)
         pathinfo = await self.getPathInfo(path[:-1])
 
+        self.reqFreeStep(pathinfo[-1].get('iden'), path[-1])
+
         # first we must remove the parent reference...
         info = self._getItemInfo(bidn)
         name = info.get('name')
@@ -107,17 +106,36 @@ class Drive(s_base.Base):
         if pariden is not None:
             parbidn = s_common.uhex(pariden)
             parinfo = self._reqItemInfo(parbidn)
+            parinfo['kids'] -= 1
+            s_schemas.reqValidDriveInfo(parinfo)
             self.slab.delete(LKEY_DIRN + parbidn + name.encode(), db=self.dbname)
+            self.slab.put(LKEY_INFO + parbidn, s_msgpack.en(parinfo), db=self.dbname)
 
         name = path[-1]
-        pariden = pathinfo[-1].get('iden')
+
+        # new parent iden / bidn
+        parinfo = pathinfo[-1]
+        pariden = parinfo.get('iden')
         parbidn = s_common.uhex(pariden)
 
         info['name'] = name
         info['parent'] = pariden
 
-        self.slab.put(LKEY_DIRN + parbidn + name.encode(), bidn, db=self.dbname)
-        self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        parinfo['kids'] += 1
+
+        s_schemas.reqValidDriveInfo(info)
+        s_schemas.reqValidDriveInfo(parinfo)
+
+        rows = [
+            (LKEY_INFO + bidn, s_msgpack.en(info)),
+            (LKEY_INFO + parbidn, s_msgpack.en(parinfo)),
+            (LKEY_DIRN + parbidn + name.encode(), bidn),
+        ]
+
+        self.slab.putmulti(rows, db=self.dbname)
+
+        pathinfo.append(info)
+        return pathinfo
 
     def _hasStepItem(self, bidn, name):
         return self.slab.has(LKEY_DIRN + bidn + name.encode(), db=self.dbname)
@@ -141,6 +159,8 @@ class Drive(s_base.Base):
         # name must already be normalized
         name = info.get('name')
         typename = info.get('type')
+
+        self._reqFreeStep(parbidn, name)
 
         rows = [
             (LKEY_DIRN + parbidn + name.encode(), newbidn),
@@ -223,15 +243,16 @@ class Drive(s_base.Base):
         Add a new item at the specified path relative to reldir.
         '''
         pariden = reldir
-        parinfo = None
         pathinfo = []
 
         if path is not None:
             path = self.getPathNorm(path)
             pathinfo = await self.getPathInfo(path, reldir=reldir)
             if pathinfo:
-                parinfo = pathinfo[-1]
                 pariden = pathinfo[-1].get('iden')
+
+        parbidn = s_common.uhex(pariden)
+        parinfo = self._getItemInfo(parbidn)
 
         info['size'] = 0
         info['kids'] = 0
@@ -247,7 +268,6 @@ class Drive(s_base.Base):
         typename = info.get('type')
 
         bidn = s_common.uhex(iden)
-        parbidn = s_common.uhex(pariden)
 
         if typename is not None:
             self.reqTypeValidator(typename)
@@ -256,14 +276,18 @@ class Drive(s_base.Base):
             mesg = f'A drive entry with ID {iden} already exists.'
             raise s_exc.DupIden(mesg=mesg)
 
-        if self._hasStepItem(parbidn, name):
-            mesg = f'A drive entry with name {name} already exists in parent {pariden}.'
-            raise s_exc.DupName(mesg=mesg)
-
         self._addStepInfo(parbidn, parinfo, info)
 
         pathinfo.append(info)
         return pathinfo
+
+    def reqFreeStep(self, iden, name):
+        return self._reqFreeStep(s_common.uhex(iden), name)
+
+    def _reqFreeStep(self, bidn, name):
+        if self._hasStepItem(bidn, name):
+            mesg = f'A drive entry with name {name} already exists in parent {s_common.uhex(bidn)}.'
+            raise s_exc.DupName(mesg=mesg)
 
     async def delItemInfo(self, iden):
         '''

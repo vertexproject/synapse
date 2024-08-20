@@ -466,7 +466,7 @@ driveInfoSchema = {
         'type': {'type': 'string', 'pattern': re_drivename},
         'name': {'type': 'string', 'pattern': re_drivename},
         'perm': s_msgpack.deepcopy(easyPermSchema),
-        'kids': {'type': 'number'},
+        'kids': {'type': 'number', 'minimum': 0},
         'created': {'type': 'number'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         # these are also data version info...

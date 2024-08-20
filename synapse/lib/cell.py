@@ -1798,14 +1798,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if perm is None:
             perm = {'users': {}, 'roles': {}}
 
-        pathinfo = []
-
         for name in path:
 
             info = self.drive.getStepInfo(reldir, name)
+            await asyncio.sleep(0)
 
             if info is not None:
-                pathinfo.append(info)
                 reldir = info.get('iden')
                 continue
 
@@ -1816,10 +1814,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'created': tick,
                 'creator': user,
             }
-            pathinfo.extend(await self.addDriveItem(info, reldir=reldir))
+            pathinfo = await self.addDriveItem(info, reldir=reldir)
             reldir = pathinfo[-1].get('iden')
 
-        return pathinfo
+        return await self.drive.getItemPath(reldir)
 
     async def getDriveData(self, iden, vers=None):
         '''
@@ -1839,6 +1837,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
         return self.drive.setItemPerm(iden, perm)
+
+    @s_nexus.Pusher.onPushAuto('drive:set:path')
+    async def setDriveInfoPath(self, iden, path):
+        return await self.drive.setItemPath(iden, path)
 
     @s_nexus.Pusher.onPushAuto('drive:data:set')
     async def setDriveData(self, iden, versinfo, data):

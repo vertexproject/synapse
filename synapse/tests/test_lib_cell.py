@@ -292,12 +292,38 @@ class CellTest(s_t_utils.SynTest):
             pathinfo = await cell.addDrivePath('foo/bar/baz')
             self.len(3, pathinfo)
             self.eq('foo', pathinfo[0].get('name'))
+            self.eq(1, pathinfo[0].get('kids'))
             self.eq('bar', pathinfo[1].get('name'))
+            self.eq(1, pathinfo[1].get('kids'))
             self.eq('baz', pathinfo[2].get('name'))
+            self.eq(0, pathinfo[2].get('kids'))
 
-            iden = pathinfo[2].get('iden')
-            info = await cell.setDriveInfoPerm(iden, {'users': {rootuser: 3}, 'roles': {}})
+            self.eq(pathinfo, await cell.addDrivePath('foo/bar/baz'))
+
+            baziden = pathinfo[2].get('iden')
+            self.eq(pathinfo, await cell.drive.getItemPath(baziden))
+
+            info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: 3}, 'roles': {}})
             self.eq(3, info['perm']['users'][rootuser])
+
+            with self.raises(s_exc.NoSuchIden):
+                # s_drive.rootdir is all 00s... ;)
+                await cell.setDriveInfoPerm(s_drive.rootdir, {'users': {}, 'roles': {}})
+
+            await cell.addDrivePath('hehe/haha')
+            pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
+
+            self.eq('hoho', pathinfo[-1].get('name'))
+            self.eq(baziden, pathinfo[-1].get('iden'))
+
+            self.true(await cell.drive.hasPathInfo('hehe/haha/hoho'))
+            self.false(await cell.drive.hasPathInfo('foo/bar/baz'))
+
+            pathinfo = await cell.getDrivePath('foo/bar')
+            self.eq(0, pathinfo[-1].get('kids'))
+
+            pathinfo = await cell.getDrivePath('hehe/haha')
+            self.eq(1, pathinfo[-1].get('kids'))
 
     async def test_cell_auth(self):
 
