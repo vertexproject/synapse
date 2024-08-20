@@ -1838,6 +1838,35 @@ class CellTest(s_t_utils.SynTest):
                         self.true(s_common.isguid(second_doneiden))
                     self.ne(doneiden, second_doneiden)
 
+    async def test_cell_mirrorboot_failure(self):
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'cell00')
+                cdr1 = s_common.genpath(dirn, 'cell01')
+
+                async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=cdr0) as cell00:
+
+                    conf = {'mirror': 'aha://cell...'}
+                    with self.raises(s_exc.FatalErr) as cm:
+                        async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                            self.fail('Cell01 should never boot')
+                    self.isin('No aha:provision configuration has been provided to allow the service to bootstrap',
+                              cm.exception.get('mesg'))
+
+                    provurl = await aha.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'})
+                    conf = self.getCellConf({'aha:provision': provurl})
+                    async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                        await cell01.sync()
+                    os.unlink(s_common.genpath(cdr1, 'cell.guid'))
+
+                    conf = self.getCellConf({'aha:provision': provurl})
+                    with self.raises(s_exc.FatalErr) as cm:
+                        async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                            self.fail('Cell01 should never boot')
+                    self.isin('The aha:provision URL guid matches the service prov.done guid',
+                              cm.exception.get('mesg'))
+
     async def test_backup_restore_aha(self):
         # do a mirror provisioning of a Cell
         # promote the mirror to being a leader
@@ -2885,3 +2914,17 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getTestCell(s_cell.Cell, dirn=dirn):
                 pass
+
+    async def test_cell_initslab_fini(self):
+        class SlabCell(s_cell.Cell):
+            async def initServiceStorage(self):
+                self.long_lived_slab = await self._initSlabFile(os.path.join(self.dirn, 'slabs', 'long.lmdb'))
+                short_slab = await self._initSlabFile(os.path.join(self.dirn, 'slabs', 'short.lmdb'), ephemeral=True)
+                self.short_slab_path = short_slab.lenv.path()
+                await short_slab.fini()
+
+        async with self.getTestCell(SlabCell) as cell:
+            self.true(os.path.isdir(cell.short_slab_path))
+            self.isin(cell.long_lived_slab.fini, cell._fini_funcs)
+            slabs = [s for s in cell.tofini if isinstance(s, s_lmdbslab.Slab) and s.lenv.path() == cell.short_slab_path]
+            self.len(0, slabs)

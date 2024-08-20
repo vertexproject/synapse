@@ -3214,10 +3214,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return hive
 
-    async def _initSlabFile(self, path, readonly=False):
+    async def _initSlabFile(self, path, readonly=False, ephemeral=False):
         slab = await s_lmdbslab.Slab.anit(path, map_size=SLAB_MAP_SIZE, readonly=readonly)
         slab.addResizeCallback(self.checkFreeSpace)
-        self.onfini(slab)
+        fini = slab.fini
+        if ephemeral:
+            fini = slab
+        self.onfini(fini)
         return slab
 
     async def _initCellSlab(self, readonly=False):
@@ -3643,11 +3646,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _initCellBoot(self):
         # NOTE: best hook point for custom provisioning
 
-        pnfo = await self._bootCellProv()
+        isok, pnfo = await self._bootCellProv()
 
         # check this before we setup loadTeleCell()
         if not self._mustBootMirror():
             return
+
+        if not isok:
+            # The way that we get to this requires the following states to be true:
+            # 1. self.dirn/cell.guid file is NOT present in the service directory.
+            # 2. mirror config is present.
+            # 3. aha:provision config is not set OR the aha:provision guid matches the self.dirn/prov.done file.
+            mesg = 'Service has been configured to boot from an upstream mirror, but has entered into an invalid ' \
+                   'state. This may have been caused by manipulation of the service storage or an error during a ' \
+                   f'backup / restore operation. {pnfo.get("mesg")}'
+            raise s_exc.FatalErr(mesg=mesg)
 
         async with s_telepath.loadTeleCell(self.dirn):
             await self._bootCellMirror(pnfo)
@@ -3780,7 +3793,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         provurl = self.conf.get('aha:provision')
         if provurl is None:
-            return
+            return False, {'mesg': 'No aha:provision configuration has been provided to allow the service to '
+                                   'bootstrap via AHA.'}
 
         doneiden = None
 
@@ -3793,7 +3807,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         providen = urlinfo.get('path').strip('/')
 
         if doneiden == providen:
-            return
+            return False, {'mesg': f'The aha:provision URL guid matches the service prov.done guid, '
+                                   f'aha:provision={provurl}'}
 
         logger.info(f'Provisioning {self.getCellType()} from AHA service.')
 
@@ -3853,7 +3868,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.info(f'Done provisioning {self.getCellType()} AHA service.')
 
-        return provconf, providen
+        return True, {'conf': provconf, 'iden': providen}
 
     async def _bootProvConf(self, provconf):
         '''
@@ -3962,7 +3977,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # but that's ok since it will only run rarely.
         # It assumes it has a tuple of (provisioning configuration, provisioning iden) available
         murl = self.conf.req('mirror')
-        provconf, providen = pnfo
+        provconf, providen = pnfo.get('conf'), pnfo.get('iden')
 
         logger.warning(f'Bootstrap mirror from: {murl} (this could take a while!)')
 
