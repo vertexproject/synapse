@@ -77,7 +77,7 @@ class TestUtilsStormcov(s_utils.SynTest):
             with mock.patch('synapse.lib.stormctrl.StormCtrlFlow.__init__', __init__):
                 await core.stormlist(s_files.getAssetStr('stormcov/lookup.storm'), opts={'mode': 'lookup'})
 
-            orig = s_snap.View.nodesByPropValu
+            orig = s_view.View.nodesByPropValu
             async def nodesByPropValu(self, full, cmpr, valu, norm=True):
                 frame = inspect.currentframe()
                 if pivotracer.dynamic_source_filename(None, frame) is not None:
