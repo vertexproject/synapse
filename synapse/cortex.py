@@ -3587,7 +3587,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         pdef = self.exttagprops.get(name)
         if pdef is None:
             mesg = f'No tag prop named {name}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
+            raise s_exc.NoSuchTagProp(mesg=mesg, name=name)
         return pdef
 
     @s_nexus.Pusher.onPush('model:prop:del')
