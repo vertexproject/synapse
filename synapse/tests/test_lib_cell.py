@@ -214,27 +214,27 @@ class CellTest(s_t_utils.SynTest):
             rootuser = cell.auth.rootuser.iden
 
             with self.raises(s_exc.SchemaViolation):
-                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updator': rootuser}
+                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
                 await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
 
-            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updator': rootuser}
+            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
             info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 20})
             self.eq(info.get('version'), (1, 1, 0))
             self.eq(versinfo.get('version'), (1, 1, 0))
 
-            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updator': rootuser}
+            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
             info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
             self.eq(info.get('version'), (1, 1, 0))
             self.eq(versinfo.get('version'), (1, 0, 0))
 
             versinfo10, data10 = await cell.getDriveData(iden, vers=(1, 0, 0))
             self.eq(versinfo10.get('updated'), tick)
-            self.eq(versinfo10.get('updator'), rootuser)
+            self.eq(versinfo10.get('updater'), rootuser)
             self.eq(versinfo10.get('version'), (1, 0, 0))
 
             versinfo11, data11 = await cell.getDriveData(iden, vers=(1, 1, 0))
             self.eq(versinfo11.get('updated'), tick + 10)
-            self.eq(versinfo11.get('updator'), rootuser)
+            self.eq(versinfo11.get('updater'), rootuser)
             self.eq(versinfo11.get('version'), (1, 1, 0))
 
             versions = [vers async for vers in cell.getDriveDataVersions(iden)]
@@ -257,12 +257,12 @@ class CellTest(s_t_utils.SynTest):
             self.eq(info.get('size'), 0)
             self.eq(info.get('version'), (0, 0, 0))
             self.none(info.get('updated'))
-            self.none(info.get('updator'))
+            self.none(info.get('updater'))
 
             # repopulate a couple data versions to test migration and delete
-            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updator': rootuser}
+            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
             info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
-            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updator': rootuser}
+            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
             info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17})
 
             # This will be done by the cell in a cell storage version migration...

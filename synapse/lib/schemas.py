@@ -472,7 +472,7 @@ driveInfoSchema = {
         # these are also data version info...
         'size': {'type': 'number', 'minimum': 0},
         'updated': {'type': 'number'},
-        'updator': {'type': 'string', 'pattern': s_config.re_iden},
+        'updater': {'type': 'string', 'pattern': s_config.re_iden},
         'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
     },
     'required': ('iden', 'parent', 'name', 'created', 'creator', 'kids'),
@@ -485,10 +485,10 @@ driveDataVersSchema = {
     'properties': {
         'size': {'type': 'number', 'minimum': 0},
         'updated': {'type': 'number'},
-        'updator': {'type': 'string', 'pattern': s_config.re_iden},
+        'updater': {'type': 'string', 'pattern': s_config.re_iden},
         'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
     },
-    'required': ('size', 'version', 'updated', 'updator'),
+    'required': ('size', 'version', 'updated', 'updater'),
     'additionalProperties': False,
 }
 reqValidDriveDataVers = s_config.getJsValidator(driveDataVersSchema)

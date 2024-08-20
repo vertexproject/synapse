@@ -430,7 +430,7 @@ class Drive(s_base.Base):
                 info['size'] = 0
                 info['version'] = (0, 0, 0)
                 info.pop('updated', None)
-                info.pop('updator', None)
+                info.pop('updater', None)
             else:
                 info.update(versinfo)
 
