@@ -4284,14 +4284,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = []
         todo = s_common.todo('ps')
 
-        isallowed = await self.isUserAllowed(user.iden, ('task', 'get'))
+        allowed = user.allowed(('task', 'get'))
 
         try:
             proxy = self.ahaclient.proxy(timeout=4)
             async for svcfull, (ok, tasks) in proxy.runGatherCall(todo, timeout=4):
                 if ok:
                     for task in tasks:
-                        if isallowed or task['user'] == user.name:
+                        if allowed or task['user'] == user.name:
                             retn.append(task)
                 else:
                     logger.warning(f'AHA gather ps() from {svcfull}: {tasks}')
