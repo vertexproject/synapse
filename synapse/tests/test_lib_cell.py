@@ -184,13 +184,16 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell() as cell:
 
             info = {'name': 'users'}
-            info = await cell.addDriveItem(info)
+            pathinfo = await cell.addDriveItem(info)
 
             info = {'name': 'root'}
-            info = await cell.addDriveItem(info, path='users')
+            pathinfo = await cell.addDriveItem(info, path='users')
 
-            rootdir = info[-1].get('iden')
-            self.eq(0, info[-1].get('kids'))
+            with self.raises(s_exc.DupIden):
+                await cell.drive.addItemInfo(pathinfo[-1], path='users')
+
+            rootdir = pathinfo[-1].get('iden')
+            self.eq(0, pathinfo[-1].get('kids'))
 
             info = {'name': 'win32k.sys', 'type': 'hehe'}
             with self.raises(s_exc.NoSuchType):
@@ -264,6 +267,7 @@ class CellTest(s_t_utils.SynTest):
             info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
             versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
             info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17})
+            self.eq(versinfo, (await cell.getDriveData(iden))[0])
 
             # This will be done by the cell in a cell storage version migration...
             async def migrate_v1(info, versinfo, data):
@@ -280,6 +284,9 @@ class CellTest(s_t_utils.SynTest):
 
             self.nn(await cell.getDriveInfo(iden))
             self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+
+            await cell.delDriveData(iden)
+            self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
 
             await cell.delDriveInfo(iden)
 
@@ -324,6 +331,30 @@ class CellTest(s_t_utils.SynTest):
 
             pathinfo = await cell.getDrivePath('hehe/haha')
             self.eq(1, pathinfo[-1].get('kids'))
+
+            with self.raises(s_exc.DupName):
+                iden = pathinfo[-2].get('iden')
+                name = pathinfo[-1].get('name')
+                cell.drive.reqFreeStep(iden, name)
+
+            walks = [item async for item in cell.drive.walkPathInfo('hehe')]
+            self.len(3, walks)
+            # confirm walked paths are yielded depth first...
+            self.eq('hoho', walks[0].get('name'))
+            self.eq('haha', walks[1].get('name'))
+            self.eq('hehe', walks[2].get('name'))
+
+            iden = walks[2].get('iden')
+            walks = [item async for item in cell.drive.walkItemInfo(iden)]
+            self.len(3, walks)
+            self.eq('hoho', walks[0].get('name'))
+            self.eq('haha', walks[1].get('name'))
+            self.eq('hehe', walks[2].get('name'))
+
+            self.none(cell.drive.getTypeSchema('newp'))
+
+            cell.drive.validators.pop('woot')
+            self.nn(cell.drive.getTypeValidator('woot'))
 
     async def test_cell_auth(self):
 

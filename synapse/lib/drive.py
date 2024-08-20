@@ -425,11 +425,11 @@ class Drive(s_base.Base):
 
         versindx = getVersIndx(vers)
         versbyts = self.slab.get(LKEY_VERS + bidn + versindx, db=self.dbname)
-        if versbyts is None:
+        if versbyts is None: # pragma: no cover
             return None
 
         databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
-        if databyts is None:
+        if databyts is None: # pragma: no cover
             return None
 
         return s_msgpack.un(versbyts), s_msgpack.un(databyts)
