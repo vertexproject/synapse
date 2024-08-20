@@ -407,6 +407,35 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('net6'), ('fe80::', 'fe80::ffff:ffff:ffff:ffff'))
             self.eq(nodes[0].get('type'), 'virtual.sdn.')
 
+            nodes = await core.nodes('''[
+                it:sec:stix:indicator=*
+                    :id=zoinks
+                    :name=woot
+                    :confidence=90
+                    :revoked=(false)
+                    :description="my neato indicator"
+                    :pattern="some rule text"
+                    :pattern_type=yara
+                    :created=20240815
+                    :updated=20240815
+                    :labels=(hehe, haha)
+                    :valid_from=20240815
+                    :valid_until=20240815
+            ]''')
+            self.len(1, nodes)
+            self.eq('zoinks', nodes[0].get('id'))
+            self.eq('woot', nodes[0].get('name'))
+            self.eq(90, nodes[0].get('confidence'))
+            self.eq(False, nodes[0].get('revoked'))
+            self.eq('my neato indicator', nodes[0].get('description'))
+            self.eq('some rule text', nodes[0].get('pattern'))
+            self.eq('yara', nodes[0].get('pattern_type'))
+            self.eq(('haha', 'hehe'), nodes[0].get('labels'))
+            self.eq(1723680000000, nodes[0].get('created'))
+            self.eq(1723680000000, nodes[0].get('updated'))
+            self.eq(1723680000000, nodes[0].get('valid_from'))
+            self.eq(1723680000000, nodes[0].get('valid_until'))
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:
@@ -1552,6 +1581,24 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('file'))
             self.eq(rule, nodes[0].get('rule'))
             self.eq(0x10000200003, nodes[0].get('version'))
+
+            nodes = await core.nodes('''[
+                (it:app:yara:netmatch=* :node=(inet:fqdn, foo.com))
+                (it:app:yara:netmatch=* :node=(inet:ipv4, 1.2.3.4))
+                (it:app:yara:netmatch=* :node=(inet:ipv6, "::ffff"))
+                (it:app:yara:netmatch=* :node=(inet:url, "http://foo.com"))
+                    :rule=$rule
+                    :version=1.2.3
+            ]''', opts=opts)
+            self.len(4, nodes)
+            for node in nodes:
+                self.nn(node.get('node'))
+                self.nn(node.get('version'))
+
+            self.len(4, await core.nodes('it:app:yara:rule=$rule -> it:app:yara:netmatch', opts=opts))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:app:yara:netmatch=* :node=(it:dev:str, foo)]')
 
     async def test_it_app_snort(self):
 

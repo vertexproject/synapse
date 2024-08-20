@@ -178,6 +178,16 @@ class Base:
     def onfini(self, func):
         '''
         Add a function/coroutine/Base to be called on fini().
+
+        The rules around how to register function/coroutine/Base to be called:
+            - Call this method with an instance of Base (this class) if holding
+              a reference to a bound method of the instance (such as a fini()
+              method) would cause the object to be leaked. This is appropriate
+              for ephemeral objects that may be constructed/destroyed multiple
+              times over the lifetime of a process.
+
+            - Call this method with an instance method if you want the object to
+              have a lifetime as long as the thing being fini'd.
         '''
         if self.isfini:
             if isinstance(func, Base):
@@ -518,9 +528,8 @@ class Base:
         def taskDone(task):
             self._active_tasks.remove(task)
             try:
-                if not task.done():
-                    task.result()
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                task.result()
+            except asyncio.CancelledError:
                 pass
             except Exception:
                 logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
