@@ -3560,8 +3560,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 async for rows in s_coro.chunks(genr):
                     nodeedits = []
                     for buid, valu in rows:
-                        sode = await layr.getStorNode(buid)
-                        nodeedits.append((buid, sode.get('form'), (
+                        nodeedits.append((buid, form, (
                             (s_layer.EDIT_TAGPROP_DEL, (tag, prop.name, None, prop.type.stortype), ()),
                         )))
 

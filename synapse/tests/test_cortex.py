@@ -1302,7 +1302,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 await core.delTagProp('score')
 
-                with self.raises(s_exc.NoSuchProp):
+                with self.raises(s_exc.NoSuchTagProp):
                     await core.delTagProp('score')
 
                 modl = await core.getModelDict()
