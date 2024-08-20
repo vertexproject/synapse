@@ -1752,14 +1752,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         iden = info.get('iden')
         if iden is None:
-            iden = info['iden'] = s_common.guid()
+            info['iden'] = s_common.guid()
 
         info.setdefault('created', s_common.now())
         info.setdefault('creator', self.auth.rootuser.iden)
 
         return await self._push('drive:add', info, path=path, reldir=reldir)
 
-    @s_nexus.Pusher.onPushAuto('drive:add')
+    @s_nexus.Pusher.onPush('drive:add')
     async def _addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
 
         # replay safety...
