@@ -1764,7 +1764,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # replay safety...
         iden = info.get('iden')
-        if self.drive.hasItemInfo(iden):
+        if self.drive.hasItemInfo(iden): # pragma: no cover
             return await self.drive.getItemPath(iden)
 
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
@@ -1793,10 +1793,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         tick = s_common.now()
         user = self.auth.rootuser.iden
-        path = self.drive.getPathNorm()
+        path = self.drive.getPathNorm(path)
 
         if perm is None:
-            perm = {}
+            perm = {'users': {}, 'roles': {}}
 
         pathinfo = []
 
@@ -1810,14 +1810,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 continue
 
             info = {
-                'type': 'dir',
                 'name': name,
                 'perm': perm,
                 'iden': s_common.guid(),
                 'created': tick,
                 'creator': user,
             }
-            pathinfo.extend(self.addDriveItem(info, reldir=reldir))
+            pathinfo.extend(await self.addDriveItem(info, reldir=reldir))
             reldir = pathinfo[-1].get('iden')
 
         return pathinfo
@@ -1839,7 +1838,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
-        await self.drive.setItemPerm(iden, perm)
+        return self.drive.setItemPerm(iden, perm)
 
     @s_nexus.Pusher.onPushAuto('drive:data:set')
     async def setDriveData(self, iden, versinfo, data):

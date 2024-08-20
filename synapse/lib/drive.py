@@ -163,8 +163,9 @@ class Drive(s_base.Base):
     def _setItemPerm(self, bidn, perm):
         info = self._reqItemInfo(bidn)
         info['perm'] = perm
-        s_schema.reqValidDriveInfo(info)
-        sefl.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        s_schemas.reqValidDriveInfo(info)
+        self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        return info
 
     async def getPathInfo(self, path, reldir=rootdir):
         '''

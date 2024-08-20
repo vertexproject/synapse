@@ -289,6 +289,16 @@ class CellTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchPath):
                 await cell.getDrivePath('users/root/win32k.sys')
 
+            pathinfo = await cell.addDrivePath('foo/bar/baz')
+            self.len(3, pathinfo)
+            self.eq('foo', pathinfo[0].get('name'))
+            self.eq('bar', pathinfo[1].get('name'))
+            self.eq('baz', pathinfo[2].get('name'))
+
+            iden = pathinfo[2].get('iden')
+            info = await cell.setDriveInfoPerm(iden, {'users': {rootuser: 3}, 'roles': {}})
+            self.eq(3, info['perm']['users'][rootuser])
+
     async def test_cell_auth(self):
 
         with self.getTestDir() as dirn:
