@@ -1626,6 +1626,25 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self.finiStormPool()
 
+    @s_nexus.Pusher.onPushAuto('model:lock:prop')
+    async def setPropLocked(self, name, locked):
+        prop = self.model.reqProp(name)
+        self.modellocks.set(f'prop/{name}', locked)
+        prop.locked = locked
+
+    @s_nexus.Pusher.onPushAuto('model:lock:univ')
+    async def setUnivLocked(self, name, locked):
+        prop = self.model.reqUniv(name)
+        self.modellocks.set(f'univ/{name}', locked)
+        for prop in self.model.getAllUnivs(name):
+            prop.locked = locked
+
+    @s_nexus.Pusher.onPushAuto('model:lock:tagprop')
+    async def setTagPropLocked(self, name, locked):
+        prop = self.model.reqTagProp(name)
+        self.modellocks.set(f'tagprop/{name}', locked)
+        prop.locked = locked
+
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
 
@@ -3498,6 +3517,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         fullname = f'{formname}:{propname}'
         prop = self.model.prop(fullname)
 
+        await self.setPropLocked(fullname, True)
+
         for layr in list(self.layers.values()):
 
             genr = layr.iterPropRows(formname, propname)
@@ -3523,6 +3544,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         full = f'.{propname}'
         prop = self.model.univ(full)
 
+        await self.setUnivLocked(full, True)
+
         for layr in list(self.layers.values()):
 
             genr = layr.iterUnivRows(full)
@@ -3546,6 +3569,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         self.reqExtTagProp(propname)
         prop = self.model.getTagProp(propname)
+
+        await self.setTagPropLocked(propname, True)
 
         for layr in list(self.layers.values()):
 
@@ -3607,6 +3632,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.delFormProp(form, prop)
         self.extprops.pop(full, None)
+        self.modellocks.pop(f'prop/{full}', None)
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
 
@@ -3633,6 +3659,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.delUnivProp(prop)
         self.extunivs.pop(prop, None)
+        self.modellocks.pop(f'univ/{prop}', None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.feedBeholder('model:univ:del', {'prop': univname})
 
@@ -3681,6 +3708,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.model.delTagProp(name)
 
         self.exttagprops.pop(name, None)
+        self.modellocks.pop(f'tagprop/{name}', None)
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
@@ -4027,7 +4055,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
 
     async def _initDeprLocks(self):
+
         self.deprlocks = self.cortexdata.getSubKeyVal('model:deprlocks:')
+        self.modellocks = self.cortexdata.getSubKeyVal('model:locks:')
+
         # TODO: 3.0.0 conversion will truncate this hive key
 
         if self.inaugural:
@@ -4052,6 +4083,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             _type = self.model.type(name)
             if _type is not None:
                 _type.locked = locked
+
+        for name, locked in self.modellocks.items():
+
+            prop = None
+            elemtype, elemname = name.split('/', 1)
+
+            if elemtype == 'prop':
+                prop = self.model.prop(elemname)
+            elif elemtype == 'univ':
+                prop = self.model.univ(elemname)
+                if prop is not None:
+                    for univ in self.model.getAllUnivs(elemname):
+                        univ.locked = locked
+            elif elemtype == 'tagprop':
+                prop = self.model.getTagProp(elemname)
+
+            if prop is not None:
+                prop.locked = locked
 
     async def _initJsonStor(self):
 

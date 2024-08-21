@@ -41,6 +41,50 @@ class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
     '''
+    async def test_cortex_basics(self):
+
+        with self.getTestDir() as dirn:
+
+            async with self.getTestCore(dirn=dirn) as core:
+
+                with self.raises(s_exc.NoSuchProp):
+                    await core.setPropLocked('newp', True)
+
+                with self.raises(s_exc.NoSuchUniv):
+                    await core.setUnivLocked('newp', True)
+
+                with self.raises(s_exc.NoSuchTagProp):
+                    await core.setTagPropLocked('newp', True)
+
+                await core.addTagProp('score', ('int', {}), {})
+
+                await core.setPropLocked('inet:ipv4:asn', True)
+                await core.setUnivLocked('.seen', True)
+                await core.setTagPropLocked('score', True)
+
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('[ inet:ipv4=1.2.3.4 :asn=99 ]')
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('[ inet:ipv4=1.2.3.4 .seen=now ]')
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('[ inet:ipv4=1.2.3.4 +#foo:score=10 ]')
+
+            # test persistence...
+            async with self.getTestCore(dirn=dirn) as core:
+
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('[ inet:ipv4=1.2.3.4 :asn=99 ]')
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('[ inet:ipv4=1.2.3.4 .seen=now ]')
+                with self.raises(s_exc.IsDeprLocked):
+                    await core.nodes('[ inet:ipv4=1.2.3.4 +#foo:score=10 ]')
+
+                await core.setPropLocked('inet:ipv4:asn', False)
+                await core.setUnivLocked('.seen', False)
+                await core.setTagPropLocked('score', False)
+
+                await core.nodes('[ inet:ipv4=1.2.3.4 :asn=99 .seen=now +#foo:score=10 ]')
+
     async def test_cortex_cellguid(self):
         iden = s_common.guid()
         conf = {'cell:guid': iden}
