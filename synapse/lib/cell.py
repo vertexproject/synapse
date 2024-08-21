@@ -425,6 +425,17 @@ class CellApi(s_base.Base):
     async def kill(self, iden):
         return await self.cell.kill(self.user, iden)
 
+    @adminapi()
+    async def getTasks(self):
+        async for task in self.cell.getTasks():
+            yield task
+
+    async def getFeatures(self):
+        return await self.cell.getFeatures()
+
+    async def hasFeature(self, name):
+        return self.cell.hasFeature(name)
+
     @adminapi(log=True)
     async def behold(self):
         '''
@@ -1115,6 +1126,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.netready = asyncio.Event()
 
         self.conf = self._initCellConf(conf)
+        self.features = {
+            'tellready': True,
+            'dynmirror': True,
+        }
 
         self.minfree = self.conf.get('limit:disk:free')
         if self.minfree is not None:
@@ -4276,6 +4291,29 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return retn
 
+    async def getPeerTasks(self, timeout=None):
+
+        for task in self.boss.ps():
+            yield task
+
+        if self.ahaclient:
+
+            proxy = await self.ahaclient.proxy(timeout=timeout)
+            if proxy is None:
+                logger.warning('AHA client connection timed out for getPeerTasks()')
+                return
+
+            if not proxy._hasTeleMeth('getAhaSvcTasks'):
+                logger.warning('AHA server does not implement getAhaSvcTasks(). Please update.')
+                return
+
+            async for (ok, valu) in proxy.getAhaPeerTasks(self.iden, timeout=5, skiprun=self.runid):
+                if ok: yield valu
+
+    async def getTasks(self):
+        for task in self.boss.ps():
+            yield task
+
     async def ahaGatherPs(self, user):
 
         if self.ahaclient is None:
@@ -4368,12 +4406,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'https': self.https_listeners,
                 }
             },
-            'features': {
-                'tellready': True,
-                'dynmirror': True,
-            },
+            'features': self.features,
         }
         return ret
+
+    async def getTeleFeats(self):
+        return dict(self.features)
 
     async def getSystemInfo(self):
         '''
