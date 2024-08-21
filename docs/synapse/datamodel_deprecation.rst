@@ -144,3 +144,9 @@ Properties
 - `it:prod:hardware`
     - `:make`
         - The `:make` property has been superseded by the properties `it:prod:hardware:manufacturer` and  `it:prod:hardware:manufacturer:name`, which are typed as `ou:org` and `ou:name` respectively.
+
+Edges
++++++
+
+- `* -(seenat)> geo:telem`
+    - Please use the `:node` `geo:telem` property to record the time and location a node was observed.
