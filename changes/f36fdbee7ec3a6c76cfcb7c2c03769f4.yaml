@@ -1,0 +1,6 @@
+---
+desc: Include more detailed link information when executing storm queries with the ``path`` option set.
+prs:
+- 3862
+type: feat
+...

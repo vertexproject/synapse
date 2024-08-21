@@ -1608,36 +1608,28 @@ class Snap(s_base.Base):
             last = verb
             yield verb
 
-    async def getNdefRefs(self, buid):
-        last = None
-        gens = [layr.getNdefRefs(buid) for layr in self.layers]
-
-        async for refsbuid, _ in s_common.merggenr2(gens):
-            if refsbuid == last:
-                continue
-
-            await asyncio.sleep(0)
-            last = refsbuid
-
-            yield refsbuid
-
-    async def _getLayrNdefs(self, layr, buid):
+    async def _getLayrNdefProp(self, layr, buid):
         async for refsbuid, refsabrv in layr.getNdefRefs(buid):
             yield refsbuid, layr.getAbrvProp(refsabrv)
 
-    # TODO: merge with getNdefRefs
-    async def getNdefRefProps(self, buid):
+    async def getNdefRefs(self, buid, props=False):
         last = None
-        gens = [self._getLayrNdefs(layr, buid) for layr in self.layers]
+        if props:
+            gens = [self._getLayrNdefProp(layr, buid) for layr in self.layers]
+        else:
+            gens = [layr.getNdefRefs(buid) for layr in self.layers]
 
-        async for refsbuid, abrvprop in s_common.merggenr2(gens):
+        async for refsbuid, xtra in s_common.merggenr2(gens):
             if refsbuid == last:
                 continue
 
             await asyncio.sleep(0)
             last = refsbuid
 
-            yield refsbuid, abrvprop[1]
+            if props:
+                yield refsbuid, xtra[1]
+            else:
+                yield refsbuid
 
     async def hasNodeData(self, buid, name):
         '''

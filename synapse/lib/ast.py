@@ -419,7 +419,8 @@ class SubGraph:
                     await asyncio.sleep(0)
                     continue
 
-                yield (pivonode, path.fork(pivonode), {'type': 'prop', 'prop': propname})
+                link = {'type': 'prop', 'prop': propname}
+                yield (pivonode, path.fork(pivonode, link=link), link)
 
             for iden in existing:
                 buid = s_common.uhex(iden)
@@ -2104,7 +2105,7 @@ class PivotIn(PivotOper):
             async for pivo in runt.snap.nodesByPropArray(prop.full, '=', valu, norm=norm):
                 yield pivo, path.fork(pivo, link=link)
 
-        async for refsbuid, prop in runt.snap.getNdefRefProps(node.buid):
+        async for refsbuid, prop in runt.snap.getNdefRefs(node.buid, props=True):
             pivo = await runt.snap.getNodeByBuid(refsbuid)
             yield pivo, path.fork(pivo, link={'type': 'prop', 'prop': prop, 'reverse': True})
 
@@ -2187,8 +2188,9 @@ class FormPivot(PivotOper):
         if isinstance(prop.type, s_types.Ndef):
 
             async def pgenr(node, strict=True):
+                link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
                 async for pivo in runt.snap.nodesByPropValu(prop.full, '=', node.ndef, norm=False):
-                    yield pivo, {'type': 'prop', 'prop': prop.name, 'reverse': True}
+                    yield pivo, link
 
         elif not prop.isform:
 
@@ -2206,8 +2208,9 @@ class FormPivot(PivotOper):
                     norm = prop.typehash is not node.form.typehash
                     ngenr = runt.snap.nodesByPropValu(prop.full, '=', node.ndef[1], norm=norm)
 
+                link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
                 async for pivo in ngenr:
-                    yield pivo, {'type': 'prop', 'prop': prop.name, 'reverse': True}
+                    yield pivo, link
 
         # if dest form is a subtype of a graph "edge", use N1 automatically
         elif isinstance(prop.type, s_types.Edge):
@@ -4355,10 +4358,11 @@ class N1Walk(Oper):
                     if destfilt and not await destfilt(walknode, path, cmprvalu):
                         continue
 
+                    link = {'type': 'edge', 'edge': verbname}
                     if self.reverse:
-                        yield walknode, path.fork(walknode, link={'type': 'edge', 'edge': verbname, 'reverse': True})
-                    else:
-                        yield walknode, path.fork(walknode, link={'type': 'edge', 'edge': verbname})
+                        link['reverse'] = True
+
+                    yield walknode, path.fork(walknode, link=link)
 
 class N2Walk(N1Walk):
 

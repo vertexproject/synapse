@@ -713,7 +713,7 @@ class Path:
         self.node = None
         self.nodes = nodes
 
-        if links:
+        if links is not None:
             self.links = links
         else:
             self.links = []
