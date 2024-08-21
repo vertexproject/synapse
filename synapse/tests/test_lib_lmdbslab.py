@@ -119,6 +119,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
+            self.false(slab.lenv.flags()['readahead'])
+
             slabs = slab.getSlabsInDir(dirn)
             self.eq(slabs, [slab])
 
@@ -339,9 +341,16 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # Ensure that our envar override for memory locking is acknowledged
             with self.setTstEnvars(SYN_LOCKMEM_DISABLE='1'):
-                slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
-                self.false(slab.lockmemory)
-                self.none(slab.memlocktask)
+                async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab:
+                    self.false(slab.lockmemory)
+                    self.none(slab.memlocktask)
+
+            with self.setTstEnvars(SYN_SLAB_READAHEAD='1'):
+                async with await s_lmdbslab.Slab.anit(path) as slab:
+                    self.true(slab.lenv.flags()['readahead'])
+
+            async with await s_lmdbslab.Slab.anit(path, readahead=True) as slab:
+                self.true(slab.lenv.flags()['readahead'])
 
     def simplenow(self):
         self._nowtime += 1000

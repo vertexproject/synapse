@@ -764,7 +764,7 @@ def _mapsizeround(size):
 
 class Slab(s_base.Base):
     '''
-    A "monolithic" LMDB instance for use in a asyncio loop thread.
+    A "monolithic" LMDB instance for use in an asyncio loop thread.
     '''
     # The paths of all open slabs, to prevent accidental opening of the same slab in two places
     allslabs = {}  # type: ignore
@@ -850,6 +850,7 @@ class Slab(s_base.Base):
         kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
         kwargs.setdefault('map_async', True)
+        kwargs.setdefault('readahead', s_common.envbool('SYN_SLAB_READAHEAD', defval='false'))
 
         assert kwargs.get('map_async')
 
