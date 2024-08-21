@@ -10,6 +10,11 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 
 nameregex = regex.compile(s_schemas.re_drivename)
+def reqValidName(name):
+    if nameregex.match(name) is None:
+        mesg = f'Name {name} is invalid. It must match: {s_schemas.re_drivename}.'
+        raise s_exc.BadName(mesg=mesg)
+    return name
 
 LKEY_TYPE = b'\x00' # <type> = <schema>
 LKEY_DIRN = b'\x01' # <bidn> <name> = <kid>
@@ -53,7 +58,7 @@ class Drive(s_base.Base):
         if isinstance(path, str):
             path = path.strip().strip('/').split('/')
 
-        return [p.strip().lower() for p in path]
+        return [reqValidName(p.strip().lower()) for p in path]
 
     def getItemInfo(self, iden):
         return self._getItemInfo(s_common.uhex(iden))
@@ -91,47 +96,55 @@ class Drive(s_base.Base):
         pathinfo.reverse()
         return pathinfo
 
-    async def _setItemPath(self, bidn, path):
+    async def _setItemPath(self, bidn, path, reldir=rootdir):
 
         path = self.getPathNorm(path)
-        pathinfo = await self.getPathInfo(path[:-1])
 
-        self.reqFreeStep(pathinfo[-1].get('iden'), path[-1])
+        # new parent iden / bidn
+        parinfo = None
+        pariden = reldir
+
+        pathinfo = await self.getPathInfo(path[:-1], reldir=reldir)
+        if pathinfo:
+            parinfo = pathinfo[-1]
+            pariden = parinfo.get('iden')
+
+        parbidn = s_common.uhex(pariden)
+
+        self._reqFreeStep(parbidn, path[-1])
 
         # first we must remove the parent reference...
         info = self._getItemInfo(bidn)
-        name = info.get('name')
 
-        pariden = info.get('parent')
-        if pariden is not None:
-            parbidn = s_common.uhex(pariden)
-            parinfo = self._reqItemInfo(parbidn)
-            parinfo['kids'] -= 1
-            s_schemas.reqValidDriveInfo(parinfo)
-            self.slab.delete(LKEY_DIRN + parbidn + name.encode(), db=self.dbname)
-            self.slab.put(LKEY_INFO + parbidn, s_msgpack.en(parinfo), db=self.dbname)
+        oldp = info.get('parent')
+        oldb = s_common.uhex(oldp)
+        oldname = info.get('name')
 
         name = path[-1]
-
-        # new parent iden / bidn
-        parinfo = pathinfo[-1]
-        pariden = parinfo.get('iden')
-        parbidn = s_common.uhex(pariden)
 
         info['name'] = name
         info['parent'] = pariden
 
-        parinfo['kids'] += 1
-
         s_schemas.reqValidDriveInfo(info)
-        s_schemas.reqValidDriveInfo(parinfo)
 
         rows = [
             (LKEY_INFO + bidn, s_msgpack.en(info)),
-            (LKEY_INFO + parbidn, s_msgpack.en(parinfo)),
             (LKEY_DIRN + parbidn + name.encode(), bidn),
         ]
 
+        if parinfo is not None:
+            parinfo['kids'] += 1
+            s_schemas.reqValidDriveInfo(parinfo)
+            rows.append((LKEY_INFO + parbidn, s_msgpack.en(parinfo)))
+
+        # if old parent is rootdir this may be None
+        oldpinfo = self._getItemInfo(oldb)
+        if oldpinfo is not None:
+            oldpinfo['kids'] -= 1
+            s_schemas.reqValidDriveInfo(oldpinfo)
+            rows.append((LKEY_INFO + oldb, s_msgpack.en(oldpinfo)))
+
+        self.slab.delete(LKEY_DIRN + oldb + oldname.encode(), db=self.dbname)
         self.slab.putmulti(rows, db=self.dbname)
 
         pathinfo.append(info)
@@ -482,6 +495,8 @@ class Drive(s_base.Base):
             return s_msgpack.un(byts)
 
     async def setTypeSchema(self, typename, schema, callback=None):
+
+        reqValidName(typename)
 
         vtor = s_config.getJsValidator(schema)
 

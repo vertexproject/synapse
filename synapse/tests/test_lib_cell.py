@@ -183,6 +183,9 @@ class CellTest(s_t_utils.SynTest):
 
         async with self.getTestCell() as cell:
 
+            with self.raises(s_exc.BadName):
+                s_drive.reqValidName('A' * 512)
+
             info = {'name': 'users'}
             pathinfo = await cell.addDriveItem(info)
 
@@ -355,6 +358,14 @@ class CellTest(s_t_utils.SynTest):
 
             cell.drive.validators.pop('woot')
             self.nn(cell.drive.getTypeValidator('woot'))
+
+            # move to root dir
+            pathinfo = await cell.setDriveInfoPath(baziden, 'zipzop')
+            self.len(1, pathinfo)
+            self.eq(s_drive.rootdir, pathinfo[-1].get('parent'))
+
+            pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
+            self.len(3, pathinfo)
 
     async def test_cell_auth(self):
 
