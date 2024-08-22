@@ -1,6 +1,6 @@
 ---
 desc: Catch additional Python exceptions which could be raised by malformed input
-  to ``$lib.stix.import.ingest()`` and raise ``BadArg`` errors instead.
+  to ``$lib.stix.import.ingest()`` and raise ``BadArg`` instead.
 prs:
 - 3867
 type: feat
