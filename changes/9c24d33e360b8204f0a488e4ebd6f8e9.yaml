@@ -1,5 +1,6 @@
 ---
 desc: Fix an issue that prevented removing permissions from vaults.
-prs: []
+prs:
+- 3865
 type: bug
 ...
