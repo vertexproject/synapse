@@ -4101,7 +4101,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q, opts=aslow)
             self.stormIsInErr('must have permission node.prop.del.media:news.published', msgs)
 
-    async def test_ast_path_provenance(self):
+    async def test_ast_path_links(self):
 
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             guid = s_common.guid()
@@ -4133,16 +4133,15 @@ class AstTest(s_test.SynTest):
 
             def _assert_edge(msgs, src, edge, nidx=0, eidx=0):
                 nodes = [m[1] for m in msgs if m[0] == 'node']
-                self.nn(nodes[nidx][1].get('path'))
-                links = nodes[nidx][1]['path'].get('links')
+                links = nodes[nidx][1].get('links')
                 self.nn(links)
                 self.lt(eidx, len(links))
                 self.eq(links[eidx], (src.iden(), edge))
 
-            opts = {'path': True}
+            opts = {'links': True}
 
             # non-runtsafe lift could be anything
-            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts={'path': True, 'vars': {'form': 'inet:ipv4'}})
+            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts={'links': True, 'vars': {'form': 'inet:ipv4'}})
             _assert_edge(msgs, tstr, {'type': 'runtime'}, nidx=1)
 
             # FormPivot
@@ -4315,20 +4314,20 @@ class AstTest(s_test.SynTest):
 
             # N1Walk
             msgs = await core.stormlist('test:arrayprop -(*)> *', opts=opts)
-            _assert_edge(msgs, arry, {'type': 'edge', 'edge': 'refs'})
+            _assert_edge(msgs, arry, {'type': 'edge', 'verb': 'refs'})
 
             # N2Walk
             msgs = await core.stormlist('test:edge <(*)- *', opts=opts)
-            _assert_edge(msgs, edge, {'type': 'edge', 'edge': 'seen', 'reverse': True})
+            _assert_edge(msgs, edge, {'type': 'edge', 'verb': 'seen', 'reverse': True})
 
             # N1WalkNPivo
             msgs = await core.stormlist('test:complexcomp --> *', opts=opts)
             _assert_edge(msgs, comp, {'type': 'prop', 'prop': 'foo'})
-            _assert_edge(msgs, comp, {'type': 'edge', 'edge': 'concerns'}, nidx=1)
+            _assert_edge(msgs, comp, {'type': 'edge', 'verb': 'concerns'}, nidx=1)
 
             # N2WalNkPivo
             msgs = await core.stormlist('test:int=176 <-- *', opts=opts)
             _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
             _assert_edge(msgs, small, {'type': 'prop', 'prop': 'ndefs', 'reverse': True}, nidx=1)
-            _assert_edge(msgs, small, {'type': 'edge', 'edge': 'seen', 'reverse': True}, nidx=2)
-            _assert_edge(msgs, small, {'type': 'edge', 'edge': 'someedge', 'reverse': True}, nidx=3)
+            _assert_edge(msgs, small, {'type': 'edge', 'verb': 'seen', 'reverse': True}, nidx=2)
+            _assert_edge(msgs, small, {'type': 'edge', 'verb': 'someedge', 'reverse': True}, nidx=3)

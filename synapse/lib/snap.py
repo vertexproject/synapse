@@ -732,6 +732,7 @@ class Snap(s_base.Base):
 
         dorepr = False
         dopath = False
+        dolink = False
 
         show_storage = False
 
@@ -750,12 +751,16 @@ class Snap(s_base.Base):
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
+            dolink = opts.get('links', False)
             show_storage = opts.get('show:storage', False)
 
         async for node, path in self.storm(text, opts=opts, user=user):
 
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = await path.pack(path=dopath)
+
+            if dolink:
+                pode[1]['links'] = path.links
 
             if show_storage:
                 pode[1]['storage'] = await node.getStorNodes()

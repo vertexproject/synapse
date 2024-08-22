@@ -770,14 +770,13 @@ class Path:
         info = await s_stormtypes.toprim(dict(self.metadata))
         if path:
             info['nodes'] = [node.iden() for node in self.nodes]
-            info['links'] = self.links
 
         return info
 
-    def fork(self, node, link=None):
+    def fork(self, node, link):
 
         links = list(self.links)
-        if self.node:
+        if self.node is not None and link is not None:
             links.append((self.node.iden(), link))
 
         nodes = list(self.nodes)
