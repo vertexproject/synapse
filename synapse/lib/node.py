@@ -787,7 +787,7 @@ class Path:
         return path
 
     def clone(self):
-        path = Path(copy.copy(self.vars), copy.copy(self.nodes))
+        path = Path(copy.copy(self.vars), copy.copy(self.nodes), copy.copy(self.links))
         path.frames = [v.copy() for v in self.frames]
         return path
 
