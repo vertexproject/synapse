@@ -68,6 +68,9 @@ class Drive(s_base.Base):
         if byts is not None:
             return s_msgpack.un(byts)
 
+    def reqItemInfo(self, iden):
+        return self._reqItemInfo(s_common.uhex(iden))
+
     def _reqItemInfo(self, bidn):
         info = self._getItemInfo(bidn)
         if info is not None:
@@ -86,12 +89,12 @@ class Drive(s_base.Base):
         pathinfo = []
         while iden is not None:
 
-            info = self.getItemInfo(iden)
-            if info is None:
-                break
+            info = self.reqItemInfo(iden)
 
             pathinfo.append(info)
             iden = info.get('parent')
+            if iden == rootdir:
+                break
 
         pathinfo.reverse()
         return pathinfo
@@ -113,8 +116,7 @@ class Drive(s_base.Base):
 
         self._reqFreeStep(parbidn, path[-1])
 
-        # first we must remove the parent reference...
-        info = self._getItemInfo(bidn)
+        info = self._reqItemInfo(bidn)
 
         oldp = info.get('parent')
         oldb = s_common.uhex(oldp)
@@ -513,7 +515,7 @@ class Drive(s_base.Base):
                     versindx = lkey[-9:]
                     databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
                     data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts))
-                    self.reqValidData(typename, data)
+                    vtor(data)
                     self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
 
