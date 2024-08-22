@@ -114,7 +114,7 @@ class Drive(s_base.Base):
         self._reqFreeStep(parbidn, path[-1])
 
         # first we must remove the parent reference...
-        info = self._getItemInfo(bidn)
+        info = self._reqItemInfo(bidn)
 
         oldp = info.get('parent')
         oldb = s_common.uhex(oldp)
