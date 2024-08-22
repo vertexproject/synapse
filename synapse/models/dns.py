@@ -3,6 +3,29 @@ import synapse.exc as s_exc
 import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
+dnsreplycodes = (
+    (0, 'NOERROR'),
+    (1, 'FORMERR'),
+    (2, 'SERVFAIL'),
+    (3, 'NXDOMAIN'),
+    (4, 'NOTIMP'),
+    (5, 'REFUSED'),
+    (6, 'YXDOMAIN'),
+    (7, 'YXRRSET'),
+    (8, 'NXRRSET'),
+    (9, 'NOTAUTH'),
+    (10, 'NOTZONE'),
+    (11, 'DSOTYPENI'),
+    (16, 'BADSIG'),
+    (17, 'BADKEY'),
+    (18, 'BADTIME'),
+    (19, 'BADMODE'),
+    (20, 'BADNAME'),
+    (21, 'BADALG'),
+    (22, 'BADTRUNC'),
+    (23, 'BADCOOKIE'),
+)
+
 class DnsName(s_types.Str):
 
     def postTypeInit(self):
@@ -233,7 +256,7 @@ class DnsModule(s_module.CoreModule):
 
                     ('server', ('inet:server', {}), {}),
 
-                    ('reply:code', ('int', {}), {
+                    ('reply:code', ('int', {'enums': dnsreplycodes}), {
                         'doc': 'The DNS server response code.'}),
 
                     ('exe', ('file:bytes', {}), {
