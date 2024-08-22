@@ -149,4 +149,4 @@ Edges
 +++++
 
 - `* -(seenat)> geo:telem`
-    - Please use the `:node` `geo:telem` property to record the time and location a node was observed.
+    - Please use the `:node` `geo:telem` property to record the observed node.
