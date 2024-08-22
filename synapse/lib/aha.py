@@ -732,8 +732,9 @@ class AhaCell(s_cell.Cell):
         # backward compatibilty with aha name.network configs
         # that do not intend to listen for provisioning.
         hostname = self.conf.get('dns:name')
+        network = self.conf.req('aha:network')
         if hostname is not None:
-            return f'ssl://{hostname}:27272'
+            return f'ssl://0.0.0.0::27272?hostname={hostname}&ca={network}'
 
     def _getDmonListen(self):
 

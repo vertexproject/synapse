@@ -603,6 +603,7 @@ workflows:
             branches:
               only:
                 - master
+                - feat_aha_prov_url
 
       - build_docker_tag:
           requires:
