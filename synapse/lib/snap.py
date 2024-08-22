@@ -317,7 +317,7 @@ class ProtoNode:
             return await self.ctx.snap._raiseOnStrict(s_exc.NoSuchTagProp, mesg)
 
         if prop.locked:
-            mesg = 'Tagprop {name} is locked.'
+            mesg = f'Tagprop {name} is locked.'
             return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
 
         try:
