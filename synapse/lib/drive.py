@@ -73,7 +73,7 @@ class Drive(s_base.Base):
         if info is not None:
             return info
 
-        mesg = 'No drive item with ID {s_common.ehex(bidn)}.'
+        mesg = f'No drive item with ID {s_common.ehex(bidn)}.'
         raise s_exc.NoSuchIden(mesg=mesg)
 
     async def setItemPath(self, iden, path):
