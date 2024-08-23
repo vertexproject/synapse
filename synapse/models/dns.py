@@ -256,7 +256,7 @@ class DnsModule(s_module.CoreModule):
 
                     ('server', ('inet:server', {}), {}),
 
-                    ('reply:code', ('int', {'enums': dnsreplycodes}), {
+                    ('reply:code', ('int', {'enums': dnsreplycodes, 'enums:strict': False}), {
                         'doc': 'The DNS server response code.'}),
 
                     ('exe', ('file:bytes', {}), {
