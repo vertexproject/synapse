@@ -110,6 +110,11 @@ class DnsModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[inet:dns:request=* :reply:code=NXDOMAIN]')
             self.eq(nodes[0].get('reply:code'), 3)
+            self.eq(nodes[0].repr('reply:code'), 'NXDOMAIN')
+
+            nodes = await core.nodes('[inet:dns:request=* :reply:code=1138]')
+            self.eq(nodes[0].get('reply:code'), 1138)
+            self.eq(nodes[0].repr('reply:code'), '1138')
 
             nodes = await core.nodes('[inet:dns:query=("tcp://1.2.3.4", 4.3.2.1.in-addr.arpa, 255)]')
             self.len(1, nodes)
