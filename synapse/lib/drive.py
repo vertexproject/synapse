@@ -279,7 +279,6 @@ class Drive(s_base.Base):
         s_schemas.reqValidDriveInfo(info)
 
         iden = info.get('iden')
-        name = info.get('name')
         typename = info.get('type')
 
         bidn = s_common.uhex(iden)
@@ -408,7 +407,6 @@ class Drive(s_base.Base):
         datavers = versinfo.get('version')
 
         versindx = getVersIndx(datavers)
-        versbyts = s_msgpack.en(versinfo)
 
         rows = [
             (LKEY_DATA + bidn + versindx, s_msgpack.en(data)),

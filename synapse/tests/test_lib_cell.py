@@ -179,7 +179,7 @@ testDataSchema_v1 = {
 
 class CellTest(s_t_utils.SynTest):
 
-    async def test_cell_basics(self):
+    async def test_cell_drive(self):
 
         async with self.getTestCell() as cell:
 
