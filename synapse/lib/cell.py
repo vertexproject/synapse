@@ -1854,8 +1854,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.drive.setItemData(iden, versinfo, data)
 
     @s_nexus.Pusher.onPushAuto('drive:data:del')
-    async def delDriveData(self, iden, vers=None):
-        return self.drive.delItemData(iden, vers=vers)
+    async def delDriveData(self, iden, vers):
+        return self.drive.delItemData(iden, vers)
 
     async def getDriveKids(self, iden):
         async for info in self.drive.getItemKids(iden):

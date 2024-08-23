@@ -288,7 +288,7 @@ class CellTest(s_t_utils.SynTest):
             self.nn(await cell.getDriveInfo(iden))
             self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
 
-            await cell.delDriveData(iden)
+            await cell.delDriveData(iden, vers=(1, 1, 0))
             self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
 
             await cell.delDriveInfo(iden)
