@@ -1,0 +1,5 @@
+---
+desc: Added ``force`` option to extended property delete APIs to automatically remove data.
+prs: []
+type: feat
+...

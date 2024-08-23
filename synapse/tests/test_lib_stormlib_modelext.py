@@ -57,12 +57,24 @@ class StormtypesModelextTest(s_test.SynTest):
             model_defs = await core.callStorm('return ( $lib.model.ext.getExtModel() )')
             self.isinstance(model_defs, dict)
 
+            self.len(1, await core.nodes('_visi:int:tick'))
+            await core._delAllFormProp('_visi:int', 'tick', {})
+            self.len(0, await core.nodes('_visi:int:tick'))
+
+            self.len(1, await core.nodes('._woot'))
+            await core._delAllUnivProp('_woot', {})
+            self.len(0, await core.nodes('._woot'))
+
+            self.len(1, await core.nodes('#lol:score'))
+            await core._delAllTagProp('score', {})
+            self.len(0, await core.nodes('#lol:score'))
+
             await core.callStorm('_visi:int=10 test:int=1234 | delnode')
             await core.callStorm('''
-                $lib.model.ext.delTagProp(score)
-                $lib.model.ext.delUnivProp(_woot)
+                $lib.model.ext.delTagProp(score, force=(true))
+                $lib.model.ext.delUnivProp(_woot, force=(true))
                 $lib.model.ext.delFormProp(_visi:int, tick)
-                $lib.model.ext.delFormProp(test:int, _tick)
+                $lib.model.ext.delFormProp(test:int, _tick, force=(true))
                 $lib.model.ext.delForm(_visi:int)
                 $lib.model.ext.delEdge(inet:user, _copies, *)
             ''')
@@ -275,6 +287,46 @@ class StormtypesModelextTest(s_test.SynTest):
             self.eq(nodes[0].get('_tick'), 1609459200000)
 
             self.nn(core.model.edge(('inet:user', '_copies', None)))
+
+        # Property values left behind in layers are cleanly removed
+        async with self.getTestCore() as core:
+            await core.callStorm('''
+                $typeinfo = ({})
+                $docinfo = ({"doc": "NEWP"})
+                $lib.model.ext.addUnivProp(_woot, (int, ({})), $docinfo)
+                $lib.model.ext.addTagProp(score, (int, ({})), $docinfo)
+                $lib.model.ext.addFormProp(test:int, _tick, (time, ({})), $docinfo)
+            ''')
+            fork = await core.callStorm('return ( $lib.view.get().fork().iden ) ')
+            nodes = await core.nodes('[test:int=1234 :_tick=2024 ._woot=1 +#hehe:score=10]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('._woot'), 1)
+
+            nodes = await core.nodes('test:int=1234 [:_tick=2023 ._woot=2 +#hehe:score=9]',
+                                     opts={'view': fork})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('._woot'), 2)
+
+            self.len(0, await core.nodes('test:int | delnode'))
+
+            with self.raises(s_exc.CantDelUniv):
+                await core.callStorm('$lib.model.ext.delUnivProp(_woot)')
+            with self.raises(s_exc.CantDelProp):
+                await core.callStorm('$lib.model.ext.delFormProp(test:int, _tick)')
+            with self.raises(s_exc.CantDelProp):
+                await core.callStorm('$lib.model.ext.delTagProp(score)')
+
+            await core.callStorm('$lib.model.ext.delUnivProp(_woot, force=(true))')
+            await core.callStorm('$lib.model.ext.delFormProp(test:int, _tick, force=(true))')
+            await core.callStorm('$lib.model.ext.delTagProp(score, force=(true))')
+
+            nodes = await core.nodes('[test:int=1234]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('._woot'))
+            self.none(nodes[0].get('_tick'))
+            nodes = await core.nodes('test:int=1234', opts={'view': fork})
+            self.none(nodes[0].get('._woot'))
+            self.none(nodes[0].get('_tick'))
 
     async def test_lib_stormlib_behold_modelext(self):
         self.skipIfNexusReplay()

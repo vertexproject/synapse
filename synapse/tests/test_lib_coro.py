@@ -41,6 +41,18 @@ def nopickle():
 
 class CoroTest(s_t_utils.SynTest):
 
+    async def test_coro_chunks(self):
+        async def agen():
+            for i in range(101):
+                yield i
+
+        chunks = []
+        async for chunk in s_coro.chunks(agen()):
+            chunks.append(chunk)
+
+        self.len(1, chunks[1])
+        self.len(100, chunks[0])
+
     async def test_coro_event(self):
 
         evnt = s_coro.Event()
