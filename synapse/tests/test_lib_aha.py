@@ -1300,7 +1300,7 @@ class AhaTest(s_test.SynTest):
             'aha:network': 'synapse',
             'dns:name': 'here.loop.vertex.link',
         }
-        mesg = 'provision listening: ssl://0.0.0.0:27272/?hostname=here.loop.vertex.link'
+        mesg = 'provision listening: ssl://0.0.0.0:27272?hostname=here.loop.vertex.link'
         with self.getAsyncLoggerStream('synapse.lib.aha', mesg) as stream:
             async with self.getTestCell(s_aha.AhaCell, conf=conf) as aha:
                 self.true(await stream.wait(timeout=6))

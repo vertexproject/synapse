@@ -733,7 +733,7 @@ class AhaCell(s_cell.Cell):
         # that do not intend to listen for provisioning.
         hostname = self.conf.get('dns:name')
         if hostname is not None:
-            return f'ssl://0.0.0.0:27272/?hostname={hostname}'
+            return f'ssl://0.0.0.0:27272?hostname={hostname}'
 
     def _getDmonListen(self):
 
@@ -744,7 +744,7 @@ class AhaCell(s_cell.Cell):
         network = self.conf.req('aha:network')
         dnsname = self._getDnsName()
         if dnsname is not None:
-            return f'ssl://0.0.0.0/?hostname={dnsname}&ca={network}'
+            return f'ssl://0.0.0.0?hostname={dnsname}&ca={network}'
 
     def _reqProvListen(self):
         lisn = self._getProvListen()
