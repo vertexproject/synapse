@@ -455,3 +455,41 @@ tabularConfSchema = {
 }
 
 reqValidTabularConf = s_config.getJsValidator(tabularConfSchema)
+
+emptySchema = {'object': {}, 'additionalProperties': False}
+re_drivename = r'^[\w_.-]{1,128}$'
+
+driveInfoSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'parent': {'type': 'string', 'pattern': s_config.re_iden},
+        'type': {'type': 'string', 'pattern': re_drivename},
+        'name': {'type': 'string', 'pattern': re_drivename},
+        'perm': s_msgpack.deepcopy(easyPermSchema),
+        'kids': {'type': 'number', 'minimum': 0},
+        'created': {'type': 'number'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        # these are also data version info...
+        'size': {'type': 'number', 'minimum': 0},
+        'updated': {'type': 'number'},
+        'updater': {'type': 'string', 'pattern': s_config.re_iden},
+        'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
+    },
+    'required': ('iden', 'parent', 'name', 'created', 'creator', 'kids'),
+    'additionalProperties': False,
+}
+reqValidDriveInfo = s_config.getJsValidator(driveInfoSchema)
+
+driveDataVersSchema = {
+    'type': 'object',
+    'properties': {
+        'size': {'type': 'number', 'minimum': 0},
+        'updated': {'type': 'number'},
+        'updater': {'type': 'string', 'pattern': s_config.re_iden},
+        'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
+    },
+    'required': ('size', 'version', 'updated', 'updater'),
+    'additionalProperties': False,
+}
+reqValidDriveDataVers = s_config.getJsValidator(driveDataVersSchema)
