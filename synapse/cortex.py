@@ -3454,7 +3454,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in self.layers.values():
             async for item in layr.iterFormRows(formname):
-                mesg = f'Nodes still exist with form: {formname}'
+                mesg = f'Nodes still exist with form: {formname} in layer {layr.iden}'
                 raise s_exc.CantDelForm(mesg=mesg)
 
         self.model.delForm(formname)
@@ -3627,7 +3627,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in self.layers.values():
             async for item in layr.iterPropRows(form, prop):
-                mesg = f'Nodes still exist with prop: {form}:{prop}'
+                mesg = f'Nodes still exist with prop: {form}:{prop} in layer {layr.iden}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
@@ -3654,7 +3654,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         univname = '.' + prop
         for layr in self.layers.values():
             async for item in layr.iterUnivRows(univname):
-                mesg = f'Nodes still exist with universal prop: {prop}'
+                mesg = f'Nodes still exist with universal prop: {prop} in layer {layr.iden}'
                 raise s_exc.CantDelUniv(mesg=mesg)
 
         self.model.delUnivProp(prop)
@@ -3702,7 +3702,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in self.layers.values():
             if await layr.hasTagProp(name):
-                mesg = f'Nodes still exist with tagprop: {name}'
+                mesg = f'Nodes still exist with tagprop: {name} in layer {layr.iden}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delTagProp(name)
