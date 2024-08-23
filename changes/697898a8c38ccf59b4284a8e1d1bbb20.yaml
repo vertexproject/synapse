@@ -1,5 +1,5 @@
 ---
-desc: Add DNS reply code enumeration values to `inet:dns:request:reply:code``.
+desc: Add DNS reply code enumeration values to ``inet:dns:request:reply:code``.
 prs:
 - 3868
 type: model
