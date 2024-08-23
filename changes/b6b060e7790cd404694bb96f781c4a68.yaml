@@ -1,7 +1,0 @@
----
-desc: Fix an issue that prevented the old name reference from being removed when a
-  vault is renamed.
-prs:
-- 3865
-type: bug
-...

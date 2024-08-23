@@ -274,6 +274,7 @@ reqValidSslCtxOpts = s_config.getJsValidator({
         'verify': {'type': 'boolean', 'default': True},
         'client_cert': {'type': ['string', 'null'], 'default': None},
         'client_key': {'type': ['string', 'null'], 'default': None},
+        'ca_cert': {'type': ['string', 'null'], 'default': None},
     },
     'additionalProperties': False,
 })
