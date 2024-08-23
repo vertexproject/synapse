@@ -776,6 +776,7 @@ class AhaCell(s_cell.Cell):
         if provurl is not None:
             self.provdmon = await ProvDmon.anit(self)
             self.onfini(self.provdmon)
+            logger.info(f'provision listening: {provurl}')
             self.provaddr = await self.provdmon.listen(provurl)
 
     async def _clearInactiveSessions(self):
