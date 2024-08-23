@@ -85,5 +85,5 @@ Deprecated Edges
 
 ``seenat``
     The edge has been deprecated when used with a ``geo:telem`` target node.
-    Deprecated. Please use ``geo:telem:node``.
+    Please use ``geo:telem:node``.
 
