@@ -95,6 +95,7 @@ class LibHttp(s_stormtypes.Lib):
             'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl_verify argument.
             'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
             'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
+            'ca_cert': <str> - A PEM encoded full chain CA certificate for use when verifying the request.
         }
     '''
     _storm_locals = (

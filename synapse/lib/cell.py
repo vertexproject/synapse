@@ -4870,18 +4870,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sslctx.check_hostname = False
             sslctx.verify_mode = ssl.CERT_NONE
 
-        if not opts['client_cert']:
-            return sslctx
-
-        client_cert = opts['client_cert'].encode()
-
-        if opts['client_key']:
-            client_key = opts['client_key'].encode()
-        else:
-            client_key = None
-            client_key_path = None
-
+        # crypto functions require reading certs/keys from disk so make a temp dir
+        # to save any certs/keys to disk so they can be read.
         with self.getTempDir() as tmpdir:
+            if opts.get('ca_cert'):
+                ca_cert = opts.get('ca_cert').encode()
+                with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                    fh.write(ca_cert)
+                try:
+                    sslctx.load_verify_locations(cafile=fh.name)
+                except Exception as e:  # pragma: no cover
+                    raise s_exc.BadArg(mesg=f'Error loading CA cert: {str(e)}') from None
+
+            if not opts['client_cert']:
+                return sslctx
+
+            client_cert = opts['client_cert'].encode()
+
+            if opts['client_key']:
+                client_key = opts['client_key'].encode()
+            else:
+                client_key = None
+                client_key_path = None
 
             with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
                 fh.write(client_cert)

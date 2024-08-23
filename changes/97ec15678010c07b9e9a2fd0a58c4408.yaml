@@ -1,0 +1,7 @@
+---
+desc: |
+  Add support for a ``ca_cert`` key to ``$ssl_opts`` on Storm APIs. This can be used to provide a CA chain for
+  a specific HTTP API call.
+prs: []
+type: feat
+...
