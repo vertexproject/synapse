@@ -5277,7 +5277,7 @@ class Number(Prim):
     def __init__(self, valu, path=None):
         try:
             valu = s_common.hugenum(valu)
-        except decimal.DecimalException as e:
+        except (TypeError, decimal.DecimalException) as e:
             mesg = f'Failed to make number from {valu!r}'
             raise s_exc.BadCast(mesg=mesg) from e
 
