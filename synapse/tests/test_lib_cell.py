@@ -255,7 +255,7 @@ class CellTest(s_t_utils.SynTest):
             self.eq(versions[0], versinfo11)
             self.eq(versions[1], versinfo10)
 
-            info = await cell.delDriveData(iden)
+            info = await cell.delDriveData(iden, vers=(1, 1, 0))
             self.eq(info.get('updated'), tick)
             self.eq(info.get('version'), (1, 0, 0))
 
@@ -288,7 +288,7 @@ class CellTest(s_t_utils.SynTest):
             self.nn(await cell.getDriveInfo(iden))
             self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
 
-            await cell.delDriveData(iden, vers=(1, 1, 0))
+            await cell.delDriveData(iden)
             self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
 
             await cell.delDriveInfo(iden)
