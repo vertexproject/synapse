@@ -1,6 +1,0 @@
----
-desc: Catch Python ``TypeError`` exceptions in ``$lib.math.number()`` and raise ``BadCast``
-  exceptions.
-prs: []
-type: bug
-...

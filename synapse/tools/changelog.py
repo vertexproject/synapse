@@ -109,6 +109,8 @@ class ModelDiffer:
             changes['new_edges'] = {k: _curv.get(k) for k in new_edges}
 
         updated_edges = collections.defaultdict(dict)
+        deprecated_edges = {}
+
         for edge, curinfo in _curv.items():
             if edge in new_edges:
                 continue
@@ -116,11 +118,18 @@ class ModelDiffer:
             if curinfo == oldinfo:
                 continue
 
+            if curinfo.get('deprecated') and not oldinfo.get('deprecated'):
+                deprecated_edges[edge] = curinfo
+                continue
+
             # TODO - Support changes to the edges?
             assert False, f'A change was found for the edge: {edge}'
 
         if updated_edges:
             changes['updated_edges'] = dict(updated_edges)
+
+        if deprecated_edges:
+            changes['deprecated_edges'] = deprecated_edges
 
         return changes
 
@@ -722,6 +731,25 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
                     '\n'
                 ]
                 rst.addLines(*lines)
+
+    if dep_edges := changes.get('edges').get('deprecated_edges'):
+
+        rst.addHead('Deprecated Edges', lvl=1)
+        for (n1, name, n2), info in dep_edges.items():
+            if n1 is not None and n2 is not None:
+                mesg = f'''The edge has been deprecated when used with a ``{n1}`` and an ``{n2}`` node. {info.get('doc')}'''
+            elif n1 is None and n2 is not None:
+                mesg = f'''The edge has been deprecated when used with a ``{n2}`` target node. {info.get('doc')}'''
+            elif n1 is not None and n2 is None:
+                mesg = f'''The edge has been deprecated when used with a  ``{n1}`` node. {info.get('doc')}'''
+            else:
+                mesg = f'''The edge has been deprecated. {info.get('doc')}'''
+
+            rst.addLines(
+                f'``{name}``',
+                *textwrap.wrap(mesg, initial_indent='    ', subsequent_indent='    ', width=width),
+                '\n',
+            )
 
     return rst
 
