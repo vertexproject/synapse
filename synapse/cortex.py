@@ -1354,20 +1354,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to adding specific extended model properties.',
              'ex': 'model.prop.add._foo:bar'},
             {'perm': ('model', 'prop', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model properties.'},
+             'desc': 'Controls access to deleting extended model properties and values.'},
             {'perm': ('model', 'prop', 'del', '<form>'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting specific extended model properties.',
+             'desc': 'Controls access to deleting specific extended model properties and values.',
              'ex': 'model.prop.del._foo:bar'},
 
             {'perm': ('model', 'tagprop', 'add'), 'gate': 'cortex',
-             'desc': 'Controls access to adding extended model tag properties.'},
+             'desc': 'Controls access to adding extended model tag properties and values.'},
             {'perm': ('model', 'tagprop', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model tag properties.'},
+             'desc': 'Controls access to deleting extended model tag properties and values.'},
 
             {'perm': ('model', 'univ', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model universal properties.'},
             {'perm': ('model', 'univ', 'del'), 'gate': 'cortex',
-             'desc': 'Controls access to deleting extended model universal properties.'},
+             'desc': 'Controls access to deleting extended model universal properties and values.'},
 
             {'perm': ('node',), 'gate': 'layer',
              'desc': 'Controls all node edits in a layer.'},
@@ -1625,6 +1625,25 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.isactive:
             await self.finiStormPool()
+
+    @s_nexus.Pusher.onPushAuto('model:lock:prop')
+    async def setPropLocked(self, name, locked):
+        prop = self.model.reqProp(name)
+        self.modellocks.set(f'prop/{name}', locked)
+        prop.locked = locked
+
+    @s_nexus.Pusher.onPushAuto('model:lock:univ')
+    async def setUnivLocked(self, name, locked):
+        prop = self.model.reqUniv(name)
+        self.modellocks.set(f'univ/{name}', locked)
+        for prop in self.model.getAllUnivs(name):
+            prop.locked = locked
+
+    @s_nexus.Pusher.onPushAuto('model:lock:tagprop')
+    async def setTagPropLocked(self, name, locked):
+        prop = self.model.reqTagProp(name)
+        self.modellocks.set(f'tagprop/{name}', locked)
+        prop.locked = locked
 
     @s_nexus.Pusher.onPushAuto('model:depr:lock')
     async def setDeprLock(self, name, locked):
@@ -3435,7 +3454,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in self.layers.values():
             async for item in layr.iterFormRows(formname):
-                mesg = f'Nodes still exist with form: {formname}'
+                mesg = f'Nodes still exist with form: {formname} in layer {layr.iden}'
                 raise s_exc.CantDelForm(mesg=mesg)
 
         self.model.delForm(formname)
@@ -3484,14 +3503,116 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.feedBeholder('model:prop:add', {'form': form, 'prop': prop.pack()})
 
     async def delFormProp(self, form, prop):
+        self.reqExtProp(form, prop)
+        return await self._push('model:prop:del', form, prop)
+
+    async def _delAllFormProp(self, formname, propname, meta):
+        '''
+        Delete all instances of a property from all layers.
+
+        NOTE: This does not fire triggers.
+        '''
+        self.reqExtProp(formname, propname)
+
+        fullname = f'{formname}:{propname}'
+        prop = self.model.prop(fullname)
+
+        await self.setPropLocked(fullname, True)
+
+        for layr in list(self.layers.values()):
+
+            genr = layr.iterPropRows(formname, propname)
+
+            async for rows in s_coro.chunks(genr):
+                nodeedits = []
+                for buid, valu in rows:
+                    nodeedits.append((buid, prop.form.name, (
+                        (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
+                    )))
+
+                await layr.saveNodeEdits(nodeedits, meta)
+                await asyncio.sleep(0)
+
+    async def _delAllUnivProp(self, propname, meta):
+        '''
+        Delete all instances of a universal property from all layers.
+
+        NOTE: This does not fire triggers.
+        '''
+        self.reqExtUniv(propname)
+
+        full = f'.{propname}'
+        prop = self.model.univ(full)
+
+        await self.setUnivLocked(full, True)
+
+        for layr in list(self.layers.values()):
+
+            genr = layr.iterUnivRows(full)
+
+            async for rows in s_coro.chunks(genr):
+                nodeedits = []
+                for buid, valu in rows:
+                    sode = await layr.getStorNode(buid)
+                    nodeedits.append((buid, sode.get('form'), (
+                        (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
+                    )))
+
+                await layr.saveNodeEdits(nodeedits, meta)
+                await asyncio.sleep(0)
+
+    async def _delAllTagProp(self, propname, meta):
+        '''
+        Delete all instances of a tag property from all layers.
+
+        NOTE: This does not fire triggers.
+        '''
+        self.reqExtTagProp(propname)
+        prop = self.model.getTagProp(propname)
+
+        await self.setTagPropLocked(propname, True)
+
+        for layr in list(self.layers.values()):
+
+            for form, tag, tagprop in layr.getTagProps():
+
+                if tagprop != propname: # pragma: no cover
+                    await asyncio.sleep(0)
+                    continue
+
+                genr = layr.iterTagPropRows(tag, tagprop, form)
+
+                async for rows in s_coro.chunks(genr):
+                    nodeedits = []
+                    for buid, valu in rows:
+                        nodeedits.append((buid, form, (
+                            (s_layer.EDIT_TAGPROP_DEL, (tag, prop.name, None, prop.type.stortype), ()),
+                        )))
+
+                    await layr.saveNodeEdits(nodeedits, meta)
+                    await asyncio.sleep(0)
+
+    def reqExtProp(self, form, prop):
         full = f'{form}:{prop}'
         pdef = self.extprops.get(full)
-
         if pdef is None:
             mesg = f'No ext prop named {full}'
             raise s_exc.NoSuchProp(form=form, prop=prop, mesg=mesg)
+        return pdef
 
-        return await self._push('model:prop:del', form, prop)
+    def reqExtUniv(self, prop):
+        udef = self.extunivs.get(prop)
+        if udef is None:
+            mesg = f'No ext univ named {prop}'
+            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
+        return udef
+
+    def reqExtTagProp(self, name):
+        pdef = self.exttagprops.get(name)
+        if pdef is None:
+            mesg = f'No tag prop named {name}'
+            raise s_exc.NoSuchTagProp(mesg=mesg, name=name)
+        return pdef
 
     @s_nexus.Pusher.onPush('model:prop:del')
     async def _delFormProp(self, form, prop):
@@ -3506,22 +3627,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in self.layers.values():
             async for item in layr.iterPropRows(form, prop):
-                mesg = f'Nodes still exist with prop: {form}:{prop}'
+                mesg = f'Nodes still exist with prop: {form}:{prop} in layer {layr.iden}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delFormProp(form, prop)
         self.extprops.pop(full, None)
+        self.modellocks.pop(f'prop/{full}', None)
         await self.fire('core:extmodel:change',
                         form=form, prop=prop, act='del', type='formprop')
 
         await self.feedBeholder('model:prop:del', {'form': form, 'prop': prop})
 
     async def delUnivProp(self, prop):
-        udef = self.extunivs.get(prop)
-        if udef is None:
-            mesg = f'No ext univ named {prop}'
-            raise s_exc.NoSuchUniv(name=prop, mesg=mesg)
-
+        self.reqExtUniv(prop)
         return await self._push('model:univ:del', prop)
 
     @s_nexus.Pusher.onPush('model:univ:del')
@@ -3536,11 +3654,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         univname = '.' + prop
         for layr in self.layers.values():
             async for item in layr.iterUnivRows(univname):
-                mesg = f'Nodes still exist with universal prop: {prop}'
+                mesg = f'Nodes still exist with universal prop: {prop} in layer {layr.iden}'
                 raise s_exc.CantDelUniv(mesg=mesg)
 
         self.model.delUnivProp(prop)
         self.extunivs.pop(prop, None)
+        self.modellocks.pop(f'univ/{prop}', None)
         await self.fire('core:extmodel:change', name=prop, act='del', type='univ')
         await self.feedBeholder('model:univ:del', {'prop': univname})
 
@@ -3572,11 +3691,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self.feedBeholder('model:tagprop:add', tagp.pack())
 
     async def delTagProp(self, name):
-        pdef = self.exttagprops.get(name)
-        if pdef is None:
-            mesg = f'No tag prop named {name}'
-            raise s_exc.NoSuchProp(mesg=mesg, name=name)
-
+        self.reqExtTagProp(name)
         return await self._push('model:tagprop:del', name)
 
     @s_nexus.Pusher.onPush('model:tagprop:del')
@@ -3587,12 +3702,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for layr in self.layers.values():
             if await layr.hasTagProp(name):
-                mesg = f'Nodes still exist with tagprop: {name}'
+                mesg = f'Nodes still exist with tagprop: {name} in layer {layr.iden}'
                 raise s_exc.CantDelProp(mesg=mesg)
 
         self.model.delTagProp(name)
 
         self.exttagprops.pop(name, None)
+        self.modellocks.pop(f'tagprop/{name}', None)
         await self.fire('core:tagprop:change', name=name, act='del')
         await self.feedBeholder('model:tagprop:del', {'tagprop': name})
 
@@ -3939,7 +4055,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.stormvars.set(s_stormlib_cell.runtime_fixes_key, s_stormlib_cell.getMaxHotFixes())
 
     async def _initDeprLocks(self):
+
         self.deprlocks = self.cortexdata.getSubKeyVal('model:deprlocks:')
+        self.modellocks = self.cortexdata.getSubKeyVal('model:locks:')
+
         # TODO: 3.0.0 conversion will truncate this hive key
 
         if self.inaugural:
@@ -3964,6 +4083,24 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             _type = self.model.type(name)
             if _type is not None:
                 _type.locked = locked
+
+        for name, locked in self.modellocks.items():
+
+            prop = None
+            elemtype, elemname = name.split('/', 1)
+
+            if elemtype == 'prop':
+                prop = self.model.prop(elemname)
+            elif elemtype == 'univ':
+                prop = self.model.univ(elemname)
+                if prop is not None:
+                    for univ in self.model.getAllUnivs(elemname):
+                        univ.locked = locked
+            elif elemtype == 'tagprop':
+                prop = self.model.getTagProp(elemname)
+
+            if prop is not None:
+                prop.locked = locked
 
     async def _initJsonStor(self):
 
