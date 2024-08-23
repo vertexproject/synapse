@@ -1,6 +1,0 @@
----
-desc: When generating the AHA provisioning URL, the AHA service now binds to 0.0.0.0
-  instead of the ``dns:name`` configuration value.
-prs: []
-type: bug
-...
