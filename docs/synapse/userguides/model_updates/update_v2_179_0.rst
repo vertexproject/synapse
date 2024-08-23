@@ -62,7 +62,7 @@ Updated Types
 *************
 
 ``pe:langid``
-  The type has been modified to add additional known language codes to it
+  The type has been modified to add additional known language codes to its
   enums list.
 
 
