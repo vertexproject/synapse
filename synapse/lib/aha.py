@@ -714,15 +714,30 @@ class AhaCell(s_cell.Cell):
     async def callAhaSvcApi(self, name, todo, timeout=None):
         name = self._getAhaName(name)
         svcdef = await self._getAhaSvc(name)
-        proxy = await self.getAhaSvcProxy(svcdef)
-        return await s_common.waitretn(proxy.taskv2(todo), timeout=timeout)
+        return self._callAhaSvcApi(svcdef, todo, timeout=timeout)
+
+    async def _callAhaSvcApi(self, svcdef, todo, timeout=None):
+        try:
+            proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
+            meth = getattr(proxy, todo[0])
+            return await s_common.waitretn(meth(*todo[1], **todo[2]), timeout=timeout)
+        except Exception as e:
+            # in case proxy construction fails
+            return (False, s_common.excinfo(e))
 
     async def callAhaSvcGenr(self, name, todo, timeout=None):
         name = self._getAhaName(name)
         svcdef = await self._getAhaSvc(name)
-        proxy = await self.getAhaSvcProxy(svcdef)
-        async for item in s_common.waitgenr(proxy.taskv2(todo), timeout=timeout):
-            yield item
+
+    async def _callAhaSvcGenr(self, svcdef, todo, timeout=None):
+        try:
+            proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
+            meth = getattr(proxy, todo[0])
+            async for item in s_common.waitgenr(meth(*todo[1], **todo[2]), timeout=timeout):
+                yield item
+        except Exception as e:
+            # in case proxy construction fails
+            yield (False, s_common.excinfo(e))
 
     async def getAhaSvcPeerTasks(self, iden, timeout=None, skiprun=None):
         todo = s_common.todo('getTasks')
@@ -769,15 +784,8 @@ class AhaCell(s_cell.Cell):
         async with await s_base.Base.anit() as base:
 
             async def call(svcdef):
-
                 svcfull = svcdef.get('name')
-                try:
-                    proxy = await self.reqAhaSvcProxy(svcdef)
-                    retn = await s_common.waitretn(proxy.taskv2(todo), timeout=timeout)
-                    await queue.put((svcfull, retn))
-
-                except Exception as e:
-                    await queue.put((svcfull, (False, s_common.excinfo(e))))
+                await queue.put((svcfull, await self._callAhaSvcApi(svcdef, todo, timeout=timeout)))
 
             count = 0
             async for svcdef in self.getAhaSvcsByIden(iden, skiprun=skiprun):
@@ -800,14 +808,10 @@ class AhaCell(s_cell.Cell):
             async def call(svcdef):
                 svcfull = svcdef.get('name')
                 try:
-                    proxy = await self.getAhaSvcProxy(svcdef)
-
-                    genr = await proxy.taskv2(todo)
-                    async for item in s_common.waitgenr(genr, timeout=timeout):
+                    async for item in self._callAhaSvcGenr(svcdef, todo, timeout=timeout):
                         await queue.put((svcfull, item))
-
                 finally:
-                    await queue.put((svcfull, None))
+                    await queue.put(None)
 
             count = 0
             async for svcdef in self.getAhaSvcsByIden(iden, skiprun=skiprun):
@@ -817,10 +821,11 @@ class AhaCell(s_cell.Cell):
             while count > 0:
 
                 item = await queue.get()
-                if item[1] is None:
+                if item is None:
                     count -= 1
+                    continue
 
-                yield item[1]
+                yield item
 
     async def _finiSvcClients(self):
         for client in list(self.clients.values()):

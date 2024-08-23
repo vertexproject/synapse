@@ -1323,6 +1323,8 @@ class AhaTest(s_test.SynTest):
             self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
 
             # test the genr endpoint
+            print(repr(nexsindx))
+            reals = [item async for item in cell00.getNexusChanges(0, wait=False)]
             todo = s_common.todo('getNexusChanges', 0, wait=False)
             items = [item async for item in aha.runGatherGenr(cell00.iden, todo, timeout=3) if item[1]]
             self.len(nexsindx * 2, items)

@@ -1247,8 +1247,8 @@ async def waitretn(futu, timeout):
 async def waitgenr(genr, timeout):
 
     genr = genr.__aiter__()
-    while True:
-        try:
+    try:
+        while True:
             retn = await waitretn(genr.__anext__(), timeout)
 
             if not retn[0] and retn[1]['err'] == 'StopAsyncIteration':
@@ -1258,9 +1258,8 @@ async def waitgenr(genr, timeout):
 
             if not retn[0]:
                 return
-
-        finally:
-            await genr.aclose()
+    finally:
+        await genr.aclose()
 
 def _release_waiter(waiter, *args):
     if not waiter.done():
