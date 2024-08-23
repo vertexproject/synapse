@@ -2,7 +2,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 import synapse.lib.module as s_module
 
@@ -499,6 +498,7 @@ class GeoTest(s_t_utils.SynTest):
                     :place:name=woot
                     :place={[geo:place=* :name=woot]}
                     :accuracy=10m
+                    :node=(test:int, 1234)
                 ]
             ''')
             self.eq(1655510400000, nodes[0].get('time'))
@@ -507,6 +507,8 @@ class GeoTest(s_t_utils.SynTest):
             self.eq('woot', nodes[0].get('place:name'))
             self.eq(10000, nodes[0].get('accuracy'))
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
+            self.eq(('test:int', 1234), nodes[0].get('node'))
+            self.len(1, await core.nodes('test:int=1234'))
 
     async def test_model_geospace_area(self):
 
