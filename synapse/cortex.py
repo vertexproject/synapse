@@ -7207,6 +7207,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadArg('Only vault names and permissions can be changed.')
 
         vault = self.reqVault(iden)
+        oldv = vault.get(key)
         vault[key] = valu
 
         s_schemas.reqValidVault(vault)
@@ -7214,8 +7215,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         bidn = s_common.uhex(iden)
 
         if key == 'name':
-            name = vault.get('name')
-            self.slab.delete(name.encode(), db=self.vaultsbynamedb)
+            self.slab.delete(oldv.encode(), db=self.vaultsbynamedb)
             self.slab.put(valu.encode(), bidn, db=self.vaultsbynamedb)
 
         self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
