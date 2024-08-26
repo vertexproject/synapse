@@ -3054,8 +3054,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             async for rows in s_coro.chunks(genr):
                 nodeedits = []
-                for buid, valu in rows:
-                    nodeedits.append((buid, prop.form.name, (
+                for nid, valu in rows:
+                    nodeedits.append((nid, prop.form.name, (
                         (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
                     )))
 
@@ -3081,9 +3081,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             async for rows in s_coro.chunks(genr):
                 nodeedits = []
-                for buid, valu in rows:
-                    sode = await layr.getStorNode(buid)
-                    nodeedits.append((buid, sode.get('form'), (
+                for nid, valu in rows:
+                    sode = layr._getStorNode(nid)
+                    nodeedits.append((nid, sode.get('form'), (
                         (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
                     )))
 
@@ -3113,8 +3113,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 async for rows in s_coro.chunks(genr):
                     nodeedits = []
-                    for buid, valu in rows:
-                        nodeedits.append((buid, form, (
+                    for nid, valu in rows:
+                        nodeedits.append((nid, form, (
                             (s_layer.EDIT_TAGPROP_DEL, (tag, prop.name, None, prop.type.stortype), ()),
                         )))
 

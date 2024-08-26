@@ -863,7 +863,7 @@ class StormHttpTest(s_test.SynTest):
 
                 q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
 
-                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                size, sha256 = await core.callStorm('return($lib.axon.put($lib.base64.decode(Zm9v)))')
                 opts['vars']['sha256'] = sha256
 
                 ## no cert provided

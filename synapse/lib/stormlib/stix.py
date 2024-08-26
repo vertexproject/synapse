@@ -917,7 +917,7 @@ class LibStixImport(s_stormtypes.Lib):
 
         if bundlenode is not None:
             for node in nodesbyid.values():
-                await bundlenode.addEdge('refs', node.iden())
+                await bundlenode.addEdge('refs', node.nid)
                 await asyncio.sleep(0)
             yield bundlenode
 
