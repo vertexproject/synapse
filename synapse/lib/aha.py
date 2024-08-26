@@ -396,6 +396,10 @@ class AhaApi(s_cell.CellApi):
         '''
         return await self.cell.clearAhaClones()
 
+    @s_cell.adminapi()
+    async def getAhaSvcPeerTasks(self, iden, timeout=None, skiprun=None):
+        async for task in self.cell.getAhaSvcPeerTasks(iden, timeout=timeout, skiprun=skiprun):
+            yield task
 
 class ProvDmon(s_daemon.Daemon):
 
@@ -1081,7 +1085,6 @@ class AhaCell(s_cell.Cell):
             return client
 
         svcurl = self.getAhaSvcUrl(svcdef)
-        print(f'AHA SVC CLIENT {svcfull} {svcurl}')
 
         client = self.clients[svcfull] = await s_telepath.ClientV2.anit(svcurl)
         async def fini():

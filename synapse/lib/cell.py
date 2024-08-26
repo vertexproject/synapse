@@ -4420,20 +4420,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def getPeerTasks(self, timeout=None):
 
         for task in self.boss.ps():
-            yield task.pack()
+            info = task.pack()
+            if self.ahasvcname is not None:
+                info['aha:name'] = self.ahasvcname
+            yield info
 
-        if self.ahaclient:
+        if self.ahaclient is not None:
 
             proxy = await self.ahaclient.proxy(timeout=timeout)
             if proxy is None:
                 logger.warning('AHA client connection timed out for getPeerTasks()')
                 return
 
-            if not proxy._hasTeleMeth('getAhaSvcTasks'):
-                logger.warning('AHA server does not implement getAhaSvcTasks(). Please update.')
+            if not proxy._hasTeleMeth('getAhaSvcPeerTasks'):
+                logger.warning('AHA server does not implement getAhaSvcPeerTasks(). Please update.')
                 return
 
-            async for (name, (ok, valu)) in proxy.getAhaPeerTasks(self.iden, timeout=5, skiprun=self.runid):
+            async for (name, (ok, valu)) in proxy.getAhaSvcPeerTasks(self.iden, timeout=timeout, skiprun=self.runid):
                 if not ok:
                     logger.warning(f'getPeerTasks peer error: {name} {valu}')
                     await asyncio.sleep(0)
