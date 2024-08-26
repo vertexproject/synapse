@@ -490,12 +490,12 @@ the service will help ensure optimal performance.
     During the optimization process, the service will make an optimized copy of each
     LMDB database used by the service which will then be atomically swapped into place
     of the existing database. As a result, an amount of free space equal to the size of
-    the largest database will be required.
+    the largest database will be required during the optimization.
 
 .. note::
 
     Though not encouraged, it is safe to shutdown a service during the optimization
-    process.
+    process. Progress on the LMDB database being optimized at the time of shutdown will be lost.
 
 .. _devops-task-users:
 
