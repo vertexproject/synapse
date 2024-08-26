@@ -733,7 +733,7 @@ class AhaCell(s_cell.Cell):
         # that do not intend to listen for provisioning.
         hostname = self.conf.get('dns:name')
         if hostname is not None:
-            return f'ssl://{hostname}:27272'
+            return f'ssl://0.0.0.0:27272?hostname={hostname}'
 
     def _getDmonListen(self):
 
@@ -776,6 +776,7 @@ class AhaCell(s_cell.Cell):
         if provurl is not None:
             self.provdmon = await ProvDmon.anit(self)
             self.onfini(self.provdmon)
+            logger.info(f'provision listening: {provurl}')
             self.provaddr = await self.provdmon.listen(provurl)
 
     async def _clearInactiveSessions(self):

@@ -692,6 +692,9 @@ class StormHttpTest(s_test.SynTest):
             tlscadir = s_common.gendir(dirn, 'cadir')
             cacertpath = shutil.copyfile(os.path.join(cadir, 'somelocalca.crt'), os.path.join(tlscadir, 'somelocalca.crt'))
 
+            with s_common.genfile(cacertpath) as fd:
+                ca_cert = fd.read().decode()
+
             pkey, cert = tdir.genUserCert('someuser', signas='somelocalca')
             user_pkey = tdir._pkeyToByts(pkey).decode()
             user_cert = tdir._certToByts(cert).decode()
@@ -835,3 +838,40 @@ class StormHttpTest(s_test.SynTest):
                 ## bad cert
                 sslopts['client_cert'] = 'not-gonna-work'
                 await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+
+            # Provide a CA certificate directly
+            async with self.getTestCore(dirn=dirn) as core:
+
+                sslctx = core.initSslCtx(certpath, pkeypath)
+                sslctx.load_verify_locations(cafile=cacertpath)
+
+                addr, port = await core.addHttpsPort(0, sslctx=sslctx)
+                root = await core.auth.getUserByName('root')
+                await root.setPasswd('root')
+
+                core.addHttpApi('/api/v0/test', s_test.HttpReflector, {'cell': core})
+
+                sslopts = {}
+
+                opts = {
+                    'vars': {
+                        'url': f'https://root:root@localhost:{port}/api/v0/test',
+                        'verify': True,
+                        'sslopts': sslopts,
+                    },
+                }
+
+                q = 'return($lib.inet.http.get($url, ssl_verify=$verify, ssl_opts=$sslopts))'
+
+                size, sha256 = await core.callStorm('return($lib.bytes.put($lib.base64.decode(Zm9v)))')
+                opts['vars']['sha256'] = sha256
+
+                ## no cert provided
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(-1, resp['code'])
+                self.isin('certificate verify failed', resp['reason'])
+
+                ## provide just the CA Certificate
+                sslopts['ca_cert'] = ca_cert
+                resp = await core.callStorm(q, opts=opts)
+                self.eq(200, resp['code'])

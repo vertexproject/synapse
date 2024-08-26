@@ -36,6 +36,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
+import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
@@ -1202,7 +1203,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initAhaRegistry()
 
         # phase 2 - service storage
+        await self.initCellStorage()
         await self.initServiceStorage()
+
         # phase 3 - nexus subsystem
         await self.initNexusSubsystem()
 
@@ -1535,6 +1538,129 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def initServiceEarly(self):
         pass
+
+    async def initCellStorage(self):
+        self.drive = await s_drive.Drive.anit(self.slab, 'celldrive')
+        self.onfini(self.drive.fini)
+
+    async def addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
+
+        iden = info.get('iden')
+        if iden is None:
+            info['iden'] = s_common.guid()
+
+        info.setdefault('created', s_common.now())
+        info.setdefault('creator', self.auth.rootuser.iden)
+
+        return await self._push('drive:add', info, path=path, reldir=reldir)
+
+    @s_nexus.Pusher.onPush('drive:add')
+    async def _addDriveItem(self, info, path=None, reldir=s_drive.rootdir):
+
+        # replay safety...
+        iden = info.get('iden')
+        if self.drive.hasItemInfo(iden): # pragma: no cover
+            return await self.drive.getItemPath(iden)
+
+        return await self.drive.addItemInfo(info, path=path, reldir=reldir)
+
+    async def getDriveInfo(self, iden):
+        return self.drive.getItemInfo(iden)
+
+    async def getDrivePath(self, path, reldir=s_drive.rootdir):
+        '''
+        Return a list of drive info elements for each step in path.
+
+        This may be used as a sort of "open" which returns all the
+        path info entries. You may then operate directly on drive iden
+        entries and/or check easyperm entries on them before you do...
+        '''
+        return await self.drive.getPathInfo(path, reldir=reldir)
+
+    async def addDrivePath(self, path, perm=None, reldir=s_drive.rootdir):
+        '''
+        Create the given path using the specified permissions.
+
+        The specified permissions are only used when creating new directories.
+
+        NOTE: We must do this outside the Drive class to allow us to generate
+              iden and tick but remain nexus compatible.
+        '''
+        tick = s_common.now()
+        user = self.auth.rootuser.iden
+        path = self.drive.getPathNorm(path)
+
+        if perm is None:
+            perm = {'users': {}, 'roles': {}}
+
+        for name in path:
+
+            info = self.drive.getStepInfo(reldir, name)
+            await asyncio.sleep(0)
+
+            if info is not None:
+                reldir = info.get('iden')
+                continue
+
+            info = {
+                'name': name,
+                'perm': perm,
+                'iden': s_common.guid(),
+                'created': tick,
+                'creator': user,
+            }
+            pathinfo = await self.addDriveItem(info, reldir=reldir)
+            reldir = pathinfo[-1].get('iden')
+
+        return await self.drive.getItemPath(reldir)
+
+    async def getDriveData(self, iden, vers=None):
+        '''
+        Return the data associated with the drive item by iden.
+        If vers is specified, return that specific version.
+        '''
+        return self.drive.getItemData(iden, vers=vers)
+
+    async def getDriveDataVersions(self, iden):
+        async for item in self.drive.getItemDataVersions(iden):
+            yield item
+
+    @s_nexus.Pusher.onPushAuto('drive:del')
+    async def delDriveInfo(self, iden):
+        if self.drive.getItemInfo(iden) is not None:
+            await self.drive.delItemInfo(iden)
+
+    @s_nexus.Pusher.onPushAuto('drive:set:perm')
+    async def setDriveInfoPerm(self, iden, perm):
+        return self.drive.setItemPerm(iden, perm)
+
+    @s_nexus.Pusher.onPushAuto('drive:set:path')
+    async def setDriveInfoPath(self, iden, path):
+
+        path = self.drive.getPathNorm(path)
+        pathinfo = await self.drive.getItemPath(iden)
+        if path == [p.get('name') for p in pathinfo]:
+            return pathinfo
+
+        return await self.drive.setItemPath(iden, path)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:set')
+    async def setDriveData(self, iden, versinfo, data):
+        return self.drive.setItemData(iden, versinfo, data)
+
+    async def delDriveData(self, iden, vers=None):
+        if vers is None:
+            info = self.drive.reqItemInfo(iden)
+            vers = info.get('version')
+        return await self._push('drive:data:del', iden, vers)
+
+    @s_nexus.Pusher.onPush('drive:data:del')
+    async def _delDriveData(self, iden, vers):
+        return self.drive.delItemData(iden, vers)
+
+    async def getDriveKids(self, iden):
+        async for info in self.drive.getItemKids(iden):
+            yield info
 
     async def initServiceStorage(self):
         pass
@@ -4456,18 +4582,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sslctx.check_hostname = False
             sslctx.verify_mode = ssl.CERT_NONE
 
-        if not opts['client_cert']:
-            return sslctx
-
-        client_cert = opts['client_cert'].encode()
-
-        if opts['client_key']:
-            client_key = opts['client_key'].encode()
-        else:
-            client_key = None
-            client_key_path = None
-
+        # crypto functions require reading certs/keys from disk so make a temp dir
+        # to save any certs/keys to disk so they can be read.
         with self.getTempDir() as tmpdir:
+            if opts.get('ca_cert'):
+                ca_cert = opts.get('ca_cert').encode()
+                with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
+                    fh.write(ca_cert)
+                try:
+                    sslctx.load_verify_locations(cafile=fh.name)
+                except Exception as e:  # pragma: no cover
+                    raise s_exc.BadArg(mesg=f'Error loading CA cert: {str(e)}') from None
+
+            if not opts['client_cert']:
+                return sslctx
+
+            client_cert = opts['client_cert'].encode()
+
+            if opts['client_key']:
+                client_key = opts['client_key'].encode()
+            else:
+                client_key = None
+                client_key_path = None
 
             with tempfile.NamedTemporaryFile(dir=tmpdir, mode='wb', delete=False) as fh:
                 fh.write(client_cert)

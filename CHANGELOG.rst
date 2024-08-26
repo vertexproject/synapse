@@ -6,6 +6,57 @@
 Synapse Changelog
 *****************
 
+v2.179.0 - 2024-08-23
+=====================
+
+Model Changes
+-------------
+- Update ``pe:langid`` to include all language IDs and tags from MS-LCID.
+  (`#3851 <https://github.com/vertexproject/synapse/pull/3851>`_)
+- Add additional fields to ``it:sec:stix:indicator``.
+  (`#3858 <https://github.com/vertexproject/synapse/pull/3858>`_)
+- Add ``geo:telem:node`` property to more directly track where a node has been.
+  (`#3864 <https://github.com/vertexproject/synapse/pull/3864>`_)
+- Add DNS reply code enumeration values to ``inet:dns:request:reply:code``.
+  (`#3868 <https://github.com/vertexproject/synapse/pull/3868>`_)
+- See :ref:`userguide_model_v2_179_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Add support for a ``ca_cert`` key to ``$ssl_opts`` on Storm APIs. This can be
+  used to provide a CA chain for a specific HTTP API call.
+  (`#3849 <https://github.com/vertexproject/synapse/pull/3849>`_)
+- Optimize pivot behavior in Storm to avoid unnecessarily re-normalizing
+  values.
+  (`#3853 <https://github.com/vertexproject/synapse/pull/3853>`_)
+- Added ``force`` option to extended property delete APIs to automatically
+  remove data.
+  (`#3863 <https://github.com/vertexproject/synapse/pull/3863>`_)
+
+Bugfixes
+--------
+- Fix a bug where trigger name and doc updates set via ``syn:trigger`` nodes
+  did not persist.
+  (`#3848 <https://github.com/vertexproject/synapse/pull/3848>`_)
+- Fix an issue that prevented removing permissions from vaults.
+  (`#3865 <https://github.com/vertexproject/synapse/pull/3865>`_)
+- Fix an issue that prevented the old name reference from being removed when a
+  vault is renamed.
+  (`#3865 <https://github.com/vertexproject/synapse/pull/3865>`_)
+- When generating the AHA provisioning URL, the AHA service now binds to
+  0.0.0.0 instead of the ``dns:name`` configuration value.
+  (`#3866 <https://github.com/vertexproject/synapse/pull/3866>`_)
+- Catch additional Python exceptions which could be raised by malformed input
+  to ``$lib.stix.import.ingest()`` and raise ``BadArg`` instead.
+  (`#3867 <https://github.com/vertexproject/synapse/pull/3867>`_)
+- Catch Python ``TypeError`` exceptions in ``$lib.math.number()`` and raise
+  ``BadCast`` exceptions.
+  (`#3871 <https://github.com/vertexproject/synapse/pull/3871>`_)
+
+Deprecations
+------------
+- Deprecate the ``$tag`` variable in triggers in favor of ``$auto.opts.tag``
+  (`#3854 <https://github.com/vertexproject/synapse/pull/3854>`_)
 
 v2.178.0 - 2024-08-09
 =====================

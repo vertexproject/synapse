@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.grammar as s_grammar
 
 import synapse.lib.stormtypes as s_stormtypes
@@ -54,6 +55,8 @@ class LibModelExt(s_stormtypes.Lib):
                   'args': (
                       {'name': 'formname', 'type': 'str', 'desc': 'The form with the extended property.', },
                       {'name': 'propname', 'type': 'str', 'desc': 'The extended property to remove.', },
+                      {'name': 'force', 'type': 'boolean', 'default': False,
+                       'desc': 'Delete the property from all nodes before removing the definition.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delUnivProp',
@@ -61,12 +64,16 @@ class LibModelExt(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': 'delUnivProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'Name of the universal property to remove.', },
+                      {'name': 'force', 'type': 'boolean', 'default': False,
+                       'desc': 'Delete the property from all nodes before removing the definition.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delTagProp', 'desc': 'Remove an extended tag property definition from the model.',
          'type': {'type': 'function', '_funcname': 'delTagProp',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'Name of the tag property to remove.', },
+                      {'name': 'force', 'type': 'boolean', 'default': False,
+                       'desc': 'Delete the tag property from all nodes before removing the definition.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'getExtModel', 'desc': 'Get all extended model elements.',
@@ -163,20 +170,39 @@ class LibModelExt(s_stormtypes.Lib):
         s_stormtypes.confirm(('model', 'form', 'del', formname))
         await self.runt.view.core.delForm(formname)
 
-    async def delFormProp(self, formname, propname):
+    async def delFormProp(self, formname, propname, force=False):
         formname = await s_stormtypes.tostr(formname)
         propname = await s_stormtypes.tostr(propname)
+        force = await s_stormtypes.tobool(force)
         s_stormtypes.confirm(('model', 'prop', 'del', formname))
+
+        if force is True:
+            meta = {'user': self.runt.user.iden, 'time': s_common.now()}
+            await self.runt.view.core._delAllFormProp(formname, propname, meta)
+
         await self.runt.view.core.delFormProp(formname, propname)
 
-    async def delUnivProp(self, propname):
+    async def delUnivProp(self, propname, force=False):
         propname = await s_stormtypes.tostr(propname)
+        force = await s_stormtypes.tobool(force)
         s_stormtypes.confirm(('model', 'univ', 'del'))
+
+        if force:
+            meta = {'user': self.runt.user.iden, 'time': s_common.now()}
+            await self.runt.view.core._delAllUnivProp(propname, meta)
+
         await self.runt.view.core.delUnivProp(propname)
 
-    async def delTagProp(self, propname):
+    async def delTagProp(self, propname, force=False):
         propname = await s_stormtypes.tostr(propname)
+        force = await s_stormtypes.tobool(force)
+
         s_stormtypes.confirm(('model', 'tagprop', 'del'))
+
+        if force:
+            meta = {'user': self.runt.user.iden, 'time': s_common.now()}
+            await self.runt.view.core._delAllTagProp(propname, meta)
+
         await self.runt.view.core.delTagProp(propname)
 
     @s_stormtypes.stormfunc(readonly=True)

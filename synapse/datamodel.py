@@ -31,6 +31,7 @@ class TagProp:
         self.info = info
         self.tdef = tdef
         self.model = model
+        self.locked = False
 
         self.utf8 = name.encode()
         self.nenc = name.encode() + b'\x00'
@@ -452,6 +453,7 @@ class Model:
         self.modeldefs = []
 
         self.univs = {}
+        self.allunivs = collections.defaultdict(list)
 
         self.propsbytype = collections.defaultdict(dict)  # name: Prop()
         self.arraysbytype = collections.defaultdict(dict)
@@ -601,6 +603,30 @@ class Model:
             forms.sort()
             self.formprefixcache[prefix] = forms
         return forms
+
+    def reqProp(self, name):
+        prop = self.prop(name)
+        if prop is not None:
+            return prop
+
+        mesg = f'No property named {name}.'
+        raise s_exc.NoSuchProp(mesg=mesg, name=name)
+
+    def reqUniv(self, name):
+        prop = self.univ(name)
+        if prop is not None:
+            return prop
+
+        mesg = f'No universal property named {name}.'
+        raise s_exc.NoSuchUniv(mesg=mesg, name=name)
+
+    def reqTagProp(self, name):
+        prop = self.getTagProp(name)
+        if prop is not None:
+            return prop
+
+        mesg = f'No tag property named {name}.'
+        raise s_exc.NoSuchTagProp(mesg=mesg, name=name)
 
     def reqFormsByPrefix(self, prefix, extra=None):
         forms = self.getFormsByPrefix(prefix)
@@ -947,12 +973,17 @@ class Model:
 
     def _addFormUniv(self, form, name, tdef, info):
 
+        univ = self.reqUniv(name)
+
         prop = Prop(self, form, name, tdef, info)
+        prop.locked = univ.locked
 
         full = f'{form.name}{name}'
 
         self.props[full] = prop
         self.props[(form.name, name)] = prop
+
+        self.allunivs[name].append(prop)
 
     def addUnivProp(self, name, tdef, info):
 
@@ -967,8 +998,13 @@ class Model:
         self.props[base] = univ
         self.univs[base] = univ
 
+        self.allunivs[base].append(univ)
+
         for form in self.forms.values():
-            self._addFormUniv(form, base, tdef, info)
+            prop = self._addFormUniv(form, base, tdef, info)
+
+    def getAllUnivs(self, name):
+        return list(self.allunivs.get(name, ()))
 
     def addFormProp(self, formname, propname, tdef, info):
         form = self.forms.get(formname)
@@ -1072,6 +1108,7 @@ class Model:
             raise s_exc.NoSuchUniv(name=propname)
 
         self.univs.pop(univname, None)
+        self.allunivs.pop(univname, None)
 
         for form in self.forms.values():
             self.delFormProp(form.name, univname)

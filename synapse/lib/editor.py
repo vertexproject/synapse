@@ -581,6 +581,9 @@ class ProtoNode(s_node.NodeBase):
         if prop is None:
             raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.')
 
+        if prop.locked:
+            raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.')
+
         norm, info = prop.type.norm(valu)
 
         curv = self.getTagProp(tagnode.valu, name)

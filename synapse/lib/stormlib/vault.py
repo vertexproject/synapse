@@ -649,7 +649,7 @@ class Vault(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methSetPerm',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The user or role to modify.'},
-                      {'name': 'level', 'type': 'str', 'desc': 'The easyperm level for the iden. $lib.undef to remove an existing permission.'},
+                      {'name': 'level', 'type': 'str', 'desc': 'The easyperm level for the iden. $lib.null to remove an existing permission.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': '$lib.true if the permission was set, $lib.false otherwise.', }}},
 
@@ -744,7 +744,7 @@ class Vault(s_stormtypes.Prim):
         s_stormtypes.confirmEasyPerm(vault, s_cell.PERM_ADMIN, mesg=mesg)
 
         iden = await s_stormtypes.tostr(iden)
-        level = await s_stormtypes.toint(level)
+        level = await s_stormtypes.toint(level, noneok=True)
 
         return await self.runt.view.core.setVaultPerm(self.valu, iden, level)
 
