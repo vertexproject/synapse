@@ -1,0 +1,6 @@
+---
+desc: Include detailed link traversal information from the Storm runtime when the ``link`` option is set.
+prs:
+- 3862
+type: feat
+...
