@@ -1253,6 +1253,7 @@ class LayerTest(s_t_utils.SynTest):
 
             layr = core.getLayer()
             self.isin(f'Layer (Layer): {layr.iden}', str(layr))
+            self.true(layr.layrslab.lenv.flags()['readahead'])
 
             nodes = await core.nodes('[test:str=foo .seen=(2015, 2016)]')
             buid = nodes[0].buid
@@ -1280,6 +1281,11 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes('test:str=data | delnode')
 
             self.len(0, list(layr.dataslab.scanByDups(abrv, db=layr.dataname)))
+
+        with self.setTstEnvars(SYN_LAYER_READAHEAD='false'):
+            async with self.getTestCore() as core:
+                layr = core.getLayer()
+                self.false(layr.layrslab.lenv.flags()['readahead'])
 
     async def test_layer_waitForHot(self):
         self.thisHostMust(hasmemlocking=True)

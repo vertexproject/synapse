@@ -1431,6 +1431,8 @@ class Layer(s_nexus.Pusher):
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
 
+        self.layerra = s_common.envbool('SYN_LAYER_READAHEAD', 'true')
+
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
         self.nodeDelHook = None
@@ -2723,7 +2725,7 @@ class Layer(s_nexus.Pusher):
     async def _initLayerStorage(self):
 
         slabopts = {
-            'readahead': True,
+            'readahead': self.layerra,
             'lockmemory': self.lockmemory,
         }
 
