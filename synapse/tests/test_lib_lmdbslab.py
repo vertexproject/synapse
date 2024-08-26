@@ -120,6 +120,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
             slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
 
             self.false(slab.lenv.flags()['readahead'])
+            slabstats = await s_lmdbslab.Slab.getSlabStats()
+            self.true(all(stat['lenvflags']['readahead'] is False for stat in slabstats))
 
             slabs = slab.getSlabsInDir(dirn)
             self.eq(slabs, [slab])

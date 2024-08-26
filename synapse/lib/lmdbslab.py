@@ -839,7 +839,7 @@ class Slab(s_base.Base):
                 'maxsize': slab.maxsize,
                 'growsize': slab.growsize,
                 'mapasync': True,
-
+                'lenvflags': slab.lenv.flags(),
             })
         return retn
 
