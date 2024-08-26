@@ -39,6 +39,20 @@ async def agen(item):
     for x in item:
         yield x
 
+async def chunks(genr, size=100):
+
+    retn = []
+    async for item in genr:
+
+        retn.append(item)
+
+        if len(retn) == size:
+            yield retn
+            retn = []
+
+    if retn:
+        yield retn
+
 async def pause(genr, iterations=10):
     idx = 0
 

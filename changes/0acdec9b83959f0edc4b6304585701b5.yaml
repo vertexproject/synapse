@@ -1,6 +1,0 @@
----
-desc: Update ``pe:langid`` to include all language IDs and tags from MS-LCID.
-prs:
-- 3851
-type: model
-...

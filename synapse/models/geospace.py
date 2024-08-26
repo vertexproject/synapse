@@ -443,7 +443,7 @@ class GeoModule(s_module.CoreModule):
                 'edges': (
                     ((None, 'seenat', 'geo:telem'), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use geo:telem:node.'}),
+                        'doc': 'Deprecated. Please use ``geo:telem:node``.'}),
                     (('geo:place', 'contains', 'geo:place'), {
                         'doc': 'The source place completely contains the target place.'}),
                 ),

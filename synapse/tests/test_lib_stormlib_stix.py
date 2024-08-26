@@ -410,6 +410,21 @@ class StormLibStixTest(s_test.SynTest):
             self.len(1, [n for n in nodes if n[0][0] == 'it:cmd'])
             self.stormIsInWarn("STIX bundle ingest has no relationship definition for: ('threat-actor', 'gronks', 'threat-actor')", msgs)
 
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), newp)')
+            self.stormIsInErr('config must be a dictionary', msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), ({"relationships": 5}))')
+            self.stormIsInErr('Error processing relationships', msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), ({"bundle": 3}))')
+            self.stormIsInErr('bundle value must be a dictionary', msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), ({"bundle": {"storm": 3}}))')
+            self.stormIsInErr('storm query must be a string', msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({"objects": 3}), ({}))')
+            self.stormIsInErr('Error processing objects', msgs)
+
     async def test_stix_export_custom(self):
 
         async with self.getTestCore() as core:
