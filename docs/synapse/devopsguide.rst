@@ -477,7 +477,7 @@ databases during boot to recover free space and increase performance. Depending 
 the amount of activity since the last time the databases were optimized, this process
 may take a significant amount of time. To reduce downtime during this process,
 deployments with mirrors are encouraged to use a strategy like that described in
-:ref:`devops-low-downtime-updates` to first optimize a mirror, then promote that mirror
+:ref:`devops-task-low-downtime-updates` to first optimize a mirror, then promote that mirror
 to being the leader and optimizing the old service leader.
 
 After the optimization process is completed, the ``onboot:optimize`` option can be set
