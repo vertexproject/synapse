@@ -316,6 +316,10 @@ class ProtoNode:
             mesg = f'Tagprop {name} does not exist in this Cortex.'
             return await self.ctx.snap._raiseOnStrict(s_exc.NoSuchTagProp, mesg)
 
+        if prop.locked:
+            mesg = f'Tagprop {name} is locked.'
+            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+
         try:
             norm, info = prop.type.norm(valu)
         except s_exc.BadTypeValu as e:

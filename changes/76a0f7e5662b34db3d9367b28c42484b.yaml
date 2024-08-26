@@ -1,6 +1,0 @@
----
-desc: Add ``geo:telem:node`` property to more directly track where a node has been.
-prs:
-- 3864
-type: model
-...
