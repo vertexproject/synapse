@@ -1956,10 +1956,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The label that was applied to the issue.'}),
 
                     ('applied', ('time', {}), {
-                        'doc': 'The time the label was applied.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
 
                     ('removed', ('time', {}), {
-                        'doc': 'The time the label was removed.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
 
                 )),
 
@@ -1978,7 +1980,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL where the comment is hosted.',
                     }),
                     ('created', ('time', {}), {
-                        'doc': 'The time the comment was created.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.',
                     }),
                     ('updated', ('time', {}), {
                         'doc': 'The time the comment was updated.',
