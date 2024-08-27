@@ -2229,7 +2229,7 @@ class LayerTest(s_t_utils.SynTest):
             self.false(layr.dataslab.readahead)
             self.false(layr.dataslab.lenv.flags()['readahead'])
 
-            with self.setTstEnvars(SYN_CORTEX_LAYER_READAHEAD_DISABLE='true'):
+            with self.setTstEnvars(SYNDEV_CORTEX_LAYER_READAHEAD='false'):
                 iden = await core.callStorm('return($lib.layer.add().iden)')
                 layr = core.getLayer(iden)
                 self.false(layr.layrslab.readahead)
