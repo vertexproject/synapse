@@ -108,7 +108,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ pol:candidate=*
-                    :id=P00009423
+                    :id=" P00009423"
                     :race={pol:race}
                     :contact={[ps:contact=* :name=whippit]}
                     :winner=$lib.true

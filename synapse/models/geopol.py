@@ -176,7 +176,7 @@ class PolModule(s_module.CoreModule):
                             'doc': 'The political party of the person who held office during the term.'}),
                     )),
                     ('pol:candidate', {}, (
-                        ('id', ('str', {}), {
+                        ('id', ('str', {'strip': True}), {
                             'doc': 'A unique ID for the candidate issued by an election authority.'}),
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The contact information of the candidate.'}),
