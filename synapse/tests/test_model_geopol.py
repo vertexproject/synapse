@@ -108,6 +108,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ pol:candidate=*
+                    :id=P00009423
                     :race={pol:race}
                     :contact={[ps:contact=* :name=whippit]}
                     :winner=$lib.true
@@ -116,6 +117,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.eq(1, nodes[0].get('winner'))
+            self.eq('P00009423', nodes[0].get('id'))
             self.len(1, await core.nodes('pol:candidate -> pol:race'))
             self.len(1, await core.nodes('pol:candidate -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('pol:candidate -> ps:contact +:name=whippit'))
