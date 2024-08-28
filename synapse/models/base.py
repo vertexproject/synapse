@@ -42,17 +42,21 @@ class BaseModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'An analyst note type taxonomy.'}),
 
+                ('meta:source:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A source type taxonomy.'}),
+
                 ('meta:timeline', ('guid', {}), {
                     'doc': 'A curated timeline of analytically relevant events.'}),
 
-                ('meta:timeline:taxonomy', ('taxonomy', {}), {
+                ('meta:timeline:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of timeline types for meta:timeline nodes.'}),
 
                 ('meta:event', ('guid', {}), {
                     'doc': 'An analytically relevant event in a curated timeline.'}),
 
-                ('meta:event:taxonomy', ('taxonomy', {}), {
+                ('meta:event:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of event types for meta:event nodes.'}),
 
@@ -125,14 +129,14 @@ class BaseModule(s_module.CoreModule):
             ),
             'forms': (
 
+                ('meta:source:type:taxonomy', {}, ()),
                 ('meta:source', {}, (
 
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A human friendly name for the source.'}),
 
-                    # TODO - 3.0 move to taxonomy type
-                    ('type', ('str', {'lower': True}), {
-                        'doc': 'An optional type field used to group sources.'}),
+                    ('type', ('meta:source:type:taxonomy', {'lower': True}), {
+                        'doc': 'The type of source.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the meta source.'}),
@@ -181,11 +185,11 @@ class BaseModule(s_module.CoreModule):
                     ('summary', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A prose summary of the timeline.'}),
-                    ('type', ('meta:timeline:taxonomy', {}), {
+                    ('type', ('meta:timeline:type:taxonomy', {}), {
                         'doc': 'The type of timeline.'}),
                 )),
 
-                ('meta:timeline:taxonomy', {}, ()),
+                ('meta:timeline:type:taxonomy', {}, ()),
 
                 ('meta:event', {}, (
 
@@ -208,11 +212,11 @@ class BaseModule(s_module.CoreModule):
                     ('duration', ('duration', {}), {
                         'doc': 'The duration of the event.'}),
 
-                    ('type', ('meta:event:taxonomy', {}), {
+                    ('type', ('meta:event:type:taxonomy', {}), {
                         'doc': 'Type of event.'}),
                 )),
 
-                ('meta:event:taxonomy', {}, ()),
+                ('meta:event:type:taxonomy', {}, ()),
 
                 ('meta:ruleset', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {

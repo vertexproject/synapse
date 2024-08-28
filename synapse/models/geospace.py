@@ -409,7 +409,7 @@ class GeoModule(s_module.CoreModule):
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
 
-                    ('geo:place:taxonomy', ('taxonomy', {}), {
+                    ('geo:place:type:taxonomy', ('taxonomy', {}), {
                         'doc': 'A taxonomy of place types.',
                         'interfaces': ('meta:taxonomy',),
                     }),
