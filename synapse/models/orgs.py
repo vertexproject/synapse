@@ -46,15 +46,15 @@ class OuModule(s_module.CoreModule):
                     }}),
 
                 ('ou:org:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'An org type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of organization types.',
                 }),
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
                 }),
                 ('ou:contract:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A contract type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of contract types.',
                 }),
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
@@ -66,7 +66,7 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An industry type taxonomy.',
+                    'doc': 'A hierarchical taxonomy of industry types.',
                 }),
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
@@ -164,11 +164,11 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:goal:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of goal types.',
+                    'doc': 'A hierarchical taxonomy of goal types.',
                 }),
                 ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'An campaign type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of campaign types.',
                 }),
                 ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A campaign name.'}),
@@ -202,7 +202,7 @@ class OuModule(s_module.CoreModule):
 
                 ('ou:technique:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A technqiue type taxonomy.',
+                    'doc': 'A hierarchical taxonomy of technique types.',
                 }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
@@ -227,13 +227,14 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:job:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
-                    'doc': 'A taxonomy of job types.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of job types.',
                 }),
+                # FIXME ou:employment:status:taxonomy? ou:employment:status:type:taxonomy?
                 ('ou:employment:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'fulltime.salary',
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An employment type taxonomy.',
+                    'doc': 'A hierarchical taxonomy of employment types.',
                 }),
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',

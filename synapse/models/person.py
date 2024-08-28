@@ -54,7 +54,7 @@ class PsModule(s_module.CoreModule):
 
                 ('ps:contact:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of contact types.',
+                    'doc': 'A hierarchical taxonomy of contact types.',
                 }),
                 ('ps:contactlist', ('guid', {}), {
                     'doc': 'A GUID for a list of associated contacts.',
@@ -76,7 +76,7 @@ class PsModule(s_module.CoreModule):
 
                 ('ps:skill:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of skill types.'}),
+                    'doc': 'A hierarchical taxonomy of skill types.'}),
 
                 ('ps:proficiency', ('guid', {}), {
                     'doc': 'The assessment that a given contact possesses a specific skill.',

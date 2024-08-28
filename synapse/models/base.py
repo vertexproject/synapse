@@ -40,32 +40,32 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:note:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An analyst note type taxonomy.'}),
+                    'doc': 'A hierarchical taxonomy of note types.'}),
 
                 ('meta:source:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A source type taxonomy.'}),
+                    'doc': 'A hierarchical taxonomy of source types.'}),
 
                 ('meta:timeline', ('guid', {}), {
                     'doc': 'A curated timeline of analytically relevant events.'}),
 
                 ('meta:timeline:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of timeline types for meta:timeline nodes.'}),
+                    'doc': 'A hierarchical taxonomy of timeline types.'}),
 
                 ('meta:event', ('guid', {}), {
                     'doc': 'An analytically relevant event in a curated timeline.'}),
 
                 ('meta:event:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of event types for meta:event nodes.'}),
+                    'doc': 'A hierarchical taxonomy of event types.'}),
 
                 ('meta:ruleset', ('guid', {}), {
                     'doc': 'A set of rules linked with -(has)> edges.'}),
 
                 ('meta:rule:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy for meta:rule types.'}),
+                    'doc': 'A hierarchical taxonomy of rule types.'}),
 
                 ('meta:rule', ('guid', {}), {
                     'doc': 'A generic rule linked to matches with -(matches)> edges.'}),

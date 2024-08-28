@@ -19,7 +19,7 @@ class MediaModule(s_module.CoreModule):
                     'ex': 'cnn.com',
                     'doc': 'The FQDN within the news URL.'}),
 
-                ('type', ('media:news:taxonomy', {}), {
+                ('type', ('media:news:type:taxonomy', {}), {
                     'doc': 'A taxonomy for the type of reporting or news.'}),
 
                 ('file', ('file:bytes', {}), {
@@ -81,9 +81,9 @@ class MediaModule(s_module.CoreModule):
             ('media:news', ('guid', {}), {
                 'doc': 'A GUID for a news article or report.'}),
 
-            ('media:news:taxonomy', ('taxonomy', {}), {
-                'doc': 'A taxonomy of types or sources of news.',
+            ('media:news:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
+                'doc': 'A hierarchical taxonomy of news types.',
             }),
 
             ('media:topic', ('str', {'lower': True, 'onespace': True}), {

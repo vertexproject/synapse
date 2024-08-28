@@ -33,9 +33,9 @@ class MatModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('mat:item', ('guid', {}), {'doc': 'A GUID assigned to a material object.'}),
-                ('mat:type', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of material item/specification types.',
+                ('mat:item:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of material object or specification types.',
                 }),
                 ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
                 ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),

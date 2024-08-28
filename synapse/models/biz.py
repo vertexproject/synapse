@@ -30,19 +30,19 @@ class BizModule(s_module.CoreModule):
                     'doc': 'A service which is performed by a specific organization.',
                 }),
                 ('biz:service:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of service offering types.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of service types.',
                 }),
-                ('biz:dealstatus', ('taxonomy', {}), {
-                    'doc': 'A deal/rfp status taxonomy.',
+                ('biz:deal:status:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of deal status values.',
                 }),
                 ('biz:dealtype', ('taxonomy', {}), {
-                    'doc': 'A deal type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of deal types.',
                 }),
-                ('biz:prodtype', ('taxonomy', {}), {
-                    'doc': 'A product type taxonomy.',
+                ('biz:product:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A hierarchical taxonomy of product types.',
                     'interfaces': ('meta:taxonomy',),
                 }),
             ),
