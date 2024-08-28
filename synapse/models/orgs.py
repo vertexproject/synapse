@@ -230,11 +230,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A taxonomy of job types.',
                     'interfaces': ('meta:taxonomy',),
                 }),
-                # FIXME
-                ('ou:employment', ('taxonomy', {}), {
+                ('ou:employment:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'fulltime.salary',
-                    'doc': 'An employment type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'An employment type taxonomy.',
                 }),
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
@@ -266,11 +265,9 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The organization owns or owned the target node.'}),
             ),
             'forms': (
-                # FIXME
-                ('ou:jobtype', {}, ()),
+                ('ou:job:type:taxonomy', {}, ()),
                 ('ou:jobtitle', {}, ()),
-                # FIXME
-                ('ou:employment', {}, ()),
+                ('ou:employment:type:taxonomy', {}, ()),
                 ('ou:opening', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which has the opening.',
@@ -296,10 +293,10 @@ class OuModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical boundary of the opening.',
                     }),
-                    ('jobtype', ('ou:jobtype', {}), {
+                    ('job:type', ('ou:job:type:taxonomy', {}), {
                         'doc': 'The job type taxonomy.',
                     }),
-                    ('employment', ('ou:employment', {}), {
+                    ('employment:type', ('ou:employment:type:taxonomy', {}), {
                         'doc': 'The type of employment.',
                     }),
                     ('jobtitle', ('ou:jobtitle', {}), {
