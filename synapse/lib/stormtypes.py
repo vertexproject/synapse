@@ -5854,6 +5854,7 @@ class Node(Prim):
 
     def getObjLocals(self):
         return {
+            '_nid': self.valu.nid,
             'form': self._methNodeForm,
             'iden': self._methNodeIden,
             'ndef': self._methNodeNdef,
