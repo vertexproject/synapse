@@ -2347,3 +2347,25 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('risk:vulnerable:node*form=newp')
+
+    async def test_layer_readahead(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            self.true(layr.layrslab.readahead)
+            self.true(layr.layrslab.lenv.flags()['readahead'])
+            self.false(layr.nodeeditslab.readahead)
+            self.false(layr.nodeeditslab.lenv.flags()['readahead'])
+            self.false(layr.dataslab.readahead)
+            self.false(layr.dataslab.lenv.flags()['readahead'])
+
+            with self.setTstEnvars(SYNDEV_CORTEX_LAYER_READAHEAD='false'):
+                iden = await core.callStorm('return($lib.layer.add().iden)')
+                layr = core.getLayer(iden)
+                self.false(layr.layrslab.readahead)
+                self.false(layr.layrslab.lenv.flags()['readahead'])
+                self.false(layr.nodeeditslab.readahead)
+                self.false(layr.nodeeditslab.lenv.flags()['readahead'])
+                self.false(layr.dataslab.readahead)
+                self.false(layr.dataslab.lenv.flags()['readahead'])

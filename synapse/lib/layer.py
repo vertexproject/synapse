@@ -2203,7 +2203,7 @@ class Layer(s_nexus.Pusher):
     async def _initLayerStorage(self):
 
         slabopts = {
-            'readahead': True,
+            'readahead': s_common.envbool('SYNDEV_CORTEX_LAYER_READAHEAD', 'true'),
             'lockmemory': self.lockmemory,
         }
 
