@@ -316,6 +316,10 @@ class ProtoNode:
             mesg = f'Tagprop {name} does not exist in this Cortex.'
             return await self.ctx.snap._raiseOnStrict(s_exc.NoSuchTagProp, mesg)
 
+        if prop.locked:
+            mesg = f'Tagprop {name} is locked.'
+            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+
         try:
             norm, info = prop.type.norm(valu)
         except s_exc.BadTypeValu as e:
@@ -732,6 +736,7 @@ class Snap(s_base.Base):
 
         dorepr = False
         dopath = False
+        dolink = False
 
         show_storage = False
 
@@ -750,12 +755,16 @@ class Snap(s_base.Base):
         if opts is not None:
             dorepr = opts.get('repr', False)
             dopath = opts.get('path', False)
+            dolink = opts.get('links', False)
             show_storage = opts.get('show:storage', False)
 
         async for node, path in self.storm(text, opts=opts, user=user):
 
             pode = node.pack(dorepr=dorepr)
             pode[1]['path'] = await path.pack(path=dopath)
+
+            if dolink:
+                pode[1]['links'] = path.links
 
             if show_storage:
                 pode[1]['storage'] = await node.getStorNodes()
@@ -1608,18 +1617,28 @@ class Snap(s_base.Base):
             last = verb
             yield verb
 
-    async def getNdefRefs(self, buid):
-        last = None
-        gens = [layr.getNdefRefs(buid) for layr in self.layers]
+    async def _getLayrNdefProp(self, layr, buid):
+        async for refsbuid, refsabrv in layr.getNdefRefs(buid):
+            yield refsbuid, layr.getAbrvProp(refsabrv)
 
-        async for refsbuid, _ in s_common.merggenr2(gens):
+    async def getNdefRefs(self, buid, props=False):
+        last = None
+        if props:
+            gens = [self._getLayrNdefProp(layr, buid) for layr in self.layers]
+        else:
+            gens = [layr.getNdefRefs(buid) for layr in self.layers]
+
+        async for refsbuid, xtra in s_common.merggenr2(gens):
             if refsbuid == last:
                 continue
 
             await asyncio.sleep(0)
             last = refsbuid
 
-            yield refsbuid
+            if props:
+                yield refsbuid, xtra[1]
+            else:
+                yield refsbuid
 
     async def hasNodeData(self, buid, name):
         '''

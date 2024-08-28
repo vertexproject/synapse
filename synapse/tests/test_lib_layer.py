@@ -2216,3 +2216,25 @@ class LayerTest(s_t_utils.SynTest):
 
             self.notin('pulls', dst_tree)
             self.notin('pushs', dst_tree)
+
+    async def test_layer_readahead(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            self.true(layr.layrslab.readahead)
+            self.true(layr.layrslab.lenv.flags()['readahead'])
+            self.false(layr.nodeeditslab.readahead)
+            self.false(layr.nodeeditslab.lenv.flags()['readahead'])
+            self.false(layr.dataslab.readahead)
+            self.false(layr.dataslab.lenv.flags()['readahead'])
+
+            with self.setTstEnvars(SYNDEV_CORTEX_LAYER_READAHEAD='false'):
+                iden = await core.callStorm('return($lib.layer.add().iden)')
+                layr = core.getLayer(iden)
+                self.false(layr.layrslab.readahead)
+                self.false(layr.layrslab.lenv.flags()['readahead'])
+                self.false(layr.nodeeditslab.readahead)
+                self.false(layr.nodeeditslab.lenv.flags()['readahead'])
+                self.false(layr.dataslab.readahead)
+                self.false(layr.dataslab.lenv.flags()['readahead'])

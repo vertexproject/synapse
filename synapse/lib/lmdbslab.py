@@ -834,6 +834,7 @@ class Slab(s_base.Base):
                 'xactops': len(slab.xactops),
                 'mapsize': slab.mapsize,
                 'readonly': slab.readonly,
+                'readahead': slab.readahead,
                 'lockmemory': slab.lockmemory,
                 'recovering': slab.recovering,
                 'maxsize': slab.maxsize,
@@ -889,6 +890,7 @@ class Slab(s_base.Base):
         self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
+        self.readahead = opts.get('readahead', True)
         self.lockmemory = opts.pop('lockmemory', False)
 
         if self.lockmemory:

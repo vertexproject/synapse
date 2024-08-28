@@ -1582,6 +1582,24 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(rule, nodes[0].get('rule'))
             self.eq(0x10000200003, nodes[0].get('version'))
 
+            nodes = await core.nodes('''[
+                (it:app:yara:netmatch=* :node=(inet:fqdn, foo.com))
+                (it:app:yara:netmatch=* :node=(inet:ipv4, 1.2.3.4))
+                (it:app:yara:netmatch=* :node=(inet:ipv6, "::ffff"))
+                (it:app:yara:netmatch=* :node=(inet:url, "http://foo.com"))
+                    :rule=$rule
+                    :version=1.2.3
+            ]''', opts=opts)
+            self.len(4, nodes)
+            for node in nodes:
+                self.nn(node.get('node'))
+                self.nn(node.get('version'))
+
+            self.len(4, await core.nodes('it:app:yara:rule=$rule -> it:app:yara:netmatch', opts=opts))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:app:yara:netmatch=* :node=(it:dev:str, foo)]')
+
     async def test_it_app_snort(self):
 
         async with self.getTestCore() as core:
