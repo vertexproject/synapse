@@ -379,7 +379,7 @@ class TelcoModule(s_module.CoreModule):
                     ('acct', ('inet:web:acct', {}), {}),
 
                     ('account', ('inet:service:account', {}), {
-                        'doc': 'The serivce account which is associated with the tracked device.'}),
+                        'doc': 'The service account which is associated with the tracked device.'}),
 
                     # reporting related data
                     ('app', ('it:prod:softver', {}), {}),
