@@ -76,7 +76,7 @@ class OuModelTest(s_t_utils.SynTest):
                 'goal': goal,
                 'goals': (goal,),
                 'actors': (acto,),
-                'camptype': 'get.pizza',
+                'type': 'get.pizza',
                 'name': 'MyName',
                 'names': ('foo', 'bar', 'Bar'),
                 'type': 'MyType',
@@ -91,7 +91,7 @@ class OuModelTest(s_t_utils.SynTest):
                 'mitre:attack:campaign': 'C0011',
             }
             q = '''[(ou:campaign=$valu :org=$p.org :goal=$p.goal :goals=$p.goals :actors=$p.actors
-            :camptype=$p.camptype :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :success=$p.success
+            :type=$p.type :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :success=$p.success
             :techniques=$p.techniques :sophistication=$p.sophistication :tag=$p.tag
             :reporter=$p.reporter :reporter:name=$p."reporter:name" :timeline=$p.timeline
             :mitre:attack:campaign=$p."mitre:attack:campaign"
@@ -112,7 +112,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('ext:id'), 'Foo')
             self.eq(node.get('success'), 1)
             self.eq(node.get('sophistication'), 40)
-            self.eq(node.get('camptype'), 'get.pizza.')
+            self.eq(node.get('type'), 'get.pizza.')
             self.eq(node.get('techniques'), tuple(sorted(teqs)))
             self.eq(node.get('timeline'), timeline)
             self.nn(node.get('reporter'))

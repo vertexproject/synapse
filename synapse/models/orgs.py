@@ -266,8 +266,10 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The organization owns or owned the target node.'}),
             ),
             'forms': (
+                # FIXME
                 ('ou:jobtype', {}, ()),
                 ('ou:jobtitle', {}, ()),
+                # FIXME
                 ('ou:employment', {}, ()),
                 ('ou:opening', {}, (
                     ('org', ('ou:org', {}), {
