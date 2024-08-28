@@ -1501,10 +1501,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
                         'doc': 'A unique email message header.'}),
 
-                    ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
+                    ('inet:email:message:attachment', ('guid', {}), {
                         'doc': 'A file which was attached to an email message.'}),
 
-                    ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
+                    ('inet:email:message:link', ('guid', {}), {
                         'doc': 'A url/link embedded in an email message.'}),
 
                     ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
@@ -1789,6 +1789,12 @@ class InetModule(s_module.CoreModule):
                         ('flow', ('inet:flow', {}), {
                             'doc': 'The inet:flow which delivered the message.'}),
 
+                        ('links', ('array', {'type': 'inet:email:message:link', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of links embedded in the email message.'}),
+
+                        ('attachments', ('array', {'type': 'inet:email:message:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files attached to the email message.'}),
+
                     )),
 
                     ('inet:email:header', {}, (
@@ -1801,22 +1807,14 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:email:message:attachment', {}, (
-                        ('message', ('inet:email:message', {}), {
-                            'ro': True,
-                            'doc': 'The message containing the attached file.'}),
                         ('file', ('file:bytes', {}), {
-                            'ro': True,
                             'doc': 'The attached file.'}),
                         ('name', ('file:base', {}), {
                             'doc': 'The name of the attached file.'}),
                     )),
 
                     ('inet:email:message:link', {}, (
-                        ('message', ('inet:email:message', {}), {
-                            'ro': True,
-                            'doc': 'The message containing the embedded link.'}),
                         ('url', ('inet:url', {}), {
-                            'ro': True,
                             'doc': 'The url contained within the email message.'}),
                         ('text', ('str', {}), {
                             'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
