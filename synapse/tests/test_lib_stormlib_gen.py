@@ -344,3 +344,16 @@ class StormLibGenTest(s_test.SynTest):
             nodes = await core.nodes('yield $lib.gen.cryptoX509CertBySha256($sha256)', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].repr(), crypto)
+
+    async def test_stormlib_gen_service(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {
+                'vars': {
+                    'name': 'rakuy0',
+                    'plat': 'github',
+                }
+            }
+            nodes = await core.nodes('yield $lib.gen.accountByPlatformAndName($name, $plat)', opts=opts)
+            breakpoint()

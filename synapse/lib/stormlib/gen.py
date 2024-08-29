@@ -164,6 +164,35 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An inet:tls:servercert node with the given server and SHA256.'}}},
+        {'name': 'servicePlatformByName',
+         'desc': '',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': ['str', 'inet:service:platform:name'], 'desc': ''},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': ''}}},
+        {'name': 'accountByPlatformAndName',
+         'desc': '',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': ['str', 'inet:user'], 'desc': ''},
+                      {'name': 'plat', 'type': ['str', 'inet:service:platform:name'], 'desc': ''},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': ''}}},
+        {'name': 'groupByPlatformAndName',
+         'desc': '',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'name', 'type': ['str', 'inet:group'], 'desc': ''},
+                      {'name': 'plat', 'type': ['str', 'inet:service:platform:name'], 'desc': ''},
+                      {'name': 'try', 'type': 'boolean', 'default': False,
+                       'desc': 'Type normalization will fail silently instead of raising an exception.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': ''}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -503,6 +532,45 @@ class LibGen(s_stormtypes.Lib):
             if (not $crypto) { return() }
 
             [ inet:tls:servercert=($server, $crypto) ]
+            return($node)
+        }
+
+        function servicePlatformByName(name, try=$lib.false) {
+            ($ok, $name) = $__maybeCast($try, inet:service:platform:name, $name)
+            if (not $ok) { return() }
+
+            inet:service:platform:name=$name
+            return($node)
+
+            [ inet:service:plaform=(gen, platform, $name) :name=$name ]
+            return($node)
+        }
+
+        function accountByPlatformAndName(name, plat, try=$lib.false) {
+            ($ok, $name) = $__maybeCast($try, inet:user, $name)
+            if (not $ok) { return() }
+
+            //$platform = $servicePlatformByName($plat, try=$try)
+            //if (not $platform) { return() }
+
+            [ inet:service:account=(gen, account, $plat, $name)
+                  :name=$name
+                  :platform=$plat ]
+
+            return($node)
+        }
+
+        function groupByPlatformAndName(name, plat, try=$lib.false) {
+            ($ok, $name) = $__maybeCast($try, inet:group, $name)
+            if (not $ok) { return() }
+
+            //$platform = $servicePlatformByName($plat, try=$try)
+            //if (not $platform) { return() }
+
+            [ inet:service:group=(gen, account, $platform, $name)
+                  :name=$name
+                  :platform=$plat ]
+
             return($node)
         }
     '''
