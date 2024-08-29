@@ -121,8 +121,7 @@ commands:
       - run:
           name: checkout regression repo
           command: |
-            # FIXME: Remove branch before merging
-            git clone https://github.com/vertexproject/synapse-regression -b blackout/model-0.2.27 ~/git/synapse-regression
+            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
       - restore_cache:
           keys:
@@ -604,7 +603,6 @@ workflows:
             branches:
               only:
                 - master
-                - blackout/SYN-7653/it-sec-cpe-migration
 
       - build_docker_tag:
           requires:
