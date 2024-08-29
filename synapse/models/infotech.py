@@ -768,7 +768,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A branch in a version control system instance.',
                 }),
                 ('it:dev:repo:commit', ('guid', {}), {
-                    'interfaces': ('inet:service:action',),
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A commit to a repository.',
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
