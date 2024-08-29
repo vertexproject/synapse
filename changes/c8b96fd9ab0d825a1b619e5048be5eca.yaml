@@ -1,0 +1,5 @@
+---
+desc: Add ``inet:service:account`` properties to forms with ``inet:web:acct`` properties.
+prs: []
+type: model
+...
