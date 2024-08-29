@@ -259,9 +259,7 @@ function migrateCpeNode(oldcpe, newcpe) {
                         // on the array type deep down in the AST. So, instead, we have to operate on the whole array.
 
                         $list = $lib.copy(:$prop)
-                        while $list.has($oldvalu) {
-                            $list.rem($oldvalu)
-                        }
+                        $list.rem($oldvalu, all=$lib.true)
 
                         if (not $list.has($newvalu)) {
                             $list.append($newvalu)
