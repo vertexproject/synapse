@@ -423,7 +423,7 @@ class StormLibStixTest(s_test.SynTest):
             self.stormIsInErr('storm query must be a string', msgs)
 
             msgs = await core.stormlist('yield $lib.stix.import.ingest(({"objects": 3}), ({}))')
-            self.stormIsInErr('Error processing objects', msgs)
+            self.stormIsInErr('data.objects must be array', msgs)
 
     async def test_stix_export_custom(self):
 

@@ -493,3 +493,61 @@ driveDataVersSchema = {
     'additionalProperties': False,
 }
 reqValidDriveDataVers = s_config.getJsValidator(driveDataVersSchema)
+
+stixIngestConfigSchema = {
+    'type': 'object',
+    'properties': {
+        'bundle': {
+            'type': ['object', 'null'],
+            'properties': {'storm': {'type': 'string'}},
+        },
+        'objects': {
+            'type': 'object',
+            'properties': {'storm': {'type': 'string'}},
+        },
+        'relationships': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'type': {
+                        'type': 'array',
+                        'items': {
+                            'type': ['string', 'null'],
+                            'minItems': 3,
+                            'maxItems': 3,
+                        },
+                    },
+                    'storm': {'type': 'string'},
+                },
+                'required': ['type'],
+            },
+        },
+    },
+    'required': ['bundle', 'objects'],
+}
+reqValidStixIngestConfig = s_config.getJsValidator(stixIngestConfigSchema)
+
+stixIngestBundleSchema = {
+    'type': 'object',
+    'properties': {
+        'objects': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'id': {'type': 'string'},
+                    'type': {'type': 'string'},
+                    'object_refs': {'type': 'array', 'items': {'type': 'string'}},
+                    'relationship_type': {'type': 'string'},
+                    'source_ref': {'type': 'string'},
+                    'target_ref': {'type': 'string'},
+                },
+                'required': ['id', 'type'],
+                'if': {'properties': {'type': {'const': 'relationship'}}},
+                'then': {'required': ['source_ref', 'target_ref']},
+            }
+        },
+    },
+}
+reqValidStixIngestBundle = s_config.getJsValidator(stixIngestBundleSchema)
