@@ -355,5 +355,18 @@ class StormLibGenTest(s_test.SynTest):
                     'plat': 'github',
                 }
             }
-            nodes = await core.nodes('yield $lib.gen.accountByPlatformAndName($name, $plat)', opts=opts)
-            breakpoint()
+
+            plat = await core.nodes('yield $lib.gen.servicePlatformByName(github)')
+            self.len(1, plat)
+            plat = plat[0]
+            self.eq(plat.get('name'), 'github')
+
+            nodes = await core.nodes('yield $lib.gen.accountByPlatformAndName(visi, github)', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('user'), 'visi')
+            self.eq(nodes[0].get('platform'), plat.ndef[1])
+
+            nodes = await core.nodes('yield $lib.gen.groupByPlatformAndName(vertexproject, github)')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'vertexproject')
+            self.eq(nodes[0].get('platform'), plat.ndef[1])

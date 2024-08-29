@@ -542,7 +542,7 @@ class LibGen(s_stormtypes.Lib):
             inet:service:platform:name=$name
             return($node)
 
-            [ inet:service:plaform=(gen, platform, $name) :name=$name ]
+            [ inet:service:platform=(gen, platform, $name) :name=$name ]
             return($node)
         }
 
@@ -550,12 +550,15 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $name) = $__maybeCast($try, inet:user, $name)
             if (not $ok) { return() }
 
-            //$platform = $servicePlatformByName($plat, try=$try)
-            //if (not $platform) { return() }
+            $platform = $servicePlatformByName($plat, try=$try)
+            if (not $platform) { return() }
+
+            $guid = $lib.guid(gen, account, $platform, $name)
+            return($node)
 
             [ inet:service:account=(gen, account, $plat, $name)
-                  :name=$name
-                  :platform=$plat ]
+                  :user=$name
+                  :platform=$platform ]
 
             return($node)
         }
@@ -564,12 +567,16 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $name) = $__maybeCast($try, inet:group, $name)
             if (not $ok) { return() }
 
-            //$platform = $servicePlatformByName($plat, try=$try)
-            //if (not $platform) { return() }
+            $platform = $servicePlatformByName($plat, try=$try)
+            if (not $platform) { return() }
 
-            [ inet:service:group=(gen, account, $platform, $name)
+            $guid = $lib.guid(gen, group, $platform, $name)
+            inet:service:group=$guid
+            return($node)
+
+            [ inet:service:group=$guid
                   :name=$name
-                  :platform=$plat ]
+                  :platform=$platform ]
 
             return($node)
         }
