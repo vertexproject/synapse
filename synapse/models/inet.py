@@ -1809,7 +1809,7 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:message:attachment', {}, (
                         ('file', ('file:bytes', {}), {
                             'doc': 'The attached file.'}),
-                        ('name', ('file:base', {}), {
+                        ('name', ('file:path', {}), {
                             'doc': 'The name of the attached file.'}),
                     )),
 
@@ -3719,10 +3719,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:message:link', {}, (
 
                         ('title', ('str', {'strip': True}), {
-                            'doc': 'The title text for the link.'}),
+                            'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
                         ('url', ('inet:url', {}), {
-                            'doc': 'The URL which was attached to the message.'}),
+                            'doc': 'The URL contained within the message.'}),
                     )),
 
                     ('inet:service:message:attachment', {}, (
