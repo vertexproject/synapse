@@ -1293,18 +1293,28 @@ class View(s_nexus.Pusher):  # type: ignore
                 else:
                     yield verb, n1nid
 
-    async def getNdefRefs(self, buid):
-        last = None
-        gens = [layr.getNdefRefs(buid) for layr in self.layers]
+    async def _getLayrNdefProp(self, layr, buid):
+        async for refsnid, refsabrv in layr.getNdefRefs(buid):
+            yield refsnid, self.core.getAbrvIndx(refsabrv)
 
-        async for refsnid, _ in s_common.merggenr2(gens):
+    async def getNdefRefs(self, buid, props=False):
+        last = None
+        if props:
+            gens = [self._getLayrNdefProp(layr, buid) for layr in self.layers]
+        else:
+            gens = [layr.getNdefRefs(buid) for layr in self.layers]
+
+        async for refsnid, xtra in s_common.merggenr2(gens):
             if refsnid == last:
                 continue
 
             await asyncio.sleep(0)
             last = refsnid
 
-            yield refsnid
+            if props:
+                yield refsnid, xtra[1]
+            else:
+                yield refsnid
 
     async def hasNodeData(self, nid, name, strt=0, stop=None):
         '''

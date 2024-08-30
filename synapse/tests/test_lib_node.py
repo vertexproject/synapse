@@ -242,7 +242,8 @@ class NodeTest(s_t_utils.SynTest):
                 nodepaths = await alist(node.storm(runt, '-> test:int [:loc=$foo]', opts={'vars': {'foo': 'us'}}))
                 self.eq(nodepaths[0][0].get('loc'), 'us')
 
-                path = nodepaths[0][1].fork(node)  # type: s_node.Path
+                link = {'type': 'runtime'}
+                path = nodepaths[0][1].fork(node, link)  # type: s_node.Path
                 path.vars['zed'] = 'ca'
 
                 # Path present, opts not present
@@ -250,12 +251,18 @@ class NodeTest(s_t_utils.SynTest):
                 self.eq(nodes[0][0].get('loc'), 'ca')
                 # path is not updated due to frame scope
                 self.none(path.vars.get('bar'), 'us')
+                self.len(2, path.links)
+                self.eq({'type': 'prop', 'prop': 'hehe'}, path.links[0][1])
+                self.eq(link, path.links[1][1])
 
                 # Path present, opts present but no opts['vars']
                 nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$foo', opts={}, path=path))
                 self.eq(nodes[0][0].get('loc'), 'ca')
                 # path is not updated due to frame scope
                 self.none(path.vars.get('bar'))
+                self.len(2, path.links)
+                self.eq({'type': 'prop', 'prop': 'hehe'}, path.links[0][1])
+                self.eq(link, path.links[1][1])
 
                 # Path present, opts present with vars
                 nodes = await alist(node.storm(runt, '-> test:int [:loc=$zed] $bar=$baz',
@@ -293,6 +300,10 @@ class NodeTest(s_t_utils.SynTest):
                 self.eq(len(pcln.nodes), len(path.nodes))
                 pcln.nodes.pop(-1)
                 self.ne(len(pcln.nodes), len(path.nodes))
+                # Ensure the link elements are independent
+                pcln.links.append({'type': 'edge', 'verb': 'seen'})
+                self.len(3, pcln.links)
+                self.len(2, path.links)
 
                 # push a frame and clone it - ensure clone mods do not
                 # modify the original path

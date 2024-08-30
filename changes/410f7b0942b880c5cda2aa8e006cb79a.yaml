@@ -1,0 +1,5 @@
+---
+desc: Added ``pol:candidate:id`` to track election authority issued candidate IDs.
+prs: []
+type: model
+...

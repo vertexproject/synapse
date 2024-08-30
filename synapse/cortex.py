@@ -5182,7 +5182,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in count()')
 
         view = self._viewFromOpts(opts)
 
@@ -5246,7 +5246,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in storm().')
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
@@ -5273,7 +5273,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in callStorm().')
 
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
@@ -5301,7 +5301,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
+                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in exportStorm().')
 
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)

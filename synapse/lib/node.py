@@ -996,10 +996,15 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, vars, nodes):
+    def __init__(self, vars, nodes, links=None):
 
         self.node = None
         self.nodes = nodes
+
+        if links is not None:
+            self.links = links
+        else:
+            self.links = []
 
         if len(nodes):
             self.node = nodes[-1]
@@ -1054,6 +1059,7 @@ class Path:
         info = await s_stormtypes.toprim(dict(self.metadata))
         if path:
             info['nodes'] = [node.iden() for node in self.nodes]
+
         return info
 
     def setData(self, nid, name, valu):
@@ -1074,17 +1080,21 @@ class Path:
 
         return nodedata
 
-    def fork(self, node):
+    def fork(self, node, link):
+
+        links = list(self.links)
+        if self.node is not None and link is not None:
+            links.append((self.node.iden(), link))
 
         nodes = list(self.nodes)
         nodes.append(node)
 
-        path = Path(self.vars.copy(), nodes)
+        path = Path(self.vars.copy(), nodes, links=links)
 
         return path
 
     def clone(self):
-        path = Path(copy.copy(self.vars), copy.copy(self.nodes))
+        path = Path(copy.copy(self.vars), copy.copy(self.nodes), copy.copy(self.links))
         path.frames = [v.copy() for v in self.frames]
         return path
 
