@@ -559,3 +559,10 @@ class ModelRevTest(s_tests.SynTest):
             self.len(2, rnodes)
 
             self.eq([node.ndef[0] for node in nodes], [node.ndef[0] for node in reversed(rnodes)])
+
+    async def test_modelrev_0_2_27(self):
+
+        async with self.getRegrCore('model-0.2.27') as core:
+            nodes = await core.nodes('it:dev:repo:commit:id=" Foo "')
+            self.len(1, nodes)
+            self.eq('Foo', nodes[0].get('id'))
