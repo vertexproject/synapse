@@ -1,6 +1,0 @@
----
-desc: A small migration to normalize ``it:dev:repo:commit:id`` to remove leading and trailing
-  whitespace.
-prs: []
-type: migration
-...
