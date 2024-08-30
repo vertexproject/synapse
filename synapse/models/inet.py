@@ -1817,7 +1817,7 @@ class InetModule(s_module.CoreModule):
                         ('url', ('inet:url', {}), {
                             'doc': 'The url contained within the email message.'}),
                         ('text', ('str', {}), {
-                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
+                            'doc': 'The displayed hyperlink text if it was not the URL.'}),
                     )),
 
                     ('inet:asn', {}, (
