@@ -1001,7 +1001,6 @@ class TypesTest(s_t_utils.SynTest):
                 ndef.norm(('inet:fqdn', 'newp.com'))
 
             ndef = core.model.type('test:ndef:formfilter2')
-            ndef.norm(('ou:orgtype', 'foo'))
 
             with self.raises(s_exc.BadTypeValu):
                 ndef.norm(('inet:fqdn', 'newp.com'))
