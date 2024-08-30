@@ -164,35 +164,36 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An inet:tls:servercert node with the given server and SHA256.'}}},
-        {'name': 'servicePlatformByName',
-         'desc': '',
+        {'name': 'platformByName',
+         'desc': 'Returns an inet:service:platform by name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'name', 'type': ['str', 'inet:service:platform:name'], 'desc': ''},
+                      {'name': 'name', 'type': ['str', 'inet:service:platform:name'], 'desc': 'The name of the platform.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'node', 'desc': ''}}},
+                  'returns': {'type': 'node', 'desc': 'An inet:service:platform node with the given name.'}}},
         {'name': 'accountByPlatformAndName',
-         'desc': '',
+         'desc': 'Returns an inet:service:account node by account name and platform name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'name', 'type': ['str', 'inet:user'], 'desc': ''},
-                      {'name': 'plat', 'type': ['str', 'inet:service:platform:name'], 'desc': ''},
+                      {'name': 'name', 'type': ['str', 'inet:user'], 'desc': 'The name of the account.'},
+                      {'name': 'plat', 'type': ['str', 'inet:service:platform:name'], 'desc': 'The name of the platform.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'node', 'desc': ''}}},
+                  'returns': {'type': 'node', 'desc': 'An inet:service:account node with the given name and platform.'}}},
         {'name': 'groupByPlatformAndName',
-         'desc': '',
+         'desc': 'Returns an inet:service:group by account name and platform name, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'name', 'type': ['str', 'inet:group'], 'desc': ''},
-                      {'name': 'plat', 'type': ['str', 'inet:service:platform:name'], 'desc': ''},
+                      {'name': 'name', 'type': ['str', 'inet:group'], 'desc': 'The name of the group.'},
+                      {'name': 'plat', 'type': ['str', 'inet:service:platform:name'], 'desc': 'The name of the platform.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'node', 'desc': ''}}},
+
+                  'returns': {'type': 'node', 'desc': 'An inet:service:group with the given name and platform.'}}},
     )
     _storm_lib_path = ('gen',)
 
@@ -535,7 +536,7 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function servicePlatformByName(name, try=$lib.false) {
+        function platformByName(name, try=$lib.false) {
             ($ok, $name) = $__maybeCast($try, inet:service:platform:name, $name)
             if (not $ok) { return() }
 
@@ -550,13 +551,13 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $name) = $__maybeCast($try, inet:user, $name)
             if (not $ok) { return() }
 
-            $platform = $servicePlatformByName($plat, try=$try)
+            $platform = $platformByName($plat, try=$try)
             if (not $platform) { return() }
 
             $guid = $lib.guid(gen, account, $platform, $name)
             return($node)
 
-            [ inet:service:account=(gen, account, $plat, $name)
+            [ inet:service:account=(gen, account, $platform, $name)
                   :user=$name
                   :platform=$platform ]
 
@@ -567,7 +568,7 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $name) = $__maybeCast($try, inet:group, $name)
             if (not $ok) { return() }
 
-            $platform = $servicePlatformByName($plat, try=$try)
+            $platform = $platformByName($plat, try=$try)
             if (not $platform) { return() }
 
             $guid = $lib.guid(gen, group, $platform, $name)
