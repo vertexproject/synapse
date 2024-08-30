@@ -349,24 +349,26 @@ class StormLibGenTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            opts = {
-                'vars': {
-                    'name': 'rakuy0',
-                    'plat': 'github',
-                }
-            }
-
-            plat = await core.nodes('yield $lib.gen.servicePlatformByName(github)')
+            plat = await core.nodes('yield $lib.gen.inetServicePlatformByName(github)')
             self.len(1, plat)
             plat = plat[0]
             self.eq(plat.get('name'), 'github')
 
-            nodes = await core.nodes('yield $lib.gen.accountByPlatformAndName(visi, github)', opts=opts)
+            nodes = await core.nodes('yield $lib.gen.inetServiceAccountByNameAndPlatform(visi, github)')
             self.len(1, nodes)
             self.eq(nodes[0].get('user'), 'visi')
             self.eq(nodes[0].get('platform'), plat.ndef[1])
 
-            nodes = await core.nodes('yield $lib.gen.groupByPlatformAndName(vertexproject, github)')
+            nodes = await core.nodes('yield $lib.gen.inetServiceGroupByNameAndPlatform(vertexproject, github)')
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), 'vertexproject')
+            self.eq(nodes[0].get('platform'), plat.ndef[1])
+
+            nodes = await core.nodes('yield $lib.gen.inetServiceInstanceByNameAndPlatform(vertexdiscord, discord)')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), 'vertexdiscord')
+
+            plat = await core.nodes('inet:service:platform:name=discord')
+            self.len(1, plat)
+            plat = plat[0]
             self.eq(nodes[0].get('platform'), plat.ndef[1])
