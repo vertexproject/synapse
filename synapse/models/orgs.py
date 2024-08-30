@@ -234,7 +234,6 @@ class OuModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of job types.',
                 }),
-                # FIXME ou:employment:status:taxonomy? ou:employment:status:type:taxonomy?
                 ('ou:employment:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'fulltime.salary',
                     'interfaces': ('meta:taxonomy',),
