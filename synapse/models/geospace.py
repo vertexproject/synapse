@@ -491,13 +491,13 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The node that was observed at the associated time and place.'}),
                     )),
 
-                    ('geo:place:taxonomy', {}, ()),
+                    ('geo:place:type:taxonomy', {}, ()),
                     ('geo:place', {}, (
 
                         ('name', ('geo:name', {}), {
                             'doc': 'The name of the place.'}),
 
-                        ('type', ('geo:place:taxonomy', {}), {
+                        ('type', ('geo:place:type:taxonomy', {}), {
                             'doc': 'The type of place.'}),
 
                         ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {

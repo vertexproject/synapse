@@ -51,7 +51,7 @@ class MatModule(s_module.CoreModule):
                 ('mat:item', {}, (
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The name of the material item.'}),
-                    ('type', ('mat:type', {}), {
+                    ('type', ('mat:item:type:taxonomy', {}), {
                         'doc': 'The taxonomy type of the item.'}),
                     ('spec', ('mat:spec', {}), {
                         'doc': 'The specification which defines this item.'}),
@@ -67,7 +67,7 @@ class MatModule(s_module.CoreModule):
                 ('mat:spec', {}, (
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The name of the material specification.'}),
-                    ('type', ('mat:type', {}), {
+                    ('type', ('mat:item:type:taxonomy', {}), {
                         'doc': 'The taxonomy type for the specification.'}),
                 )),
 

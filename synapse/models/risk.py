@@ -713,7 +713,7 @@ class RiskModule(s_module.CoreModule):
                     ('host', ('it:host', {}), {
                         'doc': 'The host which generated the alert.'}),
                 )),
-                ('risk:compromisetype', {}, ()),
+                ('risk:compromise:type:taxonomy', {}, ()),
                 ('risk:compromise', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for the compromise event.'}),
@@ -805,7 +805,7 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
-                ('risk:attacktype', {}, ()),
+                ('risk:attack:type:taxonomy', {}, ()),
                 ('risk:attack', {}, (
                     ('desc', ('str', {}), {
                         'doc': 'A description of the attack.',

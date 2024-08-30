@@ -21,8 +21,8 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.len(2, await core.nodes('meta:timeline +:title=Woot +:summary=4LOLZ +:type=lol.cats -> meta:event'))
-            self.len(1, await core.nodes('meta:timeline -> meta:timeline:taxonomy'))
-            self.len(2, await core.nodes('meta:event -> meta:event:taxonomy'))
+            self.len(1, await core.nodes('meta:timeline -> meta:timeline:type:taxonomy'))
+            self.len(2, await core.nodes('meta:event -> meta:event:type:taxonomy'))
             self.len(1, await core.nodes('meta:event +:title=Hehe +:summary=Haha +:time=20220322 +:duration=120 +:type=hehe.haha +:timeline'))
 
     async def test_model_base_meta_taxonomy(self):
@@ -86,7 +86,7 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             sorc = nodes[0]
 
-            self.eq(sorc.get('type'), 'osint')
+            self.eq(sorc.get('type'), 'osint.')
             self.eq(sorc.get('name'), 'foo bar')
             self.eq(sorc.get('url'), 'https://foo.bar/index.html')
 

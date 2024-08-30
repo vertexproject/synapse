@@ -9,7 +9,7 @@ class MediaModule(s_module.CoreModule):
         ctors = ()
 
         forms = (
-            ('media:news:taxonomy', {}, ()),
+            ('media:news:type:taxonomy', {}, ()),
             ('media:news', {}, (
                 ('url', ('inet:url', {}), {
                     'ex': 'http://cnn.com/news/mars-lander.html',

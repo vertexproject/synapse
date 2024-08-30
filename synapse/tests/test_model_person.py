@@ -289,8 +289,8 @@ class PsModelTest(s_t_utils.SynTest):
                     :orgname = WootCorp
                     :orgfqdn = wootwoot.com
                     :contact = *
-                    :jobtype = it.dev
-                    :employment = fulltime.salary
+                    :job:type = it.dev
+                    :employment:type = fulltime.salary
                     :jobtitle = "Python Developer"
                     :started = 20210731
                     :ended = 20220731
@@ -301,8 +301,8 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('orgname'), 'wootcorp')
             self.eq(nodes[0].get('orgfqdn'), 'wootwoot.com')
-            self.eq(nodes[0].get('jobtype'), 'it.dev.')
-            self.eq(nodes[0].get('employment'), 'fulltime.salary.')
+            self.eq(nodes[0].get('job:type'), 'it.dev.')
+            self.eq(nodes[0].get('employment:type'), 'fulltime.salary.')
             self.eq(nodes[0].get('jobtitle'), 'python developer')
             self.eq(nodes[0].get('started'), 1627689600000)
             self.eq(nodes[0].get('ended'), 1659225600000)
@@ -316,9 +316,9 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:workhist -> ou:org'))
             self.len(1, await core.nodes('ps:workhist -> ps:contact'))
             self.len(1, await core.nodes('ps:workhist -> ou:jobtitle'))
-            self.len(1, await core.nodes('ps:workhist -> ou:employment'))
+            self.len(1, await core.nodes('ps:workhist -> ou:employment:type:taxonomy'))
             nodes = await core.nodes('''
-                ou:employment=fulltime.salary
+                ou:employment:type:taxonomy=fulltime.salary
                 [ :title=FullTime :summary=HeHe :sort=9 ]
                 +:base=salary +:parent=fulltime +:depth=1
             ''')
@@ -327,8 +327,8 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('summary'), 'HeHe')
             self.eq(nodes[0].get('sort'), 9)
 
-            self.len(2, await core.nodes('ou:employment^=fulltime'))
-            self.len(1, await core.nodes('ou:employment:base^=salary'))
+            self.len(2, await core.nodes('ou:employment:type:taxonomy^=fulltime'))
+            self.len(1, await core.nodes('ou:employment:type:taxonomy:base^=salary'))
 
     async def test_ps_vitals(self):
 

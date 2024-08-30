@@ -37,7 +37,7 @@ class BizModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of deal status values.',
                 }),
-                ('biz:dealtype', ('taxonomy', {}), {
+                ('biz:deal:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of deal types.',
                 }),
@@ -47,9 +47,9 @@ class BizModule(s_module.CoreModule):
                 }),
             ),
             'forms': (
-                ('biz:dealtype', {}, ()),
-                ('biz:prodtype', {}, ()),
-                ('biz:dealstatus', {}, ()),
+                ('biz:deal:type:taxonomy', {}, ()),
+                ('biz:product:type:taxonomy', {}, ()),
+                ('biz:deal:status:taxonomy', {}, ()),
                 ('biz:rfp', {}, (
                     ('ext:id', ('str', {}), {
                         'doc': 'An externally specified identifier for the RFP.',
@@ -61,7 +61,7 @@ class BizModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A brief summary of the RFP.',
                     }),
-                    ('status', ('biz:dealstatus', {}), {
+                    ('status', ('biz:deal:status:taxonomy', {}), {
                         'disp': {'hint': 'enum'},
                         'doc': 'The status of the RFP.',
                     }),
@@ -96,11 +96,11 @@ class BizModule(s_module.CoreModule):
                     ('title', ('str', {}), {
                         'doc': 'A title for the deal.',
                     }),
-                    ('type', ('biz:dealtype', {}), {
+                    ('type', ('biz:deal:type:taxonomy', {}), {
                         'doc': 'The type of deal.',
                         'disp': {'hint': 'taxonomy'},
                     }),
-                    ('status', ('biz:dealstatus', {}), {
+                    ('status', ('biz:deal:status:taxonomy', {}), {
                         'doc': 'The status of the deal.',
                         'disp': {'hint': 'taxonomy'},
                     }),
@@ -228,7 +228,7 @@ class BizModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'The name of the product.',
                     }),
-                    ('type', ('biz:prodtype', {}), {
+                    ('type', ('biz:product:type:taxonomy', {}), {
                         'doc': 'The type of product.',
                         'disp': {'hint': 'taxonomy'},
                     }),

@@ -750,7 +750,7 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Windows registry key/value pair.',
                 }),
                 ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',)
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of repository types.',
                 }),
                 ('it:dev:repo:label', ('guid', {}), {

@@ -103,7 +103,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(node.get('attacker'))
             self.nn(node.get('reporter'))
 
-            self.len(1, await core.nodes('risk:attack -> risk:attacktype'))
+            self.len(1, await core.nodes('risk:attack -> risk:attack:type:taxonomy'))
 
             node = await addNode(f'''[
                 risk:vuln={vuln}
@@ -368,7 +368,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('usd', nodes[0].get('econ:currency'))
             self.eq(10, nodes[0].get('severity'))
             self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
-            self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
+            self.len(1, await core.nodes('risk:compromise -> risk:compromise:type:taxonomy'))
             self.len(1, await core.nodes('risk:compromise :vector -> risk:attack'))
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
             self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))

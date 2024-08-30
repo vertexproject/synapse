@@ -166,6 +166,10 @@ class OuModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of goal types.',
                 }),
+                ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use ou:org:goals.',
+                }),
                 ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of campaign types.',
@@ -312,15 +316,12 @@ class OuModule(s_module.CoreModule):
                     ('paycurrency', ('econ:currency', {}), {
                         'doc': 'The currency that the yearly pay was delivered in.',
                     }),
-                    # TODO a way to encode/normalize requirements.
                 )),
                 ('ou:vitals', {}, (
 
                     ('asof', ('time', {}), {
                         'doc': 'The time that the vitals represent.',
                     }),
-                    # TODO is modulo time a type?
-                    # ('period', ('sec', 'min', 'hour', 'day', 'week', 'month', 'quarter', 'year'
                     ('org', ('ou:org', {}), {
                         'doc': 'The resolved org.',
                     }),
@@ -767,6 +768,10 @@ class OuModule(s_module.CoreModule):
 
                     ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternative names for the industry.'}),
+
+                    ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:industry:type taxonomy.'}),
 
                     ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of SIC codes that map to the industry.'}),
