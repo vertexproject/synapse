@@ -318,36 +318,35 @@ Updated Types
 *************
 
 ``inet:search:query``
-  The type interface has been modified from None to ['inet:service:action'].
+  The type now inherits from the ``inet:service:action`` interface.
 
 
 ``it:dev:repo``
-  The type interface has been modified from None to ['inet:service:object'].
+  The type now inherits from the ``inet:service:object`` interface.
 
 
 ``it:dev:repo:branch``
-  The type interface has been modified from None to ['inet:service:object'].
+  The type now inherits from the ``inet:service:object`` interface.
 
 
 ``it:dev:repo:commit``
-  The type interface has been modified from None to ['inet:service:object'].
+  The type now inherits from the ``inet:service:object`` interface.
 
 
 ``it:dev:repo:diff:comment``
-  The type interface has been modified from None to ['inet:service:object'].
+  The type now inherits from the ``inet:service:object`` interface.
 
 
 ``it:dev:repo:issue``
-  The type interface has been modified from None to ['inet:service:object'].
+  The type now inherits from the ``inet:service:object`` interface.
 
 
 ``it:dev:repo:issue:comment``
-  The type interface has been modified from None to ['inet:service:object'].
+  The type now inherits from the ``inet:service:object`` interface.
 
 
 ``it:dev:repo:issue:label``
-  The type interface has been modified from None to ['inet:service:object'].
-
+  The type now inherits from the ``inet:service:object`` interface.
 
 
 ******************
@@ -357,10 +356,7 @@ Updated Properties
 ``it:dev:repo:commit``
   The form had the following property updated:
 
-
-    The property ``id`` has been modified from ['str', {}] to ['str', {'strip':
-    True}].
-
+    The property ``id`` has been modified to strip trailing and leading whitespace.
 
 
 *********************
@@ -371,7 +367,7 @@ Deprecated Properties
   The form had the following property deprecated:
 
   ``created``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
 
 ``it:dev:repo:branch``
@@ -379,39 +375,39 @@ Deprecated Properties
 
 
   ``created``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
 
   ``deleted``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
 
 ``it:dev:repo:commit``
   The form had the following property deprecated:
 
   ``created``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
 
 ``it:dev:repo:diff:comment``
   The form had the following property deprecated:
 
   ``created``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
 
 ``it:dev:repo:issue``
   The form had the following property deprecated:
 
   ``created``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
 
 ``it:dev:repo:issue:comment``
   The form had the following property deprecated:
 
   ``created``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
 
 ``it:dev:repo:issue:label``
@@ -419,9 +415,9 @@ Deprecated Properties
 
 
   ``applied``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
 
   ``removed``
-    Deprecated. Please use :period.
+    Deprecated. Please use ``:period``.
 
