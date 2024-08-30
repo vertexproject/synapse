@@ -204,7 +204,7 @@ class LibGen(s_stormtypes.Lib):
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
 
-                  'returns': {'type': 'node', 'desc': 'An inet:service:group with the given name and platform.'}}},
+                  'returns': {'type': 'node', 'desc': 'An inet:service:instance with the given name and platform.'}}},
     )
     _storm_lib_path = ('gen',)
 
