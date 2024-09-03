@@ -1340,7 +1340,7 @@ class CortexApi(s_stormtypes.Lib):
         {'name': 'getNodeByNid', 'desc': 'Get a node from the current View by its node id in this Cortex.',
          'type': {'type': 'function', '_funcname': 'getNodeByNid',
                   'args': (
-                      {'name': 'iden', 'type': 'int', 'desc': 'The node id of the node.'},
+                      {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'The node in the current View if it exists.'}}},
     )
