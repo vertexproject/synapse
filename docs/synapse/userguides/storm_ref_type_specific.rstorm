@@ -1541,7 +1541,7 @@ or ``ps:contact:type``).
    ``taxonomy`` is a base type that is commonly extended to define form-specific taxonomies. That is, a
    tool (``risk:tool:software``) has a ``:type`` property that can represent a set of tool/malware types
    or categories. The ``risk:tool:software:type`` property has a form-specific taxonomy type of
-   ``risk:tool:software:taxonomy`` (which is also its own form).
+   ``risk:tool:software:type:taxonomy`` (which is also its own form).
    
    While this section describes the behavior of taxonomies generally, keep in mind that each form can
    have its own taxonomy / set of categories independent of other taxonomies.
@@ -1652,7 +1652,7 @@ Lift all tools (``risk:tool:software`` nodes) whose sub-category name begins wit
   or ``ou:industry:type = energy.electricity.distribution``.
 
 - When lifting or filtering ``taxonomy`` types, use of the wildcard ( ``*`` ) is not allowed. For example, the following
-  Storm expression is invalid and will throw a syntax error: ``risk:attacktype = phishing.*``.
+  Storm expression is invalid and will throw a syntax error: ``risk:attack:type:taxonomy = phishing.*``.
 
 
 .. _type-time:
