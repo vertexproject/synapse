@@ -1667,7 +1667,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(sode['valu'], (0x01020304, 4))
 
             opts = {'user': visi.iden, 'vars': {'nid': s_common.int64un(nodes[0].nid)}}
-            sode = await core.callStorm('return($lib.layer.get()._getStorNodeByNid($nid))', opts=opts)
+            sode = await core.callStorm('return($lib.layer.get().getStorNodeByNid($nid))', opts=opts)
             self.eq(sode['form'], 'inet:ipv4')
             self.eq(sode['valu'], (0x01020304, 4))
 
