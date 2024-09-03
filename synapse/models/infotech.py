@@ -1138,6 +1138,7 @@ class ItModule(s_module.CoreModule):
 
                 )),
 
+                ('it:software:image:type:taxonomy', {}, ()),
                 ('it:software:image', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
