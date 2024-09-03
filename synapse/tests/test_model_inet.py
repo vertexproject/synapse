@@ -2739,10 +2739,17 @@ class InetModelTest(s_t_utils.SynTest):
                 :received:from:ipv6="::1"
                 :received:from:fqdn=smtp.vertex.link
                 :flow=$flow
+                :links={[
+                    inet:email:message:link=*
+                        :url=https://www.vertex.link
+                        :text=Vertex
+                ]}
+                :attachments={[
+                    inet:email:message:attachment=*
+                        :file=*
+                        :name=sploit.exe
+                ]}
             ]
-
-            {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
-            {[( inet:email:message:attachment=($node, "*") :name=sploit.exe )]}
             '''
             nodes = await core.nodes(q, opts={'vars': {'flow': flow}})
             self.len(1, nodes)
@@ -2765,6 +2772,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
             self.len(1, await core.nodes('inet:email=foo@bar.com -> inet:email:message'))
             self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
+            self.len(1, await core.nodes('inet:email:message -> inet:email:message:link +:url=https://www.vertex.link +:text=Vertex'))
+            self.len(1, await core.nodes('inet:email:message -> inet:email:message:attachment +:name=sploit.exe +:file'))
 
     async def test_model_inet_tunnel(self):
         async with self.getTestCore() as core:
