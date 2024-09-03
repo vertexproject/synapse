@@ -5854,7 +5854,7 @@ class Node(Prim):
 
     def getObjLocals(self):
         return {
-            '_nid': self.valu.nid,
+            '_nid': s_common.int64un(self.valu.nid),
             'form': self._methNodeForm,
             'iden': self._methNodeIden,
             'ndef': self._methNodeNdef,
@@ -6489,11 +6489,19 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
         {'name': 'getStorNode', 'desc': '''
-            Retrieve the raw storage node for the specified node id.
+            Retrieve the raw storage node for the specified node iden.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNode',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
+        {'name': '_getStorNodeByNid', 'desc': '''
+            Retrieve the raw storage node for the specified node id.
+            ''',
+         'type': {'type': 'function', '_funcname': '_getStorNodeByNid',
+                  'args': (
+                      {'name': 'nid', 'type': 'int', 'desc': 'The integer node id'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
         {'name': 'liftByProp', 'desc': '''
@@ -6660,6 +6668,7 @@ class Layer(Prim):
             'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
+            '_getStorNodeByNid': self._getStorNodeByNid,
             'getStorNodes': self.getStorNodes,
             'getStorNodesByForm': self.getStorNodesByForm,
             'getEdgesByN1': self.getEdgesByN1,
@@ -6957,14 +6966,23 @@ class Layer(Prim):
             return meta.get('time')
 
     @stormfunc(readonly=True)
-    async def getStorNode(self, nodeid):
-        nodeid = await tostr(nodeid)
+    async def getStorNode(self, iden):
+        iden = await tostr(iden)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        nid = self.runt.view.core.getNidByBuid(s_common.uhex(nodeid))
+        nid = self.runt.view.core.getNidByBuid(s_common.uhex(iden))
         return layr.getStorNode(nid)
+
+    @stormfunc(readonly=True)
+    async def _getStorNodeByNid(self, nid):
+        nid = await toint(nid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        return layr.getStorNode(s_common.int64en(nid))
 
     @stormfunc(readonly=True)
     async def getStorNodes(self):
