@@ -503,7 +503,6 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A timeline of significant events related to the campaign.'}),
 
                     ('type', ('ou:campaign:type:taxonomy', {}), {
-                        'disp': {'hint': 'taxonomy'},
                         'doc': 'The campaign type taxonomy.'}),
 
                     ('desc', ('str', {}), {
@@ -626,7 +625,6 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('type', ('ou:org:type:taxonomy', {}), {
                         'doc': 'The type of organization.',
-                        'disp': {'hint': 'taxonomy'},
                     }),
                     ('vitals', ('ou:vitals', {}), {
                         'doc': 'The most recent/accurate ou:vitals for the org.',
