@@ -1450,17 +1450,17 @@ class YieldValu(Oper):
             return
 
         # a little DWIM on what we get back...
-        # ( most common case will be stormtypes libs agenr -> iden|buid )
-        # buid list -> nodes
-        if isinstance(valu, bytes):
-            if (node := await runt.view.getNodeByBuid(valu)) is not None:
+        # ( most common case will be stormtypes libs agenr -> nid )
+        # nid -> node
+        if isinstance(valu, int):
+            if (node := await runt.view.getNodeByNid(s_common.int64en(valu))) is not None:
                 yield node
 
             return
 
-        # nid -> node
-        if isinstance(valu, int):
-            if (node := await runt.view.getNodeByNid(s_common.int64en(valu))) is not None:
+        # buid list -> nodes
+        if isinstance(valu, bytes):
+            if (node := await runt.view.getNodeByBuid(valu)) is not None:
                 yield node
 
             return

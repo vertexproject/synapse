@@ -1337,6 +1337,12 @@ class CortexApi(s_stormtypes.Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the node.'},
                   ),
                   'returns': {'type': 'int', 'desc': 'The node id or None if the iden is not found.'}}},
+        {'name': 'getNodeByNid', 'desc': 'Get a node from the current View by its node id in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getNodeByNid',
+                  'args': (
+                      {'name': 'iden', 'type': 'int', 'desc': 'The node id of the node.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'The node in the current View if it exists.'}}},
     )
 
     _storm_lib_path = ('cortex',)
@@ -1345,6 +1351,7 @@ class CortexApi(s_stormtypes.Lib):
         return {
             'getIdenByNid': self.getIdenByNid,
             'getNidByIden': self.getNidByIden,
+            'getNodeByNid': self.getNodeByNid,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -1362,3 +1369,8 @@ class CortexApi(s_stormtypes.Lib):
         if nid is not None:
             return s_common.int64un(nid)
         return None
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getNodeByNid(self, nid):
+        nid = await s_stormtypes.toint(nid)
+        return await self.runt.view.getNodeByNid(s_common.int64en(nid))

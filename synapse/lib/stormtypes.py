@@ -5859,7 +5859,7 @@ class Node(Prim):
             nid = None
 
         return {
-            '_nid': nid,
+            'nid': nid,
             'form': self._methNodeForm,
             'iden': self._methNodeIden,
             'ndef': self._methNodeNdef,
@@ -6501,10 +6501,10 @@ class Layer(Prim):
                       {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
-        {'name': '_getStorNodeByNid', 'desc': '''
+        {'name': 'getStorNodeByNid', 'desc': '''
             Retrieve the raw storage node for the specified node id.
             ''',
-         'type': {'type': 'function', '_funcname': '_getStorNodeByNid',
+         'type': {'type': 'function', '_funcname': 'getStorNodeByNid',
                   'args': (
                       {'name': 'nid', 'type': 'int', 'desc': 'The integer node id'},
                   ),
@@ -6673,7 +6673,7 @@ class Layer(Prim):
             'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
             'getStorNode': self.getStorNode,
-            '_getStorNodeByNid': self._getStorNodeByNid,
+            'getStorNodeByNid': self.getStorNodeByNid,
             'getStorNodes': self.getStorNodes,
             'getStorNodesByForm': self.getStorNodesByForm,
             'getEdgesByN1': self.getEdgesByN1,
@@ -6981,7 +6981,7 @@ class Layer(Prim):
         return layr.getStorNode(nid)
 
     @stormfunc(readonly=True)
-    async def _getStorNodeByNid(self, nid):
+    async def getStorNodeByNid(self, nid):
         nid = await toint(nid)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
