@@ -1826,20 +1826,28 @@ class LayerTest(s_t_utils.SynTest):
 
             # iterTagRows
             expect = (
-                (tm('2020', '2021'), 'inet:ipv4'),
-                (tm('2019', '2020'), 'inet:ipv4'),
-                (tm('2018', '2020'), 'inet:ipv4'),
+                (nid3, tm('2018', '2020')),
+                (nid2, tm('2019', '2020')),
+                (nid1, tm('2020', '2021')),
             )
 
-            # FIXME discuss iterTagRows no longer being nid sorted...
             rows = await alist(layr.iterTagRows('foo'))
-            self.sorteq(expect, [row[1] for row in rows])
+            self.eq(expect, rows)
 
             rows = await alist(layr.iterTagRows('foo', form='inet:ipv4'))
-            self.sorteq(expect, [row[1] for row in rows])
+            self.eq(expect, rows)
 
             rows = await alist(layr.iterTagRows('foo', form='newpform'))
             self.eq([], rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='newpform', starttupl=expect[1]))
+            self.eq([], rows)
+
+            rows = await alist(layr.iterTagRows('foo', starttupl=expect[1]))
+            self.eq(expect[1:], rows)
+
+            rows = await alist(layr.iterTagRows('foo', form='inet:ipv4', starttupl=expect[1]))
+            self.eq(expect[1:], rows)
 
             rows = await alist(layr.iterTagRows('nosuchtag'))
             self.eq([], rows)

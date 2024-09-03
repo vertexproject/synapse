@@ -7004,9 +7004,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             # iterTagRows
             expect = sorted(
                 [
-                    (nid1, (tm('2020', '2021'), 'inet:ipv4')),
-                    (nid2, (tm('2019', '2020'), 'inet:ipv4')),
-                    (nid3, (tm('2018', '2020'), 'inet:ipv4')),
+                    (nid1, (tm('2020', '2021'))),
+                    (nid2, (tm('2019', '2020'))),
+                    (nid3, (tm('2018', '2020'))),
                 ], key=lambda x: x[1])
 
             await self.agenraises(s_exc.NoSuchLayer, prox.iterTagRows(badiden, 'foo', form='newpform'))
@@ -7015,6 +7015,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4'))
             self.eq(expect, rows)
+
+            rows = await alist(prox.iterTagRows(layriden, 'foo', form='inet:ipv4', starttupl=expect[1]))
+            self.eq(expect[1:], rows)
 
             expect = [
                 (nid2, 41,),

@@ -5853,8 +5853,13 @@ class Node(Prim):
         return hash((self._storm_typename, self.valu.iden))
 
     def getObjLocals(self):
+        if self.valu.nid is not None:
+            nid = s_common.int64un(self.valu.nid)
+        else:
+            nid = None
+
         return {
-            '_nid': s_common.int64un(self.valu.nid),
+            '_nid': nid,
             'form': self._methNodeForm,
             'iden': self._methNodeIden,
             'ndef': self._methNodeNdef,

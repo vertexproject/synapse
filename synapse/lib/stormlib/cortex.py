@@ -1334,9 +1334,9 @@ class CortexApi(s_stormtypes.Lib):
         {'name': 'getNidByIden', 'desc': 'Get the node id for an iden in this Cortex.',
          'type': {'type': 'function', '_funcname': 'getNidByIden',
                   'args': (
-                      {'name': 'iden', 'type': 'int', 'desc': 'The iden of the node.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the node.'},
                   ),
-                  'returns': {'type': 'str', 'desc': 'The node id or None if the iden is not found.'}}},
+                  'returns': {'type': 'int', 'desc': 'The node id or None if the iden is not found.'}}},
     )
 
     _storm_lib_path = ('cortex',)
