@@ -1471,3 +1471,28 @@ for $i in $values {
                     self.eq(resp.status, 200)
                     self.false(data['opts'].get('mirror'))
                     data.clear()
+
+    async def test_libcortex_nids(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:str=foo ]')
+            nid = s_common.int64un(nodes[0].nid)
+            iden = nodes[0].iden()
+
+            self.eq(iden, await core.callStorm('return($lib.cortex.getIdenByNid($nid))', opts={'vars': {'nid': nid}}))
+            self.eq(nid, await core.callStorm('return($lib.cortex.getNidByIden($iden))', opts={'vars': {'iden': iden}}))
+
+            nodes = await core.nodes('yield $lib.cortex.getNidByIden($iden)', opts={'vars': {'iden': iden}})
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('test:str', 'foo'))
+
+            opts = {'vars': {'nid': nid}}
+            ndef = await core.callStorm('return($lib.cortex.getNodeByNid($nid).ndef())', opts=opts)
+            self.eq(ndef, ('test:str', 'foo'))
+
+            buid = s_common.ehex(s_common.buid('newp'))
+            self.none(await core.callStorm('return($lib.cortex.getIdenByNid((99999)))'))
+            self.none(await core.callStorm(f'return($lib.cortex.getNidByIden({buid}))'))
+
+            self.len(0, await core.nodes('yield (99999)'))
