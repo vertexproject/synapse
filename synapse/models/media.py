@@ -20,7 +20,7 @@ class MediaModule(s_module.CoreModule):
                     'doc': 'The FQDN within the news URL.'}),
 
                 ('type', ('media:news:type:taxonomy', {}), {
-                    'doc': 'A taxonomy for the type of reporting or news.'}),
+                    'doc': 'A taxonomy for the type of article or report.'}),
 
                 ('file', ('file:bytes', {}), {
                     'doc': 'The (optional) file blob containing or published as the news.'}),
