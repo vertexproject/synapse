@@ -1192,7 +1192,7 @@ class ItModule(s_module.CoreModule):
 
                     ('type', ('it:log:event:type:taxonomy', {}), {
                         'ex': 'windows.eventlog.securitylog',
-                        'doc': 'A taxonometric type for the log event.'}),
+                        'doc': 'The type of log event.'}),
 
                     ('severity', ('int', {'enums': loglevels}), {
                         'doc': 'A log level integer that increases with severity.'}),
