@@ -802,7 +802,7 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:component', ('guid', {}), {
                     'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.',
                 }),
-                ('it:prod:hardwaretype', ('taxonomy', {}), {
+                ('it:prod:hardware:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of IT hardware types.',
                 }),
@@ -2000,11 +2000,11 @@ class ItModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('it:prod:hardwaretype', {}, ()),
+                ('it:prod:hardware:type:taxonomy', {}, ()),
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
-                    ('type', ('it:prod:hardwaretype', {}), {
+                    ('type', ('it:prod:hardware:type:taxonomy', {}), {
                         'doc': 'The type of hardware.'}),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},

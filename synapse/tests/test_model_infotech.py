@@ -1134,7 +1134,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].get('cpe'))
             self.eq(1643760000000, nodes[0].get('released'))
             self.len(1, await core.nodes('it:prod:hardware :make -> ou:name'))
-            self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardwaretype'))
+            self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardware:type:taxonomy'))
             self.len(2, await core.nodes('it:prod:hardware:make=dell -> it:prod:hardware'))
             self.eq('dell', nodes[0].get('manufacturer:name'))
             self.len(1, await core.nodes('it:prod:hardware -> ou:org +:name=dell'))
