@@ -3643,6 +3643,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The period where the session was valid.'}),
                     )),
 
+                    ('inet:service:login:method:taxonomy', {}, ()),
                     ('inet:service:login', {}, (
 
                         ('method', ('inet:service:login:method:taxonomy', {}), {
