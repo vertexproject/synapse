@@ -1,6 +1,0 @@
----
-desc: Add support for disabling readahead on layer slabs by setting the ``SYNDEV_CORTEX_LAYER_READAHEAD``
-  environment variable.
-prs: []
-type: feat
-...

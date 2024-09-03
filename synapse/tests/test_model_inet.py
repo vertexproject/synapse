@@ -2687,7 +2687,15 @@ class InetModelTest(s_t_utils.SynTest):
                 'acct': 'vertex.link/visi',
             }
 
-            q = '[inet:search:query=$valu :time=$p.time :text=$p.text :engine=$p.engine :acct=$p.acct :host=$p.host]'
+            q = '''[
+                inet:search:query=$valu
+                    :time=$p.time
+                    :text=$p.text
+                    :engine=$p.engine
+                    :acct=$p.acct
+                    :host=$p.host
+                    :account=*
+            ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2697,6 +2705,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('engine'), 'roofroof')
             self.eq(node.get('host'), host)
             self.eq(node.get('acct'), ('vertex.link', 'visi'))
+            self.len(1, await core.nodes('inet:search:query :account -> inet:service:account'))
 
             residen = s_common.guid()
             props = {

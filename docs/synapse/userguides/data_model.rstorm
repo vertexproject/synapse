@@ -165,7 +165,7 @@ so they all share a subset of secondary properties such as the time of execution
 ``it:host:activity`` **interface** which is then declared / inherited for each form.
 
 Interfaces can be inherited by other interfaces. For example, the ``inet:proto:request`` interface, which
-represents a client (host) requesting a network connection, inherits the ``inet:host:activity`` interface.
+represents a client (host) requesting a network connection, inherits the ``it:host:activity`` interface.
 
 Interfaces can be used in Storm lift, filter, and pivot operations to make it easier to work with nodes
 of all forms that share the interface (vs. specifying each kind of node separately). See the appropriate

@@ -1,7 +1,0 @@
----
-desc: Add Devops task for using ``onboot:optimize`` to optimize LMDB databases in
-  services.
-prs:
-- 3876
-type: doc
-...
