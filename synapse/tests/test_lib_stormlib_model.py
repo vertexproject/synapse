@@ -419,6 +419,29 @@ class StormlibModelTest(s_test.SynTest):
                 await core.callStorm('test:str $lib.model.migration.setNodePropValuNoNorm($node, propname, valu)')
             self.eq(exc.exception.get('mesg'), '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.')
 
+            # copy extended properties
+
+            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyExtProps($node, newp)'))
+            await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyExtProps(newp, $node)'))
+
+            await core.addFormProp('test:str', '_foo', ('str', {}), {})
+
+            srciden = s_common.guid()
+            dstiden = s_common.guid()
+
+            opts = {'vars': {'srciden': srciden, 'dstiden': dstiden}}
+            await core.callStorm('''
+                [ test:str=$srciden :_foo=foobarbaz ]
+                $n=$node -> {
+                    [ test:str=$dstiden ]
+                    $lib.model.migration.copyExtProps($n, $node)
+                }
+            ''', opts=opts)
+
+            nodes = await core.nodes('test:str=$dstiden', opts=opts)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('_foo'), 'foobarbaz')
+
     async def test_model_migration_s_itSecCpe_2_170_0(self):
 
         async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 27)) as core:
