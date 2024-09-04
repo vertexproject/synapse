@@ -14,7 +14,7 @@ def getStorm(*names):
         await core.callStorm(text)
 
     Example #2:
-        text = storm.get('migrations', 'model-0.2.27.storm')
+        text = storm.get('migrations', 'model-0.2.28.storm')
         await core.callStorm(text)
     '''
     with s_common.genfile(dirname, 'storm', *names) as fp:

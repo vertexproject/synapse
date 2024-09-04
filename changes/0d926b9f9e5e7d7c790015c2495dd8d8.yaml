@@ -6,10 +6,10 @@ desc: Migrate invalid ``it:sec:cpe`` nodes if possible. Expanding on the
   Migration of these nodes will only be successful if one of the CPE2.3 (primary
   property) or the CPE2.2 (``:v2_2``) strings are valid CPEs.  If both CPE
   strings are invalid, the node will be removed from the cortex and stored in a
-  queue (``model_0_2_27:nodes``). All references to these invalid nodes will
-  also be removed and stored in a separate queue (``model_0_2_27:nodes:refs``).
+  queue (``model_0_2_28:nodes``). All references to these invalid nodes will
+  also be removed and stored in a separate queue (``model_0_2_28:nodes:refs``).
   Finally, all edges to these invalid nodes will be removed and stored in a
-  queue (``model_0_2_27:nodes:edges``).
+  queue (``model_0_2_28:nodes:edges``).
 
   The structure of items in these queues are opaque. The intent is for Power-Ups
   to be able to process these queues in an attempt to fix the invalid nodes on a
@@ -18,7 +18,7 @@ desc: Migrate invalid ``it:sec:cpe`` nodes if possible. Expanding on the
 
   During migration or removal of invalid ``it:sec:cpe`` nodes, referencing nodes
   with readonly properties will be removed and stored in the
-  ``model_0_2_27:nodes:refs`` queue. We are unable to automatically migrate
+  ``model_0_2_28:nodes:refs`` queue. We are unable to automatically migrate
   these nodes due to the dynamic nature of their construction.
 prs: []
 type: migration

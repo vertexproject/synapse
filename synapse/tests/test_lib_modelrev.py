@@ -894,14 +894,14 @@ class ModelRevTest(s_tests.SynTest):
             [q.pop('meta') for q in queues]
             self.len(3, queues)
             self.eq(queues, (
-                {'name': 'model_0_2_27:nodes', 'size': 10, 'offs': 10},
-                {'name': 'model_0_2_27:nodes:refs', 'size': 14, 'offs': 14},
-                {'name': 'model_0_2_27:nodes:edges', 'size': 4, 'offs': 4},
+                {'name': 'model_0_2_28:nodes', 'size': 10, 'offs': 10},
+                {'name': 'model_0_2_28:nodes:refs', 'size': 14, 'offs': 14},
+                {'name': 'model_8_2_27:nodes:edges', 'size': 4, 'offs': 4},
             ))
 
             q = '''
                 $ret = ([])
-                $q = $lib.queue.get('model_0_2_27:nodes')
+                $q = $lib.queue.get('model_0_2_28:nodes')
                 for $ii in $lib.range(($q.size())) {
                     $ret.append($q.get($ii, cull=(false), wait=(false)))
                 }
@@ -1054,7 +1054,7 @@ class ModelRevTest(s_tests.SynTest):
 
             q = '''
                 $ret = ([])
-                $q = $lib.queue.get('model_0_2_27:nodes:refs')
+                $q = $lib.queue.get('model_0_2_28:nodes:refs')
                 for $ii in $lib.range(($q.size())) {
                     $ret.append($q.get($ii, cull=(false), wait=(false)))
                 }
@@ -1137,7 +1137,7 @@ class ModelRevTest(s_tests.SynTest):
             riskvuln00 = await core.callStorm('risk:vuln return($node.iden())')
             q = '''
                 $ret = ([])
-                $q = $lib.queue.get('model_0_2_27:nodes:edges')
+                $q = $lib.queue.get('model_0_2_28:nodes:edges')
                 for $ii in $lib.range(($q.size())) {
                     $ret.append($q.get($ii, cull=(false), wait=(false)))
                 }

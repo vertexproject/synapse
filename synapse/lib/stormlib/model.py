@@ -917,7 +917,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         # NB: I'm sure there are all kinds of edges cases that this function doesn't account for. At the time of it's
         # creation, this was intended to be used to update array properties with bad it:sec:cpe values in them. It works
-        # for that use case (see model migration 0.2.27). Any additional use of this function should perform heavy
+        # for that use case (see model migration 0.2.28). Any additional use of this function should perform heavy
         # testing.
 
         if not isinstance(n, s_node.Node):
