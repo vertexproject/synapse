@@ -421,7 +421,7 @@ class StormlibModelTest(s_test.SynTest):
 
     async def test_model_migration_s_itSecCpe_2_170_0(self):
 
-        async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 26)) as core:
+        async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 27)) as core:
             # Migrate it:sec:cpe nodes with a valid CPE2.3, valid CPE2.2
             q = 'it:sec:cpe +#test.cpe.23valid +#test.cpe.22valid'
             nodes = await core.nodes(q)
@@ -452,7 +452,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(data['status'], 'success')
             self.none(data.get('reason'))
 
-        async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 26)) as core:
+        async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 27)) as core:
             # Migrate it:sec:cpe nodes with a valid CPE2.3, invalid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23valid +#test.cpe.22invalid
@@ -528,7 +528,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].get('v2_2'), 'cpe:/o:zyxel:nas542_firmware:5.21%28aazf.15%29co')
             self.eq(nodes[0].get('version'), '5.21(aazf.15)co')
 
-        async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 26)) as core:
+        async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 27)) as core:
             # Migrate it:sec:cpe nodes with a invalid CPE2.3, valid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22valid
@@ -589,7 +589,7 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(data['valu'], 'cpe:2.3:o:zyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*')
             self.eq(nodes[3].get('version'), '5.21(aazf.14)c0')
 
-        async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 26)) as core:
+        async with self.getRegrCore('itSecCpe_2_170_0', maxvers=(0, 2, 27)) as core:
             # Migrate it:sec:cpe nodes with a invalid CPE2.3, invalid CPE2.2
             q = '''
             it:sec:cpe +#test.cpe.23invalid +#test.cpe.22invalid
