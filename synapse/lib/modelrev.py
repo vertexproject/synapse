@@ -9,7 +9,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 27)
+maxvers = (0, 2, 28)
 
 class ModelRev:
 
@@ -42,6 +42,7 @@ class ModelRev:
             ((0, 2, 25), self.revModel_0_2_25),
             ((0, 2, 26), self.revModel_0_2_26),
             ((0, 2, 27), self.revModel_0_2_27),
+            ((0, 2, 28), self.revModel_0_2_28),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
