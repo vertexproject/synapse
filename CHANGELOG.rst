@@ -6,6 +6,20 @@
 Synapse Changelog
 *****************
 
+v2.180.1 - 2024-09-04
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the ``cryptography`` library to require its latest version.
+  (`#3890 <https://github.com/vertexproject/synapse/pull/3890>`_)
+
+Improved documentation
+----------------------
+- Fixed a typo in the ``trigger.enable`` docs which mistakenly referred to the
+  ``trigger-enable`` command.
+  (`#3889 <https://github.com/vertexproject/synapse/pull/3889>`_)
+
 v2.180.0 - 2024-08-30
 =====================
 

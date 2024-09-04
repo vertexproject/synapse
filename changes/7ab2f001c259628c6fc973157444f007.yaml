@@ -1,5 +1,0 @@
----
-desc: Fixed a typo in the ``trigger.enable`` docs which mistakenly referred to the ``trigger-enable`` command.
-prs: []
-type: doc
-...
