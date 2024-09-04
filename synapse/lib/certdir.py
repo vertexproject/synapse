@@ -1502,8 +1502,8 @@ class CertDir:
 
     def _genCertBuilder(self, name: str, pubkey: c_types.PublicKeyTypes) -> c_x509.CertificateBuilder:
 
-        if not 1 <= len(name) <= 64:
-            mesg = f'Certificate name values must be between 1-64 characters. got name={name}, len={len(name)}'
+        if not 1 <= len(name.encode('utf-8')) <= 64:
+            mesg = f'Certificate name values must be between 1-64 bytes when utf8-encoded. got name={name}, len={len(name.encode("utf-8"))}'
             raise s_exc.CryptoErr(mesg=mesg)
 
         builder = c_x509.CertificateBuilder()
@@ -1520,8 +1520,8 @@ class CertDir:
 
     def _genPkeyCsr(self, name: str, mode: str, outp: OutPutOrNone = None) -> bytes:
 
-        if not 1 <= len(name) <= 64:
-            mesg = f'CSR name values must be between 1-64 characters. got name={name}, len={len(name)}'
+        if not 1 <= len(name.encode('utf-8')) <= 64:
+            mesg = f'CSR name values must be between 1-64 bytes when utf8-encoded. got name={name}, len={len(name.encode("utf-8"))}'
             raise s_exc.CryptoErr(mesg=mesg)
 
         pkey = self._genPrivKey()
