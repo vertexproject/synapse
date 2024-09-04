@@ -1,0 +1,7 @@
+---
+desc: 'Updated Storm coverage tracker to support ``pragma: no cover`` for ignoring
+  single lines of code and ``pragma: no cover start``/``pragma: no cover stop`` for
+  ignoring multi-line blocks of Storm code.'
+prs: []
+type: feat
+...

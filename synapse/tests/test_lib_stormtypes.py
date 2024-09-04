@@ -1657,6 +1657,25 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$lib.list().pop()')
 
+            somelist = ["foo", "bar", "baz", "bar"]
+            q = '''
+                $l.rem("bar")
+                $l.rem("newp")
+                return($l)
+            '''
+            opts = {'vars': {'l': somelist.copy()}}
+            out = await core.callStorm(q, opts=opts)
+            self.eq(out, ["foo", "baz", "bar"])
+
+            somelist = ["foo", "bar", "baz", "bar"]
+            q = '''
+                $l.rem("bar", all=$lib.true)
+                return($l)
+            '''
+            opts = {'vars': {'l': somelist.copy()}}
+            out = await core.callStorm(q, opts=opts)
+            self.eq(out, ["foo", "baz"])
+
     async def test_storm_layer_getstornode(self):
 
         async with self.getTestCore() as core:

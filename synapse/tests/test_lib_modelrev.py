@@ -1,4 +1,7 @@
+import datetime
+
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
 import synapse.lib.modelrev as s_modelrev
@@ -561,8 +564,605 @@ class ModelRevTest(s_tests.SynTest):
             self.eq([node.ndef[0] for node in nodes], [node.ndef[0] for node in reversed(rnodes)])
 
     async def test_modelrev_0_2_27(self):
-
         async with self.getRegrCore('model-0.2.27') as core:
             nodes = await core.nodes('it:dev:repo:commit:id=" Foo "')
             self.len(1, nodes)
             self.eq('Foo', nodes[0].get('id'))
+
+    async def test_modelrev_0_2_28(self):
+
+        async with self.getRegrCore('model-0.2.28', maxvers=(0, 2, 24)) as core:
+            # Do some pre-migration validation of the cortex. It's still a
+            # little weird in here because the CPE types have been updated so
+            # some lifting/pivoting won't work right.
+
+            views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
+            self.len(2, views)
+
+            fork00 = views[1].get('iden')
+            infork00 = {'view': fork00}
+
+            nodes = await core.nodes('it:sec:cpe')
+            self.len(11, nodes)
+            for node in nodes:
+                self.isin('test.cpe', node.tags)
+                data = await s_tests.alist(node.iterData())
+                self.eq([k[0] for k in data], ('cpe22', 'cpe23'))
+
+            nodes = await core.nodes('it:sec:cpe -(refs)> risk:vuln | uniq')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('risk:vuln', s_common.guid(('risk', 'vuln'))))
+
+            nodes = await core.nodes('risk:vulnerable')
+            self.len(11, nodes)
+            for node in nodes:
+                self.nn(node.get('node'))
+
+            nodes = await core.nodes(r'it:sec:cpe:vendor="d\-link"')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('it:prod:soft', opts=infork00)
+            self.len(4, nodes)
+            for node in nodes:
+                self.isin('test.prod', node.tags)
+                self.nn(node.get('cpe'))
+
+            nodes = await core.nodes('inet:flow', opts=infork00)
+            self.len(4, nodes)
+            for node in nodes:
+                self.isin('test.flow', node.tags)
+                dsts = node.get('dst:cpes')
+                srcs = node.get('src:cpes')
+                self.true((
+                    (dsts is not None and len(dsts) == 2) or
+                    (srcs is not None and len(srcs) == 2)
+                ))
+
+            nodes = await core.nodes('_ext:model:form', opts=infork00)
+            self.len(4, nodes)
+            for node in nodes:
+                self.isin('test.ext', node.tags)
+                self.nn(node.get('cpe'))
+
+            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -(seen)> it:sec:cpe', opts=infork00)
+            self.len(5, nodes)
+
+            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -(seen)> it:sec:cpe', opts=infork00)
+            self.len(6, nodes)
+
+            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -> meta:seen', opts=infork00)
+            self.len(5, nodes)
+
+            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -> meta:seen', opts=infork00)
+            self.len(6, nodes)
+
+            nodes = await core.nodes('it:sec:vuln:scan:result', opts=infork00)
+            self.len(11, nodes)
+
+        async with self.getRegrCore('model-0.2.28') as core:
+
+            views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
+            self.len(2, views)
+
+            fork00 = views[1].get('iden')
+            infork00 = {'view': fork00}
+
+            # Calculate some timestamps
+            start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone.utc)
+            end = datetime.datetime(year=2021, month=1, day=1, tzinfo=datetime.timezone.utc)
+
+            start = int(start.timestamp() * 1000)
+            end = int(end.timestamp() * 1000)
+
+            # We started with 11 CPE nodes and two got removed
+            nodes = await core.nodes('it:sec:cpe')
+            self.len(9, nodes)
+            for node in nodes:
+                self.isin('test.cpe', node.tags)
+                data = await s_tests.alist(node.iterData())
+                self.eq([k[0] for k in data], ('cpe22', 'cpe23'))
+
+                # Check the .seen time was migrated
+                seen = node.get('.seen')
+                self.nn(seen)
+
+                self.eq((start, end), seen)
+
+            nodes = await core.nodes('it:sec:cpe#test.cpe.22invalid +#test.cpe.23invalid')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('it:sec:cpe -(refs)> risk:vuln')
+            self.len(9, nodes)
+
+            nodes = await core.nodes('risk:vulnerable')
+            self.len(11, nodes)
+
+            nodes = await core.nodes('risk:vulnerable:node')
+            self.len(9, nodes)
+
+            nodes = await core.nodes('risk:vulnerable -> it:sec:cpe')
+            self.len(9, nodes)
+
+            nodes = await core.nodes('risk:vulnerable -:node')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('it:prod:soft', opts=infork00)
+            self.len(4, nodes)
+            for node in nodes:
+                self.isin('test.prod', node.tags)
+
+            nodes = await core.nodes('it:prod:soft:cpe', opts=infork00)
+            self.len(3, nodes)
+
+            nodes = await core.nodes('it:prod:soft -> it:sec:cpe', opts=infork00)
+            self.len(3, nodes)
+            ndefs = [k.ndef for k in nodes]
+            self.sorteq(ndefs, (
+                ('it:sec:cpe', 'cpe:2.3:a:1c:1c\\:enterprise:-:*:*:*:*:*:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:a:01generator:pireospay:-:*:*:*:*:prestashop:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*'),
+            ))
+
+            nodes = await core.nodes('it:prod:soft -:cpe', opts=infork00)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('name'), '22i-23i')
+
+            nodes = await core.nodes('inet:flow', opts=infork00)
+            self.len(4, nodes)
+
+            nodes = await core.nodes('inet:flow +(:src:cpes or :dst:cpes)', opts=infork00)
+            self.len(3, nodes)
+
+            nodes = await core.nodes('inet:flow -(:src:cpes or :dst:cpes)', opts=infork00)
+            self.len(1, nodes)
+            self.eq(nodes[0].repr(), s_common.guid(('flow', '22i', '23i')))
+
+            nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=infork00)
+            self.len(6, nodes)
+            ndefs = [k.ndef for k in nodes]
+            self.sorteq(ndefs, (
+                ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:a:01generator:pireospay:-:*:*:*:*:prestashop:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:a:abine:donottrackme_-_mobile_privacy:1.1.8:*:*:*:*:android:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:a:1c:1c\\:enterprise:-:*:*:*:*:*:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:a:abinitio:control\\>center:-:*:*:*:*:*:*:*'),
+            ))
+
+            nodes = await core.nodes('_ext:model:form', opts=infork00)
+            self.len(4, nodes)
+
+            nodes = await core.nodes('_ext:model:form:cpe', opts=infork00)
+            self.len(3, nodes)
+
+            nodes = await core.nodes('_ext:model:form -:cpe', opts=infork00)
+            self.len(1, nodes)
+
+            nodes = await core.nodes('_ext:model:form -> it:sec:cpe', opts=infork00)
+            self.len(3, nodes)
+            ndefs = [k.ndef for k in nodes]
+            self.sorteq(ndefs, (
+                ('it:sec:cpe', 'cpe:2.3:a:01generator:pireospay:-:*:*:*:*:prestashop:*:*'),
+                ('it:sec:cpe', r'cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*'),
+                ('it:sec:cpe', r'cpe:2.3:a:1c:1c\:enterprise:-:*:*:*:*:*:*:*'),
+            ))
+
+            nodes = await core.nodes('meta:seen', opts=infork00)
+            self.len(3, nodes)
+
+            nodes = await core.nodes('meta:seen -> it:sec:cpe', opts=infork00)
+            self.len(3, nodes)
+            ndefs = [k.ndef for k in nodes]
+            self.sorteq(ndefs, (
+                ('it:sec:cpe', 'cpe:2.3:a:abinitio:control\\>center:-:*:*:*:*:*:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:a:1c:1c\\:enterprise:-:*:*:*:*:*:*:*'),
+                ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas542_firmware:5.21\\%28aazf.15\\%29co:*:*:*:*:*:*:*'),
+            ))
+
+            nodes = await core.nodes('it:sec:cpe -> meta:seen -> it:sec:vuln:scan:result', opts=infork00)
+            self.len(3, nodes)
+            ndefs = [k.ndef for k in nodes]
+            self.sorteq(ndefs, (
+                ('it:sec:vuln:scan:result', 'd5cd9c6f53ad552d7c84ad5791b80db0'),
+                ('it:sec:vuln:scan:result', '144b8d8cb35c605dcd1f079250921c6d'),
+                ('it:sec:vuln:scan:result', '7aae05f91c41dafbf01f2dec8fcf97cd'),
+            ))
+
+            # Check that we correctly copied over the edges
+            nodes = await core.nodes('risk:vuln <(refs)- it:sec:cpe')
+            self.len(9, nodes)
+
+            # Check that we correctly copied over the tags
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            self.isin('test.cpe.22valid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            self.len(1, nodes)
+            self.isin('test.cpe.22valid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            self.len(1, nodes)
+            self.isin('test.cpe.22valid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            self.isin('test.cpe.22valid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+
+            # Check that we correctly copied over the node data
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            data = await s_tests.alist(nodes[0].iterData())
+            self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            self.len(1, nodes)
+            data = await s_tests.alist(nodes[0].iterData())
+            self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
+
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            self.len(1, nodes)
+            data = await s_tests.alist(nodes[0].iterData())
+            self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            data = await s_tests.alist(nodes[0].iterData())
+            self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
+
+            # Check that we correctly copied over the extended props
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            self.true(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            self.len(1, nodes)
+            self.true(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            self.len(1, nodes)
+            self.true(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            self.true(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+
+        async with self.getRegrCore('model-0.2.28') as core:
+
+            views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
+            self.len(2, views)
+
+            fork00 = views[1].get('iden') # forked view
+            forklayr = views[1].get('layers')[0].get('iden')
+
+            view00 = views[0].get('iden') # default view
+            viewlayr = views[0].get('layers')[0].get('iden')
+
+            opts = {'view': fork00}
+
+            nodes = await core.nodes('meta:source:name="cpe.22.invalid"', opts=opts)
+            self.len(1, nodes)
+            source00 = nodes[0]
+
+            nodes = await core.nodes('meta:source:name="cpe.23.invalid"', opts=opts)
+            self.len(1, nodes)
+            source01 = nodes[0]
+
+            source22 = source00.ndef[1]
+            source22iden = source00.iden()
+
+            source23 = source01.ndef[1]
+            source23iden = source01.iden()
+
+            invcpe00 = 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*'
+            invcpe01 = 'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*'
+            invcpe02 = 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*'
+            invcpe03 = 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'
+            invcpe04 = 'cpe:2.3:h:d\\-link:dir\\-850l:*:*:*:*:*:*:*:*'
+            invcpe05 = 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*'
+
+            metaseen00 = s_common.ehex(s_common.buid(('meta:seen', (source23, ('it:sec:cpe', invcpe00)))))
+            metaseen01 = s_common.ehex(s_common.buid(('meta:seen', (source23, ('it:sec:cpe', invcpe01)))))
+            metaseen02 = s_common.ehex(s_common.buid(('meta:seen', (source22, ('it:sec:cpe', invcpe02)))))
+            metaseen03 = s_common.ehex(s_common.buid(('meta:seen', (source23, ('it:sec:cpe', invcpe02)))))
+            metaseen04 = s_common.ehex(s_common.buid(('meta:seen', (source23, ('it:sec:cpe', invcpe03)))))
+            metaseen05 = s_common.ehex(s_common.buid(('meta:seen', (source22, ('it:sec:cpe', invcpe03)))))
+            metaseen06 = s_common.ehex(s_common.buid(('meta:seen', (source23, ('it:sec:cpe', invcpe04)))))
+            metaseen07 = s_common.ehex(s_common.buid(('meta:seen', (source23, ('it:sec:cpe', invcpe05)))))
+
+            badcpe00 = s_common.ehex(s_common.buid(('it:sec:cpe', invcpe02)))
+            badcpe01 = s_common.ehex(s_common.buid(('it:sec:cpe', invcpe03)))
+
+            '''
+            There are two CPEs that we couldn't migrate. They should be fully
+            represented in the following three queues for potentially being
+            rebuilt later.
+
+            badcpe00: it:sec:cpe="cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*"
+            badcpe01: it:sec:cpe="cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*"
+            '''
+
+            queues = await core.callStorm('return($lib.queue.list())')
+            [q.pop('meta') for q in queues]
+            self.len(3, queues)
+            self.eq(queues, (
+                {'name': 'model_0_2_28:nodes', 'size': 10, 'offs': 10},
+                {'name': 'model_0_2_28:nodes:refs', 'size': 14, 'offs': 14},
+                {'name': 'model_0_2_28:nodes:edges', 'size': 4, 'offs': 4},
+            ))
+
+            q = '''
+                $ret = ([])
+                $q = $lib.queue.get('model_0_2_28:nodes')
+                for $ii in $lib.range(($q.size())) {
+                    $ret.append($q.get($ii, cull=(false), wait=(false)))
+                }
+                fini { return($ret) }
+            '''
+            nodesq = await core.callStorm(q)
+            for item in nodesq:
+                self.nn(item[1]['props'].pop('.created'))
+
+            self.eq(nodesq, [
+                (0,
+                 {'data': (),
+                  'form': 'meta:seen',
+                  'iden': metaseen00,
+                  'layer': forklayr,
+                  'props': {'node': ('it:sec:cpe', invcpe00),
+                            'source': source23},
+                  'repr': (source23, ('it:sec:cpe', invcpe00)),
+                  'sources': (),
+                  'tags': (),
+                  'view': fork00}),
+                (1,
+                 {'data': (),
+                  'form': 'meta:seen',
+                  'iden': metaseen01,
+                  'layer': forklayr,
+                  'props': {'node': ('it:sec:cpe', invcpe01),
+                            'source': source23},
+                  'repr': (source23, ('it:sec:cpe', invcpe01)),
+                  'sources': (),
+                  'tags': (),
+                  'view': fork00}),
+                (2,
+                 {'data': (),
+                  'form': 'meta:seen',
+                  'iden': metaseen02,
+                  'layer': forklayr,
+                  'props': {'node': ('it:sec:cpe', invcpe02),
+                            'source': source22},
+                  'repr': (source22, ('it:sec:cpe', invcpe02)),
+                  'sources': (),
+                  'tags': (),
+                  'view': fork00}),
+                (3,
+                 {'data': (),
+                  'form': 'meta:seen',
+                  'iden': metaseen03,
+                  'layer': forklayr,
+                  'props': {'node': ('it:sec:cpe', invcpe02),
+                            'source': source23},
+                  'repr': (source23, ('it:sec:cpe', invcpe02)),
+                  'sources': (),
+                  'tags': (),
+                  'view': fork00}),
+                (4,
+                 {'data': (('cpe22', 'invalid'), ('cpe23', 'invalid')),
+                  'form': 'it:sec:cpe',
+                  'iden': badcpe00,
+                  'layer': viewlayr,
+                  'props': {'.seen': (1577836800000, 1609459200000),
+                            'edition': '*',
+                            'language': '*',
+                            'other': '*',
+                            'part': 'a',
+                            'product': 'openssh',
+                            'sw_edition': '*',
+                            'target_hw': '*',
+                            'target_sw': '*',
+                            'update': '*',
+                            'v2_2': 'cpe:/a:openbsd:openssh:7.4\r\n',
+                            'vendor': 'openbsd',
+                            'version': '7.4',
+                            '_cpe22valid': 0,
+                            '_cpe23valid': 0},
+                  'repr': invcpe02,
+                  'sources': (source23,
+                              source22),
+                  'tags': ('test', 'test.cpe', 'test.cpe.23invalid', 'test.cpe.22invalid'),
+                  'view': view00}),
+                (5,
+                 {'data': (),
+                  'form': 'meta:seen',
+                  'iden': metaseen04,
+                  'layer': forklayr,
+                  'props': {'node': ('it:sec:cpe', invcpe03),
+                            'source': source23},
+                  'repr': (source23, ('it:sec:cpe', invcpe03)),
+                  'sources': (),
+                  'tags': (),
+                  'view': fork00}),
+                (6,
+                 {'data': (),
+                  'form': 'meta:seen',
+                  'iden': metaseen05,
+                  'layer': forklayr,
+                  'props': {'node': ('it:sec:cpe', invcpe03),
+                            'source': source22},
+                  'repr': (source22, ('it:sec:cpe', invcpe03)),
+                  'sources': (),
+                  'tags': (),
+                  'view': fork00}),
+                (7,
+                 {'data': (('cpe22', 'invalid'), ('cpe23', 'invalid')),
+                  'form': 'it:sec:cpe',
+                  'iden': badcpe01,
+                  'layer': viewlayr,
+                  'props': {'.seen': (1577836800000, 1609459200000),
+                            'edition': '*',
+                            'language': '*',
+                            'other': '*',
+                            'part': 'a',
+                            'product': 'openssh',
+                            'sw_edition': '*',
+                            'target_hw': '*',
+                            'target_sw': '*',
+                            'update': '*',
+                            'v2_2': 'cpe:/a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2',
+                            'vendor': 'openbsd',
+                            'version': '8.2p1 ubuntu-4ubuntu0.2',
+                            '_cpe22valid': 0,
+                            '_cpe23valid': 0},
+                  'repr': invcpe03,
+                  'sources': (source23,
+                              source22),
+                  'tags': ('test', 'test.cpe', 'test.cpe.23invalid', 'test.cpe.22invalid'),
+                  'view': view00}),
+                (8,
+                 {'data': (),
+                  'form': 'meta:seen',
+                  'iden': metaseen06,
+                  'layer': forklayr,
+                  'props': {'node': ('it:sec:cpe', invcpe04),
+                            'source': source23},
+                  'repr': (source23, ('it:sec:cpe', invcpe04)),
+                  'sources': (),
+                  'tags': (),
+                  'view': fork00}),
+                (9,
+                 {'data': (),
+                  'form': 'meta:seen',
+                  'iden': metaseen07,
+                  'layer': forklayr,
+                  'props': {'node': ('it:sec:cpe', invcpe05),
+                            'source': source23},
+                  'repr': (source23, ('it:sec:cpe', invcpe05)),
+                  'sources': (),
+                  'tags': (),
+                  'view': fork00}),
+            ])
+
+            q = '''
+                $ret = ([])
+                $q = $lib.queue.get('model_0_2_28:nodes:refs')
+                for $ii in $lib.range(($q.size())) {
+                    $ret.append($q.get($ii, cull=(false), wait=(false)))
+                }
+                fini { return($ret) }
+            '''
+            refsq = await core.callStorm(q)
+            self.eq(refsq, [
+                (0,
+                 {'iden': metaseen00,
+                  'refs': ({'iden': '86288a55af26e1314ae60e12c54c02f4af2e22ed1580166b39f5352762856335',
+                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                  'view': fork00}),
+                (1,
+                 {'iden': metaseen01,
+                  'refs': ({'iden': '1e0ce923f3dbd57b11d5d95cc5d6d1ccd4de4aba9b6534d57eaa0a2433af9430',
+                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                  'view': fork00}),
+                (2,
+                 {'iden': badcpe00,
+                  'refs': ({'iden': 'd2c0737b821ba0a699e1ff168e2bf1677590dbf677ce7e5c02894f8868ae080a',
+                            'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},),
+                  'view': view00}),
+                (3,
+                 {'iden': badcpe00,
+                  'refs': ({'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
+                            'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
+                  'view': fork00}),
+                (4,
+                 {'iden': metaseen02,
+                  'refs': ({'iden': '11f7e64a8dd8aa5f2a9b52c0e95783da4b7486452aff74dfcf80814f72507f88',
+                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                  'view': fork00}),
+                (5,
+                 {'iden': metaseen03,
+                  'refs': ({'iden': 'b209cfe6fb7167cc7dbae9df50894c2614cb9e179e5b3a4fd85fbcf7fa31a9dd',
+                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                  'view': fork00}),
+                (6,
+                 {'iden': badcpe01,
+                  'refs': ({'iden': '5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3',
+                            'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},),
+                  'view': view00}),
+                (7,
+                 {'iden': badcpe01,
+                  'refs': ({'iden': '9742664e24fe1a3a37d871b1f62af27453c2945b98f421d753db8436e9a44cc9',
+                            'refinfo': ('it:prod:soft', 'cpe', 'it:sec:cpe', False)},),
+                  'view': fork00}),
+                (8,
+                 {'iden': badcpe01,
+                  'refs': ({'iden': '16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7',
+                            'refinfo': ('_ext:model:form', 'cpe', 'it:sec:cpe', False)},),
+                  'view': fork00}),
+                (9,
+                 {'iden': badcpe01,
+                  'refs': ({'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
+                            'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
+                  'view': fork00}),
+                (10,
+                 {'iden': metaseen04,
+                  'refs': ({'iden': '6d09c45666b3a14bf9d298079344d01c079e474423307da553d65ad9917556ae',
+                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                  'view': fork00}),
+                (11,
+                 {'iden': metaseen05,
+                  'refs': ({'iden': '208ea1b5593aff3c9cb51c19374616fcd103ea2f554f0dd2a13652aadabb82ae',
+                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                  'view': fork00}),
+                (12,
+                 {'iden': metaseen06,
+                  'refs': ({'iden': 'e3c389c194609a57cde68c21cac8ae1cd18e6a642e332461a3acd19138904239',
+                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                  'view': fork00}),
+                (13,
+                 {'iden': metaseen07,
+                  'refs': ({'iden': '53ad1502b6f6de3d9d4efe72cc101cd3889e47323ac8db5e3fd39ae68c72f141',
+                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                  'view': fork00}),
+            ])
+
+            riskvuln00 = await core.callStorm('risk:vuln return($node.iden())')
+            q = '''
+                $ret = ([])
+                $q = $lib.queue.get('model_0_2_28:nodes:edges')
+                for $ii in $lib.range(($q.size())) {
+                    $ret.append($q.get($ii, cull=(false), wait=(false)))
+                }
+                fini { return($ret) }
+            '''
+            edgesq = await core.callStorm(q)
+            self.eq(edgesq, [
+                (0,
+                 {'direction': 'n1',
+                  'edges': (('refs', riskvuln00),),
+                  'iden': badcpe00,
+                  'view': view00}),
+                (1,
+                 {'direction': 'n2',
+                  'edges': (('seen', source23iden), ('seen', source22iden)),
+                  'iden': badcpe00,
+                  'view': fork00}),
+                (2,
+                 {'direction': 'n1',
+                  'edges': (('refs', riskvuln00),),
+                  'iden': badcpe01,
+                  'view': view00}),
+                (3,
+                 {'direction': 'n2',
+                  'edges': (('seen', source23iden), ('seen', source22iden)),
+                  'iden': badcpe01,
+                  'view': fork00}),
+            ])

@@ -70,6 +70,7 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
@@ -1015,11 +1016,23 @@ class SynTest(unittest.TestCase):
             yield regrdir
 
     @contextlib.asynccontextmanager
-    async def getRegrCore(self, vers, conf=None):
+    async def getRegrCore(self, vers, conf=None, maxvers=None):
         with self.withNexusReplay():
             with self.getRegrDir('cortexes', vers) as dirn:
-                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    yield core
+                if maxvers is not None:
+
+                    orig = s_modelrev.ModelRev
+                    class ModelRev(orig):
+                        def __init__(self, core):
+                            orig.__init__(self, core)
+                            self.revs = [k for k in self.revs if k[0] <= maxvers]
+
+                    with mock.patch.object(s_modelrev, 'ModelRev', ModelRev):
+                        async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                            yield core
+                else:
+                    async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        yield core
 
     @contextlib.asynccontextmanager
     async def getRegrAxon(self, vers, conf=None):

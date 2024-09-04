@@ -2,13 +2,14 @@ import regex
 import logging
 
 import synapse.exc as s_exc
+import synapse.assets as s_assets
 import synapse.common as s_common
 
 import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 27)
+maxvers = (0, 2, 28)
 
 class ModelRev:
 
@@ -41,6 +42,7 @@ class ModelRev:
             ((0, 2, 25), self.revModel_0_2_25),
             ((0, 2, 26), self.revModel_0_2_26),
             ((0, 2, 27), self.revModel_0_2_27),
+            ((0, 2, 28), self.revModel_0_2_28),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -786,6 +788,15 @@ class ModelRev:
 
     async def revModel_0_2_27(self, layers):
         await self._normPropValu(layers, 'it:dev:repo:commit:id')
+
+    async def revModel_0_2_28(self, layers):
+
+        opts = {'vars': {
+            'layridens': [layr.iden for layr in layers],
+        }}
+
+        text = s_assets.getStorm('migrations', 'model-0.2.28.storm')
+        await self.runStorm(text, opts=opts)
 
     async def runStorm(self, text, opts=None):
         '''
