@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.180.0'
+version = '2.180.1'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
