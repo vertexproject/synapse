@@ -564,8 +564,14 @@ class ModelRevTest(s_tests.SynTest):
             self.eq([node.ndef[0] for node in nodes], [node.ndef[0] for node in reversed(rnodes)])
 
     async def test_modelrev_0_2_27(self):
+        async with self.getRegrCore('model-0.2.27') as core:
+            nodes = await core.nodes('it:dev:repo:commit:id=" Foo "')
+            self.len(1, nodes)
+            self.eq('Foo', nodes[0].get('id'))
 
-        async with self.getRegrCore('model-0.2.27', maxvers=(0, 2, 24)) as core:
+    async def test_modelrev_0_2_28(self):
+
+        async with self.getRegrCore('model-0.2.28', maxvers=(0, 2, 24)) as core:
             # Do some pre-migration validation of the cortex. It's still a
             # little weird in here because the CPE types have been updated so
             # some lifting/pivoting won't work right.
@@ -633,7 +639,7 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:sec:vuln:scan:result', opts=infork00)
             self.len(11, nodes)
 
-        async with self.getRegrCore('model-0.2.27') as core:
+        async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(2, views)
@@ -808,7 +814,7 @@ class ModelRevTest(s_tests.SynTest):
             data = await s_tests.alist(nodes[0].iterData())
             self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
 
-        async with self.getRegrCore('model-0.2.27') as core:
+        async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(2, views)

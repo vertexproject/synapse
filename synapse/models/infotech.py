@@ -756,30 +756,37 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A developer selected label.',
                 }),
                 ('it:dev:repo', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A version control system instance.',
                 }),
                 ('it:dev:repo:remote', ('guid', {}), {
                     'doc': 'A remote repo that is tracked for changes/branches/etc.',
                 }),
                 ('it:dev:repo:branch', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A branch in a version control system instance.',
                 }),
                 ('it:dev:repo:commit', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A commit to a repository.',
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
                     'doc': 'A diff of a file being applied in a single commit.',
                 }),
                 ('it:dev:repo:issue:label', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'An issue raised in a repository.',
                 }),
                 ('it:dev:repo:issue:comment', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A comment on an issue in a repository.',
                 }),
                 ('it:dev:repo:diff:comment', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A comment on a diff in a repository.',
                 }),
                 ('it:prod:soft', ('guid', {}), {
@@ -1799,21 +1806,22 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A free-form description of the repository.',
-                    }),
+                        'doc': 'A free-form description of the repository.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'When the repository was created.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL where the repository is hosted.',
-                    }),
+                        'doc': 'The URL where the repository is hosted.'}),
+
                     ('type', ('it:dev:repo:type:taxonomy', {}), {
                         'doc': 'The type of the version control system used.',
-                        'ex': 'svn'
-                    }),
+                        'ex': 'svn'}),
+
                     ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
-                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits.",
-                    }),
+                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits."}),
+
                 )),
 
                 ('it:dev:repo:remote', {}, (
@@ -1833,120 +1841,127 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:dev:repo:branch', {}, (
+
                     ('parent', ('it:dev:repo:branch', {}), {
-                        'doc': 'The branch this branch was branched from.',
-                    }),
+                        'doc': 'The branch this branch was branched from.'}),
+
                     ('start', ('it:dev:repo:commit', {}), {
-                        'doc': 'The commit in the parent branch this branch was created at.'
-                    }),
+                        'doc': 'The commit in the parent branch this branch was created at.'}),
+
                     ('name', ('str', {'strip': True}), {
-                        'doc': 'The name of the branch.',
-                    }),
+                        'doc': 'The name of the branch.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the branch is hosted.',
-                    }),
+                        'doc': 'The URL where the branch is hosted.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time this branch was created',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('merged', ('time', {}), {
-                        'doc': 'The time this branch was merged back into its parent.',
-                    }),
+                        'doc': 'The time this branch was merged back into its parent.'}),
+
                     ('deleted', ('time', {}), {
-                        'doc': 'The time this branch was deleted.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
                 )),
 
                 ('it:dev:repo:commit', {}, (
                     ('repo', ('it:dev:repo', {}), {
-                        'doc': 'The repository the commit lives in.',
-                    }),
+                        'doc': 'The repository the commit lives in.'}),
+
                     ('parents', ('array', {'type': 'it:dev:repo:commit'}), {
-                        'doc': 'The commit or commits this commit is immediately based on.',
-                    }),
+                        'doc': 'The commit or commits this commit is immediately based on.'}),
+
                     ('branch', ('it:dev:repo:branch', {}), {
-                        'doc': 'The name of the branch the commit was made to.',
-                    }),
+                        'doc': 'The name of the branch the commit was made to.'}),
+
                     ('mesg', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The commit message describing the changes in the commit.',
-                    }),
+                        'doc': 'The commit message describing the changes in the commit.'}),
+
                     ('id', ('str', {}), {
-                        'doc': 'The version control system specific commit identifier.',
-                    }),
+                        'doc': 'The version control system specific commit identifier.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the commit was made.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the commit is hosted.',
-                    }),
+                        'doc': 'The URL where the commit is hosted.'}),
                 )),
 
                 ('it:dev:repo:diff', {}, (
+
                     ('commit', ('it:dev:repo:commit', {}), {
-                        'doc': 'The commit that produced this diff.',
-                    }),
+                        'doc': 'The commit that produced this diff.'}),
+
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file after the commit has been applied',
-                    }),
+                        'doc': 'The file after the commit has been applied'}),
+
                     ('path', ('file:path', {}), {
-                        'doc': 'The path to the file in the repo that the diff is being applied to.',
-                    }),
+                        'doc': 'The path to the file in the repo that the diff is being applied to.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the diff is hosted.',
-                    }),
+                        'doc': 'The URL where the diff is hosted.'}),
                 )),
 
                 ('it:dev:repo:issue', {}, (
+
                     ('repo', ('it:dev:repo', {}), {
-                        'doc': 'The repo where the issue was logged.',
-                    }),
+                        'doc': 'The repo where the issue was logged.'}),
+
                     ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The title of the issue.'
-                    }),
+                        'doc': 'The title of the issue.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The text describing the issue.'
-                    }),
+                        'doc': 'The text describing the issue.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the issue was created.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('updated', ('time', {}), {
-                        'doc': 'The time the issue was updated.',
-                    }),
+                        'doc': 'The time the issue was updated.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the issue is hosted.',
-                    }),
+                        'doc': 'The URL where the issue is hosted.'}),
+
                     ('id', ('str', {'strip': True}), {
-                        'doc': 'The ID of the issue in the repository system.',
-                    }),
+                        'doc': 'The ID of the issue in the repository system.'}),
                 )),
 
                 ('it:dev:repo:label', {}, (
+
                     ('id', ('str', {'strip': True}), {
-                        'doc': 'The ID of the label.',
-                    }),
+                        'doc': 'The ID of the label.'}),
+
                     ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The human friendly name of the label.',
-                    }),
+                        'doc': 'The human friendly name of the label.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The description of the label.',
-                    }),
+                        'doc': 'The description of the label.'}),
+
                 )),
 
                 ('it:dev:repo:issue:label', {}, (
+
                     ('issue', ('it:dev:repo:issue', {}), {
-                        'doc': 'The issue the label was applied to.',
-                    }),
+                        'doc': 'The issue the label was applied to.'}),
+
                     ('label', ('it:dev:repo:label', {}), {
-                        'doc': 'The label that was applied to the issue.',
-                    }),
+                        'doc': 'The label that was applied to the issue.'}),
+
                     ('applied', ('time', {}), {
-                        'doc': 'The time the label was applied.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('removed', ('time', {}), {
-                        'doc': 'The time the label was removed.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                 )),
 
                 ('it:dev:repo:issue:comment', {}, (
@@ -1964,7 +1979,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL where the comment is hosted.',
                     }),
                     ('created', ('time', {}), {
-                        'doc': 'The time the comment was created.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.',
                     }),
                     ('updated', ('time', {}), {
                         'doc': 'The time the comment was updated.',
@@ -1972,31 +1988,33 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:dev:repo:diff:comment', {}, (
+
                     ('diff', ('it:dev:repo:diff', {}), {
-                        'doc': 'The diff the comment is being added to.',
-                    }),
+                        'doc': 'The diff the comment is being added to.'}),
+
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The body of the comment.',
-                    }),
+                        'doc': 'The body of the comment.'}),
+
                     ('replyto', ('it:dev:repo:diff:comment', {}), {
-                        'doc': 'The comment that this comment is replying to.',
-                    }),
+                        'doc': 'The comment that this comment is replying to.'}),
+
                     ('line', ('int', {}), {
-                        'doc': 'The line in the file that is being commented on.',
-                    }),
+                        'doc': 'The line in the file that is being commented on.'}),
+
                     ('offset', ('int', {}), {
-                        'doc': 'The offset in the line in the file that is being commented on.',
-                    }),
+                        'doc': 'The offset in the line in the file that is being commented on.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the comment is hosted.',
-                    }),
+                        'doc': 'The URL where the comment is hosted.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the comment was created.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('updated', ('time', {}), {
-                        'doc': 'The time the comment was updated.',
-                    }),
+                        'doc': 'The time the comment was updated.'}),
+
                 )),
 
                 ('it:prod:hardwaretype', {}, ()),

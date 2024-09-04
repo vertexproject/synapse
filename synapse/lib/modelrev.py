@@ -786,6 +786,9 @@ class ModelRev:
                 await self._updatePropStortype(layers, prop.full)
 
     async def revModel_0_2_27(self, layers):
+        await self._normPropValu(layers, 'it:dev:repo:commit:id')
+
+    async def revModel_0_2_28(self, layers):
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
