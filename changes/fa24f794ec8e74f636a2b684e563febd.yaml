@@ -1,0 +1,5 @@
+---
+desc: Update the ``cryptography`` library to require its latest version.
+prs: []
+type: feat
+...
