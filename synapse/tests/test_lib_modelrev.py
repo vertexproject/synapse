@@ -896,7 +896,7 @@ class ModelRevTest(s_tests.SynTest):
             self.eq(queues, (
                 {'name': 'model_0_2_28:nodes', 'size': 10, 'offs': 10},
                 {'name': 'model_0_2_28:nodes:refs', 'size': 14, 'offs': 14},
-                {'name': 'model_8_2_27:nodes:edges', 'size': 4, 'offs': 4},
+                {'name': 'model_0_2_28:nodes:edges', 'size': 4, 'offs': 4},
             ))
 
             q = '''
