@@ -814,6 +814,27 @@ class ModelRevTest(s_tests.SynTest):
             data = await s_tests.alist(nodes[0].iterData())
             self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
 
+            # Check that we correctly copied over the extended props
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            self.true(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            self.len(1, nodes)
+            self.true(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            self.len(1, nodes)
+            self.true(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            self.len(1, nodes)
+            self.true(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
@@ -952,7 +973,9 @@ class ModelRevTest(s_tests.SynTest):
                             'update': '*',
                             'v2_2': 'cpe:/a:openbsd:openssh:7.4\r\n',
                             'vendor': 'openbsd',
-                            'version': '7.4'},
+                            'version': '7.4',
+                            '_cpe22valid': 0,
+                            '_cpe23valid': 0},
                   'repr': invcpe02,
                   'sources': (source23,
                               source22),
@@ -997,7 +1020,9 @@ class ModelRevTest(s_tests.SynTest):
                             'update': '*',
                             'v2_2': 'cpe:/a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2',
                             'vendor': 'openbsd',
-                            'version': '8.2p1 ubuntu-4ubuntu0.2'},
+                            'version': '8.2p1 ubuntu-4ubuntu0.2',
+                            '_cpe22valid': 0,
+                            '_cpe23valid': 0},
                   'repr': invcpe03,
                   'sources': (source23,
                               source22),

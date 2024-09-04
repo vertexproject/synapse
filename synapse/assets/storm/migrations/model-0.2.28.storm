@@ -226,10 +226,11 @@ function removeNode(n, viewiden, layriden) {
 
 function migrateCpeNode(oldcpe, newcpe) {
 
-    // migrate the edges, tags, data, and universal properties
+    // migrate the edges, tags, node data, and extended props
     $lib.model.migration.copyEdges($oldcpe, $newcpe)
     $lib.model.migration.copyTags($oldcpe, $newcpe)
     $lib.model.migration.copyData($oldcpe, $newcpe)
+    $lib.model.migration.copyExtProps($oldcpe, $newcpe)
 
     $refinfos = $getRefInfo($oldcpe.form())
 

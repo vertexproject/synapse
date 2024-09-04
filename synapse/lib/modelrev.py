@@ -795,7 +795,7 @@ class ModelRev:
             'layridens': [layr.iden for layr in layers],
         }}
 
-        text = s_assets.getStorm('migrations', 'model-0.2.27.storm')
+        text = s_assets.getStorm('migrations', 'model-0.2.28.storm')
         await self.runStorm(text, opts=opts)
 
     async def runStorm(self, text, opts=None):

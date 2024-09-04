@@ -759,6 +759,17 @@ class MigrationEditorMixin:
                 if overwrite or not proto.hasTagProp(tagname, propname):
                     await proto.setTagProp(tagname, propname, valu) # use tag perms
 
+    async def copyExtProps(self, src, proto):
+
+        form = src.form
+
+        for name, valu in src.props.items():
+            prop = form.props.get(name)
+            if not prop.isext:
+                continue
+
+            await proto.set(name, valu)
+
 @s_stormtypes.registry.registerLib
 class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
     '''
@@ -790,6 +801,13 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Copy tag property value even if the property exists on the destination node.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'copyExtProps', 'desc': 'Copy extended properties from the src node to the dst node.',
+         'type': {'type': 'function', '_funcname': '_methCopyExtProps',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy extended props from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy extended props to.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -798,6 +816,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyData': self._methCopyData,
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
+            'copyExtProps': self._methCopyExtProps,
             'liftByPropValuNoNorm': self._methLiftByPropValuNoNorm,
             'setNodePropValuNoNorm': self._methSetNodePropValuNoNorm,
         }
@@ -842,6 +861,19 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyTags(src, proto, overwrite=overwrite)
+
+    async def _methCopyExtProps(self, src, dst):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyExtProps() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyExtProps() dest argument must be a node.')
+
+        snap = self.runt.snap
+
+        async with snap.getEditor() as editor:
+            proto = editor.loadNode(dst)
+            await self.copyExtProps(src, proto)
 
     async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
         '''
