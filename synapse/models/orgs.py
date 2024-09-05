@@ -755,6 +755,7 @@ class OuModule(s_module.CoreModule):
                     ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
                         'doc': 'The requirements levied upon the parties.'}),
                 )),
+                ('ou:industry:type:taxonomy', {}, ()),
                 ('ou:industry', {}, (
 
                     ('name', ('ou:industryname', {}), {
