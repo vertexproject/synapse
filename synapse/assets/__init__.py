@@ -20,17 +20,16 @@ def getStorm(*names):
         await core.callStorm(text)
     '''
     fp = getAssetPath('storm', *names)
-    with s_common.genfile(fp) as fd:
+    with open(fp, 'rb') as fd:
         text = fd.read()
     return text.decode('utf8')
 
 def getAssetPath(*names):
     fp = s_common.genpath(dirname, *names)
-    absfp = os.path.abspath(fp)
-    if not absfp.startswith(dirname):
-        logger.error(f'{absfp} is not in {dirname}')
+    if not fp.startswith(dirname):
+        logger.error(f'{fp} is not in {dirname}')
         raise ValueError(f'Path escaping detected for {names}')
-    if not os.path.isfile(absfp):
-        logger.error('{} does not exist'.format(absfp))
+    if not os.path.isfile(fp):
+        logger.error('{} does not exist'.format(fp))
         raise ValueError(f'Asset does not exist for {names}')
-    return absfp
+    return fp
