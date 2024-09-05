@@ -1532,22 +1532,33 @@ whose name begins with "br":
 taxonomy
 --------
 
-A ``taxonomy`` in Synapse is used to represent a hierarchical set of categories that can be used to classify
-objects (forms). Many forms in Synapse include ``taxonomy`` properties (such as ``risk:tool:software:type``
-or ``ps:contact:type``).
+A ``taxonomy`` in Synapse is used to represent a set of hierarchical types or categories that can be used to classify
+objects (forms). Many forms in Synapse include ``:type`` properties (such as ``risk:tool:software:type``, ``geo:place:type``,
+or ``media:news:type``).
 
 .. TIP::
+  
+  ``taxonomy`` is a base :ref:`gloss-type` that is commonly extended to define form-specific taxonomies. That is, a tool
+  (``risk:tool:software``) has a ``:type`` property that can represent a set of tool/malware types or categories. The
+  ``risk:tool:software:type`` property has a form-specific type of ``risk:tool:software:taxonomy``.
+  
+  While this section describes the behavior of taxonomies generally, keep in mind that each form can have its own taxonomy /
+  set of categories independent of other taxonomies. This allows you to define one taxonomy to categorize tools/malware and
+  a separate taxonomy to categorize articles or publications, for example.
 
-   ``taxonomy`` is a base type that is commonly extended to define form-specific taxonomies. That is, a
-   tool (``risk:tool:software``) has a ``:type`` property that can represent a set of tool/malware types
-   or categories. The ``risk:tool:software:type`` property has a form-specific taxonomy type of
-   ``risk:tool:software:type:taxonomy`` (which is also its own form).
-   
-   While this section describes the behavior of taxonomies generally, keep in mind that each form can
-   have its own taxonomy / set of categories independent of other taxonomies.
+Most taxonomy types are also forms (i.e., ``risk:tool:software:type:taxonomy``), so you can lift, view, and work with them
+just like other nodes in Synapse. To ensure consistency across the numerous taxonomy forms, most taxonomies inherit the
+``meta:taxonomy`` :ref:`gloss-interface`.
 
-Synapse users can define their own taxonomies to group forms in ways that are meaningful for their analysis.
-For example, you can construct a taxonomy (set of categories) to help subdivide and organize industries:
+Given their hierarchical structure, taxonomies share some similarities with `tags`_:
+
+- Taxonomies can be hierarchical, using a dotted (dot-separated) namespace to represent various levels in the hierarchy.
+- Taxonomy forms include properties such as ``:base``, ``:depth``, and ``:parent`` that allow you to lift,
+  pivot, and navigate among taxonomy nodes similar to the way you navigate :ref:`analytical-tags-nodes`.
+
+There are no "pre-defined" taxonomies in Synapse. You can make use of taxonomies (or not), and can define taxonomies that
+are tailored to your specifc analysis needs. For example, you can construct a multi-level taxonomy to help subdivide and
+organize industries using their ``:type`` property:
 
 - ``ou:industry:type = education``
 - ``ou:industry:type = education.colleges``
@@ -1559,21 +1570,15 @@ For example, you can construct a taxonomy (set of categories) to help subdivide 
 
 ...etc.
 
-.. NOTE::
-  
-  Some Synapse `Power-Ups`_ that create forms with ``taxonomy`` properties may set the property value to
-  identify the **source** of the form itself, along with any relevant category provided by the source.
-  This is done in order to distinguish categorizable objects from third-parties from similar objects
-  that may be defined by your organization, in case your internal categories differ from those used by
-  others.
-  
-  For example, the Synapse-Mandiant commercial Power-Up may create industries (``ou:industry`` nodes)
-  whose ``:type`` value will be set to ``mandiant``. Similarly, Mandiant categorizes threat actor tools
-  and malware, so ``risk:tool:software`` nodes created by the Power-Up will have their ``:type``
-  property set to values such as ``mandiant.backdoor`` or ``mandiant.utility``.
-  
-  Organizations can choose to leave these forms and values as they are, or can overwrite the taxonomy
-  values to create a consistent internal taxonomy.
+Taxonomies do not have to be multi-level / hierarchcial. If you only need a simple set of categories, you can define a
+flat taxonomy with only one level. The following uses a flat taxonomy to populate ``risk:tool:software:type`` properties:
+
+- ``risk:tool:software:type = backdoor``
+- ``risk:tool:software:type = downloader``
+- ``risk:tool:software:type = dropper``
+- ``risk:tool:software:type = utility``
+
+... etc.
 
 
 Indexing
@@ -1634,13 +1639,14 @@ form's taxonomy.
 
 Lift all industries (``ou:industry`` nodes) within the "media" catetgory / taxonomy:
 
-.. storm-pre:: [ (ou:industry=* :name=media :type=media) (ou:industry=* :name='journalism and news media' :type=media.journalism) (ou:industry=* :name='journalists and reporters' :type=media.journalism.reporters) ]
+.. storm-pre:: [ (ou:industry=* :name=media :type=media) (ou:industry=* :name='journalism and news media' :type=media.journalism) (ou:industry=* :name='journalists and reporters' :type=media.journalism.reporters) (ou:industry=* :name=publishing :type=media.publishing) (ou:industry=* :name='print media' :type=media.publishing.print) (ou:industry=* :name=entertainment :type=media.entertainment) ]
 .. storm-cli:: ou:industry:type ^= media
 
-Lift all tools (``risk:tool:software`` nodes) whose sub-category name begins with "d" as reported by Mandiant:
+Lift all industries (``ou:industry`` nodes) within the "media" catetgory / taxonomy whose subcategory starts
+with "j":
 
-.. storm-pre:: [ (risk:tool:software=* :soft:name=pumpkinbar :type=mandiant.dropper ) (risk:tool:software=* :soft:name=spicytuna :type=mandiant.downloader ) (risk:tool:software=* :soft:name=lateop :type=mandiant.dataminer ) :reporter:name=mandiant ]
-.. storm-cli:: risk:tool:software:type ^= mandiant.d
+.. storm-cli:: ou:industry:type ^= media.j
+
 
 **Usage notes:**
 
@@ -1955,5 +1961,5 @@ See the Storm documents referenced above for additional examples using the inter
 .. _Optic UI: https://synapse.docs.vertex.link/projects/optic/en/latest/index.html
 .. _Microsoft: https://learn.microsoft.com/en-us/windows/win32/api/guiddef/ns-guiddef-guid
 .. _variables: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_vars.html
-.. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
+.. _tags: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_ref_type_specific.html#syn-tag
 

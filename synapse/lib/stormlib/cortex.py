@@ -3,6 +3,7 @@ import json
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.storm as s_storm
@@ -1317,3 +1318,59 @@ class StormPoolGetCmd(s_storm.Cmd):
         await self.runt.printf(f'Storm Pool URL: {url}')
         await self.runt.printf(f'Sync Timeout (secs): {opts.get("timeout:sync")}')
         await self.runt.printf(f'Connection Timeout (secs): {opts.get("timeout:connection")}')
+
+@s_stormtypes.registry.registerLib
+class CortexApi(s_stormtypes.Lib):
+    '''
+    Library for interacting with the Cortex API.
+    '''
+    _storm_locals = (
+        {'name': 'getIdenByNid', 'desc': 'Get the iden for a node by its node id in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getIdenByNid',
+                  'args': (
+                      {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the node or None if the node id is not found.'}}},
+        {'name': 'getNidByIden', 'desc': 'Get the node id for an iden in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getNidByIden',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the node.'},
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The node id or None if the iden is not found.'}}},
+        {'name': 'getNodeByNid', 'desc': 'Get a node from the current View by its node id in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getNodeByNid',
+                  'args': (
+                      {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'The node in the current View if it exists.'}}},
+    )
+
+    _storm_lib_path = ('cortex',)
+
+    def getObjLocals(self):
+        return {
+            'getIdenByNid': self.getIdenByNid,
+            'getNidByIden': self.getNidByIden,
+            'getNodeByNid': self.getNodeByNid,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getIdenByNid(self, nid):
+        nid = await s_stormtypes.toint(nid)
+        buid = self.runt.view.core.getBuidByNid(s_common.int64en(nid))
+        if buid is not None:
+            return s_common.ehex(buid)
+        return None
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getNidByIden(self, iden):
+        buid = await s_stormtypes.tobuidhex(iden)
+        nid = self.runt.view.core.getNidByBuid(s_common.uhex(buid))
+        if nid is not None:
+            return s_common.int64un(nid)
+        return None
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getNodeByNid(self, nid):
+        nid = await s_stormtypes.toint(nid)
+        return await self.runt.view.getNodeByNid(s_common.int64en(nid))

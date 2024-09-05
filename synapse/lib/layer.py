@@ -4471,30 +4471,48 @@ class Layer(s_nexus.Pusher):
         async for item in self._iterRows(indxby, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, tag, form=None):
+    async def iterTagRows(self, tag, form=None, starttupl=None):
         '''
-        Yields (nid, (valu, form)) values that match a tag and optional form.
+        Yields (nid, valu) values that match a tag and optional form.
 
         Args:
             tag (str): the tag to match
             form (Optional[str]):  if present, only yields nids of nodes that match the form.
+            starttupl (Optional[Tuple[nid, Tuple[int, int] | Tuple[None, None]]]): if present, (re)starts the stream of values there.
 
         Yields:
-            (nid, (ival, form))
+            (nid, valu)
         '''
         try:
             abrv = self.core.getIndxAbrv(INDX_TAG, form, tag)
         except s_exc.NoSuchAbrv:
             return
 
-        for lkey, nid in self.layrslab.scanByPref(abrv, db=self.indxdb):
+        abrvlen = len(abrv)
+        ivallen = self.ivaltimetype.size
+
+        nonetupl = (None, None)
+        startkey = None
+        startvalu = None
+
+        if starttupl is not None:
+            (nid, valu) = starttupl
+            startvalu = nid
+            if valu != (None, None):
+                minindx = self.ivaltimetype.getIntIndx(valu[0])
+                maxindx = self.ivaltimetype.getIntIndx(valu[1])
+                startkey = minindx + maxindx
+
+        for lkey, nid in self.layrslab.scanByPref(abrv, startkey=startkey, startvalu=startvalu, db=self.indxdb):
             await asyncio.sleep(0)
 
-            sref = self.genStorNodeRef(nid)
-            ndef = self.core.getNidNdef(nid)
-            valu = sref.sode['tags'].get(tag)
+            if len(lkey) == abrvlen:
+                yield nid, nonetupl
+                continue
 
-            yield nid, (valu, ndef[0])
+            minvalu = self.ivaltimetype.decodeIndx(lkey[abrvlen:-ivallen])
+            maxvalu = self.ivaltimetype.decodeIndx(lkey[-ivallen:])
+            yield nid, (minvalu, maxvalu)
 
     async def iterTagPropRows(self, tag, prop, form=None, stortype=None, startvalu=None):
         '''

@@ -371,8 +371,11 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The listed org/company FQDN for this contact.',
                     }),
                     ('user', ('inet:user', {}), {
-                        'doc': 'The username or handle for this contact.',
-                    }),
+                        'doc': 'The username or handle for this contact.'}),
+
+                    ('service:accounts', ('array', {'type': 'inet:service:account', 'sorted': True, 'uniq': True}), {
+                        'doc': 'The service accounts associated with this contact.'}),
+
                     ('web:acct', ('inet:web:acct', {}), {
                         'doc': 'The social media account for this contact.',
                     }),

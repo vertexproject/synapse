@@ -946,7 +946,7 @@ class RuntNode(NodeBase):
         self.buid = s_common.buid(self.ndef)
         self.form = view.core.model.form(self.ndef[0])
 
-        self.nid = self.buid
+        self.nid = None
 
     def get(self, name, defv=None):
         return self.pode[1]['props'].get(name, defv)
