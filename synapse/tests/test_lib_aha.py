@@ -1396,5 +1396,4 @@ class AhaTest(s_test.SynTest):
             self.eq(tasks[0][0], '1.cell.synapse')
 
             tasks = [task async for task in cell00.getPeerTasks(timeout=3)]
-            print(repr(tasks))
             self.len(2, tasks)
