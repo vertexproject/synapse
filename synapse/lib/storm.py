@@ -5377,7 +5377,7 @@ class TeeCmd(Cmd):
 
                     outq = asyncio.Queue(maxsize=outq_size)
                     for subr in runts:
-                        subg = s_common.agen((node, path.fork(node)))
+                        subg = s_common.agen((node, path.fork(node, None)))
                         self.runt.snap.schedCoro(self.pipeline(subr, outq, genr=subg))
 
                     exited = 0
@@ -5399,7 +5399,7 @@ class TeeCmd(Cmd):
                 else:
 
                     for subr in runts:
-                        subg = s_common.agen((node, path.fork(node)))
+                        subg = s_common.agen((node, path.fork(node, None)))
                         async for subitem in subr.execute(genr=subg):
                             yield subitem
 
@@ -5553,6 +5553,7 @@ class ScrapeCmd(Cmd):
             if not todo:
                 todo = list(node.props.values())
 
+            link = {'type': 'scrape'}
             for text in todo:
 
                 text = str(text)
@@ -5562,7 +5563,7 @@ class ScrapeCmd(Cmd):
                         continue
 
                     nnode = await node.snap.addNode(form, valu)
-                    npath = path.fork(nnode)
+                    npath = path.fork(nnode, link)
 
                     if refs:
                         if node.form.isrunt:
@@ -5666,8 +5667,9 @@ class LiftByVerb(Cmd):
 
                     yield _node, _path
 
+                    link = {'type': 'runtime'}
                     async for node in self.iterEdgeNodes(verb, idenset, n2):
-                        yield node, _path.fork(node)
+                        yield node, _path.fork(node, link)
 
 class EdgesDelCmd(Cmd):
     '''

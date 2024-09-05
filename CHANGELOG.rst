@@ -6,6 +6,58 @@
 Synapse Changelog
 *****************
 
+v2.180.1 - 2024-09-04
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the ``cryptography`` library to require its latest version.
+  (`#3890 <https://github.com/vertexproject/synapse/pull/3890>`_)
+
+Improved documentation
+----------------------
+- Fixed a typo in the ``trigger.enable`` docs which mistakenly referred to the
+  ``trigger-enable`` command.
+  (`#3889 <https://github.com/vertexproject/synapse/pull/3889>`_)
+
+v2.180.0 - 2024-08-30
+=====================
+
+Automatic Migrations
+--------------------
+- A small migration to normalize ``it:dev:repo:commit:id`` to remove leading
+  and trailing whitespace.
+  (`#3884 <https://github.com/vertexproject/synapse/pull/3884>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``pol:candidate:id`` to track election authority issued candidate IDs.
+  (`#3878 <https://github.com/vertexproject/synapse/pull/3878>`_)
+- Updated ``it:dev:repo`` elements to inherit ``inet:service:object``.
+  (`#3879 <https://github.com/vertexproject/synapse/pull/3879>`_)
+- Add ``inet:service:account`` properties to forms with ``inet:web:acct``
+  properties.
+  (`#3880 <https://github.com/vertexproject/synapse/pull/3880>`_)
+- See :ref:`userguide_model_v2_180_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Include detailed link traversal information from the Storm runtime when the
+  ``link`` option is set.
+  (`#3862 <https://github.com/vertexproject/synapse/pull/3862>`_)
+- Add support for disabling readahead on layer slabs by setting the
+  ``SYNDEV_CORTEX_LAYER_READAHEAD`` environment variable.
+  (`#3877 <https://github.com/vertexproject/synapse/pull/3877>`_)
+
+Improved documentation
+----------------------
+- Add Devops task for using ``onboot:optimize`` to optimize LMDB databases in
+  services.
+  (`#3876 <https://github.com/vertexproject/synapse/pull/3876>`_)
+- Clarify documentation on taxonomy types.
+  (`#3883 <https://github.com/vertexproject/synapse/pull/3883>`_)
+
 v2.179.0 - 2024-08-23
 =====================
 

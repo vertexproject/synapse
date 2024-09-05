@@ -1363,6 +1363,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:search:query', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
                         'doc': 'An instance of a search query issued to a search engine.',
                     }),
 

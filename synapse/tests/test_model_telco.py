@@ -112,7 +112,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             q = '''[(tel:mob:telem=$valu :time=$p.time :latlong=$p.latlong :place=$p.place :host=$p.host
              :loc=$p.loc :accuracy=$p.accuracy :cell=$p.cell :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
              :mac=$p.mac :ipv4=$p.ipv4 :ipv6=$p.ipv6 :wifi=$p.wifi :adid=$p.adid :aaid=$p.aaid :idfa=$p.idfa
-             :name=$p.name :email=$p.email :acct=$p.acct :app=$p.app :data=$p.data)]'''
+             :name=$p.name :email=$p.email :acct=$p.acct :app=$p.app :data=$p.data :account=*)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -142,6 +142,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('acct'), ('vertex.link', 'clown'))
             self.eq(node.get('app'), softguid)
             self.eq(node.get('data'), {'some key': 'some valu', 'BEEP': 1})
+            self.len(1, await core.nodes('tel:mob:telem :account -> inet:service:account'))
 
     async def test_telco_imei(self):
         async with self.getTestCore() as core:

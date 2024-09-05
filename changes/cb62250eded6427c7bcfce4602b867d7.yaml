@@ -1,0 +1,6 @@
+---
+desc: Storm lists now have a ``remove`` method that can be used to remove a single
+  item from the list without having to iterate through the list.
+prs: []
+type: feat
+...
