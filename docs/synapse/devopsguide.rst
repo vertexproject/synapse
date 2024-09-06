@@ -1001,8 +1001,9 @@ The following Compose file shows an example using this option.
         restart: unless-stopped
         volumes:
             - ./storage:/vertex/storage
+            - ./tls-ca-certs:/vertex/tls-ca-certs
         environment:
-            SYN_CORTEX_TLS_CA_DIR: /vertex/storage/tls-ca-certs
+            SYN_CORTEX_TLS_CA_DIR: /vertex/tls-ca-certs
 
 .. note::
 
