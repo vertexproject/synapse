@@ -417,7 +417,6 @@ class HotKeyVal(s_base.Base):
         if not tups:
             return
 
-        # FIXME - Should this be made async?
         self.slab._putmulti(tups, db=self.db)
         self.dirty.clear()
 
