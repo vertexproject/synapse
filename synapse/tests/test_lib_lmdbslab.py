@@ -808,7 +808,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.raises(s_exc.IsReadOnly, newdb.replace, b'1234', b'3456')
                 self.raises(s_exc.IsReadOnly, newdb.pop, b'1234')
                 self.raises(s_exc.IsReadOnly, newdb.delete, b'1234')
-                self.raises(s_exc.IsReadOnly, newdb.putmulti, ((b'1234', b'3456'),))
+                with self.raises(s_exc.IsReadOnly):
+                    await newdb.putmulti((b'1234', b'3456'))
 
                 # While we have the DB open in readonly, have another process write a bunch of data to cause the
                 # map size to be increased
