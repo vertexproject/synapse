@@ -1656,8 +1656,9 @@ class Slab(s_base.Base):
 
         # Use a fast path when we have a small amount of data to prevent creating new
         # list objects when we don't have too.
-        if isinstance(kvpairs, (list, tuple)) and len(kvpairs) < self.max_xactops_len:
+        if isinstance(kvpairs, (list, tuple)) and len(kvpairs) <= self.max_xactops_len:
             ret = self._putmulti(kvpairs, dupdata=dupdata, append=append, db=db)
+            await asyncio.sleep(0)
             consumed, added = ret
             return (consumed, added)
 
