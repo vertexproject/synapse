@@ -1,0 +1,5 @@
+---
+desc: Make the ``Slab.putmulti()`` API an async function.
+prs: []
+type: feat
+...
