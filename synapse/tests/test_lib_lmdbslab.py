@@ -295,7 +295,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
 
             # Copy a database inside the same slab
-            self.raises(s_exc.DataAlreadyExists, slab.copydb, foo, slab, 'bar')
+            with self.raises(s_exc.DataAlreadyExists):
+                await slab.copydb(foo, slab, 'bar')
             self.eq(3, await slab.copydb(foo, slab, 'foo2'))
 
             # Increase the size of the new source DB to trigger a resize on the next copydb
