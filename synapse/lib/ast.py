@@ -4918,6 +4918,7 @@ class Function(AstNode):
                         async with contextlib.aclosing(await subr.emitter()) as agen:
                             async for item in agen:
                                 yield item
+                                await asyncio.sleep(0)
                     else:
                         await asyncio.sleep(0)
                         async with contextlib.aclosing(subr.execute()) as agen:
