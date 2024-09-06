@@ -32,7 +32,8 @@ class SlabSeqn(s_t_utils.SynTest):
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
             self.chk_size(seqn)
 
-            self.raises(s_exc.NotMsgpackSafe, seqn.save, ({'set'},))
+            with self.raises(s_exc.NotMsgpackSafe):
+                await seqn.save(({'set'},))
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
 
