@@ -981,6 +981,123 @@ this to add a user named ``foouser`` with the uid 1234::
     Successfully built 21a12f395462
     Successfully tagged vertexproject/synapse-aha:v2.113.0-foouser
 
+Configure Custom CA Certificates for HTTP Requests
+--------------------------------------------------
+
+The Cortex can be configured to use additional CA certificates when making HTTP
+requests via Storm. To do this, you need to provide the certificates (in DER or
+PEM format) to the Cortex in a directory on disk, and then configure the Cortex
+to look up that directory via the ``tls:ca:dir`` configuration option.
+
+The following Compose file shows an example using this option.
+
+::
+
+    services:
+      00.cortex:
+        user: "999"
+        image: vertexproject/synapse-cortex:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+            - ./storage:/vertex/storage
+        environment:
+            SYN_CORTEX_TLS_CA_DIR: /vertex/storage/tls-ca-certs
+
+.. note::
+
+   CA certificates provided via the ``tls:ca:dir`` configuration option MUST
+   include the full chain of certificates all the way up to the root. Providing
+   only partial CA chains may result in verification failures.
+
+Configure Custom CA Certificates with Kubernetes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To configure custom CA certificates with kubernetes, do the following:
+
+#. Create a config map from your CA certificate files.
+
+    The example has a pre-created root CA and an intermediate CA certificate in PEM format::
+
+        $ ls -l ./cas
+        total 8
+        -rw-rw-r-- 1 user user 1708 Feb 14 19:19 intermediate.crt
+        -rw-rw-r-- 1 user user 1696 Feb 14 19:19 root.crt
+
+        $ kubectl create configmap zscalar-ca-certs --from-file ./cas
+        configmap/zscalar-ca-certs created
+
+        $ kubectl describe configmap zscalar-ca-certs
+        Name:         zscalar-ca-certs
+        Namespace:    default
+        Labels:       <none>
+        Annotations:  <none>
+
+    Example Data::
+
+        intermediate.crt:
+
+        -----BEGIN CERTIFICATE-----
+        MIIEwTCCAqmgAwIBAgIRALMB8pwt2Ivp29Ij5DqnPfYwDQYJKoZIhvcNAQELBQAw
+        <snip certificate body ...>
+        5haPeH+7M+DxEhwanIcfBXNY/7Xn
+        -----END CERTIFICATE-----
+
+        root.crt:
+
+        -----BEGIN CERTIFICATE-----
+        MIIEuDCCAqCgAwIBAgIQY7KrFPXtwpWTYfCA2pktSjANBgkqhkiG9w0BAQsFADAP
+        <snip certificate body ...>
+        i03ynl21g6erwz0c
+        -----END CERTIFICATE-----
+
+#. Add the ``volume``, ``volumeMount``, and ``environment`` variables to the
+   Cortex. You may need to specify permissions on your certificates as needed,
+   as long as they are readable by your Cortex user, that is fine.
+
+    Example volume::
+
+        - name: zscalar-ca-certs
+          configMap:
+            name: zscalar-ca-certs
+
+    Example volumeMount::
+
+        - mountPath: /vertex/zscalar-ca-certs
+          name: zscalar-ca-certs
+
+    Example environment variable::
+
+        - name: SYN_CORTEX_TLS_CA_DIR
+          value: "/vertex/tls-ca-dir-certs/"
+
+#. Verify the TLS certificates were loaded by making an HTTPS request in Storm.
+
+    ::
+
+        $lib.print($lib.inet.http.get(<URL TO SERVER WITH CUSTOM CERTIFICATES>))
+
+    On success, you should see an ``inet:http:resp`` with code 200 and reason OK::
+
+        inet:http:resp: {'code': 200, 'reason': 'OK', 'headers': ... }
+
+    If the TLS CA certificates are not being loaded properly, a response similar to
+    the following will be seen::
+
+        inet:http:resp: {'code': -1, 'reason': "Exception occurred during request: ClientConnectorCertificateError ...", ...}
+
+In this example, the volume with the configmap contains symlinks which are
+treated as directories. When the SSLContext is created with those additional
+files, Synapse attempts to load the directory, will fail and then log an
+exception. This does not stop the SSLContext from being created with the
+additonal CA files, but does generate a lot of log messages. This will be
+addressed in a future Synapse version.
+
+.. note::
+
+    For the Axon, the wget and wput API functionality can also be configured to
+    use a TLS directory for loading additional certificates. The configuration
+    is similar to the Cortex, but uses the ``SYN_AXON_TLS_CA_DIR`` environment
+    variable.
 
 Synapse Services
 ================
