@@ -1024,11 +1024,11 @@ To configure custom CA certificates with kubernetes, do the following:
         -rw-rw-r-- 1 user user 1708 Feb 14 19:19 intermediate.crt
         -rw-rw-r-- 1 user user 1696 Feb 14 19:19 root.crt
 
-        $ kubectl create configmap zscalar-ca-certs --from-file ./cas
-        configmap/zscalar-ca-certs created
+        $ kubectl create configmap tls-ca-certs --from-file ./cas
+        configmap/tls-ca-certs created
 
-        $ kubectl describe configmap zscalar-ca-certs
-        Name:         zscalar-ca-certs
+        $ kubectl describe configmap tls-ca-certs
+        Name:         tls-ca-certs
         Namespace:    default
         Labels:       <none>
         Annotations:  <none>
@@ -1057,14 +1057,14 @@ To configure custom CA certificates with kubernetes, do the following:
 
     Example volume::
 
-        - name: zscalar-ca-certs
+        - name: tls-ca-certs
           configMap:
-            name: zscalar-ca-certs
+            name: tls-ca-certs
 
     Example volumeMount::
 
-        - mountPath: /vertex/zscalar-ca-certs
-          name: zscalar-ca-certs
+        - mountPath: /vertex/tls-ca-certs
+          name: tls-ca-certs
 
     Example environment variable::
 
