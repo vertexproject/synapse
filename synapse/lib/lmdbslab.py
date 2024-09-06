@@ -1659,8 +1659,7 @@ class Slab(s_base.Base):
         if isinstance(kvpairs, (list, tuple)) and len(kvpairs) <= self.max_xactops_len:
             ret = self._putmulti(kvpairs, dupdata=dupdata, append=append, db=db)
             await asyncio.sleep(0)
-            consumed, added = ret
-            return (consumed, added)
+            return ret
 
         # Otherwise, we chunk the large data or a generator into lists no greater than
         # max_xactops_len and allow the slab the opportunity to commit between chunks.
