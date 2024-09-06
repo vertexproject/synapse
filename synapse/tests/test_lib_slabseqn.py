@@ -27,7 +27,7 @@ class SlabSeqn(s_t_utils.SynTest):
 
             self.eq(seqn.nextindx(), 0)
             items = ('foo', 10, 20)
-            seqn.save(items)
+            await seqn.save(items)
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20)))
             self.chk_size(seqn)
@@ -48,7 +48,7 @@ class SlabSeqn(s_t_utils.SynTest):
             self.chk_size(seqn)
 
             self.eq(seqn.nextindx(), 3)
-            seqn.save(items)
+            await seqn.save(items)
 
             retn = tuple(seqn.iter(0))
             self.eq(retn, ((0, 'foo'), (1, 10), (2, 20),
@@ -70,7 +70,7 @@ class SlabSeqn(s_t_utils.SynTest):
             evnt2 = seqn.getOffsetEvent(9)
             evnt3 = seqn.getOffsetEvent(8)
 
-            seqn.save(items)
+            await seqn.save(items)
             retn = tuple(seqn.iter(0))
             self.len(9, retn)
             self.chk_size(seqn)
