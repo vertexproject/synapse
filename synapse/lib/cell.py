@@ -1851,7 +1851,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPushAuto('drive:data:set')
     async def setDriveData(self, iden, versinfo, data):
-        return self.drive.setItemData(iden, versinfo, data)
+        return await self.drive.setItemData(iden, versinfo, data)
 
     async def delDriveData(self, iden, vers=None):
         if vers is None:

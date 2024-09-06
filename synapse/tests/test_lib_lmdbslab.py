@@ -296,7 +296,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # Copy a database inside the same slab
             self.raises(s_exc.DataAlreadyExists, slab.copydb, foo, slab, 'bar')
-            self.eq(3, slab.copydb(foo, slab, 'foo2'))
+            self.eq(3, await slab.copydb(foo, slab, 'foo2'))
 
             # Increase the size of the new source DB to trigger a resize on the next copydb
             foo2 = slab.initdb('foo2')
@@ -312,7 +312,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path2, map_size=512 * 1024) as slab2:
                 with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 2):
 
-                    self.eq(4, slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
+                    self.eq(4, await slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
                     self.gt(vardict.get('prog', 0), 0)
 
             # Test slab.drop and slab.dbexists
@@ -836,7 +836,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # A putmulti across a grow
                 before_mapsize = slab.mapsize
                 kvpairs = [(x, x) for x in data]
-                retn = slab.putmulti(kvpairs)
+                retn = await slab.putmulti(kvpairs)
                 self.eq(retn, (1000, 1000))
 
                 after_mapsize1 = slab.mapsize
@@ -844,7 +844,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # A putmulti across a grow with a generator passed in
                 kvpairs = ((b' ' + x, x) for x in data)
-                retn = slab.putmulti(kvpairs)
+                retn = await slab.putmulti(kvpairs)
                 self.eq(retn, (1000, 1000))
                 after_mapsize2 = slab.mapsize
                 self.gt(after_mapsize2, after_mapsize1)
@@ -1011,7 +1011,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
                 slab.initdb('foo')
                 kvpairs = [(x, x) for x in data]
-                slab.putmulti(kvpairs)
+                await slab.putmulti(kvpairs)
                 slab.forcecommit()
                 before_mapsize = slab.mapsize
                 slab.dropdb('foo')
@@ -1029,7 +1029,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
                 slab.initdb('foo')
                 kvpairs = [(x, x) for x in data]
-                slab.putmulti(kvpairs)
+                await slab.putmulti(kvpairs)
                 slab.forcecommit()
 
         asyncio.run(workloop())
