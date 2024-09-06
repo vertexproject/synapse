@@ -1,5 +1,5 @@
 ---
-desc: Fix an issue where user defined Storm functions could be be greedy with the
+desc: Fix an issue where user defined Storm functions could be greedy with the
   IO loop.
 prs: []
 type: bug
