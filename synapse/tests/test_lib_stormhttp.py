@@ -205,6 +205,50 @@ class StormHttpTest(s_test.SynTest):
             retn = await core.callStorm('return($lib.inet.http.codereason(123))')
             self.eq(retn, 'Unknown HTTP status code 123')
 
+            # Request history is preserved across multiple redirects.
+            q = '''$api = $lib.cortex.httpapi.add(dyn00)
+            $api.methods.get =  ${
+                $api = $request.api
+                if $n {
+                    $part = `redir0{$n}`
+                    $redir = `/api/ext/{$part}`
+                    $headers = ({"Location": $redir})
+                    $api.vars.n = ($n - (1) )
+                    $api.path = $part
+                    $request.reply(301, headers=$headers)
+                } else {
+                    $api.vars.n = $initial_n
+                    $api.path = dyn00
+                    $request.reply(200, body=({"end": "youMadeIt"}) )
+                }
+            }
+            $api.authenticated = (false)
+            $api.vars.initial_n = (3)
+            $api.vars.n = (3)
+            return ( ($api.iden) )'''
+            iden00 = await core.callStorm(q)
+
+            q = '''
+            $url = `https://127.0.0.1:{$port}/api/ext/dyn00`
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            self.eq(resp.get('url'), f'https://127.0.0.1:{port}/api/ext/redir01')
+            self.eq([hnfo.get('url') for hnfo in resp.get('history')],
+                    [f'https://127.0.0.1:{port}/api/ext/dyn00',
+                     f'https://127.0.0.1:{port}/api/ext/redir03',
+                     f'https://127.0.0.1:{port}/api/ext/redir02',
+                     ])
+
+            q = '''
+            $url = `https://127.0.0.1:{$port}/api/ext/dyn00`
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp.history.0 )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            self.eq(resp.get('url'), f'https://127.0.0.1:{port}/api/ext/dyn00')
+
     async def test_storm_http_inject_ca(self):
 
         with self.getTestDir() as dirn:

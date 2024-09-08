@@ -464,12 +464,26 @@ class LibHttp(s_stormtypes.Lib):
                     kwargs['json'] = json
 
                 async with sess.request(meth, url, headers=headers, **kwargs) as resp:
+                    history = []
+                    for hist in resp.history:
+                        hnfo = {
+                            'code': hist.status,
+                            'reason': await self.codereason(hist.status),
+                            'headers': dict(hist.headers),
+                            'url': str(hist.url),
+                            # aiohttp has already closed the connection by this point
+                            # so there is no connection to read a body from.
+                            'history': [],
+                            'body': b'',
+                        }
+                        history.append(hnfo)
                     info = {
                         'code': resp.status,
                         'reason': await self.codereason(resp.status),
                         'headers': dict(resp.headers),
                         'url': str(resp.url),
                         'body': await resp.read(),
+                        'history': history,
                     }
                     return HttpResp(info)
 
@@ -491,6 +505,7 @@ class LibHttp(s_stormtypes.Lib):
                     'url': url,
                     'body': b'',
                     'err': err,
+                    'history': [],
                 }
                 return HttpResp(info)
 
@@ -534,6 +549,10 @@ class HttpResp(s_stormtypes.Prim):
         self.locls['headers'] = self.valu.get('headers')
         self.locls['err'] = self.valu.get('err', ())
 
+        self.gtors.update({
+            'history': self._gtorHistory,
+        })
+
     def getObjLocals(self):
         return {
             'json': self._httpRespJson,
@@ -564,3 +583,7 @@ class HttpResp(s_stormtypes.Prim):
         unpk = s_msgpack.Unpk()
         for _, item in unpk.feed(byts):
             yield item
+
+    async def _gtorHistory(self):
+        ret = [HttpResp(hnfo) for hnfo in self.valu.get('history')]
+        return ret
