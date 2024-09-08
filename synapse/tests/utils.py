@@ -820,7 +820,6 @@ class HttpReflector(s_httpapi.Handler):
 
         redirect = params.get('redirect')
         if redirect:
-            logger.info('hit redirect!')
             self.add_header('Redirected', '1')
             self.redirect(redirect[0])
             return
