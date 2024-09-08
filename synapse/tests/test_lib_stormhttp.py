@@ -136,6 +136,17 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(q, opts=opts)
             self.eq(resp, 'application/json; charset=UTF-8')
 
+            # Request headers
+            q = '''
+            $headers = ({"Wow": "OhMy"})
+            $resp = $lib.inet.http.get($url, headers=$headers, ssl_verify=$lib.false)
+            return ( $resp.request_headers )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            self.eq(resp.get('Wow'), 'OhMy')
+            # Authorization header derived from the basic auth in $url
+            self.isin('Authorization', resp)
+
             badurl = f'https://root:root@127.0.0.1:{port}/api/v0/notjson'
             badopts = {'vars': {'url': badurl}}
             q = '''
