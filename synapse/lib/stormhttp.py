@@ -505,6 +505,8 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'reason', 'desc': 'The reason phrase for the HTTP status code.', 'type': 'str'},
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
+        {'name': 'url', 'type': 'str',
+         'desc': 'The final response url. If the status code is -1, then this is the request URL.'},
         {'name': 'err', 'type': 'list', 'desc': 'Tuple of the error type and information if an exception occurred.'},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
          'type': {'type': 'function', '_funcname': '_httpRespJson',
@@ -525,6 +527,7 @@ class HttpResp(s_stormtypes.Prim):
     def __init__(self, valu, path=None):
         super().__init__(valu, path=path)
         self.locls.update(self.getObjLocals())
+        self.locls['url'] = self.valu.get('url')
         self.locls['code'] = self.valu.get('code')
         self.locls['reason'] = self.valu.get('reason')
         self.locls['body'] = self.valu.get('body')
