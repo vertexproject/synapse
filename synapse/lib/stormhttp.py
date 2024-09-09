@@ -526,6 +526,9 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'url', 'type': 'str',
          'desc': 'The response URL. If the request was redirected, this would be the final URL in the redirection chain. If the status code is -1, then this is the request URL.'},
         {'name': 'err', 'type': 'list', 'desc': 'Tuple of the error type and information if an exception occurred.'},
+        {'name': 'history', 'desc': 'A list of response objects representing the history of the response. This is populated when responses are redirected.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorHistory',
+                  'returns': {'type': 'list', 'desc': 'A list of ``inet:http:resp`` objects.', }}},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
          'type': {'type': 'function', '_funcname': '_httpRespJson',
                   'args': (

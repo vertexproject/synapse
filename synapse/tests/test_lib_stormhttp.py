@@ -85,7 +85,6 @@ class StormHttpTest(s_test.SynTest):
             q = '''
             $_url = `https://root:root@127.0.0.1:{($port + (1))}/api/v0/newp`
             $resp = $lib.inet.http.get($_url, ssl_verify=$lib.false)
-            $lib.log.info(`{$resp}`)
             if ( $resp.code != (-1) ) { $lib.exit(mesg='Test fail!') }
             return ( $resp.url )
             '''
@@ -252,6 +251,7 @@ class StormHttpTest(s_test.SynTest):
                      f'https://127.0.0.1:{port}/api/ext/redir02',
                      ])
 
+            # The gtor returns a list of objects
             q = '''
             $url = `https://127.0.0.1:{$port}/api/ext/dyn00`
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
@@ -259,6 +259,19 @@ class StormHttpTest(s_test.SynTest):
             '''
             resp = await core.callStorm(q, opts=opts)
             self.eq(resp.get('url'), f'https://127.0.0.1:{port}/api/ext/dyn00')
+
+            # The history is not available if there is a fatal error when
+            # following redirects.
+            q = '''
+            $_url = `https://127.0.0.1:{($port + (1))}/api/v0/newp`
+            $params = ({'redirect': $_url})
+            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            if ( $resp.code != (-1) ) { $lib.exit(mesg='Test fail!') }
+            return ( $resp.history )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            self.isinstance(resp, tuple)
+            self.len(0, resp)
 
     async def test_storm_http_inject_ca(self):
 
