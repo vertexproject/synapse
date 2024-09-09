@@ -593,5 +593,4 @@ class HttpResp(s_stormtypes.Prim):
             yield item
 
     async def _gtorHistory(self):
-        ret = [HttpResp(hnfo) for hnfo in self.valu.get('history')]
-        return ret
+        return [HttpResp(hnfo) for hnfo in self.valu.get('history')]
