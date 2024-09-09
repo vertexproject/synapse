@@ -22,6 +22,13 @@ Note:
     If Storm logging is enabled, the query being run will be logged separately.
 '''
 
+subqdesc = '''
+Run a Storm query as a subquery of the current runtime and return back either the value of an explicit Storm return statement or a list of the NDef values.
+
+Note:
+    If Storm logging is enabled, the query being run will be logged separately.
+'''
+
 stormlogger = logging.getLogger('synapse.storm')
 
 class StormExecCmd(s_storm.Cmd):
@@ -118,14 +125,14 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
                   ),
                   'returns': {'name': 'yields', 'type': 'list', 'desc': 'The output messages from the Storm runtime.'}}},
-        {'name': 'subquery', 'desc': 'TODO',
+        {'name': 'subquery', 'desc': subqdesc,
          'type': {'type': 'function', '_funcname': '_subquery',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'A Storm query string.'},
                       {'name': 'limit', 'type': 'int', 'desc': 'The number of nodes to allow.', 'default': 1},
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
                   ),
-                  'returns': {'name': 'any', 'desc': 'TODO'}}}
+                  'returns': {'type': 'any', 'desc': 'The value of an explict Storm return or a list of the NDef values of the yielded nodes.'}}}
     )
     _storm_lib_path = ('storm',)
 
