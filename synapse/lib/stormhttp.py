@@ -470,6 +470,7 @@ class LibHttp(s_stormtypes.Lib):
                         'headers': dict(resp.headers),
                         'url': str(resp.url),
                         'body': await resp.read(),
+                        'request_headers': dict(resp.request_info.headers)
                     }
                     return HttpResp(info)
 
@@ -488,6 +489,7 @@ class LibHttp(s_stormtypes.Lib):
                     'code': -1,
                     'reason': reason,
                     'headers': dict(),
+                    'request_headers': dict(),
                     'url': url,
                     'body': b'',
                     'err': err,
@@ -505,6 +507,7 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'reason', 'desc': 'The reason phrase for the HTTP status code.', 'type': 'str'},
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
+        {'name': 'request_headers', 'type': 'dict', 'desc': 'The HTTP Request headers.'},
         {'name': 'url', 'type': 'str',
          'desc': 'The response URL. If the request was redirected, this would be the final URL in the redirection chain. If the status code is -1, then this is the request URL.'},
         {'name': 'err', 'type': 'list', 'desc': 'Tuple of the error type and information if an exception occurred.'},
@@ -532,6 +535,7 @@ class HttpResp(s_stormtypes.Prim):
         self.locls['reason'] = self.valu.get('reason')
         self.locls['body'] = self.valu.get('body')
         self.locls['headers'] = self.valu.get('headers')
+        self.locls['request_headers'] = self.valu.get('request_headers')
         self.locls['err'] = self.valu.get('err', ())
 
     def getObjLocals(self):
