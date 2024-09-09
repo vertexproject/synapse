@@ -61,7 +61,37 @@ class StormHttpTest(s_test.SynTest):
             core.addHttpApi('/api/v0/notjson', HttpNotJson, {'cell': core})
             core.addHttpApi('/api/v0/badjson', HttpBadJson, {'cell': core})
             url = f'https://root:root@127.0.0.1:{port}/api/v0/test'
-            opts = {'vars': {'url': url}}
+            status_url = f'https://127.0.0.1:{port}/api/v1/status'
+            opts = {'vars': {'url': url, 'port': port, 'status_url': status_url}}
+
+            # Request URL is exposed
+            q = '''
+            $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
+            return ( $resp.url )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            # The password is omitted
+            self.eq(resp, f'https://127.0.0.1:{port}/api/v0/test')
+
+            # Redirects expose the final URL
+            q = '''
+            $params = ({'redirect': $status_url})
+            $resp = $lib.inet.http.get($url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.url )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            self.eq(resp, f'https://127.0.0.1:{port}/api/v1/status')
+
+            q = '''
+            $_url = `https://root:root@127.0.0.1:{($port + (1))}/api/v0/newp`
+            $resp = $lib.inet.http.get($_url, ssl_verify=$lib.false)
+            $lib.log.info(`{$resp}`)
+            if ( $resp.code != (-1) ) { $lib.exit(mesg='Test fail!') }
+            return ( $resp.url )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            # The password is present
+            self.eq(resp, f'https://root:root@127.0.0.1:{port + 1}/api/v0/newp')
 
             # Header and params as dict
             q = '''
