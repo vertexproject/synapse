@@ -1654,7 +1654,7 @@ class Slab(s_base.Base):
     async def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
 
         # Use a fast path when we have a small amount of data to prevent creating new
-        # list objects when we don't have too.
+        # list objects when we don't have to.
         if isinstance(kvpairs, (list, tuple)) and len(kvpairs) <= self.max_xactops_len:
             ret = self._putmulti(kvpairs, dupdata=dupdata, append=append, db=db)
             await asyncio.sleep(0)
