@@ -473,8 +473,9 @@ class LibHttp(s_stormtypes.Lib):
                             'url': str(hist.url),
                             # aiohttp has already closed the connection by this point
                             # so there is no connection to read a body from.
-                            'history': [],
                             'body': b'',
+                            'history': [],
+                            'request_headers': dict(hist.request_info.headers)
                         }
                         history.append(hnfo)
                     info = {
@@ -500,14 +501,14 @@ class LibHttp(s_stormtypes.Lib):
                     reason = f'Exception occurred during request: {err[0]}'
 
                 info = {
+                    'err': err,
                     'code': -1,
                     'reason': reason,
                     'headers': dict(),
-                    'request_headers': dict(),
                     'url': url,
                     'body': b'',
-                    'err': err,
                     'history': [],
+                    'request_headers': dict(),
                 }
                 return HttpResp(info)
 
