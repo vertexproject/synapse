@@ -1,8 +1,9 @@
 import socket
 import asyncio
 import hashlib
+import inspect
 import logging
-import ipaddress
+import functools
 import email.utils
 import urllib.parse
 
@@ -21,6 +22,10 @@ import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
 logger = logging.getLogger(__name__)
+
+# Use the ipaddress module we import from s_common
+ipaddress = s_common.ipaddress
+
 drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
@@ -803,6 +808,11 @@ class Rfc2822Addr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self._parseaddr = email.utils.parseaddr
+        argspec = inspect.getfullargspec(self._parseaddr)
+        if 'strict' in argspec.kwonlyargs:
+            self._parseaddr = functools.partial(self._parseaddr, strict=False)
+
     def _normPyStr(self, valu):
 
         # remove quotes for normalized version
@@ -811,7 +821,7 @@ class Rfc2822Addr(s_types.Str):
         valu = ' '.join(valu.split())
 
         try:
-            name, addr = email.utils.parseaddr(valu)
+            name, addr = self._parseaddr(valu)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
             mesg = f'email.utils.parsaddr failed: {str(e)}'

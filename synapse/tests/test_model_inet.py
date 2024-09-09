@@ -1290,6 +1290,15 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:rfc2822:addr^=unittest1'))
             self.len(1, await core.nodes('inet:rfc2822:addr^=unittest12'))
 
+            # CVE-2023-27043 related behavior
+            # DISCUSS Do we want to retain the OLD behavior or use the new strict behavior?
+            nodes = await core.nodes('[inet:rfc2822:addr?="alice@example.org]<bob@example.org>"]')
+            self.len(1, nodes)
+            # This is the python <=3.11.9 behavior or the behavior with strict=False
+            self.eq(nodes[0].ndef[1], 'alice@example.org')
+            # This is the 3.11.10+ behavior or the behavior with strict=True
+            # self.eq(nodes[0].ndef[1], 'alice@example.org]<bob@example.org>')
+
     async def test_server(self):
         formname = 'inet:server'
         data = (
@@ -3364,3 +3373,15 @@ class InetModelTest(s_t_utils.SynTest):
                 :channel -> inet:service:channel
                 +:name="/r/synapse"
             '''))
+
+    async def test_model_ipaddress_regression(self):
+        # TODO DATA MODEL MIGRATION
+        # TODO IPV6 VARIANT
+        async with self.getTestCore() as core:
+            q = '''
+            init { $l = () }
+            [inet:ipv4=192.0.0.9 inet:ipv4=192.0.0.0 inet:ipv4=192.0.0.255] $l.append(:type)
+            fini { return ( $l ) }
+            '''
+            resp = await core.callStorm(q)
+            self.eq(resp, ['unicast', 'private', 'private'])

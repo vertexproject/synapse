@@ -1,11 +1,12 @@
 import logging
-import ipaddress
-
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.stormtypes as s_stormtypes
 
+# Use the ipaddress module we import from s_common
+ipaddress = s_common.ipaddress
 logger = logging.getLogger(__name__)
 
 @s_stormtypes.registry.registerLib

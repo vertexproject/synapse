@@ -21,6 +21,7 @@ import binascii
 import builtins
 import tempfile
 import warnings
+import ipaddress
 import functools
 import itertools
 import threading
@@ -67,6 +68,12 @@ if Loader == yaml.SafeLoader:  # pragma: no cover
     logger.warning('* PyYAML is using the pure python fallback implementation. This will impact performance negatively. *')
     logger.warning('* See PyYAML docs (https://pyyaml.org/wiki/PyYAMLDocumentation) for tips on resolving this issue.   *')
     logger.warning('*****************************************************************************************************')
+
+if version < (3, 11, 10):
+    # FIXME REMOTE PRINT
+    print(f'FALLLING BACK TO VENDORED IPADDRESS LIBRARY: {version}')
+    # Fallback to using the vendored IPaddress library
+    import synapse.vendor.cpython.ipaddress as ipaddress
 
 def now():
     '''

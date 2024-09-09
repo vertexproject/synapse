@@ -62,7 +62,6 @@ import shutil
 import struct
 import asyncio
 import logging
-import ipaddress
 import contextlib
 import collections
 
@@ -86,6 +85,9 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 
 from synapse.lib.msgpack import deepcopy
+
+# Use the ipaddress module we import from s_common
+ipaddress = s_common.ipaddress
 
 logger = logging.getLogger(__name__)
 
