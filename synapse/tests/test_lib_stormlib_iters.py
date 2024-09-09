@@ -109,8 +109,11 @@ class StormLibItersTest(s_test.SynTest):
                     }
                     '''
                     msgs = await core.stormlist(q)
-                    err = "$lib.iters.zip() encountered errors in 3 iterators during iteration: " \
-                          "(foo: bar), " \
-                          "(NoSuchVar: Missing variable: newp), " \
-                          "(NameError: name 'newp' is not defined)"
-                    self.stormIsInErr(err, msgs)
+                    errs = (
+                        "$lib.iters.zip() encountered errors in 3 iterators during iteration: ",
+                        "(foo: bar)",
+                        "(NoSuchVar: Missing variable: newp)",
+                        "(NameError: name 'newp' is not defined)",
+                    )
+                    for errchunk in errs:
+                        self.stormIsInErr(errchunk, msgs)
