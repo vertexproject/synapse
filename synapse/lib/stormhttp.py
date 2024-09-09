@@ -506,7 +506,7 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'body', 'desc': 'The raw HTTP response body as bytes.', 'type': 'bytes', },
         {'name': 'headers', 'type': 'dict', 'desc': 'The HTTP Response headers.'},
         {'name': 'url', 'type': 'str',
-         'desc': '''The response url. If the request was redirected, this would be the final URL in the redirection chain. If the status code is -1, then this is the request URL.'''},
+         'desc': 'The response URL. If the request was redirected, this would be the final URL in the redirection chain. If the status code is -1, then this is the request URL.'},
         {'name': 'err', 'type': 'list', 'desc': 'Tuple of the error type and information if an exception occurred.'},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
          'type': {'type': 'function', '_funcname': '_httpRespJson',
