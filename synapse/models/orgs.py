@@ -684,7 +684,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The primary url for the organization.',
                     }),
                     ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An set of sub-organizations.'
+                        'doc': 'A set of sub-organizations.'
                     }),
                     ('orgchart', ('ou:position', {}), {
                         'doc': 'The root node for an orgchart made up ou:position nodes.',

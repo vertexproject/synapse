@@ -1,4 +1,5 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.parser as s_parser
 
 import synapse.tests.utils as s_test
@@ -142,3 +143,47 @@ class LibStormTest(s_test.SynTest):
                 }
             ''')
             self.stormIsInPrint('mesg=hello', msgs)
+
+    async def test_lib_stormlib_storm_subquery(self):
+
+        async with self.getTestCore() as core:
+            # some setup
+            org = s_common.guid()
+            geo = s_common.guid()
+            q = '''[
+                (ou:org=$org :names=(foo, bar, baz, biz, ping, pong))
+                (geo:telem=$geo :node=(inet:fqdn, vertex.link))
+            ]'''
+            await core.stormlist(q, opts={'vars': {'org': org, 'geo': geo}})
+
+            q = '''
+                return($lib.storm.subquery("ou:org:names return($node.props.names)"))
+            '''
+            self.eq(('bar', 'baz', 'biz', 'foo', 'ping', 'pong'), await core.callStorm(q))
+
+            q = '''
+                return($lib.storm.subquery("ou:org geo:telem", 1000))
+            '''
+            self.eq([org, geo], await core.callStorm(q))
+
+            q = '''
+                return($lib.storm.subquery("geo:telem return($node.props.node)"))
+            '''
+            self.eq(('inet:fqdn', 'vertex.link'), await core.callStorm(q))
+
+            q = '''
+                return(
+                    $lib.storm.subquery(
+                        "[ou:org=$neworg inet:email=$email]",
+                        limit=12,
+                        opts=({"vars": $subopts })
+                    )
+                )
+            '''
+            subopts = {'neworg': s_common.guid(), 'email': 'foo@vertex.link'}
+            self.eq((subopts['neworg'], subopts['email']), await core.callStorm(q, opts={'vars': {'subopts': subopts}}))
+
+            q = '''
+                return($lib.storm.subquery(".created"))
+            '''
+            await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))

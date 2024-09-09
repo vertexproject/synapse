@@ -4,6 +4,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.storm as s_storm
+import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
 evaldesc = '''\
@@ -117,6 +118,14 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
                   ),
                   'returns': {'name': 'yields', 'type': 'list', 'desc': 'The output messages from the Storm runtime.'}}},
+        {'name': 'subquery', 'desc': 'TODO',
+         'type': {'type': 'function', '_funcname': '_subquery',
+                  'args': (
+                      {'name': 'text', 'type': 'str', 'desc': 'A Storm query string.'},
+                      {'name': 'limit', 'type': 'int', 'desc': 'The number of nodes to allow.', 'default': 1},
+                      {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
+                  ),
+                  'returns': {'name': 'any', 'desc': 'TODO'}}}
     )
     _storm_lib_path = ('storm',)
 
@@ -124,6 +133,7 @@ class LibStorm(s_stormtypes.Lib):
         return {
             'run': self._runStorm,
             'eval': self._evalStorm,
+            'subquery': self._subquery
         }
 
     async def _runStorm(self, query, opts=None):
@@ -176,3 +186,26 @@ class LibStorm(s_stormtypes.Lib):
             valu, _ = casttype.norm(valu)
 
         return valu
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _subquery(self, text, limit=1, opts=None):
+        limit = await s_stormtypes.toint(limit)
+        opts = await s_stormtypes.toprim(opts)
+        text = await s_stormtypes.tostr(text)
+
+        if self.runt.snap.core.stormlog:
+            extra = await self.runt.snap.core.getLogExtra(text=text, view=self.runt.snap.view.iden)
+            stormlogger.info(f'Executing storm query via $lib.storm.subquery() {{{text}}} as [{self.runt.user.name}]', extra=extra)
+
+        query = await self.runt.getStormQuery(text)
+        async with self.runt.getSubRuntime(query, opts=opts) as subr:
+            retn = []
+            try:
+                async for valunode, valupath in subr.execute():
+                    retn.append(valunode.ndef[1])
+                    if len(retn) > limit:
+                        mesg = f'Subquery used as a value yielded too many (>{limit}) nodes. {s_common.trimText(text)}'
+                        raise s_exc.StormRuntimeError(mesg=mesg, text=text)
+            except s_stormctrl.StormReturn as e:
+                return e.item
+            return retn
