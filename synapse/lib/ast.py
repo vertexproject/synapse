@@ -4899,6 +4899,7 @@ class Function(AstNode):
                 subr.funcscope = True
 
                 try:
+                    await asyncio.sleep(0)
                     async for item in subr.execute():
                         await asyncio.sleep(0)
 
@@ -4913,10 +4914,13 @@ class Function(AstNode):
                 subr.funcscope = True
                 try:
                     if self.hasemit:
+                        await asyncio.sleep(0)
                         async with contextlib.aclosing(await subr.emitter()) as agen:
                             async for item in agen:
                                 yield item
+                                await asyncio.sleep(0)
                     else:
+                        await asyncio.sleep(0)
                         async with contextlib.aclosing(subr.execute()) as agen:
                             async for node, path in agen:
                                 yield node, path

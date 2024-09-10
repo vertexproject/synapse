@@ -108,7 +108,7 @@ class SlabSeqn:
     def stat(self):
         return self.slab.stat(db=self.db)
 
-    def save(self, items):
+    async def save(self, items):
         '''
         Save a series of items to a sequence.
 
@@ -136,7 +136,7 @@ class SlabSeqn:
 
             rows.append((lkey, byts))
 
-        retn = self.slab.putmulti(rows, append=True, db=self.db)
+        retn = await self.slab.putmulti(rows, append=True, db=self.db)
         took = s_common.mononow() - abstick
 
         assert retn, "Not adding the largest indices"

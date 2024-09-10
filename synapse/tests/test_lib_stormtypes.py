@@ -6520,9 +6520,9 @@ words\tword\twrd'''
             self.eq(2, await core.callStorm('return($lib.math.number(1.23).toint(rounding=ROUND_UP))'))
 
             with self.raises(s_exc.BadCast):
-                    await core.callStorm('return($lib.math.number((null)))')
+                await core.callStorm('return($lib.math.number((null)))')
             with self.raises(s_exc.BadCast):
-                    await core.callStorm('return($lib.math.number(newp))')
+                await core.callStorm('return($lib.math.number(newp))')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('return($lib.math.number(1.23).toint(rounding=NEWP))')
