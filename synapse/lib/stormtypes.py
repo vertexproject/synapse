@@ -7911,11 +7911,6 @@ class View(Prim):
     async def _methIterPropUniqValues(self, propname):
         propname = await tostr(propname)
 
-        prop = self.runt.snap.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
-
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.snap.core.getView(viewiden)
