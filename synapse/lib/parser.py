@@ -69,6 +69,7 @@ terminalEnglishMap = {
     'LISTTOKN': 'unquoted list value',
     'LPAR': '(',
     'LSQB': '[',
+    'MCASEBARE': 'case multi-value',
     'MODSET': '+= or -=',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
@@ -429,7 +430,7 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def caseentry(self, meta, kids):
         astinfo = self.metaToAstInfo(meta)
-        newkids = [self._convert_child(k) for k in kids]
+        newkids = self._convert_children(kids)
         entry = s_ast.CaseEntry(astinfo, kids=newkids)
 
         if len(kids) == 2 and kids[0].type == 'DEFAULTCASE':
