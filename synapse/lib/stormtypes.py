@@ -7225,10 +7225,7 @@ class Layer(Prim):
     async def _methIterPropUniqValues(self, propname):
         propname = await tostr(propname)
 
-        prop = self.runt.snap.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
+        prop = self.runt.snap.core.model.reqProp(propname)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)

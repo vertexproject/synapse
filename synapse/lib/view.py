@@ -825,10 +825,7 @@ class View(s_nexus.Pusher):  # type: ignore
         return count
 
     async def iterPropUniqValues(self, propname):
-        prop = self.core.model.prop(propname)
-        if prop is None:
-            mesg = f'No property named {propname}'
-            raise s_exc.NoSuchProp(mesg=mesg)
+        prop = self.core.model.reqProp(propname)
 
         formname = None
         propname = None
