@@ -432,12 +432,15 @@ class AstConverter(lark.Transformer):
         assert kids and len(kids) >= 2
         astinfo = self.metaToAstInfo(meta)
         newkids = self._convert_children(kids)
-        entry = s_ast.CaseEntry(astinfo, kids=newkids)
+
+        defcase = False
 
         if len(kids) == 2 and kids[0].type == 'DEFAULTCASE':
-            entry.defcase = True
+            defcase = True
+            # Strip off the "Const: *" node
+            newkids = [newkids[1]]
 
-        return entry
+        return s_ast.CaseEntry(astinfo, kids=newkids, defcase=defcase)
 
     @lark.v_args(meta=True)
     def switchcase(self, meta, kids):

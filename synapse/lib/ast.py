@@ -1411,9 +1411,9 @@ class SwitchCase(Oper):
                 yield item
 
 class CaseEntry(AstNode):
-    def __init__(self, astinfo, kids=()):
+    def __init__(self, astinfo, kids=(), defcase=False):
         AstNode.__init__(self, astinfo, kids=kids)
-        self.defcase = False
+        self.defcase = defcase
 
 class LiftOper(Oper):
 
