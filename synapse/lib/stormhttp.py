@@ -464,12 +464,27 @@ class LibHttp(s_stormtypes.Lib):
                     kwargs['json'] = json
 
                 async with sess.request(meth, url, headers=headers, **kwargs) as resp:
+                    history = []
+                    for hist in resp.history:
+                        hnfo = {
+                            'code': hist.status,
+                            'reason': await self.codereason(hist.status),
+                            'headers': dict(hist.headers),
+                            'url': str(hist.url),
+                            # aiohttp has already closed the connection by this point
+                            # so there is no connection to read a body from.
+                            'body': b'',
+                            'history': [],
+                            'request_headers': dict(hist.request_info.headers)
+                        }
+                        history.append(hnfo)
                     info = {
                         'code': resp.status,
                         'reason': await self.codereason(resp.status),
                         'headers': dict(resp.headers),
                         'url': str(resp.url),
                         'body': await resp.read(),
+                        'history': history,
                         'request_headers': dict(resp.request_info.headers)
                     }
                     return HttpResp(info)
@@ -486,13 +501,14 @@ class LibHttp(s_stormtypes.Lib):
                     reason = f'Exception occurred during request: {err[0]}'
 
                 info = {
+                    'err': err,
                     'code': -1,
                     'reason': reason,
                     'headers': dict(),
-                    'request_headers': dict(),
                     'url': url,
                     'body': b'',
-                    'err': err,
+                    'history': [],
+                    'request_headers': dict(),
                 }
                 return HttpResp(info)
 
@@ -511,6 +527,9 @@ class HttpResp(s_stormtypes.Prim):
         {'name': 'url', 'type': 'str',
          'desc': 'The response URL. If the request was redirected, this would be the final URL in the redirection chain. If the status code is -1, then this is the request URL.'},
         {'name': 'err', 'type': 'list', 'desc': 'Tuple of the error type and information if an exception occurred.'},
+        {'name': 'history', 'desc': 'A list of response objects representing the history of the response. This is populated when responses are redirected.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorHistory',
+                  'returns': {'type': 'list', 'desc': 'A list of ``inet:http:resp`` objects.', }}},
         {'name': 'json', 'desc': 'Get the JSON deserialized response.',
          'type': {'type': 'function', '_funcname': '_httpRespJson',
                   'args': (
@@ -537,6 +556,10 @@ class HttpResp(s_stormtypes.Prim):
         self.locls['headers'] = self.valu.get('headers')
         self.locls['request_headers'] = self.valu.get('request_headers')
         self.locls['err'] = self.valu.get('err', ())
+
+        self.gtors.update({
+            'history': self._gtorHistory,
+        })
 
     def getObjLocals(self):
         return {
@@ -568,3 +591,6 @@ class HttpResp(s_stormtypes.Prim):
         unpk = s_msgpack.Unpk()
         for _, item in unpk.feed(byts):
             yield item
+
+    async def _gtorHistory(self):
+        return [HttpResp(hnfo) for hnfo in self.valu.get('history')]
