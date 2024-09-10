@@ -5792,6 +5792,8 @@ class StormTypesTest(s_test.SynTest):
             opts = {'view': forkview2, 'vars': {'prop': 'ps:contact:name'}}
             self.eq(['bar', 'foo'], await core.callStorm(viewq, opts=opts))
 
+            self.eq([], await alist(core.getLayer().iterPropIndxBuids('newp', 'newp', 'newp')))
+
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
             'name': 'foo',
