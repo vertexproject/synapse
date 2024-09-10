@@ -3700,7 +3700,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('help view')
             self.stormIsInPrint('Storm api for a View instance', msgs)
             self.stormIsInPrint('view.merge', msgs)
-            self.stormNotInPrint('uniq', msgs)
+            self.stormNotInPrint('tee', msgs)
 
             msgs = await core.stormlist('help newp')
             self.stormIsInPrint('No commands found matching "newp"', msgs)
