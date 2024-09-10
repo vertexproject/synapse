@@ -6745,7 +6745,7 @@ class Layer(Prim):
                   'returns': {'type': 'dict',
                               'desc': 'Dictionary containing form names and the count of the nodes in the Layer.', }}},
         {'name': 'iterPropUniqValues',
-         'desc': 'Yield unique property values in the layer for the given full form or property name.',
+         'desc': 'Yield unique property values in the layer for the given form or property name.',
          'type': {'type': 'function', '_funcname': '_methIterPropUniqValues',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
@@ -7680,7 +7680,7 @@ class View(Prim):
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
         {'name': 'iterPropUniqValues',
-         'desc': 'Yield unique property values in the view for the given full form or property name.',
+         'desc': 'Yield unique property values in the view for the given form or property name.',
          'type': {'type': 'function', '_funcname': '_methIterPropUniqValues',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
