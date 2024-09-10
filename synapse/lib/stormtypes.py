@@ -6750,7 +6750,7 @@ class Layer(Prim):
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
                   ),
-                  'yields': {'type': 'any', 'desc': 'Unique property values.', }}},
+                  'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
         {'name': 'getStorNodes', 'desc': '''
             Get buid, sode tuples representing the data stored in the layer.
 
@@ -7685,7 +7685,7 @@ class View(Prim):
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
                   ),
-                  'yields': {'type': 'any', 'desc': 'Unique property values.', }}},
+                  'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
 
         {'name': 'detach', 'desc': 'Detach the view from its parent. WARNING: This cannot be reversed.',
          'type': {'type': 'function', '_funcname': 'detach',
