@@ -1369,16 +1369,14 @@ class SwitchCase(Oper):
         self.defcase = None
 
         for cent in self.kids[1:]:
+            *vals, subq = cent.kids
 
-            cmatch, subq = cent.kids
-
-            if cmatch.defcase:
+            if cent.defcase:
                 self.defcase = subq
                 continue
 
-            for mval in cmatch.kids:
-                valu = mval.value()
-                self.cases[valu] = subq
+            for valu in vals:
+                self.cases[valu.value()] = subq
 
     async def run(self, runt, genr):
         count = 0
@@ -1412,12 +1410,7 @@ class SwitchCase(Oper):
             async for item in subq.inline(runt, s_common.agen()):
                 yield item
 
-
 class CaseEntry(AstNode):
-    pass
-
-class CaseMatch(AstNode):
-
     def __init__(self, astinfo, kids=()):
         AstNode.__init__(self, astinfo, kids=kids)
         self.defcase = False

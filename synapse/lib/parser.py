@@ -427,38 +427,31 @@ class AstConverter(lark.Transformer):
         return s_ast.VarDeref(astinfo, kids=(kids[0], newkid))
 
     @lark.v_args(meta=True)
-    def casematch(self, meta, kids):
+    def caseentry(self, meta, kids):
         astinfo = self.metaToAstInfo(meta)
         newkids = [self._convert_child(k) for k in kids]
-        casematch = s_ast.CaseMatch(astinfo, kids=newkids)
-        if len(kids) == 1 and kids[0].type == 'DEFAULTCASE':
-            casematch.defcase = True
-        return casematch
+        entry = s_ast.CaseEntry(astinfo, kids=newkids)
+
+        if len(kids) == 2 and kids[0].type == 'DEFAULTCASE':
+            entry.defcase = True
+
+        return entry
 
     @lark.v_args(meta=True)
     def switchcase(self, meta, kids):
+        kids = self._convert_children(kids)
 
         astinfo = self.metaToAstInfo(meta)
 
-        newkids = []
+        defcase = [k for k in kids[1:] if k.defcase]
 
-        it = iter(kids)
+        # Check that we only have one default case
+        deflen = len(defcase)
+        if deflen > 1:
+            mesg = f'Switch case cannot have more than one default case. Found {deflen}.'
+            raise self.raiseBadSyntax(mesg, astinfo)
 
-        varvalu = next(it)
-        newkids.append(varvalu)
-
-        # FIXME: Check for multiple default cases, raise BadSyntax if found.
-
-        for casekid, sqkid in zip(it, it):
-
-            casevalu = self._convert_child(casekid)
-            subquery = self._convert_child(sqkid)
-
-            caseentry = s_ast.CaseEntry(casevalu.astinfo, kids=[casevalu, subquery])
-
-            newkids.append(caseentry)
-
-        return s_ast.SwitchCase(astinfo, newkids)
+        return s_ast.SwitchCase(astinfo, kids)
 
     @lark.v_args(meta=True)
     def liftreverse(self, meta, kids):

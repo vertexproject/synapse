@@ -4843,6 +4843,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                 valu = await core.callStorm(q, opts={'vars': {'inval': inval}})
                 self.eq(valu, inval)
 
+            # multiple default cases is invalid
+            q = '''
+            [test:str=$inval]
+            switch $node.value() {
+                "foo": { return($node.value()) }
+                *: { return(woot) }
+                ("boo", "bar"): { return($node.value()) }
+                (coo, car): { return($node.value()) }
+                ('doo', 'dar'): { return($node.value()) }
+                *: { return(w00t) }
+                ("goo", 'gar', gaz): { return($node.value()) }
+            }
+            '''
+            with self.raises(s_exc.BadSyntax) as exc:
+                await core.callStorm(q, opts={'vars': {'inval': 'newp'}})
+            self.eq(exc.exception.get('mesg'), 'Switch case cannot have more than one default case. Found 2.')
+
     async def test_storm_tagvar(self):
 
         async with self.getTestCore() as core:

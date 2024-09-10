@@ -97,10 +97,10 @@ YIELD.1: /yield(?=[\s\{])/
 
 // Split out case subqueries to prevent invalid state merging
 casesubquery: "{" query "}" -> baresubquery
-_casematch: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE
-_mcasematch: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | MCASEBARE
-casematch: DEFAULTCASE | _casematch | "(" _mcasematch ("," _mcasematch)+ ")"
-switchcase: "switch" _varvalu "{" (casematch ":" casesubquery)* "}"
+_caseentry: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE
+_mcaseentry: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | MCASEBARE
+caseentry: (DEFAULTCASE | _caseentry | "(" _mcaseentry ("," _mcaseentry)+ ")") ":" casesubquery
+switchcase: "switch" _varvalu "{" caseentry* "}"
 DEFAULTCASE.2: "*"
 CASEBARE.2: /
     (?<=[\s{])          # can follow whitespace or the opening curly brace of the switch statement
