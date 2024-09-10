@@ -5773,13 +5773,24 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ media:news=(baz,) :title=bar ]')
             await core.nodes('[ media:news=(faz,) :title=faz ]')
 
-            await core.nodes('[ media:news=(baz,) :title=faz ]', opts={'view': forkview})
+            forkopts = {'view': forkview}
+            await core.nodes('[ media:news=(baz,) :title=faz ]', opts=forkopts)
 
             opts = {'vars': {'prop': 'media:news:title'}}
             self.eq(['bar', 'faz', 'foo'], await core.callStorm(viewq, opts=opts))
 
             opts = {'view': forkview, 'vars': {'prop': 'media:news:title'}}
             self.eq(['faz', 'foo'], await core.callStorm(viewq, opts=opts))
+
+            forkview2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
+            forkopts2 = {'view': forkview2}
+
+            await core.nodes('[ ps:contact=(foo,) :name=foo ]', opts=forkopts2)
+            await core.nodes('[ ps:contact=(foo,) :name=bar ]', opts=forkopts)
+            await core.nodes('[ ps:contact=(bar,) :name=bar ]')
+
+            opts = {'view': forkview2, 'vars': {'prop': 'ps:contact:name'}}
+            self.eq(['bar', 'foo'], await core.callStorm(viewq, opts=opts))
 
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {

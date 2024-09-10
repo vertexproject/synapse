@@ -854,9 +854,8 @@ class View(s_nexus.Pusher):  # type: ignore
             if valu == lastvalu:
                 continue
 
-            lastvalu = valu
-
             if lidx == 0 or propname is None:
+                lastvalu = valu
                 yield valu
             else:
                 valid = False
@@ -871,6 +870,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         valid = True
 
                     if valid:
+                        lastvalu = valu
                         yield valu
                         break
 
