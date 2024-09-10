@@ -7,7 +7,7 @@ class MathModule(s_module.CoreModule):
             'types': (
 
                 ('math:algorithm', ('guid', {}), {
-                    'doc': 'A taxonomy of algorithm types.'}),
+                    'doc': 'A mathematical algorithm.'}),
 
                 ('math:algorithm:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
