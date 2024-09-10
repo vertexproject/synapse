@@ -5657,6 +5657,118 @@ class StormTypesTest(s_test.SynTest):
                 q = 'return($lib.layer.get().getTagPropCount(foo, newp, valu=2))'
                 await core.callStorm(q)
 
+    async def test_stormtypes_prop_uniq_values(self):
+        async with self.getTestCore() as core:
+
+            layr1vals = [
+                'a' * 512 + 'a',
+                'a' * 512 + 'a',
+                'a' * 512 + 'c',
+                'a' * 512 + 'c',
+                'c' * 512,
+                'c' * 512,
+                'c',
+                'c'
+            ]
+            opts = {'vars': {'vals': layr1vals}}
+            await core.nodes('for $val in $vals {[ it:dev:str=$val .seen=2020 ]}', opts=opts)
+            await core.nodes('for $val in $vals {[ ou:org=* :name=$val .seen=2021]}', opts=opts)
+
+            layr2vals = [
+                'a' * 512 + 'a',
+                'a' * 512 + 'a',
+                'a' * 512 + 'b',
+                'a' * 512 + 'b',
+                'b' * 512,
+                'b' * 512,
+                'b',
+                'b'
+            ]
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': forkview, 'vars': {'vals': layr2vals}}
+            await core.nodes('for $val in $vals {[ it:dev:str=$val .seen=2020]}', opts=opts)
+            await core.nodes('for $val in $vals {[ ou:org=* :name=$val .seen=2023]}', opts=opts)
+
+            viewq = '''
+            $vals = ([])
+            for $valu in $lib.view.get().iterPropUniqValues($prop) {
+                $vals.append($valu)
+            }
+            return($vals)
+            '''
+
+            layrq = '''
+            $vals = ([])
+            for $valu in $lib.layer.get().iterPropUniqValues($prop) {
+                $vals.append($valu)
+            }
+            return($vals)
+            '''
+
+            # Values come out in index order which is not necessarily value order
+            opts = {'vars': {'prop': 'it:dev:str'}}
+            uniqvals = list(set(layr1vals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            opts['view'] = forkview
+            uniqvals = list(set(layr2vals) - set(layr1vals))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            uniqvals = list(set(layr1vals) | set(layr2vals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            opts = {'vars': {'prop': 'ou:org:name'}}
+            uniqvals = list(set(layr1vals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            opts['view'] = forkview
+            uniqvals = list(set(layr2vals))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            uniqvals = list(set(layr1vals) | set(layr2vals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            opts = {'vars': {'prop': '.seen'}}
+
+            ival = core.model.type('ival')
+            uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0]]
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            opts['view'] = forkview
+            uniqvals = [ival.norm('2020')[0], ival.norm('2023')[0]]
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0], ival.norm('2023')[0]]
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            opts['vars']['prop'] = 'ps:contact:name'
+            self.eq([], await core.callStorm(viewq, opts=opts))
+
+            opts['vars']['prop'] = 'newp:newp'
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm(layrq, opts=opts)
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm(viewq, opts=opts)
+
+            arryvals = [
+                ('foo', 'bar'),
+                ('foo', 'bar'),
+                ('foo', 'baz'),
+                ('bar', 'baz'),
+                ('bar', 'foo')
+            ]
+            opts = {'vars': {'vals': arryvals}}
+            await core.nodes('for $val in $vals {[ transport:air:flight=* :stops=$val ]}', opts=opts)
+
+            opts = {'vars': {'prop': 'transport:air:flight:stops'}}
+            uniqvals = list(set(arryvals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
             'name': 'foo',

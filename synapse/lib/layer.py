@@ -3050,6 +3050,40 @@ class Layer(s_nexus.Pusher):
 
         return count
 
+    async def iterPropUniqValues(self, formname, propname, stortype):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if stortype & 0x8000:
+            stortype = STOR_TYPE_MSGP
+
+        stor = self.stortypes[stortype]
+        abrvlen = len(abrv)
+
+        for lkey in self.layrslab.scanKeysByPref(abrv, db=self.byprop, nodup=True):
+
+            await asyncio.sleep(0)
+
+            indx = lkey[abrvlen:]
+            valu = stor.decodeIndx(indx)
+            if valu is not s_common.novalu:
+                yield indx, valu
+                continue
+
+            buid = self.layrslab.get(lkey, db=self.byprop)
+            if buid is not None:
+                sode = self._getStorNode(buid)
+                if sode is not None:
+                    if propname is None:
+                        valt = sode.get('valu')
+                    else:
+                        valt = sode['props'].get(propname)
+
+                    if valt is not None:
+                        yield indx, valt[0]
+
     async def liftByTag(self, tag, form=None, reverse=False):
 
         try:

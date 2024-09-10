@@ -824,6 +824,33 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return count
 
+    async def iterPropUniqValues(self, propname):
+        prop = self.core.model.prop(propname)
+        if prop is None:
+            mesg = f'No property named {propname}'
+            raise s_exc.NoSuchProp(mesg=mesg)
+
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        genrs = [layr.iterPropUniqValues(formname, propname, prop.type.stortype) for layr in self.layers]
+
+        lastvalu = None
+        async for indx, valu in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            lastvalu = valu
+
+            yield valu
+
     async def getEdgeVerbs(self):
 
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
