@@ -4843,6 +4843,10 @@ class CortexBasicTest(s_t_utils.SynTest):
                 valu = await core.callStorm(q, opts={'vars': {'inval': inval}})
                 self.eq(valu, inval)
 
+            # bare asterisk is allowed as a multi-value
+            valu = await core.callStorm('$foo="*" switch $foo { *:{ return(default) } (someval, *): { return(multi) } }')
+            self.eq(valu, 'multi')
+
             # multiple default cases is invalid
             msgs = await core.stormlist('$foo=foo switch $foo { *:{} *:{} }')
             self.stormIsInErr('Switch statements cannot have more than one default case. Found 2.', msgs)
