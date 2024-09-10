@@ -159,7 +159,7 @@ class LibStormTest(s_test.SynTest):
             q = '''
                 return($lib.storm.subquery("ou:org:names return($node.props.names)"))
             '''
-            self.eq(('bar', 'baz', 'biz', 'foo', 'ping', 'pong'), await core.callStorm(q))
+            self.eq((('bar', 'baz', 'biz', 'foo', 'ping', 'pong'),), await core.callStorm(q))
 
             q = '''
                 return($lib.storm.subquery("ou:org geo:telem", 1000))
@@ -169,7 +169,7 @@ class LibStormTest(s_test.SynTest):
             q = '''
                 return($lib.storm.subquery("geo:telem return($node.props.node)"))
             '''
-            self.eq(('inet:fqdn', 'vertex.link'), await core.callStorm(q))
+            self.eq((('inet:fqdn', 'vertex.link'),), await core.callStorm(q))
 
             q = '''
                 return(

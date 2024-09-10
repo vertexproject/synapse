@@ -132,7 +132,7 @@ class LibStorm(s_stormtypes.Lib):
                       {'name': 'limit', 'type': 'int', 'desc': 'The number of nodes to allow.', 'default': 1},
                       {'name': 'opts', 'type': 'dict', 'desc': 'Storm options dictionary.', 'default': None},
                   ),
-                  'returns': {'type': 'list', 'desc': 'The value of an explict Storm return or a list of the NDef values of the yielded nodes.'}}}
+                  'returns': {'type': 'list', 'desc': 'A list containing either the value of an explicit Storm return, or a list of the ndefs of the queried nodes.'}}}
     )
     _storm_lib_path = ('storm',)
 
@@ -214,5 +214,5 @@ class LibStorm(s_stormtypes.Lib):
                         mesg = f'Subquery used as a value yielded too many (>{limit}) nodes. {s_common.trimText(text)}'
                         raise s_exc.StormRuntimeError(mesg=mesg, text=text)
             except s_stormctrl.StormReturn as e:
-                return [e.item]
+                return [e.item,]
             return retn
