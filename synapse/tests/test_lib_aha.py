@@ -1231,7 +1231,8 @@ class AhaTest(s_test.SynTest):
                     }
                     with self.raises(s_exc.CryptoErr) as errcm:
                         await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
-                    self.isin('Certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
+                    self.isin('Certificate name values must be between 1-64 bytes when utf8-encoded.',
+                              errcm.exception.get('mesg'))
 
     async def test_aha_prov_with_user(self):
 
