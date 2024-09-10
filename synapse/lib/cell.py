@@ -431,6 +431,14 @@ class CellApi(s_base.Base):
         async for task in self.cell.getTasks():
             yield task
 
+    @adminapi()
+    async def getTask(self, iden):
+        return await self.cell.getTask(iden)
+
+    @adminapi()
+    async def killTask(self, iden):
+        return await self.cell.killTask(iden)
+
     async def getFeatures(self):
         return await self.cell.getFeatures()
 
@@ -4417,6 +4425,70 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return retn
 
+    async def getAhaProxy(self, timeout=None, methname=None):
+
+        if self.ahaclient is None:
+            return
+
+        proxy = await self.ahaclient.proxy(timeout=timeout)
+        if proxy is None:
+            logger.warning('AHA client connection failed.')
+            return
+
+        if methname is not None and not proxy._hasTeleMeth(methname):
+            logger.warning(f'AHA server does not implement {methname}.')
+            return
+
+        return proxy
+
+    async def callPeerApi(self, todo, timeout=None):
+
+        proxy = await self.getAhaProxy(timeout=timeout, methname='runGatherCall')
+        if proxy is None:
+            return
+
+        async for item in proxy.runGatherCall(self.iden, todo, timeout=timeout, skiprun=self.runid):
+            yield item
+
+    async def callPeerGenr(self, todo, timeout=None):
+
+        proxy = await self.getAhaProxy(timeout=timeout, methname='runGatherGenr')
+        if proxy is None:
+            return
+
+        async for item in proxy.runGatherGenr(self.iden, todo, timeout=timeout, skiprun=self.runid):
+            yield item
+
+    async def getTasks(self):
+        for task in self.boss.ps():
+            yield task.pack()
+
+    async def getTask(self, iden):
+        task = self.boss.get(iden)
+        if task is not None:
+            return task.pack()
+
+    async def killTask(self, iden):
+        task = self.boss.get(iden)
+        if task is None:
+            return False
+
+        await task.kill()
+        return True
+
+    async def getPeerTask(self, iden, timeout=None):
+        # return a task which may be running on a peer
+        task = await self.getTask(iden)
+        if task is not None:
+            task['aha:name'] = self.ahasvcname
+            return task
+
+        todo = s_common.todo('getTask', iden)
+        async for (name, (ok, task)) in self.callPeerApi(todo, timeout=timeout):
+            if ok and task is not None:
+                task['aha:name'] = name
+                return task
+
     async def getPeerTasks(self, timeout=None):
 
         for task in self.boss.ps():
@@ -4425,52 +4497,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 info['aha:name'] = self.ahasvcname
             yield info
 
-        if self.ahaclient is not None:
+        todo = s_common.todo('getTasks')
+        async for (name, (ok, task)) in self.callPeerGenr(todo, timeout=timeout):
 
-            proxy = await self.ahaclient.proxy(timeout=timeout)
-            if proxy is None:
-                logger.warning('AHA client connection timed out for getPeerTasks()')
-                return
+            if not ok:
+                logger.warning(f'getPeerTasks() error from peer {name}: {retn}')
+                continue
 
-            if not proxy._hasTeleMeth('getAhaSvcPeerTasks'):
-                logger.warning('AHA server does not implement getAhaSvcPeerTasks(). Please update.')
-                return
+            task['aha:name'] = name
+            yield task
 
-            async for (name, (ok, valu)) in proxy.getAhaSvcPeerTasks(self.iden, timeout=timeout, skiprun=self.runid):
-                if not ok:
-                    logger.warning(f'getPeerTasks peer error: {name} {valu}')
-                    await asyncio.sleep(0)
-                valu['aha:name'] = name
-                yield valu
+    async def killPeerTask(self, iden, timeout=None):
 
-    async def getTasks(self):
-        for task in self.boss.ps():
-            yield task.pack()
+        # kill a task which may be running on a peer
+        if await self.killTask(iden):
+            return (True, self.ahasvcname)
 
-    async def ahaGatherPs(self, user):
+        todo = s_common.todo('killTask', iden)
+        async for (name, (ok, done)) in self.callPeerApi(todo, timeout=timeout):
 
-        if self.ahaclient is None:
-            return await self.ps()
+            if not ok:
+                logger.warning(f'killPeerTask() error from peer {name}: {retn}')
+                continue
 
-        retn = []
-        todo = s_common.todo('ps')
+            if ok and done:
+                return (True, name)
 
-        allowed = user.allowed(('task', 'get'))
-
-        try:
-            proxy = self.ahaclient.proxy(timeout=4)
-            async for svcfull, (ok, tasks) in proxy.runGatherCall(todo, timeout=4):
-                if ok:
-                    for task in tasks:
-                        if allowed or task['user'] == user.name:
-                            retn.append(task)
-                else:
-                    logger.warning(f'AHA gather ps() from {svcfull}: {tasks}')
-
-        except Exception as e:
-            logger.warning(f'AHA gather ps() on {self.ahasvcname}: {e}')
-
-    # async def _ahaGatherKill(self, user, iden):
+        return (False, None)
 
     async def kill(self, user, iden):
         perm = ('task', 'del')

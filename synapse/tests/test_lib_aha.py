@@ -1397,3 +1397,13 @@ class AhaTest(s_test.SynTest):
 
             tasks = [task async for task in cell00.getPeerTasks(timeout=3)]
             self.len(2, tasks)
+
+            self.eq(tasks[0], await cell00.getPeerTask(tasks[0].get('iden')))
+            self.eq(tasks[1], await cell00.getPeerTask(tasks[1].get('iden')))
+
+            retn00 = await cell00.killPeerTask(tasks[0].get('iden'))
+            retn01 = await cell00.killPeerTask(tasks[1].get('iden'))
+
+            self.eq((True, tasks[0]['aha:name']), retn00)
+            self.eq((True, tasks[1]['aha:name']), retn01)
+            self.eq((False, None), await cell00.killPeerTask('newp'))
