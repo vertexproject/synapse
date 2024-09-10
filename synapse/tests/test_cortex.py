@@ -4827,6 +4827,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '$valu={[test:str=foo]} switch $valu { foo: {test:str=foo return($node.value()) } }'
             self.eq('foo', await core.callStorm(q))
 
+            # multi-value switch cases
+            q = '''
+            [test:str=$inval]
+            switch $node.value() {
+                "foo": { return($node.value()) }
+                ("boo", "bar"): { return($node.value()) }
+                (coo, car): { return($node.value()) }
+                ('doo', 'dar'): { return($node.value()) }
+                ("goo", 'gar', gaz): { return($node.value()) }
+            }
+            $lib.raise(BadArg, `Failed match on {$inval}`)
+            '''
+            for inval in ('foo', 'boo', 'bar', 'coo', 'car', 'doo', 'dar', 'goo', 'gar', 'gaz'):
+                valu = await core.callStorm(q, opts={'vars': {'inval': inval}})
+                self.eq(valu, inval)
+
     async def test_storm_tagvar(self):
 
         async with self.getTestCore() as core:

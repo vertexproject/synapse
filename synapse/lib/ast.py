@@ -1370,13 +1370,15 @@ class SwitchCase(Oper):
 
         for cent in self.kids[1:]:
 
-            # if they only have one kid, it's a default case.
-            if len(cent.kids) == 1:
-                self.defcase = cent.kids[0]
+            cmatch, subq = cent.kids
+
+            if cmatch.defcase:
+                self.defcase = subq
                 continue
 
-            valu = cent.kids[0].value()
-            self.cases[valu] = cent.kids[1]
+            for mval in cmatch.kids:
+                valu = mval.value()
+                self.cases[valu] = subq
 
     async def run(self, runt, genr):
         count = 0
@@ -1413,6 +1415,12 @@ class SwitchCase(Oper):
 
 class CaseEntry(AstNode):
     pass
+
+class CaseMatch(AstNode):
+
+    def __init__(self, astinfo, kids=()):
+        AstNode.__init__(self, astinfo, kids=kids)
+        self.defcase = False
 
 class LiftOper(Oper):
 

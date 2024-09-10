@@ -427,6 +427,15 @@ class AstConverter(lark.Transformer):
         return s_ast.VarDeref(astinfo, kids=(kids[0], newkid))
 
     @lark.v_args(meta=True)
+    def casematch(self, meta, kids):
+        astinfo = self.metaToAstInfo(meta)
+        newkids = [self._convert_child(k) for k in kids]
+        casematch = s_ast.CaseMatch(astinfo, kids=newkids)
+        if len(kids) == 1 and kids[0].type == 'DEFAULTCASE':
+            casematch.defcase = True
+        return casematch
+
+    @lark.v_args(meta=True)
     def switchcase(self, meta, kids):
 
         astinfo = self.metaToAstInfo(meta)
@@ -438,14 +447,14 @@ class AstConverter(lark.Transformer):
         varvalu = next(it)
         newkids.append(varvalu)
 
+        # FIXME: Check for multiple default cases, raise BadSyntax if found.
+
         for casekid, sqkid in zip(it, it):
+
+            casevalu = self._convert_child(casekid)
             subquery = self._convert_child(sqkid)
-            if casekid.type == 'DEFAULTCASE':
-                caseinfo = self.metaToAstInfo(casekid)
-                caseentry = s_ast.CaseEntry(caseinfo, kids=[subquery])
-            else:
-                casekid = self._convert_child(casekid)
-                caseentry = s_ast.CaseEntry(casekid.astinfo, kids=[casekid, subquery])
+
+            caseentry = s_ast.CaseEntry(casevalu.astinfo, kids=[casevalu, subquery])
 
             newkids.append(caseentry)
 
