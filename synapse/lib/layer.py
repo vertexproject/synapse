@@ -3088,7 +3088,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        async for _, buid in s_coro.pause(self.layrslab.scanByPref(abrv + indx, db=self.byprop)):
+        async for _, buid in s_coro.pause(self.layrslab.scanByDups(abrv + indx, db=self.byprop)):
             yield buid
 
     async def liftByTag(self, tag, form=None, reverse=False):
