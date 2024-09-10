@@ -3062,9 +3062,7 @@ class Layer(s_nexus.Pusher):
         stor = self.stortypes[stortype]
         abrvlen = len(abrv)
 
-        for lkey in self.layrslab.scanKeysByPref(abrv, db=self.byprop, nodup=True):
-
-            await asyncio.sleep(0)
+        async for lkey in s_coro.pause(self.layrslab.scanKeysByPref(abrv, db=self.byprop, nodup=True)):
 
             indx = lkey[abrvlen:]
             valu = stor.decodeIndx(indx)
@@ -3083,6 +3081,15 @@ class Layer(s_nexus.Pusher):
 
                     if valt is not None:
                         yield indx, valt[0]
+
+    async def iterPropIndxBuids(self, formname, propname, indx):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for _, buid in s_coro.pause(self.layrslab.scanByPref(abrv + indx, db=self.byprop)):
+            yield buid
 
     async def liftByTag(self, tag, form=None, reverse=False):
 

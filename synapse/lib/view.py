@@ -840,16 +840,39 @@ class View(s_nexus.Pusher):  # type: ignore
             if not prop.isuniv:
                 formname = prop.form.name
 
-        genrs = [layr.iterPropUniqValues(formname, propname, prop.type.stortype) for layr in self.layers]
+        async def wrapgenr(lidx, genr):
+            async for indx, valu in genr:
+                yield indx, valu, lidx
+
+        genrs = []
+        for lidx, layr in enumerate(self.layers):
+            genr = layr.iterPropUniqValues(formname, propname, prop.type.stortype)
+            genrs.append(wrapgenr(lidx, genr))
 
         lastvalu = None
-        async for indx, valu in s_common.merggenr2(genrs):
+        async for indx, valu, lidx in s_common.merggenr2(genrs):
             if valu == lastvalu:
                 continue
 
             lastvalu = valu
 
-            yield valu
+            if lidx == 0 or propname is None:
+                yield valu
+            else:
+                valid = False
+                async for buid in self.layers[lidx].iterPropIndxBuids(formname, propname, indx):
+                    for layr in self.layers[0:lidx]:
+                        if (sode := layr._getStorNode(buid)) is None:
+                            continue
+
+                        if sode['props'].get(propname) != valu:
+                            break
+                    else:
+                        valid = True
+
+                    if valid:
+                        yield valu
+                        break
 
     async def getEdgeVerbs(self):
 

@@ -5769,6 +5769,18 @@ class StormTypesTest(s_test.SynTest):
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
             self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
 
+            await core.nodes('[ media:news=(bar,) :title=foo ]')
+            await core.nodes('[ media:news=(baz,) :title=bar ]')
+            await core.nodes('[ media:news=(faz,) :title=faz ]')
+
+            await core.nodes('[ media:news=(baz,) :title=faz ]', opts={'view': forkview})
+
+            opts = {'vars': {'prop': 'media:news:title'}}
+            self.eq(['bar', 'faz', 'foo'], await core.callStorm(viewq, opts=opts))
+
+            opts = {'view': forkview, 'vars': {'prop': 'media:news:title'}}
+            self.eq(['faz', 'foo'], await core.callStorm(viewq, opts=opts))
+
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
             'name': 'foo',
