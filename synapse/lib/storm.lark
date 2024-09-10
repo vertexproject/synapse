@@ -105,12 +105,12 @@ DEFAULTCASE.2: "*"
 CASEBARE.2: /
     (?<=[\s{])          # can follow whitespace or the opening curly brace of the switch statement
     (?!\*)              # should not include the DEFAULTCASE bare asterisk
-    ([^:\s"']+)         # can be anything except these characters
+    ([^:\s"'()]+)       # can be anything except these characters
     (?=[\s]*:[\s]*\{)   # must preced a colon and the open brace of the subquery (with any whitespace in between)
 /x
 MCASEBARE.2: /
     (?<=[\s(,])         # can follow whitespace, open parens, or comma
-    ([^,):\s"']+)       # can be anything except these characters
+    ([^:\s"'(),]+)      # can be anything except these characters
     (?=\s*(?:,|\)\s*:)) # must precede a comma or a close parens with colon (with any whitespace in between)
 /x
 

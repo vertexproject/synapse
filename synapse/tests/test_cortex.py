@@ -4844,21 +4844,23 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(valu, inval)
 
             # multiple default cases is invalid
-            q = '''
-            [test:str=$inval]
-            switch $node.value() {
-                "foo": { return($node.value()) }
-                *: { return(woot) }
-                ("boo", "bar"): { return($node.value()) }
-                (coo, car): { return($node.value()) }
-                ('doo', 'dar'): { return($node.value()) }
-                *: { return(w00t) }
-                ("goo", 'gar', gaz): { return($node.value()) }
-            }
-            '''
-            with self.raises(s_exc.BadSyntax) as exc:
-                await core.callStorm(q, opts={'vars': {'inval': 'newp'}})
-            self.eq(exc.exception.get('mesg'), 'Switch case cannot have more than one default case. Found 2.')
+            msgs = await core.stormlist('$foo=foo switch $foo { *:{} *:{} }')
+            self.stormIsInErr('Switch statements cannot have more than one default case. Found 2.', msgs)
+
+            # multi-value case without a comma
+            msgs = await core.stormlist('$foo=foo switch $foo { (foo bar): { $lib.print(woot) } }')
+            self.stormIsInErr('Unexpected token', msgs)
+            self.stormIsInErr('expecting one of: case multi-value, double-quoted string, single-quoted string', msgs)
+
+            # multi-value case without a second value
+            msgs = await core.stormlist('$foo=foo switch $foo { (foo, ): { $lib.print(woot) } }')
+            self.stormIsInErr('Unexpected token', msgs)
+            self.stormIsInErr('expecting one of: case multi-value, double-quoted string, single-quoted string', msgs)
+
+            # multi-value case without a comma or second value
+            msgs = await core.stormlist('$foo=foo switch $foo { (foo): { $lib.print(woot) } }')
+            self.stormIsInErr('Unexpected token', msgs)
+            self.stormIsInErr('expecting one of: ,', msgs)
 
     async def test_storm_tagvar(self):
 

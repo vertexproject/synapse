@@ -429,6 +429,7 @@ class AstConverter(lark.Transformer):
 
     @lark.v_args(meta=True)
     def caseentry(self, meta, kids):
+        assert kids and len(kids) >= 2
         astinfo = self.metaToAstInfo(meta)
         newkids = self._convert_children(kids)
         entry = s_ast.CaseEntry(astinfo, kids=newkids)
@@ -444,12 +445,12 @@ class AstConverter(lark.Transformer):
 
         astinfo = self.metaToAstInfo(meta)
 
+        # Check that we only have one default case
         defcase = [k for k in kids[1:] if k.defcase]
 
-        # Check that we only have one default case
         deflen = len(defcase)
         if deflen > 1:
-            mesg = f'Switch case cannot have more than one default case. Found {deflen}.'
+            mesg = f'Switch statements cannot have more than one default case. Found {deflen}.'
             raise self.raiseBadSyntax(mesg, astinfo)
 
         return s_ast.SwitchCase(astinfo, kids)
