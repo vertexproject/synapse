@@ -865,7 +865,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         if (sode := layr._getStorNode(buid)) is None:
                             continue
 
-                        if sode['props'].get(propname) != valu:
+                        if sode['props'].get(propname) is not None:
                             break
                     else:
                         valid = True
