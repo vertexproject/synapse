@@ -321,6 +321,9 @@ class Aware:
         '''
         return self
 
+    async def getTeleFeats(self):
+        return {}
+
     def onTeleShare(self, dmon, name):
         pass
 
@@ -599,6 +602,8 @@ class Proxy(s_base.Base):
         self.shares = {}
 
         self._ahainfo = {}
+        self._features = {}
+
         self.sharinfo = {}
         self.methinfo = {}
 
@@ -633,6 +638,18 @@ class Proxy(s_base.Base):
 
         self.onfini(fini)
         self.link.onfini(self.fini)
+
+    def _hasTeleMeth(self, name):
+        return self.methinfo.get(name) is not None
+
+    def _hasTeleGenr(self, name):
+        info = self.methinfo.get(name)
+        if info is None:
+            return False
+        return info.get('genr', False)
+
+    def _hasTeleFeat(self, name):
+        return self.features.get(name, False)
 
     def _getSynVers(self):
         '''
@@ -906,6 +923,7 @@ class Proxy(s_base.Base):
 
         self.sess = self.synack[1].get('sess')
         self._ahainfo = self.synack[1].get('ahainfo', {})
+        self.features = self.synack[1].get('features', {})
         self.sharinfo = self.synack[1].get('sharinfo', {})
         self.methinfo = self.sharinfo.get('meths', {})
 
