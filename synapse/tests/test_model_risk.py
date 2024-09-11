@@ -524,7 +524,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :node=(inet:fqdn, vertex.link)
                     :vuln={[ risk:vuln=* :name=redtree ]}
                     :mitigated=true
-                    :mitigation={[ risk:mitigation=* :name=patchstuff ]}
+                    :mitigations={[ risk:mitigation=* :name=patchstuff ]}
                 ]
             ''')
             self.len(1, nodes)

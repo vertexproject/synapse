@@ -2899,7 +2899,7 @@ class Layer(s_nexus.Pusher):
             self.buidcache[buid] = sode
             kvlist.append((buid, s_msgpack.en(sode)))
 
-        await self.layrslab.putmulti(kvlist, db=self.bybuidv3)
+        self.layrslab._putmulti(kvlist, db=self.bybuidv3)
         self.dirty.clear()
 
     def getStorNodeCount(self):
@@ -3049,6 +3049,47 @@ class Layer(s_nexus.Pusher):
             count += self.layrslab.count(abrv + indx, db=self.bytagprop)
 
         return count
+
+    async def iterPropValues(self, formname, propname, stortype):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if stortype & 0x8000:
+            stortype = STOR_TYPE_MSGP
+
+        stor = self.stortypes[stortype]
+        abrvlen = len(abrv)
+
+        async for lkey in s_coro.pause(self.layrslab.scanKeysByPref(abrv, db=self.byprop, nodup=True)):
+
+            indx = lkey[abrvlen:]
+            valu = stor.decodeIndx(indx)
+            if valu is not s_common.novalu:
+                yield indx, valu
+                continue
+
+            buid = self.layrslab.get(lkey, db=self.byprop)
+            if buid is not None:
+                sode = self._getStorNode(buid)
+                if sode is not None:
+                    if propname is None:
+                        valt = sode.get('valu')
+                    else:
+                        valt = sode['props'].get(propname)
+
+                    if valt is not None:
+                        yield indx, valt[0]
+
+    async def iterPropIndxBuids(self, formname, propname, indx):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for _, buid in s_coro.pause(self.layrslab.scanByDups(abrv + indx, db=self.byprop)):
+            yield buid
 
     async def liftByTag(self, tag, form=None, reverse=False):
 

@@ -775,6 +775,7 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'A list of types that apply to the contract.'}),
                 )),
+                ('ou:industry:type:taxonomy', {}, ()),
                 ('ou:industry', {}, (
 
                     ('name', ('ou:industryname', {}), {

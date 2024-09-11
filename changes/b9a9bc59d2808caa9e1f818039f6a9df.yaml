@@ -1,0 +1,7 @@
+---
+desc: Add a ``getPropValues()`` API to Storm View and Layer objects for yielding distinct
+  values of a property.
+prs:
+- 3903
+type: feat
+...
