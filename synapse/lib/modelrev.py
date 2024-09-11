@@ -9,7 +9,7 @@ import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 28)
+maxvers = (0, 2, 29)
 
 class ModelRev:
 
@@ -43,6 +43,7 @@ class ModelRev:
             ((0, 2, 26), self.revModel_0_2_26),
             ((0, 2, 27), self.revModel_0_2_27),
             ((0, 2, 28), self.revModel_0_2_28),
+            ((0, 2, 29), self.revModel_0_2_29),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -797,6 +798,9 @@ class ModelRev:
 
         text = s_assets.getStorm('migrations', 'model-0.2.28.storm')
         await self.runStorm(text, opts=opts)
+
+    async def revModel_0_2_29(self, layers):
+        await self._propToForm(layers, 'ou:industry:type', 'ou:industry:type:taxonomy')
 
     async def runStorm(self, text, opts=None):
         '''
