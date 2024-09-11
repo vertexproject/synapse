@@ -6744,9 +6744,9 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetFormcount',
                   'returns': {'type': 'dict',
                               'desc': 'Dictionary containing form names and the count of the nodes in the Layer.', }}},
-        {'name': 'iterPropUniqValues',
+        {'name': 'getPropValues',
          'desc': 'Yield unique property values in the layer for the given form or property name.',
-         'type': {'type': 'function', '_funcname': '_methIterPropUniqValues',
+         'type': {'type': 'function', '_funcname': '_methGetPropValues',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
                   ),
@@ -6951,6 +6951,7 @@ class Layer(Prim):
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
+            'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
@@ -6960,7 +6961,6 @@ class Layer(Prim):
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
             'getMirrorStatus': self.getMirrorStatus,
-            'iterPropUniqValues': self._methIterPropUniqValues,
         }
 
     @stormfunc(readonly=True)
@@ -7222,7 +7222,7 @@ class Layer(Prim):
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
-    async def _methIterPropUniqValues(self, propname):
+    async def _methGetPropValues(self, propname):
         propname = await tostr(propname)
 
         prop = self.runt.snap.core.model.reqProp(propname)
@@ -7241,7 +7241,7 @@ class Layer(Prim):
             if not prop.isuniv:
                 formname = prop.form.name
 
-        async for indx, valu in layr.iterPropUniqValues(formname, propname, prop.type.stortype):
+        async for indx, valu in layr.iterPropValues(formname, propname, prop.type.stortype):
             yield valu
 
     @stormfunc(readonly=True)
@@ -7676,9 +7676,9 @@ class View(Prim):
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
-        {'name': 'iterPropUniqValues',
+        {'name': 'getPropValues',
          'desc': 'Yield unique property values in the view for the given form or property name.',
-         'type': {'type': 'function', '_funcname': '_methIterPropUniqValues',
+         'type': {'type': 'function', '_funcname': '_methGetPropValues',
                   'args': (
                       {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
                   ),
@@ -7787,9 +7787,9 @@ class View(Prim):
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
             'getPropCount': self._methGetPropCount,
+            'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
-            'iterPropUniqValues': self._methIterPropUniqValues,
 
             'fork': self._methViewFork,
             'insertParentFork': self._methViewInsertParentFork,
@@ -7905,14 +7905,14 @@ class View(Prim):
         return await view.getPropArrayCount(propname, valu=valu)
 
     @stormfunc(readonly=True)
-    async def _methIterPropUniqValues(self, propname):
+    async def _methGetPropValues(self, propname):
         propname = await tostr(propname)
 
         viewiden = self.valu.get('iden')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
         view = self.runt.snap.core.getView(viewiden)
 
-        async for valu in view.iterPropUniqValues(propname):
+        async for valu in view.iterPropValues(propname):
             yield valu
 
     @stormfunc(readonly=True)

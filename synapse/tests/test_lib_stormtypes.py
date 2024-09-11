@@ -5691,7 +5691,7 @@ class StormTypesTest(s_test.SynTest):
 
             viewq = '''
             $vals = ([])
-            for $valu in $lib.view.get().iterPropUniqValues($prop) {
+            for $valu in $lib.view.get().getPropValues($prop) {
                 $vals.append($valu)
             }
             return($vals)
@@ -5699,7 +5699,7 @@ class StormTypesTest(s_test.SynTest):
 
             layrq = '''
             $vals = ([])
-            for $valu in $lib.layer.get().iterPropUniqValues($prop) {
+            for $valu in $lib.layer.get().getPropValues($prop) {
                 $vals.append($valu)
             }
             return($vals)

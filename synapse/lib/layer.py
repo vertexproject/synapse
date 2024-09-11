@@ -3050,7 +3050,7 @@ class Layer(s_nexus.Pusher):
 
         return count
 
-    async def iterPropUniqValues(self, formname, propname, stortype):
+    async def iterPropValues(self, formname, propname, stortype):
         try:
             abrv = self.getPropAbrv(formname, propname)
         except s_exc.NoSuchAbrv:

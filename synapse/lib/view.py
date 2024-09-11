@@ -824,7 +824,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return count
 
-    async def iterPropUniqValues(self, propname):
+    async def iterPropValues(self, propname):
         prop = self.core.model.reqProp(propname)
 
         formname = None
@@ -843,7 +843,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         genrs = []
         for lidx, layr in enumerate(self.layers):
-            genr = layr.iterPropUniqValues(formname, propname, prop.type.stortype)
+            genr = layr.iterPropValues(formname, propname, prop.type.stortype)
             genrs.append(wrapgenr(lidx, genr))
 
         lastvalu = None
