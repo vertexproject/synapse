@@ -135,7 +135,7 @@ class BaseModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A human friendly name for the source.'}),
 
-                    ('type', ('meta:source:type:taxonomy', {'lower': True}), {
+                    ('type', ('meta:source:type:taxonomy', {}), {
                         'doc': 'The type of source.'}),
 
                     ('url', ('inet:url', {}), {
