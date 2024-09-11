@@ -662,7 +662,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'Set to true if the vulnerable node has been mitigated.'}),
 
                     ('mitigations', ('array', {'type': 'risk:mitigation', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The mitigation which was used to address the vulnerable node.'}),
+                        'doc': 'The mitigations which were used to address the vulnerable node.'}),
                 )),
 
                 ('risk:alert:taxonomy', {}, {}),
