@@ -648,12 +648,21 @@ class RiskModule(s_module.CoreModule):
                 )),
 
                 ('risk:vulnerable', {}, (
+
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
+
                     ('node', ('ndef', {}), {
                         'doc': 'The node which is vulnerable.'}),
+
+                    ('mitigated', ('bool', {}), {
+                        'doc': 'Set to true if the vulnerable node has been mitigated.'}),
+
+                    ('mitigation', ('risk:mitigation', {}), {
+                        'doc': 'The mitigation which was used to address the vulnerable node.'}),
                 )),
 
                 ('risk:alert:taxonomy', {}, {}),

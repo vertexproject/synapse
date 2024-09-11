@@ -1,0 +1,6 @@
+---
+desc: Added ``:mitigated=<bool>`` and ``:mitigation=<risk:mitigation>`` properties to the ``risk:vulnerable``
+      form to track mitigations used to address vulnerable nodes.
+prs: []
+type: model
+...
