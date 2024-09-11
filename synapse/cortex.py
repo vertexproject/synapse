@@ -2278,31 +2278,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if sodelist is not None:
                 yield sodelist
 
-    async def _mergeSodesUniq(self, layers, genrs, cmprkey, filtercmpr=None, reverse=False):
-        lastbuid = None
-        sodes = {}
-        async with await s_spooled.Set.anit(dirn=self.dirn) as uniqset:
-            async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey, reverse=reverse):
-                if buid in uniqset:
-                    continue
-
-                if not buid == lastbuid or layr in sodes:
-                    if lastbuid is not None:
-                        sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
-                        if sodelist is not None:
-                            yield sodelist
-                        sodes.clear()
-
-                    await uniqset.add(lastbuid)
-                    lastbuid = buid
-
-                sodes[layr] = sode
-
-            if lastbuid is not None:
-                sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
-                if sodelist is not None:
-                    yield sodelist
-
     async def _liftByDataName(self, name, layers):
         if len(layers) == 1:
             layr = layers[0].iden
@@ -2328,7 +2303,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop, reverse=reverse)))
 
-        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx, reverse=reverse):
+        def filtercmpr(sode):
+            if (props := sode.get('props')) is None:
+                return False
+
+            return props.get(prop) is not None
+
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
             yield sodes
 
     async def _liftByPropValu(self, form, prop, cmprvals, layers, reverse=False):
@@ -2445,7 +2426,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for layr in layers:
             genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop, reverse=reverse)))
 
-        async for sodes in self._mergeSodesUniq(layers, genrs, cmprkey_indx, reverse=reverse):
+        def filtercmpr(sode):
+            if (tagprops := sode.get('tagprops')) is None:
+                return False
+
+            if (props := tagprops.get(tag)) is None:
+                return False
+
+            return props.get(prop) is not None
+
+        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
             yield sodes
 
     async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers, reverse=False):
