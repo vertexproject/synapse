@@ -5505,6 +5505,9 @@ class ScrapeCmd(Cmd):
         # Scrape only the :engine and :text props from the inbound nodes.
         inet:search:query | scrape :text :engine
 
+        # Scrape the primary property from the inbound nodes.
+        it:dev:str | scrape $node.repr()
+
         # Scrape properties inbound nodes and yield newly scraped nodes.
         inet:search:query | scrape --yield
 

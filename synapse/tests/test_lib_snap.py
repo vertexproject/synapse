@@ -438,6 +438,10 @@ class SnapTest(s_t_utils.SynTest):
 
             self.len(1, await view0.nodes('[ test:int=10 +#woot:score=40 ]'))
 
+            self.len(1, await view0.nodes('[ test:int=20 +#woot:score=10 ]'))
+            self.len(1, await view1.nodes('[ test:int=20 +#foo:score=10 ]'))
+            self.len(2, await view1.nodes('#woot:score'))
+
     async def test_cortex_lift_layers_ordering(self):
 
         async with self._getTestCoreMultiLayer() as (view0, view1):
