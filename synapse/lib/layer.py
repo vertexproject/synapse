@@ -2899,7 +2899,7 @@ class Layer(s_nexus.Pusher):
             self.buidcache[buid] = sode
             kvlist.append((buid, s_msgpack.en(sode)))
 
-        await self.layrslab.putmulti(kvlist, db=self.bybuidv3)
+        self.layrslab._putmulti(kvlist, db=self.bybuidv3)
         self.dirty.clear()
 
     def getStorNodeCount(self):
