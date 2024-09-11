@@ -1546,7 +1546,7 @@ or ``media:news:type``).
   set of categories independent of other taxonomies. This allows you to define one taxonomy to categorize tools/malware and
   a separate taxonomy to categorize articles or publications, for example.
 
-Most taxonomy types are also forms (i.e., ``risk:tool:software:taxonomy``), so you can lift, view, and work with them
+Most taxonomy types are also forms (i.e., ``risk:tool:software:type:taxonomy``), so you can lift, view, and work with them
 just like other nodes in Synapse. To ensure consistency across the numerous taxonomy forms, most taxonomies inherit the
 ``meta:taxonomy`` :ref:`gloss-interface`.
 
@@ -1658,7 +1658,7 @@ with "j":
   or ``ou:industry:type = energy.electricity.distribution``.
 
 - When lifting or filtering ``taxonomy`` types, use of the wildcard ( ``*`` ) is not allowed. For example, the following
-  Storm expression is invalid and will throw a syntax error: ``risk:attacktype = phishing.*``.
+  Storm expression is invalid and will throw a syntax error: ``risk:attack:type:taxonomy = phishing.*``.
 
 
 .. _type-time:

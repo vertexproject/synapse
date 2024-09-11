@@ -54,7 +54,7 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of vulnerability types.'}),
+                    'doc': 'A hierarchical taxonomy of vulnerability types.'}),
 
                 ('risk:vuln:soft:range', ('guid', {}), {
                     'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
@@ -80,9 +80,9 @@ class RiskModule(s_module.CoreModule):
                 ('risk:attack', ('guid', {}), {
                     'doc': 'An instance of an actor attacking a target.',
                 }),
-                ('risk:alert:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of alert types.',
+                ('risk:alert:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of alert types.',
                 }),
                 ('risk:alert', ('guid', {}), {
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
@@ -106,19 +106,20 @@ class RiskModule(s_module.CoreModule):
                         ),
                     },
                 }),
-                ('risk:attacktype', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of attack types.',
+                ('risk:attack:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of attack types.',
                 }),
-                ('risk:compromisetype', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of compromise types.',
+                ('risk:compromise:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'cno.breach',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of compromise types.',
                 }),
-                ('risk:tool:software:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of software / tool types.',
+                ('risk:tool:software:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of software tool types.',
                 }),
+                # FIXME
                 ('risk:availability', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of availability status values.',
@@ -136,27 +137,27 @@ class RiskModule(s_module.CoreModule):
                 }),
 
                 ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of verdicts for the origin and validity of the alert.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of alert verdicts.',
                 }),
 
                 ('risk:threat:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of threat types.'}),
+                    'doc': 'A hierarchical taxonomy of threat types.'}),
 
                 ('risk:leak', ('guid', {}), {
                     'doc': 'An event where information was disclosed without permission.'}),
 
                 ('risk:leak:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of leak event types.'}),
+                    'doc': 'A hierarchical taxonomy of leak event types.'}),
 
                 ('risk:extortion', ('guid', {}), {
                     'doc': 'An event where an attacker attempted to extort a victim.'}),
 
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of extortion event types.'}),
+                    'doc': 'A hierarchical taxonomy of extortion event types.'}),
 
                 ('risk:technique:masquerade', ('guid', {}), {
                     'doc': 'Represents the assessment that a node is designed to resemble another in order to mislead.'}),
@@ -283,7 +284,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'An external identifier for the threat.'}),
                 )),
                 ('risk:availability', {}, {}),
-                ('risk:tool:software:taxonomy', {}, ()),
+                ('risk:tool:software:type:taxonomy', {}, ()),
                 ('risk:tool:software', {}, (
 
                     ('tag', ('syn:tag', {}), {
@@ -293,7 +294,7 @@ class RiskModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'doc': 'A description of the tool.'}),
 
-                    ('type', ('risk:tool:software:taxonomy', {}), {
+                    ('type', ('risk:tool:software:type:taxonomy', {}), {
                         'doc': 'A type for the tool, as a taxonomy entry.'}),
 
                     ('used', ('ival', {}), {
@@ -656,10 +657,10 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The node which is vulnerable.'}),
                 )),
 
-                ('risk:alert:taxonomy', {}, {}),
+                ('risk:alert:type:taxonomy', {}, {}),
                 ('risk:alert:verdict:taxonomy', {}, {}),
                 ('risk:alert', {}, (
-                    ('type', ('risk:alert:taxonomy', {}), {
+                    ('type', ('risk:alert:type:taxonomy', {}), {
                         'doc': 'A type for the alert, as a taxonomy entry.'}),
 
                     ('name', ('str', {}), {
@@ -712,7 +713,7 @@ class RiskModule(s_module.CoreModule):
                     ('host', ('it:host', {}), {
                         'doc': 'The host which generated the alert.'}),
                 )),
-                ('risk:compromisetype', {}, ()),
+                ('risk:compromise:type:taxonomy', {}, ()),
                 ('risk:compromise', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for the compromise event.'}),
@@ -733,7 +734,7 @@ class RiskModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the compromise.'}),
 
-                    ('type', ('risk:compromisetype', {}), {
+                    ('type', ('risk:compromise:type:taxonomy', {}), {
                         'ex': 'cno.breach',
                         'doc': 'A type for the compromise, as a taxonomy entry.'}),
 
@@ -804,13 +805,13 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
-                ('risk:attacktype', {}, ()),
+                ('risk:attack:type:taxonomy', {}, ()),
                 ('risk:attack', {}, (
                     ('desc', ('str', {}), {
                         'doc': 'A description of the attack.',
                         'disp': {'hint': 'text'},
                     }),
-                    ('type', ('risk:attacktype', {}), {
+                    ('type', ('risk:attack:type:taxonomy', {}), {
                         'ex': 'cno.phishing',
                         'doc': 'A type for the attack, as a taxonomy entry.'}),
 

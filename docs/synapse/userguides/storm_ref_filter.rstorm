@@ -161,7 +161,7 @@ You can use the name of an interface to filter all forms that inherit that inter
 
 *Filter the current working set to exclude taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
 
-.. storm-pre:: [ risk:threat=* risk:compromise=* risk:attacktype=very.bad risk:threat:type:taxonomy=pranksters ] -meta:taxonomy
+.. storm-pre:: [ risk:threat=* risk:compromise=* risk:attack:type:taxonomy=very.bad risk:threat:type:taxonomy=pranksters ] -meta:taxonomy
 
 ::
   
@@ -655,7 +655,7 @@ The extended comparator ``~=`` is used to filter nodes based on PCRE-compatible 
 
 *Filter the current working set to only include taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface) whose description (:desc property) includes the string 'credential':*
 
-.. storm-pre:: [ risk:attack=* (risk:attacktype=foo.bar :desc='credential phishing') (ou:goal:type:taxonomy=baz.faz :desc='obtain admin credentials') (belief:system:type:taxonomy=hurr.derp :desc='hand out uncs like candy') ] +meta:taxonomy:desc ~= credential
+.. storm-pre:: [ risk:attack=* (risk:attack:type:taxonomy=foo.bar :desc='credential phishing') (ou:goal:type:taxonomy=baz.faz :desc='obtain admin credentials') (belief:system:type:taxonomy=hurr.derp :desc='hand out uncs like candy') ] +meta:taxonomy:desc ~= credential
 
 ::
   
@@ -962,7 +962,7 @@ fall within a specified range of values. The comparator can be used with types s
 
 *Filter the current working set to only include taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface) whose :depth is between 1 and 3 (i.e., between 2 and 4 taxonomy elements):*
 
-.. storm-pre:: [ risk:attacktype=bad risk:attacktype=bad.sorta risk:attacktype=bad.very risk:attacktype=bad.pretty.darn.bad ] +meta:taxonomy:depth *range= (1, 3)
+.. storm-pre:: [ risk:attack:type:taxonomy=bad risk:attack:type:taxonomy=bad.sorta risk:attack:type:taxonomy=bad.very risk:attack:type:taxonomy=bad.pretty.darn.bad ] +meta:taxonomy:depth *range= (1, 3)
 
 ::
   

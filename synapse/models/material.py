@@ -33,9 +33,9 @@ class MatModule(s_module.CoreModule):
         modl = {
             'types': (
                 ('mat:item', ('guid', {}), {'doc': 'A GUID assigned to a material object.'}),
-                ('mat:type', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of material item/specification types.',
+                ('mat:item:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of material object or specification types.',
                 }),
                 ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
                 ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
@@ -51,7 +51,7 @@ class MatModule(s_module.CoreModule):
                 ('mat:item', {}, (
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The name of the material item.'}),
-                    ('type', ('mat:type', {}), {
+                    ('type', ('mat:item:type:taxonomy', {}), {
                         'doc': 'The taxonomy type of the item.'}),
                     ('spec', ('mat:spec', {}), {
                         'doc': 'The specification which defines this item.'}),
@@ -67,7 +67,7 @@ class MatModule(s_module.CoreModule):
                 ('mat:spec', {}, (
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The name of the material specification.'}),
-                    ('type', ('mat:type', {}), {
+                    ('type', ('mat:item:type:taxonomy', {}), {
                         'doc': 'The taxonomy type for the specification.'}),
                 )),
 

@@ -16,7 +16,7 @@ class PlanModule(s_module.CoreModule):
 
                 ('plan:procedure:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of procedure types.'}),
+                    'doc': 'A hierarchical taxonomy of procedure types.'}),
 
                 ('plan:procedure:variable', ('guid', {}), {
                     'doc': 'A variable used by a procedure.'}),

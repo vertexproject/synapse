@@ -45,20 +45,16 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
-                ('ou:orgtype', ('taxonomy', {}), {
-                    'doc': 'An org type taxonomy.',
+                ('ou:org:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of organization types.',
                 }),
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
                 }),
-                ('ou:conttype', ('taxonomy', {}), {
-                    'doc': 'A contract type taxonomy.',
+                ('ou:contract:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                }),
-                ('ou:contract:type', ('str', {'enum': contracttypes}), {
-                    'deprecated': True,
-                    'doc': 'A pre-defined set of contract types.',
+                    'doc': 'A hierarchical taxonomy of contract types.',
                 }),
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
@@ -70,7 +66,7 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An industry type taxonomy.',
+                    'doc': 'A hierarchical taxonomy of industry types.',
                 }),
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
@@ -168,15 +164,15 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:goal:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of goal types.',
+                    'doc': 'A hierarchical taxonomy of goal types.',
                 }),
                 ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
                     'deprecated': True,
                     'doc': 'Deprecated. Please use ou:org:goals.',
                 }),
-                ('ou:camptype', ('taxonomy', {}), {
-                    'doc': 'An campaign type taxonomy.',
+                ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of campaign types.',
                 }),
                 ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A campaign name.'}),
@@ -208,9 +204,9 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
-                ('ou:technique:taxonomy', ('taxonomy', {}), {
+                ('ou:technique:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
+                    'doc': 'A hierarchical taxonomy of technique types.',
                 }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
@@ -233,15 +229,15 @@ class OuModule(s_module.CoreModule):
                 ('ou:opening', ('guid', {}), {
                     'doc': 'A job/work opening within an org.',
                 }),
-                ('ou:jobtype', ('taxonomy', {}), {
+                ('ou:job:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
-                    'doc': 'A taxonomy of job types.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of job types.',
                 }),
-                ('ou:employment', ('taxonomy', {}), {
+                ('ou:employment:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'fulltime.salary',
-                    'doc': 'An employment type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of employment types.',
                 }),
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
@@ -273,9 +269,9 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The organization owns or owned the target node.'}),
             ),
             'forms': (
-                ('ou:jobtype', {}, ()),
+                ('ou:job:type:taxonomy', {}, ()),
                 ('ou:jobtitle', {}, ()),
-                ('ou:employment', {}, ()),
+                ('ou:employment:type:taxonomy', {}, ()),
                 ('ou:opening', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which has the opening.',
@@ -301,10 +297,10 @@ class OuModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical boundary of the opening.',
                     }),
-                    ('jobtype', ('ou:jobtype', {}), {
+                    ('job:type', ('ou:job:type:taxonomy', {}), {
                         'doc': 'The job type taxonomy.',
                     }),
-                    ('employment', ('ou:employment', {}), {
+                    ('employment:type', ('ou:employment:type:taxonomy', {}), {
                         'doc': 'The type of employment.',
                     }),
                     ('jobtitle', ('ou:jobtitle', {}), {
@@ -319,15 +315,12 @@ class OuModule(s_module.CoreModule):
                     ('paycurrency', ('econ:currency', {}), {
                         'doc': 'The currency that the yearly pay was delivered in.',
                     }),
-                    # TODO a way to encode/normalize requirements.
                 )),
                 ('ou:vitals', {}, (
 
                     ('asof', ('time', {}), {
                         'doc': 'The time that the vitals represent.',
                     }),
-                    # TODO is modulo time a type?
-                    # ('period', ('sec', 'min', 'hour', 'day', 'week', 'month', 'quarter', 'year'
                     ('org', ('ou:org', {}), {
                         'doc': 'The resolved org.',
                     }),
@@ -464,7 +457,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Set if a goal has a limited time window.',
                     }),
                 )),
-                ('ou:camptype', {}, ()),
+                ('ou:campaign:type:taxonomy', {}, ()),
                 ('ou:campname', {}, ()),
                 ('ou:campaign', {}, (
                     # political campaign, funding round, ad campaign, fund raising
@@ -502,10 +495,6 @@ class OuModule(s_module.CoreModule):
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the campaign.'}),
 
-                    ('type', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Use the :camptype taxonomy.', }),
-
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the campaign.',
                     }),
@@ -513,8 +502,7 @@ class OuModule(s_module.CoreModule):
                     ('timeline', ('meta:timeline', {}), {
                         'doc': 'A timeline of significant events related to the campaign.'}),
 
-                    ('camptype', ('ou:camptype', {}), {
-                        'disp': {'hint': 'taxonomy'},
+                    ('type', ('ou:campaign:type:taxonomy', {}), {
                         'doc': 'The campaign type taxonomy.'}),
 
                     ('desc', ('str', {}), {
@@ -601,7 +589,7 @@ class OuModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The normalized name of the technique.'}),
 
-                    ('type', ('ou:technique:taxonomy', {}), {
+                    ('type', ('ou:technique:type:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
 
                     ('sophistication', ('meta:sophistication', {}), {
@@ -626,8 +614,8 @@ class OuModule(s_module.CoreModule):
                     ('ext:id', ('str', {'strip': True}), {
                         'doc': 'An external identifier for the technique.'}),
                 )),
-                ('ou:technique:taxonomy', {}, ()),
-                ('ou:orgtype', {}, ()),
+                ('ou:technique:type:taxonomy', {}, ()),
+                ('ou:org:type:taxonomy', {}, ()),
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'Location for an organization.'
@@ -635,13 +623,8 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
                     }),
-                    ('type', ('str', {'lower': True, 'strip': True}), {
-                        'deprecated': True,
+                    ('type', ('ou:org:type:taxonomy', {}), {
                         'doc': 'The type of organization.',
-                    }),
-                    ('orgtype', ('ou:orgtype', {}), {
-                        'doc': 'The type of organization.',
-                        'disp': {'hint': 'taxonomy'},
                     }),
                     ('vitals', ('ou:vitals', {}), {
                         'doc': 'The most recent/accurate ou:vitals for the org.',
@@ -739,11 +722,11 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:name', {}, ()),
-                ('ou:conttype', {}, ()),
+                ('ou:contract:type:taxonomy', {}, ()),
                 ('ou:contract', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A terse title for the contract.'}),
-                    ('type', ('ou:conttype', {}), {
+                    ('type', ('ou:contract:type:taxonomy', {}), {
                         'doc': 'The type of contract.'}),
                     ('sponsor', ('ps:contact', {}), {
                         'doc': 'The contract sponsor.'}),
@@ -771,10 +754,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Purchase details of the contract.'}),
                     ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
                         'doc': 'The requirements levied upon the parties.'}),
-                    ('types', ('array', {'type': 'ou:contract:type', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'A list of types that apply to the contract.'}),
                 )),
+                ('ou:industry:type:taxonomy', {}, ()),
                 ('ou:industry', {}, (
 
                     ('name', ('ou:industryname', {}), {

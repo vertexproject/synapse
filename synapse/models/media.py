@@ -9,7 +9,7 @@ class MediaModule(s_module.CoreModule):
         ctors = ()
 
         forms = (
-            ('media:news:taxonomy', {}, ()),
+            ('media:news:type:taxonomy', {}, ()),
             ('media:news', {}, (
                 ('url', ('inet:url', {}), {
                     'ex': 'http://cnn.com/news/mars-lander.html',
@@ -19,8 +19,8 @@ class MediaModule(s_module.CoreModule):
                     'ex': 'cnn.com',
                     'doc': 'The FQDN within the news URL.'}),
 
-                ('type', ('media:news:taxonomy', {}), {
-                    'doc': 'A taxonomy for the type of reporting or news.'}),
+                ('type', ('media:news:type:taxonomy', {}), {
+                    'doc': 'A taxonomy for the type of article or report.'}),
 
                 ('file', ('file:bytes', {}), {
                     'doc': 'The (optional) file blob containing or published as the news.'}),
@@ -81,9 +81,9 @@ class MediaModule(s_module.CoreModule):
             ('media:news', ('guid', {}), {
                 'doc': 'A GUID for a news article or report.'}),
 
-            ('media:news:taxonomy', ('taxonomy', {}), {
-                'doc': 'A taxonomy of types or sources of news.',
+            ('media:news:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
+                'doc': 'A hierarchical taxonomy of news types.',
             }),
 
             ('media:topic', ('str', {'lower': True, 'onespace': True}), {

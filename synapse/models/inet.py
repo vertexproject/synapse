@@ -1271,7 +1271,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of network tunnel types.'}),
+                        'doc': 'A hierarchical taxonomy of tunnel types.'}),
 
                     ('inet:tunnel', ('guid', {}), {
                         'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
@@ -1529,7 +1529,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A permission type taxonomy.'}),
+                        'doc': 'A hierarchical taxonomy of service permission types.'}),
 
                     ('inet:service:permission', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1545,7 +1545,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of inet service login methods.'}),
+                        'doc': 'A hierarchical taxonomy of service login methods.'}),
 
                     ('inet:service:session', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1583,7 +1583,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A message type taxonomy.'}),
+                        'doc': 'A hierarchical taxonomy of message types.'}),
 
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
@@ -1591,7 +1591,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of inet service resource types.'}),
+                        'doc': 'A hierarchical taxonomy of service resource types.'}),
 
                     ('inet:service:resource', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -3644,6 +3644,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The period where the session was valid.'}),
                     )),
 
+                    ('inet:service:login:method:taxonomy', {}, ()),
                     ('inet:service:login', {}, (
 
                         ('method', ('inet:service:login:method:taxonomy', {}), {
