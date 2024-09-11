@@ -1,0 +1,7 @@
+---
+desc: Provide additional handling for Storm pool members who are online but unresponsive
+  to new Telepath calls.
+prs:
+- 3914
+type: feat
+...
