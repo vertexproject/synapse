@@ -6744,6 +6744,13 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetFormcount',
                   'returns': {'type': 'dict',
                               'desc': 'Dictionary containing form names and the count of the nodes in the Layer.', }}},
+        {'name': 'getPropValues',
+         'desc': 'Yield unique property values in the layer for the given form or property name.',
+         'type': {'type': 'function', '_funcname': '_methGetPropValues',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
         {'name': 'getStorNodes', 'desc': '''
             Get buid, sode tuples representing the data stored in the layer.
 
@@ -6944,6 +6951,7 @@ class Layer(Prim):
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
+            'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
@@ -7212,6 +7220,29 @@ class Layer(Prim):
         norm, info = prop.type.norm(valu)
 
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropValues(self, propname):
+        propname = await tostr(propname)
+
+        prop = self.runt.snap.core.model.reqProp(propname)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        async for indx, valu in layr.iterPropValues(formname, propname, prop.type.stortype):
+            yield valu
 
     @stormfunc(readonly=True)
     async def _methLayerEdits(self, offs=0, wait=True, size=None, reverse=False):
@@ -7645,6 +7676,14 @@ class View(Prim):
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
+        {'name': 'getPropValues',
+         'desc': 'Yield unique property values in the view for the given form or property name.',
+         'type': {'type': 'function', '_funcname': '_methGetPropValues',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
+
         {'name': 'detach', 'desc': 'Detach the view from its parent. WARNING: This cannot be reversed.',
          'type': {'type': 'function', '_funcname': 'detach',
                   'args': (),
@@ -7748,6 +7787,7 @@ class View(Prim):
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
             'getPropCount': self._methGetPropCount,
+            'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
 
@@ -7863,6 +7903,17 @@ class View(Prim):
         view = self.runt.snap.core.getView(viewiden)
 
         return await view.getPropArrayCount(propname, valu=valu)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropValues(self, propname):
+        propname = await tostr(propname)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        async for valu in view.iterPropValues(propname):
+            yield valu
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
