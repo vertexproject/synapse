@@ -36,6 +36,7 @@ class TransportModule(s_module.CoreModule):
                     'doc': 'A telemetry sample from an aircraft in transit.'}),
 
                 ('transport:air:flight', ('guid', {}), {
+                    'interfaces': ('transport:conveyance',),
                     'doc': 'An individual instance of a flight.'}),
 
                 ('transport:air:occupant', ('guid', {}), {
@@ -83,10 +84,21 @@ class TransportModule(s_module.CoreModule):
                 # TODO a few more items to plumb eventually
                 # ('transport:sea:hin',
                 # ('transport:sea:port',
+                ('transport:journey', ('guid', {}), {
+                    'doc': 'A transportation path taken by 
+                ('transport:step', ('guid', {}), {
+                    'doc': 'A transportation path taken by 
             ),
             'interfaces': (
 
-                # ('transport:hub'
+                ('transport:hub', {
+                    'props': (
+                        ('name', ('entity:name', {}), {
+                            'doc': 'The name of the {transport:hub}.'}),
+                        ('place': ('geo:place', {}), {
+                            'doc': 'The geographic location of the {transport:hub}.'}),
+                    ),
+                }),
                 ('transport:container', {
                     'interfaces': ('mat:physical',),
                     'doc': 'Properties common to a container used to transport cargo or people.',
@@ -117,6 +129,7 @@ class TransportModule(s_module.CoreModule):
                             'doc': 'The contact information of the owner of the {phys:item}.'}),
                     ),
                 }),
+                #('transport:leg', 
                 ('transport:conveyance', {
                     # train, flight, launch...
                     'doc': 'Properties common to conveyances.',
