@@ -43,7 +43,30 @@ class MatModule(s_module.CoreModule):
 
                 ('mass', ('hugenum', {'units': massunits}), {
                     'doc': 'A mass which converts to grams as a base unit.'}),
-                # TODO add base type for volume
+            ),
+
+            'interfaces': (
+                ('mat:physical', {
+                    'doc': 'Properties common to all physical objects.',
+                    'template': {'phys:item': 'physical object'},
+                    'props': (
+                        # TODO created / unmade / period?
+                        ('mass', ('mass', {}), {
+                            'doc': 'The mass of the {phys:item}.'}),
+
+                        ('volume', ('geo:dist', {}), {
+                            'doc': 'The cubed volume of the {phys:item}.'}),
+
+                        ('dimensions:length', ('geo:dist', {}), {
+                            'doc': 'The length of the {phys:item}'}),
+
+                        ('dimensions:width', ('geo:dist', {}), {
+                            'doc': 'The width of the {phys:item}'}),
+
+                        ('dimensions:height', ('geo:dist', {}), {
+                            'doc': 'The height of the {phys:item}'}),
+                    ),
+                ),
             ),
 
             'forms': (
