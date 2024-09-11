@@ -2684,7 +2684,15 @@ class InetModelTest(s_t_utils.SynTest):
                 'acct': 'vertex.link/visi',
             }
 
-            q = '[inet:search:query=$valu :time=$p.time :text=$p.text :engine=$p.engine :acct=$p.acct :host=$p.host]'
+            q = '''[
+                inet:search:query=$valu
+                    :time=$p.time
+                    :text=$p.text
+                    :engine=$p.engine
+                    :acct=$p.acct
+                    :host=$p.host
+                    :account=*
+            ]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2694,6 +2702,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('engine'), 'roofroof')
             self.eq(node.get('host'), host)
             self.eq(node.get('acct'), ('vertex.link', 'visi'))
+            self.len(1, await core.nodes('inet:search:query :account -> inet:service:account'))
 
             residen = s_common.guid()
             props = {
@@ -3173,16 +3182,19 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [
                 (inet:service:message=(blackout, developers, 1715856900000, vertex, slack)
+                    :type=chat.group
                     :group=$devsiden
                     :public=$lib.false
                 )
 
                 (inet:service:message=(blackout, visi, 1715856900000, vertex, slack)
+                    :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000, vertex, slack)
+                    :type=chat.channel
                     :channel=$gnrliden
                     :public=$lib.true
                 )
@@ -3224,12 +3236,33 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))
+            self.eq(nodes[0].get('type'), 'chat.group.')
 
             self.eq(nodes[1].get('to'), visiacct.ndef[1])
             self.false(nodes[1].get('public'))
+            self.eq(nodes[1].get('type'), 'chat.direct.')
 
             self.eq(nodes[2].get('channel'), gnrlchan.ndef[1])
             self.true(nodes[2].get('public'))
+            self.eq(nodes[2].get('type'), 'chat.channel.')
+
+            svcmsgs = await core.nodes('inet:service:message:type:taxonomy -> inet:service:message')
+            self.len(3, svcmsgs)
+            self.sorteq(
+                [k.ndef for k in svcmsgs],
+                [k.ndef for k in nodes],
+            )
+
+            nodes = await core.nodes('inet:service:message:type:taxonomy')
+            self.len(4, nodes)
+            self.sorteq(
+                [k.ndef[1] for k in nodes],
+                ('chat.', 'chat.channel.', 'chat.direct.', 'chat.group.'),
+            )
+
+            nodes = await core.nodes('inet:service:message:type:taxonomy=chat.channel -> inet:service:message')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, ('inet:service:message', 'c0d64c559e2f42d57b37b558458c068b'))
 
             q = '''
             [ inet:service:resource=(web, api, vertex, slack)

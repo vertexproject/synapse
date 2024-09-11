@@ -10,7 +10,7 @@ class AhaLibTest(s_test.SynTest):
 
     async def test_stormlib_aha_basics(self):
 
-        async with self.getTestAhaProv() as aha:
+        async with self.getTestAha() as aha:
 
             with self.getTestDir() as dirn:
 
@@ -36,24 +36,24 @@ class AhaLibTest(s_test.SynTest):
                 self.len(5, svcs)
 
                 svc = await core00.callStorm('return( $lib.aha.get(core...) )')
-                self.eq('core.loop.vertex.link', svc.get('name'))
-                svc = await core00.callStorm('return( $lib.aha.get(core.loop.vertex.link))')
-                self.eq('core.loop.vertex.link', svc.get('name'))
+                self.eq('core.synapse', svc.get('name'))
+                svc = await core00.callStorm('return( $lib.aha.get(core.synapse))')
+                self.eq('core.synapse', svc.get('name'))
                 svc = await core00.callStorm('return( $lib.aha.get(00.cell...))')
-                self.eq('00.cell.loop.vertex.link', svc.get('name'))
+                self.eq('00.cell.synapse', svc.get('name'))
                 svc = await core00.callStorm('return( $lib.aha.get(cell...))')
-                self.eq('cell.loop.vertex.link', svc.get('name'))
+                self.eq('cell.synapse', svc.get('name'))
                 svc = await core00.callStorm('$f=({"mirror": (true)}) return( $lib.aha.get(cell..., filters=$f))')
-                self.eq('01.cell.loop.vertex.link', svc.get('name'))
+                self.eq('01.cell.synapse', svc.get('name'))
 
                 # List the aha services available
                 msgs = await core00.stormlist('aha.svc.list --nexus')
                 self.stormIsInPrint('Nexus', msgs)
-                self.stormIsInPrint('00.cell.loop.vertex.link                      true   true   true', msgs)
-                self.stormIsInPrint('01.cell.loop.vertex.link                      false  true   true', msgs)
-                self.stormIsInPrint('cell.loop.vertex.link                         true   true   true', msgs)
-                self.stormIsInPrint('core.loop.vertex.link                         null   true   true', msgs)
-                self.stormIsInPrint('mysvc.loop.vertex.link                        null   true   true', msgs)
+                self.stormIsInPrint('00.cell.synapse                      true   true   true', msgs, whitespace=False)
+                self.stormIsInPrint('01.cell.synapse                      false  true   true', msgs, whitespace=False)
+                self.stormIsInPrint('cell.synapse                         true   true   true', msgs, whitespace=False)
+                self.stormIsInPrint('core.synapse                         null   true   true', msgs, whitespace=False)
+                self.stormIsInPrint('mysvc.synapse                        null   true   true', msgs, whitespace=False)
 
                 msgs = await core00.stormlist('aha.svc.list')
                 self.stormNotInPrint('Nexus', msgs)
@@ -63,24 +63,24 @@ class AhaLibTest(s_test.SynTest):
                 # Omit checking part of that.
                 emsg = '''Resolved cell... to an AHA Service.
 
-Name:       cell.loop.vertex.link
+Name:       cell.synapse
 Online:     true
 Ready:      true
 Run iden:   ********************************
 Cell iden:  ********************************
 Leader:     cell
 Connection information:
-    ca:         loop.vertex.link
+    ca:         synapse
 '''
                 self.stormIsInPrint(emsg, msgs, deguid=True)
-                self.stormIsInPrint('    hostname:   00.cell.loop.vertex.link', msgs)
+                self.stormIsInPrint('    hostname:   00.cell.synapse', msgs)
                 self.stormIsInPrint('    scheme:     ssl', msgs)
                 self.stormIsInPrint('    user:       root', msgs)
 
                 msgs = await core00.stormlist('aha.svc.stat --nexus cell...')
                 emsg = '''Resolved cell... to an AHA Service.
 
-Name:       cell.loop.vertex.link
+Name:       cell.synapse
 Online:     true
 Ready:      true
 Run iden:   ********************************
@@ -88,14 +88,14 @@ Cell iden:  ********************************
 Leader:     cell
 Nexus:      1
 Connection information:
-    ca:         loop.vertex.link
+    ca:         synapse
 '''
                 self.stormIsInPrint(emsg, msgs, deguid=True)
 
                 msgs = await core00.stormlist('aha.svc.stat --nexus 01.cell...')
                 emsg = '''Resolved 01.cell... to an AHA Service.
 
-Name:       01.cell.loop.vertex.link
+Name:       01.cell.synapse
 Online:     true
 Ready:      true
 Run iden:   ********************************
@@ -103,15 +103,15 @@ Cell iden:  ********************************
 Leader:     cell
 Nexus:      1
 Connection information:
-    ca:         loop.vertex.link
+    ca:         synapse
 '''
                 self.stormIsInPrint(emsg, msgs, deguid=True)
 
                 # Full name works
-                msgs = await core00.stormlist('aha.svc.stat 01.cell.loop.vertex.link')
-                emsg = '''Resolved 01.cell.loop.vertex.link to an AHA Service.
+                msgs = await core00.stormlist('aha.svc.stat 01.cell.synapse')
+                emsg = '''Resolved 01.cell.synapse to an AHA Service.
 
-Name:       01.cell.loop.vertex.link
+Name:       01.cell.synapse
 '''
                 self.stormIsInPrint(emsg, msgs, deguid=True)
 
@@ -128,8 +128,8 @@ Name:       01.cell.loop.vertex.link
                 emsg = '''Resolved pool00... to an AHA Pool.
 
 The pool currently has 1 members.
-AHA Pool:   pool00.loop.vertex.link
-Member:     00.cell.loop.vertex.link'''
+AHA Pool:   pool00.synapse
+Member:     00.cell.synapse'''
                 self.stormIsInPrint(emsg, msgs)
 
                 # Shut down a service
@@ -139,16 +139,15 @@ Member:     00.cell.loop.vertex.link'''
                 self.len(nevents, await waiter.wait(timeout=12))
 
                 msgs = await core00.stormlist('aha.svc.list')
-                self.stormIsInPrint('01.cell.loop.vertex.link                      false  false  false', msgs)
+                self.stormIsInPrint('01.cell.synapse false  false  false', msgs, whitespace=False)
 
                 # Fake a record
                 await aha.addAhaSvc('00.newp', info={'urlinfo': {'scheme': 'tcp', 'host': '0.0.0.0', 'port': '3030'}},
-                                    network='loop.vertex.link')
+                                    network='synapse')
 
                 msgs = await core00.stormlist('aha.svc.list --nexus')
-                emsg = '00.newp.loop.vertex.link                      null   false  null  0.0.0.0         3030  ' \
-                       'Service is not online. Will not attempt to retrieve its nexus offset.'
-                self.stormIsInPrint(emsg, msgs)
+                emsg = '00.newp.synapse                      null   false  null  0.0.0.0         3030  <offline>'
+                self.stormIsInPrint(emsg, msgs, whitespace=False)
 
                 self.none(await core00.callStorm('return($lib.aha.del(00.newp...))'))
                 msgs = await core00.stormlist('aha.svc.list')
@@ -161,22 +160,22 @@ Member:     00.cell.loop.vertex.link'''
                                                                  'port': '3030'},
                                                      'online': guid,
                                                      },
-                                    network='loop.vertex.link')
+                                    network='synapse')
                 msgs = await core00.stormlist('aha.svc.list --nexus')
-                emsg = '00.newp.loop.vertex.link                      null   true   null  0.0.0.0         3030  ' \
-                       'Failed to connect to Telepath service: "aha://00.newp.loop.vertex.link/" error:'
-                self.stormIsInPrint(emsg, msgs)
+                emsg = '00.newp.synapse null   true   null  0.0.0.0         3030  ' \
+                       'Failed to connect to Telepath service: "aha://00.newp.synapse/" error:'
+                self.stormIsInPrint(emsg, msgs, whitespace=False)
 
                 msgs = await core00.stormlist('aha.svc.stat --nexus 00.newp...')
                 emsg = '''Resolved 00.newp... to an AHA Service.
 
-Name:       00.newp.loop.vertex.link
+Name:       00.newp.synapse
 Online:     true
 Ready:      null
 Run iden:   $lib.null
 Cell iden:  $lib.null
 Leader:     Service did not register itself with a leader name.
-Nexus:      Failed to connect to Telepath service: "aha://00.newp.loop.vertex.link/" error: [Errno 111] Connect call failed ('0.0.0.0', 3030)
+Nexus:      Failed to connect to Telepath service: "aha://00.newp.synapse/" error: [Errno 111] Connect call failed ('0.0.0.0', 3030)
 Connection information:
     host:       0.0.0.0
     port:       3030
@@ -185,7 +184,7 @@ Connection information:
                 self.stormIsInPrint(emsg, msgs)
 
                 # Delete the fake service with its full service name
-                self.none(await core00.callStorm('return($lib.aha.del(00.newp.loop.vertex.link))'))
+                self.none(await core00.callStorm('return($lib.aha.del(00.newp.synapse))'))
                 self.none(await core00.callStorm('return($lib.aha.get(00.newp...))'))
 
                 # Coverage for sad paths

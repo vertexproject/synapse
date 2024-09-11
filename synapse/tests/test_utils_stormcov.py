@@ -27,6 +27,11 @@ class TestUtilsStormcov(s_utils.SynTest):
         self.eq(reporter.lines(), {1, 2, 3, 6})
         self.eq(reporter.translate_lines({1, 2}), {1, 2})
 
+        # no cover, no cover start, and no cover stop
+        reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/pragma-nocov.storm'))
+        self.eq(reporter.lines(), {1, 2, 3, 12, 18})
+        self.eq(reporter.excluded_lines(), {6, 8, 9, 10, 14, 15, 16})
+
         # We no longer do whitespace transformations of lines.
         reporter = plugin.file_reporter(s_files.getAssetPath('stormcov/spin.storm'))
         self.eq(reporter.translate_lines({1, 2}), {1, 2})
@@ -78,7 +83,7 @@ class TestUtilsStormcov(s_utils.SynTest):
                 await core.stormlist(s_files.getAssetStr('stormcov/lookup.storm'), opts={'mode': 'lookup'})
 
             orig = s_snap.Snap.nodesByPropValu
-            async def nodesByPropValu(self, full, cmpr, valu):
+            async def nodesByPropValu(self, full, cmpr, valu, norm=True):
                 frame = inspect.currentframe()
                 if pivotracer.dynamic_source_filename(None, frame) is not None:
                     assert (2, 2) == pivotracer.line_number_range(frame)

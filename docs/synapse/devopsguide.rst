@@ -239,6 +239,8 @@ environment to help identify any tweaks that may be necessary due to the updated
 
     Please ensure you have a tested backup available before applying these updates.
 
+.. _devops-task-low-downtime-updates:
+
 Low Downtime Updates
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -462,6 +464,39 @@ writing to the /proc/sys file system.
     This setting is particularly important for systems with lots of writing (e.g. making new nodes), lots of RAM, and
     relatively slow storage.
 
+.. _devops-task-onboot-optimize:
+
+Optimize Databases
+------------------
+
+As noted in :ref:`devops-task-backup`, restoring a service from a backup will result in
+the service having a defragmented / optimized copy of its databases. An alternative method
+for optimizing the databases in place is by using the ``onboot:optimize`` configuration
+option. Setting ``onboot:optimize`` to ``true`` will delay startup to optimize LMDB 
+databases during boot to recover free space and increase performance. Depending on
+the amount of activity since the last time the databases were optimized, this process
+may take a significant amount of time. To reduce downtime during this process,
+deployments with mirrors are encouraged to use a strategy like that described in
+:ref:`devops-task-low-downtime-updates` to first optimize a mirror, then promote that mirror
+to being the leader and optimizing the old service leader.
+
+After the optimization process is completed, the ``onboot:optimize`` option can be set
+back to ``false``. It is not necessary to optimize the databases on every boot of a
+service, but regularly scheduling an optimization pass based on the write activity of
+the service will help ensure optimal performance.
+
+.. note::
+
+    During the optimization process, the service will make an optimized copy of each
+    LMDB database used by the service which will then be atomically swapped into place
+    of the existing database. As a result, an amount of free space equal to the size of
+    the largest database will be required during the optimization.
+
+.. note::
+
+    Though not encouraged, it is safe to shutdown a service during the optimization
+    process. Progress on the LMDB database being optimized at the time of shutdown will be lost.
+
 .. _devops-task-users:
 
 Managing Users and Roles
@@ -506,7 +541,7 @@ Managing Password Policies
 
 Services can be configured with password policies. These can be used to define the complexity of a password, the number
 of allowed login attempts, and the number of previous passwords to check against. This is configured by setting the
-``auth:password:policy`` configuration value for the service, with the desired policy settings. The policy object
+``auth:passwd:policy`` configuration value for the service, with the desired policy settings. The policy object
 accepts the following keys:
 
 ``attempts``

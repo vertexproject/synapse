@@ -51,6 +51,7 @@ class BizModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ biz:deal=*
 
+                    :id = " 12345  "
                     :title = HeHeHaHa
                     :type = baz.faz
                     :status = foo.bar
@@ -74,6 +75,7 @@ class BizModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
+            self.eq(nodes[0].get('id'), '12345')
             self.eq(nodes[0].get('title'), 'HeHeHaHa')
             self.eq(nodes[0].get('type'), 'baz.faz.')
             self.eq(nodes[0].get('status'), 'foo.bar.')
@@ -128,6 +130,7 @@ class BizModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('purchase'))
 
             self.len(1, await core.nodes('biz:bundle -> biz:deal'))
+            self.len(1, await core.nodes('biz:bundle -> biz:deal +:id=12345'))
             self.len(1, await core.nodes('biz:bundle -> econ:purchase'))
             self.len(1, await core.nodes('biz:bundle -> biz:product +:name=LoLoLoL'))
             self.len(1, await core.nodes('biz:bundle -> biz:service +:name=WoWoWoW'))

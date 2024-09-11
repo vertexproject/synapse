@@ -28,6 +28,7 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
@@ -155,7 +156,216 @@ async def altAuthCtor(cell):
     cell.onfini(auth.fini)
     return auth
 
+testDataSchema_v0 = {
+    'type': 'object',
+    'properties': {
+        'type': {'type': 'string'},
+        'size': {'type': 'number'},
+    },
+    'required': ['type', 'size'],
+    'additionalProperties': False,
+}
+
+testDataSchema_v1 = {
+    'type': 'object',
+    'properties': {
+        'type': {'type': 'string'},
+        'size': {'type': 'number'},
+        'woot': {'type': 'string'},
+    },
+    'required': ['type', 'size', 'woot'],
+    'additionalProperties': False,
+}
+
 class CellTest(s_t_utils.SynTest):
+
+    async def test_cell_drive(self):
+
+        async with self.getTestCell() as cell:
+
+            with self.raises(s_exc.BadName):
+                s_drive.reqValidName('A' * 512)
+
+            info = {'name': 'users'}
+            pathinfo = await cell.addDriveItem(info)
+
+            info = {'name': 'root'}
+            pathinfo = await cell.addDriveItem(info, path='users')
+
+            with self.raises(s_exc.DupIden):
+                await cell.drive.addItemInfo(pathinfo[-1], path='users')
+
+            rootdir = pathinfo[-1].get('iden')
+            self.eq(0, pathinfo[-1].get('kids'))
+
+            info = {'name': 'win32k.sys', 'type': 'hehe'}
+            with self.raises(s_exc.NoSuchType):
+                info = await cell.addDriveItem(info, reldir=rootdir)
+
+            infos = [i async for i in cell.getDriveKids(s_drive.rootdir)]
+            self.len(1, infos)
+            self.eq(1, infos[0].get('kids'))
+            self.eq('users', infos[0].get('name'))
+
+            # TODO how to handle iden match with additional property mismatch
+
+            await cell.drive.setTypeSchema('woot', testDataSchema_v0)
+
+            info = {'name': 'win32k.sys', 'type': 'woot'}
+            info = await cell.addDriveItem(info, reldir=rootdir)
+
+            iden = info[-1].get('iden')
+
+            tick = s_common.now()
+            rootuser = cell.auth.rootuser.iden
+
+            with self.raises(s_exc.SchemaViolation):
+                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
+                await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
+
+            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
+            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 20})
+            self.eq(info.get('version'), (1, 1, 0))
+            self.eq(versinfo.get('version'), (1, 1, 0))
+
+            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
+            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
+            self.eq(info.get('version'), (1, 1, 0))
+            self.eq(versinfo.get('version'), (1, 0, 0))
+
+            versinfo10, data10 = await cell.getDriveData(iden, vers=(1, 0, 0))
+            self.eq(versinfo10.get('updated'), tick)
+            self.eq(versinfo10.get('updater'), rootuser)
+            self.eq(versinfo10.get('version'), (1, 0, 0))
+
+            versinfo11, data11 = await cell.getDriveData(iden, vers=(1, 1, 0))
+            self.eq(versinfo11.get('updated'), tick + 10)
+            self.eq(versinfo11.get('updater'), rootuser)
+            self.eq(versinfo11.get('version'), (1, 1, 0))
+
+            versions = [vers async for vers in cell.getDriveDataVersions(iden)]
+            self.len(2, versions)
+            self.eq(versions[0], versinfo11)
+            self.eq(versions[1], versinfo10)
+
+            info = await cell.delDriveData(iden, vers=(0, 0, 0))
+
+            versions = [vers async for vers in cell.getDriveDataVersions(iden)]
+            self.len(2, versions)
+            self.eq(versions[0], versinfo11)
+            self.eq(versions[1], versinfo10)
+
+            info = await cell.delDriveData(iden, vers=(1, 1, 0))
+            self.eq(info.get('updated'), tick)
+            self.eq(info.get('version'), (1, 0, 0))
+
+            info = await cell.delDriveData(iden, vers=(1, 0, 0))
+            self.eq(info.get('size'), 0)
+            self.eq(info.get('version'), (0, 0, 0))
+            self.none(info.get('updated'))
+            self.none(info.get('updater'))
+
+            # repopulate a couple data versions to test migration and delete
+            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
+            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
+            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
+            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17})
+            self.eq(versinfo, (await cell.getDriveData(iden))[0])
+
+            # This will be done by the cell in a cell storage version migration...
+            async def migrate_v1(info, versinfo, data):
+                data['woot'] = 'woot'
+                return data
+
+            await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
+
+            versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
+            self.eq('woot', data.get('woot'))
+
+            versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
+            self.eq('woot', data.get('woot'))
+
+            self.nn(await cell.getDriveInfo(iden))
+            self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+
+            await cell.delDriveData(iden)
+            self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
+
+            await cell.delDriveInfo(iden)
+
+            self.none(await cell.getDriveInfo(iden))
+            self.len(0, [vers async for vers in cell.getDriveDataVersions(iden)])
+
+            with self.raises(s_exc.NoSuchPath):
+                await cell.getDrivePath('users/root/win32k.sys')
+
+            pathinfo = await cell.addDrivePath('foo/bar/baz')
+            self.len(3, pathinfo)
+            self.eq('foo', pathinfo[0].get('name'))
+            self.eq(1, pathinfo[0].get('kids'))
+            self.eq('bar', pathinfo[1].get('name'))
+            self.eq(1, pathinfo[1].get('kids'))
+            self.eq('baz', pathinfo[2].get('name'))
+            self.eq(0, pathinfo[2].get('kids'))
+
+            self.eq(pathinfo, await cell.addDrivePath('foo/bar/baz'))
+
+            baziden = pathinfo[2].get('iden')
+            self.eq(pathinfo, await cell.drive.getItemPath(baziden))
+
+            info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: 3}, 'roles': {}})
+            self.eq(3, info['perm']['users'][rootuser])
+
+            with self.raises(s_exc.NoSuchIden):
+                # s_drive.rootdir is all 00s... ;)
+                await cell.setDriveInfoPerm(s_drive.rootdir, {'users': {}, 'roles': {}})
+
+            await cell.addDrivePath('hehe/haha')
+            pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
+
+            self.eq('hoho', pathinfo[-1].get('name'))
+            self.eq(baziden, pathinfo[-1].get('iden'))
+
+            self.true(await cell.drive.hasPathInfo('hehe/haha/hoho'))
+            self.false(await cell.drive.hasPathInfo('foo/bar/baz'))
+
+            pathinfo = await cell.getDrivePath('foo/bar')
+            self.eq(0, pathinfo[-1].get('kids'))
+
+            pathinfo = await cell.getDrivePath('hehe/haha')
+            self.eq(1, pathinfo[-1].get('kids'))
+
+            with self.raises(s_exc.DupName):
+                iden = pathinfo[-2].get('iden')
+                name = pathinfo[-1].get('name')
+                cell.drive.reqFreeStep(iden, name)
+
+            walks = [item async for item in cell.drive.walkPathInfo('hehe')]
+            self.len(3, walks)
+            # confirm walked paths are yielded depth first...
+            self.eq('hoho', walks[0].get('name'))
+            self.eq('haha', walks[1].get('name'))
+            self.eq('hehe', walks[2].get('name'))
+
+            iden = walks[2].get('iden')
+            walks = [item async for item in cell.drive.walkItemInfo(iden)]
+            self.len(3, walks)
+            self.eq('hoho', walks[0].get('name'))
+            self.eq('haha', walks[1].get('name'))
+            self.eq('hehe', walks[2].get('name'))
+
+            self.none(cell.drive.getTypeSchema('newp'))
+
+            cell.drive.validators.pop('woot')
+            self.nn(cell.drive.getTypeValidator('woot'))
+
+            # move to root dir
+            pathinfo = await cell.setDriveInfoPath(baziden, 'zipzop')
+            self.len(1, pathinfo)
+            self.eq(s_drive.rootdir, pathinfo[-1].get('parent'))
+
+            pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
+            self.len(3, pathinfo)
 
     async def test_cell_auth(self):
 
@@ -635,7 +845,6 @@ class CellTest(s_t_utils.SynTest):
             async with self.getTestCell(s_cell.Cell, dirn=dir0, conf=conf) as cell00, \
                 cell00.getLocalProxy() as prox00:
 
-                self.true(cell00.nexsroot.map_async)
                 self.true(cell00.nexsroot.donexslog)
 
                 await prox00.addUser('test')
@@ -861,6 +1070,7 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['xactops'])
                 self.nn(slab['mapsize'])
                 self.nn(slab['readonly'])
+                self.nn(slab['readahead'])
                 self.nn(slab['lockmemory'])
                 self.nn(slab['recovering'])
 
@@ -932,7 +1142,7 @@ class CellTest(s_t_utils.SynTest):
                         pass
                 stream.seek(0)
                 buf = stream.read()
-                self.isin(f'...cell API (telepath): cell://root@{dirn}:*', buf)
+                self.isin(f'...cell API (telepath): tcp://0.0.0.0:27492', buf)
                 self.isin('...cell API (https): disabled', buf)
 
     async def test_cell_initargv_conf(self):
@@ -954,11 +1164,11 @@ class CellTest(s_t_utils.SynTest):
                         # 1) cmdline
                         # 2) envars
                         # 3) cell.yaml
-                        self.true(cell.conf.reqConfValu('nexslog:en'))
-                        self.true(cell.conf.reqConfValu('nexslog:async'))
-                        self.none(cell.conf.reqConfValu('dmon:listen'))
-                        self.none(cell.conf.reqConfValu('https:port'))
-                        self.eq(cell.conf.reqConfValu('aha:name'), 'some:cell')
+                        self.true(cell.conf.req('nexslog:en'))
+                        self.true(cell.conf.req('nexslog:async'))
+                        self.none(cell.conf.req('dmon:listen'))
+                        self.none(cell.conf.req('https:port'))
+                        self.eq(cell.conf.req('aha:name'), 'some:cell')
                         root = cell.auth.rootuser
                         self.true(await root.tryPasswd('secret'))
 
@@ -966,7 +1176,7 @@ class CellTest(s_t_utils.SynTest):
                 with self.getTestDir() as dirn:
                     s_common.yamlsave({'nexslog:en': False}, dirn, 'cell.mods.yaml')
                     async with await s_cell.Cell.initFromArgv([dirn]) as cell:
-                        self.false(cell.conf.reqConfValu('nexslog:en'))
+                        self.false(cell.conf.req('nexslog:en'))
                         # We can remove the valu from the overrides file with the pop API
                         # This is NOT reactive API which causes the whole behavior
                         # of the cell to suddenly change. This is intended to be used with
@@ -1038,6 +1248,7 @@ class CellTest(s_t_utils.SynTest):
                     errinfo = info.get('lastexception')
                     laststart1 = info['laststart']
                     self.eq(errinfo['err'], 'SynErr')
+                    self.eq(errinfo['errinfo']['mesg'], 'backup subprocess start timed out')
 
                     # Test runners can take an unusually long time to spawn a process
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
@@ -1050,15 +1261,17 @@ class CellTest(s_t_utils.SynTest):
                         self.ne(laststart1, laststart2)
                         errinfo = info.get('lastexception')
                         self.eq(errinfo['err'], 'SynErr')
+                        self.eq(errinfo['errinfo']['mesg'], 'backup subprocess start timed out')
 
-                        with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                            await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
+                    with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
+                        await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
 
-                        info = await proxy.getBackupInfo()
-                        laststart3 = info['laststart']
-                        self.ne(laststart2, laststart3)
-                        errinfo = info.get('lastexception')
-                        self.eq(errinfo['err'], 'SpawnExit')
+                    info = await proxy.getBackupInfo()
+                    laststart3 = info['laststart']
+                    self.ne(laststart2, laststart3)
+                    errinfo = info.get('lastexception')
+                    self.eq(errinfo['err'], 'SpawnExit')
+                    self.eq(errinfo['errinfo']['code'], 1)
 
                     # Create rando slabs inside cell dir
                     slabpath = s_common.genpath(coredirn, 'randoslab')
@@ -1741,7 +1954,7 @@ class CellTest(s_t_utils.SynTest):
                                                'has different iden') as stream:
                     async with self.getTestCell(s_cell.Cell, dirn=path01, conf=conf01) as cell01:
                         await stream.wait(timeout=2)
-                        self.true(await cell01.waitfini(6))
+                        self.true(await cell01.nexsroot.waitfini(6))
 
     async def test_backup_restore_base(self):
 
@@ -1836,15 +2049,42 @@ class CellTest(s_t_utils.SynTest):
                         self.true(s_common.isguid(second_doneiden))
                     self.ne(doneiden, second_doneiden)
 
+    async def test_cell_mirrorboot_failure(self):
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'cell00')
+                cdr1 = s_common.genpath(dirn, 'cell01')
+
+                async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=cdr0) as cell00:
+
+                    conf = {'mirror': 'aha://cell...'}
+                    with self.raises(s_exc.FatalErr) as cm:
+                        async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                            self.fail('Cell01 should never boot')
+                    self.isin('No aha:provision configuration has been provided to allow the service to bootstrap',
+                              cm.exception.get('mesg'))
+
+                    provurl = await aha.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'})
+                    conf = self.getCellConf({'aha:provision': provurl})
+                    async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                        await cell01.sync()
+                    os.unlink(s_common.genpath(cdr1, 'cell.guid'))
+
+                    conf = self.getCellConf({'aha:provision': provurl})
+                    with self.raises(s_exc.FatalErr) as cm:
+                        async with self.getTestCell(conf=conf, dirn=cdr1) as cell01:
+                            self.fail('Cell01 should never boot')
+                    self.isin('The aha:provision URL guid matches the service prov.done guid',
+                              cm.exception.get('mesg'))
+
     async def test_backup_restore_aha(self):
         # do a mirror provisioning of a Cell
         # promote the mirror to being a leader
         # ensure the mirror has a
         # backup the mirror
         # restore the backup
-        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
-            root = await aha.auth.getUserByName('root')
-            self.true(await root.tryPasswd('secret'))
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')
@@ -1927,9 +2167,7 @@ class CellTest(s_t_utils.SynTest):
         # ensure the mirror has a
         # backup the mirror
         # restore the backup
-        async with self.getTestAhaProv(conf={'auth:passwd': 'secret'}) as aha:  # type: s_aha.AhaCell
-            root = await aha.auth.getUserByName('root')
-            self.true(await root.tryPasswd('secret'))
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
 
             with self.getTestDir() as dirn:
                 cdr0 = s_common.genpath(dirn, 'core00')
@@ -2887,3 +3125,17 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getTestCell(s_cell.Cell, dirn=dirn):
                 pass
+
+    async def test_cell_initslab_fini(self):
+        class SlabCell(s_cell.Cell):
+            async def initServiceStorage(self):
+                self.long_lived_slab = await self._initSlabFile(os.path.join(self.dirn, 'slabs', 'long.lmdb'))
+                short_slab = await self._initSlabFile(os.path.join(self.dirn, 'slabs', 'short.lmdb'), ephemeral=True)
+                self.short_slab_path = short_slab.lenv.path()
+                await short_slab.fini()
+
+        async with self.getTestCell(SlabCell) as cell:
+            self.true(os.path.isdir(cell.short_slab_path))
+            self.isin(cell.long_lived_slab.fini, cell._fini_funcs)
+            slabs = [s for s in cell.tofini if isinstance(s, s_lmdbslab.Slab) and s.lenv.path() == cell.short_slab_path]
+            self.len(0, slabs)

@@ -417,7 +417,7 @@ class HotKeyVal(s_base.Base):
         if not tups:
             return
 
-        self.slab.putmulti(tups, db=self.db)
+        self.slab._putmulti(tups, db=self.db)
         self.dirty.clear()
 
     def pack(self):
@@ -834,11 +834,12 @@ class Slab(s_base.Base):
                 'xactops': len(slab.xactops),
                 'mapsize': slab.mapsize,
                 'readonly': slab.readonly,
+                'readahead': slab.readahead,
                 'lockmemory': slab.lockmemory,
                 'recovering': slab.recovering,
                 'maxsize': slab.maxsize,
                 'growsize': slab.growsize,
-                'mapasync': slab.mapasync,
+                'mapasync': True,
 
             })
         return retn
@@ -850,6 +851,8 @@ class Slab(s_base.Base):
         kwargs.setdefault('map_size', self.DEFAULT_MAPSIZE)
         kwargs.setdefault('lockmemory', False)
         kwargs.setdefault('map_async', True)
+
+        assert kwargs.get('map_async')
 
         opts = kwargs
 
@@ -887,6 +890,7 @@ class Slab(s_base.Base):
         self.growsize = opts.pop('growsize', self.DEFAULT_GROWSIZE)
 
         self.readonly = opts.get('readonly', False)
+        self.readahead = opts.get('readahead', True)
         self.lockmemory = opts.pop('lockmemory', False)
 
         if self.lockmemory:
@@ -894,8 +898,6 @@ class Slab(s_base.Base):
             if lockmem_override:
                 logger.info(f'SYN_LOCKMEM_DISABLE envar set, skipping lockmem for {self.path}')
                 self.lockmemory = False
-
-        self.mapasync = opts.setdefault('map_async', True)
 
         self.mapsize = _mapsizeround(mapsize)
         if self.maxsize is not None:
@@ -1649,7 +1651,28 @@ class Slab(s_base.Base):
         except lmdb.MapFullError:
             return self._handle_mapfull()
 
-    def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
+    async def putmulti(self, kvpairs, dupdata=False, append=False, db=None):
+
+        # Use a fast path when we have a small amount of data to prevent creating new
+        # list objects when we don't have to.
+        if isinstance(kvpairs, (list, tuple)) and len(kvpairs) <= self.max_xactops_len:
+            ret = self._putmulti(kvpairs, dupdata=dupdata, append=append, db=db)
+            await asyncio.sleep(0)
+            return ret
+
+        # Otherwise, we chunk the large data or a generator into lists no greater than
+        # max_xactops_len and allow the slab the opportunity to commit between chunks.
+        # This helps to avoid a situation where a large generator or list of kvpairs
+        # could cause a greedy commit operation from happening.
+        consumed, added = 0, 0
+        for chunk in s_common.chunks(kvpairs, self.max_xactops_len):
+            rc, ra = self._putmulti(chunk, dupdata=dupdata, append=append, db=db)
+            consumed = consumed + rc
+            added = added + ra
+            await asyncio.sleep(0)
+        return (consumed, added)
+
+    def _putmulti(self, kvpairs: list, dupdata: bool =False, append: bool =False, db: str =None):
         '''
         Returns:
             Tuple of number of items consumed, number of items added
@@ -1667,7 +1690,7 @@ class Slab(s_base.Base):
             self.dirty = True
 
             if not self.recovering:
-                self._logXactOper(self.putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
+                self._logXactOper(self._putmulti, kvpairs, dupdata=dupdata, append=append, db=db)
 
             with self.xact.cursor(db=realdb) as curs:
                 return curs.putmulti(kvpairs, dupdata=dupdata, append=append)
@@ -1675,7 +1698,7 @@ class Slab(s_base.Base):
         except lmdb.MapFullError:
             return self._handle_mapfull()
 
-    def copydb(self, sourcedbname, destslab, destdbname=None, progresscb=None):
+    async def copydb(self, sourcedbname, destslab, destdbname=None, progresscb=None):
         '''
         Copy an entire database in this slab to a new database in potentially another slab.
 
@@ -1705,7 +1728,7 @@ class Slab(s_base.Base):
         rowcount = 0
 
         for chunk in s_common.chunks(self.scanByFull(db=sourcedbname), COPY_CHUNKSIZE):
-            ccount, acount = destslab.putmulti(chunk, dupdata=True, append=True, db=destdbname)
+            ccount, acount = await destslab.putmulti(chunk, dupdata=True, append=True, db=destdbname)
             if ccount != len(chunk) or acount != len(chunk):
                 raise s_exc.BadCoreStore(mesg='Unexpected number of values written')  # pragma: no cover
 

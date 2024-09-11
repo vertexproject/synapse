@@ -356,6 +356,9 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.CryptoErr) as cm:
                 cdir.genCaCert('')
 
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genCaCert('V' * 63 + 'ॐ')
+
     def test_certdir_hosts(self):
         with self.getCertDir() as cdir:
             caname = 'syntest'
@@ -581,6 +584,9 @@ class CertDirTest(s_t_utils.SynTest):
             with self.raises(s_exc.CryptoErr) as cm:
                 cdir.genHostCsr('')
 
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genHostCsr('V' * 63 + 'ॐ')
+
     def test_certdir_users_csr(self):
         with self.getCertDir() as cdir:
             caname = 'syntest'
@@ -611,6 +617,9 @@ class CertDirTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.CryptoErr) as cm:
                 cdir.genUserCsr('')
+
+            with self.raises(s_exc.CryptoErr) as cm:
+                cdir.genUserCsr('V' * 63 + 'ॐ')
 
     def test_certdir_importfile(self):
         with self.getCertDir() as cdir:

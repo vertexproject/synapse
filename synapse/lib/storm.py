@@ -53,7 +53,9 @@ When condition is tag:add or tag:del, you may optionally provide a form name
 to restrict the trigger to fire only on tags added or deleted from nodes of
 those forms.
 
-The added tag is provided to the query as an embedded variable '$tag'.
+The added tag is provided to the query in the ``$auto`` dictionary variable under
+``$auto.opts.tag``. Usage of the ``$tag`` variable is deprecated and it will no longer
+be populated in Synapse v3.0.0.
 
 Simple one level tag globbing is supported, only at the end after a period,
 that is aka.* matches aka.foo and aka.bar but not aka.foo.bar. aka* is not
@@ -5375,7 +5377,7 @@ class TeeCmd(Cmd):
 
                     outq = asyncio.Queue(maxsize=outq_size)
                     for subr in runts:
-                        subg = s_common.agen((node, path.fork(node)))
+                        subg = s_common.agen((node, path.fork(node, None)))
                         self.runt.snap.schedCoro(self.pipeline(subr, outq, genr=subg))
 
                     exited = 0
@@ -5397,7 +5399,7 @@ class TeeCmd(Cmd):
                 else:
 
                     for subr in runts:
-                        subg = s_common.agen((node, path.fork(node)))
+                        subg = s_common.agen((node, path.fork(node, None)))
                         async for subitem in subr.execute(genr=subg):
                             yield subitem
 
@@ -5503,6 +5505,9 @@ class ScrapeCmd(Cmd):
         # Scrape only the :engine and :text props from the inbound nodes.
         inet:search:query | scrape :text :engine
 
+        # Scrape the primary property from the inbound nodes.
+        it:dev:str | scrape $node.repr()
+
         # Scrape properties inbound nodes and yield newly scraped nodes.
         inet:search:query | scrape --yield
 
@@ -5551,6 +5556,7 @@ class ScrapeCmd(Cmd):
             if not todo:
                 todo = list(node.props.values())
 
+            link = {'type': 'scrape'}
             for text in todo:
 
                 text = str(text)
@@ -5560,7 +5566,7 @@ class ScrapeCmd(Cmd):
                         continue
 
                     nnode = await node.snap.addNode(form, valu)
-                    npath = path.fork(nnode)
+                    npath = path.fork(nnode, link)
 
                     if refs:
                         if node.form.isrunt:
@@ -5664,8 +5670,9 @@ class LiftByVerb(Cmd):
 
                     yield _node, _path
 
+                    link = {'type': 'runtime'}
                     async for node in self.iterEdgeNodes(verb, idenset, n2):
-                        yield node, _path.fork(node)
+                        yield node, _path.fork(node, link)
 
 class EdgesDelCmd(Cmd):
     '''

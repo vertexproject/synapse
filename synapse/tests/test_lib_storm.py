@@ -3059,12 +3059,29 @@ class StormTest(s_t_utils.SynTest):
             self.len(4, nodes)
 
             q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * }'
-            nodes = await core.nodes(q)
+            msgs = await core.stormlist(q, opts={'links': True})
+            nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(4, nodes)
-            self.eq(nodes[0].ndef, ('inet:asn', 0))
-            self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('edge:refs'))
-            self.eq(nodes[3].ndef, ('inet:ipv4', 0x01020304))
+
+            self.eq(nodes[0][0], ('inet:asn', 0))
+            links = nodes[0][1]['links']
+            self.len(1, links)
+            self.eq({'type': 'prop', 'prop': 'asn'}, links[0][1])
+
+            self.eq(nodes[1][0][0], ('inet:dns:a'))
+            links = nodes[1][1]['links']
+            self.len(1, links)
+            self.eq({'type': 'prop', 'prop': 'ipv4', 'reverse': True}, links[0][1])
+
+            self.eq(nodes[2][0][0], ('edge:refs'))
+            links = nodes[2][1]['links']
+            self.len(1, links)
+            self.eq({'type': 'prop', 'prop': 'n2', 'reverse': True}, links[0][1])
+
+            self.eq(nodes[3][0], ('inet:ipv4', 0x01020304))
+            links = nodes[2][1]['links']
+            self.len(1, links)
+            self.eq({'type': 'prop', 'prop': 'n2', 'reverse': True}, links[0][1])
 
             q = 'inet:ipv4=1.2.3.4 | tee --join { -> * } { <- * } { -> edge:refs:n2 :n1 -> * }'
             nodes = await core.nodes(q)
@@ -3834,10 +3851,18 @@ class StormTest(s_t_utils.SynTest):
             self.eq(sorted([n.ndef[1] for n in nodes]), ['test1', 'test2'])
 
             q = '[(test:str=refs) (test:str=foo)] $v=$node.value() | lift.byverb $v'
-            nodes = await core.nodes(q)
+            msgs = await core.stormlist(q, opts={'links': True})
+            nodes = [n[1] for n in msgs if n[0] == 'node']
             self.len(4, nodes)
-            self.eq({n.ndef[1] for n in nodes},
+            self.eq({n[0][1] for n in nodes},
                     {'test1', 'test2', 'refs', 'foo'})
+            links = nodes[1][1]['links']
+            self.len(1, links)
+            self.eq({'type': 'runtime'}, links[0][1])
+
+            links = nodes[2][1]['links']
+            self.len(1, links)
+            self.eq({'type': 'runtime'}, links[0][1])
 
     async def test_storm_nested_root(self):
         async with self.getTestCore() as core:

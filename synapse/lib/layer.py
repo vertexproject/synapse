@@ -1431,9 +1431,6 @@ class Layer(s_nexus.Pusher):
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
 
-        self.mapasync = core.conf.get('layer:lmdb:map_async')
-        self.maxreplaylog = core.conf.get('layer:lmdb:max_replay_log')
-
         # slim hooks to avoid async/fire
         self.nodeAddHook = None
         self.nodeDelHook = None
@@ -2159,7 +2156,7 @@ class Layer(s_nexus.Pusher):
 
                     if len(tostor) >= 10000:
                         logger.warning(f'...syncing 10k nodes @{count}')
-                        self.layrslab.putmulti(tostor, db=self.bybuidv3)
+                        await self.layrslab.putmulti(tostor, db=self.bybuidv3)
                         tostor.clear()
 
                 lastbuid = buid
@@ -2200,7 +2197,7 @@ class Layer(s_nexus.Pusher):
             count += 1
             tostor.append((lastbuid, s_msgpack.en(sode)))
         if tostor:
-            self.layrslab.putmulti(tostor, db=self.bybuidv3)
+            await self.layrslab.putmulti(tostor, db=self.bybuidv3)
 
         logger.warning('...removing old bybuid index')
         self.layrslab.dropdb('bybuid')
@@ -2626,8 +2623,8 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'Adding n1+n2 index to edges in layer {self.iden}')
 
-        def commit():
-            self.layrslab.putmulti(putkeys, db=self.edgesn1n2)
+        async def commit():
+            await self.layrslab.putmulti(putkeys, db=self.edgesn1n2)
             putkeys.clear()
 
         putkeys = []
@@ -2638,10 +2635,10 @@ class Layer(s_nexus.Pusher):
 
             putkeys.append((n1buid + n2buid, venc))
             if len(putkeys) > MIGR_COMMIT_SIZE:
-                commit()
+                await commit()
 
         if len(putkeys):
-            commit()
+            await commit()
 
         self.meta.set('version', 10)
         self.layrvers = 10
@@ -2652,8 +2649,8 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'Adding byform index to layer {self.iden}')
 
-        def commit():
-            self.layrslab.putmulti(putkeys, db=self.byform)
+        async def commit():
+            await self.layrslab.putmulti(putkeys, db=self.byform)
             putkeys.clear()
 
         putkeys = []
@@ -2665,10 +2662,10 @@ class Layer(s_nexus.Pusher):
             putkeys.append((abrv, buid))
 
             if len(putkeys) > MIGR_COMMIT_SIZE:
-                commit()
+                await commit()
 
         if putkeys:
-            commit()
+            await commit()
 
         self.meta.set('version', 11)
         self.layrvers = 11
@@ -2726,10 +2723,8 @@ class Layer(s_nexus.Pusher):
     async def _initLayerStorage(self):
 
         slabopts = {
-            'readahead': True,
+            'readahead': s_common.envbool('SYNDEV_CORTEX_LAYER_READAHEAD', 'true'),
             'lockmemory': self.lockmemory,
-            'map_async': self.mapasync,
-            'max_replay_log': self.maxreplaylog,
         }
 
         if self.growsize is not None:
@@ -2904,7 +2899,7 @@ class Layer(s_nexus.Pusher):
             self.buidcache[buid] = sode
             kvlist.append((buid, s_msgpack.en(sode)))
 
-        self.layrslab.putmulti(kvlist, db=self.bybuidv3)
+        await self.layrslab.putmulti(kvlist, db=self.bybuidv3)
         self.dirty.clear()
 
     def getStorNodeCount(self):
@@ -3774,7 +3769,7 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((tp_abrv + indx, buid))
             kvpairs.append((ftp_abrv + indx, buid))
 
-        self.layrslab.putmulti(kvpairs, db=self.bytagprop)
+        await self.layrslab.putmulti(kvpairs, db=self.bytagprop)
 
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),

@@ -45,6 +45,8 @@ class AuthModule(s_module.CoreModule):
                     ('web:acct', ('inet:web:acct', {}), {
                         'doc': 'The web account that the credentials allow access to.',
                     }),
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account that the credentials allow access to.'}),
                     # TODO x509, rfid, mat:item locks/keys
                 )),
 
