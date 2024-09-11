@@ -984,12 +984,11 @@ this to add a user named ``foouser`` with the uid 1234::
 Configure Custom CA Certificates for HTTP Requests
 --------------------------------------------------
 
-The Cortex can be configured to use additional CA certificates when making HTTP
-requests via Storm. To do this, you need to provide the certificates (in DER or
-PEM format) to the Cortex in a directory on disk, and then configure the Cortex
-to look up that directory via the ``tls:ca:dir`` configuration option.
+The Cortex and Axon can be configured to use additional CA certificates when making HTTP requests via Storm. To do this,
+you need to provide the certificates (in PEM format only) to the Cortex in a directory on disk, and then configure the
+Cortex to look up that directory via the ``tls:ca:dir`` configuration option.
 
-The following Compose file shows an example using this option.
+The following Compose file shows an example using this option with the Cortex.
 
 ::
 
@@ -1007,9 +1006,13 @@ The following Compose file shows an example using this option.
 
 .. note::
 
-   CA certificates provided via the ``tls:ca:dir`` configuration option MUST
-   include the full chain of certificates all the way up to the root. Providing
-   only partial CA chains may result in verification failures.
+   CA certificates provided via the ``tls:ca:dir`` configuration option MUST include the full chain of certificates all
+   the way up to the root. Providing only partial CA chains may result in verification failures.
+
+   This chain should start with the specific certificate for the principal who “is” the client or server, and then the
+   certificate for the issuer of that certificate, and then the certificate for the issuer of that certificate, and so
+   on up the chain until you get to a certificate which is self-signed, that is, a certificate which has the same subject
+   and issuer, sometimes called a root certificate.
 
 Configure Custom CA Certificates with Kubernetes
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1090,8 +1093,7 @@ In this example, the volume with the configmap contains symlinks which are
 treated as directories. When the SSLContext is created with those additional
 files, Synapse attempts to load the directory, will fail and then log an
 exception. This does not stop the SSLContext from being created with the
-additonal CA files, but does generate a lot of log messages. This will be
-addressed in a future Synapse version.
+additonal CA files.
 
 .. note::
 
