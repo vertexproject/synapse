@@ -53,6 +53,7 @@ TerminalPygMap = {
     'LISTTOKN': p_t.Literal.String,
     'LPAR': p_t.Punctuation,
     'LSQB': p_t.Punctuation,
+    'MCASEBARE': p_t.Literal.String,
     'MODSET': p_t.Operator,
     'NONQUOTEWORD': p_t.Literal,
     'NOT': p_t.Keyword,

@@ -204,7 +204,7 @@ class NexsRoot(s_base.Base):
             olddb = self.nexsslab.initdb('nexs:indx')
             self.nexsslab.dropdb(olddb)
             db = newslab.initdb('nexs:indx')
-            newslab.copydb('nexs:indx', self.nexsslab, destdbname='nexs:indx')
+            await newslab.copydb('nexs:indx', self.nexsslab, destdbname='nexs:indx')
             newslab.dropdb(db)
 
         self.nexshot.set('version', 2)

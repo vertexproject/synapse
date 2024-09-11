@@ -3,6 +3,7 @@ import synapse.common as s_common
 
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.models.infotech as s_infotech
@@ -427,6 +428,7 @@ class ModelType(s_stormtypes.Prim):
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Type.', 'type': 'str', },
         {'name': 'stortype', 'desc': 'The storetype of the Type.', 'type': 'int', },
+        {'name': 'opts', 'desc': 'The options for the Type.', 'type': 'dict', },
         {'name': 'repr', 'desc': 'Get the repr of a value for the Type.',
          'type': {'type': 'function', '_funcname': '_methRepr',
                   'args': (
@@ -446,6 +448,7 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
         self.locls.update({'name': valu.name,
+                           'opts': valu.opts,
                            'stortype': valu.stortype,
                            })
 
@@ -555,6 +558,16 @@ class MigrationEditorMixin:
                 if overwrite or not proto.hasTagProp(tagname, propname):
                     await proto.setTagProp(tagname, propname, valu) # use tag perms
 
+    async def copyExtProps(self, src, proto):
+
+        form = src.form
+
+        for name, valu in src.getProps().items():
+            prop = form.props.get(name)
+            if not prop.isext:
+                continue
+
+            await proto.set(name, valu)
 
 @s_stormtypes.registry.registerLib
 class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
@@ -587,6 +600,13 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Copy tag property value even if the property exists on the destination node.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'copyExtProps', 'desc': 'Copy extended properties from the src node to the dst node.',
+         'type': {'type': 'function', '_funcname': '_methCopyExtProps',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy extended props from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy extended props to.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -595,6 +615,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyData': self._methCopyData,
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
+            'copyExtProps': self._methCopyExtProps,
+            'liftByPropValuNoNorm': self._methLiftByPropValuNoNorm,
+            'setNodePropValuNoNorm': self._methSetNodePropValuNoNorm,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -637,6 +660,79 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyTags(src, proto, overwrite=overwrite)
+
+    async def _methCopyExtProps(self, src, dst):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyExtProps() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyExtProps() dest argument must be a node.')
+
+        view = self.runt.view
+
+        async with view.getEditor() as editor:
+            proto = editor.loadNode(dst)
+            await self.copyExtProps(src, proto)
+
+    async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
+        '''
+        No storm docs for this on purpose. It is restricted for use during model migrations only.
+        '''
+        formname = await s_stormtypes.tostr(formname)
+        propname = await s_stormtypes.tostr(propname)
+        valu = await s_stormtypes.toprim(valu)
+
+        prop = self.runt.view.core.model.prop(f'{formname}:{propname}')
+        if prop is None:
+            mesg = f'Could not find prop: {formname}:{propname}'
+            raise s_exc.NoSuchProp(mesg=mesg, formname=formname, propname=propname)
+
+        if not self.runt.view.core.migration:
+            mesg = '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        stortype = prop.type.stortype
+
+        # Normally we'd call proptype.getStorCmprs() here to get the cmprvals
+        # but getStorCmprs() calls norm() which we're  trying to avoid so build
+        # cmprvals manually here.
+
+        if prop.type.isarray:
+            stortype &= (~s_layer.STOR_FLAG_ARRAY)
+            liftfunc = self.runt.view.wlyr.liftByPropArray
+        else:
+            liftfunc = self.runt.view.wlyr.liftByPropValu
+
+        cmprvals = ((cmpr, valu, stortype),)
+
+        layriden = self.runt.view.wlyr.iden
+        async for _, buid, sode in liftfunc(formname, propname, cmprvals, reverse=reverse):
+            yield await self.runt.view._joinStorNode(buid, {layriden: sode})
+
+    async def _methSetNodePropValuNoNorm(self, n, propname, valu):
+        '''
+        No storm docs for this on purpose. It is restricted for use during model migrations only.
+        '''
+
+        # NB: I'm sure there are all kinds of edges cases that this function doesn't account for. At the time of it's
+        # creation, this was intended to be used to update array properties with bad it:sec:cpe values in them. It works
+        # for that use case (see model migration 0.2.28). Any additional use of this function should perform heavy
+        # testing.
+
+        if not isinstance(n, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
+
+        if not self.runt.view.core.migration:
+            mesg = '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        propname = await s_stormtypes.tostr(propname)
+        valu = await s_stormtypes.toprim(valu)
+
+        async with self.runt.view.getNodeEditor(n) as proto:
+            await proto.set(propname, valu, norminfo={})
+
+        return n
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
@@ -779,10 +875,15 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
     def getObjLocals(self):
         return {
             'itSecCpe_2_170_0': self._itSecCpe_2_170_0,
+            'itSecCpe_2_170_0_internal': self._itSecCpe_2_170_0_internal,
             'riskHasVulnToVulnerable': self._riskHasVulnToVulnerable,
         }
 
     async def _itSecCpe_2_170_0(self, n, prefer_v22=False, force=False):
+        info = await self._itSecCpe_2_170_0_internal(n, prefer_v22=prefer_v22, force=force, set_nodedata=True)
+        return info.get('status') == 'success'
+
+    async def _itSecCpe_2_170_0_internal(self, n, prefer_v22=False, force=False, set_nodedata=False):
 
         if not isinstance(n, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.s.itSecCpe_2_170_0() argument must be a node.')
@@ -807,13 +908,12 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             if self.runt.debug:
                 mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node already migrated.'
                 await self.runt.printf(mesg)
-            return True
+            return nodedata
 
         modl = self.runt.model.type('it:sec:cpe')
 
         valu23 = None
         valu22 = None
-        invalid = ''
 
         # Check the primary property for validity.
         cpe23 = s_infotech.cpe23_regex.match(curv)
@@ -835,11 +935,11 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node is valid, no migration necessary.'
                     await self.runt.printf(mesg)
 
-                await proto.setData('migration.s.itSecCpe_2_170_0', {
-                    'status': 'success',
-                })
+                nodedata = {'status': 'success'}
+                if set_nodedata:
+                    await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
 
-                return True
+                return nodedata
 
             if valu23 is None and valu22 is None:
                 reason = 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.'
@@ -848,12 +948,14 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                 mesg = f'itSecCpe_2_170_0({reprvalu}): {reason}'
                 await self.runt.warn(mesg)
 
-                await proto.setData('migration.s.itSecCpe_2_170_0', {
+                nodedata = {
                     'status': 'failed',
                     'reason': reason,
-                })
+                }
+                if set_nodedata:
+                    await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
 
-                return False
+                return nodedata
 
             if prefer_v22:
                 valu = valu22 or valu23
@@ -864,7 +966,6 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             norm, info = modl.norm(valu)
             subs = info.get('subs')
 
-            edits = []
             nodedata = {'status': 'success'}
 
             if norm != curv:
@@ -896,7 +997,8 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                 # Update the existing property with the re-normalized property value.
                 await proto.set(propname, subscurv, ignore_ro=True)
 
-            await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
+            if set_nodedata:
+                await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
 
             if self.runt.debug:
                 if nodedata.get('updated'):
@@ -906,7 +1008,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): No property updates required.'
                     await self.runt.printf(mesg)
 
-            return True
+            return nodedata
 
     async def _riskHasVulnToVulnerable(self, n, nodata=False):
 

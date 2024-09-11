@@ -614,6 +614,10 @@ Queries = [
             switch $foo {
                 bar: { [ +#ohai ] break }
                 baz: { [ +#visi ] continue }
+                (far, faz): { [ +#multi.far ] continue }
+                ("gar", "gaz"): { [ +#multi.gar ] continue }
+                ('har', 'haz'): { [ +#multi.har ] continue }
+                ("kar", 'kaz', koo): { [ +#multi.kar ] continue }
             }
 
             [ inet:ipv4=5.6.7.8 ]
@@ -1241,7 +1245,9 @@ _ParseResults = [
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: c], SwitchCase: [VarValue: [Const: woot], CaseEntry: [Const: hehe, SubQuery: [Query: [EditTagAdd: [TagName: [Const: baz]]]]], CaseEntry: [Const: haha hoho, SubQuery: [Query: [EditTagAdd: [TagName: [Const: faz]]]]], CaseEntry: [Const: lolz:lulz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: jaz]]]]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: inet:ipv4], Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: hehe, Const: haha]]]]], CaseEntry: [Const: baz faz, SubQuery: [Query: []]]]]',
-    'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [FormName: [Const: inet:ipv4], Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]]], EditNodeAdd: [FormName: [Const: inet:ipv4], Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
+
+    'Query: [ForLoop: [Const: foo, VarValue: [Const: foos], SubQuery: [Query: [EditNodeAdd: [FormName: [Const: inet:ipv4], Const: =, Const: 1.2.3.4], SwitchCase: [VarValue: [Const: foo], CaseEntry: [Const: bar, SubQuery: [Query: [EditTagAdd: [TagName: [Const: ohai]], BreakOper: []]]], CaseEntry: [Const: baz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: visi]], ContinueOper: []]]], CaseEntry: [Const: far, Const: faz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: multi, Const: far]], ContinueOper: []]]], CaseEntry: [Const: gar, Const: gaz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: multi, Const: gar]], ContinueOper: []]]], CaseEntry: [Const: har, Const: haz, SubQuery: [Query: [EditTagAdd: [TagName: [Const: multi, Const: har]], ContinueOper: []]]], CaseEntry: [Const: kar, Const: kaz, Const: koo, SubQuery: [Query: [EditTagAdd: [TagName: [Const: multi, Const: kar]], ContinueOper: []]]]], EditNodeAdd: [FormName: [Const: inet:ipv4], Const: =, Const: 5.6.7.8], EditTagAdd: [TagName: [Const: hehe]]]]]]',
+
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: a, SubQuery: [Query: []]]]]',
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:str, SubQuery: [Query: []]], CaseEntry: [SubQuery: [Query: []]]]]',
     'Query: [SwitchCase: [VarValue: [Const: a], CaseEntry: [Const: test:this:works:, SubQuery: [Query: []]], CaseEntry: [SubQuery: [Query: []]]]]',

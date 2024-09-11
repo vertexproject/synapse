@@ -1986,7 +1986,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2009,7 +2009,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -4774,7 +4774,7 @@ class List(Prim):
         {'name': 'sort', 'desc': 'Sort the list in place.',
          'type': {'type': 'function', '_funcname': '_methListSort',
                   'args': (
-                      {'name': 'reverse', 'type': 'bool', 'desc': 'Sort the list in reverse order.',
+                      {'name': 'reverse', 'type': 'boolean', 'desc': 'Sort the list in reverse order.',
                        'default': False},
                   ),
                   'returns': {'type': 'null', }}},
@@ -4841,6 +4841,14 @@ class List(Prim):
         {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
          'type': {'type': 'function', '_funcname': '_methListUnique',
                   'returns': {'type': 'list'}}},
+        {'name': 'rem', 'desc': 'Remove a specific item from anywhere in the list.',
+         'type': {'type': 'function', '_funcname': '_methListRemove',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': 'An item in the list.'},
+                      {'name': 'all', 'type': 'boolean', 'default': False,
+                       'desc': 'Remove all instances of item from the list.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the item was removed from the list.'}}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -4862,6 +4870,7 @@ class List(Prim):
             'slice': self._methListSlice,
             'extend': self._methListExtend,
             'unique': self._methListUnique,
+            'rem': self._methListRemove,
         }
 
     @stormfunc(readonly=True)
@@ -4956,7 +4965,6 @@ class List(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
-    @stormfunc(readonly=True)
     async def _methListExtend(self, valu):
         async for item in toiter(valu):
             self.valu.append(item)
@@ -4983,6 +4991,21 @@ class List(Prim):
             checkret.append(_cval)
             ret.append(val)
         return ret
+
+    async def _methListRemove(self, item, all=False):
+        item = await toprim(item)
+        all = await tobool(all)
+
+        if item not in self.valu:
+            return False
+
+        while item in self.valu:
+            self.valu.remove(item)
+
+            if not all:
+                break
+
+        return True
 
     async def stormrepr(self):
         reprs = [await torepr(k) for k in self.valu]
@@ -5769,7 +5792,7 @@ class Node(Prim):
                       {'name': 'glob', 'type': 'str', 'default': None,
                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression '
                                'are returned.'},
-                      {'name': 'leaf', 'type': 'bool', 'default': False,
+                      {'name': 'leaf', 'type': 'boolean', 'default': False,
                        'desc': 'If true, only leaf tags are included in the returned tags.'},
                   ),
                   'returns': {'type': 'list',
@@ -6445,6 +6468,13 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetFormcount',
                   'returns': {'type': 'dict',
                               'desc': 'Dictionary containing form names and the count of the nodes in the Layer.', }}},
+        {'name': 'getPropValues',
+         'desc': 'Yield unique property values in the layer for the given form or property name.',
+         'type': {'type': 'function', '_funcname': '_methGetPropValues',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
         {'name': 'getStorNodes', 'desc': '''
             Get buid, sode tuples representing the data stored in the layer.
 
@@ -6669,6 +6699,7 @@ class Layer(Prim):
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
+            'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
@@ -6941,6 +6972,29 @@ class Layer(Prim):
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
+    async def _methGetPropValues(self, propname):
+        propname = await tostr(propname)
+
+        prop = self.runt.view.core.model.reqProp(propname)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.view.core.getLayer(layriden)
+
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        async for indx, valu in layr.iterPropValues(formname, propname, prop.type.stortype):
+            yield valu
+
+    @stormfunc(readonly=True)
     async def _methLayerEdits(self, offs=0, wait=True, size=None, reverse=False):
         offs = await toint(offs)
         wait = await tobool(wait)
@@ -7173,7 +7227,7 @@ class LibView(Lib):
         {'name': 'list', 'desc': 'List the Views in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methViewList',
                   'args': (
-                      {'name': 'deporder', 'type': 'bool', 'default': False,
+                      {'name': 'deporder', 'type': 'boolean', 'default': False,
                         'desc': 'Return the lists in bottom-up dependency order.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'List of ``view`` objects.', }}},
@@ -7428,6 +7482,14 @@ class View(Prim):
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
+        {'name': 'getPropValues',
+         'desc': 'Yield unique property values in the view for the given form or property name.',
+         'type': {'type': 'function', '_funcname': '_methGetPropValues',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
+
         {'name': 'detach', 'desc': 'Detach the view from its parent. WARNING: This cannot be reversed.',
          'type': {'type': 'function', '_funcname': 'detach',
                   'args': (),
@@ -7531,6 +7593,7 @@ class View(Prim):
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
             'getPropCount': self._methGetPropCount,
+            'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
 
@@ -7649,6 +7712,17 @@ class View(Prim):
         view = self.runt.view.core.getView(viewiden)
 
         return await view.getPropArrayCount(propname, valu=valu)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropValues(self, propname):
+        propname = await tostr(propname)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.view.core.getView(viewiden)
+
+        async for valu in view.iterPropValues(propname):
+            yield valu
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):

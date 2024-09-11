@@ -2325,7 +2325,7 @@ class Layer(s_nexus.Pusher):
             self.nidcache[nid] = sode
             kvlist.append((nid, s_msgpack.en(sode)))
 
-        self.layrslab.putmulti(kvlist, db=self.bynid)
+        self.layrslab._putmulti(kvlist, db=self.bynid)
         self.dirty.clear()
 
     def getStorNodeCount(self):
@@ -2482,6 +2482,47 @@ class Layer(s_nexus.Pusher):
             return 0
 
         return self.indxcounts.get(abrv, 0)
+
+    async def iterPropValues(self, formname, propname, stortype):
+        try:
+            abrv = self.core.getIndxAbrv(INDX_PROP, formname, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if stortype & 0x8000:
+            stortype = STOR_TYPE_MSGP
+
+        stor = self.stortypes[stortype]
+        abrvlen = len(abrv)
+
+        async for lkey in s_coro.pause(self.layrslab.scanKeysByPref(abrv, db=self.indxdb, nodup=True)):
+
+            indx = lkey[abrvlen:]
+            valu = stor.decodeIndx(indx)
+            if valu is not s_common.novalu:
+                yield indx, valu
+                continue
+
+            nid = self.layrslab.get(lkey, db=self.indxdb)
+            if nid is not None:
+                sode = self._getStorNode(nid)
+                if sode is not None:
+                    if propname is None:
+                        valt = sode.get('valu')
+                    else:
+                        valt = sode['props'].get(propname)
+
+                    if valt is not None:
+                        yield indx, valt[0]
+
+    async def iterPropIndxNids(self, formname, propname, indx):
+        try:
+            abrv = self.core.getIndxAbrv(INDX_PROP, formname, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for _, nid in s_coro.pause(self.layrslab.scanByDups(abrv + indx, db=self.indxdb)):
+            yield nid
 
     async def getFormEdgeVerbCount(self, form, verb, reverse=False):
         '''
@@ -2768,12 +2809,12 @@ class Layer(s_nexus.Pusher):
                 kvpairs.extend(await self.editors[edit[0]](nid, form, edit, sode, meta))
 
                 if len(kvpairs) > 20:
-                    self.layrslab.putmulti(kvpairs, db=self.indxdb)
+                    await self.layrslab.putmulti(kvpairs, db=self.indxdb)
                     kvpairs.clear()
                     await asyncio.sleep(0)
 
         if kvpairs:
-            self.layrslab.putmulti(kvpairs, db=self.indxdb)
+            await self.layrslab.putmulti(kvpairs, db=self.indxdb)
 
         if self.logedits and nexsitem is not None:
             nexsindx = nexsitem[0] if nexsitem is not None else None

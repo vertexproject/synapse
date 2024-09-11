@@ -199,7 +199,6 @@ URI_PERCENT_CHARS = [
 ]
 
 def uri_quote(text):
-    ret = ''
     for (pct, char) in URI_PERCENT_CHARS:
         text = text.replace(char, pct)
     return text

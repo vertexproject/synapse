@@ -1202,6 +1202,53 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return ecnt
 
+    async def iterPropValues(self, propname):
+        prop = self.core.model.reqProp(propname)
+
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        async def wrapgenr(lidx, genr):
+            async for indx, valu in genr:
+                yield indx, valu, lidx
+
+        genrs = []
+        for lidx, layr in enumerate(self.layers):
+            genr = layr.iterPropValues(formname, propname, prop.type.stortype)
+            genrs.append(wrapgenr(lidx, genr))
+
+        lastvalu = None
+        async for indx, valu, lidx in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            if lidx == 0 or propname is None:
+                lastvalu = valu
+                yield valu
+            else:
+                valid = False
+                async for nid in self.layers[lidx].iterPropIndxNids(formname, propname, indx):
+                    for layr in self.layers[0:lidx]:
+                        if (sode := layr._getStorNode(nid)) is None:
+                            continue
+
+                        if sode['props'].get(propname) is not None:
+                            break
+                    else:
+                        valid = True
+
+                    if valid:
+                        lastvalu = valu
+                        yield valu
+                        break
+
     async def getEdgeVerbs(self):
 
         for byts, abrv in self.core.indxabrv.iterByPref(s_layer.INDX_EDGE_VERB):

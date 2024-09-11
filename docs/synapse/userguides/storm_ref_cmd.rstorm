@@ -2545,7 +2545,7 @@ of the iden that the trigger can be uniquely identified), which can be obtained 
 trigger.enable
 ++++++++++++++
 
-The ``trigger-enable`` command enables a disabled trigger. To enable a trigger, you must provide the
+The ``trigger.enable`` command enables a disabled trigger. To enable a trigger, you must provide the
 first portion of the trigger's iden (i.e., enough of the iden that the trigger can be uniquely identified),
 which can be obtained using ``trigger.list``.
 
