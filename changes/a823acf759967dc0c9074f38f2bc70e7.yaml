@@ -1,0 +1,6 @@
+---
+desc: Added documentation about ``tls:ca:dir`` configuration option for specifying
+  custom TLS CA certificates.
+prs: []
+type: doc
+...
