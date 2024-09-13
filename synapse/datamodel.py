@@ -124,6 +124,7 @@ class Prop:
         self.type = None
         self.typedef = typedef
 
+        self.alts = None
         self.locked = False
         self.deprecated = self.info.get('deprecated', False)
 
@@ -249,6 +250,18 @@ class Prop:
                 pnorms[prop] = formprop.type.norm(valu)[0]
 
         return (buid, {'props': pnorms, 'ndef': ndef})
+
+    def getAlts(self):
+        '''
+        Return a list of Prop instances that are considered
+        alternative locations for our property value, including
+        self.
+        '''
+        if self.alts is None:
+            self.alts = [self]
+            for name in self.info.get('alts', ()):
+                self.alts.append(self.form.reqProp(name))
+        return self.alts
 
 class Form:
     '''
@@ -431,6 +444,15 @@ class Form:
             (synapse.datamodel.Prop): The property or None.
         '''
         return self.props.get(name)
+
+    def reqProp(self, name):
+        prop = self.props.get(name)
+        if prop is not None:
+            return prop
+
+        full = f'{self.name}:{name}'
+        mesg = f'No property named {full}.'
+        raise s_exc.NoSuchProp(mesg=mesg, name=full)
 
     def pack(self):
         props = {p.name: p.pack() for p in self.props.values()}
@@ -1159,6 +1181,14 @@ class Model:
 
     def form(self, name):
         return self.forms.get(name)
+
+    def reqForm(self, name):
+        form = self.forms.get(name)
+        if form is not None:
+            return form
+
+        mesg = f'No form named {name}.'
+        raise s_exc.NoSuchForm(mesg=mesg, name=name)
 
     def univ(self, name):
         return self.univs.get(name)
