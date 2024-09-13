@@ -1380,9 +1380,10 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        if isinstance(valu, dict) and isinstance(form.type, s_types.Guid):
+        if isinstance(valu, dict):
             form = self.core.model.reqForm(name)
-            return await self._addGuidNodeByDict(form, valu, props=props)
+            if isinstance(form.type, s_types.Guid):
+                return await self._addGuidNodeByDict(form, valu, props=props)
 
         async with self.getEditor() as editor:
             protonode = await editor.addNode(name, valu, props=props, norminfo=norminfo)
