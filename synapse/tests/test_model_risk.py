@@ -523,14 +523,18 @@ class RiskModelTest(s_t_utils.SynTest):
                     :period=(2022, ?)
                     :node=(inet:fqdn, vertex.link)
                     :vuln={[ risk:vuln=* :name=redtree ]}
+                    :mitigated=true
+                    :mitigations={[ risk:mitigation=* :name=patchstuff ]}
                 ]
             ''')
             self.len(1, nodes)
             self.nn(nodes[0].get('vuln'))
+            self.eq(True, nodes[0].get('mitigated'))
             self.eq((1640995200000, 9223372036854775807), nodes[0].get('period'))
             self.eq(('inet:fqdn', 'vertex.link'), nodes[0].get('node'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
+            self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:

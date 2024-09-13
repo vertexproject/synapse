@@ -1166,3 +1166,7 @@ class ModelRevTest(s_tests.SynTest):
                   'iden': badcpe01,
                   'view': fork00}),
             ])
+
+    async def test_modelrev_0_2_29(self):
+        async with self.getRegrCore('model-0.2.29') as core:
+            self.len(2, await core.nodes('ou:industry:type:taxonomy'))

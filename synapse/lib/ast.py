@@ -1369,14 +1369,14 @@ class SwitchCase(Oper):
         self.defcase = None
 
         for cent in self.kids[1:]:
+            *vals, subq = cent.kids
 
-            # if they only have one kid, it's a default case.
-            if len(cent.kids) == 1:
-                self.defcase = cent.kids[0]
+            if cent.defcase:
+                self.defcase = subq
                 continue
 
-            valu = cent.kids[0].value()
-            self.cases[valu] = cent.kids[1]
+            for valu in vals:
+                self.cases[valu.value()] = subq
 
     async def run(self, runt, genr):
         count = 0
@@ -1410,9 +1410,10 @@ class SwitchCase(Oper):
             async for item in subq.inline(runt, s_common.agen()):
                 yield item
 
-
 class CaseEntry(AstNode):
-    pass
+    def __init__(self, astinfo, kids=(), defcase=False):
+        AstNode.__init__(self, astinfo, kids=kids)
+        self.defcase = defcase
 
 class LiftOper(Oper):
 

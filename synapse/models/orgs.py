@@ -480,6 +480,9 @@ class OuModule(s_module.CoreModule):
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the campaign.'}),
 
+                    ('slogan', ('lang:phrase', {}), {
+                        'doc': 'The slogan used by the campaign.'}),
+
                     ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Actors who participated in the campaign.'}),
 
@@ -639,6 +642,9 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'The type of organization.',
                     }),
+                    ('motto', ('lang:phrase', {}), {
+                        'doc': 'The motto used by the organization.'}),
+
                     ('orgtype', ('ou:orgtype', {}), {
                         'doc': 'The type of organization.',
                         'disp': {'hint': 'taxonomy'},
@@ -775,6 +781,7 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'A list of types that apply to the contract.'}),
                 )),
+                ('ou:industry:type:taxonomy', {}, ()),
                 ('ou:industry', {}, (
 
                     ('name', ('ou:industryname', {}), {

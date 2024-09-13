@@ -2158,7 +2158,7 @@ class Layer(s_nexus.Pusher):
 
                     if len(tostor) >= 10000:
                         logger.warning(f'...syncing 10k nodes @{count}')
-                        self.layrslab.putmulti(tostor, db=self.bybuidv3)
+                        await self.layrslab.putmulti(tostor, db=self.bybuidv3)
                         tostor.clear()
 
                 lastbuid = buid
@@ -2199,7 +2199,7 @@ class Layer(s_nexus.Pusher):
             count += 1
             tostor.append((lastbuid, s_msgpack.en(sode)))
         if tostor:
-            self.layrslab.putmulti(tostor, db=self.bybuidv3)
+            await self.layrslab.putmulti(tostor, db=self.bybuidv3)
 
         logger.warning('...removing old bybuid index')
         self.layrslab.dropdb('bybuid')
@@ -2625,8 +2625,8 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'Adding n1+n2 index to edges in layer {self.iden}')
 
-        def commit():
-            self.layrslab.putmulti(putkeys, db=self.edgesn1n2)
+        async def commit():
+            await self.layrslab.putmulti(putkeys, db=self.edgesn1n2)
             putkeys.clear()
 
         putkeys = []
@@ -2637,10 +2637,10 @@ class Layer(s_nexus.Pusher):
 
             putkeys.append((n1buid + n2buid, venc))
             if len(putkeys) > MIGR_COMMIT_SIZE:
-                commit()
+                await commit()
 
         if len(putkeys):
-            commit()
+            await commit()
 
         self.meta.set('version', 10)
         self.layrvers = 10
@@ -2651,8 +2651,8 @@ class Layer(s_nexus.Pusher):
 
         logger.warning(f'Adding byform index to layer {self.iden}')
 
-        def commit():
-            self.layrslab.putmulti(putkeys, db=self.byform)
+        async def commit():
+            await self.layrslab.putmulti(putkeys, db=self.byform)
             putkeys.clear()
 
         putkeys = []
@@ -2664,10 +2664,10 @@ class Layer(s_nexus.Pusher):
             putkeys.append((abrv, buid))
 
             if len(putkeys) > MIGR_COMMIT_SIZE:
-                commit()
+                await commit()
 
         if putkeys:
-            commit()
+            await commit()
 
         self.meta.set('version', 11)
         self.layrvers = 11
@@ -2901,7 +2901,7 @@ class Layer(s_nexus.Pusher):
             self.buidcache[buid] = sode
             kvlist.append((buid, s_msgpack.en(sode)))
 
-        self.layrslab.putmulti(kvlist, db=self.bybuidv3)
+        self.layrslab._putmulti(kvlist, db=self.bybuidv3)
         self.dirty.clear()
 
     def getStorNodeCount(self):
@@ -3051,6 +3051,47 @@ class Layer(s_nexus.Pusher):
             count += self.layrslab.count(abrv + indx, db=self.bytagprop)
 
         return count
+
+    async def iterPropValues(self, formname, propname, stortype):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        if stortype & 0x8000:
+            stortype = STOR_TYPE_MSGP
+
+        stor = self.stortypes[stortype]
+        abrvlen = len(abrv)
+
+        async for lkey in s_coro.pause(self.layrslab.scanKeysByPref(abrv, db=self.byprop, nodup=True)):
+
+            indx = lkey[abrvlen:]
+            valu = stor.decodeIndx(indx)
+            if valu is not s_common.novalu:
+                yield indx, valu
+                continue
+
+            buid = self.layrslab.get(lkey, db=self.byprop)
+            if buid is not None:
+                sode = self._getStorNode(buid)
+                if sode is not None:
+                    if propname is None:
+                        valt = sode.get('valu')
+                    else:
+                        valt = sode['props'].get(propname)
+
+                    if valt is not None:
+                        yield indx, valt[0]
+
+    async def iterPropIndxBuids(self, formname, propname, indx):
+        try:
+            abrv = self.getPropAbrv(formname, propname)
+        except s_exc.NoSuchAbrv:
+            return
+
+        async for _, buid in s_coro.pause(self.layrslab.scanByDups(abrv + indx, db=self.byprop)):
+            yield buid
 
     async def liftByTag(self, tag, form=None, reverse=False):
 
@@ -3771,7 +3812,7 @@ class Layer(s_nexus.Pusher):
             kvpairs.append((tp_abrv + indx, buid))
             kvpairs.append((ftp_abrv + indx, buid))
 
-        self.layrslab.putmulti(kvpairs, db=self.bytagprop)
+        await self.layrslab.putmulti(kvpairs, db=self.bytagprop)
 
         return (
             (EDIT_TAGPROP_SET, (tag, prop, valu, oldv, stortype), ()),

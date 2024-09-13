@@ -1,0 +1,6 @@
+---
+desc: Update Storm language to add support for matching multiple switch case values
+  to a single Storm query.
+prs: []
+type: feat
+...
