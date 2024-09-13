@@ -1380,8 +1380,8 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
-        form = self.core.model.reqForm(name)
         if isinstance(valu, dict) and isinstance(form.type, s_types.Guid):
+            form = self.core.model.reqForm(name)
             return await self._addGuidNodeByDict(form, valu, props=props)
 
         async with self.getEditor() as editor:
@@ -1461,13 +1461,10 @@ class Snap(s_base.Base):
             await asyncio.sleep(0)
 
             # filter on the remaining props/alts
-            match = True
             for count, prop, norm in counts[1:]:
                 if not self._filtByPropAlts(node, prop, norm):
-                    match = False
                     break
-
-            if match:
+            else:
                 # ensure the non-deconf props are set
                 async with self.getEditor() as editor:
                     proto = editor.loadNode(node)
