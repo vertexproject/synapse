@@ -4,7 +4,6 @@ import hashlib
 import inspect
 import logging
 import functools
-import email.utils
 import urllib.parse
 
 import idna
@@ -20,6 +19,8 @@ import synapse.lib.types as s_types
 import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
+
+import synapse.vendor.cpython.lib.email.utils as s_v_email_utils
 
 logger = logging.getLogger(__name__)
 
@@ -808,11 +809,6 @@ class Rfc2822Addr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
-        self._parseaddr = email.utils.parseaddr
-        argspec = inspect.getfullargspec(self._parseaddr)
-        if 'strict' in argspec.kwonlyargs:
-            self._parseaddr = functools.partial(self._parseaddr, strict=False)
-
     def _normPyStr(self, valu):
 
         # remove quotes for normalized version
@@ -821,12 +817,16 @@ class Rfc2822Addr(s_types.Str):
         valu = ' '.join(valu.split())
 
         try:
-            name, addr = self._parseaddr(valu)
+            name, addr = s_v_email_utils.parseaddr(valu, strict=True)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
             mesg = f'email.utils.parsaddr failed: {str(e)}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=mesg) from None
+
+        if not name and not addr:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'No name or email parsed from {valu}')
 
         subs = {}
         if name:

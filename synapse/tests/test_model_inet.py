@@ -1291,13 +1291,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:rfc2822:addr^=unittest12'))
 
             # CVE-2023-27043 related behavior
-            # DISCUSS Do we want to retain the OLD behavior or use the new strict behavior?
-            nodes = await core.nodes('[inet:rfc2822:addr?="alice@example.org]<bob@example.org>"]')
-            self.len(1, nodes)
-            # This is the python <=3.11.9 behavior or the behavior with strict=False
-            self.eq(nodes[0].ndef[1], 'alice@example.org')
-            # This is the 3.11.10+ behavior or the behavior with strict=True
-            # self.eq(nodes[0].ndef[1], 'alice@example.org]<bob@example.org>')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:rfc2822:addr="alice@example.org]<bob@example.org>"]')
 
     async def test_server(self):
         formname = 'inet:server'
