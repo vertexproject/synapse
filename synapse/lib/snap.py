@@ -1431,13 +1431,10 @@ class Snap(s_base.Base):
         if node is not None:
 
             # ensure we still match the property deconf criteria
-            match = True
             for name, (prop, norm, info) in norms.items():
                 if not self._filtByPropAlts(node, prop, norm):
-                    match = False
                     break
-
-            if match:
+            else:
                 # ensure the non-deconf props are set
                 async with self.getEditor() as editor:
                     proto = editor.loadNode(node)
