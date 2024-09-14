@@ -985,6 +985,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('[test:str="foo"] [inet:ipv4?=$node.value()] -test:str'))
             self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ipv4?=$node.value()] -test:str'))
 
+            q = '''init { $l = () }
+            [inet:ipv4=192.0.0.9 inet:ipv4=192.0.0.0 inet:ipv4=192.0.0.255] $l.append(:type)
+            fini { return ( $l ) }'''
+            resp = await core.callStorm(q)
+            self.eq(resp, ['unicast', 'private', 'private'])
+
     async def test_ipv6(self):
         formname = 'inet:ipv6'
         async with self.getTestCore() as core:
@@ -3368,15 +3374,3 @@ class InetModelTest(s_t_utils.SynTest):
                 :channel -> inet:service:channel
                 +:name="/r/synapse"
             '''))
-
-    async def test_model_ipaddress_regression(self):
-        # TODO DATA MODEL MIGRATION
-        # TODO IPV6 VARIANT
-        async with self.getTestCore() as core:
-            q = '''
-            init { $l = () }
-            [inet:ipv4=192.0.0.9 inet:ipv4=192.0.0.0 inet:ipv4=192.0.0.255] $l.append(:type)
-            fini { return ( $l ) }
-            '''
-            resp = await core.callStorm(q)
-            self.eq(resp, ['unicast', 'private', 'private'])
