@@ -1170,3 +1170,51 @@ class ModelRevTest(s_tests.SynTest):
     async def test_modelrev_0_2_29(self):
         async with self.getRegrCore('model-0.2.29') as core:
             self.len(2, await core.nodes('ou:industry:type:taxonomy'))
+
+    async def test_modelrev_0_2_30(self):
+        async with self.getRegrCore('model-0.2.30') as core:
+            q = '''
+                inet:ipv4=192.0.0.0 inet:ipv4=192.0.0.8 inet:ipv4=192.0.0.9 inet:ipv4=192.0.0.10 inet:ipv4=192.0.0.255
+            '''
+            nodes = await core.nodes(q)
+            typz = [node.get('type') for node in nodes]
+            self.eq(typz, ['private', 'private', 'unicast', 'unicast', 'private'])
+
+            q = '''
+            inet:ipv6="64:ff9b:1::" inet:ipv6="64:ff9b:1::1" inet:ipv6="64:ff9b:1::ffff" inet:ipv6="64:ff9b:1::ffff:1"
+            '''
+            nodes = await core.nodes(q)
+            typz = [node.get('type') for node in nodes]
+            self.eq(typz, ['private', 'private', 'private', 'private'])
+
+            q = '''
+            inet:ipv6="2002::" inet:ipv6="2002::1" inet:ipv6="2002::fffe" inet:ipv6="2002::ffff"
+            '''
+            nodes = await core.nodes(q)
+            typz = [node.get('type') for node in nodes]
+            self.eq(typz, ['private', 'private', 'private', 'private'])
+
+            q = 'inet:ipv6="2001:1::1/128" inet:ipv6="2001:1::2/128"'
+            nodes = await core.nodes(q)
+            typz = [node.get('type') for node in nodes]
+            self.eq(typz, ['unicast', 'unicast'])
+
+            q = 'inet:ipv6="2001:3::" inet:ipv6="2001:3::1" inet:ipv6="2001:3::ffff"'
+            nodes = await core.nodes(q)
+            typz = [node.get('type') for node in nodes]
+            self.eq(typz, ['unicast', 'unicast', 'unicast'])
+
+            q = 'inet:ipv6="2001:4:112::" inet:ipv6="2001:4:112::1" inet:ipv6="2001:4:112::ffff"'
+            nodes = await core.nodes(q)
+            typz = [node.get('type') for node in nodes]
+            self.eq(typz, ['unicast', 'unicast', 'unicast'])
+
+            q = 'inet:ipv6="2001:20::" inet:ipv6="2001:20::1" inet:ipv6="2001:20::ffff"'
+            nodes = await core.nodes(q)
+            typz = [node.get('type') for node in nodes]
+            self.eq(typz, ['unicast', 'unicast', 'unicast'])
+
+            q = 'inet:ipv6="2001:30::" inet:ipv6="2001:30::1" inet:ipv6="2001:30::ffff"'
+            nodes = await core.nodes(q)
+            typz = [node.get('type') for node in nodes]
+            self.eq(typz, ['unicast', 'unicast', 'unicast'])
