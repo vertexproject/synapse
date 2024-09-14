@@ -1,9 +1,7 @@
 import socket
 import asyncio
 import hashlib
-import inspect
 import logging
-import functools
 import urllib.parse
 
 import idna
@@ -24,7 +22,6 @@ import synapse.vendor.cpython.lib.email.utils as s_v_email_utils
 
 logger = logging.getLogger(__name__)
 
-# Use the ipaddress module we import from s_common
 ipaddress = s_common.ipaddress
 
 drivre = regex.compile(r'^\w[:|]')

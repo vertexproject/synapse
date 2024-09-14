@@ -20,7 +20,6 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.crypto.coin as s_coin
 
-# Use the ipaddress module we import from s_common
 ipaddress = s_common.ipaddress
 
 logger = logging.getLogger(__name__)
