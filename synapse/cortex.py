@@ -115,6 +115,8 @@ SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
 SYNC_LAYR_ADD = 3   # A layer was added
 SYNC_LAYR_DEL = 4   # A layer was deleted
 
+MAX_NEXUS_DELTA = 3_600
+
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
     'properties': {
@@ -5704,7 +5706,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.stormpool is not None and opts.get('mirror', True):
             extra = await self.getLogExtra(text=text)
-            proxy = await self._getMirrorProxy()
+            proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
                 logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
@@ -5731,13 +5733,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return i
 
     async def _getMirrorOpts(self, opts):
+        assert 'nexsoffs' in opts
         mirropts = s_msgpack.deepcopy(opts)
         mirropts['mirror'] = False
-        mirropts['nexsoffs'] = (await self.getNexsIndx() - 1)
         mirropts['nexstimeout'] = self.stormpoolopts.get('timeout:sync')
         return mirropts
 
-    async def _getMirrorProxy(self):
+    async def _getMirrorProxy(self, opts):
 
         if self.stormpool is None:  # pragma: no cover
             return None
@@ -5756,13 +5758,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 # we are part of the pool and were selected. Convert to local use.
                 return None
 
-            await s_common.wait_for(proxy.getNexsIndx(), timeout)
+            curoffs = await self.getNexsIndx()
+            miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout)
+            if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
+                extra = {
+                    'delta': delta,
+                    'mirror': proxyname,
+                    'mirror_offset': miroffs,
+                }
+                mesg = (f'Pool mirror [{proxyname}] Nexus offset delta too large '
+                        f'({delta} > {MAX_NEXUS_DELTA}), running query locally.')
+                logger.warning(mesg, extra={'synapse': extra})
+                return None
+
+            opts.setdefault('nexsoffs', curoffs - 1)
 
             return proxy
 
         except (TimeoutError, s_exc.IsFini):
-            logger.warning('Timeout waiting for pool mirror, running query locally.')
-            if proxy is not None:
+            if proxy is None:
+                logger.warning('Timeout waiting for pool mirror, running query locally.')
+            else:
+                mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset, running query locally.'
+                logger.warning(mesg, extra={'synapse': {'mirror': proxyname}})
                 await proxy.fini()
             return None
 
@@ -5772,7 +5790,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.stormpool is not None and opts.get('mirror', True):
             extra = await self.getLogExtra(text=text)
-            proxy = await self._getMirrorProxy()
+            proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
                 logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
@@ -5802,7 +5820,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.stormpool is not None and opts.get('mirror', True):
             extra = await self.getLogExtra(text=text)
-            proxy = await self._getMirrorProxy()
+            proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
                 logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
@@ -5827,7 +5845,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.stormpool is not None and opts.get('mirror', True):
             extra = await self.getLogExtra(text=text)
-            proxy = await self._getMirrorProxy()
+            proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
                 logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
