@@ -577,7 +577,7 @@ class ModelRevTest(s_tests.SynTest):
             # some lifting/pivoting won't work right.
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
@@ -642,7 +642,7 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
@@ -838,7 +838,7 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden') # forked view
             forklayr = views[1].get('layers')[0].get('iden')
@@ -1166,6 +1166,46 @@ class ModelRevTest(s_tests.SynTest):
                   'iden': badcpe01,
                   'view': fork00}),
             ])
+
+        async with self.getRegrCore('model-0.2.28') as core:
+
+            views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
+            self.len(3, views)
+
+            fork01 = views[2].get('iden') # forked view
+            infork01 = {'view': fork01}
+
+            # Normal lift will go through the views
+            nodes = await core.nodes('it:sec:cpe:vendor=01generator', opts=infork01)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('v2_2'), 'cpe:/a:01generator:pireospay:-::~~~prestashop~~')
+
+            # Lift by prop from this layer should return nothing
+            q = '''
+            $nodes = ([])
+
+            for $n in $lib.view.get().layers.0.liftByProp("it:sec:cpe:v2_2") {
+                $nodes.append($n)
+            }
+
+            return($nodes)
+            '''
+            nodes = await core.callStorm(q, opts=infork01)
+            self.len(0, nodes)
+
+            # Lift by sodes should return nothing
+            # Lift by prop from this layer should return nothing
+            q = '''
+            $nodes = ([])
+
+            for $n in $lib.view.get().layers.0.getStorNodesByForm("it:sec:cpe") {
+                $nodes.append($n)
+            }
+
+            return($nodes)
+            '''
+            nodes = await core.callStorm(q, opts=infork01)
+            self.len(0, nodes)
 
     async def test_modelrev_0_2_29(self):
         async with self.getRegrCore('model-0.2.29') as core:

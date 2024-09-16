@@ -292,6 +292,38 @@ function migrateCpeNode(oldcpe, newcpe) {
 // scoped to the whole script.
 function main() {
 
+    $views = $lib.view.list(deporder=(true))
+    $views.reverse()
+
+    // Iterate views in reverse deporder
+    for $view in $views {
+        if (not $layers.has($view.layers.0.iden)) { continue }
+
+        view.exec $view.iden {
+            $layer = $lib.layer.get()
+
+            // Get sodes by :v2_2. We're looking for :v2_2 props set incorrectly
+            // in upper views
+            for $sode in $layer.getStorNodesByForm(it:sec:cpe) {
+                ($buid, $info) = $sode
+
+                // If the valu is present on the sode, this is a full node in
+                // this view, go around
+                if $info.valu { continue }
+
+                // This is a floating :v2_2 prop. Remove it because we don't
+                // know if the underlying node will eventually be deleted.
+                // There are two options:
+                // - The underlying node is deleted in which case, this floating
+                //   :v2_2 prop will be dangling in the layer (very bad)
+                // - The underlying node is fixed and migrated in which case,
+                //   the prop being set in this layer shouldn't matter
+                yield $sode
+                [ -:v2_2 ]
+            }
+        }
+    }
+
     for $view in $lib.view.list(deporder=$lib.true) {
 
         if (not $layers.has($view.layers.0.iden)) { continue }
