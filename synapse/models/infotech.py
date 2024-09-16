@@ -330,6 +330,13 @@ class Cpe23Str(s_types.Str):
     def _normPyStr(self, valu):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
+
+            # Valid the CPE2.3 string immediately
+            rgx = cpe23_regex.match(text)
+            if rgx is None or rgx.group() != text:
+                mesg = 'CPE 2.3 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
             parts = cpesplit(text[8:])
             if len(parts) > 11:
                 mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
@@ -346,6 +353,10 @@ class Cpe23Str(s_types.Str):
                     v2_2[idx] = ''
                     continue
 
+                if idx in (PART_IDX_PART, PART_IDX_LANG) and part == '-':
+                    v2_2[idx] = ''
+                    continue
+
                 part = fsb_unescape(part)
                 v2_2[idx] = uri_quote(part)
 
@@ -357,11 +368,23 @@ class Cpe23Str(s_types.Str):
                 v2_2[PART_IDX_OTHER]
             )
 
-            v2_2 = v2_2[:7]
+            v2_2 = zipCpe22(v2_2[:7])
+
+            # Now validate the downconvert
+            rgx = cpe22_regex.match(v2_2)
+            if rgx is None or rgx.group() != v2_2:
+                mesg = 'Invalid CPE2.3 to CPE2.2 conversion.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_2=v2_2)
 
             parts = [fsb_unescape(k) for k in parts]
 
         elif text.startswith('cpe:/'):
+
+            # Valid the CPE2.2 string immediately
+            rgx = cpe22_regex.match(text)
+            if rgx is None or rgx.group() != text:
+                mesg = 'CPE 2.2 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
 
             v2_2 = text
             # automatically normalize CPE 2.2 format to CPE 2.3
@@ -408,23 +431,15 @@ class Cpe23Str(s_types.Str):
 
             v2_3 = 'cpe:2.3:' + ':'.join(escaped)
 
+            # Now validate the upconvert
+            rgx = cpe23_regex.match(v2_3)
+            if rgx is None or rgx.group() != v2_3:
+                mesg = 'Invalid CPE2.2 to CPE2.3 conversion.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_3=v2_3)
+
         else:
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
-
-        rgx = cpe23_regex.match(v2_3)
-        if rgx is None or rgx.group() != v2_3:
-            mesg = 'CPE 2.3 string appears to be invalid.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
-
-        if isinstance(v2_2, list):
-            cpe22 = zipCpe22(v2_2)
-        else:
-            cpe22 = v2_2
-
-        rgx = cpe22_regex.match(cpe22)
-        if rgx is None or rgx.group() != cpe22:
-            v2_2 = None
 
         subs = {
             'part': parts[PART_IDX_PART],
@@ -438,10 +453,8 @@ class Cpe23Str(s_types.Str):
             'target_sw': parts[PART_IDX_TARGET_SW],
             'target_hw': parts[PART_IDX_TARGET_HW],
             'other': parts[PART_IDX_OTHER],
+            'v2_2': v2_2,
         }
-
-        if v2_2 is not None:
-            subs['v2_2'] = v2_2
 
         return v2_3, {'subs': subs}
 

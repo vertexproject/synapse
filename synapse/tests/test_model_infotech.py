@@ -1735,8 +1735,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
 
-            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
 
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
@@ -1749,14 +1749,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('version'), '8.0.6001')
             self.eq(nodes[0].get('update'), 'beta')
 
-            nodes = await core.nodes("[ it:sec:cpe='cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*' ]")
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*'))
-            self.eq(nodes[0].get('part'), 'a')
-            self.eq(nodes[0].get('product'), 'openssh')
-            self.eq(nodes[0].get('vendor'), 'openbsd')
-            self.eq(nodes[0].get('version'), '7.4')
-            self.eq(nodes[0].get('v2_2'), 'cpe:/a:openbsd:openssh:7.4')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes("[ it:sec:cpe='cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*' ]")
 
             nodes = await core.nodes(r'[ it:sec:cpe="cpe:2.3:o:cisco:ios:12.1\(22\)ea1a:*:*:*:*:*:*:*" ]')
             self.len(1, nodes)
@@ -1880,7 +1874,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes(q, opts={'vars': {'valu': valu}})
                 self.len(1, nodes)
                 node = nodes[0]
-                self.eq(node.ndef[1], valu.lower())
+                self.eq(node.ndef[1], valu.lower(), msg=valu.lower())
 
     async def test_infotech_c2config(self):
         async with self.getTestCore() as core:
