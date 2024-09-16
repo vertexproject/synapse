@@ -1738,6 +1738,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
 
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm(r'$lib.cast(it:sec:cpe, "cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*")')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm(r'$lib.cast(it:sec:cpe:v2_2, "cpe:/a:01generator:pireospay\r\n:-::~~~prestashop~~")')
+
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
             ]''')
