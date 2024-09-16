@@ -577,7 +577,7 @@ class ModelRevTest(s_tests.SynTest):
             # some lifting/pivoting won't work right.
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
@@ -642,7 +642,7 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
@@ -838,7 +838,7 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden') # forked view
             forklayr = views[1].get('layers')[0].get('iden')
