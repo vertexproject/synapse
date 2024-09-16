@@ -7992,9 +7992,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_query_offload(self):
 
-        async def _hang_getNexsIndx(_):
+        async def _hang(*args, **kwargs):
             await asyncio.sleep(6)
-            return None
+            return
 
         async with self.getTestAha() as aha:
 
@@ -8071,7 +8071,21 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout', data)
 
-                    with patch('synapse.cortex.CoreApi.getNexsIndx', _hang_getNexsIndx):
+                    with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
+
+                        with self.getLoggerStream('synapse') as stream:
+                            msgs = await alist(core00.storm('inet:asn=0'))
+                            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                        stream.seek(0)
+                        data = stream.read()
+                        self.notin('Offloading Storm query', data)
+                        self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
+                        self.notin('Timeout waiting for query mirror', data)
+
+                    await core00.stormpool.waitready(timeout=12)
+
+                    with patch('synapse.telepath.Proxy.getPoolLink', _hang):
 
                         with self.getLoggerStream('synapse') as stream:
                             msgs = await alist(core00.storm('inet:asn=0'))
