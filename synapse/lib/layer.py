@@ -2806,7 +2806,7 @@ class Layer(s_nexus.Pusher):
             sode = self._genStorNode(nid)
 
             for edit in edits:
-                kvpairs.extend(await self.editors[edit[0]](nid, form, edit, sode, meta))
+                kvpairs.extend(await self.editors[edit[0]](nid, form, edit, sode))
 
                 if len(kvpairs) > 20:
                     await self.layrslab.putmulti(kvpairs, db=self.indxdb)
@@ -3267,7 +3267,7 @@ class Layer(s_nexus.Pusher):
             (EDIT_EDGE_TOMB_DEL, (verb, n2nid)),
         )
 
-    async def _editNodeAdd(self, nid, form, edit, sode, meta):
+    async def _editNodeAdd(self, nid, form, edit, sode):
 
         if sode.get('valu') is not None:
             return ()
@@ -3329,7 +3329,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeDel(self, nid, form, edit, sode, meta):
+    async def _editNodeDel(self, nid, form, edit, sode):
 
         if (valt := sode.pop('valu', None)) is None:
             return ()
@@ -3382,7 +3382,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeTomb(self, nid, form, edit, sode, meta):
+    async def _editNodeTomb(self, nid, form, edit, sode):
 
         if sode.get('antivalu') is not None:
             return ()
@@ -3405,7 +3405,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeTombDel(self, nid, form, edit, sode, meta):
+    async def _editNodeTombDel(self, nid, form, edit, sode):
 
         if sode.pop('antivalu', None) is None:
             return ()
@@ -3419,7 +3419,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editPropSet(self, nid, form, edit, sode, meta):
+    async def _editPropSet(self, nid, form, edit, sode):
 
         prop, valu, oldv, stortype = edit[1]
 
@@ -3582,7 +3582,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editPropDel(self, nid, form, edit, sode, meta):
+    async def _editPropDel(self, nid, form, edit, sode):
 
         prop = edit[1][0]
 
@@ -3664,7 +3664,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editPropTomb(self, nid, form, edit, sode, meta):
+    async def _editPropTomb(self, nid, form, edit, sode):
 
         prop = edit[1][0]
 
@@ -3685,7 +3685,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editPropTombDel(self, nid, form, edit, sode, meta):
+    async def _editPropTombDel(self, nid, form, edit, sode):
 
         prop = edit[1][0]
 
@@ -3701,7 +3701,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagSet(self, nid, form, edit, sode, meta):
+    async def _editTagSet(self, nid, form, edit, sode):
 
         tag, valu, _ = edit[1]
 
@@ -3795,7 +3795,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editTagDel(self, nid, form, edit, sode, meta):
+    async def _editTagDel(self, nid, form, edit, sode):
 
         tag = edit[1][0]
 
@@ -3842,7 +3842,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagTomb(self, nid, form, edit, sode, meta):
+    async def _editTagTomb(self, nid, form, edit, sode):
 
         tag = edit[1][0]
 
@@ -3863,7 +3863,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editTagTombDel(self, nid, form, edit, sode, meta):
+    async def _editTagTombDel(self, nid, form, edit, sode):
 
         tag = edit[1][0]
 
@@ -3879,7 +3879,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagPropSet(self, nid, form, edit, sode, meta):
+    async def _editTagPropSet(self, nid, form, edit, sode):
 
         tag, prop, valu, oldv, stortype = edit[1]
 
@@ -3972,7 +3972,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editTagPropDel(self, nid, form, edit, sode, meta):
+    async def _editTagPropDel(self, nid, form, edit, sode):
 
         tag, prop, _, _ = edit[1]
 
@@ -4020,7 +4020,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editTagPropTomb(self, nid, form, edit, sode, meta):
+    async def _editTagPropTomb(self, nid, form, edit, sode):
 
         tag, prop = edit[1]
 
@@ -4045,7 +4045,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editTagPropTombDel(self, nid, form, edit, sode, meta):
+    async def _editTagPropTombDel(self, nid, form, edit, sode):
 
         tag, prop = edit[1]
 
@@ -4067,7 +4067,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeDataSet(self, nid, form, edit, sode, meta):
+    async def _editNodeDataSet(self, nid, form, edit, sode):
 
         name, valu, oldv = edit[1]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
@@ -4086,7 +4086,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeDataDel(self, nid, form, edit, sode, meta):
+    async def _editNodeDataDel(self, nid, form, edit, sode):
 
         name, valu = edit[1]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
@@ -4097,7 +4097,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeDataTomb(self, nid, form, edit, sode, meta):
+    async def _editNodeDataTomb(self, nid, form, edit, sode):
 
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
@@ -4117,7 +4117,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeDataTombDel(self, nid, form, edit, sode, meta):
+    async def _editNodeDataTombDel(self, nid, form, edit, sode):
 
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
@@ -4133,7 +4133,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeEdgeAdd(self, nid, form, edit, sode, meta):
+    async def _editNodeEdgeAdd(self, nid, form, edit, sode):
 
         verb, n2nid = edit[1]
 
@@ -4185,7 +4185,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeEdgeDel(self, nid, form, edit, sode, meta):
+    async def _editNodeEdgeDel(self, nid, form, edit, sode):
 
         verb, n2nid = edit[1]
 
@@ -4231,7 +4231,7 @@ class Layer(s_nexus.Pusher):
 
         return ()
 
-    async def _editNodeEdgeTomb(self, nid, form, edit, sode, meta):
+    async def _editNodeEdgeTomb(self, nid, form, edit, sode):
 
         verb, n2nid = edit[1]
 
@@ -4268,7 +4268,7 @@ class Layer(s_nexus.Pusher):
 
         return kvpairs
 
-    async def _editNodeEdgeTombDel(self, nid, form, edit, sode, meta):
+    async def _editNodeEdgeTombDel(self, nid, form, edit, sode):
 
         verb, n2nid = edit[1]
 
