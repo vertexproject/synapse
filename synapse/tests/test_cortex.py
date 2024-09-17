@@ -7969,13 +7969,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'view': view.iden
                 })
 
-            with self.raises(s_exc.DupIden):
+            with self.raises(s_exc.DupIden) as ectx:
                 await core.addHttpExtApi({
                     'iden': othr,
                     'path': 'bad/dup',
                     'owner': unfo.get('iden'),
                     'view': view.iden
                 })
+            self.eq(ectx.exception.get('iden'), othr)
 
             with self.raises(s_exc.SynErr):
                 await core.setHttpApiIndx(newp, 0)

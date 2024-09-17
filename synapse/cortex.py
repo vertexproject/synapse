@@ -4395,8 +4395,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if adef.get('iden') is None:
             adef['iden'] = s_common.guid()
 
-        if self._exthttpapis.get(adef['iden']) is not None:
-            raise s_exc.DupIden(mesg=f'Duplicate iden specified for Extended HTTP API: {adef["iden"]}')
+        iden = adef['iden']
+        if self._exthttpapis.get(iden) is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate iden specified for Extended HTTP API: {iden}', iden=iden)
 
         adef['created'] = s_common.now()
         adef['updated'] = adef['created']
