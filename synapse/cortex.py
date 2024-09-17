@@ -4391,7 +4391,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             mesg = f'Invalid path for Extended HTTP API - cannot compile regular expression for [{path}] : {e}'
             raise s_exc.BadArg(mesg=mesg) from None
-        adef['iden'] = s_common.guid()
+
+        if adef.get('iden') is None:
+            adef['iden'] = s_common.guid()
+
+        if self._exthttpapis.get(adef['iden']) is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate iden specified for Extended HTTP API: {adef["iden"]}')
+
         adef['created'] = s_common.now()
         adef['updated'] = adef['created']
         adef = s_schemas.reqValidHttpExtAPIConf(adef)

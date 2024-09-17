@@ -7900,16 +7900,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'view': view.iden,
             })
 
+            othr = s_common.guid()
             info4 = await core.addHttpExtApi({
+                'iden': othr,
                 'path': 'another/item',
                 'owner': unfo.get('iden'),
                 'view': view.iden,
             })
+            self.eq(info4.get('iden'), othr)
 
             iden = info.get('iden')
 
             adef = await core.getHttpExtApi(iden)
             self.eq(adef, info)
+
+            adef = await core.getHttpExtApi(othr)
+            self.eq(adef, info4)
 
             adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow')
             self.eq(adef, info)
@@ -7954,6 +7960,22 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.gt(adef.get('updated'), updated)
 
             # Sad path
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addHttpExtApi({
+                    'iden': 'lolnope',
+                    'path': 'not/gonna/happen',
+                    'owner': unfo.get('iden'),
+                    'view': view.iden
+                })
+
+            with self.raises(s_exc.DupIden):
+                await core.addHttpExtApi({
+                    'iden': othr,
+                    'path': 'bad/dup',
+                    'owner': unfo.get('iden'),
+                    'view': view.iden
+                })
 
             with self.raises(s_exc.SynErr):
                 await core.setHttpApiIndx(newp, 0)
