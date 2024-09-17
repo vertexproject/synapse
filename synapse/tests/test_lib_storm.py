@@ -79,6 +79,21 @@ class StormTest(s_t_utils.SynTest):
             self.eq(goals, nodes08[0].get('goals'))
             self.eq(nodes07[0].ndef, nodes08[0].ndef)
 
+            nodes09 = await core.nodes('[ ou:org=({"name": "vertex"}) :name=foobar :names=() ]')
+            nodes10 = await core.nodes('[ ou:org=({"name": "vertex"}) :type=lulz ]')
+            self.len(1, nodes09)
+            self.len(1, nodes10)
+            self.ne(nodes09[0].ndef, nodes10[0].ndef)
+
+            await core.nodes('[ ou:org=* :type=lulz ]')
+            await core.nodes('[ ou:org=* :type=hehe ]')
+            nodes11 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"type": "lulz"}}) ]')
+            self.len(1, nodes11)
+
+            nodes12 = await core.nodes('[ ou:org=({"name": "vertex", "type": "hehe"}) ]')
+            self.len(1, nodes12)
+            self.ne(nodes11[0].ndef, nodes12[0].ndef)
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
