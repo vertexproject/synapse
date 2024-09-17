@@ -67,6 +67,18 @@ class StormTest(s_t_utils.SynTest):
             self.eq('hurr durr', nodes06[0].get('motto'))
             self.ne(nodes00[0].ndef, nodes06[0].ndef)
 
+            goals = [s_common.guid(), s_common.guid()]
+            goals.sort()
+
+            nodes07 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            self.len(1, nodes07)
+            self.eq(goals, nodes07[0].get('goals'))
+
+            nodes08 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            self.len(1, nodes08)
+            self.eq(goals, nodes08[0].get('goals'))
+            self.eq(nodes07[0].ndef, nodes08[0].ndef)
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 

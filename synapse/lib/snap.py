@@ -1454,7 +1454,7 @@ class Snap(s_base.Base):
             count = await self._getPropAltCount(prop, norm)
             counts.append((count, prop, norm))
 
-        counts.sort()
+        counts.sort(key=lambda x: x[0])
 
         # lift starting with the lowest count
         count, prop, norm = counts[0]
@@ -1484,8 +1484,9 @@ class Snap(s_base.Base):
 
     async def _getPropAltCount(self, prop, valu):
         count = 0
+        proptype = prop.type
         for prop in prop.getAlts():
-            if prop.type.isarray:
+            if prop.type.isarray and prop.type.arraytype == proptype:
                 count += await self.view.getPropArrayCount(prop.full, valu=valu)
             else:
                 count += await self.view.getPropCount(prop.full, valu=valu)
@@ -1493,8 +1494,9 @@ class Snap(s_base.Base):
 
     def _filtByPropAlts(self, node, prop, valu):
         # valu must be normalized in advance
+        proptype = prop.type
         for prop in prop.getAlts():
-            if prop.type.isarray:
+            if prop.type.isarray and prop.type.arraytype == proptype:
                 if valu in node.get(prop.name):
                     return True
             else:
@@ -1505,8 +1507,9 @@ class Snap(s_base.Base):
 
     async def _nodesByPropAlts(self, prop, valu):
         # valu must be normalized in advance
+        proptype = prop.type
         for prop in prop.getAlts():
-            if prop.type.isarray:
+            if prop.type.isarray and prop.type.arraytype == proptype:
                 async for node in self.nodesByPropArray(prop.full, '=', valu, norm=False):
                     yield node
             else:
