@@ -877,7 +877,7 @@ class User(s_stormtypes.Prim):
         ''',
          'type': {'type': 'function', '_funcname': '_methUserSetRoles',
                   'args': (
-                      {'name': 'idens', 'type': 'list', 'desc': 'The idens to  of the Role.', },
+                      {'name': 'idens', 'type': 'list', 'desc': 'The idens of the Roles to set on the User.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'revoke', 'desc': 'Remove a Role from the User',
