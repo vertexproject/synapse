@@ -1722,7 +1722,7 @@ class SynTest(unittest.TestCase):
         '''
         stream = AsyncStreamEvent()
         stream.setMesg(mesg)
-        handler = logging.StreamHandler(stream)
+        handler = s_structlog.StreamHandlerWithQueue(stream=stream)
         slogger = logging.getLogger(logname)
         slogger.addHandler(handler)
         level = slogger.level
@@ -1769,7 +1769,7 @@ class SynTest(unittest.TestCase):
         '''
         stream = AsyncStreamEvent()
         stream.setMesg(mesg)
-        handler = logging.StreamHandler(stream)
+        handler = s_structlog.StreamHandlerWithQueue(stream=stream)
         slogger = logging.getLogger(logname)
         formatter = s_structlog.JsonFormatter()
         handler.setFormatter(formatter)

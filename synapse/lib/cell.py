@@ -1117,10 +1117,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
-        self._syn_log_queue = None  # type: collections.deque
 
         self.nexslock = asyncio.Lock()
         self.netready = asyncio.Event()
+
+        self._syn_log_queue = None  # type: collections.deque
+        for handler in logging.getLogger('').handlers:
+            if hasattr(handler, '_syn_log_queue'):
+                self._syn_log_queue = handler._syn_log_queue
+                break
 
         self.conf = self._initCellConf(conf)
 
@@ -4211,11 +4216,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except:
             logger.exception(f'Error starting cell at {opts.dirn}')
             raise
-
-        for handler in logging.getLogger('').handlers:
-            if hasattr(handler, '_syn_log_queue'):
-                cell._syn_log_queue = handler._syn_log_queue
-                break
 
         try:
 

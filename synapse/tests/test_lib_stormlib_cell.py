@@ -1,14 +1,7 @@
-
-import logging
-
-import contextlib
-
 import synapse.exc as s_exc
 
-import synapse.lib.aha as s_aha
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
-import synapse.lib.structlog as s_structlog
 import synapse.lib.stormlib.cell as s_stormlib_cell
 
 import synapse.tests.utils as s_test
@@ -355,47 +348,10 @@ class StormCellTest(s_test.SynTest):
             self.len(1, await core.nodes('risk:vulnerable -> it:prod:softver +:name=view1', opts={'view': view1}))
             self.len(1, await core.nodes('risk:vulnerable -> it:host', opts={'view': view2}))
 
-    @contextlib.contextmanager
-    def getAsyncLoggerStreamAndHandler(self, logname, mesg=''):
-        stream = s_test.AsyncStreamEvent()
-        stream.setMesg(mesg)
-        handler = s_structlog.StreamHandlerWithQueue(stream)
-        slogger = logging.getLogger(logname)
-        slogger.addHandler(handler)
-        level = slogger.level
-        slogger.setLevel('DEBUG')
-        try:
-            yield stream, handler
-        except Exception:  # pragma: no cover
-            raise
-        finally:
-            slogger.removeHandler(handler)
-            slogger.setLevel(level)
-
-    @contextlib.contextmanager
-    def getAsyncStructLoggerStreamAndHandler(self, logname, mesg=''):
-        stream = s_test.AsyncStreamEvent()
-        stream.setMesg(mesg)
-        handler = s_structlog.StreamHandlerWithQueue(stream)
-        formatter = s_structlog.JsonFormatter()
-        handler.setFormatter(formatter)
-        slogger = logging.getLogger(logname)
-        slogger.addHandler(handler)
-        level = slogger.level
-        slogger.setLevel('DEBUG')
-        try:
-            yield stream, handler
-        except Exception:  # pragma: no cover
-            raise
-        finally:
-            slogger.removeHandler(handler)
-            slogger.setLevel(level)
-
     async def test_stormlib_cell_iterlogs(self):
-        with self.getAsyncLoggerStreamAndHandler('', '') as (stream, handler):
+        with self.getAsyncLoggerStream('', '') as stream:
             conf = {'storm:log': True}
             async with self.getTestCore(conf=conf) as core:
-                core._syn_log_queue = handler._syn_log_queue
                 msgs = await core.stormlist('$lib.print(hello)')
                 msgs = await core.stormlist('$lib.log.info(hello)')
                 msgs = await core.stormlist('for $mesg in $lib.cell.iterLogs() { $lib.print($mesg) }')
@@ -403,10 +359,9 @@ class StormCellTest(s_test.SynTest):
                 self.stormIsInPrint('Executing storm query {$lib.log.info(hello)}', msgs)
                 self.stormIsInPrint('hello', msgs)
 
-        with self.getAsyncStructLoggerStreamAndHandler('', '') as (stream, handler):
+        with self.getStructuredAsyncLoggerStream('', '') as stream:
             conf = {'storm:log': True}
             async with self.getTestCore(conf=conf) as core:
-                core._syn_log_queue = handler._syn_log_queue
                 msgs = await core.stormlist('$lib.print(hello)')
                 msgs = await core.stormlist('$lib.log.info(hello)')
                 msgs = await core.stormlist('for $mesg in $lib.cell.iterLogs() { $lib.print($mesg) }')
