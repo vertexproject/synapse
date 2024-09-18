@@ -810,6 +810,59 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                   'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
+    # _storm_query = ''' // storm
+    #     _cpeData = ({})
+
+    #     function _loadQueueData() {
+    #         $nodesq = $lib.queue.get("model_0_2_28:nodes")
+    #         $edgesq = $lib.queue.get("model_0_2_28:nodes:edges")
+    #         $refsq = $lib.queue.get("model_0_2_28:nodes:refs")
+
+    #         for $ii in $lib.range($nodesq.size()) {
+    #             $item = $nodesq.get($ii, cull=(false))
+    #             $nidn = $item.1.iden
+    #             if ($iden and $iden != $nidn) { continue }
+    #             $nodes.$nidn = $item.1
+    #         }
+
+    #         for $ii in $lib.range($edgesq.size()) {
+    #             $item = $edgesq.get($ii, cull=(false))
+    #             $nidn = $item.1.iden
+    #             if ($iden and $iden != $nidn) { continue }
+    #             if (not $nodes.$nidn.edges) { $nodes.$nidn.edges = ([]) }
+    #             $nodes.$nidn.edges.append($item.1)
+    #         }
+
+    #         for $ii in $lib.range($refsq.size()) {
+    #             $item = $refsq.get($ii, cull=(false))
+    #             $nidn = $item.1.iden
+    #             if ($iden and $iden != $nidn) { continue }
+    #             if (not $nodes.$nidn.refs) { $nodes.$nidn.refs = ([]) }
+    #             $nodes.$nidn.refs.append($item.1)
+    #         }
+    #     }
+
+    #     function repairNode(iden, newval) {
+    #         $oldcpe = $getNode($iden)
+
+    #         try {
+    #             $view = $lib.view.get($oldcpe.view)
+    #         } except NoSuchView as exc {
+    #             $lib.warn(`Cannot restore node {$iden}, view {$oldcpe.view} does not exist.`)
+    #             return()
+    #         }
+
+    #         $wlyr = $view.layers.0
+    #         if (not $lib.user.allowed("node", gateiden=$wlyr.iden)) {
+    #             $lib.warn(`Cannot restore node, user {$lib.user.name()} does not have write access to view {$oldcpe.view}.`)
+    #             return()
+    #         }
+
+
+
+    #     }
+
+    # '''
 
     def getObjLocals(self):
         return {
@@ -1268,3 +1321,10 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     await self.copyData(n, proto, overwrite=False)
 
         return retidens
+
+# @s_stormtypes.registry.registerLib
+# class LibModelMigrations_0_2_28(s_stormtypes.Lib):
+#     '''
+#     A Storm library with helper functions for the 0.2.28 model it:sec:cpe migration.
+#     '''
+#     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_28')
