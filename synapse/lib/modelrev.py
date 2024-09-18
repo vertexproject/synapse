@@ -42,8 +42,7 @@ class ModelRev:
             ((0, 2, 25), self.revModel_0_2_25),
             ((0, 2, 26), self.revModel_0_2_26),
             ((0, 2, 27), self.revModel_0_2_27),
-            # Migration 0.2.28 skipped and eventually moved
-            # ((0, 2, 28), self.revModel_0_2_28),
+            # Model revision 0.2.28 skipped
             ((0, 2, 29), self.revModel_0_2_29),
         )
 

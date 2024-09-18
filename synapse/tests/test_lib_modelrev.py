@@ -569,9 +569,8 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq('Foo', nodes[0].get('id'))
 
-    async def test_modelrev_0_2_28(self):
-        # Skip this test for now since we're disabling the 0_2_28 migration. This test will be moved/updated in a later
-        # PR.
+    async def test_modelrev_cpe(self):
+        # Skip this test for now since 0_2_28 migration was skipped. This test will be moved/updated in a later PR.
         self.skip()
 
         async with self.getRegrCore('model-0.2.28', maxvers=(0, 2, 24)) as core:
