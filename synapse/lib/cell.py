@@ -16,6 +16,7 @@ import platform
 import tempfile
 import functools
 import contextlib
+import collections
 import multiprocessing
 
 import aiohttp
@@ -844,6 +845,11 @@ class CellApi(s_base.Base):
     async def reload(self, subsystem=None):
         return await self.cell.reload(subsystem=subsystem)
 
+    @adminapi(log=True)
+    async def iterCellLogs(self):
+        async for mesg in self.cell.iterCellLogs():
+            yield mesg
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -1111,6 +1117,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.ahaclient = None
         self._checkspace = s_coro.Event()
         self._reloadfuncs = {}  # name -> func
+        self._syn_log_queue = None  # type: collections.deque
 
         self.nexslock = asyncio.Lock()
         self.netready = asyncio.Event()
@@ -1462,6 +1469,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = await s_nexus.Pusher.fini(self)
         if retn == 0:
             self._onFiniCellGuid()
+            if self._syn_log_queue is not None:
+                self._syn_log_queue = None
         return retn
 
     def _onFiniCellGuid(self):
@@ -4203,6 +4212,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.exception(f'Error starting cell at {opts.dirn}')
             raise
 
+        for handler in logging.getLogger('').handlers:
+            if hasattr(handler, '_syn_log_queue'):
+                cell._syn_log_queue = handler._syn_log_queue
+                break
+
         try:
 
             turl = cell._getDmonListen()
@@ -4921,3 +4935,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def iterCellLogs(self):
+        if self._syn_log_queue is None:
+            raise s_exc.SynErr(mesg='no queue available')
+        for mesg in list(self._syn_log_queue):
+            yield mesg

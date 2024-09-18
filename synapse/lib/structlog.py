@@ -1,8 +1,21 @@
 import json
 
 import logging
+import collections
 
 import synapse.common as s_common
+
+DEFAULT_QSIZE = 1024
+
+class StreamHandlerWithQueue(logging.StreamHandler):
+    def __init__(self, stream=None, qsize=DEFAULT_QSIZE):
+        super().__init__(stream=stream)
+        self._syn_log_queue = collections.deque(maxlen=qsize)
+
+    def format(self, record: logging.LogRecord) -> str:
+        mesg = super().format(record)
+        self._syn_log_queue.append(mesg)
+        return mesg
 
 class JsonFormatter(logging.Formatter):
     def __init__(self, *args, **kwargs):
