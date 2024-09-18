@@ -126,7 +126,7 @@ class ModelRevTest(s_tests.SynTest):
             url3 = "https://alpha.com/woot"
 
             # created via: f'[it:sec:cve=CVE-2013-9999 :desc="some words" :references=({url0}, {url1}, {url2}, {url3})]'
-            nodes = await core.nodes(f'it:sec:cve=CVE-2013-9999')
+            nodes = await core.nodes('it:sec:cve=CVE-2013-9999')
             self.eq(nodes[0].ndef[1], 'cve-2013-9999')
             self.eq(nodes[0].get('desc'), 'some words')
             self.eq(nodes[0].get('references'), (url3, url1, url0, url2))
@@ -571,43 +571,52 @@ class ModelRevTest(s_tests.SynTest):
 
     async def test_modelrev_0_2_28(self):
 
+        self.maxDiff = None
+
         async with self.getRegrCore('model-0.2.28', maxvers=(0, 2, 24)) as core:
             # Do some pre-migration validation of the cortex. It's still a
             # little weird in here because the CPE types have been updated so
             # some lifting/pivoting won't work right.
 
+            # There should be nothing in the default view
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)
+
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(3, views)
+            self.len(4, views)
 
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
 
-            nodes = await core.nodes('it:sec:cpe')
+            fork01 = views[2].get('iden')
+            infork01 = {'view': fork01}
+
+            nodes = await core.nodes('it:sec:cpe', opts=infork00)
             self.len(11, nodes)
             for node in nodes:
                 self.isin('test.cpe', node.tags)
                 data = await s_tests.alist(node.iterData())
                 self.eq([k[0] for k in data], ('cpe22', 'cpe23'))
 
-            nodes = await core.nodes('it:sec:cpe -(refs)> risk:vuln | uniq')
+            nodes = await core.nodes('it:sec:cpe -(refs)> risk:vuln | uniq', opts=infork00)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('risk:vuln', s_common.guid(('risk', 'vuln'))))
 
-            nodes = await core.nodes('risk:vulnerable')
+            nodes = await core.nodes('risk:vulnerable', opts=infork00)
             self.len(11, nodes)
             for node in nodes:
                 self.nn(node.get('node'))
 
-            nodes = await core.nodes(r'it:sec:cpe:vendor="d\-link"')
+            nodes = await core.nodes(r'it:sec:cpe:vendor="d\-link"', opts=infork00)
             self.len(1, nodes)
 
-            nodes = await core.nodes('it:prod:soft', opts=infork00)
+            nodes = await core.nodes('it:prod:soft', opts=infork01)
             self.len(4, nodes)
             for node in nodes:
                 self.isin('test.prod', node.tags)
                 self.nn(node.get('cpe'))
 
-            nodes = await core.nodes('inet:flow', opts=infork00)
+            nodes = await core.nodes('inet:flow', opts=infork01)
             self.len(4, nodes)
             for node in nodes:
                 self.isin('test.flow', node.tags)
@@ -618,34 +627,37 @@ class ModelRevTest(s_tests.SynTest):
                     (srcs is not None and len(srcs) == 2)
                 ))
 
-            nodes = await core.nodes('_ext:model:form', opts=infork00)
+            nodes = await core.nodes('_ext:model:form', opts=infork01)
             self.len(4, nodes)
             for node in nodes:
                 self.isin('test.ext', node.tags)
                 self.nn(node.get('cpe'))
 
-            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -(seen)> it:sec:cpe', opts=infork00)
+            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -(seen)> it:sec:cpe', opts=infork01)
             self.len(5, nodes)
 
-            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -(seen)> it:sec:cpe', opts=infork00)
+            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -(seen)> it:sec:cpe', opts=infork01)
             self.len(6, nodes)
 
-            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -> meta:seen', opts=infork00)
+            nodes = await core.nodes('meta:source:name="cpe.22.invalid" -> meta:seen', opts=infork01)
             self.len(5, nodes)
 
-            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -> meta:seen', opts=infork00)
+            nodes = await core.nodes('meta:source:name="cpe.23.invalid" -> meta:seen', opts=infork01)
             self.len(6, nodes)
 
-            nodes = await core.nodes('it:sec:vuln:scan:result', opts=infork00)
+            nodes = await core.nodes('it:sec:vuln:scan:result', opts=infork01)
             self.len(11, nodes)
 
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(3, views)
+            self.len(4, views)
 
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
+
+            fork01 = views[2].get('iden')
+            infork01 = {'view': fork01}
 
             # Calculate some timestamps
             start = datetime.datetime(year=2020, month=1, day=1, tzinfo=datetime.timezone.utc)
@@ -655,7 +667,7 @@ class ModelRevTest(s_tests.SynTest):
             end = int(end.timestamp() * 1000)
 
             # We started with 11 CPE nodes and two got removed
-            nodes = await core.nodes('it:sec:cpe')
+            nodes = await core.nodes('it:sec:cpe', opts=infork00)
             self.len(9, nodes)
             for node in nodes:
                 self.isin('test.cpe', node.tags)
@@ -668,33 +680,33 @@ class ModelRevTest(s_tests.SynTest):
 
                 self.eq((start, end), seen)
 
-            nodes = await core.nodes('it:sec:cpe#test.cpe.22invalid +#test.cpe.23invalid')
+            nodes = await core.nodes('it:sec:cpe#test.cpe.22invalid +#test.cpe.23invalid', opts=infork00)
             self.len(0, nodes)
 
-            nodes = await core.nodes('it:sec:cpe -(refs)> risk:vuln')
+            nodes = await core.nodes('it:sec:cpe -(refs)> risk:vuln', opts=infork00)
             self.len(9, nodes)
 
-            nodes = await core.nodes('risk:vulnerable')
+            nodes = await core.nodes('risk:vulnerable', opts=infork00)
             self.len(11, nodes)
 
-            nodes = await core.nodes('risk:vulnerable:node')
+            nodes = await core.nodes('risk:vulnerable:node', opts=infork00)
             self.len(9, nodes)
 
-            nodes = await core.nodes('risk:vulnerable -> it:sec:cpe')
+            nodes = await core.nodes('risk:vulnerable -> it:sec:cpe', opts=infork00)
             self.len(9, nodes)
 
-            nodes = await core.nodes('risk:vulnerable -:node')
+            nodes = await core.nodes('risk:vulnerable -:node', opts=infork00)
             self.len(2, nodes)
 
-            nodes = await core.nodes('it:prod:soft', opts=infork00)
+            nodes = await core.nodes('it:prod:soft', opts=infork01)
             self.len(4, nodes)
             for node in nodes:
                 self.isin('test.prod', node.tags)
 
-            nodes = await core.nodes('it:prod:soft:cpe', opts=infork00)
+            nodes = await core.nodes('it:prod:soft:cpe', opts=infork01)
             self.len(3, nodes)
 
-            nodes = await core.nodes('it:prod:soft -> it:sec:cpe', opts=infork00)
+            nodes = await core.nodes('it:prod:soft -> it:sec:cpe', opts=infork01)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
             self.sorteq(ndefs, (
@@ -703,21 +715,21 @@ class ModelRevTest(s_tests.SynTest):
                 ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21\\(aazf.14\\)c0:*:*:*:*:*:*:*'),
             ))
 
-            nodes = await core.nodes('it:prod:soft -:cpe', opts=infork00)
+            nodes = await core.nodes('it:prod:soft -:cpe', opts=infork01)
             self.len(1, nodes)
             self.eq(nodes[0].get('name'), '22i-23i')
 
-            nodes = await core.nodes('inet:flow', opts=infork00)
+            nodes = await core.nodes('inet:flow', opts=infork01)
             self.len(4, nodes)
 
-            nodes = await core.nodes('inet:flow +(:src:cpes or :dst:cpes)', opts=infork00)
+            nodes = await core.nodes('inet:flow +(:src:cpes or :dst:cpes)', opts=infork01)
             self.len(3, nodes)
 
-            nodes = await core.nodes('inet:flow -(:src:cpes or :dst:cpes)', opts=infork00)
+            nodes = await core.nodes('inet:flow -(:src:cpes or :dst:cpes)', opts=infork01)
             self.len(1, nodes)
             self.eq(nodes[0].repr(), s_common.guid(('flow', '22i', '23i')))
 
-            nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=infork00)
+            nodes = await core.nodes('inet:flow -> it:sec:cpe', opts=infork01)
             self.len(6, nodes)
             ndefs = [k.ndef for k in nodes]
             self.sorteq(ndefs, (
@@ -729,16 +741,16 @@ class ModelRevTest(s_tests.SynTest):
                 ('it:sec:cpe', 'cpe:2.3:a:abinitio:control\\>center:-:*:*:*:*:*:*:*'),
             ))
 
-            nodes = await core.nodes('_ext:model:form', opts=infork00)
+            nodes = await core.nodes('_ext:model:form', opts=infork01)
             self.len(4, nodes)
 
-            nodes = await core.nodes('_ext:model:form:cpe', opts=infork00)
+            nodes = await core.nodes('_ext:model:form:cpe', opts=infork01)
             self.len(3, nodes)
 
-            nodes = await core.nodes('_ext:model:form -:cpe', opts=infork00)
+            nodes = await core.nodes('_ext:model:form -:cpe', opts=infork01)
             self.len(1, nodes)
 
-            nodes = await core.nodes('_ext:model:form -> it:sec:cpe', opts=infork00)
+            nodes = await core.nodes('_ext:model:form -> it:sec:cpe', opts=infork01)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
             self.sorteq(ndefs, (
@@ -747,10 +759,10 @@ class ModelRevTest(s_tests.SynTest):
                 ('it:sec:cpe', r'cpe:2.3:a:1c:1c\:enterprise:-:*:*:*:*:*:*:*'),
             ))
 
-            nodes = await core.nodes('meta:seen', opts=infork00)
+            nodes = await core.nodes('meta:seen', opts=infork01)
             self.len(3, nodes)
 
-            nodes = await core.nodes('meta:seen -> it:sec:cpe', opts=infork00)
+            nodes = await core.nodes('meta:seen -> it:sec:cpe', opts=infork01)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
             self.sorteq(ndefs, (
@@ -759,7 +771,7 @@ class ModelRevTest(s_tests.SynTest):
                 ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas542_firmware:5.21\\%28aazf.15\\%29co:*:*:*:*:*:*:*'),
             ))
 
-            nodes = await core.nodes('it:sec:cpe -> meta:seen -> it:sec:vuln:scan:result', opts=infork00)
+            nodes = await core.nodes('it:sec:cpe -> meta:seen -> it:sec:vuln:scan:result', opts=infork01)
             self.len(3, nodes)
             ndefs = [k.ndef for k in nodes]
             self.sorteq(ndefs, (
@@ -769,68 +781,68 @@ class ModelRevTest(s_tests.SynTest):
             ))
 
             # Check that we correctly copied over the edges
-            nodes = await core.nodes('risk:vuln <(refs)- it:sec:cpe')
+            nodes = await core.nodes('risk:vuln <(refs)- it:sec:cpe', opts=infork00)
             self.len(9, nodes)
 
             # Check that we correctly copied over the tags
-            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"', opts=infork00)
             self.len(1, nodes)
             self.isin('test.cpe.22valid', nodes[0].tags)
             self.isin('test.cpe.23invalid', nodes[0].tags)
 
-            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"', opts=infork00)
             self.len(1, nodes)
             self.isin('test.cpe.22valid', nodes[0].tags)
             self.isin('test.cpe.23invalid', nodes[0].tags)
 
-            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"', opts=infork00)
             self.len(1, nodes)
             self.isin('test.cpe.22valid', nodes[0].tags)
             self.isin('test.cpe.23invalid', nodes[0].tags)
 
-            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"', opts=infork00)
             self.len(1, nodes)
             self.isin('test.cpe.22valid', nodes[0].tags)
             self.isin('test.cpe.23invalid', nodes[0].tags)
 
             # Check that we correctly copied over the node data
-            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"', opts=infork00)
             self.len(1, nodes)
             data = await s_tests.alist(nodes[0].iterData())
             self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
 
-            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"', opts=infork00)
             self.len(1, nodes)
             data = await s_tests.alist(nodes[0].iterData())
             self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
 
-            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"', opts=infork00)
             self.len(1, nodes)
             data = await s_tests.alist(nodes[0].iterData())
             self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
 
-            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"', opts=infork00)
             self.len(1, nodes)
             data = await s_tests.alist(nodes[0].iterData())
             self.sorteq(data, (('cpe23', 'invalid'), ('cpe22', 'valid')))
 
             # Check that we correctly copied over the extended props
-            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"')
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:o:zyxel:nas326_firmware:5.21\(aazf.14\)c0:*:*:*:*:*:*:*"', opts=infork00)
             self.len(1, nodes)
             self.true(nodes[0].get('_cpe22valid'))
             self.false(nodes[0].get('_cpe23valid'))
 
-            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"')
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:a:10web:social_feed_for_instagram:1.0.0:*:*:*:premium:wordpress:*:*"', opts=infork00)
             self.len(1, nodes)
             self.true(nodes[0].get('_cpe22valid'))
             self.false(nodes[0].get('_cpe23valid'))
 
-            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"')
+            nodes = await core.nodes(r'it:sec:cpe="cpe:2.3:a:acurax:under_construction_\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"', opts=infork00)
             self.len(1, nodes)
             self.true(nodes[0].get('_cpe22valid'))
             self.false(nodes[0].get('_cpe23valid'))
 
-            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"')
+            nodes = await core.nodes('it:sec:cpe="cpe:2.3:h:d-link:dir-850l:*:*:*:*:*:*:*:*"', opts=infork00)
             self.len(1, nodes)
             self.true(nodes[0].get('_cpe22valid'))
             self.false(nodes[0].get('_cpe23valid'))
@@ -838,15 +850,17 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(3, views)
+            self.len(4, views)
 
             fork00 = views[1].get('iden') # forked view
-            forklayr = views[1].get('layers')[0].get('iden')
+            fork00layr = views[1].get('layers')[0].get('iden')
+            infork00 = {'view': fork00}
 
-            view00 = views[0].get('iden') # default view
-            viewlayr = views[0].get('layers')[0].get('iden')
+            fork01 = views[2].get('iden') # forked view
+            fork01layr = views[2].get('layers')[0].get('iden')
+            infork01 = {'view': fork01}
 
-            opts = {'view': fork00}
+            opts = {'view': fork01}
 
             nodes = await core.nodes('meta:source:name="cpe.22.invalid"', opts=opts)
             self.len(1, nodes)
@@ -916,51 +930,51 @@ class ModelRevTest(s_tests.SynTest):
                  {'data': (),
                   'form': 'meta:seen',
                   'iden': metaseen00,
-                  'layer': forklayr,
+                  'layer': fork01layr,
                   'props': {'node': ('it:sec:cpe', invcpe00),
                             'source': source23},
                   'repr': (source23, ('it:sec:cpe', invcpe00)),
                   'sources': (),
                   'tags': (),
-                  'view': fork00}),
+                  'view': fork01}),
                 (1,
                  {'data': (),
                   'form': 'meta:seen',
                   'iden': metaseen01,
-                  'layer': forklayr,
+                  'layer': fork01layr,
                   'props': {'node': ('it:sec:cpe', invcpe01),
                             'source': source23},
                   'repr': (source23, ('it:sec:cpe', invcpe01)),
                   'sources': (),
                   'tags': (),
-                  'view': fork00}),
+                  'view': fork01}),
                 (2,
                  {'data': (),
                   'form': 'meta:seen',
                   'iden': metaseen02,
-                  'layer': forklayr,
+                  'layer': fork01layr,
                   'props': {'node': ('it:sec:cpe', invcpe02),
                             'source': source22},
                   'repr': (source22, ('it:sec:cpe', invcpe02)),
                   'sources': (),
                   'tags': (),
-                  'view': fork00}),
+                  'view': fork01}),
                 (3,
                  {'data': (),
                   'form': 'meta:seen',
                   'iden': metaseen03,
-                  'layer': forklayr,
+                  'layer': fork01layr,
                   'props': {'node': ('it:sec:cpe', invcpe02),
                             'source': source23},
                   'repr': (source23, ('it:sec:cpe', invcpe02)),
                   'sources': (),
                   'tags': (),
-                  'view': fork00}),
+                  'view': fork01}),
                 (4,
                  {'data': (('cpe22', 'invalid'), ('cpe23', 'invalid')),
                   'form': 'it:sec:cpe',
                   'iden': badcpe00,
-                  'layer': viewlayr,
+                  'layer': fork00layr,
                   'props': {'.seen': (1577836800000, 1609459200000),
                             'edition': '*',
                             'language': '*',
@@ -980,34 +994,34 @@ class ModelRevTest(s_tests.SynTest):
                   'sources': (source23,
                               source22),
                   'tags': ('test', 'test.cpe', 'test.cpe.23invalid', 'test.cpe.22invalid'),
-                  'view': view00}),
+                  'view': fork00}),
                 (5,
                  {'data': (),
                   'form': 'meta:seen',
                   'iden': metaseen04,
-                  'layer': forklayr,
+                  'layer': fork01layr,
                   'props': {'node': ('it:sec:cpe', invcpe03),
                             'source': source23},
                   'repr': (source23, ('it:sec:cpe', invcpe03)),
                   'sources': (),
                   'tags': (),
-                  'view': fork00}),
+                  'view': fork01}),
                 (6,
                  {'data': (),
                   'form': 'meta:seen',
                   'iden': metaseen05,
-                  'layer': forklayr,
+                  'layer': fork01layr,
                   'props': {'node': ('it:sec:cpe', invcpe03),
                             'source': source22},
                   'repr': (source22, ('it:sec:cpe', invcpe03)),
                   'sources': (),
                   'tags': (),
-                  'view': fork00}),
+                  'view': fork01}),
                 (7,
                  {'data': (('cpe22', 'invalid'), ('cpe23', 'invalid')),
                   'form': 'it:sec:cpe',
                   'iden': badcpe01,
-                  'layer': viewlayr,
+                  'layer': fork00layr,
                   'props': {'.seen': (1577836800000, 1609459200000),
                             'edition': '*',
                             'language': '*',
@@ -1027,29 +1041,29 @@ class ModelRevTest(s_tests.SynTest):
                   'sources': (source23,
                               source22),
                   'tags': ('test', 'test.cpe', 'test.cpe.23invalid', 'test.cpe.22invalid'),
-                  'view': view00}),
+                  'view': fork00}),
                 (8,
                  {'data': (),
                   'form': 'meta:seen',
                   'iden': metaseen06,
-                  'layer': forklayr,
+                  'layer': fork01layr,
                   'props': {'node': ('it:sec:cpe', invcpe04),
                             'source': source23},
                   'repr': (source23, ('it:sec:cpe', invcpe04)),
                   'sources': (),
                   'tags': (),
-                  'view': fork00}),
+                  'view': fork01}),
                 (9,
                  {'data': (),
                   'form': 'meta:seen',
                   'iden': metaseen07,
-                  'layer': forklayr,
+                  'layer': fork01layr,
                   'props': {'node': ('it:sec:cpe', invcpe05),
                             'source': source23},
                   'repr': (source23, ('it:sec:cpe', invcpe05)),
                   'sources': (),
                   'tags': (),
-                  'view': fork00}),
+                  'view': fork01}),
             ])
 
             q = '''
@@ -1060,81 +1074,81 @@ class ModelRevTest(s_tests.SynTest):
                 }
                 fini { return($ret) }
             '''
-            refsq = await core.callStorm(q)
+            refsq = await core.callStorm(q, opts=infork00)
             self.eq(refsq, [
                 (0,
                  {'iden': metaseen00,
                   'refs': ({'iden': '86288a55af26e1314ae60e12c54c02f4af2e22ed1580166b39f5352762856335',
                             'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (1,
                  {'iden': metaseen01,
                   'refs': ({'iden': '1e0ce923f3dbd57b11d5d95cc5d6d1ccd4de4aba9b6534d57eaa0a2433af9430',
                             'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (2,
                  {'iden': badcpe00,
                   'refs': ({'iden': 'd2c0737b821ba0a699e1ff168e2bf1677590dbf677ce7e5c02894f8868ae080a',
                             'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},),
-                  'view': view00}),
+                  'view': fork00}),
                 (3,
                  {'iden': badcpe00,
                   'refs': ({'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
                             'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (4,
                  {'iden': metaseen02,
                   'refs': ({'iden': '11f7e64a8dd8aa5f2a9b52c0e95783da4b7486452aff74dfcf80814f72507f88',
                             'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (5,
                  {'iden': metaseen03,
                   'refs': ({'iden': 'b209cfe6fb7167cc7dbae9df50894c2614cb9e179e5b3a4fd85fbcf7fa31a9dd',
                             'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (6,
                  {'iden': badcpe01,
                   'refs': ({'iden': '5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3',
                             'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},),
-                  'view': view00}),
+                  'view': fork00}),
                 (7,
                  {'iden': badcpe01,
                   'refs': ({'iden': '9742664e24fe1a3a37d871b1f62af27453c2945b98f421d753db8436e9a44cc9',
                             'refinfo': ('it:prod:soft', 'cpe', 'it:sec:cpe', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (8,
                  {'iden': badcpe01,
                   'refs': ({'iden': '16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7',
                             'refinfo': ('_ext:model:form', 'cpe', 'it:sec:cpe', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (9,
                  {'iden': badcpe01,
                   'refs': ({'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
                             'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (10,
                  {'iden': metaseen04,
                   'refs': ({'iden': '6d09c45666b3a14bf9d298079344d01c079e474423307da553d65ad9917556ae',
                             'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (11,
                  {'iden': metaseen05,
                   'refs': ({'iden': '208ea1b5593aff3c9cb51c19374616fcd103ea2f554f0dd2a13652aadabb82ae',
                             'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (12,
                  {'iden': metaseen06,
                   'refs': ({'iden': 'e3c389c194609a57cde68c21cac8ae1cd18e6a642e332461a3acd19138904239',
                             'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
                 (13,
                  {'iden': metaseen07,
                   'refs': ({'iden': '53ad1502b6f6de3d9d4efe72cc101cd3889e47323ac8db5e3fd39ae68c72f141',
                             'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  'view': fork00}),
+                  'view': fork01}),
             ])
 
-            riskvuln00 = await core.callStorm('risk:vuln return($node.iden())')
+            riskvuln00 = await core.callStorm('risk:vuln return($node.iden())', opts=infork01)
             q = '''
                 $ret = ([])
                 $q = $lib.queue.get('model_0_2_28:nodes:edges')
@@ -1143,40 +1157,40 @@ class ModelRevTest(s_tests.SynTest):
                 }
                 fini { return($ret) }
             '''
-            edgesq = await core.callStorm(q)
+            edgesq = await core.callStorm(q, opts=infork01)
             self.eq(edgesq, [
                 (0,
                  {'direction': 'n1',
                   'edges': (('refs', riskvuln00),),
                   'iden': badcpe00,
-                  'view': view00}),
+                  'view': fork00}),
                 (1,
                  {'direction': 'n2',
                   'edges': (('seen', source23iden), ('seen', source22iden)),
                   'iden': badcpe00,
-                  'view': fork00}),
+                  'view': fork01}),
                 (2,
                  {'direction': 'n1',
                   'edges': (('refs', riskvuln00),),
                   'iden': badcpe01,
-                  'view': view00}),
+                  'view': fork00}),
                 (3,
                  {'direction': 'n2',
                   'edges': (('seen', source23iden), ('seen', source22iden)),
                   'iden': badcpe01,
-                  'view': fork00}),
+                  'view': fork01}),
             ])
 
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(3, views)
+            self.len(4, views)
 
-            fork01 = views[2].get('iden') # forked view
-            infork01 = {'view': fork01}
+            fork02 = views[3].get('iden') # forked view
+            infork02 = {'view': fork02}
 
             # Normal lift will go through the views
-            nodes = await core.nodes('it:sec:cpe:vendor=01generator', opts=infork01)
+            nodes = await core.nodes('it:sec:cpe:vendor=01generator', opts=infork02)
             self.len(1, nodes)
             self.eq(nodes[0].get('v2_2'), 'cpe:/a:01generator:pireospay:-::~~~prestashop~~')
 
@@ -1190,7 +1204,7 @@ class ModelRevTest(s_tests.SynTest):
 
             return($nodes)
             '''
-            nodes = await core.callStorm(q, opts=infork01)
+            nodes = await core.callStorm(q, opts=infork02)
             self.len(0, nodes)
 
             # Lift by sodes should return nothing
@@ -1204,7 +1218,7 @@ class ModelRevTest(s_tests.SynTest):
 
             return($nodes)
             '''
-            nodes = await core.callStorm(q, opts=infork01)
+            nodes = await core.callStorm(q, opts=infork02)
             self.len(0, nodes)
 
     async def test_modelrev_0_2_29(self):
