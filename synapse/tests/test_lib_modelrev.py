@@ -1074,7 +1074,7 @@ class ModelRevTest(s_tests.SynTest):
                 }
                 fini { return($ret) }
             '''
-            refsq = await core.callStorm(q, opts=infork00)
+            refsq = await core.callStorm(q)
             self.eq(refsq, [
                 (0,
                  {'iden': metaseen00,
@@ -1157,7 +1157,7 @@ class ModelRevTest(s_tests.SynTest):
                 }
                 fini { return($ret) }
             '''
-            edgesq = await core.callStorm(q, opts=infork01)
+            edgesq = await core.callStorm(q)
             self.eq(edgesq, [
                 (0,
                  {'direction': 'n1',
