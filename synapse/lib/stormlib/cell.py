@@ -179,11 +179,16 @@ class CellLib(s_stormtypes.Lib):
                        'desc': 'The name, or iden, of the service to get uptime data for '
                                '(defaults to the Cortex if not provided).'},
                   ),
+                  # FIXME DISCUSS
+                  #  The real q is do we want the Telepath/Storm API endpoints to yield strings
+                  #  OR do we want to yield struct log messages as dictionaries ?
+                  #  Strings are EASY to grab and capture; grabbing the structlog data is
+                  #  more complicated.
                   'returns': {'name': 'Yields', 'type': 'str'},
                   }}
     )
     _storm_lib_path = ('cell',)
-    # FIXME populater
+    # FIXME populate
     # _storm_lib_perms = (
     #
     # )
