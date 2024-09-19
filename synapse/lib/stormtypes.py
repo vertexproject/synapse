@@ -6904,6 +6904,22 @@ class Layer(Prim):
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
+        {'name': 'getNodeData', 'desc': '''
+            Yield (name, valu) tuples for any node data in the layer for the target node id.
+
+            Example:
+                Iterate the node data for ``$node``::
+
+                    for ($name, $valu) in $layer.getNodeData($node.iden()) {
+                        $lib.print(`{$name} = {$valu}`)
+                    }
+            ''',
+         'type': {'type': 'function', '_funcname': 'getNodeData',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<name>, <valu>) tuples', }}},
     )
     _storm_typename = 'layer'
     _ismutable = False
@@ -6960,6 +6976,7 @@ class Layer(Prim):
             'getStorNodesByForm': self.getStorNodesByForm,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
+            'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
         }
 
@@ -7327,6 +7344,15 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
         async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
+            yield item
+
+    @stormfunc(readonly=True)
+    async def getNodeData(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.iterNodeData(s_common.uhex(nodeid)):
             yield item
 
     @stormfunc(readonly=True)

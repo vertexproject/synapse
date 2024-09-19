@@ -293,7 +293,10 @@ def zipCpe22(parts):
     parts = list(parts)
     while parts and parts[-1] in ('', '*'):
         parts.pop()
-    text = ':'.join(parts[:7])
+    try:
+        text = ':'.join(parts[:7])
+    except TypeError as exc:
+        breakpoint()
     return f'cpe:/{text}'
 
 def chopCpe22(text):

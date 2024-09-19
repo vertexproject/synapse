@@ -860,6 +860,9 @@ class ModelRevTest(s_tests.SynTest):
             fork01layr = views[2].get('layers')[0].get('iden')
             infork01 = {'view': fork01}
 
+            fork02 = views[3].get('iden') # forked view
+            fork02layr = views[3].get('layers')[0].get('iden')
+
             opts = {'view': fork01}
 
             nodes = await core.nodes('meta:source:name="cpe.22.invalid"', opts=opts)
@@ -906,11 +909,12 @@ class ModelRevTest(s_tests.SynTest):
 
             queues = await core.callStorm('return($lib.queue.list())')
             [q.pop('meta') for q in queues]
-            self.len(3, queues)
+            self.len(4, queues)
             self.eq(queues, (
                 {'name': 'model_0_2_28:nodes', 'size': 10, 'offs': 10},
                 {'name': 'model_0_2_28:nodes:refs', 'size': 14, 'offs': 14},
                 {'name': 'model_0_2_28:nodes:edges', 'size': 4, 'offs': 4},
+                {'name': 'model_0_2_28:nodes:edits', 'size': 1, 'offs': 1},
             ))
 
             q = '''
@@ -1068,6 +1072,29 @@ class ModelRevTest(s_tests.SynTest):
 
             q = '''
                 $ret = ([])
+                $q = $lib.queue.get('model_0_2_28:nodes:edits')
+                for $ii in $lib.range(($q.size())) {
+                    $ret.append($q.get($ii, cull=(false), wait=(false)))
+                }
+                fini { return($ret) }
+            '''
+            editq = await core.callStorm(q)
+            self.eq(editq, [
+                (0, {
+                        'iden': badcpe00,
+                        'edits': (
+                            {
+                                'layer': fork02layr,
+                                'view': fork02,
+                                'props': {'v2_2': ('cpe:/a:openbsd:openssh:7.4', 1)},
+                            },
+                        ),
+                    },
+                ),
+            ])
+
+            q = '''
+                $ret = ([])
                 $q = $lib.queue.get('model_0_2_28:nodes:refs')
                 for $ii in $lib.range(($q.size())) {
                     $ret.append($q.get($ii, cull=(false), wait=(false)))
@@ -1194,7 +1221,6 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('v2_2'), 'cpe:/a:01generator:pireospay:-::~~~prestashop~~')
 
-            # Lift by prop from this layer should return nothing
             q = '''
             $nodes = ([])
 
@@ -1205,7 +1231,8 @@ class ModelRevTest(s_tests.SynTest):
             return($nodes)
             '''
             nodes = await core.callStorm(q, opts=infork02)
-            self.len(0, nodes)
+            breakpoint()
+            self.len(1, nodes)
 
             # Lift by sodes should return nothing
             # Lift by prop from this layer should return nothing

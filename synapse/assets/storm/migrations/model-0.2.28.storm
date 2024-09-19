@@ -1,6 +1,10 @@
 $layers = $lib.spooled.set()
 $layers.adds($layridens)
 
+$views = $lib.view.list(deporder=(true))
+$rviews = $lib.view.list(deporder=(true))
+$rviews.reverse()
+
 $refinfoCache = ({})
 
 function getRefInfo(formname) {
@@ -39,7 +43,9 @@ function removeNode(n, viewiden, layriden) {
     $nodeq = $lib.queue.gen("model_0_2_28:nodes")
     $refsq = $lib.queue.gen("model_0_2_28:nodes:refs")
     $edgeq = $lib.queue.gen("model_0_2_28:nodes:edges")
+    $editq = $lib.queue.gen("model_0_2_28:nodes:edits")
 
+    $edits = ([])
     $sources = ([])
 
     $iden = $n.iden()
@@ -49,9 +55,65 @@ function removeNode(n, viewiden, layriden) {
 
     $lib.log.debug(`Saving invalid {$form} node info: {$repr}`)
 
+    for $rview in $rviews {
+        if (not $layers.has($rview.layers.0.iden)) { continue }
+
+        if ($rview.iden = $viewiden) { break }
+
+        view.exec $rview.iden {
+            $layer = $rview.layers.0
+
+            $edit = ({})
+
+            $data = ({})
+            for ($name, $valu) in $layer.getNodeData($iden) {
+                $data.$name = $valu
+            }
+
+            if $data {
+                $edit.data = $data
+            }
+
+            $sode = $layer.getStorNode($iden)
+            if $sode {
+                if $sode.props { $edit.props = $sode.props }
+                if $sode.tags { $edit.tags = $sode.tags }
+                if $sode.tagprops { $edit.tagprops = $sode.tagprops }
+            }
+
+            if (not $edit) { continue }
+
+            $edit.view = $rview.iden
+            $edit.layer = $layer.iden
+
+            $edits.append($edit)
+
+            // Flush to the queue if the list grows too large
+            if ($edits.size() > 1000) { // pragma: no cover start
+                $item = ({
+                    "iden": $iden,
+                    "edits": $edits,
+                })
+
+                $editq.put($item)
+                $edits = ([])
+            } // pragma: no cover stop
+        }
+    }
+
+    if $edits {
+        $item = ({
+            "iden": $iden,
+            "edits": $edits,
+        })
+
+        $editq.put($item)
+        $edits = ([])
+    }
+
     $refinfos = $getRefInfo($form)
 
-    for $view in $lib.view.list(deporder=$lib.true) {
+    for $view in $views {
         if (not $layers.has($view.layers.0.iden)) { continue }
 
         view.exec $view.iden {
@@ -229,7 +291,7 @@ function migrateCpeNode(oldcpe, newcpe) {
     $refinfos = $getRefInfo($oldcpe.form())
 
     // Iterate through the views and fix up all the references
-    for $view in $lib.view.list(deporder=$lib.true) {
+    for $view in $views {
         if (not $layers.has($view.layers.0.iden)) { continue }
 
         view.exec $view.iden {
@@ -286,39 +348,29 @@ function migrateCpeNode(oldcpe, newcpe) {
 // scoped to the whole script.
 function main() {
 
-    $views = $lib.view.list(deporder=(true))
-    $views.reverse()
+    // Delete invalid floating :v2_2 props in all views
+    for $rview in $rviews {
+        if (not $layers.has($rview.layers.0.iden)) { continue }
 
-    // Iterate views in reverse deporder
-    for $view in $views {
-        if (not $layers.has($view.layers.0.iden)) { continue }
+        view.exec $rview.iden {
 
-        view.exec $view.iden {
-            $layer = $lib.layer.get()
-
-            // Get sodes by :v2_2. We're looking for :v2_2 props set incorrectly
-            // in upper views
-            for $sode in $layer.getStorNodesByForm(it:sec:cpe) {
+            for $sode in $rview.layers.0.getStorNodesByForm(it:sec:cpe) {
                 ($buid, $info) = $sode
 
-                // If the valu is present on the sode, this is a full node in
-                // this view, go around
-                if $info.valu { continue }
+                // If the valu is present on the sode, this is a full node in this view, go around
+                if ($info.valu or not $info.props.v2_2) { continue }
 
-                // This is a floating :v2_2 prop. Remove it because we don't
-                // know if the underlying node will eventually be deleted.
-                // There are two options:
-                // - The underlying node is deleted in which case, this floating
-                //   :v2_2 prop will be dangling in the layer (very bad)
-                // - The underlying node is fixed and migrated in which case,
-                //   the prop being set in this layer shouldn't matter
-                yield $sode
+                ($ok, $norm) = $lib.trycast(it:sec:cpe:v2_2, $info.props.v2_2.0)
+                if $ok { continue }
+
+                // This is an invalid floating :v2_2 prop. Remove it.
+                yield $buid
                 [ -:v2_2 ]
             }
         }
     }
 
-    for $view in $lib.view.list(deporder=$lib.true) {
+    for $view in $views {
 
         if (not $layers.has($view.layers.0.iden)) { continue }
 
@@ -328,6 +380,7 @@ function main() {
 
             for $oldcpe in $layer.liftByProp(it:sec:cpe) {
                 $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
+                $iden = $oldcpe.iden()
 
                 if ($info.status = "success") {
                     // No primary property changes, nothing to do. Node has been fully migrated.
@@ -357,6 +410,27 @@ function main() {
                     $lib.model.migration.copyExtProps($oldcpe, $node)
 
                     $migrateCpeNode($oldcpe, $node)
+
+                    // Iterate through the views in reverse deporder looking for floating node edits
+                    { for $rview in $rviews {
+                        $layer = $rview.layers.0
+                        if (not $layers.has($layer)) { continue }
+
+                        // Only process views that are higher than the original view
+                        if ($rview.iden = $view.iden) { break }
+
+                        view.exec $rview.iden {
+
+                            function getNewCpe(valu) { it:sec:cpe=$info.valu return($node) }
+
+                            $dst = $getNewCpe()
+                            yield $iden
+
+                            $lib.model.migration.copyNodeLayer($node, $dst)
+
+                            delnode
+                        }
+                    }}
 
                     spin |
 

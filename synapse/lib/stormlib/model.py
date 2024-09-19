@@ -1,6 +1,7 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.glob as s_glob
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
@@ -810,59 +811,6 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                   'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
-    # _storm_query = ''' // storm
-    #     _cpeData = ({})
-
-    #     function _loadQueueData() {
-    #         $nodesq = $lib.queue.get("model_0_2_28:nodes")
-    #         $edgesq = $lib.queue.get("model_0_2_28:nodes:edges")
-    #         $refsq = $lib.queue.get("model_0_2_28:nodes:refs")
-
-    #         for $ii in $lib.range($nodesq.size()) {
-    #             $item = $nodesq.get($ii, cull=(false))
-    #             $nidn = $item.1.iden
-    #             if ($iden and $iden != $nidn) { continue }
-    #             $nodes.$nidn = $item.1
-    #         }
-
-    #         for $ii in $lib.range($edgesq.size()) {
-    #             $item = $edgesq.get($ii, cull=(false))
-    #             $nidn = $item.1.iden
-    #             if ($iden and $iden != $nidn) { continue }
-    #             if (not $nodes.$nidn.edges) { $nodes.$nidn.edges = ([]) }
-    #             $nodes.$nidn.edges.append($item.1)
-    #         }
-
-    #         for $ii in $lib.range($refsq.size()) {
-    #             $item = $refsq.get($ii, cull=(false))
-    #             $nidn = $item.1.iden
-    #             if ($iden and $iden != $nidn) { continue }
-    #             if (not $nodes.$nidn.refs) { $nodes.$nidn.refs = ([]) }
-    #             $nodes.$nidn.refs.append($item.1)
-    #         }
-    #     }
-
-    #     function repairNode(iden, newval) {
-    #         $oldcpe = $getNode($iden)
-
-    #         try {
-    #             $view = $lib.view.get($oldcpe.view)
-    #         } except NoSuchView as exc {
-    #             $lib.warn(`Cannot restore node {$iden}, view {$oldcpe.view} does not exist.`)
-    #             return()
-    #         }
-
-    #         $wlyr = $view.layers.0
-    #         if (not $lib.user.allowed("node", gateiden=$wlyr.iden)) {
-    #             $lib.warn(`Cannot restore node, user {$lib.user.name()} does not have write access to view {$oldcpe.view}.`)
-    #             return()
-    #         }
-
-
-
-    #     }
-
-    # '''
 
     def getObjLocals(self):
         return {
@@ -872,6 +820,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyExtProps': self._methCopyExtProps,
             'liftByPropValuNoNorm': self._methLiftByPropValuNoNorm,
             'setNodePropValuNoNorm': self._methSetNodePropValuNoNorm,
+            'copyNodeLayer': self._methCopyNodeLayer,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -927,6 +876,55 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyExtProps(src, proto)
+
+    async def _methCopyNodeLayer(self, src, dst):
+        '''
+        Copy props/tags/edges/data changes that reside in this layer from src to dst.
+
+        No storm docs for this on purpose. It is restricted for use during model migrations only.
+        '''
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyNodeLayer() source argument must be a node.')
+
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyNodeLayer() dest argument must be a node.')
+
+        if not self.runt.snap.core.migration:
+            mesg = '$lib.model.migration.copyNodeLayer() is restricted to model migrations only.'
+            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        layer = self.runt.snap.wlyr
+
+        async with self.runt.snap.getEditor() as editor:
+            proto = editor.loadNode(dst)
+
+            # Copy N1 edges
+            async for verb, n1iden in layer.iterNodeEdgesN1(src.iden):
+                await proto.addEdge(verb, n1iden)
+
+            # Copy N1 edges
+            async for verb, n2iden in layer.iterNodeEdgesN2(src.iden):
+                await proto.addEdge(verb, n1iden)
+
+            # Copy node data
+            async for name, valu in layer.iterNodeData(src.iden):
+                await proto.setData(name, valu)
+
+            if (sode := await layer.getStorNode(src.iden)):
+
+                # Copy props
+                for (name, valu) in sode.get('props', {}).items():
+                    await proto.set(name, valu)
+
+                # Copy tags
+                for (name, valu) in sode.get('tags', {}).items():
+                    await proto.addTag(name, valu=valu)
+
+                # Copy tagprops
+                for tagname, tagprops in sode.get('tagprops', {}).items():
+                    for propname, valu in tagprops.items():
+                        await proto.setTagProp(tagname, propname, valu)
 
     async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
         '''
@@ -1322,9 +1320,155 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
         return retidens
 
-# @s_stormtypes.registry.registerLib
-# class LibModelMigrations_0_2_28(s_stormtypes.Lib):
-#     '''
-#     A Storm library with helper functions for the 0.2.28 model it:sec:cpe migration.
-#     '''
-#     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_28')
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations_0_2_28(s_stormtypes.Lib):
+    '''
+    A Storm library with helper functions for the 0.2.28 model it:sec:cpe migration.
+    '''
+    _storm_locals = (
+        {'name': 'printNodeShort', 'desc': 'Print queued node iden and value.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'n', 'type': 'dict', 'desc': 'The queued node to print.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'printNodeDetail', 'desc': 'Print queued node information.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'n', 'type': 'dict', 'desc': 'The queued node to print.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'getNodes', 'desc': 'Collate all the information from the model migration queues.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'returns': {'type': 'dict', 'desc': 'The queue node information'}}},
+        {'name': 'queueData', 'desc': 'Collated queue data.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorQueueData',
+                  'returns': {'type': 'dict'}}},
+    )
+    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_28')
+    _storm_query = '''
+        function printNodeShort(n) {
+            $lib.print(`{$n.iden}: {$n.form}={$n.repr}`)
+        }
+
+        function printNodesShort() {
+            $qdata = $lib.model.migration.s.model_0_2_28.queueData
+            for ($iden, $info) in $qdata {
+                $printNodeShort($info)
+            }
+        }
+
+        function printNodeDetail(iden) {
+            $qdata = $lib.model.migration.s.model_0_2_28.queueData
+            $n = $qdata.$iden
+
+            $lib.print(`{$n.form}={$n.repr}`)
+            for ($propname, $propvalu) in $n.props {
+                switch $propname {
+                    ".created": {
+                        $datetime = $lib.time.format($propvalu, '%Y-%m-%dT%H:%M:%SZ')
+                        $lib.print(`    .created = {$datetime}`)
+                    }
+                    ".seen": {
+                        ($min, $max) = $propvalu
+                        $mindt = $lib.time.format($min, '%Y-%m-%dT%H:%M:%SZ')
+                        $maxdt = $lib.time.format($max, '%Y-%m-%dT%H:%M:%SZ')
+                        $lib.print(`    .seen = ({$mindt}, {$maxdt})`)
+                    }
+                    *: { $lib.print(`    :{$propname} = {$propvalu}`) }
+                }
+            }
+            for $tag in $n.tags {
+                $lib.print(`    #{$tag}`)
+            }
+            $lib.print(`  view: {$n.view}`)
+            $lib.print(`  layer: {$n.layer}`)
+            $lib.print(`  sources: {$n.sources}`)
+            if $n.refs {
+                $lib.print(`  refs:`)
+                for $ref in $n.refs {
+                    for $r in $ref.refs {
+                        ($form, $prop, $type, $isarray) = $r.refinfo
+                        $lib.print(`    - {$form}:{$prop} (iden: {$r.iden})` )
+                    }
+                }
+            }
+
+            if $n.edges {
+                $lib.print(`  edges:`)
+                for $edge in $n.edges {
+                    $lib.print(`    view: {$edge.view}`)
+                    if ($edge.direction = "n2") {
+                        for $e in $edge.edges {
+                            $lib.print(`      <({$e.0})- {$e.1}`)
+                        }
+                    } else {
+                        for $e in $edge.edges {
+                            $lib.print(`      -({$e.0})> {$e.1}`)
+                        }
+                    }
+                }
+            }
+        }
+
+        /*
+        function repairNode(iden, newval) {
+            $oldcpe = $getNode($iden)
+
+            try {
+                $view = $lib.view.get($oldcpe.view)
+            } except NoSuchView as exc {
+                $lib.warn(`Cannot restore node {$iden}, view {$oldcpe.view} does not exist.`)
+                return()
+            }
+
+            $wlyr = $view.layers.0
+            if (not $lib.user.allowed("node", gateiden=$wlyr.iden)) {
+                $lib.warn(`Cannot restore node, user {$lib.user.name()} does not have write access to view {$oldcpe.view}.`)
+                return()
+            }
+        }
+        */
+    '''
+
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name=name)
+
+        self.gtors.update({
+            'queueData': self._gtorQueueData
+        })
+
+    async def _gtorQueueData(self):
+        qdata = {}
+
+        nodesq = await self.runt.snap.core.getCoreQueue('model_0_2_28:nodes')
+        edgesq = await self.runt.snap.core.getCoreQueue('model_0_2_28:nodes:edges')
+        refsq = await self.runt.snap.core.getCoreQueue('model_0_2_28:nodes:refs')
+
+        qname = nodesq.get('name')
+        qsize = nodesq.get('size')
+        async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
+            iden = item.get('iden')
+
+            qdata[iden] = item
+            qdata[iden].setdefault('edges', [])
+            qdata[iden].setdefault('refs', [])
+
+        qname = edgesq.get('name')
+        qsize = edgesq.get('size')
+        async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
+            iden = item.get('iden')
+
+            edges = qdata[iden].get('edges')
+            edges.append(item)
+
+        qname = refsq.get('name')
+        qsize = refsq.get('size')
+        async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
+            iden = item.get('iden')
+
+            refs = qdata[iden].get('refs')
+            refs.append(item)
+
+        return qdata
