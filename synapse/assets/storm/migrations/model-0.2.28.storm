@@ -98,6 +98,10 @@ function removeNode(n, viewiden, layriden) {
                 $editq.put($item)
                 $edits = ([])
             } // pragma: no cover stop
+
+            // We've captured the edits from this layer, delete the node to remove them
+            yield $iden
+            delnode --force
         }
     }
 
@@ -432,10 +436,7 @@ function main() {
                         }
                     }}
 
-                    spin |
-
-                    yield $oldcpe |
-                    delnode --deledges --force
+                    spin
 
                 } else {
 
@@ -444,10 +445,10 @@ function main() {
                     // and store it in a queue.
 
                     $removeNode($oldcpe, $view.iden, $view.layers.0.iden)
-
-                    yield $oldcpe |
-                    delnode --deledges --force
                 }
+
+                yield $oldcpe |
+                delnode --deledges --force
             }
         }
     }

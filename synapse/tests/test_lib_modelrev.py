@@ -1231,8 +1231,7 @@ class ModelRevTest(s_tests.SynTest):
             return($nodes)
             '''
             nodes = await core.callStorm(q, opts=infork02)
-            breakpoint()
-            self.len(1, nodes)
+            self.len(0, nodes)
 
             # Lift by sodes should return nothing
             # Lift by prop from this layer should return nothing
