@@ -1221,6 +1221,8 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('v2_2'), 'cpe:/a:01generator:pireospay:-::~~~prestashop~~')
 
+            # The v2_2 floating props in this view were removed because the underlying nodes were completely invalid and
+            # could not be migrated
             q = '''
             $nodes = ([])
 
@@ -1233,8 +1235,8 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.callStorm(q, opts=infork02)
             self.len(0, nodes)
 
-            # Lift by sodes should return nothing
-            # Lift by prop from this layer should return nothing
+            # Lift by sodes should return changes to the .seen props in nodes that were successfully migrated. Validate
+            # they were actually migrated.
             q = '''
             $nodes = ([])
 
@@ -1244,8 +1246,28 @@ class ModelRevTest(s_tests.SynTest):
 
             return($nodes)
             '''
-            nodes = await core.callStorm(q, opts=infork02)
-            self.len(0, nodes)
+            sodes = await core.callStorm(q, opts=infork02)
+            self.len(7, sodes)
+            for (buid, info) in sodes:
+                iden = s_common.ehex(buid)
+
+                nodes = await core.nodes(f'iden {iden}', opts=infork00)
+                self.len(1, nodes, msg=(buid, info))
+
+                tags = nodes[0].tags
+                if 'test.cpe.23valid' in tags and 'test.cpe.22invalid' in tags:
+                    # buid didn't change on these
+                    seen = (1577836800000, 1672531200001) # .seen = (2020, 2023)
+                else:
+                    # buid did change on these
+                    seen = (1577836800000, 1704067200001) # .seen = (2020, 2024)
+
+                self.eq(info, {
+                    'props': {
+                        '.seen': (seen, 12),
+                    },
+                    'form': 'it:sec:cpe'
+                })
 
     async def test_modelrev_0_2_29(self):
         async with self.getRegrCore('model-0.2.29') as core:

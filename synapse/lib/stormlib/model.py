@@ -900,22 +900,22 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             proto = editor.loadNode(dst)
 
             # Copy N1 edges
-            async for verb, n1iden in layer.iterNodeEdgesN1(src.iden):
+            async for verb, n1iden in layer.iterNodeEdgesN1(src.buid):
                 await proto.addEdge(verb, n1iden)
 
-            # Copy N1 edges
-            async for verb, n2iden in layer.iterNodeEdgesN2(src.iden):
-                await proto.addEdge(verb, n1iden)
+            # Copy N2 edges
+            async for verb, n2iden in layer.iterNodeEdgesN2(src.buid):
+                await proto.addEdge(verb, n2iden)
 
             # Copy node data
-            async for name, valu in layer.iterNodeData(src.iden):
+            async for name, valu in layer.iterNodeData(src.buid):
                 await proto.setData(name, valu)
 
-            if (sode := await layer.getStorNode(src.iden)):
+            if (sode := await layer.getStorNode(src.buid)):
 
                 # Copy props
                 for (name, valu) in sode.get('props', {}).items():
-                    await proto.set(name, valu)
+                    await proto.set(name, valu[0])
 
                 # Copy tags
                 for (name, valu) in sode.get('tags', {}).items():

@@ -415,28 +415,27 @@ function main() {
 
                     $migrateCpeNode($oldcpe, $node)
 
+                    | spin |
+
                     // Iterate through the views in reverse deporder looking for floating node edits
-                    { for $rview in $rviews {
-                        $layer = $rview.layers.0
-                        if (not $layers.has($layer)) { continue }
+                    for $rview in $rviews {
+                        if (not $layers.has($rview.layers.0.iden)) { continue }
 
                         // Only process views that are higher than the original view
                         if ($rview.iden = $view.iden) { break }
 
                         view.exec $rview.iden {
 
-                            function getNewCpe(valu) { it:sec:cpe=$info.valu return($node) }
+                            function getNewCpe() { it:sec:cpe=$info.valu return($node) }
 
                             $dst = $getNewCpe()
                             yield $iden
 
                             $lib.model.migration.copyNodeLayer($node, $dst)
 
-                            delnode
+                            delnode --force
                         }
-                    }}
-
-                    spin
+                    }
 
                 } else {
 
