@@ -916,9 +916,9 @@ class ModelRevTest(s_tests.SynTest):
             self.len(4, queues)
             self.eq(queues, (
                 {'name': 'model_0_2_31:nodes', 'size': 10, 'offs': 10},
-                {'name': 'model_0_2_31:nodes:refs', 'size': 14, 'offs': 14},
-                {'name': 'model_0_2_31:nodes:edges', 'size': 4, 'offs': 4},
-                {'name': 'model_0_2_31:nodes:edits', 'size': 1, 'offs': 1},
+                {'name': 'model_0_2_31:nodes:refs', 'size': 10, 'offs': 10},
+                {'name': 'model_0_2_31:nodes:edges', 'size': 2, 'offs': 2},
+                {'name': 'model_0_2_31:nodes:edits', 'size': 10, 'offs': 10},
             ))
 
             q = '''
@@ -930,8 +930,6 @@ class ModelRevTest(s_tests.SynTest):
                 fini { return($ret) }
             '''
             nodesq = await core.callStorm(q)
-            for item in nodesq:
-                self.nn(item[1]['props'].pop('.created'))
 
             self.eq(nodesq, [
                 (0,

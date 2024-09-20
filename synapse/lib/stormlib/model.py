@@ -1,7 +1,6 @@
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.glob as s_glob
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer

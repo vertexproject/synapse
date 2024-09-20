@@ -38,15 +38,12 @@ function getRefInfo(formname) {
     }
 }
 
-function removeNode(n, viewiden, layriden) {
+function removeNode(n, viewiden, layriden, refiden=$lib.null) {
 
     $nodeq = $lib.queue.gen("model_0_2_31:nodes")
     $refsq = $lib.queue.gen("model_0_2_31:nodes:refs")
     $edgeq = $lib.queue.gen("model_0_2_31:nodes:edges")
     $editq = $lib.queue.gen("model_0_2_31:nodes:edits")
-
-    $edits = ([])
-    $sources = ([])
 
     $iden = $n.iden()
     $repr = $n.repr()
@@ -55,74 +52,15 @@ function removeNode(n, viewiden, layriden) {
 
     $lib.log.debug(`Saving invalid {$form} node info: {$repr}`)
 
-    for $rview in $rviews {
-        if (not $layers.has($rview.layers.0.iden)) { continue }
-
-        if ($rview.iden = $viewiden) { break }
-
-        view.exec $rview.iden {
-            $layer = $rview.layers.0
-
-            $edit = ({})
-
-            $data = ({})
-            for ($name, $valu) in $layer.getNodeData($iden) {
-                $data.$name = $valu
-            }
-
-            if $data {
-                $edit.data = $data
-            }
-
-            $sode = $layer.getStorNode($iden)
-            if $sode {
-                if $sode.props { $edit.props = $sode.props }
-                if $sode.tags { $edit.tags = $sode.tags }
-                if $sode.tagprops { $edit.tagprops = $sode.tagprops }
-            }
-
-            if (not $edit) { continue }
-
-            $edit.view = $rview.iden
-            $edit.layer = $layer.iden
-
-            $edits.append($edit)
-
-            // Flush to the queue if the list grows too large
-            if ($edits.size() > 1000) { // pragma: no cover start
-                $item = ({
-                    "iden": $iden,
-                    "edits": $edits,
-                })
-
-                $editq.put($item)
-                $edits = ([])
-            } // pragma: no cover stop
-
-            // We've captured the edits from this layer, delete the node to remove them
-            yield $iden
-            delnode --force
-        }
-    }
-
-    if $edits {
-        $item = ({
-            "iden": $iden,
-            "edits": $edits,
-        })
-
-        $editq.put($item)
-        $edits = ([])
-    }
-
     $refinfos = $getRefInfo($form)
 
+    $references = ([])
+
+    // This loop recursively removes all the references to the node about to be deleted
     for $view in $views {
         if (not $layers.has($view.layers.0.iden)) { continue }
 
         view.exec $view.iden {
-            $edges = ([])
-            $references = ([])
 
             // Get references and store them in queue
             for $refinfo in $refinfos {
@@ -157,7 +95,7 @@ function removeNode(n, viewiden, layriden) {
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$formname}:{$propname} is readonly, cannot modify. Storing node: {$node.repr()}`)
-                            $removeNode($node, $view.iden, $view.layers.0.iden)
+                            $removeNode($node, $view.iden, $view.layers.0.iden, refiden=$iden)
                             | delnode |
                             continue
                         }
@@ -183,106 +121,153 @@ function removeNode(n, viewiden, layriden) {
                     } // pragma: no cover stop
                 }
             }
+        }
+    }
 
-            if $references {
+    if $references {
+        $item = ({
+            "iden": $iden,
+            "view": $view.iden,
+            "refs": $references,
+        })
+
+        $refsq.put($item)
+        $references = ([])
+    }
+
+    $edges = ([])
+    $edits = ([])
+    $sources = $lib.spooled.set()
+
+    // This loop stores all the edits and edges from every layer
+    for $rview in $rviews {
+        if (not $layers.has($rview.layers.0.iden)) { continue }
+
+        view.exec $rview.iden {
+            $layer = $rview.layers.0
+
+            $edit = ({})
+
+            $data = ({})
+            for ($name, $valu) in $layer.getNodeData($iden) {
+                $data.$name = $valu
+            }
+
+            if $data {
+                $edit.data = $data
+            }
+
+            $sode = $layer.getStorNode($iden)
+            if $sode {
+                if $sode.props { $edit.props = $sode.props }
+                if $sode.tags { $edit.tags = $sode.tags }
+                if $sode.tagprops { $edit.tagprops = $sode.tagprops }
+            }
+
+            if $edit {
+                $edit.view = $rview.iden
+                $edit.layer = $layer.iden
+                $edits.append($edit)
+            }
+
+            // Flush to the queue if the list grows too large
+            if ($edits.size() > 1000) { // pragma: no cover start
                 $item = ({
                     "iden": $iden,
-                    "view": $view.iden,
-                    "refs": $references,
+                    "edits": $edits,
                 })
 
-                $refsq.put($item)
-                $references = ([])
-            }
+                $editq.put($item)
+                $edits = ([])
+            } // pragma: no cover stop
 
-            spin |
-
-            yield $iden |
-
-            // Get sources and store them in the queue
-            // Do this before we store/delete edges.
-            { <(seen)- meta:source
-                $sources.append($node.repr())
-            }
+            $edge = ({})
 
             // Get N1 edges and store them in the queue
-            { for $edge in $node.edges() {
-                ($verb, $dst) = $edge
-                $edges.append($edge)
+            for $n1edge in $layer.getEdgesByN1($iden) {
+                ($verb, $dst) = $n1edge
+                $edge.verb = $verb
+                $edge.node = $dst
+                $edge.direction = "n1"
+                $edge.layer = $layer.iden
+                $edge.view = $rview.iden
 
-                [ -($verb)> { yield $dst } ]
+                $edges.append($edge)
 
                 // Flush to the queue if the list grows too large
                 if ($edges.size() > 1000) { // pragma: no cover start
                     $item = ({
                         "iden": $iden,
-                        "view": $view.iden,
-                        "direction": "n1",
                         "edges": $edges,
                     })
 
                     $edgeq.put($item)
                     $edges = ([])
                 } // pragma: no cover stop
-            }}
-
-            if $edges {
-                $item = ({
-                    "iden": $iden,
-                    "view": $view.iden,
-                    "direction": "n1",
-                    "edges": $edges,
-                })
-
-                $edgeq.put($item)
-                $edges = ([])
             }
 
             // Get N2 edges and store them in the queue
-            { for $edge in $node.edges(reverse=$lib.true) {
-                ($verb, $src) = $edge
+            for $n2edge in $layer.getEdgesByN2($iden) {
+                ($verb, $src) = $n2edge
+                $edge.verb = $verb
+                $edge.node = $src
+                $edge.direction = "n2"
+                $edge.layer = $layer.iden
+                $edge.view = $rview.iden
                 $edges.append($edge)
-
-                [ <($verb)- { yield $src } ]
 
                 // Flush to the queue if the list grows too large
                 if ($edges.size() > 1000) { // pragma: no cover start
                     $item = ({
                         "iden": $iden,
-                        "view": $view.iden,
-                        "direction": "n2",
                         "edges": $edges,
                     })
 
                     $edgeq.put($item)
                     $edges = ([])
                 } // pragma: no cover stop
-            }}
-
-            if $edges {
-                $item = ({
-                    "iden": $iden,
-                    "view": $view.iden,
-                    "direction": "n2",
-                    "edges": $edges,
-                })
-
-                $edgeq.put($item)
-                $edges = ([])
             }
+
+            yield $iden
+
+            // Get sources and store them in the queue
+            { <(seen)- meta:source
+                $sources.add($node.repr())
+            }
+
+            // We've captured the edits from this layer, delete the node to remove them
+            delnode --deledges --force
         }
+    }
+
+    if $edges {
+        $item = ({
+            "iden": $iden,
+            "edges": $edges,
+        })
+
+        $edgeq.put($item)
+        $edges = ([])
+    }
+
+    if $edits {
+        $item = ({
+            "iden": $iden,
+            "edits": $edits,
+        })
+
+        $editq.put($item)
+        $edits = ([])
     }
 
     $item = ({
         "iden": $iden,
         "form": $form,
-        "repr": $repr,
-        "props": $n.props,
+        "valu": $repr,
         "view": $viewiden,
         "layer": $layriden,
-        "tags": $n.tags(),
-        "data": $n.data.list(),
-        "sources": $sources,
+        "refiden": $refiden,
+        "sources": $sources.list(),
     })
 
     $nodeq.put($item)
@@ -334,7 +319,7 @@ function migrateCpeNode(oldcpe, newcpe) {
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Storing node: {$node.repr()}`)
-                            $removeNode($node, $view.iden, $view.layers.0.iden)
+                            $removeNode($node, $view.iden, $view.layers.0.iden, refiden=$oldcpe.iden())
                             | delnode
 
                         }
