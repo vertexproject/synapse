@@ -1333,4 +1333,3 @@ class ModelRevTest(s_tests.SynTest):
                 for n in (meta23invalid, meta23wasinvalid, meta22valid):
                     n1s = await s_tests.alist(n.iterEdgesN1())
                     self.isin(('seen', node.iden()), n1s)
-
