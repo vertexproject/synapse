@@ -44,6 +44,7 @@ class ModelRev:
             ((0, 2, 27), self.revModel_0_2_27),
             # Model revision 0.2.28 skipped
             ((0, 2, 29), self.revModel_0_2_29),
+            ((0, 2, 31), self.revModel_0_2_31),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
