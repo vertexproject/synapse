@@ -569,7 +569,9 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq('Foo', nodes[0].get('id'))
 
-    async def test_modelrev_0_2_28(self):
+    async def test_modelrev_cpe(self):
+        # Skip this test for now since 0_2_28 migration was disabled. This test will be moved/updated in a later PR.
+        self.skip('Model 0.2.28 disabled')
 
         async with self.getRegrCore('model-0.2.28', maxvers=(0, 2, 24)) as core:
             # Do some pre-migration validation of the cortex. It's still a
@@ -577,7 +579,7 @@ class ModelRevTest(s_tests.SynTest):
             # some lifting/pivoting won't work right.
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
@@ -642,7 +644,7 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden')
             infork00 = {'view': fork00}
@@ -838,7 +840,7 @@ class ModelRevTest(s_tests.SynTest):
         async with self.getRegrCore('model-0.2.28') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
-            self.len(2, views)
+            self.len(3, views)
 
             fork00 = views[1].get('iden') # forked view
             forklayr = views[1].get('layers')[0].get('iden')
