@@ -924,7 +924,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                 # Copy tagprops
                 for tagname, tagprops in sode.get('tagprops', {}).items():
                     for propname, valu in tagprops.items():
-                        await proto.setTagProp(tagname, propname, valu)
+                        await proto.setTagProp(tagname, propname, valu[0])
 
     async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
         '''

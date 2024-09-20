@@ -1064,10 +1064,12 @@ class ModelRevTest(s_tests.SynTest):
                                        'v2_2': ('cpe:/a:openbsd:openssh:7.4\r\n', 1),
                                        'vendor': ('openbsd', 1),
                                        'version': ('7.4', 1)},
+                             'tagprops': {'test.tagprop': {'score': (0, 9)}},
                              'tags': {'test': (None, None),
                                       'test.cpe': (None, None),
                                       'test.cpe.22invalid': (None, None),
-                                      'test.cpe.23invalid': (None, None)},
+                                      'test.cpe.23invalid': (None, None),
+                                      'test.tagprop': (None, None)},
                              'view': fork00}),
                   'iden': badcpe00}),
                 (5,
@@ -1102,10 +1104,12 @@ class ModelRevTest(s_tests.SynTest):
                                                 1),
                                        'vendor': ('openbsd', 1),
                                        'version': ('8.2p1 ubuntu-4ubuntu0.2', 1)},
+                             'tagprops': {'test.tagprop': {'score': (0, 9)}},
                              'tags': {'test': (None, None),
                                       'test.cpe': (None, None),
                                       'test.cpe.22invalid': (None, None),
-                                      'test.cpe.23invalid': (None, None)},
+                                      'test.cpe.23invalid': (None, None),
+                                      'test.tagprop': (None, None)},
                              'view': fork00},),
                   'iden': badcpe01}),
                 (8,
@@ -1315,6 +1319,9 @@ class ModelRevTest(s_tests.SynTest):
                 self.true(node.get('_cpe23valid'))
                 self.eq(node.get('.seen'), (1577836800000, 1672531200001)) # .seen = (2020, 2023)
                 self.isin('test.cpe.22valid', node.tags)
+                self.isin('test.tagprop', node.tags)
+                self.eq(['score'], node.getTagProps('test.tagprop'))
+                self.eq(11, node.getTagProp('test.tagprop', 'score'))
 
                 nodedata = await s_tests.alist(node.iterData())
                 self.eq(nodedata, [('cpe22', 'wasinvalid'), ('cpe23', 'valid')])
@@ -1348,6 +1355,9 @@ class ModelRevTest(s_tests.SynTest):
                 self.true(node.get('_cpe23valid'))
                 self.eq(node.get('.seen'), (1577836800000, 1704067200001)) # .seen = (2020, 2024)
                 self.isin('test.cpe.23valid', node.tags)
+                self.isin('test.tagprop', node.tags)
+                self.eq(['score'], node.getTagProps('test.tagprop'))
+                self.eq(11, node.getTagProp('test.tagprop', 'score'))
 
                 nodedata = await s_tests.alist(node.iterData())
                 self.eq(nodedata, [('cpe23', 'wasinvalid'), ('cpe22', 'valid')])
