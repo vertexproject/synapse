@@ -905,7 +905,8 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
             # Copy N2 edges
             async for verb, n2iden in layer.iterNodeEdgesN2(src.buid):
-                await proto.addEdge(verb, n2iden)
+                n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
+                await n2.addEdge(verb, dst.iden())
 
             # Copy node data
             async for name, valu in layer.iterNodeData(src.buid):

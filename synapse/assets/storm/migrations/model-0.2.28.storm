@@ -433,7 +433,7 @@ function main() {
 
                             $lib.model.migration.copyNodeLayer($node, $dst)
 
-                            delnode --force
+                            delnode --deledges --force
                         }
                     }
 

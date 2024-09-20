@@ -569,11 +569,15 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq('Foo', nodes[0].get('id'))
 
-    async def test_modelrev_0_2_28(self):
+    async def test_modelrev_0_2_29(self):
+        async with self.getRegrCore('model-0.2.29') as core:
+            self.len(2, await core.nodes('ou:industry:type:taxonomy'))
+
+    async def test_modelrev_0_2_31(self):
 
         self.maxDiff = None
 
-        async with self.getRegrCore('model-0.2.28', maxvers=(0, 2, 24)) as core:
+        async with self.getRegrCore('model-cpe-migration', maxvers=(0, 2, 24)) as core:
             # Do some pre-migration validation of the cortex. It's still a
             # little weird in here because the CPE types have been updated so
             # some lifting/pivoting won't work right.
@@ -648,7 +652,7 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:sec:vuln:scan:result', opts=infork01)
             self.len(11, nodes)
 
-        async with self.getRegrCore('model-0.2.28') as core:
+        async with self.getRegrCore('model-cpe-migration') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(4, views)
@@ -847,7 +851,7 @@ class ModelRevTest(s_tests.SynTest):
             self.true(nodes[0].get('_cpe22valid'))
             self.false(nodes[0].get('_cpe23valid'))
 
-        async with self.getRegrCore('model-0.2.28') as core:
+        async with self.getRegrCore('model-cpe-migration') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(4, views)
@@ -911,15 +915,15 @@ class ModelRevTest(s_tests.SynTest):
             [q.pop('meta') for q in queues]
             self.len(4, queues)
             self.eq(queues, (
-                {'name': 'model_0_2_28:nodes', 'size': 10, 'offs': 10},
-                {'name': 'model_0_2_28:nodes:refs', 'size': 14, 'offs': 14},
-                {'name': 'model_0_2_28:nodes:edges', 'size': 4, 'offs': 4},
-                {'name': 'model_0_2_28:nodes:edits', 'size': 1, 'offs': 1},
+                {'name': 'model_0_2_31:nodes', 'size': 10, 'offs': 10},
+                {'name': 'model_0_2_31:nodes:refs', 'size': 14, 'offs': 14},
+                {'name': 'model_0_2_31:nodes:edges', 'size': 4, 'offs': 4},
+                {'name': 'model_0_2_31:nodes:edits', 'size': 1, 'offs': 1},
             ))
 
             q = '''
                 $ret = ([])
-                $q = $lib.queue.get('model_0_2_28:nodes')
+                $q = $lib.queue.get('model_0_2_31:nodes')
                 for $ii in $lib.range(($q.size())) {
                     $ret.append($q.get($ii, cull=(false), wait=(false)))
                 }
@@ -1072,7 +1076,7 @@ class ModelRevTest(s_tests.SynTest):
 
             q = '''
                 $ret = ([])
-                $q = $lib.queue.get('model_0_2_28:nodes:edits')
+                $q = $lib.queue.get('model_0_2_31:nodes:edits')
                 for $ii in $lib.range(($q.size())) {
                     $ret.append($q.get($ii, cull=(false), wait=(false)))
                 }
@@ -1095,7 +1099,7 @@ class ModelRevTest(s_tests.SynTest):
 
             q = '''
                 $ret = ([])
-                $q = $lib.queue.get('model_0_2_28:nodes:refs')
+                $q = $lib.queue.get('model_0_2_31:nodes:refs')
                 for $ii in $lib.range(($q.size())) {
                     $ret.append($q.get($ii, cull=(false), wait=(false)))
                 }
@@ -1178,7 +1182,7 @@ class ModelRevTest(s_tests.SynTest):
             riskvuln00 = await core.callStorm('risk:vuln return($node.iden())', opts=infork01)
             q = '''
                 $ret = ([])
-                $q = $lib.queue.get('model_0_2_28:nodes:edges')
+                $q = $lib.queue.get('model_0_2_31:nodes:edges')
                 for $ii in $lib.range(($q.size())) {
                     $ret.append($q.get($ii, cull=(false), wait=(false)))
                 }
@@ -1208,7 +1212,7 @@ class ModelRevTest(s_tests.SynTest):
                   'view': fork01}),
             ])
 
-        async with self.getRegrCore('model-0.2.28') as core:
+        async with self.getRegrCore('model-cpe-migration') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(4, views)
@@ -1235,40 +1239,98 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.callStorm(q, opts=infork02)
             self.len(0, nodes)
 
-            # Lift by sodes should return changes to the .seen props in nodes that were successfully migrated. Validate
-            # they were actually migrated.
-            q = '''
-            $nodes = ([])
+            nodes = await core.nodes('meta:source:name=cpe.22.valid', opts=infork02)
+            self.len(1, nodes)
+            meta22valid = nodes[0]
 
-            for $n in $lib.view.get().layers.0.getStorNodesByForm("it:sec:cpe") {
-                $nodes.append($n)
-            }
+            nodes = await core.nodes('meta:source:name=cpe.22.invalid', opts=infork02)
+            self.len(1, nodes)
+            meta22invalid = nodes[0]
 
-            return($nodes)
-            '''
-            sodes = await core.callStorm(q, opts=infork02)
-            self.len(7, sodes)
-            for (buid, info) in sodes:
-                iden = s_common.ehex(buid)
+            nodes = await core.nodes('meta:source:name=cpe.22.wasinvalid', opts=infork02)
+            self.len(1, nodes)
+            meta22wasinvalid = nodes[0]
 
-                nodes = await core.nodes(f'iden {iden}', opts=infork00)
-                self.len(1, nodes, msg=(buid, info))
+            nodes = await core.nodes('meta:source:name=cpe.23.valid', opts=infork02)
+            self.len(1, nodes)
+            meta23valid = nodes[0]
 
-                tags = nodes[0].tags
-                if 'test.cpe.23valid' in tags and 'test.cpe.22invalid' in tags:
-                    # buid didn't change on these
-                    seen = (1577836800000, 1672531200001) # .seen = (2020, 2023)
-                else:
-                    # buid did change on these
-                    seen = (1577836800000, 1704067200001) # .seen = (2020, 2024)
+            nodes = await core.nodes('meta:source:name=cpe.23.invalid', opts=infork02)
+            self.len(1, nodes)
+            meta23invalid = nodes[0]
 
-                self.eq(info, {
-                    'props': {
-                        '.seen': (seen, 12),
-                    },
-                    'form': 'it:sec:cpe'
-                })
+            nodes = await core.nodes('meta:source:name=cpe.23.wasinvalid', opts=infork02)
+            self.len(1, nodes)
+            meta23wasinvalid = nodes[0]
 
-    async def test_modelrev_0_2_29(self):
-        async with self.getRegrCore('model-0.2.29') as core:
-            self.len(2, await core.nodes('ou:industry:type:taxonomy'))
+            nodes = await core.nodes('risk:vuln', opts=infork02)
+            self.len(1, nodes)
+            riskvuln = nodes[0]
+
+            nodes = await core.nodes('it:sec:cpe#test.cpe.23valid +#test.cpe.22invalid', opts=infork02)
+            self.len(3, nodes)
+            for node in nodes:
+
+                self.true(node.get('_cpe22valid'))
+                self.true(node.get('_cpe23valid'))
+                self.eq(node.get('.seen'), (1577836800000, 1672531200001)) # .seen = (2020, 2023)
+                self.isin('test.cpe.22valid', node.tags)
+
+                nodedata = await s_tests.alist(node.iterData())
+                self.eq(nodedata, [('cpe22', 'wasinvalid'), ('cpe23', 'valid')])
+
+                n1s = await s_tests.alist(node.iterEdgesN1())
+                self.sorteq(n1s, [
+                    ('refs', meta23valid.iden()),
+                    ('refs', meta22wasinvalid.iden()),
+                    ('refs', riskvuln.iden())
+                ])
+
+                for n in (meta23valid, meta22wasinvalid, riskvuln):
+                    n2s = await s_tests.alist(n.iterEdgesN2())
+                    self.isin(('refs', node.iden()), n2s)
+
+                n2s = await s_tests.alist(node.iterEdgesN2())
+                self.sorteq(n2s, [
+                    ('seen', meta22invalid.iden()),
+                    ('seen', meta22wasinvalid.iden()),
+                    ('seen', meta23valid.iden())
+                ])
+
+                for n in (meta22invalid, meta22wasinvalid, meta23valid):
+                    n1s = await s_tests.alist(n.iterEdgesN1())
+                    self.isin(('seen', node.iden()), n1s)
+
+            nodes = await core.nodes('it:sec:cpe#test.cpe.22valid +#test.cpe.23invalid', opts=infork02)
+            self.len(4, nodes)
+            for node in nodes:
+                self.true(node.get('_cpe22valid'))
+                self.true(node.get('_cpe23valid'))
+                self.eq(node.get('.seen'), (1577836800000, 1704067200001)) # .seen = (2020, 2024)
+                self.isin('test.cpe.23valid', node.tags)
+
+                nodedata = await s_tests.alist(node.iterData())
+                self.eq(nodedata, [('cpe23', 'wasinvalid'), ('cpe22', 'valid')])
+
+                n1s = await s_tests.alist(node.iterEdgesN1())
+                self.sorteq(n1s, [
+                    ('refs', meta22valid.iden()),
+                    ('refs', meta23wasinvalid.iden()),
+                    ('refs', riskvuln.iden())
+                ])
+
+                for n in (meta22valid, meta23wasinvalid, riskvuln):
+                    n2s = await s_tests.alist(n.iterEdgesN2())
+                    self.isin(('refs', node.iden()), n2s)
+
+                n2s = await s_tests.alist(node.iterEdgesN2())
+                self.sorteq(n2s, [
+                    ('seen', meta23invalid.iden()),
+                    ('seen', meta23wasinvalid.iden()),
+                    ('seen', meta22valid.iden())
+                ])
+
+                for n in (meta23invalid, meta23wasinvalid, meta22valid):
+                    n1s = await s_tests.alist(n.iterEdgesN1())
+                    self.isin(('seen', node.iden()), n1s)
+
