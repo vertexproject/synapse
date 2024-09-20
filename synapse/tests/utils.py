@@ -1504,7 +1504,7 @@ class SynTest(unittest.TestCase):
     async def addSvcToAha(self, aha, svcname, ctor,
                           conf=None, dirn=None, provinfo=None):
         '''
-        Creates as service and provision it in an Aha network via the provisioning API.
+        Creates a service and provisions it in an Aha network via the provisioning API.
 
         This assumes the Aha cell has a provision:listen and aha:urls set.
 
