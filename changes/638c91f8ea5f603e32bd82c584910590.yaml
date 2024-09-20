@@ -1,5 +1,5 @@
 ---
-desc: The inet:ipv4:type and inet:ipv6:type secondary properties now reflect updated
+desc: The ``inet:ipv4:type`` and ``inet:ipv6:type`` secondary properties now reflect updated
   behaviors from the IANA Special Purposes registries.
 prs: []
 type: model

@@ -1,5 +1,5 @@
 ---
-desc: The inet:rc2822:addr type now rejects malformed inputs which could cause incorrect
+desc: The ``inet:rc2822:addr`` type now rejects malformed inputs which could cause incorrect
   email addresses to be recorded.
 prs: []
 type: model
