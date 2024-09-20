@@ -13,7 +13,7 @@ class StreamHandlerWithQueue(logging.StreamHandler):
         self._syn_log_queue = collections.deque(maxlen=qsize)
 
     def format(self, record: logging.LogRecord) -> str:
-        mesg = super().format(record)
+        mesg = self.format(record)
         self._syn_log_queue.append(mesg)
         return mesg
 
