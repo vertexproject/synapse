@@ -969,7 +969,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         # NB: I'm sure there are all kinds of edges cases that this function doesn't account for. At the time of it's
         # creation, this was intended to be used to update array properties with bad it:sec:cpe values in them. It works
-        # for that use case (see model migration 0.2.28). Any additional use of this function should perform heavy
+        # for that use case (see model migration 0.2.31). Any additional use of this function should perform heavy
         # testing.
 
         if not isinstance(n, s_node.Node):
@@ -1323,9 +1323,9 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
 
 @s_stormtypes.registry.registerLib
-class LibModelMigrations_0_2_28(s_stormtypes.Lib):
+class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     '''
-    A Storm library with helper functions for the 0.2.28 model it:sec:cpe migration.
+    A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
     '''
     _storm_locals = (
         {'name': 'printNodeShort', 'desc': 'Print queued node iden and value.',
@@ -1347,21 +1347,21 @@ class LibModelMigrations_0_2_28(s_stormtypes.Lib):
          'type': {'type': 'gtor', '_gtorfunc': '_gtorQueueData',
                   'returns': {'type': 'dict'}}},
     )
-    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_28')
+    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
     _storm_query = '''
         function printNodeShort(n) {
             $lib.print(`{$n.iden}: {$n.form}={$n.repr}`)
         }
 
         function printNodesShort() {
-            $qdata = $lib.model.migration.s.model_0_2_28.queueData
+            $qdata = $lib.model.migration.s.model_0_2_31.queueData
             for ($iden, $info) in $qdata {
                 $printNodeShort($info)
             }
         }
 
         function printNodeDetail(iden) {
-            $qdata = $lib.model.migration.s.model_0_2_28.queueData
+            $qdata = $lib.model.migration.s.model_0_2_31.queueData
             $n = $qdata.$iden
 
             $lib.print(`{$n.form}={$n.repr}`)
@@ -1443,9 +1443,9 @@ class LibModelMigrations_0_2_28(s_stormtypes.Lib):
     async def _gtorQueueData(self):
         qdata = {}
 
-        nodesq = await self.runt.snap.core.getCoreQueue('model_0_2_28:nodes')
-        edgesq = await self.runt.snap.core.getCoreQueue('model_0_2_28:nodes:edges')
-        refsq = await self.runt.snap.core.getCoreQueue('model_0_2_28:nodes:refs')
+        nodesq = await self.runt.snap.core.getCoreQueue('model_0_2_31:nodes')
+        edgesq = await self.runt.snap.core.getCoreQueue('model_0_2_31:nodes:edges')
+        refsq = await self.runt.snap.core.getCoreQueue('model_0_2_31:nodes:refs')
 
         qname = nodesq.get('name')
         qsize = nodesq.get('size')

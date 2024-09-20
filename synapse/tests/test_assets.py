@@ -7,7 +7,7 @@ class TestAssets(s_t_utils.SynTest):
 
     def test_assets_path(self):
 
-        fp = s_assets.getAssetPath('storm', 'migrations', 'model-0.2.28.storm')
+        fp = s_assets.getAssetPath('storm', 'migrations', 'model-0.2.31.storm')
         self.true(os.path.isfile(fp))
 
         with self.raises(ValueError) as cm:
@@ -20,6 +20,6 @@ class TestAssets(s_t_utils.SynTest):
 
     def test_assets_storm(self):
 
-        text = s_assets.getStorm('migrations', 'model-0.2.28.storm')
+        text = s_assets.getStorm('migrations', 'model-0.2.31.storm')
         self.isinstance(text, str)
         self.gt(len(text), 0)

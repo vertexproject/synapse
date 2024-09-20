@@ -790,17 +790,17 @@ class ModelRev:
     async def revModel_0_2_27(self, layers):
         await self._normPropValu(layers, 'it:dev:repo:commit:id')
 
-    async def revModel_0_2_28(self, layers):
+    async def revModel_0_2_29(self, layers):
+        await self._propToForm(layers, 'ou:industry:type', 'ou:industry:type:taxonomy')
+
+    async def revModel_0_2_31(self, layers):
 
         opts = {'vars': {
             'layridens': [layr.iden for layr in layers],
         }}
 
-        text = s_assets.getStorm('migrations', 'model-0.2.28.storm')
+        text = s_assets.getStorm('migrations', 'model-0.2.31.storm')
         await self.runStorm(text, opts=opts)
-
-    async def revModel_0_2_29(self, layers):
-        await self._propToForm(layers, 'ou:industry:type', 'ou:industry:type:taxonomy')
 
     async def runStorm(self, text, opts=None):
         '''

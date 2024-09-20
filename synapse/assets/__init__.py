@@ -16,7 +16,7 @@ def getStorm(*names):
         await core.callStorm(text)
 
     Example #2:
-        text = storm.get('migrations', 'model-0.2.28.storm')
+        text = storm.get('migrations', 'model-0.2.31.storm')
         await core.callStorm(text)
     '''
     fp = getAssetPath('storm', *names)

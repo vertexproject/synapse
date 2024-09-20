@@ -40,10 +40,10 @@ function getRefInfo(formname) {
 
 function removeNode(n, viewiden, layriden) {
 
-    $nodeq = $lib.queue.gen("model_0_2_28:nodes")
-    $refsq = $lib.queue.gen("model_0_2_28:nodes:refs")
-    $edgeq = $lib.queue.gen("model_0_2_28:nodes:edges")
-    $editq = $lib.queue.gen("model_0_2_28:nodes:edits")
+    $nodeq = $lib.queue.gen("model_0_2_31:nodes")
+    $refsq = $lib.queue.gen("model_0_2_31:nodes:refs")
+    $edgeq = $lib.queue.gen("model_0_2_31:nodes:edges")
+    $editq = $lib.queue.gen("model_0_2_31:nodes:edits")
 
     $edits = ([])
     $sources = ([])
