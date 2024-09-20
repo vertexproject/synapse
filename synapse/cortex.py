@@ -5761,14 +5761,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             curoffs = await self.getNexsIndx()
             miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout)
             if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
-                extra = {
-                    'delta': delta,
-                    'mirror': proxyname,
-                    'mirror_offset': miroffs,
-                }
                 mesg = (f'Pool mirror [{proxyname}] Nexus offset delta too large '
                         f'({delta} > {MAX_NEXUS_DELTA}), running query locally.')
-                logger.warning(mesg, extra={'synapse': extra})
+                logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
                 return None
 
             opts.setdefault('nexsoffs', curoffs - 1)
@@ -5780,7 +5775,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 logger.warning('Timeout waiting for pool mirror, running query locally.')
             else:
                 mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset, running query locally.'
-                logger.warning(mesg, extra={'synapse': {'mirror': proxyname}})
+                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
                 await proxy.fini()
             return None
 
