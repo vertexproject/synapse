@@ -38,7 +38,7 @@ function getRefInfo(formname) {
     }
 }
 
-function removeNode(n, viewiden, layriden, refiden=$lib.null) {
+function removeNode(n, viewiden, layriden) {
 
     $nodeq = $lib.queue.gen("model_0_2_31:nodes")
     $refsq = $lib.queue.gen("model_0_2_31:nodes:refs")
@@ -95,7 +95,7 @@ function removeNode(n, viewiden, layriden, refiden=$lib.null) {
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$formname}:{$propname} is readonly, cannot modify. Storing node: {$node.repr()}`)
-                            $removeNode($node, $view.iden, $view.layers.0.iden, refiden=$iden)
+                            $removeNode($node, $view.iden, $view.layers.0.iden)
                             | delnode |
                             continue
                         }
@@ -103,6 +103,7 @@ function removeNode(n, viewiden, layriden, refiden=$lib.null) {
 
                     $ref = ({
                         "iden": $node.iden(),
+                        "view": $view.iden,
                         "refinfo": $refinfo,
                     })
 
@@ -112,7 +113,6 @@ function removeNode(n, viewiden, layriden, refiden=$lib.null) {
                     if ($references.size() > 1000) { // pragma: no cover start
                         $item = ({
                             "iden": $iden,
-                            "view": $view.iden,
                             "refs": $references,
                         })
 
@@ -127,7 +127,6 @@ function removeNode(n, viewiden, layriden, refiden=$lib.null) {
     if $references {
         $item = ({
             "iden": $iden,
-            "view": $view.iden,
             "refs": $references,
         })
 
@@ -159,7 +158,9 @@ function removeNode(n, viewiden, layriden, refiden=$lib.null) {
 
             $sode = $layer.getStorNode($iden)
             if $sode {
+                $sode.props.".created" = $lib.undef
                 if $sode.props { $edit.props = $sode.props }
+
                 if $sode.tags { $edit.tags = $sode.tags }
                 if $sode.tagprops { $edit.tagprops = $sode.tagprops }
             }
@@ -266,7 +267,6 @@ function removeNode(n, viewiden, layriden, refiden=$lib.null) {
         "valu": $repr,
         "view": $viewiden,
         "layer": $layriden,
-        "refiden": $refiden,
         "sources": $sources.list(),
     })
 
@@ -319,7 +319,7 @@ function migrateCpeNode(oldcpe, newcpe) {
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Storing node: {$node.repr()}`)
-                            $removeNode($node, $view.iden, $view.layers.0.iden, refiden=$oldcpe.iden())
+                            $removeNode($node, $view.iden, $view.layers.0.iden)
                             | delnode
 
                         }
