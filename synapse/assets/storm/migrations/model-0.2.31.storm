@@ -38,6 +38,16 @@ function getRefInfo(formname) {
     }
 }
 
+function getRoProps(form) {
+    $ret = ([])
+
+    syn:prop:form=$form
+    +:ro=(true)
+    $ret.append(:base)
+
+    fini { return($ret) }
+}
+
 function removeNode(n, viewiden, layriden) {
 
     $nodeq = $lib.queue.gen("model_0_2_31:nodes")
@@ -139,6 +149,8 @@ function removeNode(n, viewiden, layriden) {
     $edits = ([])
     $sources = $lib.spooled.set()
 
+    $roprops = $getRoProps($n.form())
+
     // This loop stores all the edits and edges from every layer
     for $rview in $rviews {
         if (not $layers.has($rview.layers.0.iden)) { continue }
@@ -159,7 +171,11 @@ function removeNode(n, viewiden, layriden) {
 
             $sode = $layer.getStorNode($iden)
             if $sode {
-                $sode.props.".created" = $lib.undef
+                // Remove a readonly props first
+                for $roprop in $roprops {
+                    $sode.props.$roprop = $lib.undef
+                }
+
                 if $sode.props { $edit.props = $sode.props }
 
                 if $sode.tags { $edit.tags = $sode.tags }

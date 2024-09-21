@@ -1,4 +1,5 @@
 import datetime
+import textwrap
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -920,7 +921,7 @@ class ModelRevTest(s_tests.SynTest):
                 {'name': 'model_0_2_31:nodes', 'size': 10, 'offs': 10},
                 {'name': 'model_0_2_31:nodes:refs', 'size': 10, 'offs': 10},
                 {'name': 'model_0_2_31:nodes:edges', 'size': 2, 'offs': 2},
-                {'name': 'model_0_2_31:nodes:edits', 'size': 10, 'offs': 10},
+                {'name': 'model_0_2_31:nodes:edits', 'size': 2, 'offs': 2},
             ))
 
             q = '''
@@ -1020,49 +1021,14 @@ class ModelRevTest(s_tests.SynTest):
             editq = await core.callStorm(q)
             self.eq(editq, [
                 (0,
-                 {'edits': ({'layer': fork01layr,
-                             'props': {'node': (('it:sec:cpe', invcpe00), 25),
-                                       'source': (source23, 10)},
-                             'view': fork01},),
-                  'iden': metaseen00}),
-                (1,
-                 {'edits': ({'layer': fork01layr,
-                             'props': {'node': (('it:sec:cpe', invcpe01), 25),
-                                       'source': (source23, 10)},
-                             'view': fork01},),
-                  'iden': metaseen01}),
-                (2,
-                 {'edits': ({'layer': fork01layr,
-                             'props': {'node': (('it:sec:cpe', invcpe02), 25),
-                                       'source': (source22, 10)},
-                             'view': fork01},),
-                  'iden': metaseen02}),
-                (3,
-                 {'edits': ({'layer': fork01layr,
-                             'props': {'node': (('it:sec:cpe', invcpe02), 25),
-                                       'source': (source23, 10)},
-                             'view': fork01},),
-                  'iden': metaseen03}),
-                (4,
                  {'edits': ({'layer': fork02layr,
-                             'props': {'v2_2': ('cpe:/a:openbsd:openssh:7.4', 1)},
+                             'props': {'v2_2': ('cpe:/a:openbsd:openssh_server:7.4', 1)},
                              'view': fork02},
                             {'data': {'cpe22': 'invalid', 'cpe23': 'invalid'},
                              'layer': fork00layr,
                              'props': {'.seen': ((1577836800000, 1609459200000), 12),
                                        '_cpe22valid': (0, 2),
-                                       '_cpe23valid': (0, 2),
-                                       'edition': ('*', 1),
-                                       'language': ('*', 1),
-                                       'other': ('*', 1),
-                                       'part': ('a', 1),
-                                       'product': ('openssh', 1),
-                                       'sw_edition': ('*', 1),
-                                       'target_hw': ('*', 1),
-                                       'target_sw': ('*', 1),
-                                       'update': ('*', 1),
-                                       'vendor': ('openbsd', 1),
-                                       'version': ('7.4', 1)},
+                                       '_cpe23valid': (0, 2)},
                              'tagprops': {'test.tagprop': {'score': (0, 9)}},
                              'tags': {'test': (None, None),
                                       'test.cpe': (None, None),
@@ -1071,35 +1037,12 @@ class ModelRevTest(s_tests.SynTest):
                                       'test.tagprop': (None, None)},
                              'view': fork00}),
                   'iden': badcpe00}),
-                (5,
-                 {'edits': ({'layer': fork01layr,
-                             'props': {'node': (('it:sec:cpe', invcpe03), 25),
-                                       'source': (source23, 10)},
-                             'view': fork01},),
-                  'iden': metaseen04}),
-                (6,
-                 {'edits': ({'layer': fork01layr,
-                             'props': {'node': (('it:sec:cpe', invcpe03), 25),
-                                       'source': (source22, 10)},
-                             'view': fork01},),
-                  'iden': metaseen05}),
-                (7,
+                (1,
                  {'edits': ({'data': {'cpe22': 'invalid', 'cpe23': 'invalid'},
                              'layer': fork00layr,
                              'props': {'.seen': ((1577836800000, 1609459200000), 12),
                                        '_cpe22valid': (0, 2),
-                                       '_cpe23valid': (0, 2),
-                                       'edition': ('*', 1),
-                                       'language': ('*', 1),
-                                       'other': ('*', 1),
-                                       'part': ('a', 1),
-                                       'product': ('openssh', 1),
-                                       'sw_edition': ('*', 1),
-                                       'target_hw': ('*', 1),
-                                       'target_sw': ('*', 1),
-                                       'update': ('*', 1),
-                                       'vendor': ('openbsd', 1),
-                                       'version': ('8.2p1 ubuntu-4ubuntu0.2', 1)},
+                                       '_cpe23valid': (0, 2)},
                              'tagprops': {'test.tagprop': {'score': (0, 9)}},
                              'tags': {'test': (None, None),
                                       'test.cpe': (None, None),
@@ -1108,18 +1051,6 @@ class ModelRevTest(s_tests.SynTest):
                                       'test.tagprop': (None, None)},
                              'view': fork00},),
                   'iden': badcpe01}),
-                (8,
-                 {'edits': ({'layer': fork01layr,
-                             'props': {'node': (('it:sec:cpe', invcpe04), 25),
-                                       'source': (source23, 10)},
-                             'view': fork01},),
-                  'iden': metaseen06}),
-                (9,
-                 {'edits': ({'layer': fork01layr,
-                             'props': {'node': (('it:sec:cpe', invcpe05), 25),
-                                       'source': (source23, 10)},
-                             'view': fork01},),
-                  'iden': metaseen07}),
             ])
 
             q = '''
@@ -1395,6 +1326,76 @@ class ModelRevTest(s_tests.SynTest):
                     self.isin(('seen', node.iden()), n1s)
 
         async with self.getRegrCore('model-cpe-migration') as core:
+            views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
+            self.len(4, views)
+
+            fork00 = views[1].get('iden')
+            infork00 = {'view': fork00}
+
+            fork01 = views[2].get('iden')
+            infork01 = {'view': fork01}
+
+            fork02 = views[3].get('iden')
+            infork02 = {'view': fork02}
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.listNodes()')
+            self.stormHasNoWarnErr(msgs)
+            lines = [
+                "4aa80ca3a5f7d4d031de7bbb85237c017d68d8ac55c06cdf6bb10cde290be7a2: "
+                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', "
+                "'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*'))",
+
+                "8687f79ad8c314349a198fd45bc65325263db6662e000f77af96ff5bff96e405: "
+                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', "
+                "'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*'))",
+
+                "3d1cda08a9f6d942d0a32c24f40b097726ed5438ac6ccf7ff97922677a38704d: "
+                "meta:seen=('008af0047a8350287cde7abe31a7c706', ('it:sec:cpe', "
+                "'cpe:2.3:a:openbsd:openssh:7.4\\r\\n:*:*:*:*:*:*:*'))",
+
+                "7c61dc5a43a4ac5242a9c5c02ce7f54a4658338895602dfe0788356da78dd646: "
+                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', "
+                "'cpe:2.3:a:openbsd:openssh:7.4\\r\\n:*:*:*:*:*:*:*'))",
+
+                "122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac: "
+                "it:sec:cpe=cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*",
+
+                "81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d: "
+                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 "
+                "ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'))",
+
+                "85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9: "
+                "meta:seen=('008af0047a8350287cde7abe31a7c706', "
+                "('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'))",
+
+                "89f1fbd62a04867405169fd8eb38758372e3a6ed170536b439d957abecf6c449: "
+                "it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*",
+
+                "db2140d0e290260e4c91a3242d281ce954ce1d9513372a57dcdf0d18cbd6208e: "
+                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', "
+                "('it:sec:cpe', 'cpe:2.3:h:d\\\\-link:dir\\\\-850l:*:*:*:*:*:*:*:*'))",
+
+                "49b9a8f8b5f6432109256b0302e54c2ee9fe69d8997dbb7a6af550ba63483194: "
+                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', "
+                "('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*'))",
+            ]
+            for line in lines:
+                self.stormIsInPrint(line, msgs)
+            # self.stormIsInPrint('\n'.join(lines), msgs)
+
+            q = '''
+                $lib.model.migration.s.model_0_2_31.repairNode(
+                    "122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac",
+                    "cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*"
+                )
+            '''
+            msgs = await core.stormlist(q)
+            self.stormHasNoWarnErr(msgs)
+
+            data = await core.callStorm('return($lib.model.migration.s.model_0_2_31.queueData)')
+            self.isin('122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac', data)
+
+            # Repair node should be idempotent
             q = '''
                 $lib.model.migration.s.model_0_2_31.repairNode(
                     "122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac",
@@ -1404,3 +1405,87 @@ class ModelRevTest(s_tests.SynTest):
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
+
+            data = await core.callStorm('return($lib.model.migration.s.model_0_2_31.queueData)')
+            self.notin('122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac', data)
+
+            nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="7.4"', opts=infork00)
+            self.len(1, nodes)
+            self.false(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+            self.eq(nodes[0].get('.seen'), (1577836800000, 1609459200000))
+            self.eq(nodes[0].get('edition'), '*')
+            self.eq(nodes[0].get('language'), '*')
+            self.eq(nodes[0].get('other'), '*')
+            self.eq(nodes[0].get('part'), 'a')
+            self.eq(nodes[0].get('product'), 'openssh')
+            self.eq(nodes[0].get('sw_edition'), '*')
+            self.eq(nodes[0].get('target_hw'), '*')
+            self.eq(nodes[0].get('target_sw'), '*')
+            self.eq(nodes[0].get('update'), '*')
+            self.eq(nodes[0].get('vendor'), 'openbsd')
+            self.eq(nodes[0].get('version'), '7.4')
+            self.eq(nodes[0].get('v2_2'), 'cpe:/a:openbsd:openssh:7.4')
+            self.isin('test.cpe.22invalid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+            self.isin('test.tagprop', nodes[0].tags)
+            self.eq(nodes[0].tagprops['test.tagprop'], {'score': 0})
+
+            nodedata = await s_tests.alist(nodes[0].iterData())
+            self.eq(nodedata, [('cpe22', 'invalid'), ('cpe23', 'invalid')])
+
+            nodes = await core.nodes('it:sec:cpe:vendor=openbsd', opts=infork02)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('v2_2'), 'cpe:/a:openbsd:openssh_server:7.4')
+
+            valu = 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'
+            iden = '89f1fbd62a04867405169fd8eb38758372e3a6ed170536b439d957abecf6c449'
+            q = '$lib.model.migration.s.model_0_2_31.repairNode($iden, $valu, $lib.true)'
+
+            opts = {'vars': {'iden': iden, 'valu': valu}}
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            data = await core.callStorm('return($lib.model.migration.s.model_0_2_31.queueData)')
+            self.notin(iden, data)
+
+            nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="8.2p1"', opts=infork00)
+            self.len(1, nodes)
+            self.false(nodes[0].get('_cpe22valid'))
+            self.false(nodes[0].get('_cpe23valid'))
+            self.eq(nodes[0].get('.seen'), (1577836800000, 1609459200000))
+            self.eq(nodes[0].get('edition'), '*')
+            self.eq(nodes[0].get('language'), '*')
+            self.eq(nodes[0].get('other'), '*')
+            self.eq(nodes[0].get('part'), 'a')
+            self.eq(nodes[0].get('product'), 'openssh')
+            self.eq(nodes[0].get('sw_edition'), '*')
+            self.eq(nodes[0].get('target_hw'), '*')
+            self.eq(nodes[0].get('target_sw'), '*')
+            self.eq(nodes[0].get('update'), '*')
+            self.eq(nodes[0].get('vendor'), 'openbsd')
+            self.eq(nodes[0].get('version'), '8.2p1')
+            self.eq(nodes[0].get('v2_2'), 'cpe:/a:openbsd:openssh:8.2p1')
+            self.isin('test.cpe.22invalid', nodes[0].tags)
+            self.isin('test.cpe.23invalid', nodes[0].tags)
+            self.isin('test.tagprop', nodes[0].tags)
+            self.eq(nodes[0].tagprops['test.tagprop'], {'score': 0})
+
+            nodes = await core.nodes('it:sec:cpe:vendor="openbsd" +:version="8.2p1" -> meta:seen', opts=infork01)
+            self.len(0, nodes)
+
+            valu = ('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'))
+            iden = '81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d'
+            q = '$lib.model.migration.s.model_0_2_31.repairNode($iden, $valu, $lib.true)'
+
+            opts = {'vars': {'iden': iden, 'valu': valu}}
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormHasNoWarnErr(msgs)
+
+            data = await core.callStorm('return($lib.model.migration.s.model_0_2_31.queueData)')
+            self.notin(iden, data)
+
+            nodes = await core.nodes('it:sec:cpe:vendor="openbsd" +:version="8.2p1" -> meta:seen', opts=infork01)
+            self.len(1, nodes)
+            self.eq(nodes[0].get('source'), 'a7a4739e0a52674df0fa3a8226de0c3f')
+            self.eq(nodes[0].get('node'), ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'))

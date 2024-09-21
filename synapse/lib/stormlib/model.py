@@ -1327,20 +1327,23 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
     '''
     _storm_locals = (
-        {'name': 'printNodesShort', 'desc': 'Print queued node iden and value.',
+        {'name': 'listNodes', 'desc': 'Print queued nodes.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'returns': {'type': 'null'}}},
+        {'name': 'printNode', 'desc': 'Print detailed queued node information.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'n', 'type': 'dict', 'desc': 'The queued node to print.'},
                   ),
                   'returns': {'type': 'null'}}},
-        {'name': 'printNodeDetail', 'desc': 'Print queued node information.',
+        {'name': 'repairNode', 'desc': 'Repair a queued node.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'n', 'type': 'dict', 'desc': 'The queued node to print.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden to repair.'},
+                      {'name': 'newval', 'type': 'any', 'desc': 'The new (corrected) node value.'},
+                      {'name': 'remove', 'type': 'boolean', 'default': False,
+                       'desc': 'Specify whether to delete the repaired node from the queue.'},
                   ),
-                  'returns': {'type': 'null'}}},
-        {'name': 'getNodes', 'desc': 'Collate all the information from the model migration queues.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
                   'returns': {'type': 'dict', 'desc': 'The queue node information'}}},
         {'name': 'queueData', 'desc': 'Collated queue data.',
          'type': {'type': 'gtor', '_gtorfunc': '_gtorQueueData',
@@ -1348,18 +1351,14 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     )
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
     _storm_query = '''
-        function printNodeShort(n) {
-            $lib.print(`{$n.iden}: {$n.form}={$n.valu}`)
-        }
-
-        function printNodesShort() {
-            $qdata = $lib.model.migration.s.model_0_2_31.queueData
-            for ($iden, $info) in $qdata {
-                $printNodeShort($info)
+        function listNodes() {
+            $nodesq = $lib.queue.get('model_0_2_31:nodes')
+            for ($offs, $item) in $nodesq.gets(size=$nodesq.size()) {
+                $lib.print(`{$item.iden}: {$item.form}={$item.valu}`)
             }
         }
 
-        function printNodeDetail(iden) {
+        function printNode(iden) {
             $qdata = $lib.model.migration.s.model_0_2_31.queueData
             $n = $qdata.$iden
 
@@ -1597,7 +1596,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     $lib.model.migration.s.model_0_2_31.removeQueueNode($iden)
                 }
             } catch * as err {
-                $lib.exit(`Error when restoring node {$iden}: {$err}.`)
+                $lib.exit(`Error when restoring node {$iden}: {$err}.`) // pragma: no cover
             }
         }
     '''
@@ -1658,4 +1657,4 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             remove.reverse()
 
             for offs in remove:
-                await self.runt.snap.core.coreQueueCull(qname, offs)
+                await self.runt.snap.core.coreQueuePop(qname, offs)
