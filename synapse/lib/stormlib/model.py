@@ -1327,7 +1327,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
     '''
     _storm_locals = (
-        {'name': 'printNodeShort', 'desc': 'Print queued node iden and value.',
+        {'name': 'printNodesShort', 'desc': 'Print queued node iden and value.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'n', 'type': 'dict', 'desc': 'The queued node to print.'},
@@ -1349,7 +1349,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
     _storm_query = '''
         function printNodeShort(n) {
-            $lib.print(`{$n.iden}: {$n.form}={$n.repr}`)
+            $lib.print(`{$n.iden}: {$n.form}={$n.valu}`)
         }
 
         function printNodesShort() {
@@ -1363,112 +1363,299 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             $qdata = $lib.model.migration.s.model_0_2_31.queueData
             $n = $qdata.$iden
 
-            $lib.print(`{$n.form}={$n.repr}`)
-            for ($propname, $propvalu) in $n.props {
-                switch $propname {
-                    ".created": {
-                        $datetime = $lib.time.format($propvalu, '%Y-%m-%dT%H:%M:%SZ')
-                        $lib.print(`    .created = {$datetime}`)
+            $lib.print(`{$n.form}={$n.valu}`)
+            for $edit in $n.edits {
+                $lib.print(`  view: {$edit.view}`)
+                for ($propname, $propvalu) in $edit.props {
+                    switch $propname {
+                        ".created": {
+                            $datetime = $lib.time.format($propvalu.0, '%Y-%m-%dT%H:%M:%SZ')
+                            $lib.print(`    .created = {$datetime}`)
+                        }
+                        ".seen": {
+                            ($min, $max) = $propvalu.0
+                            $mindt = $lib.time.format($min, '%Y-%m-%dT%H:%M:%SZ')
+                            $maxdt = $lib.time.format($max, '%Y-%m-%dT%H:%M:%SZ')
+                            $lib.print(`    .seen = ({$mindt}, {$maxdt})`)
+                        }
+                        *: { $lib.print(`    :{$propname} = {$propvalu.0}`) }
                     }
-                    ".seen": {
-                        ($min, $max) = $propvalu
-                        $mindt = $lib.time.format($min, '%Y-%m-%dT%H:%M:%SZ')
-                        $maxdt = $lib.time.format($max, '%Y-%m-%dT%H:%M:%SZ')
-                        $lib.print(`    .seen = ({$mindt}, {$maxdt})`)
-                    }
-                    *: { $lib.print(`    :{$propname} = {$propvalu}`) }
                 }
+
+                for ($tagname, $tagvalu) in $edit.tags {
+                    $lib.print(`    #{$tagname}`)
+                }
+
+                for ($tagprop, $tagpropvalu) in $edit.tagprops {
+                    for ($prop, $valu) in $tagpropvalu {
+                        $lib.print(`    #{$tagprop}:{$prop} = {$valu.0}`)
+                    }
+                }
+
             }
-            for $tag in $n.tags {
-                $lib.print(`    #{$tag}`)
-            }
-            $lib.print(`  view: {$n.view}`)
-            $lib.print(`  layer: {$n.layer}`)
+
             $lib.print(`  sources: {$n.sources}`)
+
             if $n.refs {
                 $lib.print(`  refs:`)
                 for $ref in $n.refs {
-                    for $r in $ref.refs {
-                        ($form, $prop, $type, $isarray) = $r.refinfo
-                        $lib.print(`    - {$form}:{$prop} (iden: {$r.iden})` )
-                    }
+                    ($form, $prop, $type, $isarray) = $ref.refinfo
+                    $lib.print(`    - {$form}:{$prop} (iden: {$ref.iden}) (view: {$ref.view})` )
                 }
             }
 
             if $n.edges {
                 $lib.print(`  edges:`)
                 for $edge in $n.edges {
-                    $lib.print(`    view: {$edge.view}`)
                     if ($edge.direction = "n2") {
-                        for $e in $edge.edges {
-                            $lib.print(`      <({$e.0})- {$e.1}`)
-                        }
+                        $lib.print(`      <({$edge.verb})- {$edge.node} (view: {$edge.view})`)
                     } else {
-                        for $e in $edge.edges {
-                            $lib.print(`      -({$e.0})> {$e.1}`)
-                        }
+                        $lib.print(`      -({$edge.verb})> {$edge.node} (view: {$edge.view})`)
                     }
                 }
             }
         }
 
-        /*
-        function repairNode(iden, newval) {
-            $oldcpe = $getNode($iden)
-
+        function _checkValidLayer(viewiden, layriden) {
             try {
-                $view = $lib.view.get($oldcpe.view)
-            } except NoSuchView as exc {
-                $lib.warn(`Cannot restore node {$iden}, view {$oldcpe.view} does not exist.`)
-                return()
+                $view = $lib.view.get($viewiden)
+            } catch NoSuchView as exc {
+                $lib.warn(`View {$viewiden} does not exist.`)
+                return($lib.false)
             }
 
             $wlyr = $view.layers.0
+
+            if ($wlyr.iden != $layriden) {
+                $lib.warn(`Layer mismatch for node: expected {$layriden}, got {$wlyr.iden}.`)
+                return($lib.false)
+            }
+
             if (not $lib.user.allowed("node", gateiden=$wlyr.iden)) {
-                $lib.warn(`Cannot restore node, user {$lib.user.name()} does not have write access to view {$oldcpe.view}.`)
-                return()
+                $lib.warn(`User {$lib.user.name()} does not have write access to view {$viewiden}.`)
+                return($lib.false)
+            }
+
+            return($lib.true)
+        }
+
+        function _repairNode(iden, newval) {
+            $oldnode = $lib.model.migration.s.model_0_2_31.queueData.$iden
+            if (not $oldnode) {
+                $lib.warn(`Queue node not found with iden {$iden}.`)
+                return($lib.false)
+            }
+
+            if (not $_checkValidLayer($oldnode.view, $oldnode.layer)) {
+                $lib.warn("View/layer does not exist to recreate node.")
+                return($lib.false)
+            }
+
+            ($ok, $norm) = $lib.trycast($oldnode.form, $newval)
+            if (not $ok) {
+                $lib.warn(`Invalid value provided for {$oldnode.form}: {$newval}.`)
+                return($lib.false)
+            }
+
+            $lib.print(`Repairing {$iden} from {$oldnode.valu} -> {$newval}.`)
+
+            // First thing, create the node in the right view
+            view.exec $oldnode.view {
+                [ *$oldnode.form = $newval ]
+            }
+
+            for $edit in $oldnode.edits {
+                if (not $_checkValidLayer($edit.view, $edit.layer)) {
+                    $lib.warn(`Could not apply edits in view {$edit.view}, skipping.`)
+                    continue
+                }
+
+                view.exec $edit.view {
+                    *$oldnode.form=$newval
+
+                    { for ($propname, $propvalu) in $edit.props {
+                        $valu = $propvalu.0
+
+                        if $lib.debug {
+                            $lib.print(`Restoring prop {$propname}={$valu} (view: {$edit.view})`)
+                        }
+
+                        if ($propname = ".seen") {
+                            [ .seen = $valu ]
+                        } else {
+                            try {
+                                [ :$propname = $valu ]
+                            } catch ReadOnlyProp as exc {
+                                if $lib.debug { $lib.print(`Cannot set readonly property {$propname}`) }
+                            }
+                        }
+                    }}
+
+                    { for ($tagname, $tagvalu) in $edit.tags {
+                        if $lib.debug {
+                            $lib.print(`Restoring tag {$tagname}={$tagvalu} (view: {$edit.view})`)
+                        }
+
+                        [ +#$tagname=$tagvalu ]
+                    }}
+
+                    { for ($tagname, $tagvalu) in $edit.tagprops {
+                        for ($name, $valu) in $tagvalu {
+                            if $lib.debug {
+                                $lib.print(`Restoring tagprop {$tagname}:{$name}={$valu.0} (view: {$edit.view})`)
+                            }
+
+                            [ +#$tagname:$name = $valu.0 ]
+                        }
+                    }}
+
+                    { for ($name, $valu) in $edit.data {
+                        if $lib.debug {
+                            $lib.print(`Restoring nodedata {$name}={$valu} (view: {$edit.view})`)
+                        }
+
+                        $node.data.set($name, $valu)
+                    }}
+                }
+            }
+
+            for $edge in $oldnode.edges {
+                if (not $_checkValidLayer($edge.view, $edge.layer)) {
+                    $lib.warn(`Could not apply edge in view {$edge.view}, skipping.`)
+                    continue
+                }
+
+                *$oldnode.form=$newval
+
+                switch $edge.direction {
+                    "n1": {
+                        if $lib.debug {
+                            $lib.print(`Restoring edge -({$edge.verb})> {$edge.node} (view: {$edit.view})`)
+                        }
+
+                        [ +($edge.verb)> { yield $edge.node } ]
+                    }
+
+                    "n2": {
+                        if $lib.debug {
+                            $lib.print(`Restoring edge <({$edge.verb})- {$edge.node} (view: {$edit.view})`)
+                        }
+
+                        [ <($edge.verb)+ { yield $edge.node } ]
+                    }
+                }
+            }
+
+            for $ref in $oldnode.refs {
+                if (not $_checkValidLayer($ref.view, $ref.layer)) {
+                    $lib.warn(`Could not restore reference in view {$ref.view}, skipping.`)
+                    continue
+                }
+
+                ($form, $prop, $type, $isarray) = $ref.refinfo
+
+                view.exec $ref.view {
+
+                    yield $ref.iden
+
+                    empty {
+                        $lib.warn(`Skipping invalid reference: {$iden} ({$form}:{$prop}).`)
+                        continue
+                    }
+
+                    if ($node.form() != $form) {
+                        $lib.warn(`Skipping invalid reference: expected {$form}, got {$node.form()}.`)
+                        continue
+                    }
+
+                    if $lib.debug {
+                        $lib.print(`Restoring reference {$form}:{$prop} {$ref.iden} (view: {$edit.view})`)
+                    }
+
+                    if $isarray {
+                        [ :$prop += { *$oldnode.form=$newval } ]
+                    } else {
+                        if ($type = "ndef") {
+                            $valu = ($oldnode.form, $newval)
+                        } else {
+                            $valu = $newval
+                        }
+
+                        [ :$prop = $valu ]
+                    }
+                }
+            }
+
+            return($lib.true)
+        }
+
+        function repairNode(iden, newval, remove=$lib.false) {
+            try {
+                $ok = $_repairNode($iden, $newval)
+                if ($ok and $remove) {
+                    $lib.print(`Removing stored invalid node: {$iden}.`)
+                    $lib.model.migration.s.model_0_2_31.removeQueueNode($iden)
+                }
+            } catch * as err {
+                $lib.exit(`Error when restoring node {$iden}: {$err}.`)
             }
         }
-        */
     '''
 
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name=name)
 
         self.gtors.update({
-            'queueData': self._gtorQueueData
+            'queueData': self._gtorQueueData,
         })
+
+    def getObjLocals(self):
+        return {
+            'removeQueueNode': self._methRemoveQueueNode,
+        }
 
     async def _gtorQueueData(self):
         qdata = {}
 
         nodesq = await self.runt.snap.core.getCoreQueue('model_0_2_31:nodes')
-        edgesq = await self.runt.snap.core.getCoreQueue('model_0_2_31:nodes:edges')
-        refsq = await self.runt.snap.core.getCoreQueue('model_0_2_31:nodes:refs')
 
         qname = nodesq.get('name')
         qsize = nodesq.get('size')
-        async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
+        async for (offs, item) in self.runt.snap.core.coreQueueGets('model_0_2_31:nodes', cull=False, size=nodesq.get('size')):
             iden = item.get('iden')
 
             qdata[iden] = item
+            qdata[iden].setdefault('edits', [])
             qdata[iden].setdefault('edges', [])
             qdata[iden].setdefault('refs', [])
 
-        qname = edgesq.get('name')
-        qsize = edgesq.get('size')
-        async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
-            iden = item.get('iden')
+        for name in ('edges', 'edits', 'refs'):
+            qname = f'model_0_2_31:nodes:{name}'
+            queue = await self.runt.snap.core.getCoreQueue(qname)
+            qsize = queue.get('size')
 
-            edges = qdata[iden].get('edges')
-            edges.append(item)
+            async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
+                iden = item.get('iden')
 
-        qname = refsq.get('name')
-        qsize = refsq.get('size')
-        async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
-            iden = item.get('iden')
-
-            refs = qdata[iden].get('refs')
-            refs.append(item)
+                data = qdata[iden].get(name)
+                data.extend(item.get(name))
 
         return qdata
+
+    async def _methRemoveQueueNode(self, iden):
+        iden = await s_stormtypes.tostr(iden)
+
+        for qname in ('model_0_2_31:nodes', 'model_0_2_31:nodes:edges', 'model_0_2_31:nodes:edits', 'model_0_2_31:nodes:refs'):
+            remove = []
+
+            queue = await self.runt.snap.core.getCoreQueue(qname)
+            qsize = queue.get('size')
+
+            async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
+                if iden == item.get('iden'):
+                    remove.append(offs)
+
+            remove.reverse()
+
+            for offs in remove:
+                await self.runt.snap.core.coreQueueCull(qname, offs)

@@ -103,6 +103,7 @@ function removeNode(n, viewiden, layriden) {
 
                     $ref = ({
                         "iden": $node.iden(),
+                        "layer": $view.layers.0.iden,
                         "view": $view.iden,
                         "refinfo": $refinfo,
                     })
@@ -427,6 +428,11 @@ function main() {
                     // Node could not be automatically migrated. Collect
                     // critical information to eventually reconstruct this node
                     // and store it in a queue.
+
+                    // Remove the old :v2_2 prop because it's invalid and it could cause problems during node
+                    // restoration
+                    yield $oldcpe
+                    [ -:v2_2 ]
 
                     $removeNode($oldcpe, $view.iden, $view.layers.0.iden)
                 }
