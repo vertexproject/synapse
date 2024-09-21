@@ -1489,3 +1489,14 @@ class ModelRevTest(s_tests.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('source'), 'a7a4739e0a52674df0fa3a8226de0c3f')
             self.eq(nodes[0].get('node'), ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'))
+
+            # Check queue status after restoring three nodes
+            queues = await core.callStorm('return($lib.queue.list())')
+            [q.pop('meta') for q in queues]
+            self.len(4, queues)
+            self.eq(queues, (
+                {'name': 'model_0_2_31:nodes', 'size': 7, 'offs': 10},
+                {'name': 'model_0_2_31:nodes:refs', 'size': 7, 'offs': 10},
+                {'name': 'model_0_2_31:nodes:edges', 'size': 0, 'offs': 2},
+                {'name': 'model_0_2_31:nodes:edits', 'size': 0, 'offs': 2},
+            ))
