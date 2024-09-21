@@ -1160,11 +1160,12 @@ class ModelRevTest(s_tests.SynTest):
                 fini { return($ret) }
             '''
             edgesq = await core.callStorm(q)
+            self.len(2, edgesq)
             self.eq(edgesq, [
                 (0,
                  {'edges': ({'direction': 'n2',
                              'layer': fork01layr,
-                             'node': source22iden,
+                             'node': source23iden,
                              'verb': 'seen',
                              'view': fork01},
                             {'direction': 'n2',
@@ -1181,7 +1182,7 @@ class ModelRevTest(s_tests.SynTest):
                 (1,
                  {'edges': ({'direction': 'n2',
                              'layer': fork01layr,
-                             'node': source22iden,
+                             'node': source23iden,
                              'verb': 'seen',
                              'view': fork01},
                             {'direction': 'n2',
@@ -1198,6 +1199,8 @@ class ModelRevTest(s_tests.SynTest):
             ])
 
         async with self.getRegrCore('model-cpe-migration') as core:
+
+            riskvuln = s_common.ehex(s_common.buid(('risk:vuln', s_common.guid(('risk', 'vuln')))))
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(4, views)
@@ -1326,6 +1329,8 @@ class ModelRevTest(s_tests.SynTest):
                     self.isin(('seen', node.iden()), n1s)
 
         async with self.getRegrCore('model-cpe-migration') as core:
+            riskvuln = s_common.ehex(s_common.buid(('risk:vuln', s_common.guid(('risk', 'vuln')))))
+
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
             self.len(4, views)
 
@@ -1431,8 +1436,29 @@ class ModelRevTest(s_tests.SynTest):
             self.isin('test.tagprop', nodes[0].tags)
             self.eq(nodes[0].tagprops['test.tagprop'], {'score': 0})
 
+            edges = await s_tests.alist(nodes[0].iterEdgesN1())
+            self.len(1, edges)
+            self.eq(edges, [('refs', riskvuln)])
+
+            edges = await s_tests.alist(nodes[0].iterEdgesN2())
+            self.len(0, edges)
+
             nodedata = await s_tests.alist(nodes[0].iterData())
             self.eq(nodedata, [('cpe22', 'invalid'), ('cpe23', 'invalid')])
+
+            nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="7.4"', opts=infork01)
+            self.len(1, nodes)
+
+            edges = await s_tests.alist(nodes[0].iterEdgesN1())
+            self.len(1, edges)
+            self.eq(edges, [('refs', riskvuln)])
+
+            edges = await s_tests.alist(nodes[0].iterEdgesN2())
+            self.len(2, edges)
+            self.sorteq(edges, [
+                ('seen', source22iden),
+                ('seen', source23iden),
+            ])
 
             nodes = await core.nodes('it:sec:cpe:vendor=openbsd', opts=infork02)
             self.len(1, nodes)
@@ -1470,6 +1496,30 @@ class ModelRevTest(s_tests.SynTest):
             self.isin('test.cpe.23invalid', nodes[0].tags)
             self.isin('test.tagprop', nodes[0].tags)
             self.eq(nodes[0].tagprops['test.tagprop'], {'score': 0})
+
+            edges = await s_tests.alist(nodes[0].iterEdgesN1())
+            self.len(1, edges)
+            self.eq(edges, [('refs', riskvuln)])
+
+            edges = await s_tests.alist(nodes[0].iterEdgesN2())
+            self.len(0, edges)
+
+            nodedata = await s_tests.alist(nodes[0].iterData())
+            self.eq(nodedata, [('cpe22', 'invalid'), ('cpe23', 'invalid')])
+
+            nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="8.2p1"', opts=infork01)
+            self.len(1, nodes)
+
+            edges = await s_tests.alist(nodes[0].iterEdgesN1())
+            self.len(1, edges)
+            self.eq(edges, [('refs', riskvuln)])
+
+            edges = await s_tests.alist(nodes[0].iterEdgesN2())
+            self.len(2, edges)
+            self.sorteq(edges, [
+                ('seen', source22iden),
+                ('seen', source23iden),
+            ])
 
             nodes = await core.nodes('it:sec:cpe:vendor="openbsd" +:version="8.2p1" -> meta:seen', opts=infork01)
             self.len(0, nodes)

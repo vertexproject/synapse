@@ -199,16 +199,18 @@ function removeNode(n, viewiden, layriden) {
                 $edits = ([])
             } // pragma: no cover stop
 
-            $edge = ({})
 
             // Get N1 edges and store them in the queue
             for $n1edge in $layer.getEdgesByN1($iden) {
                 ($verb, $dst) = $n1edge
-                $edge.verb = $verb
-                $edge.node = $dst
-                $edge.direction = "n1"
-                $edge.layer = $layer.iden
-                $edge.view = $rview.iden
+
+                $edge = ({
+                    "verb": $verb,
+                    "node": $dst,
+                    "direction": "n1",
+                    "layer": $layer.iden,
+                    "view": $rview.iden,
+                })
 
                 $edges.append($edge)
 
@@ -227,11 +229,15 @@ function removeNode(n, viewiden, layriden) {
             // Get N2 edges and store them in the queue
             for $n2edge in $layer.getEdgesByN2($iden) {
                 ($verb, $src) = $n2edge
-                $edge.verb = $verb
-                $edge.node = $src
-                $edge.direction = "n2"
-                $edge.layer = $layer.iden
-                $edge.view = $rview.iden
+
+                $edge = ({
+                    "verb": $verb,
+                    "node": $src,
+                    "direction": "n2",
+                    "layer": $layer.iden,
+                    "view": $rview.iden,
+                })
+
                 $edges.append($edge)
 
                 // Flush to the queue if the list grows too large

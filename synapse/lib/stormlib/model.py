@@ -1475,44 +1475,24 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     { for ($propname, $propvalu) in $edit.props {
                         $valu = $propvalu.0
 
-                        if $lib.debug {
-                            $lib.print(`Restoring prop {$propname}={$valu} (view: {$edit.view})`)
-                        }
-
                         if ($propname = ".seen") {
                             [ .seen = $valu ]
                         } else {
-                            try {
-                                [ :$propname = $valu ]
-                            } catch ReadOnlyProp as exc {
-                                if $lib.debug { $lib.print(`Cannot set readonly property {$propname}`) }
-                            }
+                            [ :$propname = $valu ]
                         }
                     }}
 
                     { for ($tagname, $tagvalu) in $edit.tags {
-                        if $lib.debug {
-                            $lib.print(`Restoring tag {$tagname}={$tagvalu} (view: {$edit.view})`)
-                        }
-
                         [ +#$tagname=$tagvalu ]
                     }}
 
                     { for ($tagname, $tagvalu) in $edit.tagprops {
                         for ($name, $valu) in $tagvalu {
-                            if $lib.debug {
-                                $lib.print(`Restoring tagprop {$tagname}:{$name}={$valu.0} (view: {$edit.view})`)
-                            }
-
                             [ +#$tagname:$name = $valu.0 ]
                         }
                     }}
 
                     { for ($name, $valu) in $edit.data {
-                        if $lib.debug {
-                            $lib.print(`Restoring nodedata {$name}={$valu} (view: {$edit.view})`)
-                        }
-
                         $node.data.set($name, $valu)
                     }}
                 }
@@ -1524,23 +1504,17 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     continue
                 }
 
-                *$oldnode.form=$newval
+                view.exec $edge.view {
+                    *$oldnode.form=$newval
 
-                switch $edge.direction {
-                    "n1": {
-                        if $lib.debug {
-                            $lib.print(`Restoring edge -({$edge.verb})> {$edge.node} (view: {$edit.view})`)
+                    switch $edge.direction {
+                        "n1": {
+                            [ +($edge.verb)> { yield $edge.node } ]
                         }
 
-                        [ +($edge.verb)> { yield $edge.node } ]
-                    }
-
-                    "n2": {
-                        if $lib.debug {
-                            $lib.print(`Restoring edge <({$edge.verb})- {$edge.node} (view: {$edit.view})`)
+                        "n2": {
+                            [ <($edge.verb)+ { yield $edge.node } ]
                         }
-
-                        [ <($edge.verb)+ { yield $edge.node } ]
                     }
                 }
             }
@@ -1565,10 +1539,6 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     if ($node.form() != $form) {
                         $lib.warn(`Skipping invalid reference: expected {$form}, got {$node.form()}.`)
                         continue
-                    }
-
-                    if $lib.debug {
-                        $lib.print(`Restoring reference {$form}:{$prop} {$ref.iden} (view: {$edit.view})`)
                     }
 
                     if $isarray {
