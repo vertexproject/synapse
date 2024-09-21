@@ -280,7 +280,7 @@ class Cpe22Str(s_types.Str):
 
         v2_2 = zipCpe22(parts)
 
-        if not isValidCpe22(v2_2):
+        if not isValidCpe22(v2_2): # pragma: no cover
             mesg = 'CPE 2.2 string appears to be invalid.'
             raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
 
@@ -388,7 +388,7 @@ class Cpe23Str(s_types.Str):
             v2_2 = zipCpe22(v2_2[:7])
 
             # Now validate the downconvert
-            if not isValidCpe22(v2_2):
+            if not isValidCpe22(v2_2): # pragma: no cover
                 mesg = 'Invalid CPE2.3 to CPE2.2 conversion.'
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_2=v2_2)
 
@@ -447,7 +447,7 @@ class Cpe23Str(s_types.Str):
             v2_3 = 'cpe:2.3:' + ':'.join(escaped)
 
             # Now validate the upconvert
-            if not isValidCpe23(v2_3):
+            if not isValidCpe23(v2_3): # pragma: no cover
                 mesg = 'Invalid CPE2.2 to CPE2.3 conversion.'
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_3=v2_3)
 

@@ -884,10 +884,10 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         '''
 
         if not isinstance(src, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.copyNodeLayer() source argument must be a node.')
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyNodeLayer() src argument must be a node.')
 
         if not isinstance(dst, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.copyNodeLayer() dest argument must be a node.')
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyNodeLayer() dst argument must be a node.')
 
         if not self.runt.snap.core.migration:
             mesg = '$lib.model.migration.copyNodeLayer() is restricted to model migrations only.'
