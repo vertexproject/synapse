@@ -59,7 +59,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
 
   check_runner_has_work:
     description: Check that this runner has work to do
@@ -69,7 +69,7 @@ commands:
           command: |
             mkdir -p ./tmp && \
             >./tmp/tests.txt && \
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command ">./tmp/tests.txt xargs echo"
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | circleci tests run --split-by=timings --command ">./tmp/tests.txt xargs echo"
             [ -s tmp/tests.txt ] || circleci-agent step halt #if there are no tests, terminate execution after this step
 
   test_steps_doc:
