@@ -17,7 +17,7 @@ import operator
 import pickle
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
 import weakref
-from synapse.vendor.cpython.lib.test.support import LARGEST, SMALLEST
+from synapse.vendor.cpython.lib.tests.support import LARGEST, SMALLEST
 
 import synapse.vendor.utils as s_v_utils
 
