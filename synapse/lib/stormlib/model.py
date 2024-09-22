@@ -1329,6 +1329,14 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     _storm_locals = (
         {'name': 'listNodes', 'desc': 'Print queued nodes.',
          'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'form', 'type': 'form', 'default': None,
+                       'desc': 'Only show entries matching the specified form.'},
+                      {'name': 'offset', 'type': 'int', 'default': 0,
+                       'desc': 'Skip this many entries.'},
+                      {'name': 'size', 'type': 'int', 'default': None,
+                       'desc': 'Only print up to this many entries.'},
+                  ),
                   'returns': {'type': 'null'}}},
         {'name': 'printNode', 'desc': 'Print detailed queued node information.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -1351,9 +1359,15 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     )
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
     _storm_query = '''
-        function listNodes() {
+        function listNodes(form=$lib.null, offset=(0), size=$lib.null) {
             $nodesq = $lib.queue.get('model_0_2_31:nodes')
-            for ($offs, $item) in $nodesq.gets(size=$nodesq.size()) {
+
+            if (not $size) {
+                $size = $nodesq.size()
+            }
+
+            for ($offs, $item) in $nodesq.gets(offs=$offset, size=$size, wait=$lib.false) {
+                if ($form and $item.form != $form) { continue }
                 $lib.print(`{$item.iden}: {$item.form}={$item.valu}`)
             }
         }
