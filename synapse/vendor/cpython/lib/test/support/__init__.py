@@ -4,7 +4,7 @@
 ##############################################################################
 # """Supporting definitions for the Python regression tests."""
 
-if __name__ != 'synapse.vendor.cpython.lib.tests.support':
+if __name__ != 'synapse.vendor.cpython.lib.test.support':
     raise ImportError('support must be imported from the test package')
 
 import contextlib

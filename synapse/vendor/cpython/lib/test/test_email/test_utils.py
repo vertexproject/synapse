@@ -13,7 +13,7 @@ import zoneinfo
 from synapse.vendor.cpython.lib.email import utils
 
 import synapse.vendor.utils as s_v_utils
-import synapse.vendor.cpython.lib.tests.support as t_support
+import synapse.vendor.cpython.lib.test.support as t_support
 
 
 class DateTimeTests(s_v_utils.VendorTest):
