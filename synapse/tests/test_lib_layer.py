@@ -2245,17 +2245,11 @@ class LayerTest(s_t_utils.SynTest):
 
             fork00 = await core.view.fork()
             infork00 = {'view': fork00['iden']}
+            layr00 = core.getLayer(fork00['layers'][0]['iden'])
 
             iden = await core.callStorm('[ inet:ipv4=1.2.3.4 ] return($node.iden())')
 
-            getSodes = '''
-                $ret=([])
-                for $sode in $lib.layer.get().getStorNodesByForm(inet:ipv4) {
-                    $ret.append($sode)
-                }
-                fini { return($ret) }
-            '''
-            sodes = await core.callStorm(getSodes, opts=infork00)
+            sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ipv4'))
             self.len(0, sodes)
 
             q = '''
@@ -2264,7 +2258,7 @@ class LayerTest(s_t_utils.SynTest):
             '''
             await core.callStorm(q, opts=infork00)
 
-            sodes = await core.callStorm(getSodes, opts=infork00)
+            sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ipv4'))
             self.len(1, sodes)
 
             q = '''
@@ -2277,5 +2271,5 @@ class LayerTest(s_t_utils.SynTest):
             opts = {'vars': {'iden': iden, 'fork00': fork00['iden']}}
             await core.callStorm(q, opts=opts)
 
-            sodes = await core.callStorm(getSodes, opts=infork00)
+            sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ipv4'))
             self.len(0, sodes)
