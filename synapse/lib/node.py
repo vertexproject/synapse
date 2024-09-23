@@ -664,12 +664,12 @@ class Node:
         for name in self.props.keys():
             edits.extend(await self._getPropDelEdits(name, init=True))
 
+        async for name in self.iterDataKeys():
+            edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+
         edits.append(
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
         )
-
-        async for name in self.iterDataKeys():
-            edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
 
         await self.snap.applyNodeEdit((self.buid, formname, edits))
         self.snap.livenodes.pop(self.buid, None)
