@@ -473,6 +473,9 @@ class OuModule(s_module.CoreModule):
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the campaign.'}),
 
+                    ('slogan', ('lang:phrase', {}), {
+                        'doc': 'The slogan used by the campaign.'}),
+
                     ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Actors who participated in the campaign.'}),
 
@@ -623,6 +626,13 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {
                         'doc': 'The localized name of an organization.',
                     }),
+                    ('type', ('str', {'lower': True, 'strip': True}), {
+                        'deprecated': True,
+                        'doc': 'The type of organization.',
+                    }),
+                    ('motto', ('lang:phrase', {}), {
+                        'doc': 'The motto used by the organization.'}),
+
                     ('type', ('ou:org:type:taxonomy', {}), {
                         'doc': 'The type of organization.',
                     }),

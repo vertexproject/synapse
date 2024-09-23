@@ -12,6 +12,9 @@ class LangModule(s_module.CoreModule):
                     'deprecated': True,
                     'doc': 'Deprecated. Please use lang:translation.'}),
 
+                ('lang:phrase', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'A small group of words which stand together as a concept.'}),
+
                 ('lang:trans', ('str', {}), {
                     'deprecated': True,
                     'doc': 'Deprecated. Please use lang:translation.'}),
@@ -31,6 +34,7 @@ class LangModule(s_module.CoreModule):
             ),
             'forms': (
 
+                ('lang:phrase', {}, ()),
                 ('lang:idiom', {}, (
 
                     ('url', ('inet:url', {}), {

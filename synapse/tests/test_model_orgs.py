@@ -95,7 +95,7 @@ class OuModelTest(s_t_utils.SynTest):
             :techniques=$p.techniques :sophistication=$p.sophistication :tag=$p.tag
             :reporter=$p.reporter :reporter:name=$p."reporter:name" :timeline=$p.timeline
             :mitre:attack:campaign=$p."mitre:attack:campaign"
-            :ext:id=Foo
+            :ext:id=Foo :slogan="For The People"
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': camp, 'p': props}})
             self.len(1, nodes)
@@ -117,7 +117,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(node.get('reporter'))
             self.eq(node.get('reporter:name'), 'vertex')
             self.eq(node.get('mitre:attack:campaign'), 'C0011')
+            self.eq(node.get('slogan'), 'for the people')
 
+            self.len(1, await core.nodes(f'ou:campaign={camp} :slogan -> lang:phrase'))
             nodes = await core.nodes(f'ou:campaign={camp} -> it:mitre:attack:campaign')
             self.len(1, nodes)
             nodes = nodes[0]
@@ -236,7 +238,7 @@ class OuModelTest(s_t_utils.SynTest):
                 :logo=$p.logo :alias=$p.alias :phone=$p.phone :sic=$p.sic :naics=$p.naics :url=$p.url
                 :us:cage=$p."us:cage" :founded=$p.founded :dissolved=$p.dissolved
                 :techniques=$p.techniques :goals=$p.goals
-                :ext:id=Foo
+                :ext:id=Foo :motto="DONT BE EVIL"
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid0, 'p': props}})
             self.len(1, nodes)
@@ -258,11 +260,13 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('goals'), (goal,))
             self.eq(node.get('ext:id'), 'Foo')
             self.nn(node.get('logo'))
+            self.eq('dont be evil', node.get('motto'))
 
             await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
             self.len(1, await core.nodes('ou:org:country:code=ua'))
             self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
             self.len(1, await core.nodes('ou:org -> ou:org:type:taxonomy'))
+            self.len(1, await core.nodes('ou:org :motto -> lang:phrase'))
 
             nodes = await core.nodes('ou:name')
             self.sorteq([x.ndef[1] for x in nodes], (normname, 'vertex') + altnames)

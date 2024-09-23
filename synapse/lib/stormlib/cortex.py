@@ -1086,7 +1086,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'path', 'type': 'string',
                        'desc': 'The extended HTTP API path.'},
                       {'name': 'name', 'type': 'string',
-                       'desc': 'Friendly name for the Extended HTTP API', 'default': ''},
+                       'desc': 'Friendly name for the Extended HTTP API.', 'default': ''},
                       {'name': 'desc', 'type': 'string',
                        'desc': 'Description for the Extended HTTP API.', 'default': ''},
                       {'name': 'runas', 'type': 'string',
@@ -1096,6 +1096,8 @@ class CortexHttpApi(s_stormtypes.Lib):
                        'desc': 'Require the API endpoint to be authenticated.', 'default': True},
                       {'name': 'readonly', 'type': 'boolean',
                        'desc': 'Run the Extended HTTP Storm methods in readonly mode.', 'default': False},
+                      {'name': 'iden', 'type': 'str',
+                       'desc': 'An iden for the new Extended HTTP API.', 'default': None},
                   ),
                   'returns': {'type': 'http:api', 'desc': 'A new ``http:api`` object.'}}},
         {'name': 'del', 'desc': 'Delete an Extended HTTP API endpoint.',
@@ -1197,7 +1199,7 @@ class CortexHttpApi(s_stormtypes.Lib):
         apis = [HttpApi(self.runt, adef) for adef in adefs]
         return apis
 
-    async def addHttpApi(self, path, name='', desc='', runas='owner', authenticated=True, readonly=False):
+    async def addHttpApi(self, path, name='', desc='', runas='owner', authenticated=True, readonly=False, iden=None):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'add'))
 
         path = await s_stormtypes.tostr(path)
@@ -1208,6 +1210,7 @@ class CortexHttpApi(s_stormtypes.Lib):
         authenticated = await s_stormtypes.tobool(authenticated)
 
         adef = {
+            'iden': iden,
             'path': path,
             'view': self.runt.view.iden,
             'runas': runas,
