@@ -2668,5 +2668,5 @@ class IpaddrUnitTest(s_v_utils.VendorTest):
         self.assertNotEqual(ipv6_address1.__hash__(), ipv6_address2.__hash__())
 
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()

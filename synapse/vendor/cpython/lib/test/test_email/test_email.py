@@ -476,5 +476,5 @@ class TestMiscellaneous(s_v_utils.VendorTest):
         # Ignore real name between quotes
         self.assertTrue(utils._check_parenthesis(f'")Alice((" {addr}'))
 
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     unittest.main()
