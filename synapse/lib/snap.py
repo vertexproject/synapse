@@ -1380,6 +1380,11 @@ class Snap(s_base.Base):
             mesg = 'The snapshot is in read-only mode.'
             raise s_exc.IsReadOnly(mesg=mesg)
 
+        if isinstance(valu, dict):
+            form = self.core.model.reqForm(name)
+            if isinstance(form.type, s_types.Guid):
+                return await self._addGuidNodeByDict(form, valu, props=props)
+
         async with self.getEditor() as editor:
             protonode = await editor.addNode(name, valu, props=props, norminfo=norminfo)
             if protonode is None:
@@ -1387,6 +1392,130 @@ class Snap(s_base.Base):
 
         # the newly constructed node is cached
         return await self.getNodeByBuid(protonode.buid)
+
+    async def _addGuidNodeByDict(self, form, vals, props=None):
+
+        norms = {}
+        counts = []
+        proplist = []
+
+        if props is None:
+            props = {}
+
+        trycast = vals.pop('$try', False)
+        addprops = vals.pop('$props', None)
+        if addprops is not None:
+            props.update(addprops)
+
+        try:
+            for name, valu in list(props.items()):
+                props[name] = form.reqProp(name).type.norm(valu)
+
+            for name, valu in vals.items():
+
+                prop = form.reqProp(name)
+                norm, norminfo = prop.type.norm(valu)
+
+                norms[name] = (prop, norm, norminfo)
+                proplist.append((name, norm))
+        except s_exc.BadTypeValu as e:
+            if not trycast: raise
+            mesg = e.errinfo.get('mesg')
+            await self.warn(f'Bad value for prop {name}: {mesg}')
+            return
+
+        proplist.sort()
+
+        # check first for an exact match via our same deconf strategy
+        iden = s_common.guid(proplist)
+
+        node = await self.getNodeByNdef((form.full, iden))
+        if node is not None:
+
+            # ensure we still match the property deconf criteria
+            for name, (prop, norm, info) in norms.items():
+                if not self._filtByPropAlts(node, prop, norm):
+                    break
+            else:
+                # ensure the non-deconf props are set
+                async with self.getEditor() as editor:
+                    proto = editor.loadNode(node)
+                    for name, (valu, info) in props.items():
+                        await proto.set(name, valu, norminfo=info)
+                return node
+
+        # TODO there is an opportunity here to populate
+        # a look-aside for the alternative iden to speed
+        # up future deconfliction and potentially pop them
+        # if we lookup a node and it no longer passes the
+        # filter...
+
+        # no exact match. lets do some counting.
+        for name, (prop, norm, info) in norms.items():
+            count = await self._getPropAltCount(prop, norm)
+            counts.append((count, prop, norm))
+
+        counts.sort(key=lambda x: x[0])
+
+        # lift starting with the lowest count
+        count, prop, norm = counts[0]
+        async for node in self._nodesByPropAlts(prop, norm):
+            await asyncio.sleep(0)
+
+            # filter on the remaining props/alts
+            for count, prop, norm in counts[1:]:
+                if not self._filtByPropAlts(node, prop, norm):
+                    break
+            else:
+                # ensure the non-deconf props are set
+                async with self.getEditor() as editor:
+                    proto = editor.loadNode(node)
+                    for name, (valu, info) in props.items():
+                        await proto.set(name, valu, norminfo=info)
+                return node
+
+        async with self.getEditor() as editor:
+            proto = await editor.addNode(form.name, iden)
+            for name, (prop, valu, info) in norms.items():
+                await proto.set(name, valu, norminfo=info)
+            for name, (valu, info) in props.items():
+                await proto.set(name, valu, norminfo=info)
+
+        return await self.getNodeByBuid(proto.buid)
+
+    async def _getPropAltCount(self, prop, valu):
+        count = 0
+        proptype = prop.type
+        for prop in prop.getAlts():
+            if prop.type.isarray and prop.type.arraytype == proptype:
+                count += await self.view.getPropArrayCount(prop.full, valu=valu)
+            else:
+                count += await self.view.getPropCount(prop.full, valu=valu)
+        return count
+
+    def _filtByPropAlts(self, node, prop, valu):
+        # valu must be normalized in advance
+        proptype = prop.type
+        for prop in prop.getAlts():
+            if prop.type.isarray and prop.type.arraytype == proptype:
+                if valu in node.get(prop.name):
+                    return True
+            else:
+                if node.get(prop.name) == valu:
+                    return True
+
+        return False
+
+    async def _nodesByPropAlts(self, prop, valu):
+        # valu must be normalized in advance
+        proptype = prop.type
+        for prop in prop.getAlts():
+            if prop.type.isarray and prop.type.arraytype == proptype:
+                async for node in self.nodesByPropArray(prop.full, '=', valu, norm=False):
+                    yield node
+            else:
+                async for node in self.nodesByPropValu(prop.full, '=', valu, norm=False):
+                    yield node
 
     async def addFeedNodes(self, name, items):
         '''

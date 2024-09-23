@@ -63,6 +63,12 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadFormDef):
                 core.model.addForm('woot:two', {}, ())
 
+            with self.raises(s_exc.NoSuchForm):
+                core.model.reqForm('newp:newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                core.model.reqForm('inet:asn').reqProp('newp')
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
