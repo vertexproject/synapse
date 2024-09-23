@@ -946,6 +946,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'meta:seen',
                   'iden': metaseen00,
                   'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (0,)},
                   'valu': (source23, ('it:sec:cpe', invcpe00)),
                   'sources': (),
                   'view': fork01}),
@@ -953,6 +954,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'meta:seen',
                   'iden': metaseen01,
                   'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (1,)},
                   'valu': (source23, ('it:sec:cpe', invcpe01)),
                   'sources': (),
                   'view': fork01}),
@@ -960,6 +962,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'meta:seen',
                   'iden': metaseen02,
                   'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (2,)},
                   'valu': (source22, ('it:sec:cpe', invcpe02)),
                   'sources': (),
                   'view': fork01}),
@@ -967,6 +970,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'meta:seen',
                   'iden': metaseen03,
                   'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (3,)},
                   'valu': (source23, ('it:sec:cpe', invcpe02)),
                   'sources': (),
                   'view': fork01}),
@@ -974,6 +978,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'it:sec:cpe',
                   'iden': badcpe00,
                   'layer': fork00layr,
+                  'offsets': {'edges': (0,), 'edits': (0,), 'refs': (4,)},
                   'valu': invcpe02,
                   'sources': sorted((source22, source23)),
                   'view': fork00}),
@@ -981,6 +986,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'meta:seen',
                   'iden': metaseen04,
                   'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (5,)},
                   'valu': (source23, ('it:sec:cpe', invcpe03)),
                   'sources': (),
                   'view': fork01}),
@@ -988,6 +994,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'meta:seen',
                   'iden': metaseen05,
                   'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (6,)},
                   'valu': (source22, ('it:sec:cpe', invcpe03)),
                   'sources': (),
                   'view': fork01}),
@@ -995,6 +1002,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'it:sec:cpe',
                   'iden': badcpe01,
                   'layer': fork00layr,
+                  'offsets': {'edges': (1,), 'edits': (1,), 'refs': (7,)},
                   'valu': invcpe03,
                   'sources': sorted((source22, source23)),
                   'view': fork00}),
@@ -1002,6 +1010,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'meta:seen',
                   'iden': metaseen06,
                   'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (8,)},
                   'valu': (source23, ('it:sec:cpe', invcpe04)),
                   'sources': (),
                   'view': fork01}),
@@ -1009,6 +1018,7 @@ class ModelRevTest(s_tests.SynTest):
                  {'form': 'meta:seen',
                   'iden': metaseen07,
                   'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (9,)},
                   'valu': (source23, ('it:sec:cpe', invcpe05)),
                   'sources': (),
                   'view': fork01}),
@@ -1025,36 +1035,36 @@ class ModelRevTest(s_tests.SynTest):
             editq = await core.callStorm(q)
             self.eq(editq, [
                 (0,
-                 {'edits': ({'layer': fork02layr,
-                             'props': {'v2_2': ('cpe:/a:openbsd:openssh_server:7.4', 1)},
-                             'view': fork02},
-                            {'data': {'cpe22': 'invalid', 'cpe23': 'invalid'},
-                             'layer': fork00layr,
-                             'props': {'.seen': ((1577836800000, 1609459200000), 12),
-                                       '_cpe22valid': (0, 2),
-                                       '_cpe23valid': (0, 2)},
-                             'tagprops': {'test.tagprop': {'score': (0, 9)}},
-                             'tags': {'test': (None, None),
-                                      'test.cpe': (None, None),
-                                      'test.cpe.22invalid': (None, None),
-                                      'test.cpe.23invalid': (None, None),
-                                      'test.tagprop': (None, None)},
-                             'view': fork00}),
-                  'iden': badcpe00}),
+                 ({'layer': fork02layr,
+                   'props': {'v2_2': ('cpe:/a:openbsd:openssh_server:7.4', 1)},
+                   'view': fork02},
+                  {'data': {'cpe22': 'invalid', 'cpe23': 'invalid'},
+                   'layer': fork00layr,
+                   'props': {'.seen': ((1577836800000, 1609459200000), 12),
+                             '_cpe22valid': (0, 2),
+                             '_cpe23valid': (0, 2)},
+                   'tagprops': {'test.tagprop': {'score': (0, 9)}},
+                   'tags': {'test': (None, None),
+                            'test.cpe': (None, None),
+                            'test.cpe.22invalid': (None, None),
+                            'test.cpe.23invalid': (None, None),
+                            'test.tagprop': (None, None)},
+                   'view': fork00}),
+                ),
                 (1,
-                 {'edits': ({'data': {'cpe22': 'invalid', 'cpe23': 'invalid'},
-                             'layer': fork00layr,
-                             'props': {'.seen': ((1577836800000, 1609459200000), 12),
-                                       '_cpe22valid': (0, 2),
-                                       '_cpe23valid': (0, 2)},
-                             'tagprops': {'test.tagprop': {'score': (0, 9)}},
-                             'tags': {'test': (None, None),
-                                      'test.cpe': (None, None),
-                                      'test.cpe.22invalid': (None, None),
-                                      'test.cpe.23invalid': (None, None),
-                                      'test.tagprop': (None, None)},
-                             'view': fork00},),
-                  'iden': badcpe01}),
+                 ({'data': {'cpe22': 'invalid', 'cpe23': 'invalid'},
+                   'layer': fork00layr,
+                   'props': {'.seen': ((1577836800000, 1609459200000), 12),
+                             '_cpe22valid': (0, 2),
+                             '_cpe23valid': (0, 2)},
+                   'tagprops': {'test.tagprop': {'score': (0, 9)}},
+                   'tags': {'test': (None, None),
+                            'test.cpe': (None, None),
+                            'test.cpe.22invalid': (None, None),
+                            'test.cpe.23invalid': (None, None),
+                            'test.tagprop': (None, None)},
+                   'view': fork00},),
+                ),
             ])
 
             q = '''
@@ -1068,91 +1078,81 @@ class ModelRevTest(s_tests.SynTest):
             refsq = await core.callStorm(q)
             self.eq(refsq, [
                 (0,
-                 {'iden': metaseen00,
-                  'refs': ({'iden': '86288a55af26e1314ae60e12c54c02f4af2e22ed1580166b39f5352762856335',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  }),
+                 ({'iden': '86288a55af26e1314ae60e12c54c02f4af2e22ed1580166b39f5352762856335',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
                 (1,
-                 {'iden': metaseen01,
-                  'refs': ({'iden': '1e0ce923f3dbd57b11d5d95cc5d6d1ccd4de4aba9b6534d57eaa0a2433af9430',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  }),
+                 ({'iden': '1e0ce923f3dbd57b11d5d95cc5d6d1ccd4de4aba9b6534d57eaa0a2433af9430',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
                 (2,
-                 {'iden': metaseen02,
-                  'refs': ({'iden': '11f7e64a8dd8aa5f2a9b52c0e95783da4b7486452aff74dfcf80814f72507f88',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  }),
+                 ({'iden': '11f7e64a8dd8aa5f2a9b52c0e95783da4b7486452aff74dfcf80814f72507f88',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
                 (3,
-                 {'iden': metaseen03,
-                  'refs': ({'iden': 'b209cfe6fb7167cc7dbae9df50894c2614cb9e179e5b3a4fd85fbcf7fa31a9dd',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  }),
+                 ({'iden': 'b209cfe6fb7167cc7dbae9df50894c2614cb9e179e5b3a4fd85fbcf7fa31a9dd',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
                 (4,
-                 {'iden': badcpe00,
-                  'refs': ({'iden': 'd2c0737b821ba0a699e1ff168e2bf1677590dbf677ce7e5c02894f8868ae080a',
-                            'layer': fork00layr,
-                            'view': fork00,
-                            'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},
-                           {'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
-                  }),
+                 ({'iden': 'd2c0737b821ba0a699e1ff168e2bf1677590dbf677ce7e5c02894f8868ae080a',
+                   'layer': fork00layr,
+                   'view': fork00,
+                   'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},
+                  {'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
+                ),
                 (5,
-                 {'iden': metaseen04,
-                  'refs': ({'iden': '6d09c45666b3a14bf9d298079344d01c079e474423307da553d65ad9917556ae',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  }),
+                 ({'iden': '6d09c45666b3a14bf9d298079344d01c079e474423307da553d65ad9917556ae',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
                 (6,
-                 {'iden': metaseen05,
-                  'refs': ({'iden': '208ea1b5593aff3c9cb51c19374616fcd103ea2f554f0dd2a13652aadabb82ae',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  }),
+                 ({'iden': '208ea1b5593aff3c9cb51c19374616fcd103ea2f554f0dd2a13652aadabb82ae',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
                 (7,
-                 {'iden': badcpe01,
-                  'refs': ({'iden': '5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3',
-                            'layer': fork00layr,
-                            'view': fork00,
-                            'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},
-                           {'iden': '9742664e24fe1a3a37d871b1f62af27453c2945b98f421d753db8436e9a44cc9',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:prod:soft', 'cpe', 'it:sec:cpe', False)},
-                           {'iden': '16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('_ext:model:form', 'cpe', 'it:sec:cpe', False)},
-                           {'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
-                  }),
+                 ({'iden': '5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3',
+                   'layer': fork00layr,
+                   'view': fork00,
+                   'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},
+                  {'iden': '9742664e24fe1a3a37d871b1f62af27453c2945b98f421d753db8436e9a44cc9',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:prod:soft', 'cpe', 'it:sec:cpe', False)},
+                  {'iden': '16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('_ext:model:form', 'cpe', 'it:sec:cpe', False)},
+                  {'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
+                ),
                 (8,
-                 {'iden': metaseen06,
-                  'refs': ({'iden': 'e3c389c194609a57cde68c21cac8ae1cd18e6a642e332461a3acd19138904239',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  }),
+                 ({'iden': 'e3c389c194609a57cde68c21cac8ae1cd18e6a642e332461a3acd19138904239',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
                 (9,
-                 {'iden': metaseen07,
-                  'refs': ({'iden': '53ad1502b6f6de3d9d4efe72cc101cd3889e47323ac8db5e3fd39ae68c72f141',
-                            'layer': fork01layr,
-                            'view': fork01,
-                            'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                  }),
+                 ({'iden': '53ad1502b6f6de3d9d4efe72cc101cd3889e47323ac8db5e3fd39ae68c72f141',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
             ])
 
             q = '''
@@ -1167,39 +1167,39 @@ class ModelRevTest(s_tests.SynTest):
             self.len(2, edgesq)
             self.eq(edgesq, [
                 (0,
-                 {'edges': ({'direction': 'n2',
-                             'layer': fork01layr,
-                             'node': source23iden,
-                             'verb': 'seen',
-                             'view': fork01},
-                            {'direction': 'n2',
-                             'layer': fork01layr,
-                             'node': source22iden,
-                             'verb': 'seen',
-                             'view': fork01},
-                            {'direction': 'n1',
-                             'layer': fork00layr,
-                             'node': riskvuln,
-                             'verb': 'refs',
-                             'view': fork00}),
-                  'iden': badcpe00}),
+                 ({'direction': 'n2',
+                   'layer': fork01layr,
+                   'node': source23iden,
+                   'verb': 'seen',
+                   'view': fork01},
+                  {'direction': 'n2',
+                   'layer': fork01layr,
+                   'node': source22iden,
+                   'verb': 'seen',
+                   'view': fork01},
+                  {'direction': 'n1',
+                   'layer': fork00layr,
+                   'node': riskvuln,
+                   'verb': 'refs',
+                   'view': fork00}),
+                ),
                 (1,
-                 {'edges': ({'direction': 'n2',
-                             'layer': fork01layr,
-                             'node': source23iden,
-                             'verb': 'seen',
-                             'view': fork01},
-                            {'direction': 'n2',
-                             'layer': fork01layr,
-                             'node': source22iden,
-                             'verb': 'seen',
-                             'view': fork01},
-                            {'direction': 'n1',
-                             'layer': fork00layr,
-                             'node': riskvuln,
-                             'verb': 'refs',
-                             'view': fork00}),
-                  'iden': badcpe01}),
+                 ({'direction': 'n2',
+                   'layer': fork01layr,
+                   'node': source23iden,
+                   'verb': 'seen',
+                   'view': fork01},
+                  {'direction': 'n2',
+                   'layer': fork01layr,
+                   'node': source22iden,
+                   'verb': 'seen',
+                   'view': fork01},
+                  {'direction': 'n1',
+                   'layer': fork00layr,
+                   'node': riskvuln,
+                   'verb': 'refs',
+                   'view': fork00}),
+                ),
             ])
 
             # There should be nothing in the default view
@@ -1355,76 +1355,95 @@ class ModelRevTest(s_tests.SynTest):
             fork02 = views[3].get('iden')
             infork02 = {'view': fork02}
 
-            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.listNodes()')
-            self.stormHasNoWarnErr(msgs)
+            q = '''
+                $ret = ([])
+                for $item in $lib.model.migration.s.model_0_2_31.listNodes() {
+                    $ret.append($item)
+                }
+                return($ret)
+            '''
+            nodelist = await core.callStorm(q)
+            self.eq(nodelist, [
+                (0,
+                    'meta:seen', (
+                        'a7a4739e0a52674df0fa3a8226de0c3f',
+                        ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*')
+                    )
+                ),
+                (1,
+                    'meta:seen', (
+                        'a7a4739e0a52674df0fa3a8226de0c3f',
+                        ('it:sec:cpe', 'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*')
+                    )
+                ),
+                (2,
+                    'meta:seen', (
+                        '008af0047a8350287cde7abe31a7c706',
+                        ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*')
+                    )
+                ),
+                (3,
+                    'meta:seen', (
+                        'a7a4739e0a52674df0fa3a8226de0c3f',
+                        ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*')
+                    )
+                ),
+                (4,
+                    'it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*',
+                ),
+                (5,
+                    'meta:seen', (
+                        'a7a4739e0a52674df0fa3a8226de0c3f',
+                        ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
+                    )
+                ),
+                (6,
+                    'meta:seen', (
+                        '008af0047a8350287cde7abe31a7c706',
+                        ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
+                    )
+                ),
+                (7,
+                    'it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*',
+                ),
+                (8,
+                    'meta:seen', (
+                        'a7a4739e0a52674df0fa3a8226de0c3f',
+                        ('it:sec:cpe', 'cpe:2.3:h:d\\-link:dir\\-850l:*:*:*:*:*:*:*:*')
+                    )
+                ),
+                (9,
+                    'meta:seen', (
+                        'a7a4739e0a52674df0fa3a8226de0c3f',
+                        ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*')
+                    )
+                ),
+            ])
+
             lines = [
-                "4aa80ca3a5f7d4d031de7bbb85237c017d68d8ac55c06cdf6bb10cde290be7a2: "
-                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', "
-                "'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*'))",
 
-                "8687f79ad8c314349a198fd45bc65325263db6662e000f77af96ff5bff96e405: "
-                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', "
-                "'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*'))",
-
-                "3d1cda08a9f6d942d0a32c24f40b097726ed5438ac6ccf7ff97922677a38704d: "
-                "meta:seen=('008af0047a8350287cde7abe31a7c706', ('it:sec:cpe', "
-                "'cpe:2.3:a:openbsd:openssh:7.4\\r\\n:*:*:*:*:*:*:*'))",
-
-                "7c61dc5a43a4ac5242a9c5c02ce7f54a4658338895602dfe0788356da78dd646: "
-                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', "
-                "'cpe:2.3:a:openbsd:openssh:7.4\\r\\n:*:*:*:*:*:*:*'))",
-
-                "122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac: "
-                "it:sec:cpe=cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*",
-
-                "81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d: "
-                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 "
-                "ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'))",
-
-                "85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9: "
-                "meta:seen=('008af0047a8350287cde7abe31a7c706', "
-                "('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'))",
-
-                "89f1fbd62a04867405169fd8eb38758372e3a6ed170536b439d957abecf6c449: "
-                "it:sec:cpe=cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*",
-
-                "db2140d0e290260e4c91a3242d281ce954ce1d9513372a57dcdf0d18cbd6208e: "
-                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', "
-                "('it:sec:cpe', 'cpe:2.3:h:d\\\\-link:dir\\\\-850l:*:*:*:*:*:*:*:*'))",
-
-                "49b9a8f8b5f6432109256b0302e54c2ee9fe69d8997dbb7a6af550ba63483194: "
-                "meta:seen=('a7a4739e0a52674df0fa3a8226de0c3f', "
-                "('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*'))",
             ]
             for line in lines:
                 self.stormIsInPrint(line, msgs)
             # self.stormIsInPrint('\n'.join(lines), msgs)
 
             q = '''
-                $lib.model.migration.s.model_0_2_31.repairNode(
-                    "122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac",
+                $lib.model.migration.s.model_0_2_31.repairNode((4),
                     "cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*"
                 )
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
 
-            data = await core.callStorm('return($lib.model.migration.s.model_0_2_31.queueData)')
-            self.isin('122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac', data)
-
             # Repair node should be idempotent
             q = '''
-                $lib.model.migration.s.model_0_2_31.repairNode(
-                    "122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac",
+                $lib.model.migration.s.model_0_2_31.repairNode((4),
                     "cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*",
                     $lib.true
                 )
             '''
             msgs = await core.stormlist(q)
             self.stormHasNoWarnErr(msgs)
-
-            data = await core.callStorm('return($lib.model.migration.s.model_0_2_31.queueData)')
-            self.notin('122cab72a8961cf2b61106d0020042af2bdfdaf09dc73282df76d1fba1b37eac', data)
 
             nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="7.4"', opts=infork00)
             self.len(1, nodes)
@@ -1478,14 +1497,11 @@ class ModelRevTest(s_tests.SynTest):
 
             valu = 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'
             iden = '89f1fbd62a04867405169fd8eb38758372e3a6ed170536b439d957abecf6c449'
-            q = '$lib.model.migration.s.model_0_2_31.repairNode($iden, $valu, $lib.true)'
+            q = '$lib.model.migration.s.model_0_2_31.repairNode((7), $valu, $lib.true)'
 
             opts = {'vars': {'iden': iden, 'valu': valu}}
             msgs = await core.stormlist(q, opts=opts)
             self.stormHasNoWarnErr(msgs)
-
-            data = await core.callStorm('return($lib.model.migration.s.model_0_2_31.queueData)')
-            self.notin(iden, data)
 
             nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="8.2p1"', opts=infork00)
             self.len(1, nodes)
@@ -1538,14 +1554,11 @@ class ModelRevTest(s_tests.SynTest):
 
             valu = ('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'))
             iden = '81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d'
-            q = '$lib.model.migration.s.model_0_2_31.repairNode($iden, $valu, $lib.true)'
+            q = '$lib.model.migration.s.model_0_2_31.repairNode((5), $valu, $lib.true)'
 
             opts = {'vars': {'iden': iden, 'valu': valu}}
             msgs = await core.stormlist(q, opts=opts)
             self.stormHasNoWarnErr(msgs)
-
-            data = await core.callStorm('return($lib.model.migration.s.model_0_2_31.queueData)')
-            self.notin(iden, data)
 
             nodes = await core.nodes('it:sec:cpe:vendor="openbsd" +:version="8.2p1" -> meta:seen', opts=infork01)
             self.len(1, nodes)

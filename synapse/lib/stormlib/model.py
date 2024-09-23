@@ -1327,7 +1327,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
     '''
     _storm_locals = (
-        {'name': 'listNodes', 'desc': 'Print queued nodes.',
+        {'name': 'listNodes', 'desc': 'Yield queued nodes.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
                       {'name': 'form', 'type': 'form', 'default': None,
@@ -1337,7 +1337,8 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                       {'name': 'size', 'type': 'int', 'default': None,
                        'desc': 'Only print up to this many entries.'},
                   ),
-                  'returns': {'type': 'null'}}},
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'A tuple of (offset, form, valu) values for the specified node.', }}},
         {'name': 'printNode', 'desc': 'Print detailed queued node information.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -1347,83 +1348,121 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         {'name': 'repairNode', 'desc': 'Repair a queued node.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden to repair.'},
+                      {'name': 'offset', 'type': 'str', 'desc': 'The node queue offset to repair.'},
                       {'name': 'newval', 'type': 'any', 'desc': 'The new (corrected) node value.'},
                       {'name': 'remove', 'type': 'boolean', 'default': False,
                        'desc': 'Specify whether to delete the repaired node from the queue.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The queue node information'}}},
-        {'name': 'queueData', 'desc': 'Collated queue data.',
-         'type': {'type': 'gtor', '_gtorfunc': '_gtorQueueData',
-                  'returns': {'type': 'dict'}}},
     )
     _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
     _storm_query = '''
-        function listNodes(form=$lib.null, offset=(0), size=$lib.null) {
-            $nodesq = $lib.queue.get('model_0_2_31:nodes')
+        $nodeq = $lib.queue.get("model_0_2_31:nodes")
+        $refsq = $lib.queue.get("model_0_2_31:nodes:refs")
+        $edgeq = $lib.queue.get("model_0_2_31:nodes:edges")
+        $editq = $lib.queue.get("model_0_2_31:nodes:edits")
 
+        function listNodes(form=$lib.null, offset=(0), size=$lib.null) {
             if (not $size) {
-                $size = $nodesq.size()
+                $size = $nodeq.size()
             }
 
-            for ($offs, $item) in $nodesq.gets(offs=$offset, size=$size, wait=$lib.false) {
+            for ($offs, $item) in $nodeq.gets(offs=$offset, size=$size, wait=(false)) {
                 if ($form and $item.form != $form) { continue }
-                $lib.print(`{$item.iden}: {$item.form}={$item.valu}`)
+                emit ($offs, $item.form, $item.valu)
             }
         }
 
-        function printNode(iden) {
-            $qdata = $lib.model.migration.s.model_0_2_31.queueData
-            $n = $qdata.$iden
-
-            $lib.print(`{$n.form}={$n.valu}`)
-            for $edit in $n.edits {
-                $lib.print(`  view: {$edit.view}`)
-                for ($propname, $propvalu) in $edit.props {
-                    switch $propname {
-                        ".created": {
-                            $datetime = $lib.time.format($propvalu.0, '%Y-%m-%dT%H:%M:%SZ')
-                            $lib.print(`    .created = {$datetime}`)
-                        }
-                        ".seen": {
-                            ($min, $max) = $propvalu.0
-                            $mindt = $lib.time.format($min, '%Y-%m-%dT%H:%M:%SZ')
-                            $maxdt = $lib.time.format($max, '%Y-%m-%dT%H:%M:%SZ')
-                            $lib.print(`    .seen = ({$mindt}, {$maxdt})`)
-                        }
-                        *: { $lib.print(`    :{$propname} = {$propvalu.0}`) }
-                    }
-                }
-
-                for ($tagname, $tagvalu) in $edit.tags {
-                    $lib.print(`    #{$tagname}`)
-                }
-
-                for ($tagprop, $tagpropvalu) in $edit.tagprops {
-                    for ($prop, $valu) in $tagpropvalu {
-                        $lib.print(`    #{$tagprop}:{$prop} = {$valu.0}`)
-                    }
-                }
-
+        function printNode(offset) {
+            $item = $nodeq.get($offset, cull=(false), wait=(false))
+            if (not $item) {
+                $lib.warn(`Queue node with offset {$offset} not found.`)
+                return()
             }
 
-            $lib.print(`  sources: {$n.sources}`)
+            $item = $item.1
 
-            if $n.refs {
+            $lib.print(`{$item.form}={$item.valu}`)
+
+            for $offs in $item.offsets.edits {
+                $edits = $editq.get($offs, cull=(false), wait=(false))
+                if (not $edits) {
+                    $lib.warn(`Queue node edits with offset {$offs} not found.`)
+                    continue
+                }
+
+                $edits = $edits.1
+
+                for $edit in $edits {
+                    $lib.print(`  view: {$edit.view}`)
+                    for ($propname, $propvalu) in $edit.props {
+                        switch $propname {
+                            ".created": {
+                                $datetime = $lib.time.format($propvalu.0, '%Y-%m-%dT%H:%M:%SZ')
+                                $lib.print(`    .created = {$datetime}`)
+                            }
+                            ".seen": {
+                                ($min, $max) = $propvalu.0
+                                $mindt = $lib.time.format($min, '%Y-%m-%dT%H:%M:%SZ')
+                                $maxdt = $lib.time.format($max, '%Y-%m-%dT%H:%M:%SZ')
+                                $lib.print(`    .seen = ({$mindt}, {$maxdt})`)
+                            }
+                            *: { $lib.print(`    :{$propname} = {$propvalu.0}`) }
+                        }
+                    }
+
+                    for ($tagname, $tagvalu) in $edit.tags {
+                        $lib.print(`    #{$tagname}`)
+                    }
+
+                    for ($tagprop, $tagpropvalu) in $edit.tagprops {
+                        for ($prop, $valu) in $tagpropvalu {
+                            $lib.print(`    #{$tagprop}:{$prop} = {$valu.0}`)
+                        }
+                    }
+
+                }
+            }
+
+            $lib.print(`  sources: {$item.sources}`)
+
+            if $item.offsets.refs {
                 $lib.print(`  refs:`)
-                for $ref in $n.refs {
-                    ($form, $prop, $type, $isarray) = $ref.refinfo
-                    $lib.print(`    - {$form}:{$prop} (iden: {$ref.iden}) (view: {$ref.view})` )
+
+                for $offs in $item.offsets.refs {
+                    $refs = $refsq.get($offs, cull=(false), wait=(false))
+                    if (not $refs) {
+                        $lib.warn(`Queue node refs with offset {$offs} not found.`)
+                        continue
+                    }
+
+                    $refs = $refs.1
+
+                    for $ref in $refs {
+                        ($form, $prop, $type, $isarray) = $ref.refinfo
+                        $lib.print(`    - {$form}:{$prop} (iden: {$ref.iden}) (view: {$ref.view})` )
+                    }
                 }
             }
 
-            if $n.edges {
+            if $item.offsets.edges {
                 $lib.print(`  edges:`)
-                for $edge in $n.edges {
-                    if ($edge.direction = "n2") {
-                        $lib.print(`      <({$edge.verb})- {$edge.node} (view: {$edge.view})`)
-                    } else {
-                        $lib.print(`      -({$edge.verb})> {$edge.node} (view: {$edge.view})`)
+
+                for $offs in $item.offsets.edges {
+                    $edges = $edgeq.get($offs, cull=(false), wait=(false))
+                    if (not $edges) {
+                        $lib.warn(`Queue node edges with offset {$offset} not found.`)
+                        continue
+                    }
+
+                    $edges = $edges.1
+
+                    for $edge in $edges {
+                        if ($edge.direction = "n2") {
+                            $lib.print(`      <({$edge.verb})- {$edge.node} (view: {$edge.view})`)
+                        } else {
+                            $lib.print(`      -({$edge.verb})> {$edge.node} (view: {$edge.view})`)
+                        }
                     }
                 }
             }
@@ -1452,12 +1491,36 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             return($lib.true)
         }
 
-        function _repairNode(iden, newval) {
-            $oldnode = $lib.model.migration.s.model_0_2_31.queueData.$iden
+        function _removeNode(offset) {
+            $item = $nodeq.pop($offset)
+            if (not $item) {
+                $lib.warn(`Queue node not found with offset {$offset}.`)
+                return()
+            }
+
+            $item = $item.1
+
+            for $offs in $item.offsets.refs {
+                $refsq.pop($offs)
+            }
+
+            for $offs in $item.offsets.edges {
+                $edgeq.pop($offs)
+            }
+
+            for $offs in $item.offsets.edits {
+                $editq.pop($offs)
+            }
+        }
+
+        function _repairNode(offset, newval) {
+            $oldnode = $nodeq.get($offset, cull=(false), wait=(false))
             if (not $oldnode) {
-                $lib.warn(`Queue node not found with iden {$iden}.`)
+                $lib.warn(`Queue node not found with offset {$offset}.`)
                 return($lib.false)
             }
+
+            $oldnode = $oldnode.1
 
             if (not $_checkValidLayer($oldnode.view, $oldnode.layer)) {
                 $lib.warn("View/layer does not exist to recreate node.")
@@ -1470,96 +1533,126 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                 return($lib.false)
             }
 
-            $lib.print(`Repairing {$iden} from {$oldnode.valu} -> {$newval}.`)
+            $lib.print(`Repairing {$offset} from {$oldnode.valu} -> {$newval}.`)
 
             // First thing, create the node in the right view
             view.exec $oldnode.view {
                 [ *$oldnode.form = $newval ]
             }
 
-            for $edit in $oldnode.edits {
-                if (not $_checkValidLayer($edit.view, $edit.layer)) {
-                    $lib.warn(`Could not apply edits in view {$edit.view}, skipping.`)
+            for $offs in $oldnode.offsets.edits {
+                $edits = $editq.get($offs, cull=(false), wait=(false))
+                if (not $edits) {
+                    $lib.warn(`Queue node {$offset} missing edits offset {$offs}. Node may be incomplete after restoration.`)
                     continue
                 }
 
-                view.exec $edit.view {
-                    *$oldnode.form=$newval
+                $edits = $edits.1
 
-                    { for ($propname, $propvalu) in $edit.props {
-                        [ :$propname = $propvalu.0 ]
-                    }}
+                for $edit in $edits {
+                    if (not $_checkValidLayer($edit.view, $edit.layer)) {
+                        $lib.warn(`Could not apply edits in view {$edit.view}, skipping.`)
+                        continue
+                    }
 
-                    { for ($tagname, $tagvalu) in $edit.tags {
-                        [ +#$tagname=$tagvalu ]
-                    }}
+                    view.exec $edit.view {
+                        *$oldnode.form=$newval
 
-                    { for ($tagname, $tagvalu) in $edit.tagprops {
-                        for ($name, $valu) in $tagvalu {
-                            [ +#$tagname:$name = $valu.0 ]
-                        }
-                    }}
+                        { for ($propname, $propvalu) in $edit.props {
+                            [ :$propname = $propvalu.0 ]
+                        }}
 
-                    { for ($name, $valu) in $edit.data {
-                        $node.data.set($name, $valu)
-                    }}
-                }
-            }
+                        { for ($tagname, $tagvalu) in $edit.tags {
+                            [ +#$tagname=$tagvalu ]
+                        }}
 
-            for $edge in $oldnode.edges {
-                if (not $_checkValidLayer($edge.view, $edge.layer)) {
-                    $lib.warn(`Could not apply edge in view {$edge.view}, skipping.`)
-                    continue
-                }
+                        { for ($tagname, $tagvalu) in $edit.tagprops {
+                            for ($name, $valu) in $tagvalu {
+                                [ +#$tagname:$name = $valu.0 ]
+                            }
+                        }}
 
-                view.exec $edge.view {
-                    *$oldnode.form=$newval
-
-                    switch $edge.direction {
-                        "n1": {
-                            [ +($edge.verb)> { yield $edge.node } ]
-                        }
-
-                        "n2": {
-                            [ <($edge.verb)+ { yield $edge.node } ]
-                        }
+                        { for ($name, $valu) in $edit.data {
+                            $node.data.set($name, $valu)
+                        }}
                     }
                 }
             }
 
-            for $ref in $oldnode.refs {
-                if (not $_checkValidLayer($ref.view, $ref.layer)) {
-                    $lib.warn(`Could not restore reference in view {$ref.view}, skipping.`)
+            for $offs in $oldnode.offsets.edges {
+                $edges = $edgeq.get($offs, cull=(false), wait=(false))
+                if (not $edges) {
+                    $lib.warn(`Queue node {$offset} missing edges offset {$offs}. Node may be incomplete after restoration.`)
                     continue
                 }
 
-                ($form, $prop, $type, $isarray) = $ref.refinfo
+                $edges = $edges.1
 
-                view.exec $ref.view {
-
-                    yield $ref.iden
-
-                    empty {
-                        $lib.warn(`Skipping invalid reference: {$iden} ({$form}:{$prop}).`)
+                for $edge in $edges {
+                    if (not $_checkValidLayer($edge.view, $edge.layer)) {
+                        $lib.warn(`Could not apply edge in view {$edge.view}, skipping.`)
                         continue
                     }
 
-                    if ($node.form() != $form) {
-                        $lib.warn(`Skipping invalid reference: expected {$form}, got {$node.form()}.`)
-                        continue
-                    }
+                    view.exec $edge.view {
+                        *$oldnode.form=$newval
 
-                    { -:$prop
-                        if $isarray {
-                            [ :$prop += { *$oldnode.form=$newval } ]
-                        } else {
-                            if ($type = "ndef") {
-                                $valu = ($oldnode.form, $newval)
-                            } else {
-                                $valu = $newval
+                        switch $edge.direction {
+                            "n1": {
+                                [ +($edge.verb)> { yield $edge.node } ]
                             }
 
-                            [ :$prop = $valu ]
+                            "n2": {
+                                [ <($edge.verb)+ { yield $edge.node } ]
+                            }
+                        }
+                    }
+                }
+            }
+
+            for $offs in $oldnode.offsets.refs {
+                $refs = $refsq.get($offs, cull=(false), wait=(false))
+                if (not $refs) {
+                    $lib.warn(`Queue node {$offset} missing refs offset {$offs}. Node may be incomplete after restoration.`)
+                    continue
+                }
+
+                $refs = $refs.1
+
+                for $ref in $refs {
+                    if (not $_checkValidLayer($ref.view, $ref.layer)) {
+                        $lib.warn(`Could not restore reference in view {$ref.view}, skipping.`)
+                        continue
+                    }
+
+                    ($form, $prop, $type, $isarray) = $ref.refinfo
+
+                    view.exec $ref.view {
+
+                        yield $ref.iden
+
+                        empty {
+                            $lib.warn(`Skipping invalid reference: {$offs} ({$form}:{$prop}).`)
+                            continue
+                        }
+
+                        if ($node.form() != $form) {
+                            $lib.warn(`Skipping invalid reference: expected {$form}, got {$node.form()}.`)
+                            continue
+                        }
+
+                        { -:$prop
+                            if $isarray {
+                                [ :$prop += { *$oldnode.form=$newval } ]
+                            } else {
+                                if ($type = "ndef") {
+                                    $valu = ($oldnode.form, $newval)
+                                } else {
+                                    $valu = $newval
+                                }
+
+                                [ :$prop = $valu ]
+                            }
                         }
                     }
                 }
@@ -1568,71 +1661,15 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             return($lib.true)
         }
 
-        function repairNode(iden, newval, remove=$lib.false) {
+        function repairNode(offset, newval, remove=$lib.false) {
             try {
-                $ok = $_repairNode($iden, $newval)
+                $ok = $_repairNode($offset, $newval)
                 if ($ok and $remove) {
-                    $lib.print(`Removing stored invalid node: {$iden}.`)
-                    $lib.model.migration.s.model_0_2_31.removeQueueNode($iden)
+                    $lib.print(`Removing stored invalid node: {$offset}.`)
+                    $_removeNode($offset)
                 }
             } catch * as err {
-                $lib.exit(`Error when restoring node {$iden}: {$err}.`) // pragma: no cover
+                $lib.exit(`Error when restoring node {$offset}: {$err}.`) // pragma: no cover
             }
         }
     '''
-
-    def __init__(self, runt, name=()):
-        s_stormtypes.Lib.__init__(self, runt, name=name)
-
-        self.gtors.update({
-            'queueData': self._gtorQueueData,
-        })
-
-    def getObjLocals(self):
-        return {
-            'removeQueueNode': self._methRemoveQueueNode,
-        }
-
-    async def _gtorQueueData(self):
-        qdata = {}
-
-        nodesq = await self.runt.snap.core.getCoreQueue('model_0_2_31:nodes')
-
-        async for (offs, item) in self.runt.snap.core.coreQueueGets('model_0_2_31:nodes', cull=False, size=nodesq.get('size')):
-            iden = item.get('iden')
-
-            qdata[iden] = item
-            qdata[iden].setdefault('edits', [])
-            qdata[iden].setdefault('edges', [])
-            qdata[iden].setdefault('refs', [])
-
-        for name in ('edges', 'edits', 'refs'):
-            qname = f'model_0_2_31:nodes:{name}'
-            queue = await self.runt.snap.core.getCoreQueue(qname)
-            qsize = queue.get('size')
-
-            async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
-                iden = item.get('iden')
-
-                data = qdata[iden].get(name)
-                data.extend(item.get(name))
-
-        return qdata
-
-    async def _methRemoveQueueNode(self, iden):
-        iden = await s_stormtypes.tostr(iden)
-
-        for qname in ('model_0_2_31:nodes', 'model_0_2_31:nodes:edges', 'model_0_2_31:nodes:edits', 'model_0_2_31:nodes:refs'):
-            remove = []
-
-            queue = await self.runt.snap.core.getCoreQueue(qname)
-            qsize = queue.get('size')
-
-            async for (offs, item) in self.runt.snap.core.coreQueueGets(qname, cull=False, size=qsize):
-                if iden == item.get('iden'):
-                    remove.append(offs)
-
-            remove.reverse()
-
-            for offs in remove:
-                await self.runt.snap.core.coreQueuePop(qname, offs)

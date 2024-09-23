@@ -1931,12 +1931,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
     async def coreQueuePuts(self, name, items):
-        await self._push('queue:puts', name, items)
+        return await self._push('queue:puts', name, items)
 
     @s_nexus.Pusher.onPush('queue:puts', passitem=True)
     async def _coreQueuePuts(self, name, items, nexsitem):
         nexsoff, nexsmesg = nexsitem
-        await self.multiqueue.puts(name, items, reqid=nexsoff)
+        return await self.multiqueue.puts(name, items, reqid=nexsoff)
 
     @s_nexus.Pusher.onPushAuto('queue:cull')
     async def coreQueueCull(self, name, offs):

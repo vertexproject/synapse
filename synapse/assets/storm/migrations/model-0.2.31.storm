@@ -60,6 +60,12 @@ function removeNode(n, viewiden, layriden) {
     $form = $n.form()
     $ndef = $n.ndef()
 
+    $offsets = ({
+        "refs": ([]),
+        "edges": ([]),
+        "edits": ([]),
+    })
+
     $lib.log.debug(`Saving invalid {$form} node info: {$repr}`)
 
     $refinfos = $getRefInfo($form)
@@ -122,12 +128,8 @@ function removeNode(n, viewiden, layriden) {
 
                     // Flush to the queue if the list grows too large
                     if ($references.size() > 1000) { // pragma: no cover start
-                        $item = ({
-                            "iden": $iden,
-                            "refs": $references,
-                        })
-
-                        $refsq.put($item)
+                        $offs = $refsq.put($references)
+                        $offsets.refs.append($offs)
                         $references = ([])
                     } // pragma: no cover stop
                 }
@@ -136,12 +138,8 @@ function removeNode(n, viewiden, layriden) {
     }
 
     if $references {
-        $item = ({
-            "iden": $iden,
-            "refs": $references,
-        })
-
-        $refsq.put($item)
+        $offs = $refsq.put($references)
+        $offsets.refs.append($offs)
         $references = ([])
     }
 
@@ -190,12 +188,8 @@ function removeNode(n, viewiden, layriden) {
 
             // Flush to the queue if the list grows too large
             if ($edits.size() > 1000) { // pragma: no cover start
-                $item = ({
-                    "iden": $iden,
-                    "edits": $edits,
-                })
-
-                $editq.put($item)
+                $offs = $editq.put($edits)
+                $offsets.edits.append($offs)
                 $edits = ([])
             } // pragma: no cover stop
 
@@ -216,12 +210,8 @@ function removeNode(n, viewiden, layriden) {
 
                 // Flush to the queue if the list grows too large
                 if ($edges.size() > 1000) { // pragma: no cover start
-                    $item = ({
-                        "iden": $iden,
-                        "edges": $edges,
-                    })
-
-                    $edgeq.put($item)
+                    $offs = $edgeq.put($edges)
+                    $offsets.edges.append($offs)
                     $edges = ([])
                 } // pragma: no cover stop
             }
@@ -242,12 +232,8 @@ function removeNode(n, viewiden, layriden) {
 
                 // Flush to the queue if the list grows too large
                 if ($edges.size() > 1000) { // pragma: no cover start
-                    $item = ({
-                        "iden": $iden,
-                        "edges": $edges,
-                    })
-
-                    $edgeq.put($item)
+                    $offs = $edgeq.put($edges)
+                    $offsets.edges.append($offs)
                     $edges = ([])
                 } // pragma: no cover stop
             }
@@ -265,22 +251,14 @@ function removeNode(n, viewiden, layriden) {
     }
 
     if $edges {
-        $item = ({
-            "iden": $iden,
-            "edges": $edges,
-        })
-
-        $edgeq.put($item)
+        $offs = $edgeq.put($edges)
+        $offsets.edges.append($offs)
         $edges = ([])
     }
 
     if $edits {
-        $item = ({
-            "iden": $iden,
-            "edits": $edits,
-        })
-
-        $editq.put($item)
+        $offs = $editq.put($edits)
+        $offsets.edits.append($offs)
         $edits = ([])
     }
 
@@ -290,6 +268,7 @@ function removeNode(n, viewiden, layriden) {
         "valu": $repr,
         "view": $viewiden,
         "layer": $layriden,
+        "offsets": $offsets,
         "sources": $sources.list(),
     })
 

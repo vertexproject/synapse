@@ -3793,13 +3793,13 @@ class Queue(StormType):
                   'args': (
                       {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'int', 'desc': 'The queue offset of the item.'}}},
         {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePuts',
                   'args': (
                       {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'int', 'desc': 'The queue offset of the first item.'}}},
         {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
          'type': {'type': 'function', '_funcname': '_methQueueGets',
                   'args': (
