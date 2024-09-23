@@ -349,7 +349,7 @@ class Cpe23Str(s_types.Str):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
 
-            # Valid the CPE2.3 string immediately
+            # Validate the CPE2.3 string immediately
             if not isValidCpe23(text):
                 mesg = 'CPE 2.3 string appears to be invalid.'
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
@@ -396,7 +396,7 @@ class Cpe23Str(s_types.Str):
 
         elif text.startswith('cpe:/'):
 
-            # Valid the CPE2.2 string immediately
+            # Validate the CPE2.2 string immediately
             if not isValidCpe22(text):
                 mesg = 'CPE 2.2 string appears to be invalid.'
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
