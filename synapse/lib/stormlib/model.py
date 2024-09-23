@@ -1549,16 +1549,18 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                         continue
                     }
 
-                    if $isarray {
-                        [ :$prop += { *$oldnode.form=$newval } ]
-                    } else {
-                        if ($type = "ndef") {
-                            $valu = ($oldnode.form, $newval)
+                    { -:$prop
+                        if $isarray {
+                            [ :$prop += { *$oldnode.form=$newval } ]
                         } else {
-                            $valu = $newval
-                        }
+                            if ($type = "ndef") {
+                                $valu = ($oldnode.form, $newval)
+                            } else {
+                                $valu = $newval
+                            }
 
-                        [ :$prop = $valu ]
+                            [ :$prop = $valu ]
+                        }
                     }
                 }
             }
