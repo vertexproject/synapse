@@ -664,8 +664,11 @@ class Node:
         for name in self.props.keys():
             edits.extend(await self._getPropDelEdits(name, init=True))
 
-        async for name in self.iterDataKeys():
-            edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+        # Only remove nodedata if we're in a layer that doesn't have the full node
+        sode = await self.snap.view.layers[0].getStorNode(self.buid)
+        if sode.get('valu') is None:
+            async for name in self.iterDataKeys():
+                edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
 
         edits.append(
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
