@@ -53,7 +53,7 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('[ ou:org=({"hq": "woot", "$try": true}) ]')
             self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInWarn('Bad type value:', msgs)
+            self.stormIsInWarn('Bad value for prop hq: valu is not a guid', msgs)
 
             nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
             self.len(1, nodes05)

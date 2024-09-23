@@ -1420,7 +1420,8 @@ class Snap(s_base.Base):
                 proplist.append((name, norm))
         except s_exc.BadTypeValu as e:
             if not trycast: raise
-            await self.warn(f'Bad type value: {e}')
+            mesg = e.errinfo.get('mesg')
+            await self.warn(f'Bad value for prop {name}: {mesg}')
             return
 
         proplist.sort()
