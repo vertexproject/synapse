@@ -23,6 +23,77 @@ import synapse.tools.backup as s_tools_backup
 
 class StormTest(s_t_utils.SynTest):
 
+    async def test_lib_storm_guidctor(self):
+        async with self.getTestCore() as core:
+
+            nodes00 = await core.nodes('[ ou:org=({"name": "vertex"}) ]')
+            self.len(1, nodes00)
+            self.eq('vertex', nodes00[0].get('name'))
+
+            nodes01 = await core.nodes('[ ou:org=({"name": "vertex"}) :names+="the vertex project"]')
+            self.len(1, nodes01)
+            self.eq('vertex', nodes01[0].get('name'))
+            self.eq(nodes00[0].ndef, nodes01[0].ndef)
+
+            nodes02 = await core.nodes('[ ou:org=({"name": "the vertex project"}) ]')
+            self.len(1, nodes02)
+            self.eq('vertex', nodes02[0].get('name'))
+            self.eq(nodes01[0].ndef, nodes02[0].ndef)
+
+            nodes03 = await core.nodes('[ ou:org=({"name": "vertex", "type": "woot"}) :names+="the vertex project" ]')
+            self.len(1, nodes03)
+            self.ne(nodes02[0].ndef, nodes03[0].ndef)
+
+            nodes04 = await core.nodes('[ ou:org=({"name": "the vertex project", "type": "woot"}) ]')
+            self.len(1, nodes04)
+            self.eq(nodes03[0].ndef, nodes04[0].ndef)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({"hq": "woot"}) ]')
+
+            msgs = await core.stormlist('[ ou:org=({"hq": "woot", "$try": true}) ]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInWarn('Bad value for prop hq: valu is not a guid', msgs)
+
+            nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
+            self.len(1, nodes05)
+            self.eq('vertex', nodes05[0].get('name'))
+            self.eq('for the people', nodes05[0].get('motto'))
+            self.eq(nodes00[0].ndef, nodes05[0].ndef)
+
+            nodes06 = await core.nodes('[ ou:org=({"name": "acme", "$props": {"motto": "HURR DURR"}}) ]')
+            self.len(1, nodes06)
+            self.eq('acme', nodes06[0].get('name'))
+            self.eq('hurr durr', nodes06[0].get('motto'))
+            self.ne(nodes00[0].ndef, nodes06[0].ndef)
+
+            goals = [s_common.guid(), s_common.guid()]
+            goals.sort()
+
+            nodes07 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            self.len(1, nodes07)
+            self.eq(goals, nodes07[0].get('goals'))
+
+            nodes08 = await core.nodes('[ ou:org=({"name": "goal driven", "goals": $goals}) ]', opts={'vars': {'goals': goals}})
+            self.len(1, nodes08)
+            self.eq(goals, nodes08[0].get('goals'))
+            self.eq(nodes07[0].ndef, nodes08[0].ndef)
+
+            nodes09 = await core.nodes('[ ou:org=({"name": "vertex"}) :name=foobar :names=() ]')
+            nodes10 = await core.nodes('[ ou:org=({"name": "vertex"}) :type=lulz ]')
+            self.len(1, nodes09)
+            self.len(1, nodes10)
+            self.ne(nodes09[0].ndef, nodes10[0].ndef)
+
+            await core.nodes('[ ou:org=* :type=lulz ]')
+            await core.nodes('[ ou:org=* :type=hehe ]')
+            nodes11 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"type": "lulz"}}) ]')
+            self.len(1, nodes11)
+
+            nodes12 = await core.nodes('[ ou:org=({"name": "vertex", "type": "hehe"}) ]')
+            self.len(1, nodes12)
+            self.ne(nodes11[0].ndef, nodes12[0].ndef)
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
