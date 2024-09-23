@@ -1598,8 +1598,6 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         nodesq = await self.runt.snap.core.getCoreQueue('model_0_2_31:nodes')
 
-        qname = nodesq.get('name')
-        qsize = nodesq.get('size')
         async for (offs, item) in self.runt.snap.core.coreQueueGets('model_0_2_31:nodes', cull=False, size=nodesq.get('size')):
             iden = item.get('iden')
 
