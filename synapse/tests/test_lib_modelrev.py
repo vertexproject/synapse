@@ -852,6 +852,10 @@ class ModelRevTest(s_tests.SynTest):
             self.true(nodes[0].get('_cpe22valid'))
             self.false(nodes[0].get('_cpe23valid'))
 
+            # There should be nothing in the default view
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)
+
         async with self.getRegrCore('model-cpe-migration') as core:
 
             views = await core.callStorm('return($lib.view.list(deporder=$lib.true))')
@@ -1198,6 +1202,10 @@ class ModelRevTest(s_tests.SynTest):
                   'iden': badcpe01}),
             ])
 
+            # There should be nothing in the default view
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)
+
         async with self.getRegrCore('model-cpe-migration') as core:
 
             riskvuln = s_common.ehex(s_common.buid(('risk:vuln', s_common.guid(('risk', 'vuln')))))
@@ -1327,6 +1335,10 @@ class ModelRevTest(s_tests.SynTest):
                 for n in (meta23invalid, meta23wasinvalid, meta22valid):
                     n1s = await s_tests.alist(n.iterEdgesN1())
                     self.isin(('seen', node.iden()), n1s)
+
+            # There should be nothing in the default view
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)
 
         async with self.getRegrCore('model-cpe-migration') as core:
             riskvuln = s_common.ehex(s_common.buid(('risk:vuln', s_common.guid(('risk', 'vuln')))))
@@ -1550,3 +1562,7 @@ class ModelRevTest(s_tests.SynTest):
                 {'name': 'model_0_2_31:nodes:edges', 'size': 0, 'offs': 2},
                 {'name': 'model_0_2_31:nodes:edits', 'size': 0, 'offs': 2},
             ))
+
+            # There should be nothing in the default view
+            nodes = await core.nodes('.created')
+            self.len(0, nodes)

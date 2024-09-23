@@ -1487,13 +1487,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     *$oldnode.form=$newval
 
                     { for ($propname, $propvalu) in $edit.props {
-                        $valu = $propvalu.0
-
-                        if ($propname = ".seen") {
-                            [ .seen = $valu ]
-                        } else {
-                            [ :$propname = $valu ]
-                        }
+                        [ :$propname = $propvalu.0 ]
                     }}
 
                     { for ($tagname, $tagvalu) in $edit.tags {
