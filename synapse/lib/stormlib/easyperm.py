@@ -38,7 +38,7 @@ class LibEasyPerm(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_allowedEasyPerm',
                   'args': (
                       {'name': 'edef', 'type': 'dict', 'desc': 'The easy perm dictionary to check.'},
-                      {'name': 'level', 'type': 'str', 'desc': 'The required permission level number.'},
+                      {'name': 'level', 'type': 'int', 'desc': 'The required permission level number.'},
                   ),
                   'returns': {'type': 'boolean',
                               'desc': 'True if the user meets the requirement, false otherwise.', }}},
@@ -46,7 +46,7 @@ class LibEasyPerm(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_confirmEasyPerm',
                   'args': (
                       {'name': 'edef', 'type': 'dict', 'desc': 'The easy perm dictionary to check.'},
-                      {'name': 'level', 'type': 'str', 'desc': 'The required permission level number.'},
+                      {'name': 'level', 'type': 'int', 'desc': 'The required permission level number.'},
                       {'name': 'mesg', 'type': 'str', 'default': None,
                        'desc': 'Optional error message to present if user does not have required permission level.'},
                   ),
