@@ -1,5 +1,0 @@
----
-desc: Remove deprecated ``synapse.lib.jupyter`` module.
-prs: []
-type: deprecation
-...
