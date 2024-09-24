@@ -664,6 +664,11 @@ class Node:
         for name in self.props.keys():
             edits.extend(await self._getPropDelEdits(name, init=True))
 
+        # Only remove nodedata if we're in a layer that doesn't have the full node
+        if self.snap.wlyr.iden != self.bylayer['ndef']:
+            async for name in self.iterDataKeys():
+                edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+
         edits.append(
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
         )
