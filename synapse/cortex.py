@@ -5765,15 +5765,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 # we are part of the pool and were selected. Convert to local use.
                 return None
 
-            curoffs = await self.getNexsIndx()
-            miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout)
+            curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
+            miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
             if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
                 mesg = (f'Pool mirror [{proxyname}] Nexus offset delta too large '
                         f'({delta} > {MAX_NEXUS_DELTA}), running query locally.')
                 logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
                 return None
-
-            opts.setdefault('nexsoffs', curoffs - 1)
 
             return proxy
 
