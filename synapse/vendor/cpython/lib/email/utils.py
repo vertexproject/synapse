@@ -8,10 +8,10 @@
 """Miscellaneous utilities."""
 
 __all__ = [
-    'collapse_rfc2231_value',
-    'decode_params',
-    'decode_rfc2231',
-    'encode_rfc2231',
+    # 'collapse_rfc2231_value',
+    # 'decode_params',
+    # 'decode_rfc2231',
+    # 'encode_rfc2231',
     'formataddr',
     'formatdate',
     'format_datetime',
@@ -365,98 +365,98 @@ def unquote(str):
 
 
 # RFC2231-related functions - parameter encoding and decoding
-def decode_rfc2231(s):
-    """Decode string according to RFC 2231"""
-    parts = s.split(TICK, 2)
-    if len(parts) <= 2:
-        return None, None, s
-    return parts
+# def decode_rfc2231(s):
+#     """Decode string according to RFC 2231"""
+#     parts = s.split(TICK, 2)
+#     if len(parts) <= 2:
+#         return None, None, s
+#     return parts
 
 
-def encode_rfc2231(s, charset=None, language=None):
-    """Encode string according to RFC 2231.
-
-    If neither charset nor language is given, then s is returned as-is.  If
-    charset is given but not language, the string is encoded using the empty
-    string for language.
-    """
-    s = urllib.parse.quote(s, safe='', encoding=charset or 'ascii')
-    if charset is None and language is None:
-        return s
-    if language is None:
-        language = ''
-    return "%s'%s'%s" % (charset, language, s)
+# def encode_rfc2231(s, charset=None, language=None):
+#     """Encode string according to RFC 2231.
+#
+#     If neither charset nor language is given, then s is returned as-is.  If
+#     charset is given but not language, the string is encoded using the empty
+#     string for language.
+#     """
+#     s = urllib.parse.quote(s, safe='', encoding=charset or 'ascii')
+#     if charset is None and language is None:
+#         return s
+#     if language is None:
+#         language = ''
+#     return "%s'%s'%s" % (charset, language, s)
 
 
 rfc2231_continuation = re.compile(r'^(?P<name>\w+)\*((?P<num>[0-9]+)\*?)?$',
     re.ASCII)
 
-def decode_params(params):
-    """Decode parameters list according to RFC 2231.
+# def decode_params(params):
+#     """Decode parameters list according to RFC 2231.
+#
+#     params is a sequence of 2-tuples containing (param name, string value).
+#     """
+#     new_params = [params[0]]
+#     # Map parameter's name to a list of continuations.  The values are a
+#     # 3-tuple of the continuation number, the string value, and a flag
+#     # specifying whether a particular segment is %-encoded.
+#     rfc2231_params = {}
+#     for name, value in params[1:]:
+#         encoded = name.endswith('*')
+#         value = unquote(value)
+#         mo = rfc2231_continuation.match(name)
+#         if mo:
+#             name, num = mo.group('name', 'num')
+#             if num is not None:
+#                 num = int(num)
+#             rfc2231_params.setdefault(name, []).append((num, value, encoded))
+#         else:
+#             new_params.append((name, '"%s"' % quote(value)))
+#     if rfc2231_params:
+#         for name, continuations in rfc2231_params.items():
+#             value = []
+#             extended = False
+#             # Sort by number
+#             continuations.sort()
+#             # And now append all values in numerical order, converting
+#             # %-encodings for the encoded segments.  If any of the
+#             # continuation names ends in a *, then the entire string, after
+#             # decoding segments and concatenating, must have the charset and
+#             # language specifiers at the beginning of the string.
+#             for num, s, encoded in continuations:
+#                 if encoded:
+#                     # Decode as "latin-1", so the characters in s directly
+#                     # represent the percent-encoded octet values.
+#                     # collapse_rfc2231_value treats this as an octet sequence.
+#                     s = urllib.parse.unquote(s, encoding="latin-1")
+#                     extended = True
+#                 value.append(s)
+#             value = quote(EMPTYSTRING.join(value))
+#             if extended:
+#                 charset, language, value = decode_rfc2231(value)
+#                 new_params.append((name, (charset, language, '"%s"' % value)))
+#             else:
+#                 new_params.append((name, '"%s"' % value))
+#     return new_params
 
-    params is a sequence of 2-tuples containing (param name, string value).
-    """
-    new_params = [params[0]]
-    # Map parameter's name to a list of continuations.  The values are a
-    # 3-tuple of the continuation number, the string value, and a flag
-    # specifying whether a particular segment is %-encoded.
-    rfc2231_params = {}
-    for name, value in params[1:]:
-        encoded = name.endswith('*')
-        value = unquote(value)
-        mo = rfc2231_continuation.match(name)
-        if mo:
-            name, num = mo.group('name', 'num')
-            if num is not None:
-                num = int(num)
-            rfc2231_params.setdefault(name, []).append((num, value, encoded))
-        else:
-            new_params.append((name, '"%s"' % quote(value)))
-    if rfc2231_params:
-        for name, continuations in rfc2231_params.items():
-            value = []
-            extended = False
-            # Sort by number
-            continuations.sort()
-            # And now append all values in numerical order, converting
-            # %-encodings for the encoded segments.  If any of the
-            # continuation names ends in a *, then the entire string, after
-            # decoding segments and concatenating, must have the charset and
-            # language specifiers at the beginning of the string.
-            for num, s, encoded in continuations:
-                if encoded:
-                    # Decode as "latin-1", so the characters in s directly
-                    # represent the percent-encoded octet values.
-                    # collapse_rfc2231_value treats this as an octet sequence.
-                    s = urllib.parse.unquote(s, encoding="latin-1")
-                    extended = True
-                value.append(s)
-            value = quote(EMPTYSTRING.join(value))
-            if extended:
-                charset, language, value = decode_rfc2231(value)
-                new_params.append((name, (charset, language, '"%s"' % value)))
-            else:
-                new_params.append((name, '"%s"' % value))
-    return new_params
-
-def collapse_rfc2231_value(value, errors='replace',
-                           fallback_charset='us-ascii'):
-    if not isinstance(value, tuple) or len(value) != 3:
-        return unquote(value)
-    # While value comes to us as a unicode string, we need it to be a bytes
-    # object.  We do not want bytes() normal utf-8 decoder, we want a straight
-    # interpretation of the string as character bytes.
-    charset, language, text = value
-    if charset is None:
-        # Issue 17369: if charset/lang is None, decode_rfc2231 couldn't parse
-        # the value, so use the fallback_charset.
-        charset = fallback_charset
-    rawbytes = bytes(text, 'raw-unicode-escape')
-    try:
-        return str(rawbytes, charset, errors)
-    except LookupError:
-        # charset is not a known codec.
-        return unquote(text)
+# def collapse_rfc2231_value(value, errors='replace',
+#                            fallback_charset='us-ascii'):
+#     if not isinstance(value, tuple) or len(value) != 3:
+#         return unquote(value)
+#     # While value comes to us as a unicode string, we need it to be a bytes
+#     # object.  We do not want bytes() normal utf-8 decoder, we want a straight
+#     # interpretation of the string as character bytes.
+#     charset, language, text = value
+#     if charset is None:
+#         # Issue 17369: if charset/lang is None, decode_rfc2231 couldn't parse
+#         # the value, so use the fallback_charset.
+#         charset = fallback_charset
+#     rawbytes = bytes(text, 'raw-unicode-escape')
+#     try:
+#         return str(rawbytes, charset, errors)
+#     except LookupError:
+#         # charset is not a known codec.
+#         return unquote(text)
 
 
 #
