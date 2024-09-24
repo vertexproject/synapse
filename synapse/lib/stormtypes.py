@@ -1337,7 +1337,7 @@ class LibBase(Lib):
                 Check if the runtime is in debug and print a message::
 
                     if $lib.debug {
-                        $lib.print('Doing stuff!")
+                        $lib.print('Doing stuff!')
                     }
 
                 Update the current runtime to enable debugging::

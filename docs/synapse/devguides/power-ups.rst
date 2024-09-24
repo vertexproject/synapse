@@ -183,7 +183,7 @@ which you would like to use on a user's behalf without disclosing the actual API
 variables which regular users may not access without special permissions.  By implementing a privileged
 **Storm** module which retrieves the API key and uses it on the user's behalf without disclosing it, you may
 protect the API key from disclosure while also allowing users to use it. For example,
-``acme.hello.privsep.storm``::
+``acme.hello.privsep.storm``:
 
 .. literalinclude:: ../../../examples/power-ups/rapid/acme-hello/storm/modules/acme.hello.privsep.storm
 

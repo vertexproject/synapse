@@ -1558,7 +1558,6 @@ v2.153.0 - 2023-10-27
 Model Changes
 -------------
 - Update to the ``inet`` and ``ou`` models.
-
   (`#3393 <https://github.com/vertexproject/synapse/pull/3393>`_)
   (`#3396 <https://github.com/vertexproject/synapse/pull/3396>`_)
 - See :ref:`userguide_model_v2_153_0` for more detailed model changes.
@@ -1610,7 +1609,6 @@ Model Changes
 -------------
 - Update to the  ``biz``, ``crypto``, ``geo``, ``it``, ``mat``, ``media``,
   and ``risk`` models.
-
   (`#3341 <https://github.com/vertexproject/synapse/pull/3341>`_)
   (`#3377 <https://github.com/vertexproject/synapse/pull/3377>`_)
   (`#3376 <https://github.com/vertexproject/synapse/pull/3376>`_)

@@ -1,0 +1,6 @@
+---
+desc: Fixed bug where nodedata may not be properly removed when it's in a view/layer
+  above the actual node.
+prs: []
+type: bug
+...
