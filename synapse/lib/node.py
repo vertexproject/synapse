@@ -665,8 +665,7 @@ class Node:
             edits.extend(await self._getPropDelEdits(name, init=True))
 
         # Only remove nodedata if we're in a layer that doesn't have the full node
-        sode = await self.snap.view.layers[0].getStorNode(self.buid)
-        if sode.get('valu') is None:
+        if self.snap.wlyr.iden != self.bylayer['ndef']:
             async for name in self.iterDataKeys():
                 edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
 
