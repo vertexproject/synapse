@@ -54,6 +54,8 @@ stormtype_doc_schema = {
                          'description': 'The name of the object.'},
                 'desc': {'type': 'string',
                          'description': 'The docstring of the object.'},
+                'deprecated': {'type': 'boolean',
+                               'description': 'The deprecation status of the object.'},
                 'type': {'$ref': '#/definitions/stormType'}
             },
             'additionalProperties': False,
