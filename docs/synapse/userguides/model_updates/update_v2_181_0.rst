@@ -78,8 +78,6 @@ Light Edges
     When used with a ``risk:tool:software`` and an ``math:algorithm`` node, the
     edge indicates the tool uses the algorithm.
 
-
-``uses``
     When used with a ``file:bytes`` and an ``math:algorithm`` node, the edge
     indicates the file uses the algorithm.
 
