@@ -603,6 +603,7 @@ workflows:
             branches:
               only:
                 - master
+                - dev_py311_10
 
       - build_docker_tag:
           requires:
