@@ -1,5 +1,5 @@
 ---
-desc: Update the allowed versionf of the ``packaging`` and ``xxhash`` libraries.
+desc: Update the allowed version of the ``packaging`` and ``xxhash`` libraries.
 prs: []
 type: feat
 ...
