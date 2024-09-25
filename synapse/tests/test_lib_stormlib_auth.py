@@ -996,7 +996,6 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist(f'$lib.print($lib.auth.roles.get({iden}))')
             self.stormIsInPrint(iden, msgs)
 
-
     async def test_stormlib_auth_gateadmin(self):
 
         async with self.getTestCore() as core:
