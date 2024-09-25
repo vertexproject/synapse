@@ -1969,6 +1969,7 @@ class LibRoles(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methRolesAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the role.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden to use to create the role.', 'default': None, },
                   ),
                   'returns': {'type': 'auth:role', 'desc': 'The new role object.', }}},
         {'name': 'del', 'desc': 'Delete a Role from the Cortex.',
@@ -2028,10 +2029,11 @@ class LibRoles(s_stormtypes.Lib):
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
-    async def _methRolesAdd(self, name):
+    async def _methRolesAdd(self, name, iden=None):
         if not self.runt.allowed(('auth', 'role', 'add')):
             self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'add'))
-        rdef = await self.runt.snap.core.addRole(name)
+        iden = await s_stormtypes.tostr(iden, True)
+        rdef = await self.runt.snap.core.addRole(name, iden=iden)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):

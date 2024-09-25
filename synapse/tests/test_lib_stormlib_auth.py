@@ -988,6 +988,15 @@ class StormLibAuthTest(s_test.SynTest):
             msgs = await core.stormlist(f'$lib.auth.roles.del({iden})', opts=aslowuser)
             self.stormHasNoWarnErr(msgs)
 
+            # Use arbitrary idens when creating roles.
+            iden = '9e0998f68b662ed3776b6ce33a2d21eb'
+            rdef = await core.callStorm('$r=$lib.auth.roles.add(runners, iden=$iden) return ( $r )',
+                            opts={'vars': {'iden': iden}})
+            self.eq(rdef.get('iden'), iden)
+            msgs = await core.stormlist(f'$lib.print($lib.auth.roles.get({iden}))')
+            self.stormIsInPrint(iden, msgs)
+
+
     async def test_stormlib_auth_gateadmin(self):
 
         async with self.getTestCore() as core:
