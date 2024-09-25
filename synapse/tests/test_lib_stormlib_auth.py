@@ -993,7 +993,7 @@ class StormLibAuthTest(s_test.SynTest):
             rdef = await core.callStorm('$r=$lib.auth.roles.add(runners, iden=$iden) return ( $r )',
                             opts={'vars': {'iden': iden}})
             self.eq(rdef.get('iden'), iden)
-            msgs = await core.stormlist(f'$lib.print($lib.auth.roles.get({iden}))')
+            msgs = await core.stormlist('$lib.print($lib.auth.roles.get($iden))', opts={'vars': {'iden': iden}})
             self.stormIsInPrint(iden, msgs)
 
     async def test_stormlib_auth_gateadmin(self):
