@@ -999,6 +999,8 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint(iden, msgs)
             with self.raises(s_exc.DupRoleName):
                 await core.callStorm('$lib.auth.roles.add(runners, iden=$iden)', opts={'vars': {'iden': iden}})
+            with self.raises(s_exc.DupIden):
+                await core.callStorm('$lib.auth.roles.add(walkers, iden=$iden)', opts={'vars': {'iden': iden}})
 
     async def test_stormlib_auth_gateadmin(self):
 
