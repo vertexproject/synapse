@@ -509,6 +509,7 @@ class Lib(StormType):
     _storm_query = None
     _storm_typename = 'lib'
     _storm_lib_perms = ()
+    _storm_lib_deprecated = False
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -2659,6 +2660,7 @@ class LibBytes(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('bytes',)
+    _storm_lib_deprecated = True
 
     def getObjLocals(self):
         return {
@@ -5005,6 +5007,7 @@ class List(Prim):
                   ),
                   'returns': {'type': 'any', 'desc': 'The item present in the list at the index position.', }}},
         {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
+         'deprecated': True,
          'type': {'type': 'function', '_funcname': '_methListLength',
                   'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'append', 'desc': 'Append a value to the list.',

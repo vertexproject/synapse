@@ -588,6 +588,7 @@ class LibModelEdge(s_stormtypes.Lib):
     hivepath = ('cortex', 'model', 'edges')
 
     _storm_lib_path = ('model', 'edge')
+    _storm_lib_deprecated = True
 
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name)
