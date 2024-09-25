@@ -1,3 +1,4 @@
+import copy
 import json
 import asyncio
 import datetime
@@ -1553,6 +1554,43 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('test:ro | merge', opts=altview)
             self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
+
+    async def test_storm_merge_stricterr(self):
+
+        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
+        async with self.getTestCore(conf=copy.deepcopy(conf)) as core:
+
+            await core.nodes('$lib.model.ext.addFormProp(test:deprprop, _str, (str, ({})), ({}))')
+
+            viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
+            asfork = {'view': viewiden}
+
+            await core.nodes('[ test:deprprop=base ]')
+
+            self.len(1, await core.nodes('test:deprprop=base [ :_str=foo +#test ]', opts=asfork))
+            await core.nodes('[ test:deprprop=fork test:str=other ]', opts=asfork)
+
+            await core.nodes('model.deprecated.lock test:deprprop')
+
+            msgs = await core.stormlist('diff | merge --apply --no-tags', opts=asfork)
+            self.stormIsInWarn('Form test:deprprop is locked due to deprecation for valu=base', msgs)
+            self.stormIsInWarn('Form test:deprprop is locked due to deprecation for valu=fork', msgs)
+            self.stormHasNoErr(msgs)
+
+            msgs = await core.stormlist('diff | merge --apply --only-tags', opts=asfork)
+            self.stormIsInWarn('Form test:deprprop is locked due to deprecation for valu=base', msgs)
+            self.stormHasNoErr(msgs)
+
+            self.eq({
+                'meta:source': 1,
+                'syn:tag': 1,
+                'test:deprprop': 1,
+                'test:str': 1,
+            }, await core.callStorm('return($lib.view.get().getFormCounts())'))
+
+            nodes = await core.nodes('test:deprprop')
+            self.eq(['base'], [n.ndef[1] for n in nodes])
+            self.eq([], nodes[0].getTags())
 
     async def test_storm_merge_opts(self):
 
