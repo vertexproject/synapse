@@ -188,6 +188,15 @@ def getArgLines(rtype):
 
     return lines
 
+def genDeprecationNote(name):
+    assert name is not None
+    lines = []
+    lines.append('\n')
+    lines.append('Note:')
+    lines.append(f'    ``{name}`` has been deprecated and will be removed in a future release.')
+
+    return lines
+
 def runtimeGetArgLines(rtype):
     lines = []
     args = rtype.get('args', ())
@@ -474,6 +483,9 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
                 header = f'${header}'
 
             page.addHead(header, lvl=lvl + 1, link=link)
+            if locl.get('deprecated'):
+                lines.extend(genDeprecationNote(header))
+
             page.addLines(*lines)
 
 def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,

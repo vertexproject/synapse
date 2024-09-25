@@ -277,6 +277,7 @@ class StormTypesRegistry:
                 'desc': getDoc(slib, sname),
                 'locals': locs,
                 'path': ('lib',) + slib._storm_lib_path,
+                'deprecated': slib._storm_lib_deprecated,
             }
             for info in sorted(slib._storm_locals, key=lambda x: x.get('name')):
                 info = s_msgpack.deepcopy(info)

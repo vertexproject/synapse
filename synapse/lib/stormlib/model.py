@@ -543,7 +543,7 @@ class ModelType(s_stormtypes.Prim):
 @s_stormtypes.registry.registerLib
 class LibModelEdge(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with light edges and manipulating their key-value attributes.
+    A Storm Library for interacting with light edges and manipulating their key-value attributes. This Library is deprecated.
     '''
     _storm_locals = (
         {'name': 'get', 'desc': 'Get the key-value data for a given Edge verb.',
