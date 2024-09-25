@@ -596,11 +596,11 @@ class Auth(s_nexus.Pusher):
             iden = s_common.guid()
         else:
             if not s_common.isguid(iden):
-                raise s_exc.BadArg(name='iden', arg=iden, mesg='Argument it not a valid iden.')
+                raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
 
-            if self.userdefs.get(iden) is not None:
+            if self.rolebyidencache.get(iden) is not None:
                 raise s_exc.DupIden(name=name, iden=iden,
-                                    mesg='Role already exists for the iden.')
+                                    mesg=f'Role already exists for {iden=}.')
 
         await self._push('role:add', iden, name)
 

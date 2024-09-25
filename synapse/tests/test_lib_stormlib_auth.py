@@ -990,11 +990,15 @@ class StormLibAuthTest(s_test.SynTest):
 
             # Use arbitrary idens when creating roles.
             iden = '9e0998f68b662ed3776b6ce33a2d21eb'
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$lib.auth.roles.add(runners, 12345)')
             rdef = await core.callStorm('$r=$lib.auth.roles.add(runners, iden=$iden) return ( $r )',
                             opts={'vars': {'iden': iden}})
             self.eq(rdef.get('iden'), iden)
             msgs = await core.stormlist('$lib.print($lib.auth.roles.get($iden))', opts={'vars': {'iden': iden}})
             self.stormIsInPrint(iden, msgs)
+            with self.raises(s_exc.DupRoleName):
+                await core.callStorm('$lib.auth.roles.add(runners, iden=$iden)', opts={'vars': {'iden': iden}})
 
     async def test_stormlib_auth_gateadmin(self):
 
