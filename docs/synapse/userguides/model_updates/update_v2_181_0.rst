@@ -70,17 +70,17 @@ Light Edges
 
 
 ``has``
-    When used with a ``it:dev:repo`` and an ``inet:url`` node, the edge
+    When used with a ``it:dev:repo`` and a ``inet:url`` node, the edge
     indicates the repo has content hosted at the URL.
 
 
 ``uses``
-    When used with a ``risk:tool:software`` and an ``math:algorithm`` node, the
+    When used with a ``risk:tool:software`` and a ``math:algorithm`` node, the
     edge indicates the tool uses the algorithm.
 
-    When used with a ``file:bytes`` and an ``math:algorithm`` node, the edge
+    When used with a ``file:bytes`` and a ``math:algorithm`` node, the edge
     indicates the file uses the algorithm.
 
-    When used with a ``it:prod:softver`` and an ``math:algorithm`` node, the
+    When used with a ``it:prod:softver`` and a ``math:algorithm`` node, the
     edge indicates the software uses the algorithm.
 
