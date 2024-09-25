@@ -1,5 +1,0 @@
----
-desc: A small migration to populate ``ou:industry:type:taxonomy`` nodes from existing ``ou:industry:type`` values.
-prs: []
-type: migration
-...
