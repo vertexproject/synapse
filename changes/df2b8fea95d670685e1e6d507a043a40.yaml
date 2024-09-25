@@ -1,6 +1,0 @@
----
-desc: Add the ability to provide an iden when creating a new HTTP Extended API.
-prs:
-- 3920
-type: feat
-...
