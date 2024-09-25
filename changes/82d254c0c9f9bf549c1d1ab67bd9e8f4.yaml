@@ -1,0 +1,6 @@
+---
+desc: |
+  Update ``inet:ipv4`` and ``inet:ipv6`` sub properties for values affected by IANA Special Purpose Registry updates.
+prs: []
+type: migration
+...
