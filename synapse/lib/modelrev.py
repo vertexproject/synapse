@@ -44,6 +44,7 @@ class ModelRev:
             ((0, 2, 27), self.revModel_0_2_27),
             # Model revision 0.2.28 skipped
             ((0, 2, 29), self.revModel_0_2_29),
+            ((0, 2, 30), self.revModel_0_2_30),
             ((0, 2, 31), self.revModel_0_2_31),
         )
 
@@ -793,6 +794,17 @@ class ModelRev:
 
     async def revModel_0_2_29(self, layers):
         await self._propToForm(layers, 'ou:industry:type', 'ou:industry:type:taxonomy')
+
+    async def revModel_0_2_30(self, layers):
+        await self._normFormSubs(layers, 'inet:ipv4', cmprvalu='192.0.0.0/24')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='64:ff9b:1::/48')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2002::/16')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:1::1/128')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:1::2/128')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:3::/32')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:4:112::/48')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:20::/28')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:30::/28')
 
     async def revModel_0_2_31(self, layers):
 
