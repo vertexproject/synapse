@@ -78,6 +78,9 @@ function removeNode(n, viewiden, layriden) {
 
         view.exec $view.iden {
 
+            $_viewiden = $lib.view.get().iden
+            $_layriden = $lib.layer.get().iden
+
             // Get references and store them in queue
             for $refinfo in $refinfos {
 
@@ -111,7 +114,7 @@ function removeNode(n, viewiden, layriden) {
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$formname}:{$propname} is readonly, cannot modify. Storing node: {$node.repr()}`)
-                            $removeNode($node, $view.iden, $view.layers.0.iden)
+                            $removeNode($node, $_viewiden, $_layriden)
                             | delnode |
                             continue
                         }
@@ -119,8 +122,8 @@ function removeNode(n, viewiden, layriden) {
 
                     $ref = ({
                         "iden": $node.iden(),
-                        "layer": $view.layers.0.iden,
-                        "view": $view.iden,
+                        "layer": $_layriden,
+                        "view": $_viewiden,
                         "refinfo": $refinfo,
                     })
 
@@ -287,6 +290,9 @@ function migrateCpeNode(oldcpe, newcpe) {
 
         view.exec $view.iden {
 
+            $_viewiden = $lib.view.get().iden
+            $_layriden = $lib.layer.get().iden
+
             // Fix references that point to old node to now point to new node
             for $refinfo in $refinfos {
                 ($form, $prop, $proptype, $isarray) = $refinfo
@@ -321,7 +327,7 @@ function migrateCpeNode(oldcpe, newcpe) {
                         } catch ReadOnlyProp as exc {
                             // The property is readonly so we can only delete it
                             $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Storing node: {$node.repr()}`)
-                            $removeNode($node, $view.iden, $view.layers.0.iden)
+                            $removeNode($node, $_viewiden, $_layriden)
                             | delnode
 
                         }
@@ -369,6 +375,9 @@ function main() {
 
             $layer = $lib.layer.get()
 
+            $_viewiden = $lib.view.get().iden
+            $_layriden = $layer.iden
+
             for $oldcpe in $layer.liftByProp(it:sec:cpe) {
                 $info = $lib.model.migration.s.itSecCpe_2_170_0_internal($oldcpe)
                 $iden = $oldcpe.iden()
@@ -409,7 +418,7 @@ function main() {
                         if (not $layers.has($rview.layers.0.iden)) { continue }
 
                         // Only process views that are higher than the original view
-                        if ($rview.iden = $view.iden) { break }
+                        if ($rview.iden = $_viewiden) { break }
 
                         view.exec $rview.iden {
 
@@ -435,7 +444,7 @@ function main() {
                     yield $oldcpe
                     [ -:v2_2 ]
 
-                    $removeNode($oldcpe, $view.iden, $view.layers.0.iden)
+                    $removeNode($oldcpe, $_viewiden, $_layriden)
                 }
 
                 yield $oldcpe |
