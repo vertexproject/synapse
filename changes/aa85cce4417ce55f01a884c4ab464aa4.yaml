@@ -1,5 +1,0 @@
----
-desc: Add request history on the Storm ``inet:http:resp`` object.
-prs: []
-type: feat
-...
