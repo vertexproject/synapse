@@ -1,0 +1,7 @@
+---
+desc: Fix an issue in the merge command where errors in establishing the node in the
+  parent view could result in an exception. These errors are now surfaced as warnings
+  in the runtime, and the node will be skipped.
+prs: []
+type: bug
+...
