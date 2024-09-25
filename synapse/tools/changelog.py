@@ -737,7 +737,7 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
         rst.addHead('Deprecated Edges', lvl=1)
         for (n1, name, n2), info in dep_edges.items():
             if n1 is not None and n2 is not None:
-                mesg = f'''The edge has been deprecated when used with a ``{n1}`` and a ``{n2}`` node. {info.get('doc')}'''
+                mesg = f'''The edge has been deprecated when used with a ``{n1}`` and an ``{n2}`` node. {info.get('doc')}'''
             elif n1 is None and n2 is not None:
                 mesg = f'''The edge has been deprecated when used with a ``{n2}`` target node. {info.get('doc')}'''
             elif n1 is not None and n2 is None:
