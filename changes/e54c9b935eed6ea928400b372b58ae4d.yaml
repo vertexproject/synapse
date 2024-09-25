@@ -1,5 +1,0 @@
----
-desc: Added ``ou:org:motto`` and ``ou:campaign:slogan`` properties and the ``lang:phrase`` form.
-prs: []
-type: model
-...

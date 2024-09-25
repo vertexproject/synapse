@@ -1,6 +1,0 @@
----
-desc: Added ``opts`` field to ``model:type`` Storm type. This field contains the property
-  type options as defined in the data model.
-prs: []
-type: feat
-...

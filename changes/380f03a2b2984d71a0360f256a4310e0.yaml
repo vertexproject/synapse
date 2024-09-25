@@ -1,5 +1,0 @@
----
-desc: Expose the response URL on the Storm ``http:resp`` object.
-prs: []
-type: feat
-...

@@ -6,6 +6,98 @@
 Synapse Changelog
 *****************
 
+v2.181.0 - 2024-09-25
+=====================
+
+Automatic Migrations
+--------------------
+- Update ``inet:ipv4`` and ``inet:ipv6`` sub properties for values affected by
+  IANA Special Purpose Registry updates.
+  (`#3902 <https://github.com/vertexproject/synapse/pull/3902>`_)
+- A small migration to populate ``ou:industry:type:taxonomy`` nodes from
+  existing ``ou:industry:type`` values.
+  (`#3912 <https://github.com/vertexproject/synapse/pull/3912>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- The ``inet:rfc2822:addr`` type now rejects malformed inputs which could cause
+  incorrect email addresses to be recorded.
+  (`#3902 <https://github.com/vertexproject/synapse/pull/3902>`_)
+- The ``inet:ipv4:type`` and ``inet:ipv6:type`` secondary properties now
+  reflect updated behaviors from the IANA Special Purposes registries.
+  (`#3902 <https://github.com/vertexproject/synapse/pull/3902>`_)
+- Added ``math:algorithm`` form to model algorithms and link to generated
+  output.
+  (`#3906 <https://github.com/vertexproject/synapse/pull/3906>`_)
+- Added ``:mitigated=<bool>`` and ``:mitigations=[<risk:mitigation>]``
+  properties to the ``risk:vulnerable`` form to track mitigations used to
+  address vulnerable nodes.
+  (`#3910 <https://github.com/vertexproject/synapse/pull/3910>`_)
+  (`#3911 <https://github.com/vertexproject/synapse/pull/3911>`_)
+- Added ``ou:org:motto`` and ``ou:campaign:slogan`` properties and the
+  ``lang:phrase`` form.
+  (`#3915 <https://github.com/vertexproject/synapse/pull/3915>`_)
+- See :ref:`userguide_model_v2_181_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Storm lists now have a ``remove`` method that can be used to remove a single
+  item from the list without having to iterate through the list.
+  (`#3815 <https://github.com/vertexproject/synapse/pull/3815>`_)
+- Added ``opts`` field to ``model:type`` Storm type. This field contains the
+  property type options as defined in the data model.
+  (`#3815 <https://github.com/vertexproject/synapse/pull/3815>`_)
+- Updated Storm coverage tracker to support ``pragma: no cover`` for ignoring
+  single lines of code and ``pragma: no cover start``/``pragma: no cover stop``
+  for ignoring multi-line blocks of Storm code.
+  (`#3815 <https://github.com/vertexproject/synapse/pull/3815>`_)
+- Make the ``Slab.putmulti()`` API an async function.
+  (`#3896 <https://github.com/vertexproject/synapse/pull/3896>`_)
+- Expose the response URL on the Storm ``http:resp`` object.
+  (`#3898 <https://github.com/vertexproject/synapse/pull/3898>`_)
+- Expose the HTTP request headers on the Storm ``http:resp`` object.
+  (`#3899 <https://github.com/vertexproject/synapse/pull/3899>`_)
+- Add request history on the Storm ``inet:http:resp`` object.
+  (`#3900 <https://github.com/vertexproject/synapse/pull/3900>`_)
+- Add a ``getPropValues()`` API to Storm View and Layer objects for yielding
+  distinct values of a property.
+  (`#3903 <https://github.com/vertexproject/synapse/pull/3903>`_)
+- Update Storm language to add support for matching multiple switch case values
+  to a single Storm query.
+  (`#3904 <https://github.com/vertexproject/synapse/pull/3904>`_)
+- Provide additional handling for Storm pool members who are online but
+  unresponsive to new Telepath calls.
+  (`#3914 <https://github.com/vertexproject/synapse/pull/3914>`_)
+- Add the ability to provide an iden when creating a new HTTP Extended API.
+  (`#3920 <https://github.com/vertexproject/synapse/pull/3920>`_)
+- Added initial dictionary validator and deconfliction for guid based node
+  constructor logic to Storm.
+  (`#3917 <https://github.com/vertexproject/synapse/pull/3917>`_)
+
+Bugfixes
+--------
+- Fix an issue where user defined Storm functions could be greedy with the IO
+  loop.
+  (`#3894 <https://github.com/vertexproject/synapse/pull/3894>`_)
+- Fixed bug where nodedata may not be properly removed when it's in a
+  view/layer above the actual node.
+  (`#3923 <https://github.com/vertexproject/synapse/pull/3923>`_)
+
+Improved documentation
+----------------------
+- Added documentation about ``tls:ca:dir`` configuration option for specifying
+  custom TLS CA certificates.
+  (`#3895 <https://github.com/vertexproject/synapse/pull/3895>`_)
+- Added an example of using ``scrape`` on the primary property to the command
+  usage statement.
+  (`#3907 <https://github.com/vertexproject/synapse/pull/3907>`_)
+
+Deprecations
+------------
+- Remove deprecated ``synapse.lib.jupyter`` module.
+  (`#3897 <https://github.com/vertexproject/synapse/pull/3897>`_)
+
 v2.180.1 - 2024-09-04
 =====================
 
