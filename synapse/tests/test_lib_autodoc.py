@@ -188,7 +188,11 @@ Args:
 
 
 Returns:
-    The beeped string. The return type is ``str``.'''
+    The beeped string. The return type is ``str``.
+
+
+Note:
+    ``someargs(valu, bar=$lib.true, faz=$lib.null)`` has been deprecated and will be removed in a future release.'''
         self.eq(text, expected)
 
         # Now as a library
@@ -255,5 +259,9 @@ Args:
 
 
 Returns:
-    The beeped string. The return type is ``str``.'''
+    The beeped string. The return type is ``str``.
+
+
+Note:
+    ``$lib.test.someargs(valu, bar=$lib.true, faz=$lib.null)`` has been deprecated and will be removed in a future release.'''
         self.eq(text, expected)

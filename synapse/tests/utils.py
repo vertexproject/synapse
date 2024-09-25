@@ -168,6 +168,7 @@ class LibTst(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
         {'name': 'someargs',
+         'deprecated': True,
          'desc': '''Example storm func with args.''',
          'type': {'type': 'function', '_funcname': 'someargs',
                   'args': (
