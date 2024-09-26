@@ -1189,7 +1189,7 @@ Use the wildcard (asterisk) character ( ``*`` ) to traverse any edges present in
 
 *For a vulnerability (risk:vuln node), navigate to any forms that are connected to the vulnerability by any edge:*
 
-.. storm-pre:: [ risk:vuln=* ] [ <(has)+ { [ it:host=* ] } ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
+.. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
 .. storm-pre:: risk:vuln <(*)- *
 
 ::
