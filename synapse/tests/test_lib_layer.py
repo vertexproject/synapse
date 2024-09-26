@@ -897,7 +897,7 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_tombstone(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:
 
             async def checkempty(opts=None):

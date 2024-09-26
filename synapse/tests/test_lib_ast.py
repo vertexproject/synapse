@@ -935,7 +935,7 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_edge_walknjoin(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:
 
             await core.nodes('[test:str=foo :hehe=bar +(foobar)> { [ test:str=baz ] }]')
@@ -3202,7 +3202,7 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_subgraph_caching(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:
             limits = (0, 1, 10, 255, 256, 10000)
             ipv4s = await core.nodes('[inet:ipv4=1.2.3.0/24]')
@@ -4215,7 +4215,7 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_path_links(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:  # type: s_cortex.Cortex
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}

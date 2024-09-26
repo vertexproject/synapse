@@ -1308,7 +1308,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_diff_merge(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -1682,7 +1682,7 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_movenodes(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:
             view2iden = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = {'view': view2iden}
@@ -3905,7 +3905,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:int=127 | edges.del * --n2', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:
 
             await core.nodes('[ test:str=test1 +(refs)> { [test:int=7 test:int=8] } ]')

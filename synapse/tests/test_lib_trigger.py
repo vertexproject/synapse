@@ -754,7 +754,7 @@ class TrigTest(s_t_utils.SynTest):
 
     async def test_trigger_edge_globs(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:
             await core.nodes('trigger.add edge:add --verb foo* --query { [ +#foo ] | spin | iden $auto.opts.n2iden | [+#other] }')
             await core.nodes('trigger.add edge:add --verb see* --form test:int --query { [ +#n1 ] }')

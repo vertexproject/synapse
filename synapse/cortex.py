@@ -721,9 +721,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A list of module classes to load.',
             'type': 'array'
         },
-        'storm:disable:edge:enforcement': {
-            'default': False,
-            'description': 'Disable enforcement of edge verb definitions in the data model.',
+        'storm:edge:enforcement': {
+            'default': True,
+            'description': 'Enable enforcement of edge verb definitions in the data model.',
             'type': 'boolean'
         },
         'storm:log': {
@@ -852,7 +852,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormiface_search = self.conf.get('storm:interface:search')
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
 
-        self.verifyedges = not self.conf.get('storm:disable:edge:enforcement')
+        self.verifyedges = self.conf.get('storm:edge:enforcement')
 
         self._initCortexHttpApi()
         self._exthttpapis = {}  # iden -> adef; relies on cpython ordered dictionary behavior.

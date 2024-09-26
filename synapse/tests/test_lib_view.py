@@ -1180,7 +1180,7 @@ class ViewTest(s_t_utils.SynTest):
 
     async def test_node_editor(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
+        conf = {'storm:edge:enforcement': False}
         async with self.getTestCore(conf=conf) as core:
 
             await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
