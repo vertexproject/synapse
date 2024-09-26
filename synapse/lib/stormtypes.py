@@ -6104,14 +6104,14 @@ class Node(Prim):
          'type': {'type': 'function', '_funcname': '_methNodeAddEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to add.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden of the destination node.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delEdge', 'desc': 'Remove a light-weight edge.',
          'type': {'type': 'function', '_funcname': '_methNodeDelEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to remove.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node to remove.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden of the destination node to remove.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
@@ -6801,11 +6801,11 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
         {'name': 'getStorNode', 'desc': '''
-            Retrieve the raw storage node for the specified node id.
+            Retrieve the raw storage node for the specified node iden.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNode',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
         {'name': 'liftByProp', 'desc': '''
@@ -6871,7 +6871,7 @@ class Layer(Prim):
                               'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN1', 'desc': '''
-            Yield (verb, n2iden) tuples for any light edges in the layer for the source node id.
+            Yield (verb, n2iden) tuples for any light edges in the layer for the source node iden.
 
             Example:
                 Iterate the N1 edges for ``$node``::
@@ -6883,13 +6883,13 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN2', 'desc': '''
-            Yield (verb, n1iden) tuples for any light edges in the layer for the target node id.
+            Yield (verb, n1iden) tuples for any light edges in the layer for the target node iden.
 
             Example:
                 Iterate the N2 edges for ``$node``::
@@ -6900,12 +6900,12 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
         {'name': 'getNodeData', 'desc': '''
-            Yield (name, valu) tuples for any node data in the layer for the target node id.
+            Yield (name, valu) tuples for any node data in the layer for the target node iden.
 
             Example:
                 Iterate the node data for ``$node``::
@@ -6916,7 +6916,7 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getNodeData',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<name>, <valu>) tuples', }}},
