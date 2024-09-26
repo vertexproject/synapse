@@ -1,0 +1,6 @@
+---
+desc: Allow a user to specify a role iden when creating a role with the ``$lib.auth.role.add()``
+  Storm API.
+prs: []
+type: feat
+...
