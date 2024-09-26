@@ -592,8 +592,8 @@ class ViewTest(s_t_utils.SynTest):
                     .seen=2021
                     +#test
                     +#test.foo:score=100
-                    <(seen)+ { test:str=foo }
-                    +(seen)> { test:arrayprop=$arrayguid }
+                    <(refs)+ { test:str=foo }
+                    +(refs)> { test:arrayprop=$arrayguid }
                 ]
                 $node.data.set(bardata, ({"hi": "there"}))
             ''', opts=opts)
@@ -1180,7 +1180,8 @@ class ViewTest(s_t_utils.SynTest):
 
     async def test_node_editor(self):
 
-        async with self.getTestCore() as core:
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:
 
             await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
             await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')

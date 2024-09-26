@@ -1069,6 +1069,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The snort rule is intended for use in detecting the target node.'}),
                 (('it:app:yara:rule', 'detects', None), {
                     'doc': 'The YARA rule is intended for use in detecting the target node.'}),
+                (('it:dev:repo', 'has', 'inet:url'), {
+                    'doc': 'The repo has content hosted at the URL.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),

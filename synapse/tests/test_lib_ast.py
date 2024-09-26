@@ -935,7 +935,8 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_edge_walknjoin(self):
 
-        async with self.getTestCore() as core:
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:
 
             await core.nodes('[test:str=foo :hehe=bar +(foobar)> { [ test:str=baz ] }]')
 
@@ -3200,7 +3201,9 @@ class AstTest(s_test.SynTest):
             self.len(2, nodes[1][1]['path']['edges'])
 
     async def test_ast_subgraph_caching(self):
-        async with self.getTestCore() as core:
+
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:
             limits = (0, 1, 10, 255, 256, 10000)
             ipv4s = await core.nodes('[inet:ipv4=1.2.3.0/24]')
             neato = await core.nodes('''[
@@ -3396,7 +3399,7 @@ class AstTest(s_test.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('[ test:str=foo +#tagaa=2023 +#tagaa:score=5 <(foo)+ { test:str=foo } ]')
+            await core.nodes('[ test:str=foo +#tagaa=2023 +#tagaa:score=5 <(refs)+ { test:str=foo } ]')
             await core.nodes('[ test:str=bar +#tagab=2024 +#tagab:score=6 ]')
             await core.nodes('[ test:str=baz +#tagba=2023 +#tagba:score=7 ]')
             await core.nodes('[ test:str=faz +#tagbb=2024 +#tagbb:score=8 ]')
@@ -4212,7 +4215,8 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_path_links(self):
 
-        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:  # type: s_cortex.Cortex
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}
 

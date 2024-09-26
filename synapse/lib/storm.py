@@ -3728,7 +3728,7 @@ class CopyToCmd(Cmd):
 
                     n1proto = await editor.getNodeByNid(n1nid)
                     if n1proto is not None:
-                        await n1proto.addEdge(verb, node.nid)
+                        await n1proto.addEdge(verb, node.nid, n2form=node.form.name)
 
             yield node, path
 
@@ -6047,7 +6047,7 @@ class ScrapeCmd(Cmd):
                             mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                             await runt.warn(mesg)
                         else:
-                            await node.addEdge('refs', nnode.nid)
+                            await node.addEdge('refs', nnode.nid, n2form=nnode.form.name)
 
                     if self.opts.doyield:
                         yield nnode, npath

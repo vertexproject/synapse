@@ -770,15 +770,17 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef[0], 'media:news')
 
             layr = core.getLayer()
-            self.eq(1, await layr.getEdgeVerbCount('refs'))
-            self.eq(0, await layr.getEdgeVerbCount('newp'))
+            self.eq(1, layr.getEdgeVerbCount('refs'))
+            self.eq(0, layr.getEdgeVerbCount('newp'))
 
-            self.eq(1, await layr.getFormEdgeVerbCount('media:news', 'refs'))
-            self.eq(0, await layr.getFormEdgeVerbCount('media:news', 'refs', reverse=True))
-            self.eq(0, await layr.getFormEdgeVerbCount('inet:ipv4', 'refs'))
-            self.eq(1, await layr.getFormEdgeVerbCount('inet:ipv4', 'refs', reverse=True))
+            self.eq(1, layr.getEdgeVerbCount('refs', n1form='media:news'))
+            self.eq(0, layr.getEdgeVerbCount('refs', n2form='media:news'))
+            self.eq(0, layr.getEdgeVerbCount('refs', n1form='inet:ipv4'))
+            self.eq(1, layr.getEdgeVerbCount('refs', n2form='inet:ipv4'))
+            self.eq(1, layr.getEdgeVerbCount('refs', n1form='media:news', n2form='inet:ipv4'))
 
-            self.eq(0, await layr.getFormEdgeVerbCount('newp', 'refs'))
+            self.eq(0, layr.getEdgeVerbCount('refs', n1form='newp'))
+            self.eq(0, layr.getEdgeVerbCount('refs', n2form='newp'))
 
             # coverage for isDestForm()
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
@@ -881,11 +883,11 @@ class CortexTest(s_t_utils.SynTest):
             '''))
 
             # Run multiple nodes through edge creation/deletion ( test coverage for perm caching )
-            await core.nodes('inet:ipv4 [ <(test)+ { meta:source:name=test }]')
-            self.len(2, await core.nodes('meta:source:name=test -(test)> *'))
+            await core.nodes('inet:ipv4 [ <(seen)+ { meta:source:name=test }]')
+            self.len(2, await core.nodes('meta:source:name=test -(seen)> *'))
 
-            await core.nodes('inet:ipv4 [ <(test)-{ meta:source:name=test }]')
-            self.len(0, await core.nodes('meta:source:name=test -(test)> *'))
+            await core.nodes('inet:ipv4 [ <(seen)-{ meta:source:name=test }]')
+            self.len(0, await core.nodes('meta:source:name=test -(seen)> *'))
 
             # Sad path - edges must be a str/list of strs
             with self.raises(s_exc.StormRuntimeError) as cm:
@@ -3754,7 +3756,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 (pol:country=$pol
                     :name="some government"
                     :flag=fd0a257397ee841ccd3b6ba76ad59c70310fd402ea3c9392d363f754ddaa67b5
-                    <(running)+ { [ pol:race=$race ] }
+                    <(refs)+ { [ pol:race=$race ] }
                     +#some.stuff)
                 (ou:org=$orgA
                    :url=https://foo.bar.com/wat.html)
@@ -3764,7 +3766,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 (biz:deal=$biz
                     :buyer:org=$orgA
                     :seller:org=$orgB
-                    <(seen)+ { pol:country=$pol })
+                    <(refs)+ { pol:country=$pol })
             ]''', opts={'vars': guids})
 
             nodes = await core.nodes('biz:deal | $lib.graph.activate($iden)', opts={'vars': {'iden': iden}})
@@ -3884,58 +3886,58 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr) as cm:
                 await core.nodes('inet:ipv4=1.2.3.4 +{ -> inet:dns:a } @ 2')
 
-            await core.nodes('[ risk:attack=* +(foo)> {[ test:str=foo ]} ]')
-            await core.nodes('[ risk:attack=* +(foo)> {[ test:str=bar ]} ]')
+            await core.nodes('[ risk:attack=* +(uses)> {[ test:str=foo ]} ]')
+            await core.nodes('[ risk:attack=* +(uses)> {[ test:str=bar ]} ]')
 
-            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } $lib.print($valu)'
+            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } = 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } = 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } = 2 $lib.print($valu)'
+            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } = 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } > 0 $lib.print($valu)'
+            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } > 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } > 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } > 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } >= 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } >= 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } >= 2 $lib.print($valu)'
+            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } >= 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } < 2 $lib.print($valu)'
+            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } < 2 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } < 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } < 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } <= 1 $lib.print($valu)'
+            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } <= 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } <= 0 $lib.print($valu)'
+            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } <= 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack +{ -(foo)> * $valu=$node.value() } != 0 $lib.print($valu)'
+            q = 'risk:attack +{ -(uses)> * $valu=$node.value() } != 0 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
-            q = 'risk:attack -{ -(foo)> * $valu=$node.value() } != 1 $lib.print($valu)'
+            q = 'risk:attack -{ -(uses)> * $valu=$node.value() } != 1 $lib.print($valu)'
             msgs = await core.stormlist(q)
             self.sorteq([m[1]['mesg'] for m in msgs if m[0] == 'print'], ['foo', 'bar'])
 
@@ -7609,16 +7611,22 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'view': view.iden,
             })
 
+            othr = s_common.guid()
             info4 = await core.addHttpExtApi({
+                'iden': othr,
                 'path': 'another/item',
                 'owner': unfo.get('iden'),
                 'view': view.iden,
             })
+            self.eq(info4.get('iden'), othr)
 
             iden = info.get('iden')
 
             adef = await core.getHttpExtApi(iden)
             self.eq(adef, info)
+
+            adef = await core.getHttpExtApi(othr)
+            self.eq(adef, info4)
 
             adef, args = await core.getHttpExtApiByPath('test/path/hehe/wow')
             self.eq(adef, info)
@@ -7663,6 +7671,23 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.gt(adef.get('updated'), updated)
 
             # Sad path
+
+            with self.raises(s_exc.SchemaViolation):
+                await core.addHttpExtApi({
+                    'iden': 'lolnope',
+                    'path': 'not/gonna/happen',
+                    'owner': unfo.get('iden'),
+                    'view': view.iden
+                })
+
+            with self.raises(s_exc.DupIden) as ectx:
+                await core.addHttpExtApi({
+                    'iden': othr,
+                    'path': 'bad/dup',
+                    'owner': unfo.get('iden'),
+                    'view': view.iden
+                })
+            self.eq(ectx.exception.get('iden'), othr)
 
             with self.raises(s_exc.SynErr):
                 await core.setHttpApiIndx(newp, 0)

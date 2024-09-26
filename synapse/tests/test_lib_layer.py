@@ -794,7 +794,7 @@ class LayerTest(s_t_utils.SynTest):
 
             await core0.addTagProp('score', ('int', {}), {})
 
-            q = '[ inet:ipv4=1.2.3.4 +#tp:score=5 +(foo)> { test:str=foo } ] $node.data.set(foo, bar)'
+            q = '[ inet:ipv4=1.2.3.4 +#tp:score=5 +(refs)> { test:str=foo } ] $node.data.set(foo, bar)'
             nodes = await core0.nodes(q)
             ipv4nid = nodes[0].nid
             tstrnid = (await core0.nodes('test:str=foo'))[0].nid
@@ -816,7 +816,7 @@ class LayerTest(s_t_utils.SynTest):
             noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_NODEDATA_SET, ('foo', 'bar', None))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
-            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_EDGE_ADD, ('foo', tstrnid))])]
+            noedit = [(ipv4nid, 'inet:ipv4', [(s_layer.EDIT_EDGE_ADD, ('refs', tstrnid))])]
             self.eq([], await layr.calcEdits(noedit, {}))
 
     async def test_layer_stornodeedits_nonexus(self):
@@ -897,7 +897,8 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_tombstone(self):
 
-        async with self.getTestCore() as core:
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:
 
             async def checkempty(opts=None):
                 nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=opts)

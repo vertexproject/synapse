@@ -721,6 +721,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A list of module classes to load.',
             'type': 'array'
         },
+        'storm:disable:edge:enforcement': {
+            'default': False,
+            'description': 'Disable enforcement of edge verb definitions in the data model.',
+            'type': 'boolean'
+        },
         'storm:log': {
             'default': False,
             'description': 'Log storm queries via system logger.',
@@ -846,6 +851,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modsbyiface = {}
         self.stormiface_search = self.conf.get('storm:interface:search')
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
+
+        self.verifyedges = not self.conf.get('storm:disable:edge:enforcement')
 
         self._initCortexHttpApi()
         self._exthttpapis = {}  # iden -> adef; relies on cpython ordered dictionary behavior.
@@ -1940,6 +1947,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         byts = self.v3stor.get(nid, db=self.nid2ndef)
         if byts is not None:
             return s_msgpack.un(byts)
+
+    def hasNidNdef(self, nid):
+        return self.v3stor.has(nid, db=self.nid2ndef)
 
     def setNidNdef(self, nid, ndef):
         buid = s_common.buid(ndef)
@@ -3286,6 +3296,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.extedges.get(edgeguid) is None:
             return
 
+        (n1form, verb, n2form) = edge
+
+        for layr in self.layers.values():
+            if layr.getEdgeVerbCount(verb, n1form=n1form, n2form=n2form) > 0:
+                mesg = f'Nodes still exist with edge: {edge} in layer {layr.iden}'
+                raise s_exc.CantDelEdge(mesg=mesg)
+
         self.model.delEdge(edge)
 
         self.extedges.pop(edgeguid, None)
@@ -3880,7 +3897,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             mesg = f'Invalid path for Extended HTTP API - cannot compile regular expression for [{path}] : {e}'
             raise s_exc.BadArg(mesg=mesg) from None
-        adef['iden'] = s_common.guid()
+
+        if adef.get('iden') is None:
+            adef['iden'] = s_common.guid()
+
+        iden = adef['iden']
+        if self._exthttpapis.get(iden) is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate iden specified for Extended HTTP API: {iden}', iden=iden)
+
         adef['created'] = s_common.now()
         adef['updated'] = adef['created']
         adef = s_schemas.reqValidHttpExtAPIConf(adef)
