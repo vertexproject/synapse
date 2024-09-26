@@ -723,7 +723,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'storm:disable:edge:enforcement': {
             'default': False,
-            'description': 'Disable enforcement of edge verb definitions in the datamodel.',
+            'description': 'Disable enforcement of edge verb definitions in the data model.',
             'type': 'boolean'
         },
         'storm:log': {
