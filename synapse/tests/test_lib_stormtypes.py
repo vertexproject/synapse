@@ -3591,8 +3591,8 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, await core.nodes('test:str=foo [ :hehe=haha ]', opts={'view': view_prop}))
             self.len(1, await core.nodes('test:str=foo [ +#bar ]', opts={'view': view_tags}))
             self.len(1, await core.nodes('test:str=foo [ +#base:score=10 ]', opts={'view': view_tagp}))
-            self.len(1, await core.nodes('test:str=foo [ +(bam)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
-            self.len(1, await core.nodes('test:str=foo [ <(bam)+ {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo [ +(refs)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(refs)+ {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
             self.len(1, await core.nodes('test:str=foo $node.data.set(hehe, haha)', opts={'view': view_data}))
 
             scmd = '''
@@ -3616,8 +3616,8 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, await core.nodes('test:str=foo [ -:hehe ]', opts={'view': view_prop}))
             self.len(1, await core.nodes('test:str=foo [ -#bar ]', opts={'view': view_tags}))
             self.len(1, await core.nodes('test:str=foo [ -#base:score ]', opts={'view': view_tagp}))
-            self.len(1, await core.nodes('test:str=foo [ -(bam)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
-            self.len(1, await core.nodes('test:str=foo [ <(bam)- {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo [ -(refs)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(refs)- {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
             self.len(1, await core.nodes('test:str=foo $node.data.pop(hehe)', opts={'view': view_data}))
 
             self.len(1, await core.callStorm(scmd, opts=opts))
@@ -3634,16 +3634,16 @@ class StormTypesTest(s_test.SynTest):
                     :hehe=lol
                     +#baz
                     +#base:score=11
-                    +(bar)> {[ test:int=2 ]}
-                    <(bar)+ {[ test:int=1 ]}
+                    +(refs)> {[ test:int=2 ]}
+                    <(refs)+ {[ test:int=1 ]}
                 ]
                 $node.data.set(haha, lol)
             '''))
             self.len(1, await core.nodes('test:str=foo [ :hehe=lol ]', opts={'view': view_prop}))
             self.len(1, await core.nodes('test:str=foo [ +#baz ]', opts={'view': view_tags}))
             self.len(1, await core.nodes('test:str=foo [ +#base:score=11 ]', opts={'view': view_tagp}))
-            self.len(1, await core.nodes('test:str=foo [ +(bar)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
-            self.len(1, await core.nodes('test:str=foo [ <(bar)+ {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
+            self.len(1, await core.nodes('test:str=foo [ +(refs)> {[ test:int=2 ]} ]', opts={'view': view_n1eg}))
+            self.len(1, await core.nodes('test:str=foo [ <(refs)+ {[ test:int=1 ]} ]', opts={'view': view_n2eg}))
             self.len(1, await core.nodes('test:str=foo $node.data.set(haha, lol)', opts={'view': view_data}))
 
             self.len(1, await core.callStorm(scmd, opts=opts))
@@ -3660,8 +3660,8 @@ class StormTypesTest(s_test.SynTest):
                     -:hehe
                     -#baz
                     -#base:score -#base
-                    -(bar)> { test:int=2 }
-                    <(bar)- { test:int=1 }
+                    -(refs)> { test:int=2 }
+                    <(refs)- { test:int=1 }
                 ]
                 $node.data.pop(haha)
             '''))
@@ -6261,7 +6261,7 @@ words\tword\twrd'''
 
             opts = {'vars': {'iden': iden}}
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.addEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.addEdge(refs, $iden) -(refs)> ou:industry', opts=opts)
             self.eq(nodes[0].iden(), iden)
 
             nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
@@ -6278,21 +6278,21 @@ words\tword\twrd'''
             self.len(1, nodes)
             self.eq('ou:industry', nodes[0].ndef[0])
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.delEdge(foo, $iden) -(foo)> ou:industry', opts=opts)
+            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.delEdge(refs, $iden) -(refs)> ou:industry', opts=opts)
             self.len(0, nodes)
 
             with self.raises(s_exc.BadCast):
-                await core.nodes('ou:industry $node.addEdge(foo, bar)')
+                await core.nodes('ou:industry $node.addEdge(refs, bar)')
 
             with self.raises(s_exc.BadCast):
-                await core.nodes('ou:industry $node.delEdge(foo, bar)')
+                await core.nodes('ou:industry $node.delEdge(refs, bar)')
 
             fakebuid = s_common.ehex(s_common.buid('newp'))
             with self.raises(s_exc.BadArg):
-                await core.nodes(f'ou:industry $node.addEdge(foo, {fakebuid})')
+                await core.nodes(f'ou:industry $node.addEdge(refs, {fakebuid})')
 
             with self.raises(s_exc.BadArg):
-                await core.nodes(f'ou:industry $node.delEdge(foo, {fakebuid})')
+                await core.nodes(f'ou:industry $node.delEdge(refs, {fakebuid})')
 
     async def test_storm_layer_lift(self):
 

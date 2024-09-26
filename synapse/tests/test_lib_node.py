@@ -433,11 +433,11 @@ class NodeTest(s_t_utils.SynTest):
     async def test_node_delete(self):
         async with self.getTestCore() as core:
 
-            await core.nodes('[ test:str=foo +(baz)> { [test:str=baz] } ]')
+            await core.nodes('[ test:str=foo +(refs)> { [test:str=baz] } ]')
             await core.nodes('test:str=foo | delnode')
             self.len(0, await core.nodes('test:str=foo'))
 
-            await core.nodes('[ test:str=foo <(bar)+ { test:str=foo } ]')
+            await core.nodes('[ test:str=foo <(refs)+ { test:str=foo } ]')
             await core.nodes('test:str=foo | delnode')
             self.len(0, await core.nodes('test:str=foo'))
 
@@ -446,7 +446,7 @@ class NodeTest(s_t_utils.SynTest):
             msgs = await core.stormlist(edgeq)
             self.len(0, [m for m in msgs if m[0] == 'print'])
 
-            await core.nodes('[ test:str=foo <(baz)+ { [test:str=baz] } ]')
+            await core.nodes('[ test:str=foo <(refs)+ { [test:str=baz] } ]')
             await self.asyncraises(s_exc.CantDelNode, core.nodes('test:str=foo | delnode'))
 
             await core.nodes('test:str=foo | delnode --force')
@@ -457,8 +457,8 @@ class NodeTest(s_t_utils.SynTest):
 
             q = '''
             [test:str=delfoo test:str=delbar]
-            { test:str=delfoo [ +(bar)> { test:str=delbar } ] }
-            { test:str=delbar [ +(foo)> { test:str=delfoo } ] }
+            { test:str=delfoo [ +(refs)> { test:str=delbar } ] }
+            { test:str=delbar [ +(refs)> { test:str=delfoo } ] }
             '''
             nodes = await core.nodes(q)
             self.len(2, nodes)
@@ -492,7 +492,7 @@ class NodeTest(s_t_utils.SynTest):
             q = '''
             for $ii in $lib.range(1200) {
                 $valu = `bar{$ii}`
-                [ test:str=$valu +(foo)> { test:str=delfoo } ]
+                [ test:str=$valu +(refs)> { test:str=delfoo } ]
             }
             '''
             msgs = await core.stormlist(q)

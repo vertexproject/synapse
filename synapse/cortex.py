@@ -721,6 +721,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A list of module classes to load.',
             'type': 'array'
         },
+        'storm:disable:edge:enforcement': {
+            'default': False,
+            'description': 'Disable enforcement of edge verb definitions in the datamodel.',
+            'type': 'boolean'
+        },
         'storm:log': {
             'default': False,
             'description': 'Log storm queries via system logger.',
@@ -846,6 +851,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.modsbyiface = {}
         self.stormiface_search = self.conf.get('storm:interface:search')
         self.stormiface_scrape = self.conf.get('storm:interface:scrape')
+
+        self.verifyedges = not self.conf.get('storm:disable:edge:enforcement')
 
         self._initCortexHttpApi()
         self._exthttpapis = {}  # iden -> adef; relies on cpython ordered dictionary behavior.
@@ -1940,6 +1947,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         byts = self.v3stor.get(nid, db=self.nid2ndef)
         if byts is not None:
             return s_msgpack.un(byts)
+
+    def hasNidNdef(self, nid):
+        return self.v3stor.has(nid, db=self.nid2ndef)
 
     def setNidNdef(self, nid, ndef):
         buid = s_common.buid(ndef)
@@ -3285,6 +3295,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         edgeguid = s_common.guid(edge)
         if self.extedges.get(edgeguid) is None:
             return
+
+        (n1form, verb, n2form) = edge
+
+        for layr in self.layers.values():
+            if layr.getEdgeVerbCount(verb, n1form=n1form, n2form=n2form) > 0:
+                mesg = f'Nodes still exist with edge: {edge} in layer {layr.iden}'
+                raise s_exc.CantDelEdge(mesg=mesg)
 
         self.model.delEdge(edge)
 

@@ -583,7 +583,7 @@ class TrigTest(s_t_utils.SynTest):
             tdef = {
                 'cond': 'edge:add',
                 'verb': 'refs',
-                'storm': '[ +#neato ] | spin | iden $auto.opts.n2iden | [ +#other ] | [ <(seen)+ { [ test:str=$auto.opts.verb ] } ]',
+                'storm': '[ +#neato ] | spin | iden $auto.opts.n2iden | [ +#other ] | [ <(seen)+ { [ meta:source=* :name=$auto.opts.verb ] } ]',
                 'view': view,
             }
             await core.nodes('$lib.trigger.add($tdef)', opts={'vars': {'tdef': tdef}}) # only verb
@@ -654,7 +654,7 @@ class TrigTest(s_t_utils.SynTest):
             node = await core.nodes('test:int=1357', opts=opts)
             self.nn(node[0].getTag('invalid'))
 
-            nodes = await core.nodes('test:str=refs -(seen)> *', opts=opts)  # collates all the n2 nodes
+            nodes = await core.nodes('meta:source:name=refs -(seen)> *', opts=opts)  # collates all the n2 nodes
             ndefs = set([
                 ('test:int', 0),
                 ('test:int', 456),
@@ -753,7 +753,9 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))
 
     async def test_trigger_edge_globs(self):
-        async with self.getTestCore() as core:
+
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:
             await core.nodes('trigger.add edge:add --verb foo* --query { [ +#foo ] | spin | iden $auto.opts.n2iden | [+#other] }')
             await core.nodes('trigger.add edge:add --verb see* --form test:int --query { [ +#n1 ] }')
             await core.nodes('trigger.add edge:add --verb r* --n2form test:int --query { [ +#n2 ] }')

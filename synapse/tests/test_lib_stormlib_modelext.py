@@ -27,7 +27,8 @@ class StormtypesModelextTest(s_test.SynTest):
                 $lib.model.ext.addEdge(inet:user, _copies, *, $edgeinfo)
             ''')
 
-            nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
+            q = '[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 <(_copies)+ {[ inet:user=visi ]} ]'
+            nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
             self.eq(nodes[0].get('tick'), 1609459200000)
@@ -53,6 +54,9 @@ class StormtypesModelextTest(s_test.SynTest):
 
             self.nn(core.model.edge(('inet:user', '_copies', None)))
 
+            with self.raises(s_exc.CantDelEdge):
+                await core.callStorm('$lib.model.ext.delEdge(inet:user, _copies, *)')
+
             # Grab the extended model definitions
             model_defs = await core.callStorm('return ( $lib.model.ext.getExtModel() )')
             self.isinstance(model_defs, dict)
@@ -69,7 +73,7 @@ class StormtypesModelextTest(s_test.SynTest):
             await core._delAllTagProp('score', {})
             self.len(0, await core.nodes('#lol:score'))
 
-            await core.callStorm('_visi:int=10 test:int=1234 | delnode')
+            await core.callStorm('inet:user=visi _visi:int=10 test:int=1234 | delnode')
             await core.callStorm('''
                 $lib.model.ext.delTagProp(score, force=(true))
                 $lib.model.ext.delUnivProp(_woot, force=(true))

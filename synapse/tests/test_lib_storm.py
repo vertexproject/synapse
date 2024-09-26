@@ -838,7 +838,7 @@ class StormTest(s_t_utils.SynTest):
             await core.addTagProp('score', ('int', {}), {})
             await core.callStorm('[ inet:ipv4=11.22.33.44 :asn=99 inet:fqdn=55667788.link +#foo=2020 +#foo:score=100]', opts=opts)
             await core.callStorm('inet:ipv4=11.22.33.44 $node.data.set(foo, bar)', opts=opts)
-            await core.callStorm('inet:ipv4=11.22.33.44 [ +(blahverb)> { inet:asn=99 } ]', opts=opts)
+            await core.callStorm('inet:ipv4=11.22.33.44 [ +(refs)> { inet:asn=99 } ]', opts=opts)
 
             sodes = await core.callStorm('''
                 $list = $lib.list()
@@ -881,14 +881,14 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo = ('2020/01/01 00:00:00.000', '2020/01/01 00:00:00.001')", msgs)
             self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo:score = 100", msgs)
             self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 DATA foo = 'bar'", msgs)
-            self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 +(blahverb)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
+            self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
 
             msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
             self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4:asn = 99', msgs)
             self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo = ('2020/01/01 00:00:00.000', '2020/01/01 00:00:00.001')", msgs)
             self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4#foo:score = 100", msgs)
             self.stormIsInPrint("aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 DATA foo = 'bar'", msgs)
-            self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 +(blahverb)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
+            self.stormIsInPrint('aade791ea3263edd78e27d0351e7eed8372471a0434a6f0ba77101b5acf4f9bc inet:ipv4 +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
 
             await core.callStorm('inet:ipv4=11.22.33.44 | merge --apply', opts=opts)
             nodes = await core.nodes('inet:ipv4=11.22.33.44')
@@ -903,7 +903,7 @@ class StormTest(s_t_utils.SynTest):
 
             # confirm that we moved node data and light edges
             self.eq('bar', await core.callStorm('inet:ipv4=11.22.33.44 return($node.data.get(foo))'))
-            self.eq(99, await core.callStorm('inet:ipv4=11.22.33.44 -(blahverb)> inet:asn return($node.value())'))
+            self.eq(99, await core.callStorm('inet:ipv4=11.22.33.44 -(refs)> inet:asn return($node.value())'))
             self.eq(100, await core.callStorm('inet:ipv4=11.22.33.44 return(#foo:score)'))
 
             sodes = await core.callStorm('inet:ipv4=11.22.33.44 return($node.getStorNodes())', opts=opts)
@@ -997,8 +997,8 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq('c8af8cfbcc36ba5dec9858124f8f014d', await core.callStorm('''
                 $iden = c8af8cfbcc36ba5dec9858124f8f014d
-                [ inet:fqdn=vertex.link <(woots)+ {[ meta:source=$iden ]} ]
-                <(woots)- meta:source
+                [ inet:fqdn=vertex.link <(refs)+ {[ meta:source=$iden ]} ]
+                <(refs)- meta:source
                 return($node.value())
             '''))
 
@@ -1308,7 +1308,8 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_diff_merge(self):
 
-        async with self.getTestCore() as core:
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
 
             altview = {'view': viewiden}
@@ -1599,7 +1600,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('''
                 [ ps:contact=*
                     :name=test0
-                    +(test)> { ou:name=test }
+                    +(refs)> { ou:name=test }
                     +#test1.foo=now
                     +#test2
                     +#test3:score=42
@@ -1669,19 +1670,20 @@ class StormTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as ecm:
                 await core.nodes('ps:contact merge --apply', opts=view2opts)
-            self.eq('node.edge.del.test', ecm.exception.errinfo['perm'])
+            self.eq('node.edge.del.refs', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'edge', 'del')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
                 await core.nodes('ps:contact merge --apply', opts=view2opts)
-            self.eq('node.edge.add.test', ecm.exception.errinfo['perm'])
+            self.eq('node.edge.add.refs', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr1)
 
             await core.nodes('ps:contact merge --apply', opts=view2opts)
 
     async def test_storm_movenodes(self):
 
-        async with self.getTestCore() as core:
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:
             view2iden = await core.callStorm('return($lib.view.get().fork().iden)')
             view2 = {'view': view2iden}
 
@@ -3903,7 +3905,8 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:int=127 | edges.del * --n2', opts=opts)
             self.stormHasNoWarnErr(msgs)
 
-        async with self.getTestCore() as core:
+        conf = {'storm:disable:edge:enforcement': True}
+        async with self.getTestCore(conf=conf) as core:
 
             await core.nodes('[ test:str=test1 +(refs)> { [test:int=7 test:int=8] } ]')
             await core.nodes('[ test:str=test1 +(seen)> { [test:int=7 test:int=8] } ]')
@@ -4866,7 +4869,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('''
                 [ media:news=* :title=vertex :url=https://vertex.link
                     +(refs)> { [ inet:ipv4=1.1.1.1 inet:ipv4=2.2.2.2 ] }
-                    <(bars)+ { [ inet:ipv4=5.5.5.5 inet:ipv4=6.6.6.6 ] }
+                    <(refs)+ { [ inet:ipv4=5.5.5.5 inet:ipv4=6.6.6.6 ] }
                     +#foo.bar:score=10
                 ]
                 $node.data.set(foo, bar)
@@ -4886,7 +4889,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x01010101), nodes[0].ndef)
 
-            nodes = await core.nodes('media:news +:title=vertex <(bars)- inet:ipv4', opts=opts)
+            nodes = await core.nodes('media:news +:title=vertex <(refs)- inet:ipv4', opts=opts)
             self.len(1, nodes)
             self.eq(('inet:ipv4', 0x05050505), nodes[0].ndef)
             self.eq('bar', await core.callStorm('media:news return($node.data.get(foo))', opts=opts))
