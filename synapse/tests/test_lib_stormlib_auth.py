@@ -996,8 +996,8 @@ class StormLibAuthTest(s_test.SynTest):
             rdef = await core.callStorm('$r=$lib.auth.roles.add(runners, iden=$iden) return ( $r )',
                             opts=opts)
             self.eq(rdef.get('iden'), iden)
-            msgs = await core.stormlist('$lib.print($lib.auth.roles.get($iden))', opts=opts)
-            self.stormIsInPrint(iden, msgs)
+            ret = await core.callStorm('return($lib.auth.roles.get($iden))', opts=opts)
+            self.eq(ret, rdef)
             with self.raises(s_exc.DupRoleName):
                 await core.callStorm('$lib.auth.roles.add(runners, iden=$iden)', opts=opts)
             with self.raises(s_exc.DupIden):
