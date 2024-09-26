@@ -735,6 +735,9 @@ class CortexTest(s_t_utils.SynTest):
 
             await news.delEdge('refs', ipv4.nid)
 
+            with self.raises(s_exc.BadArg):
+                await news.addEdge('refs', s_common.int64en(99999))
+
             self.len(0, await alist(news.iterEdgesN1()))
             self.len(0, await alist(ipv4.iterEdgesN2()))
 
@@ -781,6 +784,8 @@ class CortexTest(s_t_utils.SynTest):
 
             self.eq(0, layr.getEdgeVerbCount('refs', n1form='newp'))
             self.eq(0, layr.getEdgeVerbCount('refs', n2form='newp'))
+
+            self.true(core.model.edgeIsValid('inet:ipv4', 'meets', 'ou:requirement'))
 
             # coverage for isDestForm()
             self.len(0, await core.nodes('inet:ipv4 <(*)- mat:spec'))
