@@ -897,8 +897,10 @@ class LayerTest(s_t_utils.SynTest):
 
     async def test_layer_tombstone(self):
 
-        conf = {'storm:edge:enforcement': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'verbs': ('_foo', '_bar')}}
+            await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
             async def checkempty(opts=None):
                 nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=opts)
@@ -907,8 +909,8 @@ class LayerTest(s_t_utils.SynTest):
                 self.none(nodes[0].get('#foo.tag'))
                 self.none(nodes[0].getTagProp('bar.tag', 'score'))
 
-                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=opts))
-                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=opts))
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(_bar)> *', opts=opts))
+                self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(_foo)- *', opts=opts))
 
                 self.none(await core.callStorm('inet:ipv4=1.2.3.4 return($node.data.get(foodata))', opts=opts))
                 self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=opts))
@@ -919,8 +921,8 @@ class LayerTest(s_t_utils.SynTest):
                 self.stormIsInPrint("('inet:ipv4', 'asn')", msgs)
                 self.stormIsInPrint("foo.tag", msgs)
                 self.stormIsInPrint("'bar.tag', 'score'", msgs)
-                self.stormIsInPrint("'bar'", msgs)
-                self.stormIsInPrint("'foo'", msgs)
+                self.stormIsInPrint("'_bar'", msgs)
+                self.stormIsInPrint("'_foo'", msgs)
                 self.stormIsInPrint("'foodata'", msgs)
 
             async def notombs(opts=None):
@@ -939,8 +941,8 @@ class LayerTest(s_t_utils.SynTest):
                 :asn=4
                 +#foo.tag=2024
                 +#bar.tag:score=5
-                +(bar)> {[ it:dev:str=n1 ]}
-                <(foo)+ {[ it:dev:str=n2 ]}
+                +(_bar)> {[ it:dev:str=n1 ]}
+                <(_foo)+ {[ it:dev:str=n2 ]}
             ]
             $node.data.set(foodata, bar)
             '''
@@ -950,8 +952,8 @@ class LayerTest(s_t_utils.SynTest):
             [   -:asn
                 -#foo.tag
                 -#bar.tag:score
-                -(bar)> {[ it:dev:str=n1 ]}
-                <(foo)- {[ it:dev:str=n2 ]}
+                -(_bar)> {[ it:dev:str=n1 ]}
+                <(_foo)- {[ it:dev:str=n2 ]}
             ]
             $node.data.pop(foodata)
             '''
@@ -1017,27 +1019,27 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(foodata)', opts=viewopts2)
 
-            await core.nodes('inet:ipv4=1.2.3.4 [ -(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *'))
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(_bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(_bar)> *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(_bar)> *'))
 
-            await core.nodes('inet:ipv4=1.2.3.4 [ +(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
+            await core.nodes('inet:ipv4=1.2.3.4 [ +(_bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(_bar)> *', opts=viewopts2))
 
-            await core.nodes('inet:ipv4=1.2.3.4 [ -(bar)> { it:dev:str=n1 } ]', opts=viewopts2)
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *', opts=viewopts2))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(bar)> *'))
+            await core.nodes('inet:ipv4=1.2.3.4 [ -(_bar)> { it:dev:str=n1 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(_bar)> *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 -(_bar)> *'))
 
-            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ]', opts=viewopts2)
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *'))
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(_foo)- *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(_foo)- *'))
 
-            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)+ { it:dev:str=n2 } ]', opts=viewopts2)
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(_foo)+ { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(_foo)- *', opts=viewopts2))
 
-            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ]', opts=viewopts2)
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *', opts=viewopts2))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(foo)- *'))
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ]', opts=viewopts2)
+            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(_foo)- *', opts=viewopts2))
+            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(_foo)- *'))
 
             await hastombs(opts=viewopts2)
 
@@ -1090,7 +1092,7 @@ class LayerTest(s_t_utils.SynTest):
             self.stormNotInPrint("('inet:ipv4', 'asn')", msgs)
             self.stormNotInPrint("foo.tag", msgs)
             self.stormNotInPrint("'bar.tag', 'score'", msgs)
-            self.stormNotInPrint("'bar'", msgs)
+            self.stormNotInPrint("'_bar'", msgs)
             self.stormNotInPrint("'foodata'", msgs)
 
             self.len(0, await core.nodes('yield $lib.lift.byNodeData(foodata)', opts=viewopts2))
@@ -1115,7 +1117,7 @@ class LayerTest(s_t_utils.SynTest):
             self.stormIsInPrint('delete inet:ipv4#foo.tag', msgs)
             self.stormIsInPrint('delete inet:ipv4#bar.tag:score', msgs)
             self.stormIsInPrint('delete inet:ipv4 DATA foodata', msgs)
-            self.stormIsInPrint('delete inet:ipv4 -(bar)> ', msgs)
+            self.stormIsInPrint('delete inet:ipv4 -(_bar)> ', msgs)
 
             msgs = await core.stormlist('merge --diff --exclude-tags foo.*', opts=viewopts2)
             self.stormNotInPrint('delete inet:ipv4#foo.tag', msgs)
@@ -1123,12 +1125,14 @@ class LayerTest(s_t_utils.SynTest):
             msgs = await core.stormlist('merge --diff --exclude-tags bar.*', opts=viewopts2)
             self.stormNotInPrint('delete inet:ipv4#bar.tag:score', msgs)
 
+            await core.nodes('for $verb in $lib.range(1001) { $lib.model.ext.addEdge(*, `_a{$verb}`, *, ({})) }')
+
             await core.nodes('inet:ipv4 for $x in $lib.range(1001) { $node.data.set($x, foo) }')
             await core.nodes('inet:ipv4 for $x in $lib.range(1001) { $node.data.pop($x) }', opts=viewopts2)
 
-            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +($x)> { it:dev:str=n1 }]}')
-            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ -($x)> { it:dev:str=n1 }]}', opts=viewopts2)
-            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +($x)> { it:dev:str=n2 }]}', opts=viewopts2)
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +(`_a{$x}`)> { it:dev:str=n1 }]}')
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ -(`_a{$x}`)> { it:dev:str=n1 }]}', opts=viewopts2)
+            await core.nodes('inet:ipv4 for $x in $lib.range(1001) {[ +(`_a{$x}`)> { it:dev:str=n2 }]}', opts=viewopts2)
 
             await core.nodes('merge --diff --apply', opts=viewopts2)
 
@@ -1263,14 +1267,14 @@ class LayerTest(s_t_utils.SynTest):
             self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4#foo.tag', msgs)
             self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4#bar.tag:score', msgs)
             self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4 DATA foodata', msgs)
-            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4 -(bar)>', msgs)
+            self.stormIsInPrint(f'delete tombstone {nodeiden} inet:ipv4 -(_bar)>', msgs)
 
             msgs = await core.stormlist('inet:ipv4=1.2.3.4 | movenodes --preserve-tombstones', opts=viewopts3)
             self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4:asn', msgs)
             self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4#foo.tag', msgs)
             self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4#bar.tag:score', msgs)
             self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4 DATA foodata', msgs)
-            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4 -(bar)>', msgs)
+            self.stormIsInPrint(f'{destlayr} tombstone {nodeiden} inet:ipv4 -(_bar)>', msgs)
 
             await core.nodes('inet:ipv4=1.2.3.4 it:dev:str=n2 | movenodes --apply', opts=viewopts3)
             await notombs(opts=viewopts2)
@@ -1316,7 +1320,7 @@ class LayerTest(s_t_utils.SynTest):
             self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4#foo', msgs)
             self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4#bar.tag:score', msgs)
             self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4 DATA foodata', msgs)
-            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4 -(bar)>', msgs)
+            self.stormIsInPrint(f'{destlayr} delete {nodeiden} inet:ipv4 -(_bar)>', msgs)
 
             q = f'''
             inet:ipv4=1.2.3.4 it:dev:str=n2
@@ -1440,7 +1444,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(bylayer['tags']['foo.tag'], layr)
             self.eq(bylayer['tagprops']['bar.tag']['score'], layr)
 
-            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode')
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ] | delnode')
 
             await core.nodes(addq, opts=viewopts2)
             await notombs(opts=viewopts2)
@@ -1460,7 +1464,7 @@ class LayerTest(s_t_utils.SynTest):
             # node re-added above a tombstone is empty
             await core.nodes(addq)
             await core.nodes('[ inet:ipv4=1.2.3.4 :loc=uk ]', opts=viewopts3)
-            await core.nodes('inet:ipv4=1.2.3.4 [ <(foo)- { it:dev:str=n2 } ] | delnode', opts=viewopts2)
+            await core.nodes('inet:ipv4=1.2.3.4 [ <(_foo)- { it:dev:str=n2 } ] | delnode', opts=viewopts2)
 
             self.len(0, await core.nodes('inet:ipv4:loc=uk', opts=viewopts3))
 
@@ -1512,7 +1516,7 @@ class LayerTest(s_t_utils.SynTest):
             await core.nodes(delq, opts=viewopts2)
             await checkempty(opts=viewopts3)
 
-            await core.nodes('inet:ipv4 [ -(bar)> {[ it:dev:str=n1 ]} ]', opts=viewopts3)
+            await core.nodes('inet:ipv4 [ -(_bar)> {[ it:dev:str=n1 ]} ]', opts=viewopts3)
             nodes = await core.nodes('inet:ipv4=1.2.3.4', opts=viewopts3)
 
             # test helpers above individual tombstones

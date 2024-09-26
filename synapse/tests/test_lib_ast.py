@@ -935,10 +935,9 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_edge_walknjoin(self):
 
-        conf = {'storm:edge:enforcement': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
 
-            await core.nodes('[test:str=foo :hehe=bar +(foobar)> { [ test:str=baz ] }]')
+            await core.nodes('[test:str=foo :hehe=bar +(refs)> { [ test:str=baz ] }]')
 
             nodes = await core.nodes('test:str=foo --+> *')
             self.len(2, nodes)
@@ -950,37 +949,43 @@ class AstTest(s_test.SynTest):
             self.eq(('test:str', 'baz'), nodes[0].ndef)
             self.eq(('test:str', 'foo'), nodes[1].ndef)
 
-            nodes = await core.nodes('test:str=foo -(foobar)+> *')
+            nodes = await core.nodes('test:str=foo -(refs)+> *')
             self.len(2, nodes)
             self.eq(('test:str', 'foo'), nodes[0].ndef)
             self.eq(('test:str', 'baz'), nodes[1].ndef)
 
-            nodes = await core.nodes('test:str=baz <+(foobar)- *')
+            nodes = await core.nodes('test:str=baz <+(refs)- *')
             self.len(2, nodes)
             self.eq(('test:str', 'baz'), nodes[0].ndef)
             self.eq(('test:str', 'foo'), nodes[1].ndef)
 
-            await core.nodes('test:str=foo [ +(coffeeone)> { [ test:str=arabica ] } ]')
-            await core.nodes('test:str=foo [ +(coffeetwo)> { [ test:str=robusta ] } ]')
-            await core.nodes('[ test:int=28 +(coffeethree)> { test:str=arabica } ]')
+            opts = {'vars': {'verbs': ('_coffeeone', '_coffeetwo', '_coffeethree')}}
+            await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
-            nodes = await core.nodes('test:str=foo -((coffeeone, coffeetwo))+> *')
+            await core.nodes('test:str=foo [ +(_coffeeone)> { [ test:str=arabica ] } ]')
+            await core.nodes('test:str=foo [ +(_coffeetwo)> { [ test:str=robusta ] } ]')
+            await core.nodes('[ test:int=28 +(_coffeethree)> { test:str=arabica } ]')
+
+            nodes = await core.nodes('test:str=foo -((_coffeeone, _coffeetwo))+> *')
             self.len(3, nodes)
             self.eq(('test:str', 'foo'), nodes[0].ndef)
             self.eq(('test:str', 'arabica'), nodes[1].ndef)
             self.eq(('test:str', 'robusta'), nodes[2].ndef)
 
-            await core.nodes('[test:str=neato :hehe=haha +(stuff)> { [inet:ipv4=1.2.3.0/24] }]')
-            await core.nodes('[test:str=burrito :hehe=stuff <(stuff)+ { test:str=baz }]')
-            await core.nodes('test:str=neato [ <(other)+ { test:str=foo } ]')
+            opts = {'vars': {'verbs': ('_stuff', '_other', '_wat', '_place')}}
+            await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
-            nodes = await core.nodes('$edge=stuff test:str=neato -($edge)+> *')
+            await core.nodes('[test:str=neato :hehe=haha +(_stuff)> { [inet:ipv4=1.2.3.0/24] }]')
+            await core.nodes('[test:str=burrito :hehe=stuff <(_stuff)+ { test:str=baz }]')
+            await core.nodes('test:str=neato [ <(_other)+ { test:str=foo } ]')
+
+            nodes = await core.nodes('$edge=_stuff test:str=neato -($edge)+> *')
             self.len(257, nodes)
             self.eq(('test:str', 'neato'), nodes[0].ndef)
             for n in nodes[1:]:
                 self.eq('inet:ipv4', n.ndef[0])
 
-            nodes = await core.nodes('test:str=neato | tee { --+> * } { <+(other)- * }')
+            nodes = await core.nodes('test:str=neato | tee { --+> * } { <+(_other)- * }')
             self.len(259, nodes)
             self.eq(('test:str', 'neato'), nodes[0].ndef)
             self.eq(('test:str', 'foo'), nodes[-1].ndef)
@@ -989,9 +994,9 @@ class AstTest(s_test.SynTest):
             for n in nodes[1:257]:
                 self.eq('inet:ipv4', n.ndef[0])
 
-            await core.nodes('test:str=foo [ +(wat)> {[test:int=12]}]')
+            await core.nodes('test:str=foo [ +(_wat)> {[test:int=12]}]')
 
-            nodes = await core.nodes('test:str=foo -(other)+> test:str')
+            nodes = await core.nodes('test:str=foo -(_other)+> test:str')
             self.len(2, nodes)
             self.eq(('test:str', 'foo'), nodes[0].ndef)
             self.eq(('test:str', 'neato'), nodes[1].ndef)
@@ -1030,8 +1035,8 @@ class AstTest(s_test.SynTest):
             self.isin(('test:str', 'foo'), ndefs)
             self.isin(('test:int', 28), ndefs)
 
-            await core.nodes('test:str=arabica [ <(place)+ { [ test:str=coffeebar] } ]')
-            nodes = await core.nodes('test:str=arabica <+((place, coffeeone))- *')
+            await core.nodes('test:str=arabica [ <(_place)+ { [ test:str=coffeebar] } ]')
+            nodes = await core.nodes('test:str=arabica <+((_place, _coffeeone))- *')
             self.len(3, nodes)
             self.eq(('test:str', 'arabica'), nodes[0].ndef)
             self.eq(('test:str', 'coffeebar'), nodes[1].ndef)
@@ -3202,14 +3207,17 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_subgraph_caching(self):
 
-        conf = {'storm:edge:enforcement': False}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'verbs': ('_selfrefs', '_awesome')}}
+            await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
+
             limits = (0, 1, 10, 255, 256, 10000)
             ipv4s = await core.nodes('[inet:ipv4=1.2.3.0/24]')
             neato = await core.nodes('''[
                 test:str=neato +(refs)> { inet:ipv4 }
             ]''')
-            await core.nodes('[test:str=neato +(selfrefs)> { test:str=neato }]')
+            await core.nodes('[test:str=neato +(_selfrefs)> { test:str=neato }]')
             self.len(1, neato)
 
             iden = neato[0].iden()
@@ -3247,7 +3255,7 @@ class AstTest(s_test.SynTest):
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
                 testedges(msgs)
 
-            burrito = await core.nodes('[test:str=burrito <(awesome)+ { inet:ipv4 }]')
+            burrito = await core.nodes('[test:str=burrito <(_awesome)+ { inet:ipv4 }]')
             self.len(1, burrito)
 
             iden = burrito[0].iden()
@@ -3275,7 +3283,7 @@ class AstTest(s_test.SynTest):
                     edgeiden, edgedata = edge
                     self.isin(edgeiden, ipidens)
                     self.true(edgedata.get('reverse', False))
-                    self.eq(edgedata['verb'], 'awesome')
+                    self.eq(edgedata['verb'], '_awesome')
                     self.eq(edgedata['type'], 'edge')
 
                 node = msgs[2][1]
@@ -3286,7 +3294,7 @@ class AstTest(s_test.SynTest):
                     edgeiden, edgedata = edge
                     self.isin(edgeiden, ipidens)
                     self.eq(edgedata['type'], 'edge')
-                    if edgedata['verb'] == 'selfrefs':
+                    if edgedata['verb'] == '_selfrefs':
                         self.eq(edgeiden, neato[0].iden())
                     else:
                         self.eq(edgedata['verb'], 'refs')
@@ -3314,7 +3322,7 @@ class AstTest(s_test.SynTest):
                             self.eq('edge', e[1]['type'])
                             if e[0] == neato[0].iden():
                                 selfrefs += 1
-                                self.eq('selfrefs', e[1]['verb'])
+                                self.eq('_selfrefs', e[1]['verb'])
                             else:
                                 self.eq('refs', e[1]['verb'])
                 self.eq(selfrefs, 2)
@@ -4215,8 +4223,11 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_path_links(self):
 
-        conf = {'storm:edge:enforcement': False}
-        async with self.getTestCore(conf=conf) as core:  # type: s_cortex.Cortex
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+
+            opts = {'vars': {'verbs': ('_someedge',)}}
+            await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
+
             guid = s_common.guid()
             opts = {'vars': {'guid': guid}}
 
@@ -4231,10 +4242,10 @@ class AstTest(s_test.SynTest):
             (await core.nodes('[test:arrayform=(1234, 176)]'))[0]
             (await core.nodes('[test:arrayform=(3245, 678)]'))[0]
 
-            await core.nodes('test:int=176 [ <(seen)+ { test:guid } ]')
-            await core.nodes('test:int=176 [ <(someedge)+ { test:guid } ]')
+            await core.nodes('test:int=176 [ <(refs)+ { test:guid } ]')
+            await core.nodes('test:int=176 [ <(_someedge)+ { test:guid } ]')
             await core.nodes('test:complexcomp [ <(refs)+ { test:arrayprop } ]')
-            await core.nodes('test:complexcomp [ +(concerns)> { test:ro } ]')
+            await core.nodes('test:complexcomp [ +(refs)> { test:ro } ]')
 
             small = (await core.nodes('test:int=176'))[0]
             large = (await core.nodes('test:int=1234'))[0]
@@ -4409,11 +4420,11 @@ class AstTest(s_test.SynTest):
             # N1WalkNPivo
             msgs = await core.stormlist('test:complexcomp --> *', opts=opts)
             _assert_edge(msgs, comp, {'type': 'prop', 'prop': 'foo'})
-            _assert_edge(msgs, comp, {'type': 'edge', 'verb': 'concerns'}, nidx=1)
+            _assert_edge(msgs, comp, {'type': 'edge', 'verb': 'refs'}, nidx=1)
 
             # N2WalNkPivo
             msgs = await core.stormlist('test:int=176 <-- *', opts=opts)
             _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
             _assert_edge(msgs, small, {'type': 'prop', 'prop': 'ndefs', 'reverse': True}, nidx=1)
-            _assert_edge(msgs, small, {'type': 'edge', 'verb': 'seen', 'reverse': True}, nidx=2)
-            _assert_edge(msgs, small, {'type': 'edge', 'verb': 'someedge', 'reverse': True}, nidx=3)
+            _assert_edge(msgs, small, {'type': 'edge', 'verb': 'refs', 'reverse': True}, nidx=2)
+            _assert_edge(msgs, small, {'type': 'edge', 'verb': '_someedge', 'reverse': True}, nidx=3)
