@@ -6,6 +6,27 @@
 Synapse Changelog
 *****************
 
+v2.182.0 - 2024-09-27
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the allowed version of the ``packaging`` and ``xxhash`` libraries.
+  (`#3931 <https://github.com/vertexproject/synapse/pull/3931>`_)
+- Allow a user to specify a role iden when creating a role with the
+  ``$lib.auth.role.add()`` Storm API.
+  (`#3932 <https://github.com/vertexproject/synapse/pull/3932>`_)
+
+Bugfixes
+--------
+- Fix an issue in the ``merge`` command where errors in establishing the node
+  in the parent view could result in an exception. These errors are now
+  surfaced as warnings in the runtime, and the node will be skipped.
+  (`#3925 <https://github.com/vertexproject/synapse/pull/3925>`_)
+- Fix an issue where the Cell would log that the free space write hold was
+  removed irrespective of the write hold reason.
+  (`#3934 <https://github.com/vertexproject/synapse/pull/3934>`_)
+
 v2.181.0 - 2024-09-25
 =====================
 
