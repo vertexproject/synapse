@@ -2355,10 +2355,14 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getTestCore() as core:
 
+                # This tmp_reason assertion seems counter-intuitive at first; but it's really
+                # asserting that the message which was incorrectly being logged is no longer logged.
                 log_enable_writes = f'Free space on {core.dirn} above minimum threshold'
                 with self.getAsyncLoggerStream('synapse.lib.cell', log_enable_writes) as stream:
                     await core.nexsroot.addWriteHold(tmp_reason := 'something else')
                     self.false(await stream.wait(1))
+                stream.seek(0)
+                self.eq(stream.read(), '')
 
                 await core.nexsroot.delWriteHold(tmp_reason)
                 revt.clear()
