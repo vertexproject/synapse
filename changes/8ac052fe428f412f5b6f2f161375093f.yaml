@@ -1,0 +1,6 @@
+---
+desc: Fix an issue where the Cell would log that the free space write hold was removed
+  irrespective of the write hold reason.
+prs: []
+type: bug
+...
