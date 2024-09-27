@@ -1637,12 +1637,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
                 logger.error(mesg)
 
-            elif nexsroot.readonly:
-
-                await nexsroot.delWriteHold(diskspace)
+            elif nexsroot.readonly and await nexsroot.delWriteHold(diskspace):
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
-                       f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
+                       f'{disk.free / disk.total * 100:.2f}%), removing free space write hold.'
                 logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)

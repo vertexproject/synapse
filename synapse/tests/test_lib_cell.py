@@ -2355,6 +2355,14 @@ class CellTest(s_t_utils.SynTest):
 
             async with self.getTestCore() as core:
 
+                log_enable_writes = f'Free space on {core.dirn} above minimum threshold'
+                with self.getAsyncLoggerStream('synapse.lib.cell', log_enable_writes) as stream:
+                    await core.nexsroot.addWriteHold(tmp_reason := 'something else')
+                    self.false(await stream.wait(1))
+
+                await core.nexsroot.delWriteHold(tmp_reason)
+                revt.clear()
+
                 self.len(1, await core.nodes('[inet:fqdn=vertex.link]'))
 
                 with mock.patch('shutil.disk_usage', full_disk):
