@@ -1943,6 +1943,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if byts is not None:
             return s_msgpack.un(byts)
 
+    def hasNidNdef(self, nid):
+        return self.v3stor.has(nid, db=self.nid2ndef)
+
     def setNidNdef(self, nid, ndef):
         buid = s_common.buid(ndef)
         self.v3stor.put(nid, buid, db=self.nid2buid)
@@ -3287,6 +3290,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         edgeguid = s_common.guid(edge)
         if self.extedges.get(edgeguid) is None:
             return
+
+        (n1form, verb, n2form) = edge
+
+        for layr in self.layers.values():
+            if layr.getEdgeVerbCount(verb, n1form=n1form, n2form=n2form) > 0:
+                mesg = f'Nodes still exist with edge: {edge} in layer {layr.iden}'
+                raise s_exc.CantDelEdge(mesg=mesg)
 
         self.model.delEdge(edge)
 

@@ -2500,7 +2500,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     for (n2ndef, verb, n2buid) in n2adds:
                         if (nid := self.core.getNidByBuid(n2buid)) is not None:
                             try:
-                                await protonode.addEdge(verb, nid)
+                                await protonode.addEdge(verb, nid, n2form=n2ndef[0])
                             except Exception as e:
                                 if runt is not None:
                                     await runt.warn(str(e))

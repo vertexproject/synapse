@@ -20,6 +20,7 @@ class ProtoNode(s_node.NodeBase):
     '''
     def __init__(self, editor, buid, form, valu, node):
         self.editor = editor
+        self.model = editor.view.core.model
         self.form = form
         self.valu = valu
         self.buid = buid
@@ -83,7 +84,7 @@ class ProtoNode(s_node.NodeBase):
             if (tagprops := sode.get('tagprops')) is not None:
                 for tag, props in tagprops.items():
                     for name in props.keys():
-                        prop = self.editor.view.core.model.getTagProp(name)
+                        prop = self.model.getTagProp(name)
                         edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
 
         if self.tombnode:
@@ -147,11 +148,11 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
 
         for (tag, name), valu in self.tagprops.items():
-            prop = self.editor.view.core.model.getTagProp(name)
+            prop = self.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_SET, (tag, name, valu, None, prop.type.stortype)))
 
         for (tag, name) in self.tagpropdels:
-            prop = self.editor.view.core.model.getTagProp(name)
+            prop = self.model.getTagProp(name)
             edits.append((s_layer.EDIT_TAGPROP_DEL, (tag, name, None, prop.type.stortype)))
 
         for (tag, name) in self.tagproptombs:
@@ -171,7 +172,7 @@ class ProtoNode(s_node.NodeBase):
 
         return (self.nid, self.form.name, edits)
 
-    async def addEdge(self, verb, n2nid):
+    async def addEdge(self, verb, n2nid, n2form=None):
 
         if not isinstance(verb, str):
             raise s_exc.BadArg(mesg=f'addEdge() got an invalid type for verb: {verb}')
@@ -181,6 +182,14 @@ class ProtoNode(s_node.NodeBase):
 
         if len(n2nid) != 8:
             raise s_exc.BadArg(mesg=f'addEdge() got an invalid node id: {n2nid}')
+
+        if n2form is None:
+            if (n2ndef := self.editor.view.core.getNidNdef(n2nid)) is None:
+                raise s_exc.BadArg(mesg=f'addEdge() got an unknown node id: {n2nid}')
+            n2form = n2ndef[0]
+
+        if not self.model.edgeIsValid(self.form.name, verb, n2form):
+            raise s_exc.NoSuchEdge.init((self.form.name, verb, n2form))
 
         tupl = (verb, n2nid)
         if tupl in self.edges:
@@ -403,7 +412,7 @@ class ProtoNode(s_node.NodeBase):
 
         if valu != (None, None):
             try:
-                valu, _ = self.editor.view.core.model.type('ival').norm(valu)
+                valu, _ = self.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
                 e.errinfo['tag'] = tagnode.valu
                 raise e
@@ -577,7 +586,7 @@ class ProtoNode(s_node.NodeBase):
         if tagnode is None:
             return False
 
-        prop = self.editor.view.core.model.getTagProp(name)
+        prop = self.model.getTagProp(name)
         if prop is None:
             raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.')
 
@@ -598,7 +607,7 @@ class ProtoNode(s_node.NodeBase):
 
     async def delTagProp(self, tag, name):
 
-        prop = self.editor.view.core.model.getTagProp(name)
+        prop = self.model.getTagProp(name)
         if prop is None:
             raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.', name=name)
 
@@ -653,7 +662,7 @@ class ProtoNode(s_node.NodeBase):
             raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
 
         if isinstance(prop.type, s_types.Array):
-            arrayform = self.editor.view.core.model.form(prop.type.arraytype.name)
+            arrayform = self.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
                 raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
 
@@ -668,7 +677,7 @@ class ProtoNode(s_node.NodeBase):
                 raise e
 
         if isinstance(prop.type, s_types.Ndef):
-            ndefform = self.editor.view.core.model.form(valu[0])
+            ndefform = self.model.form(valu[0])
             if ndefform.locked:
                 raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
 
@@ -699,7 +708,7 @@ class ProtoNode(s_node.NodeBase):
 
         (valu, norminfo) = retn
 
-        propform = self.editor.view.core.model.form(prop.type.name)
+        propform = self.model.form(prop.type.name)
         if propform is not None:
             await self.editor.addNode(propform.name, valu, norminfo=norminfo)
 

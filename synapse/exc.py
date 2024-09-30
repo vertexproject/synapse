@@ -141,6 +141,7 @@ class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
 class CantDelCmd(SynErr): pass
+class CantDelEdge(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass

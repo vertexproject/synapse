@@ -2473,16 +2473,32 @@ class Layer(s_nexus.Pusher):
 
         return count
 
-    async def getEdgeVerbCount(self, verb):
+    def getEdgeVerbCount(self, verb, n1form=None, n2form=None):
         '''
-        Return the number of edges in the layer with a specific verb.
+        Return the number of edges in the layer with a specific verb and optional
+        N1 form and/or N2 form.
         '''
         try:
-            abrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+            vabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
+
+            if n1form is not None:
+                n1abrv = self.core.setIndxAbrv(INDX_FORM, n1form)
+
+            if n2form is not None:
+                n2abrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+
         except s_exc.NoSuchAbrv:
             return 0
 
-        return self.indxcounts.get(abrv, 0)
+        if n1form is None:
+            if n2form is None:
+                return self.indxcounts.get(vabrv, 0)
+            else:
+                return self.indxcounts.get(INDX_EDGE_N2 + n2abrv + vabrv, 0)
+        else:
+            return self.indxcounts.get(INDX_EDGE_N1 + n1abrv + vabrv, 0)
+
+        return self.indxcounts.get(INDX_EDGE_N1N2 + n1abrv + vabrv + n2abrv, 0)
 
     async def iterPropValues(self, formname, propname, stortype):
         try:
@@ -2524,21 +2540,6 @@ class Layer(s_nexus.Pusher):
 
         async for _, nid in s_coro.pause(self.layrslab.scanByDups(abrv + indx, db=self.indxdb)):
             yield nid
-
-    async def getFormEdgeVerbCount(self, form, verb, reverse=False):
-        '''
-        Return the number of edges in the layer for the given form and verb.
-        '''
-        try:
-            verbabrv = self.core.getIndxAbrv(INDX_EDGE_VERB, verb)
-            formabrv = self.core.getIndxAbrv(INDX_FORM, form)
-        except s_exc.NoSuchAbrv:
-            return 0
-
-        if reverse:
-            return self.indxcounts.get(INDX_EDGE_N2 + formabrv + verbabrv, 0)
-        else:
-            return self.indxcounts.get(INDX_EDGE_N1 + formabrv + verbabrv, 0)
 
     async def liftByTag(self, tag, form=None, reverse=False, indx=None):
 
@@ -3275,7 +3276,7 @@ class Layer(s_nexus.Pusher):
 
         valu, stortype = sode['valu'] = edit[1]
 
-        if self.core.getBuidByNid(nid) is None:
+        if not self.core.hasNidNdef(nid):
             self.core.setNidNdef(nid, (form, valu))
 
         self.dirty[nid] = sode
@@ -3376,7 +3377,7 @@ class Layer(s_nexus.Pusher):
             self.nodeDelHook()
 
         await self._wipeNodeData(nid, sode)
-        await self._delNodeEdges(nid, abrv, sode)
+        await self._delNodeEdges(nid, form, sode)
 
         if not self.mayDelNid(nid, sode):
             self.dirty[nid] = sode
@@ -3402,7 +3403,7 @@ class Layer(s_nexus.Pusher):
         self.dirty[nid] = sode
 
         await self._wipeNodeData(nid, sode)
-        await self._delNodeEdges(nid, abrv, sode)
+        await self._delNodeEdges(nid, form, sode)
 
         return kvpairs
 
@@ -4183,6 +4184,7 @@ class Layer(s_nexus.Pusher):
             n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
 
         self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, 1)
+        self.indxcounts.inc(INDX_EDGE_N1N2 + formabrv + vabrv + n2formabrv, 1)
 
         return kvpairs
 
@@ -4226,9 +4228,9 @@ class Layer(s_nexus.Pusher):
         if (n2form := n2sode.get('form')) is None:
             n2form = self.core.getNidNdef(n2nid)[0]
 
-        if n2form is not None:
-            n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
-            self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
+        n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+        self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
+        self.indxcounts.inc(INDX_EDGE_N1N2 + formabrv + vabrv + n2formabrv, -1)
 
         return ()
 
@@ -4327,7 +4329,9 @@ class Layer(s_nexus.Pusher):
             # n1nid, verbabrv, n2nid, tomb
             yield lkey[-9:-1], vabrv, lval, lkey[-1:] == FLAG_TOMB
 
-    async def _delNodeEdges(self, nid, formabrv, sode):
+    async def _delNodeEdges(self, nid, form, sode):
+
+        formabrv = self.core.setIndxAbrv(INDX_FORM, form)
 
         sode.pop('n1verbs', None)
         sode.pop('n1antiverbs', None)
@@ -4373,9 +4377,9 @@ class Layer(s_nexus.Pusher):
             if (n2form := n2sode.get('form')) is None:
                 n2form = self.core.getNidNdef(n2nid)[0]
 
-            if n2form is not None:
-                n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
-                self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
+            n2formabrv = self.core.setIndxAbrv(INDX_FORM, n2form)
+            self.indxcounts.inc(INDX_EDGE_N2 + n2formabrv + vabrv, -1)
+            self.indxcounts.inc(INDX_EDGE_N1N2 + formabrv + vabrv + n2formabrv, -1)
 
     def getStorIndx(self, stortype, valu):
 

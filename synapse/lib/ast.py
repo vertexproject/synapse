@@ -4475,7 +4475,7 @@ class EditEdgeAdd(Edit):
                             mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                             raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                        await subn.addEdge(verb, nid)
+                        await subn.addEdge(verb, nid, n2form=node.form.name)
 
                 else:
                     async with runt.view.getEditor(runt=runt) as editor:
@@ -4486,7 +4486,7 @@ class EditEdgeAdd(Edit):
                                 mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
                                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                            await proto.addEdge(verb, subn.nid)
+                            await proto.addEdge(verb, subn.nid, n2form=subn.form.name)
                             await asyncio.sleep(0)
 
                             if len(proto.edges) >= 1000:

@@ -1171,3 +1171,14 @@ class Model:
 
     def edge(self, edgetype):
         return self.edges.get(edgetype)
+
+    def edgeIsValid(self, n1form, verb, n2form):
+        if (n1form, verb, n2form) in self.edges:
+            return True
+        if (None, verb, None) in self.edges:
+            return True
+        if (None, verb, n2form) in self.edges:
+            return True
+        if (n1form, verb, None) in self.edges:
+            return True
+        return False
