@@ -1180,8 +1180,10 @@ class ViewTest(s_t_utils.SynTest):
 
     async def test_node_editor(self):
 
-        conf = {'storm:disable:edge:enforcement': True}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'verbs': ('_pwns', '_foo')}}
+            await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
             await core.nodes('$lib.model.ext.addTagProp(test, (str, ({})), ({}))')
             await core.nodes('[ media:news=63381924986159aff183f0c85bd8ebad +(refs)> {[ inet:fqdn=vertex.link ]} ]')
@@ -1196,17 +1198,17 @@ class ViewTest(s_t_utils.SynTest):
                 self.false(await news.addEdge('refs', fqdn.nid))
                 self.len(0, editor.getNodeEdits())
 
-                self.true(await news.addEdge('pwns', fqdn.nid))
-                self.false(await news.addEdge('pwns', fqdn.nid))
+                self.true(await news.addEdge('_pwns', fqdn.nid))
+                self.false(await news.addEdge('_pwns', fqdn.nid))
                 nodeedits = editor.getNodeEdits()
                 self.len(1, nodeedits)
                 self.len(1, nodeedits[0][2])
 
-                self.true(await news.delEdge('pwns', fqdn.nid))
+                self.true(await news.delEdge('_pwns', fqdn.nid))
                 nodeedits = editor.getNodeEdits()
                 self.len(0, nodeedits)
 
-                self.true(await news.addEdge('pwns', fqdn.nid))
+                self.true(await news.addEdge('_pwns', fqdn.nid))
                 nodeedits = editor.getNodeEdits()
                 self.len(1, nodeedits)
                 self.len(1, nodeedits[0][2])
@@ -1222,13 +1224,13 @@ class ViewTest(s_t_utils.SynTest):
             async with core.view.getEditor() as editor:
                 news = await editor.addNode('media:news', '63381924986159aff183f0c85bd8ebad')
 
-                self.true(await news.delEdge('pwns', fqdn.nid))
-                self.false(await news.delEdge('pwns', fqdn.nid))
+                self.true(await news.delEdge('_pwns', fqdn.nid))
+                self.false(await news.delEdge('_pwns', fqdn.nid))
                 nodeedits = editor.getNodeEdits()
                 self.len(1, nodeedits)
                 self.len(1, nodeedits[0][2])
 
-                self.true(await news.addEdge('pwns', fqdn.nid))
+                self.true(await news.addEdge('_pwns', fqdn.nid))
                 nodeedits = editor.getNodeEdits()
                 self.len(0, nodeedits)
 
@@ -1245,7 +1247,7 @@ class ViewTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchTagProp):
                     await news.delTagProp('newp', 'newp')
 
-            self.len(1, await core.nodes('media:news -(pwns)> *'))
+            self.len(1, await core.nodes('media:news -(_pwns)> *'))
 
             self.len(1, await core.nodes('[ test:ro=foo :writeable=hehe :readable=haha ]'))
             self.len(1, await core.nodes('test:ro=foo [ :readable = haha ]'))
@@ -1263,7 +1265,7 @@ class ViewTest(s_t_utils.SynTest):
                 :asn=4
                 +#foo.tag=2024
                 +#bar.tag:score=5
-                +(foo)> {[ it:dev:str=n2 ]}
+                +(_foo)> {[ it:dev:str=n2 ]}
             ]
             $node.data.set(foodata, bar)
             '''
@@ -1275,9 +1277,9 @@ class ViewTest(s_t_utils.SynTest):
 
             async with view2.getEditor() as editor:
                 node = await editor.getNodeByBuid(nodes[0].buid)
-                self.true(await node.delEdge('foo', n2nid))
-                self.true(await node.addEdge('foo', n2nid))
-                self.true(await node.delEdge('foo', n2nid))
+                self.true(await node.delEdge('_foo', n2nid))
+                self.true(await node.addEdge('_foo', n2nid))
+                self.true(await node.delEdge('_foo', n2nid))
 
                 self.true(await node.setTagProp('cool.tag', 'score', 7))
                 self.isin('score', node.getTagProps('cool.tag'))
@@ -1299,9 +1301,11 @@ class ViewTest(s_t_utils.SynTest):
 
                 self.eq('bar', await node.popData('foodata'))
 
+                await core.nodes('for $verb in $lib.range(1001) { $lib.model.ext.addEdge(*, `_a{$verb}`, *, ({})) }')
+
                 manynode = await editor.addNode('it:dev:str', 'manyedges')
                 for x in range(1001):
-                    await manynode.addEdge(str(x), node.nid)
+                    await manynode.addEdge(f'_a{str(x)}', node.nid)
 
                 self.eq((None, None), manynode.getTagPropWithLayer('bar.tag', 'score'))
 
@@ -1309,7 +1313,7 @@ class ViewTest(s_t_utils.SynTest):
 
             async with view2.getEditor() as editor:
                 node = await editor.getNodeByBuid(nodes[0].buid)
-                self.false(await node.delEdge('foo', n2nid))
+                self.false(await node.delEdge('_foo', n2nid))
                 await node.delEdgesN2()
 
                 self.true(await node.set('asn', 5))
@@ -1324,7 +1328,7 @@ class ViewTest(s_t_utils.SynTest):
 
                 newnode = await editor.addNode('it:dev:str', 'new')
                 self.false(newnode.istomb())
-                self.false(await newnode.delEdge('foo', n2nid))
+                self.false(await newnode.delEdge('_foo', n2nid))
 
             self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(*)- *', opts=viewopts2))
 

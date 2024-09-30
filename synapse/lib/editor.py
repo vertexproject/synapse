@@ -188,7 +188,7 @@ class ProtoNode(s_node.NodeBase):
                 raise s_exc.BadArg(mesg=f'addEdge() got an unknown node id: {n2nid}')
             n2form = n2ndef[0]
 
-        if self.editor.view.core.verifyedges and not self.model.edgeIsValid(self.form.name, verb, n2form):
+        if not self.model.edgeIsValid(self.form.name, verb, n2form):
             raise s_exc.NoSuchEdge.init((self.form.name, verb, n2form))
 
         tupl = (verb, n2nid)
