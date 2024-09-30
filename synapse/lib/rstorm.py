@@ -233,24 +233,20 @@ class StormRst(s_base.Base):
 
         cli = await StormCliOutput.anit(item=core, outp=outp)
 
-        try:
-            args = shlex.split(text)
-            opts = stormopts.parse_known_args(args)[0]
+        args = shlex.split(text)
+        opts = stormopts.parse_known_args(args)[0]
 
-            if opts.hide_query:
-                cli.echoline = False
-                text = regex.sub('--hide-query', '', text, count=1)
+        if opts.hide_query:
+            cli.echoline = False
+            text = regex.sub('--hide-query', '', text, count=1)
 
-            if opts.hide_tags:
-                cli.hidetags = True
-                text = regex.sub('--hide-tags', '', text, count=1)
+        if opts.hide_tags:
+            cli.hidetags = True
+            text = regex.sub('--hide-tags', '', text, count=1)
 
-            if opts.hide_props:
-                cli.hideprops = True
-                text = regex.sub('--hide-props', '', text, count=1)
-
-        except s_exc.BadSyntax:
-            pass
+        if opts.hide_props:
+            cli.hideprops = True
+            text = regex.sub('--hide-props', '', text, count=1)
 
         text = text.strip()
 
