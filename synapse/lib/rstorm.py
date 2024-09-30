@@ -1,7 +1,7 @@
 import os
 import copy
 import json
-import pprint
+import shlex
 import logging
 import argparse
 import contextlib
@@ -17,7 +17,6 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.output as s_output
-import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.stormhttp as s_stormhttp
 
@@ -235,7 +234,7 @@ class StormRst(s_base.Base):
         cli = await StormCliOutput.anit(item=core, outp=outp)
 
         try:
-            args = s_parser.Parser(text).cmdargs()
+            args = shlex.split(text)
             opts = stormopts.parse_known_args(args)[0]
 
             if opts.hide_query:
