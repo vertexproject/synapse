@@ -4045,7 +4045,8 @@ class EditNodeAdd(Edit):
                 except self.excignore:
                     pass
                 else:
-                    yield newn, runt.initPath(newn)
+                    if newn is not None:
+                        yield newn, runt.initPath(newn)
         except self.excignore:
             await asyncio.sleep(0)
 
@@ -4120,7 +4121,8 @@ class EditNodeAdd(Edit):
                         except self.excignore:
                             continue
 
-                        yield node, runt.initPath(node)
+                        if node is not None:
+                            yield node, runt.initPath(node)
                         await asyncio.sleep(0)
                 except self.excignore:
                     await asyncio.sleep(0)

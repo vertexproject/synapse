@@ -7817,7 +7817,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout', data)
 
-                    with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
+                    with mock.patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 
                         with self.getLoggerStream('synapse') as stream:
                             msgs = await alist(core00.storm('inet:asn=0'))
@@ -7831,7 +7831,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     await core00.stormpool.waitready(timeout=12)
 
-                    with patch('synapse.telepath.Proxy.getPoolLink', _hang):
+                    with mock.patch('synapse.telepath.Proxy.getPoolLink', _hang):
 
                         with self.getLoggerStream('synapse') as stream:
                             msgs = await alist(core00.storm('inet:asn=0'))
@@ -7857,7 +7857,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     core01.nexsroot.nexslog.indx = 0
 
-                    with patch('synapse.cortex.MAX_NEXUS_DELTA', 1):
+                    with mock.patch('synapse.cortex.MAX_NEXUS_DELTA', 1):
 
                         nexsoffs = await core00.getNexsIndx()
 
