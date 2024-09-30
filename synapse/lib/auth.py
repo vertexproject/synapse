@@ -572,11 +572,28 @@ class Auth(s_nexus.Pusher):
         await self.feedBeholder('user:add', user.pack())
 
     async def addRole(self, name, iden=None):
+        '''
+        Add a Role to the Auth system.
+
+        Args:
+            name (str): The name of the role.
+            iden (str): A optional iden to use as the role iden.
+
+        Returns:
+            Role: A Role.
+        '''
         if self.roleidenbynamecache.get(name) is not None:
             raise s_exc.DupRoleName(mesg=f'Duplicate role name, {name=} already exists.', name=name)
 
         if iden is None:
             iden = s_common.guid()
+        else:
+            if not s_common.isguid(iden):
+                raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
+
+            if self.rolebyidencache.get(iden) is not None:
+                raise s_exc.DupIden(name=name, iden=iden,
+                                    mesg=f'Role already exists for {iden=}.')
 
         await self._push('role:add', iden, name)
 

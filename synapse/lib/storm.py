@@ -3742,6 +3742,12 @@ class MergeCmd(Cmd):
           expressions for specifying tags. For more information on tag glob
           expressions, check the Synapse documentation for $node.globtags().
 
+    NOTE: If --wipe is specified, and there are nodes that cannot be merged,
+          they will be skipped (with a warning printed) and removed when
+          the top layer is replaced. This should occur infrequently, for example,
+          when a form is locked due to deprecation, a form no longer exists,
+          or the data at rest fails normalization.
+
     Examples:
 
         // Having tagged a new #cno.mal.redtree subgraph in a forked view...

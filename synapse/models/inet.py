@@ -2,8 +2,6 @@ import socket
 import asyncio
 import hashlib
 import logging
-import ipaddress
-import email.utils
 import urllib.parse
 
 import idna
@@ -20,7 +18,12 @@ import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
+import synapse.vendor.cpython.lib.email.utils as s_v_email_utils
+
 logger = logging.getLogger(__name__)
+
+ipaddress = s_common.ipaddress
+
 drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
@@ -813,12 +816,16 @@ class Rfc2822Addr(s_types.Str):
         valu = ' '.join(valu.split())
 
         try:
-            name, addr = email.utils.parseaddr(valu)
+            name, addr = s_v_email_utils.parseaddr(valu, strict=True)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
             mesg = f'email.utils.parsaddr failed: {str(e)}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=mesg) from None
+
+        if not name and not addr:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'No name or email parsed from {valu}')
 
         subs = {}
         if name:
