@@ -2,7 +2,7 @@
 
 .. storm-cortex:: default
 
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.file.report, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.file.enrich, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.file.behavior, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.commfiles, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
@@ -37,9 +37,9 @@ include:
 - `Macros`_
 - `Dmons`_
 
-By making use of automation in Synapse, you can free analysts from performing tedious work and allow them
-to focus on more detailed analysis and complex tasks. You can also scale analytical operations by limiting
-the amount of work that must be performed manually.
+Automation frees analysts from performing tedious work and allow them to focus on more detailed analysis and
+complex tasks. You can also scale analytical operations by limiting the amount of work that must be performed
+manually.
 
 Automation in Synapse uses the Storm query language: **anything that can be written in Storm can be automated,**
 from the simple to the more advanced. Actions performed through automation are limited only by imagination and
@@ -58,7 +58,7 @@ Permissions
 +++++++++++
 
 Permissions impact the use of automation in Synapse in various ways. In some cases, you must explicitly
-grant permission for users to create and manage automation. In other cases, the permissions that a given
+grant permission for users to create and manage automation. In other cases, the permissions that an 
 automated task runs under may vary based on the type of automation used. See the relevant sections below
 for additional detail.
 
@@ -70,9 +70,9 @@ Scope
 +++++
 
 Automation components vary with respect to where they reside and execute within Synapse; some elements are
-global (within a Cortex) while some reside and execute within a specific view. Organizations that leverage
-multiple views for their Synapse architecture or that make use of Synapse's fork and merge capabilities should
-refer to the sections below for information on how views and layers may impact automation.
+global (within a Cortex) while some reside and execute within a specific :ref:`gloss-view`. Organizations that
+leverage multiple views for their Synapse architecture or that make use of Synapse's fork and merge capabilities
+should refer to the sections below for information on how views and layers may impact automation.
 
 .. TIP::
   
@@ -132,10 +132,10 @@ your needs (and possibly some trial and error).
 Governance / Management
 +++++++++++++++++++++++
 
-Consider any oversight or approval processes that you may need in order to implement and manage automation
-effectively in your environment. Organization-wide automation requires coordination and oversight:
+Consider any review or approval processes that you may need in order to manage automation effectively
+in your environment. Organization-wide automation requires coordination and oversight:
 
-- Where multiple users have the ability to create automated tasks, it is possible for them to create
+- If multiple users have the ability to create automated tasks, it is possible for them to create
   duplicative or even conflicting automation. Consider who should be repsonsible for deconflicting
   and approving automation that will be deployed in your production environment.
 
@@ -778,7 +778,7 @@ for a macro if it simplifies analysts' work.
 
 .. TIP::
   
-  In addition to macros, :ref:`gloss-optic` includes features such as Node Actions and Bookmarks that
+  In addition to macros, :ref:`gloss-optic` includes features such as `Node Actions`_ and Bookmarks that
   can be used to save and execute Storm on demand.
 
 Macros are also commonly used with (called by) triggers or cron jobs. In particular, where a trigger or
@@ -813,7 +813,7 @@ Configuration and Management
 
 - **Storage.** Macros are stored within (global to) a Cortex. Macros are differentiated by **name** (as
   opposed to triggers and cron jobs, which are differentiated by a unique identifier (iden)). You can
-  change the name of a macros using the :ref:`stormlibs-lib-macro-mod` library:
+  change the name of a macro using the :ref:`stormlibs-lib-macro-mod` library:
   
   ::
     
@@ -830,20 +830,22 @@ Configuration and Management
   
   By default:
   
-  - Any user can create a macro; you do not need to explicitly grant permissions for users to create them.
+  - **Any user can create a macro**; you do not need to explicitly grant permissions for users to create them.
   - The user who creates a macro is the owner / admin of the macro, and is the only user who can edit,
     delete, or modify permissions on the macro.
   - All users can see (read) and execute any macro. If a user attempts to execute a macro that performs
     actions for which the user does not have permissions, the macro will fail with an ``AuthDeny`` error.
   
-  Macro permissions can be modified / managed by using the :ref:`stormlibs-lib-macro-grant` library. Macros
-  support Synapse's `easy permissions`_ convention for setting simplified permissions on objects. You must
-  be **admin** of a macro to modify its permissions. See the :ref:`auto-macro-examples` section below for
-  examples of modifying macro permissions.
-
+  .. TIP::
+    
+    Macro permissions can be modified / managed by using the :ref:`stormlibs-lib-macro-grant` library. Macros
+    support Synapse's `easy permissions`_ convention for setting simplified permissions on objects. You must
+    be **admin** of a macro to modify its permissions. See the :ref:`auto-macro-examples` section below for
+    examples of modifying macro permissions.
+  
 - **Managing Macros.** Macros can be created, viewed, and managed using the various Storm :ref:`storm-macro`
   commands or the :ref:`stormlibs-lib-macro` libraries. In :ref:`gloss-optic`, macros can be created and edited
-  using the :ref:`gloss-storm-editor`.
+  using the `Storm Editor Tool`_.
 
 
 .. _auto-macro-use:
@@ -877,9 +879,9 @@ Syntax
 ++++++
 
 In Storm, macros are created, modified, viewed, and deleted using the Storm :ref:`storm-macro` commands.
-In :ref:`gloss-optic`, macros can also be managed through the :ref:`gloss-storm-editor`.
-
 Permissions for macros are managed using the :ref:`stormlibs-lib-macro-grant` library.
+
+In :ref:`gloss-optic`, macros and their permissions can also be managed through the `Storm Editor Tool`_.
 
 
 .. _auto-macro-examples:
@@ -889,9 +891,9 @@ Examples
 
 As "stored Storm", macros can contain any Storm that simplifies your analysis workflow - from the very
 simple to longer, more detailed queries. The command ``macro.exec <macro_name>`` is much simpler to
-type than Storm that you have to remember or recreate each time. The examples below are relatively simple
-for illustrative purposes; that said, any Storm that you want to easily and consistently run on a regular
-basis, no matter how "simple" or "complex", is a candidate for a macro (or potentially for other automation).
+type than Storm that you have to recreate each time. The examples below are relatively simple for
+illustrative purposes; that said, any Storm that you want to easily and consistently run on a regular
+basis, no matter how simple or complex, is a candidate for a macro (or potentially for other automation).
 
 The examples below show creating macros using the ``macro.set`` command.
 
@@ -973,7 +975,7 @@ Instead of requiring the analyst to remember and run multiple individual Storm c
 to create a macro called ``enrich`` that can take a variety of different nodes as input, and automatically run
 the appropriate Storm commands to call the data sources that can enrich the input node(s).
 
-.. storm-pre:: macro.set enrich { +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4) switch $node.form() { "hash:md5": { { | virustotal.file.report | virustotal.file.behavior } }  "hash:sha1": { { | virustotal.file.report | virustotal.file.behavior } }  "hash:sha256": { { | virustotal.file.report | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ipv4": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
+.. storm-pre:: macro.set enrich { +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4) switch $node.form() { ("hash:md5", "hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ipv4": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
 
 Once again, we create the macro with the ``macro.set`` command. Because of the length of the associated Storm,
 the full ``<storm_query>`` is provided below for readability.
@@ -992,16 +994,12 @@ The content of the macro (the ``<storm_query>``, with comments):
   // Switch statement to handle different forms
   switch $node.form() {
     
-    "hash:md5": {
-        { | virustotal.file.report | virustotal.file.behavior }
-    }
-    
-    "hash:sha1": {
-        { | virustotal.file.report | virustotal.file.behavior }
+    ("hash:md5","hash:sha1"): {
+        { | virustotal.file.enrich | virustotal.file.behavior }
     }
     
     "hash:sha256": {
-        { | virustotal.file.report | virustotal.file.behavior | alienvault.otx.files }
+        { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files }
     }
     
     "inet:fqdn": {
@@ -1064,8 +1062,9 @@ indicator.
 **Modify macro permissions - examples**
 
 You can modify permissions on a macro using the :ref:`stormlibs-lib-macro-grant` library to grant (or revoke)
-access. The :ref:`stormlibs-lib-auth-users-byname` and :ref:`stormlibs-lib-auth-roles-byname` libraries can be
-used to obtain a user or role object and retrieve the associated identifier (iden).
+access. (In :ref:`gloss-optic`, individual macro permissions can be managed through the `Storm Editor Tool`_.)
+Use the :ref:`stormlibs-lib-auth-users-byname` and :ref:`stormlibs-lib-auth-roles-byname` libraries to obtain
+a user or role object and retrieve the associated identifier (iden).
 
 .. storm-pre:: auth.user.add 'ron the cat' --email ron@vertex.link
 .. storm-pre:: auth.user.add 'maeve' --email maeve@vertex.link
@@ -1094,6 +1093,8 @@ used to obtain a user or role object and retrieve the associated identifier (ide
   - 1 - Read (including execute)
   - 2 - Edit (modify content; includes Read)
   - 3 - Admin (delete the object and modify its permissions; includes Edit)
+  
+  See the `Synapse Admin Guide`_ for a detailed discussion of permissions, including `easy perms`_.
 
 
 .. _auto-dmon:
@@ -1135,6 +1136,9 @@ Users can interact with dmons using the Storm :ref:`storm-dmon` commands and the
 .. _Power-Ups: https://synapse.docs.vertex.link/en/latest/synapse/power_ups.html
 .. _Node Action: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/custom_environ.html#create-a-custom-node-action
 .. _easy permissions: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#easy-permissions
+.. _Node Actions: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/custom_environ.html#create-a-custom-node-action
+.. _Storm Editor Tool: https://synapse.docs.vertex.link/projects/optic/en/latest/user_interface/userguides/storm_editor_tool.html
 .. _Synapse-AlienVault: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-alienvault/index.html
 .. _Synapse-Nettools: https://synapse.docs.vertex.link/projects/nettools/en/latest/
 .. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
+.. _easy perms: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#easy-permissions
