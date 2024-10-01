@@ -910,7 +910,7 @@ class Axon(s_cell.Cell):
 
             offs += len(byts)
 
-            self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
+            await self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
 
         return self._setStorVers(1)
 
