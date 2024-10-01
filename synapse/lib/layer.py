@@ -3719,7 +3719,7 @@ class Layer(s_nexus.Pusher):
                 return ()
 
         if sode.get('form') is None:
-            await await self.layrslab.put(formabrv, buid, db=self.byform)
+            await self.layrslab.put(formabrv, buid, db=self.byform)
 
         sode['tags'][tag] = valu
         self.setSodeDirty(buid, sode, form)
