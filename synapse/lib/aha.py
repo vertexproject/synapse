@@ -627,7 +627,7 @@ class AhaCell(s_cell.Cell):
             if s_common.flatten(server) == s_common.flatten(oldv):
                 return False
 
-        self.slab.put(lkey, s_msgpack.en(server), db='aha:servers')
+        await self.slab.put(lkey, s_msgpack.en(server), db='aha:servers')
 
         return True
 
@@ -636,7 +636,7 @@ class AhaCell(s_cell.Cell):
 
         lkey = s_msgpack.en((host, port))
 
-        byts = self.slab.pop(lkey, db='aha:servers')
+        byts = await self.slab.pop(lkey, db='aha:servers')
         if byts is None:
             return None
 
@@ -912,7 +912,7 @@ class AhaCell(s_cell.Cell):
     def _savePoolInfo(self, poolinfo):
         s_schemas.reqValidAhaPoolDef(poolinfo)
         name = poolinfo.get('name')
-        self.slab.put(name.encode(), s_msgpack.en(poolinfo), db='aha:pools')
+        self.slab._put(name.encode(), s_msgpack.en(poolinfo), db='aha:pools')
 
     def _loadPoolInfo(self, name):
         byts = self.slab.get(name.encode(), db='aha:pools')
@@ -979,7 +979,7 @@ class AhaCell(s_cell.Cell):
     @s_nexus.Pusher.onPushAuto('aha:pool:del')
     async def delAhaPool(self, name):
         name = self._getAhaName(name)
-        byts = self.slab.pop(name.encode(), db='aha:pools')
+        byts = await self.slab.pop(name.encode(), db='aha:pools')
 
         for wind in self.poolwindows.get(name, ()):
             await wind.fini()
@@ -1312,7 +1312,7 @@ class AhaCell(s_cell.Cell):
     async def _addAhaClone(self, clone):
         iden = clone.get('iden')
         lkey = s_common.uhex(iden)
-        self.slab.put(lkey, s_msgpack.en(clone), db='aha:clones')
+        await self.slab.put(lkey, s_msgpack.en(clone), db='aha:clones')
 
     async def addAhaSvcProv(self, name, provinfo=None):
 
@@ -1428,33 +1428,33 @@ class AhaCell(s_cell.Cell):
     @s_nexus.Pusher.onPush('aha:svc:prov:add')
     async def _addAhaSvcProv(self, provinfo):
         iden = provinfo.get('iden')
-        self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
+        await self.slab.put(iden.encode(), s_msgpack.en(provinfo), db='aha:provs')
         return iden
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:clear')
     async def clearAhaSvcProvs(self):
         for iden, byts in self.slab.scanByFull(db='aha:provs'):
-            self.slab.delete(iden, db='aha:provs')
+            await self.slab.delete(iden, db='aha:provs')
             provinfo = s_msgpack.un(byts)
             logger.info(f'Deleted service provisioning service={provinfo.get("conf").get("aha:name")}, iden={iden.decode()}')
 
     @s_nexus.Pusher.onPushAuto('aha:enroll:clear')
     async def clearAhaUserEnrolls(self):
         for iden, byts in self.slab.scanByFull(db='aha:enrolls'):
-            self.slab.delete(iden, db='aha:enrolls')
+            await self.slab.delete(iden, db='aha:enrolls')
             userinfo = s_msgpack.un(byts)
             logger.info(f'Deleted user enrollment username={userinfo.get("name")}, iden={iden.decode()}')
 
     @s_nexus.Pusher.onPushAuto('aha:clone:clear')
     async def clearAhaClones(self):
         for lkey, byts in self.slab.scanByFull(db='aha:clones'):
-            self.slab.delete(lkey, db='aha:clones')
+            await self.slab.delete(lkey, db='aha:clones')
             cloninfo = s_msgpack.un(byts)
             logger.info(f'Deleted AHA clone enrollment username={cloninfo.get("host")}, iden={s_common.ehex(lkey)}')
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):
-        self.slab.delete(iden.encode(), db='aha:provs')
+        await self.slab.delete(iden.encode(), db='aha:provs')
 
     async def addAhaUserEnroll(self, name, userinfo=None, again=False):
 
@@ -1502,9 +1502,9 @@ class AhaCell(s_cell.Cell):
     @s_nexus.Pusher.onPush('aha:enroll:add')
     async def _addAhaUserEnroll(self, userinfo):
         iden = userinfo.get('iden')
-        self.slab.put(iden.encode(), s_msgpack.en(userinfo), db='aha:enrolls')
+        await self.slab.put(iden.encode(), s_msgpack.en(userinfo), db='aha:enrolls')
         return iden
 
     @s_nexus.Pusher.onPushAuto('aha:enroll:del')
     async def delAhaUserEnroll(self, iden):
-        self.slab.delete(iden.encode(), db='aha:enrolls')
+        await self.slab.delete(iden.encode(), db='aha:enrolls')

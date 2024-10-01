@@ -921,7 +921,7 @@ class Axon(s_cell.Cell):
         return int.from_bytes(byts, 'big')
 
     def _setStorVers(self, version):
-        self.blobslab.put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
+        self.blobslab._put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
         return version
 
     def _initAxonHttpApi(self):
@@ -1218,7 +1218,7 @@ class Axon(s_cell.Cell):
         self.axonmetrics.inc('file:count')
         self.axonmetrics.inc('size:bytes', valu=size)
 
-        self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+        await self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
         return True
 
     async def _saveFileGenr(self, sha256, genr, size):
@@ -1240,8 +1240,8 @@ class Axon(s_cell.Cell):
         ikey = indx.to_bytes(8, 'big')
         okey = offs.to_bytes(8, 'big')
 
-        self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
-        self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
+        await self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
+        await self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
 
     def _offsToIndx(self, sha256, offs):
         lkey = sha256 + offs.to_bytes(8, 'big')
@@ -1319,7 +1319,7 @@ class Axon(s_cell.Cell):
     async def _axonFileDel(self, sha256):
         async with self.holdHashLock(sha256):
 
-            byts = self.axonslab.pop(sha256, db=self.sizes)
+            byts = await self.axonslab.pop(sha256, db=self.sizes)
             if not byts:
                 return False
 
@@ -1337,13 +1337,11 @@ class Axon(s_cell.Cell):
 
         # remove the offset indexes...
         for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
-            self.blobslab.delete(lkey, db=self.offsets)
-            await asyncio.sleep(0)
+            await self.blobslab.delete(lkey, db=self.offsets)
 
         # remove the actual blobs...
         for lkey in self.blobslab.scanKeysByPref(sha256, db=self.blobs):
-            self.blobslab.delete(lkey, db=self.blobs)
-            await asyncio.sleep(0)
+            await self.blobslab.delete(lkey, db=self.blobs)
 
     async def wants(self, sha256s):
         '''

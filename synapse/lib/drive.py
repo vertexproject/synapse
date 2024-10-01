@@ -146,7 +146,7 @@ class Drive(s_base.Base):
             s_schemas.reqValidDriveInfo(oldpinfo)
             rows.append((LKEY_INFO + oldb, s_msgpack.en(oldpinfo)))
 
-        self.slab.delete(LKEY_DIRN + oldb + oldname.encode(), db=self.dbname)
+        await self.slab.delete(LKEY_DIRN + oldb + oldname.encode(), db=self.dbname)
         await self.slab.putmulti(rows, db=self.dbname)
 
         pathinfo.append(info)
@@ -199,7 +199,7 @@ class Drive(s_base.Base):
         info = self._reqItemInfo(bidn)
         info['perm'] = perm
         s_schemas.reqValidDriveInfo(info)
-        self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        self.slab._put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
         return info
 
     async def getPathInfo(self, path, reldir=rootdir):
@@ -322,18 +322,16 @@ class Drive(s_base.Base):
 
         name = info.get('name').encode()
 
-        self.slab.delete(LKEY_INFO + bidn, db=self.dbname)
-        self.slab.delete(LKEY_DIRN + parbidn + name, db=self.dbname)
+        await self.slab.delete(LKEY_INFO + bidn, db=self.dbname)
+        await self.slab.delete(LKEY_DIRN + parbidn + name, db=self.dbname)
 
         pref = LKEY_VERS + bidn
         for lkey in self.slab.scanKeysByPref(pref, db=self.dbname):
-            self.slab.delete(lkey, db=self.dbname)
-            await asyncio.sleep(0)
+            await self.slab.delete(lkey, db=self.dbname)
 
         pref = LKEY_DATA + bidn
         for lkey in self.slab.scanKeysByPref(pref, db=self.dbname):
-            self.slab.delete(lkey, db=self.dbname)
-            await asyncio.sleep(0)
+            await self.slab.delete(lkey, db=self.dbname)
 
     async def walkItemInfo(self, iden):
         async for item in self._walkItemInfo(s_common.uhex(iden)):
@@ -458,8 +456,8 @@ class Drive(s_base.Base):
 
         versindx = getVersIndx(vers)
 
-        self.slab.delete(LKEY_VERS + bidn + versindx, db=self.dbname)
-        self.slab.delete(LKEY_DATA + bidn + versindx, db=self.dbname)
+        self.slab._delete(LKEY_VERS + bidn + versindx, db=self.dbname)
+        self.slab._delete(LKEY_DATA + bidn + versindx, db=self.dbname)
 
         # back down or revert to 0.0.0
         if vers == info.get('version'):
@@ -472,7 +470,7 @@ class Drive(s_base.Base):
             else:
                 info.update(versinfo)
 
-        self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
+        self.slab._put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
         return info
 
     def _getLastDataVers(self, bidn):
@@ -504,7 +502,7 @@ class Drive(s_base.Base):
 
         lkey = LKEY_TYPE + typename.encode()
 
-        self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
+        await self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
 
         if callback is not None:
             async for info in self.getItemsByType(typename):
@@ -514,7 +512,7 @@ class Drive(s_base.Base):
                     databyts = self.slab.get(LKEY_DATA + bidn + versindx, db=self.dbname)
                     data = await callback(info, s_msgpack.un(byts), s_msgpack.un(databyts))
                     vtor(data)
-                    self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
+                    await self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
 
     async def getItemsByType(self, typename):
