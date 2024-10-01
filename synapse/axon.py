@@ -900,8 +900,6 @@ class Axon(s_cell.Cell):
         # TODO: need LMDB to support getting value size without getting value
         for lkey, byts in self.blobslab.scanByFull(db=self.blobs):
 
-            await asyncio.sleep(0)
-
             blobsha = lkey[:32]
 
             if blobsha != cursha:

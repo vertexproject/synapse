@@ -376,7 +376,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
             ], msgs[0].get('sysctls', {}).keys())
 
     async def test_lmdbslab_commit_over_max_xactops(self):
-        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1):
+        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1), \
+                patch('synapse.common.now', self.simplenow):
             path = os.path.join(dirn, 'test.lmdb')
             with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with 10000') as stream:
                 async with await s_lmdbslab.Slab.anit(path, map_size=100_000_000) as slab:
