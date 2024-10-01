@@ -172,7 +172,7 @@ function removeNode(n, viewiden, layriden) {
 
             $sode = $layer.getStorNode($iden)
             if $sode {
-                // Remove a readonly props first
+                // Remove all readonly props first
                 for $roprop in $roprops {
                     $sode.props.$roprop = $lib.undef
                 }

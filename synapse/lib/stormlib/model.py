@@ -1412,7 +1412,14 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     }
 
                     for ($tagname, $tagvalu) in $edit.tags {
-                        $lib.print(`    #{$tagname}`)
+                        if ($tagvalu = [null, null]) {
+                            $lib.print(`    #{$tagname}`)
+                        } else {
+                            ($min, $max) = $tagvalu
+                            $mindt = $lib.time.format($min, '%Y-%m-%dT%H:%M:%SZ')
+                            $maxdt = $lib.time.format($max, '%Y-%m-%dT%H:%M:%SZ')
+                            $lib.print(`    #{$tagname} = ({$mindt}, {$maxdt})`)
+                        }
                     }
 
                     for ($tagprop, $tagpropvalu) in $edit.tagprops {
@@ -1641,18 +1648,20 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                             continue
                         }
 
-                        { -:$prop
-                            if $isarray {
-                                [ :$prop += { *$oldnode.form=$newval } ]
-                            } else {
-                                if ($type = "ndef") {
-                                    $valu = ($oldnode.form, $newval)
-                                } else {
-                                    $valu = $newval
-                                }
+                        // Prop is an array and the new value doesn't already exist in the array
+                        { +$isarray -:$prop*[ =$newval ]
+                            [ :$prop += { *$oldnode.form=$newval } ]
+                        }
 
-                                [ :$prop = $valu ]
+                        // Prop is not an array and is not set
+                        { -$isarray -:$prop
+                            if ($type = "ndef") {
+                                $valu = ($oldnode.form, $newval)
+                            } else {
+                                $valu = $newval
                             }
+
+                            [ :$prop = $valu ]
                         }
                     }
                 }

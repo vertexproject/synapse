@@ -18,10 +18,10 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-# This is the regular expression pattern for CPE2.2. It's kind of a hybrid
+# This is the regular expression pattern for CPE 2.2. It's kind of a hybrid
 # between compatible binding and preferred binding. Differences are here:
 # - Use only the list of percent encoded values specified by preferred binding.
-#   This is to ensure it converts properly to CPE2.3.
+#   This is to ensure it converts properly to CPE 2.3.
 # - Add tilde (~) to the UNRESERVED list which removes the need to specify the
 #   PACKED encoding specifically.
 ALPHA = '[A-Za-z]'
@@ -61,12 +61,12 @@ cpe22_regex = regex.compile(f'cpe:/{COMPONENT_LIST}', regex.VERBOSE | regex.IGNO
 cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
 
 def isValidCpe22(text):
-    rgx = cpe22_regex.match(text)
-    return rgx is not None and rgx.group() == text
+    rgx = cpe22_regex.fullmatch(text)
+    return rgx is not None
 
 def isValidCpe23(text):
-    rgx = cpe23_regex.match(text)
-    return rgx is not None and rgx.group() == text
+    rgx = cpe23_regex.fullmatch(text)
+    return rgx is not None
 
 def cpesplit(text):
     part = ''
@@ -349,7 +349,7 @@ class Cpe23Str(s_types.Str):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
 
-            # Validate the CPE2.3 string immediately
+            # Validate the CPE 2.3 string immediately
             if not isValidCpe23(text):
                 mesg = 'CPE 2.3 string appears to be invalid.'
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
@@ -389,14 +389,14 @@ class Cpe23Str(s_types.Str):
 
             # Now validate the downconvert
             if not isValidCpe22(v2_2): # pragma: no cover
-                mesg = 'Invalid CPE2.3 to CPE2.2 conversion.'
+                mesg = 'Invalid CPE 2.3 to CPE 2.2 conversion.'
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_2=v2_2)
 
             parts = [fsb_unescape(k) for k in parts]
 
         elif text.startswith('cpe:/'):
 
-            # Validate the CPE2.2 string immediately
+            # Validate the CPE 2.2 string immediately
             if not isValidCpe22(text):
                 mesg = 'CPE 2.2 string appears to be invalid.'
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
@@ -448,7 +448,7 @@ class Cpe23Str(s_types.Str):
 
             # Now validate the upconvert
             if not isValidCpe23(v2_3): # pragma: no cover
-                mesg = 'Invalid CPE2.2 to CPE2.3 conversion.'
+                mesg = 'Invalid CPE 2.2 to CPE 2.3 conversion.'
                 raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_3=v2_3)
 
         else:
