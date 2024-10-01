@@ -37,7 +37,7 @@ include:
 - `Macros`_
 - `Dmons`_
 
-Automation frees analysts from performing tedious work and allow them to focus on more detailed analysis and
+Automation frees analysts from performing tedious work and allows them to focus on more detailed analysis and
 complex tasks. You can also scale analytical operations by limiting the amount of work that must be performed
 manually.
 
