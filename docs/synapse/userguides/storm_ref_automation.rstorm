@@ -136,7 +136,7 @@ Consider any review or approval processes that you may need in order to manage a
 in your environment. Organization-wide automation requires coordination and oversight:
 
 - If multiple users have the ability to create automated tasks, it is possible for them to create
-  duplicative or even conflicting automation. Consider who should be repsonsible for deconflicting
+  duplicative or even conflicting automation. Consider who should be responsible for deconflicting
   and approving automation that will be deployed in your production environment.
 
 - Automation is often used to enrich indicators (i.e., query various third-party APIs to pull in more
@@ -838,10 +838,10 @@ Configuration and Management
   
   .. TIP::
     
-    Macro permissions can be modified / managed by using the :ref:`stormlibs-lib-macro-grant` library. Macros
-    support Synapse's `easy permissions`_ convention for setting simplified permissions on objects. You must
-    be **admin** of a macro to modify its permissions. See the :ref:`auto-macro-examples` section below for
-    examples of modifying macro permissions.
+    Macro permissions can be modified / managed by using the :ref:`stormlibs-lib-macro-grant` library. (In Optic,
+    individual macro permissions can be managed through the `Storm Editor Tool`_.) Macros support Synapse's `easy permissions`_
+    ("easy perms") convention for setting simplified permissions on objects. You must be **admin** of a macro to
+    modify its permissions. See the :ref:`auto-macro-examples` section below for examples of modifying macro permissions.
   
 - **Managing Macros.** Macros can be created, viewed, and managed using the various Storm :ref:`storm-macro`
   commands or the :ref:`stormlibs-lib-macro` libraries. In :ref:`gloss-optic`, macros can be created and edited
@@ -1094,7 +1094,8 @@ a user or role object and retrieve the associated identifier (iden).
   - 2 - Edit (modify content; includes Read)
   - 3 - Admin (delete the object and modify its permissions; includes Edit)
   
-  See the `Synapse Admin Guide`_ for a detailed discussion of permissions, including `easy perms`_.
+  See the `Synapse Admin Guide`_ for a detailed discussion of permissions, including `easy permissions`_
+  ("easy perms").
 
 
 .. _auto-dmon:
@@ -1141,4 +1142,4 @@ Users can interact with dmons using the Storm :ref:`storm-dmon` commands and the
 .. _Synapse-AlienVault: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/synapse-alienvault/index.html
 .. _Synapse-Nettools: https://synapse.docs.vertex.link/projects/nettools/en/latest/
 .. _control flow: https://synapse.docs.vertex.link/en/latest/synapse/userguides/storm_adv_control.html
-.. _easy perms: https://synapse.docs.vertex.link/en/latest/synapse/adminguide.html#easy-permissions
+
