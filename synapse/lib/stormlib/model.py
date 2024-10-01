@@ -1653,8 +1653,8 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                             [ :$prop += { *$oldnode.form=$newval } ]
                         }
 
-                        // Prop is not an array and is not set
-                        { -$isarray -:$prop
+                        // Prop is not an array
+                        { -$isarray
                             if ($type = "ndef") {
                                 $valu = ($oldnode.form, $newval)
                             } else {
