@@ -50,9 +50,9 @@ stormtype_doc_schema = {
         'deprecatedItem': {
             'type': 'object',
             'properties': {
-                'eolvers': {'type': 'string',
+                'eolvers': {'type': 'string', 'minLength': 1,
                             'description': "The version which will not longer support the item."},
-                'eoldate': {'type': 'string',
+                'eoldate': {'type': 'string', 'minLength': 1,
                             'description': 'Optional string indicating Synapse releases after this date may no longer support the item.'},
                 'mesg': {'type': ['string', 'null'], 'default': None,
                          'description': 'Optional message to include in the warning text.'}
