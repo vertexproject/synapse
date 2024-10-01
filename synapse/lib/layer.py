@@ -2222,7 +2222,7 @@ class Layer(s_nexus.Pusher):
 
             pval = sode['props'].get(prop)
             if pval is None:
-                self.layrslab.delete(lkey, lval, db=self.byarray)
+                await self.layrslab.delete(lkey, lval, db=self.byarray)
                 sode.clear()
                 continue
 
@@ -2235,7 +2235,7 @@ class Layer(s_nexus.Pusher):
                 if indxbyts in realstor.indx(aval):
                     break
             else:
-                self.layrslab.delete(lkey, lval, db=self.byarray)
+                await self.layrslab.delete(lkey, lval, db=self.byarray)
 
             sode.clear()
 
@@ -2271,7 +2271,7 @@ class Layer(s_nexus.Pusher):
                     break
 
                 for indx in self.getStorIndx(stortype, valu):
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                    await self.layrslab.put(abrv + indx, buid, db=self.byarray)
 
         self.meta.set('version', 5)
         self.layrvers = 5
@@ -2303,7 +2303,7 @@ class Layer(s_nexus.Pusher):
                 tagprops[tag][prop] = tpval
 
         if edited_sode:
-            self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
+            await self.layrslab.put(buid, s_msgpack.en(sode), db=self.bybuidv3)
 
     async def _layrV5toV7(self):
 
@@ -2336,7 +2336,7 @@ class Layer(s_nexus.Pusher):
             araystor = self.stortypes[STOR_TYPE_MSGP]
 
             for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byarray):
-                self.layrslab.delete(lkey, buid, db=self.byarray)
+                await self.layrslab.delete(lkey, buid, db=self.byarray)
 
         hugestor = self.stortypes[STOR_TYPE_HUGENUM]
         sode = collections.defaultdict(dict)
@@ -2348,13 +2348,13 @@ class Layer(s_nexus.Pusher):
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
             if byts is None:
-                self.layrslab.delete(lkey, buid, db=self.byprop)
+                await self.layrslab.delete(lkey, buid, db=self.byprop)
                 continue
 
             sode.update(s_msgpack.un(byts))
             pval = sode['props'].get(propname)
             if pval is None:
-                self.layrslab.delete(lkey, buid, db=self.byprop)
+                await self.layrslab.delete(lkey, buid, db=self.byprop)
                 sode.clear()
                 continue
 
@@ -2370,12 +2370,12 @@ class Layer(s_nexus.Pusher):
 
                     nkey = abrv + araystor.indx(newval)[0]
                     if nkey != lkey:
-                        self.layrslab.put(nkey, buid, db=self.byprop)
-                        self.layrslab.delete(lkey, buid, db=self.byprop)
+                        await self.layrslab.put(nkey, buid, db=self.byprop)
+                        await self.layrslab.delete(lkey, buid, db=self.byprop)
 
                 for aval in valu:
                     indx = hugestor.indx(aval)[0]
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                    await self.layrslab.put(abrv + indx, buid, db=self.byarray)
             else:
                 try:
                     indx = hugestor.indx(valu)[0]
@@ -2383,8 +2383,8 @@ class Layer(s_nexus.Pusher):
                     logger.warning(f'Invalid value {valu} for prop {propname} for buid {buid}')
                     continue
 
-                self.layrslab.put(abrv + indx, buid, db=self.byprop)
-                self.layrslab.delete(lkey, buid, db=self.byprop)
+                await self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                await self.layrslab.delete(lkey, buid, db=self.byprop)
 
             sode.clear()
 
@@ -2409,20 +2409,20 @@ class Layer(s_nexus.Pusher):
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
             if byts is None:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                await self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 continue
 
             sode.update(s_msgpack.un(byts))
 
             props = sode['tagprops'].get(tag)
             if not props:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                await self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 sode.clear()
                 continue
 
             pval = props.get(prop)
             if pval is None:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                await self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 sode.clear()
                 continue
 
@@ -2432,12 +2432,12 @@ class Layer(s_nexus.Pusher):
             except Exception:
                 logger.warning(f'Invalid value {valu} for tagprop {tag}:{prop} for buid {buid}')
                 continue
-            self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
-            self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
+            await self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
+            await self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
 
             oldindx = lkey[abrvlen:]
-            self.layrslab.delete(lkey, buid, db=self.bytagprop)
-            self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
+            await self.layrslab.delete(lkey, buid, db=self.bytagprop)
+            await self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
 
             sode.clear()
 
@@ -2490,7 +2490,7 @@ class Layer(s_nexus.Pusher):
             araystor = self.stortypes[STOR_TYPE_MSGP]
 
             for lkey, buid in self.layrslab.scanByPref(abrv, db=self.byarray):
-                self.layrslab.delete(lkey, buid, db=self.byarray)
+                await self.layrslab.delete(lkey, buid, db=self.byarray)
 
         abrvlen = len(abrv)
         hugestor = self.stortypes[STOR_TYPE_HUGENUM]
@@ -2500,7 +2500,7 @@ class Layer(s_nexus.Pusher):
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
             if byts is None:
-                self.layrslab.delete(lkey, buid, db=self.byprop)
+                await self.layrslab.delete(lkey, buid, db=self.byprop)
                 continue
 
             sode.clear()
@@ -2511,7 +2511,7 @@ class Layer(s_nexus.Pusher):
                 valu = sode['props'].get(propname)
 
             if valu is None:
-                self.layrslab.delete(lkey, buid, db=self.byprop)
+                await self.layrslab.delete(lkey, buid, db=self.byprop)
                 continue
 
             valu = valu[0]
@@ -2523,7 +2523,7 @@ class Layer(s_nexus.Pusher):
                         logger.warning(f'Invalid value {valu} for prop {propname} for buid {s_common.ehex(buid)}')
                         continue
 
-                    self.layrslab.put(abrv + indx, buid, db=self.byarray)
+                    await self.layrslab.put(abrv + indx, buid, db=self.byarray)
             else:
                 try:
                     indx = hugestor.indx(valu)[0]
@@ -2533,8 +2533,8 @@ class Layer(s_nexus.Pusher):
 
                 if indx == lkey[abrvlen:]:
                     continue
-                self.layrslab.put(abrv + indx, buid, db=self.byprop)
-                self.layrslab.delete(lkey, buid, db=self.byprop)
+                await self.layrslab.put(abrv + indx, buid, db=self.byprop)
+                await self.layrslab.delete(lkey, buid, db=self.byprop)
 
     async def _v8toV9TagProp(self, form, tag, prop):
 
@@ -2553,7 +2553,7 @@ class Layer(s_nexus.Pusher):
 
             byts = self.layrslab.get(buid, db=self.bybuidv3)
             if byts is None:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                await self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 continue
 
             sode.clear()
@@ -2561,12 +2561,12 @@ class Layer(s_nexus.Pusher):
 
             props = sode['tagprops'].get(tag)
             if not props:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                await self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 continue
 
             pval = props.get(prop)
             if pval is None:
-                self.layrslab.delete(lkey, buid, db=self.bytagprop)
+                await self.layrslab.delete(lkey, buid, db=self.bytagprop)
                 continue
 
             valu, _ = pval
@@ -2579,12 +2579,12 @@ class Layer(s_nexus.Pusher):
             if indx == lkey[abrvlen:]:
                 continue
 
-            self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
-            self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
+            await self.layrslab.put(ftpabrv + indx, buid, db=self.bytagprop)
+            await self.layrslab.put(tpabrv + indx, buid, db=self.bytagprop)
 
             oldindx = lkey[abrvlen:]
-            self.layrslab.delete(lkey, buid, db=self.bytagprop)
-            self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
+            await self.layrslab.delete(lkey, buid, db=self.bytagprop)
+            await self.layrslab.delete(tpabrv + oldindx, buid, db=self.bytagprop)
 
     async def _layrV8toV9(self):
 
@@ -3719,7 +3719,7 @@ class Layer(s_nexus.Pusher):
                 return ()
 
         if sode.get('form') is None:
-            await self.layrslab.put(formabrv, buid, db=self.byform)
+            await await self.layrslab.put(formabrv, buid, db=self.byform)
 
         sode['tags'][tag] = valu
         self.setSodeDirty(buid, sode, form)
