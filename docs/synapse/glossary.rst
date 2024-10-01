@@ -1595,7 +1595,7 @@ Within Synapse, one of the primary methods for interacting with data in a :ref:`
 to navigating the data by crossing ("walking") a lighweight (light) edge (:ref:`gloss-edge-light`) betweeen 
 nodes. Compare with :ref:`gloss-lift`, :ref:`gloss-pivot`, and :ref:`gloss-filter`.
 
-See :ref:`walk-light-edge` for additional detail.
+See :ref:`storm-traverse` for additional detail.
 
 .. _gloss-trigger:
 
