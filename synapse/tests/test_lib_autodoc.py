@@ -153,6 +153,10 @@ LibTst for testing!
 beep(valu)
 ==========
 
+.. warning::
+``$lib.test.beep`` has been deprecated and will be removed on or after 8080-08-08.
+
+
 Example storm func.
 
 Notes:
@@ -173,6 +177,10 @@ Returns:
 someargs(valu, bar=$lib.true, faz=$lib.null)
 ============================================
 
+.. warning::
+This is a test library was deprecated from the day it was made.
+
+
 Example storm func with args.
 
 
@@ -188,11 +196,7 @@ Args:
 
 
 Returns:
-    The beeped string. The return type is ``str``.
-
-
-Note:
-    ``someargs(valu, bar=$lib.true, faz=$lib.null)`` has been deprecated and will be removed in a future release.'''
+    The beeped string. The return type is ``str``.'''
         self.eq(text, expected)
 
         # Now as a library
@@ -224,6 +228,10 @@ LibTst for testing!
 $lib.test.beep(valu)
 ====================
 
+.. warning::
+``$lib.test.beep`` has been deprecated and will be removed on or after 8080-08-08.
+
+
 Example storm func.
 
 Notes:
@@ -244,6 +252,10 @@ Returns:
 $lib.test.someargs(valu, bar=$lib.true, faz=$lib.null)
 ======================================================
 
+.. warning::
+This is a test library was deprecated from the day it was made.
+
+
 Example storm func with args.
 
 
@@ -259,9 +271,5 @@ Args:
 
 
 Returns:
-    The beeped string. The return type is ``str``.
-
-
-Note:
-    ``$lib.test.someargs(valu, bar=$lib.true, faz=$lib.null)`` has been deprecated and will be removed in a future release.'''
+    The beeped string. The return type is ``str``.'''
         self.eq(text, expected)

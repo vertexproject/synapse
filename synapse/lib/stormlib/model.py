@@ -588,7 +588,7 @@ class LibModelEdge(s_stormtypes.Lib):
     hivepath = ('cortex', 'model', 'edges')
 
     _storm_lib_path = ('model', 'edge')
-    _storm_lib_deprecated = True
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
 
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name)

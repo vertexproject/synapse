@@ -28,6 +28,7 @@ stormtype_doc_schema = {
                          'description': 'For a function argument, the name of the argument.'},
                 'desc': {'type': 'string',
                          'description': 'For a function argument or return value, the description of the value.'},
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
                 'type': {'$ref': '#/definitions/stormType'},
                 'args': {
                     'type': 'array',
@@ -46,7 +47,18 @@ stormtype_doc_schema = {
                            'documentation for.',
             'additionalProperties': False,
         },
-
+        'deprecatedItem': {
+            'type': 'object',
+            'properties': {
+                'eolvers': {'type': ['string', 'null'], 'default': 'v3.0.0',
+                            'description': "The version which will not longer support the item."},
+                'eoldate': {'type': ['string', 'null'], 'default': None,
+                            'description': 'Optional string indicating Synapse releases after this date may no longer support the item.'},
+                'mesg': {'type': ['string', 'null'], 'default': None,
+                         'description': 'Optional message to include in the warning text.'}
+            },
+            'additionalProperties': False,
+        },
         'stormtypeDoc': {
             'type': 'object',
             'properties': {
@@ -54,8 +66,7 @@ stormtype_doc_schema = {
                          'description': 'The name of the object.'},
                 'desc': {'type': 'string',
                          'description': 'The docstring of the object.'},
-                'deprecated': {'type': 'boolean',
-                               'description': 'The deprecation status of the object.'},
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
                 'type': {'$ref': '#/definitions/stormType'}
             },
             'additionalProperties': False,
@@ -188,12 +199,28 @@ def getArgLines(rtype):
 
     return lines
 
-def genDeprecationNote(name):
+def genDeprecationNote(name, depr, runt=False):
     assert name is not None
+    assert depr is not None
     lines = []
+    if runt:
+        lines.append('.. warning::')
+    else:
+        lines.append('Warning:')
+
+    mesg = depr.get('mesg')
+    date = depr.get('eoldate')
+    vers = depr.get('eolvers')
+
+    assert mesg or date or vers
+
+    if mesg:
+        lines.append(mesg)
+    elif date:
+        lines.append(f'``{name}`` has been deprecated and will be removed on or after {date}.')
+    elif vers:
+        lines.append(f'``{name}`` has been deprecated and will be removed after version {vers}.')
     lines.append('\n')
-    lines.append('Note:')
-    lines.append(f'    ``{name}`` has been deprecated and will be removed in a future release.')
 
     return lines
 
@@ -435,6 +462,9 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
             assert rtype is not None
 
             link = f'.. _{linkprefix}-{loclname.replace(":", ".").replace(".", "-")}:'
+            lines = []
+            if depr := locl.get('deprecated'):
+                lines.extend(genDeprecationNote(f'${loclname}', depr, True))
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
@@ -456,7 +486,7 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
                 if rname == 'stor' or 'stor' in rname:
                     isstor = True
 
-                lines = prepareRstLines(desc)
+                lines.extend(prepareRstLines(desc))
                 arglines = getArgLines(rtype)
                 lines.extend(arglines)
 
@@ -472,7 +502,7 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
 
             else:
                 header = name
-                lines = prepareRstLines(desc)
+                lines.extend(prepareRstLines(desc))
 
                 retlines = getReturnLines(rtype, known_types=known_types, types_prefix=types_prefix,
                                           suffix=types_suffix)
@@ -483,8 +513,6 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
                 header = f'${header}'
 
             page.addHead(header, lvl=lvl + 1, link=link)
-            if locl.get('deprecated'):
-                lines.extend(genDeprecationNote(header))
 
             page.addLines(*lines)
 
@@ -582,13 +610,17 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
             assert desc is not None
             assert rtype is not None
 
+            lines = []
+            if (depr := locl.get('deprecated')) and not oneline:
+                lines.extend(genDeprecationNote(f'${loclname}', depr))
+
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
 
                 if isinstance(rname, dict):
                     raise AssertionError(f'rname as dict not supported loclname={loclname} rname={rname}')
 
-                lines = prepareRstLines(desc)
+                lines.extend(prepareRstLines(desc))
                 arglines = runtimeGetArgLines(rtype)
                 lines.extend(arglines)
 
@@ -602,7 +634,7 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
 
             else:
                 header = name
-                lines = prepareRstLines(desc)
+                lines.extend(prepareRstLines(desc))
 
                 retlines = runtimeGetReturnLines(rtype)
                 lines.extend(retlines)
