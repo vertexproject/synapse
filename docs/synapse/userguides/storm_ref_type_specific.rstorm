@@ -49,10 +49,10 @@ is a type that consists of one or more values that are themselves all of a singl
   An array that is a **list** can have duplicate entries in the list.
   An array that is a **set** consists of a unique group of entries.
 
-``Array`` types can be used for properties where that property is likely to have multiple values, but it is
-undesirable to represent those values using light edges or multiple :ref:`node-relationship` nodes. Examples
-of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and ``ps:person:names``.
-You can view all secondary properties that are ``array`` types using the following Storm query:
+``Array`` types can be used for secondary properties where that property is likely to have multiple values.
+Examples of array secondary properties include ``media:news:authors``, ``inet:email:message:headers``, and
+``ps:person:names``. You can view all secondary properties that are ``array`` types using the following Storm
+query:
 
 ::
   
@@ -79,7 +79,7 @@ values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, d
 Insertion
 +++++++++
 
-Because it may contain multiple values, an ``array`` property must be set using comma-separated values enclosed
+Because an array may contain multiple values, an ``array`` property must be set using comma-separated values enclosed
 in parentheses (this is true even if the array contains only a single element; you must still use parentheses,
 and the single element must still be followed by a trailing comma). Single or double quotes are required in
 accordance with the standard rules for using :ref:`storm-whitespace-literals`.
@@ -88,7 +88,7 @@ accordance with the standard rules for using :ref:`storm-whitespace-literals`.
 
 Set the ``:names`` property of an organization (``ou:org``) node to a single value:
 
-.. storm-pre:: [ ou:org=(https://vertex.link/,) :name=vertex :url=https://vertex.link/ ]
+.. storm-pre:: [ ou:org=('the vertex project',) :name=vertex :url=https://vertex.link/ ]
 .. storm-cli:: ou:org:name=vertex [ :names=('The Vertex Project',) ]
 
 **Example:**
@@ -134,8 +134,8 @@ the "fail silently" behavior for the "edit try" operator. The ``:authors`` prope
 ``ps:contact`` nodes and requires ``ps:contact`` guid values.)
 
 
-.. storm-pre:: [ media:news="*" :org=kaspersky :title='New report on really bad threat' ]
-.. storm-cli:: media:news:org=kaspersky [ :authors?+='john smith' ]
+.. storm-pre:: [ media:news="*" :publisher:name=kaspersky :title='New report on really bad threat' ]
+.. storm-cli:: media:news:publisher:name=kaspersky [ :authors?+='john smith' ]
 
 
 **Usage Notes:**
@@ -188,12 +188,15 @@ Lift the ``ou:org`` node(s) whose ``:names`` property contains a name that inclu
 
 .. storm-cli:: ou:org:names*[~=vertex]
 
+**Note:** the above query returns three "copies" of the ``ou:org`` node because each of the three values in
+the ``:names`` array matches the queried string.
+
 Lift the x509 certificate nodes that reference the domain ``microsoft.com``:
 
 .. storm-pre:: [crypto:x509:cert="*" :identities:fqdns=(microsoft.com,verisign.com)] 
 .. storm-cli:: crypto:x509:cert:identities:fqdns*[=microsoft.com]
 
-Downselect a set of ``ou:org`` nodes to include only those with a name that starts with "acme":
+Filter a set of ``ou:org`` nodes to include only those with a name that starts with "acme":
 
 .. storm-pre:: [ ( ou:org="*" :name='acme consulting' :names=('acme consulting',) ) ( ou:org="*" :name='acme construction' :names=('acme construction',) ) ]
 .. storm-cli:: ou:org +:names*[^=acme]
@@ -479,11 +482,11 @@ a unique prefix for the ``file:bytes`` node's SHA256 or guid value:
 guid
 ----
 
-Within Synapse, a Globally Unique Identifier (``guid``) as a :ref:`data-type` explicitly refers to a 128-bit value
-used as a form’s primary property.
+Within Synapse, the Globally Unique Identifier (``guid``) :ref:`data-type` refers to a 128-bit value used as a
+form’s primary property. The value is represented in hex (e.g., ``4b0c2c5671874922ce001d69215d032f``).
 
 The term should not be confused with the definition of GUID used by Microsoft_, or with other types of identifiers
-(node ID, task ID) used within Synapse.
+used within Synapse (e.g., such as node identifiers / node idens).
 
 The ``guid`` type is used as the primary property for forms that cannot be uniquely defined by any set of specific
 properties. See the background documents on the Synapse data model for additional details on the :ref:`form-guid`.
@@ -502,52 +505,74 @@ N/A
 Parsing
 +++++++
 
-Guids must be input using their complete 128-bit value. It is generally impractical to manually type
-a guid. Guid forms are most often specified by referencing the node via a more human-friendly secondary
-property. Alternately, the guid value can be copied and pasted.
+It is generally impractical to manually type a guid when lifting or otherwise specifying a guid form. While
+guids can be specfied by a sufficiently unique prefix (e.g., ``ou:org^=4b0c2``), it is more common to reference
+a guid node via a more human-friendly secondary property. For example:
+
+.. storm-cli:: ou:org:name = vertex
+
+Alternately, the guid value can be copied and pasted.
 
 Insertion
 +++++++++
 
 Guids can be generated **arbitrarily** or as **predictable** values. When choosing a method, you
-should consider how you will **deconflict** guid-based nodes. See :ref:`guid-best-practices` below
-for additional discussion.
+should consider how you will **deconflict** guid-based nodes. (Recall that Synapse deconflicts forms
+based on their primary property value.) See :ref:`guid-best-practices` below for additional discussion.
 
-Arbitrary Values
-~~~~~~~~~~~~~~~~
+.. _guid-arbitrary:
 
-When creating a new guid node, you can specify the asterisk ( ``*`` ) as the primary property value
+Arbitrary Guids
+~~~~~~~~~~~~~~~
+
+When creating a guid node, you can specify the asterisk ( ``*`` ) as the primary property value
 of the new node. This tells Synapse to generate a unique, **arbitrary** guid for the node. For example:
 
-.. storm-cli:: [ ou:org=* :alias=vertex :name="The Vertex Project" :url=https://vertex.link/ ]
+.. storm-cli:: [ ou:org=* :name="The Vertex Project" :url=https://vertex.link/ ]
 
 The above query creates a new organization node with a unique arbitrary guid for its primary property,
 and sets the specified secondary properties.
 
 .. WARNING::
   
-  Because the guid generated by the asterisk is **arbitrary,** running the above query a second
-  time will create a second ``ou:org`` node with a **new** unique guid (potentially resulting in two
-  nodes representing the same organization within the same Cortex).
+  Because the guid generated by the asterisk is **arbitrary,** if you run the same query again Synapse
+  will create a second ``ou:org`` node with the same ``:name`` and ``:url`` values but a **new** unique,
+  arbitrary guid.
 
 The advantage of arbitrary values is that they are simple to generate. This is particularly useful
-for analysts who need to manually create guid nodes (organizations, contacts, threats) on a regular
-basis as part of their workflow.
+for analysts who need to manually create one-off guid nodes (for example, ``ps:contact`` or ``ou:technique``
+nodes) as part of their workflow.
 
 The disadvantage is that arbitrary values are truly arbitrary; there is no easy way to deconflict
-the nodes.
+the nodes. This can have undesirable consequences:
 
 - Users may inadvertently create duplicate nodes. That is, two users can independently create nodes
   with different guids to represent the same object. The only way to prevent this is by convention -
   for example, establishing internal processes where users "check first" before creating certain
-  nodes. Note that while this may limit duplication, it is unlikely to eliminate it entirely.
+  nodes. While this may limit duplication, it is unlikely to eliminate it entirely.
   
 - Bulk data that is ingested using arbitrary guids cannot be reingested, at least not in the same way.
   Reingesting the same data will create a second set of nodes for the same data but with different
   arbitrary guids.
 
-Predictable Values
-~~~~~~~~~~~~~~~~~~
+Because arbitrary guids may limit your ability to deconflict nodes, their use cases are fairly limited.
+For example:
+
+- Analysts who need to manually create "one-off" nodes that are unlikely to require deconfliction,
+  or that can be deconflicted (if necessary) in the future using additional secondary properties
+  (see :ref:`guid-secondary-prop` below).
+
+- Data that is both unique (i.e., the same or similar data is not available from another source)
+  **and** will only ever be ingested once (i.e., you never plan to reingest the data to improve the
+  ingest logic or capture additional information).
+
+In most cases, the use of predictable guid values is preferred for consistency and to help "future
+proof" your data in the event you need to reingest the same data later.
+
+.. _guid-predictable:
+
+Predictable Guids
+~~~~~~~~~~~~~~~~~
 
 You can generate a guid value in a predictable manner based on a defined set of inputs. The inputs are
 specified as a comma-separated list within a set of parentheses. The guid generator uses these values
@@ -559,8 +584,7 @@ For example:
 .. storm-cli:: [ ou:org=('the vertex project',https://vertex.link) :name='the vertex project' :url=https://vertex.link ]
 
 The query above creates a new organization node whose guid is generated using the company name and
-web site as a set of (presumably) unique inputs that will result in a unique (but predictable /
-deterministic) guid.
+web site as a set of (presumably) unique inputs that will result in a unique but predictable guid.
 
 The advantage of predictable guids is that they are re-encounterable and therefore deconflictable: if you
 ingest data using a predictable guid, the same data can be reingested without creating duplicate nodes.
@@ -569,112 +593,22 @@ changes (improvements to the ingest logic, additions to the Synapse data model) 
 additional detail from the original data set.
 
 The disadvantage is that this method is more complicated for users who need to manually create guid
-nodes. Expecting a group of users to all remember to specify the same set of inputs in the same
-order (and without typos) each time they create a guid node is unrealistic.
+nodes. It is unrealistic to expect a group of users to all remember to specify the same set of inputs
+in the same order (and without typos) each time they create a guid node.
 
 In addition, predictable guids may not fully address challenges associated with ingesting similar data
 from different sources. Multiple vendors may provide similar information on the same entity. If you
 obtain data for the same object (an organization, a person, a certificate) from different sources,
 you may end up with two different nodes if the "predictable" guids are generated with different seed
-data from each source.
+data from each data source.
 
-
-.. _guid-best-practices:
-
-Guid Best Practices
-~~~~~~~~~~~~~~~~~~~
-
-When selecting a method to create guids, a key consideration is how you will **deconflict**
-data represented by guid forms. Guid forms are unique in that their primary property has no
-direct or obvious relationship to the object it represents. The primary property
-``ou:org=44db774d29f27684add0d892931c6e86`` tells me this is an organization node, but
-provides no clue as to whether the organization is The Vertex Project, the World Bank, or
-the University of Michigan marching band.
-
-The important information about "what" a guid form represents is stored in the form's
-secondary properties. So from a deconfliction standpoint, the best way to see if a guid
-node already exists is to use **secondary property deconfliction:**
-
-- Query for an existing node based on one or more meaningful secondary properties.
-- The query will lift (return) the selected node(s), if found; otherwise
-- Create a new guid node using an arbitrary guid ( ``*`` ).
-
-**Example**
-
-  SSL/TLS certificate data is available from various data sources / APIs; different sites or
-  vendors may provide similar information about the same certificate. Certificate metadata
-  (i.e., information such as fingerprints, validity dates, etc.) is represented as a
-  ``crypto:x509:cert`` node, which is a guid form. If you obtain data about the same
-  certificate from different data sources, you risk the creation of duplicate nodes.
+.. NOTE::
   
-  Instead, when ingesting data about a specific certificate, a user (or process) can first check
-  for a ``crypto:x509:cert`` node based on a unique property, such as a certificate fingerprint
-  (e.g., ``crypto:x509:cert:sha1``, or ideally ``crypto:x509:cert:sha256`` to avoid hash collisions).
-  If an existing node is found, that node can be selected and updated (or otherwise operated on);
-  otherwise a new node for that certificate can be created using an arbitrary guid ( ``*`` ) with
-  the appropriate secondary properties set.
+  Predictable guids can be combined with :ref:`guid-secondary-prop` for a more robust method of
+  deconflicting and creating guid-based nodes.
 
-Using secondary property deconfliction for guid nodes has the advantage of deconflicting on
-meaningful properties (those likely to uniquely identify an object), without relying on knowledge
-of any specific method used to create predictable guids. (Note that "predictable guids" are often
-generated using these same secondary properties; so deconflicting on the properties directly is
-both more straightforward and more transparent.)
-
-.. TIP::
-
-  When choosing a secondary property (or properties) to deconflict on, you should select
-  ones that can sufficiently deconflict the form **and** are likely to be present in the
-  data source(s) you may use to obtain information about the form.
-
-Secondary property deconfliction is not guaranteed to eliminate all duplications, but is highly
-effective in many cases. This method can be used both programmatically (i.e., in any ingest scripts
-or Power-Ups (:ref:`gloss-power-up`)) and by users who can "spot check" for the existence of a node
-before manually creating one.
-
-.. TIP::
-
-  Synapse implements several Storm commands known as generator ("gen") commands. These
-  commands simplify secondary property deconfliction and node creation for several common
-  guid nodes.
-  
-  For example, the :ref:`storm-gen-ou-org` command takes an organization name as input (e.g,
-  "vertex"), checks for any ``ou:org`` nodes with that name (i.e., in the ``:name`` or
-  ``:names`` properties) and either lifts the existing node, or creates a new one.
-  
-  See the :ref:`storm-gen` section in the :ref:`storm-ref-cmd` for available generator commands
-  (or run ``help`` from your Synapse CLI).
-
-
-Arbitrary Guids
-^^^^^^^^^^^^^^^
-
-For some use cases, the use of arbitrary guids (without secondary property deconfliction)
-may be reasonable. This approach may be suitable when:
-
-- The data you are ingesting is truly unique (i.e., the same or similar data is not available
-  from another source). For example, log or alert data that is specific to a unique sensor
-  or host.
-- You need to perform a one-time ingest of the data (i.e., you do not plan to reingest the
-  same data in the future).
-  
-If the data is unique, but you may need to reingest it at some point, secondary property
-deconfliction or predictable guids are more appropriate.
-
-Predictable Guids
-^^^^^^^^^^^^^^^^^
-
-For some use cases, the use of predictable guids (without secondary property deconfliction)
-may be reasonable. This approach may be suitable when:
-
-- You have a unique set of data (not available from another data source) to ingest and want
-  the option to reingest it in the future without creating duplicate nodes.
-- The data is sufficiently unique that nodes representing the data will not already exist
-  in Synapse.
-- You cannot use secondary property deconfliction given the nature of the data. In this case,
-  deconfliction based on predictable guids may be the "next best" option.
-
-When using predictable guids, the "seed" data to generate the guid should be unique to both
-the node being created and the specific data source. For example, your inputs could include:
+When using predictable guids, the "seed" data to generate the guid should be unique to both the node
+being created and the specific data source. For example, your inputs could include:
 
 - A string representing the **data source.**
 - The **timestamp** associated with the data, if one exists.
@@ -692,15 +626,15 @@ For example, a ``media:news`` node might be created using:
 
 Predictable guid values can be generated directly (as part of Storm :ref:`edit-mode` syntax):
 
-.. storm-cli:: [ media:news=(my_data_source,2022/09/12,https://www.example.com/my_article.html) ]
+.. storm-cli:: [ media:news = (my_data_source, 2022/09/12, https://www.example.com/my_article.html) ]
 
 Alternately, guid values can be generated and assigned to a variable using the Storm ``$lib.guid()``
 library (see :ref:`stormlibs-lib-guid`). The values provided as arguments to ``$lib.guid()`` can be either
 specific values or variables:
 
-.. storm-cli:: $guid=$lib.guid(my_data_source,2022/09/12,https://www.example.com/my_article.html) [ media:news=$guid ]
+.. storm-cli:: $guid = $lib.guid(my_data_source, 2022/09/12, https://www.example.com/my_article.html) [ media:news = $guid ]
 
-.. storm-cli:: $source=my_data_source $published=2022/09/12 $url=https://www.example.com/my_article.html $guid=$lib.guid($source,$published,$url) [ media:news=$guid ]
+.. storm-cli:: $source = my_data_source $published = 2022/09/12 $url = https://www.example.com/my_article.html $guid = $lib.guid($source, $published, $url) [ media:news = $guid ]
 
 **Note** that the same guid value is generated in each of the three examples above.
 
@@ -715,27 +649,122 @@ specific values or variables:
   any secondary property values based on data provided to the ``guid`` generator. Any property values
   must be set as part of the node creation process.
 
-A full discussion of writing ingest code (particularly for Storm packages, services, or Power-Ups) is beyond
-the scope of this User Guide. For more information, see the :ref:`devguide`.
+A full discussion of writing ingest code (such as ingest scripts or Power-Ups) is beyond the scope
+of this User Guide. For more information, see the :ref:`devguide`.
+
+.. _guid-secondary-prop:
+
+Secondary Property Deconfliction
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Secondary property deconfliction refers to the process of attempting to identify whether a guid-based
+node already exists based on the value of one or more distinctive secondary properties.
+
+Guid forms are unique in that their primary property has no obvious relationship to the object
+it represents. The primary property ``ou:org=44db774d29f27684add0d892931c6e86`` tells me this is an
+organization node, but provides no clue whether the organization is The Vertex Project, the World Bank,
+or the University of Michigan marching band.
+
+The important information about "what" a guid form represents is stored in the form's secondary properties.
+From a deconfliction standpoint, the best way to see if a guid node already exists is to:
+
+- Query for an existing node based on one or more meaningful secondary properties.
+- Lift (return) the selected node(s), if found; otherwise
+- Create a new guid node (ideally by using a predictable guid).
+
+**Example**
+
+  SSL/TLS certificate data is available from various data sources / APIs. Different vendors may
+  provide similar information about the same certificate. Certificate metadata (i.e., information such
+  as fingerprints, validity dates, etc.) is represented as a ``crypto:x509:cert`` node, which is a guid
+  form. If you obtain data about the same certificate from different data sources, you risk the creation
+  of duplicate nodes.
+  
+  Instead, when ingesting data about a specific certificate, a user (or process) can first check
+  for a ``crypto:x509:cert`` node based on a unique property, such as a certificate fingerprint
+  (e.g., ``crypto:x509:cert:sha1``, or ideally ``crypto:x509:cert:sha256`` to avoid hash collisions).
+  If an existing node is found, that node can be selected and updated (or otherwise operated on);
+  otherwise a new node for that certificate can be created.
+
+.. TIP::
+
+  When choosing a secondary property (or properties) to deconflict on, you should select
+  ones that can sufficiently deconflict (uniquely identify) the form **and** are likely to be present
+  in the data source(s) you may use to obtain information about the form.
+
+Secondary property deconfliction is not guaranteed to eliminate all duplications, but is highly
+effective in many cases. This method can be used programmatically (i.e., in any ingest scripts or
+Power-Ups) and by users who can "spot check" for the existence of a node before manually creating one.
+
+.. NOTE::
+
+  Synapse implements several Storm commands known as generator ("gen") commands. These
+  commands simplify secondary property deconfliction and node creation for several common
+  guid nodes. Instead of manually "spot checking" for existing nodes, users (and code) can use ``gen``
+  commands to deconflict and create many guid nodes.
+  
+  For example, the :ref:`storm-gen-ou-org` command takes an organization name as input (e.g,
+  "vertex"), checks for any ``ou:org`` nodes with that name (i.e., in the ``:name`` or
+  ``:names`` properties) and either lifts the existing node, or creates a new node based
+  on a predictable guid, using the provided name as input.
+  
+  See the :ref:`storm-gen` section in the :ref:`storm-ref-cmd` for available generator commands
+  (or run ``help`` from your Synapse CLI).
+
+.. _guid-best-practices:
+
+Guid Best Practices
+~~~~~~~~~~~~~~~~~~~
+
+**Secondary property deconfliction combined with predictable guid generation** is the most robust method
+for creating guid-based nodes and is recommended in most cases - in particular for any automated data ingest.
+This includes both ongoing ingests (such as via Power-Ups) and one-time scripted ingests (such as via the
+CSV Tool or the Optic Ingest Tool).
+
+For users who need to create one-off guid forms, this process can be simpilfied via custom Storm commands
+(such as the ``gen.*`` commands) or automation (such as a macro that performs the necessary deconfliction
+and node creation, if a ``gen.*`` command is not avaiilable).
+
+**Predictable guids** used on their own (i.e., without first performing secondary property deconfliction)
+may be sufficient in some cases. For example, for data sources that are unique you can use predictable guids
+to ensure that individual nodes created in a repeatable way (in case you need to reingest the same data)
+without worrying about deconfliction (because there is no alternate source for the same data to deconflict
+with). Internal log or alert data are examples of this type of "single source" data.
+
+In addition, predictable guids are a "next best" option in cases where secondary deconfliction is not possible.
+This may be the case if an object's secondary properties are not unique enough, or data sources are sparse and
+you cannot identify a property that is guaranteed to be present across all data sources.
+
+Use **arbitrary guids** when:
+
+- you will never need to deconflict the data, so the guid value doesn't matter.
+- a user needs to manually create a guid node, and the asterisk ( ``*`` ) is the simplest means to do so
+  (e.g., if a ``gen.*`` command or other automation does not exist for the kind of node in question).
+
+There are still some deconfliction risks (as described above) when using the asterisk. However, the "ease
+of use" of the asterisk may be an acceptable trade off in some circumstances. For example, the number of
+user-created nodes is likely to small compared to the volume of data ingested through Power-Ups or other
+automation; and nodes initially created with arbitrary guids may later be "recognized" (and deconflicted
+appropriately) by automation that uses secondary property deconfliction.
+
 
 Operations
 ++++++++++
 
-Because guid values are unwieldy to use on the command line (outside of copy and paste operations), guid
-nodes may be more easily lifted by a unique secondary property.
+Because guid values are unwieldy to use on the command line (outside of copy and paste operations), it
+is often easier to lift guid nodes by a unique secondary property.
 
 **Examples:**
 
 Lift an org node by its alias:
 
 .. storm-pre:: [ ou:org=* :alias=choam :name='combine honnete ober advancer mercantiles' ]
-.. storm-cli:: ou:org:alias=choam
+.. storm-cli:: ou:org:alias = choam
 
 Lift a DNS request node by the name used in the DNS query:
 
-
 .. storm-pre:: [ inet:dns:request=* :time="2020/04/30 09:30:33.000" :query:name=pop.seznam.cz :query:name:fqdn=pop.seznam.cz ]
-.. storm-cli:: inet:dns:request:query:name=pop.seznam.cz
+.. storm-cli:: inet:dns:request:query:name = pop.seznam.cz
 
 It is also possible to lift and filter guid nodes using a "sufficiently unique" prefix match of the guid value.
 
@@ -744,7 +773,7 @@ It is also possible to lift and filter guid nodes using a "sufficiently unique" 
 Lift a ``ps:contact`` node by a partial prefix match:
 
 .. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
-.. storm-cli:: ps:contact^=13c9663e
+.. storm-cli:: ps:contact ^= 13c9663e
 
 The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse.
 If your selection criteria matches more than one node, Synapse will return all matches.
@@ -760,7 +789,7 @@ a Storm query:
 
 .. storm-pre:: [ ps:contact=* :name='ron the cat' :title='cattribution analyst' ]
 
-.. storm-cli:: ps:contact:name='ron the cat' [ :org={ ou:org:name=vertex } ]
+.. storm-cli:: ps:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
 
 .. NOTE::
   
