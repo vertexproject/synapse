@@ -199,7 +199,7 @@ def getArgLines(rtype):
 
     return lines
 
-def genDeprecationNote(name, depr, runt=False):
+def genDeprecationWarning(name, depr, runt=False):
     assert name is not None
     assert depr is not None
     lines = []
@@ -214,12 +214,17 @@ def genDeprecationNote(name, depr, runt=False):
 
     assert mesg or date or vers
 
+    ws = ''
+    if runt:
+        ws = '   '
+
+    if date:
+        lines.append(f'{ws}``{name}`` has been deprecated and will be removed on or after {date}.')
+    else:
+        lines.append(f'{ws}``{name}`` has been deprecated and will be removed in version {vers}.')
     if mesg:
-        lines.append(mesg)
-    elif date:
-        lines.append(f'``{name}`` has been deprecated and will be removed on or after {date}.')
-    elif vers:
-        lines.append(f'``{name}`` has been deprecated and will be removed after version {vers}.')
+        lines.append(f'{ws}{mesg}')
+
     lines.append('\n')
 
     return lines
@@ -464,7 +469,7 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
             link = f'.. _{linkprefix}-{loclname.replace(":", ".").replace(".", "-")}:'
             lines = []
             if depr := locl.get('deprecated'):
-                lines.extend(genDeprecationNote(f'${loclname}', depr, True))
+                lines.extend(genDeprecationWarning(f'${loclname}', depr, True))
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
@@ -612,7 +617,7 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
 
             lines = []
             if (depr := locl.get('deprecated')) and not oneline:
-                lines.extend(genDeprecationNote(f'${loclname}', depr))
+                lines.extend(genDeprecationWarning(f'${loclname}', depr))
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')

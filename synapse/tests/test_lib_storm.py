@@ -3915,7 +3915,7 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('help --verbose $lib.infosec.cvss.saveVectToNode')
             self.stormIsInPrint('Warning', msgs)
-            self.stormIsInPrint('``$lib.infosec.cvss.saveVectToNode`` has been deprecated and will be removed after version v3.0.0.', msgs)
+            self.stormIsInPrint('``$lib.infosec.cvss.saveVectToNode`` has been deprecated and will be removed in version v3.0.0.', msgs)
 
             msgs = await core.stormlist('help $lib.inet')
             self.stormIsInPrint('The following libraries are available:\n\n'
