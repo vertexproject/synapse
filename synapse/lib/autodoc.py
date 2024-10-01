@@ -50,13 +50,23 @@ stormtype_doc_schema = {
         'deprecatedItem': {
             'type': 'object',
             'properties': {
-                'eolvers': {'type': ['string', 'null'], 'default': 'v3.0.0',
+                'eolvers': {'type': 'string',
                             'description': "The version which will not longer support the item."},
-                'eoldate': {'type': ['string', 'null'], 'default': None,
+                'eoldate': {'type': 'string',
                             'description': 'Optional string indicating Synapse releases after this date may no longer support the item.'},
                 'mesg': {'type': ['string', 'null'], 'default': None,
                          'description': 'Optional message to include in the warning text.'}
             },
+            'oneOf': [
+                {
+                    'required': ['eolvers'],
+                    'not': {'required': ['eoldate']}
+                },
+                {
+                    'required': ['eoldate'],
+                    'not': {'required': ['eolvers']}
+                }
+            ],
             'additionalProperties': False,
         },
         'stormtypeDoc': {
@@ -211,8 +221,6 @@ def genDeprecationWarning(name, depr, runt=False):
     mesg = depr.get('mesg')
     date = depr.get('eoldate')
     vers = depr.get('eolvers')
-
-    assert mesg or date or vers
 
     ws = ''
     if runt:
