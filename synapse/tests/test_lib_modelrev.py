@@ -1007,53 +1007,53 @@ class ModelRevTest(s_tests.SynTest):
                   'sources': (),
                   'view': fork01}),
                 (2,
-                 {'form': 'meta:seen',
-                  'iden': metaseen02,
-                  'layer': fork01layr,
-                  'offsets': {'edges': (), 'edits': (), 'refs': (2,)},
-                  'valu': (source22, ('it:sec:cpe', invcpe02)),
-                  'sources': (),
-                  'view': fork01}),
-                (3,
-                 {'form': 'meta:seen',
-                  'iden': metaseen03,
-                  'layer': fork01layr,
-                  'offsets': {'edges': (), 'edits': (), 'refs': (3,)},
-                  'valu': (source23, ('it:sec:cpe', invcpe02)),
-                  'sources': (),
-                  'view': fork01}),
-                (4,
                  {'form': 'it:sec:cpe',
                   'iden': badcpe00,
                   'layer': fork00layr,
-                  'offsets': {'edges': (0,), 'edits': (0,), 'refs': (4,)},
+                  'offsets': {'edges': (0,), 'edits': (0,), 'refs': (2,)},
                   'valu': invcpe02,
                   'sources': sorted((source22, source23)),
                   'view': fork00}),
+                (3,
+                 {'form': 'meta:seen',
+                  'iden': metaseen02,
+                  'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (3,)},
+                  'valu': (source22, ('it:sec:cpe', invcpe02)),
+                  'sources': (),
+                  'view': fork01}),
+                (4,
+                 {'form': 'meta:seen',
+                  'iden': metaseen03,
+                  'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (4,)},
+                  'valu': (source23, ('it:sec:cpe', invcpe02)),
+                  'sources': (),
+                  'view': fork01}),
                 (5,
-                 {'form': 'meta:seen',
-                  'iden': metaseen04,
-                  'layer': fork01layr,
-                  'offsets': {'edges': (), 'edits': (), 'refs': (5,)},
-                  'valu': (source23, ('it:sec:cpe', invcpe03)),
-                  'sources': (),
-                  'view': fork01}),
-                (6,
-                 {'form': 'meta:seen',
-                  'iden': metaseen05,
-                  'layer': fork01layr,
-                  'offsets': {'edges': (), 'edits': (), 'refs': (6,)},
-                  'valu': (source22, ('it:sec:cpe', invcpe03)),
-                  'sources': (),
-                  'view': fork01}),
-                (7,
                  {'form': 'it:sec:cpe',
                   'iden': badcpe01,
                   'layer': fork00layr,
-                  'offsets': {'edges': (1,), 'edits': (1,), 'refs': (7,)},
+                  'offsets': {'edges': (1,), 'edits': (1,), 'refs': (5,)},
                   'valu': invcpe03,
                   'sources': sorted((source22, source23)),
                   'view': fork00}),
+                (6,
+                 {'form': 'meta:seen',
+                  'iden': metaseen04,
+                  'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (6,)},
+                  'valu': (source23, ('it:sec:cpe', invcpe03)),
+                  'sources': (),
+                  'view': fork01}),
+                (7,
+                 {'form': 'meta:seen',
+                  'iden': metaseen05,
+                  'layer': fork01layr,
+                  'offsets': {'edges': (), 'edits': (), 'refs': (7,)},
+                  'valu': (source22, ('it:sec:cpe', invcpe03)),
+                  'sources': (),
+                  'view': fork01}),
                 (8,
                  {'form': 'meta:seen',
                   'iden': metaseen06,
@@ -1138,18 +1138,6 @@ class ModelRevTest(s_tests.SynTest):
                    'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
                 ),
                 (2,
-                 ({'iden': '11f7e64a8dd8aa5f2a9b52c0e95783da4b7486452aff74dfcf80814f72507f88',
-                   'layer': fork01layr,
-                   'view': fork01,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                ),
-                (3,
-                 ({'iden': 'b209cfe6fb7167cc7dbae9df50894c2614cb9e179e5b3a4fd85fbcf7fa31a9dd',
-                   'layer': fork01layr,
-                   'view': fork01,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                ),
-                (4,
                  ({'iden': 'd2c0737b821ba0a699e1ff168e2bf1677590dbf677ce7e5c02894f8868ae080a',
                    'layer': fork00layr,
                    'view': fork00,
@@ -1159,19 +1147,19 @@ class ModelRevTest(s_tests.SynTest):
                    'view': fork01,
                    'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
                 ),
+                (3,
+                 ({'iden': '11f7e64a8dd8aa5f2a9b52c0e95783da4b7486452aff74dfcf80814f72507f88',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
+                (4,
+                 ({'iden': 'b209cfe6fb7167cc7dbae9df50894c2614cb9e179e5b3a4fd85fbcf7fa31a9dd',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
                 (5,
-                 ({'iden': '6d09c45666b3a14bf9d298079344d01c079e474423307da553d65ad9917556ae',
-                   'layer': fork01layr,
-                   'view': fork01,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                ),
-                (6,
-                 ({'iden': '208ea1b5593aff3c9cb51c19374616fcd103ea2f554f0dd2a13652aadabb82ae',
-                   'layer': fork01layr,
-                   'view': fork01,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
-                ),
-                (7,
                  ({'iden': '5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3',
                    'layer': fork00layr,
                    'view': fork00,
@@ -1188,6 +1176,18 @@ class ModelRevTest(s_tests.SynTest):
                    'layer': fork01layr,
                    'view': fork01,
                    'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},),
+                ),
+                (6,
+                 ({'iden': '6d09c45666b3a14bf9d298079344d01c079e474423307da553d65ad9917556ae',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
+                ),
+                (7,
+                 ({'iden': '208ea1b5593aff3c9cb51c19374616fcd103ea2f554f0dd2a13652aadabb82ae',
+                   'layer': fork01layr,
+                   'view': fork01,
+                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},),
                 ),
                 (8,
                  ({'iden': 'e3c389c194609a57cde68c21cac8ae1cd18e6a642e332461a3acd19138904239',
@@ -1425,34 +1425,34 @@ class ModelRevTest(s_tests.SynTest):
                     )
                 ),
                 (2,
-                    'meta:seen', (
-                        '008af0047a8350287cde7abe31a7c706',
-                        ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*')
-                    )
+                    'it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*',
                 ),
                 (3,
                     'meta:seen', (
-                        'a7a4739e0a52674df0fa3a8226de0c3f',
+                        '008af0047a8350287cde7abe31a7c706',
                         ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*')
                     )
                 ),
                 (4,
-                    'it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*',
+                    'meta:seen', (
+                        'a7a4739e0a52674df0fa3a8226de0c3f',
+                        ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*')
+                    )
                 ),
                 (5,
+                    'it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*',
+                ),
+                (6,
                     'meta:seen', (
                         'a7a4739e0a52674df0fa3a8226de0c3f',
                         ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
                     )
                 ),
-                (6,
+                (7,
                     'meta:seen', (
                         '008af0047a8350287cde7abe31a7c706',
                         ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
                     )
-                ),
-                (7,
-                    'it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*',
                 ),
                 (8,
                     'meta:seen', (
@@ -1476,7 +1476,7 @@ class ModelRevTest(s_tests.SynTest):
             # self.stormIsInPrint('\n'.join(lines), msgs)
 
             q = '''
-                $lib.model.migration.s.model_0_2_31.repairNode((4),
+                $lib.model.migration.s.model_0_2_31.repairNode((2),
                     "cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*"
                 )
             '''
@@ -1485,7 +1485,7 @@ class ModelRevTest(s_tests.SynTest):
 
             # Repair node should be idempotent
             q = '''
-                $lib.model.migration.s.model_0_2_31.repairNode((4),
+                $lib.model.migration.s.model_0_2_31.repairNode((2),
                     "cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*",
                     $lib.true
                 )
@@ -1545,7 +1545,7 @@ class ModelRevTest(s_tests.SynTest):
 
             valu = 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'
             iden = '89f1fbd62a04867405169fd8eb38758372e3a6ed170536b439d957abecf6c449'
-            q = '$lib.model.migration.s.model_0_2_31.repairNode((7), $valu, $lib.true)'
+            q = '$lib.model.migration.s.model_0_2_31.repairNode((5), $valu, $lib.true)'
 
             opts = {'vars': {'iden': iden, 'valu': valu}}
             msgs = await core.stormlist(q, opts=opts)
@@ -1602,7 +1602,7 @@ class ModelRevTest(s_tests.SynTest):
 
             valu = ('a7a4739e0a52674df0fa3a8226de0c3f', ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'))
             iden = '81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d'
-            q = '$lib.model.migration.s.model_0_2_31.repairNode((5), $valu, $lib.true)'
+            q = '$lib.model.migration.s.model_0_2_31.repairNode((6), $valu, $lib.true)'
 
             opts = {'vars': {'iden': iden, 'valu': valu}}
             msgs = await core.stormlist(q, opts=opts)
