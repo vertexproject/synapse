@@ -1369,14 +1369,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         patches = []
-        if self.nexsvers < (2, 177):
-            patches.extend([
-                ('popUserVarValu', self._popUserVarValuV0),
-                ('setUserVarValu', self._setUserVarValuV0),
-                ('popUserProfInfo', self._popUserProfInfoV0),
-                ('setUserProfInfo', self._setUserProfInfoV0),
-            ])
-
         self.nexspatches = []
         for meth, repl in patches:
             self.nexspatches.append((meth, getattr(self, meth)))

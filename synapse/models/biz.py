@@ -47,7 +47,6 @@ class BizModule(s_module.CoreModule):
                 }),
             ),
             'forms': (
-                ('biz:deal:type:taxonomy', {}, ()),
                 ('biz:product:type:taxonomy', {}, ()),
                 ('biz:service:type:taxonomy', {}, ()),
                 ('biz:deal:type:taxonomy', {}, ()),

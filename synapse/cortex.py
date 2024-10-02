@@ -1937,8 +1937,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.nextnid = s_common.int64un(byts) + 1
 
     def getNidNdef(self, nid):
-        byts = self.v3stor.get(nid, db=self.nid2ndef)
-        if byts is not None:
+        if (byts := self.v3stor.get(nid, db=self.nid2ndef)) is not None:
             return s_msgpack.un(byts)
 
     def hasNidNdef(self, nid):
