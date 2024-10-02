@@ -868,6 +868,7 @@ class Url(s_types.Str):
         return cmpr
 
     def _normPyStr(self, valu):
+        valu = valu.strip()
         orig = valu
         subs = {}
         proto = ''
