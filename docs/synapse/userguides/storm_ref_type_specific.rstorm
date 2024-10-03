@@ -506,7 +506,7 @@ Parsing
 +++++++
 
 It is generally impractical to manually type a guid when lifting or otherwise specifying a guid form. While
-guids can be specfied by a sufficiently unique prefix (e.g., ``ou:org^=4b0c2``), it is more common to reference
+guids can be specified by a sufficiently unique prefix (e.g., ``ou:org^=4b0c2``), it is more common to reference
 a guid node via a more human-friendly secondary property. For example:
 
 .. storm-cli:: ou:org:name = vertex
