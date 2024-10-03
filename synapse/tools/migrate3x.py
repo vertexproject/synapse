@@ -291,7 +291,7 @@ class Migrator(s_base.Base):
                         nid = s_msgpack.un(newv)[0]
 
                     triginfo['nid'] = nid
-                    view.trigqueue.put(triginfo, indx=offs)
+                    trigqueue.add(triginfo, indx=offs)
 
     async def _initStors(self, migr=True, cell=True):
         '''

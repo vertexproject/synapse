@@ -65,3 +65,7 @@ class MigrationTest(s_t_utils.SynTest):
 #                nodes = await core.nodes('meta:event:type:taxonomy')
                 for n in nodes:
                     print(n)
+
+                nodes = await core.nodes('inet:url=http://whitespace.trigger')
+                self.len(1, nodes)
+                self.nn(nodes[0].get('#trig.migr'))
