@@ -743,7 +743,7 @@ Use **arbitrary guids** when:
 
 There are still some deconfliction risks (as described above) when using the asterisk. However, the "ease
 of use" of the asterisk may be an acceptable trade off in some circumstances. For example, the number of
-user-created nodes is likely to small compared to the volume of data ingested through Power-Ups or other
+user-created nodes is likely to be small compared to the volume of data ingested through Power-Ups or other
 automation; and nodes initially created with arbitrary guids may later be "recognized" (and deconflicted
 appropriately) by automation that uses secondary property deconfliction.
 
