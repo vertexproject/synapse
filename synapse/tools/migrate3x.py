@@ -102,7 +102,6 @@ class Migrator(s_base.Base):
             'biz:dealtype': (self.rename, {'name': 'biz:deal:type:taxonomy'}),
             'biz:prodtype': (self.rename, {'name': 'biz:product:type:taxonomy'}),
             'geo:place:taxonomy': (self.rename, {'name': 'geo:place:type:taxonomy'}),
-            'inet:url': (self.renorm, {'name': 'inet:url'}),
             'it:prod:hardwaretype': (self.rename, {'name': 'it:prod:hardware:type:taxonomy'}),
             'mat:type': (self.rename, {'name': 'mat:item:type:taxonomy'}),
             'media:news:taxonomy': (self.rename, {'name': 'media:news:type:taxonomy'}),
@@ -123,6 +122,11 @@ class Migrator(s_base.Base):
             # 'inet:email:message:link': (self.renorm, {'name': 'inet:email:message:link'}),
             # 'inet:email:message:attachment': (self.renorm, {'name': 'inet:email:message:attachment'}),
         }
+
+        # forms requiring renormalization which will not be populated automatically
+        self.formrenorm = [
+            'inet:url',
+        ]
 
         self.propmigr = collections.defaultdict(dict)
         self.propmigr |= {
@@ -549,6 +553,11 @@ class Migrator(s_base.Base):
 
         self.model.addDataModels(mdefs)
 
+        for name in self.formrenorm:
+            form = self.model.form(name)
+            opts = {'name': name, 'type': form.type}
+            self.formmigr[name] = (self.renorm, opts)
+
         # generate automatic form migrations where possible and verify all forms exist
         # or have a migration defined
 
@@ -810,8 +819,8 @@ class Migrator(s_base.Base):
                     if migr is not None:
                         try:
                             valu, norminfo = migrfunc(valu, migropts)
-                        except:
-                            print(f'Failed to migrate value for {form}={valu}')
+                        except Exception as e:
+                            print(f'Failed to migrate value for {form}={valu} {e}')
                             continue
 
                         newbuid = s_common.buid((newform, valu))
@@ -827,6 +836,10 @@ class Migrator(s_base.Base):
     @s_cache.memoizemethod()
     def setIndxAbrv(self, indx, *args):
         return self.indxabrv.setBytsToAbrv(indx + s_msgpack.en(args))
+
+    @s_cache.memoizemethod()
+    def getIndxAbrv(self, indx, *args):
+        return self.indxabrv.bytsToAbrv(indx + s_msgpack.en(args))
 
     @s_cache.memoizemethod()
     def getBuidByNid(self, nid):
@@ -872,22 +885,24 @@ class Migrator(s_base.Base):
                     valu = valt[0]
 
                 nid = None
+                migr = None
 
-                if (migr := self.formmigr.get(form)) is not None:
-                    if migr[0] is None:
-                        continue
+                if (nid := self.getNidByBuid(buid)) is None:
+                    if (migr := self.formmigr.get(form)) is not None:
+                        if migr[0] is None:
+                            continue
 
-                    if (newv := self.migrslab.get(buid, db=self.migrinfo)) is not None:
-                        (nid, buid, form, valu, norminfo) = s_msgpack.un(newv)
+                        if (newv := self.migrslab.get(buid, db=self.migrinfo)) is not None:
+                            (nid, _, form, valu, norminfo) = s_msgpack.un(newv)
+                        else:
+                            # this is a buid for a migrated form which has no value
+                            # in any layers so we cannot compute the new buid
+                            print('NO MIGRATION DEFINED FOR', form, sode)
+                            self.migrslab.put(buid + layrkey, byts, db=self.unkbuids)
+                            continue
+
                     else:
-                        # this is a buid for a migrated form which has no value
-                        # in any layers so we cannot compute the new buid
-                        print('NO MIGRATION DEFINED FOR', form, sode)
-                        self.migrslab.put(buid + layrkey, byts, db=self.unkbuids)
-                        continue
-
-                elif (nid := self.getNidByBuid(buid)) is None:
-                    nid = self._genBuidNid(buid)
+                        nid = self._genBuidNid(buid)
 
                 edits = []
                 logedits = []

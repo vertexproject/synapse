@@ -24,7 +24,7 @@ import synapse.lib.stormsvc as s_stormsvc
 
 import synapse.tools.migrate3x as s_migr
 
-REGR_CORE = '3x-migr'
+REGR_CORE = '3x-migr2'
 
 class MigrationTest(s_t_utils.SynTest):
 
@@ -52,6 +52,16 @@ class MigrationTest(s_t_utils.SynTest):
 
             async with await s_cortex.Cortex.anit(dest, conf=None) as core:
 
-                nodes = await core.nodes('.created')
+#                nodes = await core.nodes('.created')
+                nodes = await core.nodes('inet:url -(refs)> meta:event:type:taxonomy')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef[1], 'nowhitespace.url.')
+                self.eq(nodes[1].ndef[1], 'whitespace.url.')
+
+                nodes = await core.nodes('inet:url <(refs)- meta:event:type:taxonomy')
+                self.len(2, nodes)
+                self.eq(nodes[0].ndef[1], 'merged.one.')
+                self.eq(nodes[1].ndef[1], 'merged.two.')
+#                nodes = await core.nodes('meta:event:type:taxonomy')
                 for n in nodes:
                     print(n)
