@@ -374,6 +374,13 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
+    def __eq__(self, othr):
+        if self.name != othr.name:
+            return False
+        if self.opts != othr.opts:
+            return False
+        return True
+
 class Bool(Type):
 
     stortype = s_layer.STOR_TYPE_U8

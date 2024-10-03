@@ -7745,6 +7745,10 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_query_offload(self):
 
+        async def _hang(*args, **kwargs):
+            await asyncio.sleep(6)
+            return
+
         async with self.getTestAha() as aha:
 
             async with await s_base.Base.anit() as base:
@@ -7820,7 +7824,60 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.isin('Offloading Storm query', data)
                     self.notin('Timeout', data)
 
+                    with mock.patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
+
+                        with self.getLoggerStream('synapse') as stream:
+                            msgs = await alist(core00.storm('inet:asn=0'))
+                            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                        stream.seek(0)
+                        data = stream.read()
+                        self.notin('Offloading Storm query', data)
+                        self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
+                        self.notin('Timeout waiting for query mirror', data)
+
+                    await core00.stormpool.waitready(timeout=12)
+
+                    with mock.patch('synapse.telepath.Proxy.getPoolLink', _hang):
+
+                        with self.getLoggerStream('synapse') as stream:
+                            msgs = await alist(core00.storm('inet:asn=0'))
+                            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                        stream.seek(0)
+                        data = stream.read()
+                        self.notin('Offloading Storm query', data)
+                        self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
+                        self.notin('Timeout waiting for query mirror', data)
+
+                    await core00.stormpool.waitready(timeout=12)
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core00.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Offloading Storm query', data)
+                    self.notin('Timeout waiting for pool mirror', data)
+                    self.notin('Timeout waiting for query mirror', data)
+
                     core01.nexsroot.nexslog.indx = 0
+
+                    with mock.patch('synapse.cortex.MAX_NEXUS_DELTA', 1):
+
+                        nexsoffs = await core00.getNexsIndx()
+
+                        with self.getLoggerStream('synapse') as stream:
+                            msgs = await alist(core00.storm('inet:asn=0'))
+                            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                        stream.seek(0)
+                        data = stream.read()
+                        explog = (f'Pool mirror [01.core.synapse] Nexus offset delta too large '
+                                  f'({nexsoffs} > 1), running query locally')
+                        self.isin(explog, data)
+                        self.notin('Offloading Storm query', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm('inet:asn=0'))
@@ -7867,6 +7924,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.TimeOut):
                         await core00.count('inet:asn=0', opts=opts)
+
+                    core00.stormpool.ready.clear()
+
+                    with self.getLoggerStream('synapse') as stream:
+                        msgs = await alist(core00.storm('inet:asn=0'))
+                        self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Timeout waiting for pool mirror, running query locally', data)
 
                     await core01.fini()
 

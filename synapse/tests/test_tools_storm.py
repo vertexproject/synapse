@@ -339,7 +339,7 @@ class StormCliTest(s_test.SynTest):
             self.isin(
                 Completion(
                     '.auth.easyperm.allowed',
-                    display='[lib] $lib.auth.easyperm.allowed(edef: dict, level: str) - Check if the current user has a permission level in an easy perm dictionary.'
+                    display='[lib] $lib.auth.easyperm.allowed(edef: dict, level: int) - Check if the current user has a permission level in an easy perm dictionary.'
                 ),
                 vals
             )

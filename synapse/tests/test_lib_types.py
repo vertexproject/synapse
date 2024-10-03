@@ -22,6 +22,12 @@ class TypesTest(s_t_utils.SynTest):
         self.none(t.getCompOffs('newp'))
         self.raises(s_exc.NoSuchCmpr, t.cmpr, val1=1, name='newp', val2=0)
 
+        str00 = model.type('str').clone({})
+        str01 = model.type('str').clone({})
+        str02 = model.type('str').clone({'lower': True})
+        self.eq(str00, str01)
+        self.ne(str01, str02)
+
     async def test_mass(self):
 
         async with self.getTestCore() as core:

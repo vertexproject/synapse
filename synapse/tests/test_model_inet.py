@@ -985,6 +985,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('[test:str="foo"] [inet:ipv4?=$node.value()] -test:str'))
             self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ipv4?=$node.value()] -test:str'))
 
+            q = '''init { $l = () }
+            [inet:ipv4=192.0.0.9 inet:ipv4=192.0.0.0 inet:ipv4=192.0.0.255] $l.append(:type)
+            fini { return ( $l ) }'''
+            resp = await core.callStorm(q)
+            self.eq(resp, ['unicast', 'private', 'private'])
+
     async def test_ipv6(self):
         formname = 'inet:ipv6'
         async with self.getTestCore() as core:
@@ -1290,6 +1296,10 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:rfc2822:addr^=unittest1'))
             self.len(1, await core.nodes('inet:rfc2822:addr^=unittest12'))
 
+            # CVE-2023-27043 related behavior
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:rfc2822:addr="alice@example.org]<bob@example.org>"]')
+
     async def test_server(self):
         formname = 'inet:server'
         data = (
@@ -1395,6 +1405,18 @@ class InetModelTest(s_t_utils.SynTest):
             url = 'http://0.0.0.0/index.html?foo=bar'
             valu = t.norm(url)
             expected = (url, {'subs': {
+                'proto': 'http',
+                'path': '/index.html',
+                'params': '?foo=bar',
+                'ipv4': 0,
+                'port': 80,
+                'base': 'http://0.0.0.0/index.html'
+            }})
+            self.eq(valu, expected)
+
+            url = '  http://0.0.0.0/index.html?foo=bar  '
+            valu = t.norm(url)
+            expected = (url.strip(), {'subs': {
                 'proto': 'http',
                 'path': '/index.html',
                 'params': '?foo=bar',

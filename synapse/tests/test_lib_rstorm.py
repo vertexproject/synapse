@@ -26,6 +26,7 @@ HI
 .. storm:: --hide-props --hide-tags testpkgcmd foo
 .. storm:: --hide-query $lib.print(secret) $lib.print($lib.globals.get(testpkg))
 .. storm:: --hide-query file:bytes
+.. storm:: --hide-query for $m in ([]) { break } for $m in ([]) { continue }
 .. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
 .. storm-cli:: testsvc.test
 '''
@@ -53,6 +54,9 @@ HI
 
     secret
     testpkg-done
+
+::
+
 
 ::
 

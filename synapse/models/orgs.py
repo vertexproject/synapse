@@ -624,6 +624,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Location for an organization.'
                     }),
                     ('name', ('ou:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The localized name of an organization.',
                     }),
                     ('type', ('str', {'lower': True, 'strip': True}), {

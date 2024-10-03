@@ -3742,6 +3742,12 @@ class MergeCmd(Cmd):
           expressions for specifying tags. For more information on tag glob
           expressions, check the Synapse documentation for $node.globtags().
 
+    NOTE: If --wipe is specified, and there are nodes that cannot be merged,
+          they will be skipped (with a warning printed) and removed when
+          the top layer is replaced. This should occur infrequently, for example,
+          when a form is locked due to deprecation, a form no longer exists,
+          or the data at rest fails normalization.
+
     Examples:
 
         // Having tagged a new #cno.mal.redtree subgraph in a forked view...
@@ -4087,10 +4093,20 @@ class MergeCmd(Cmd):
                         await runt.printf(f'{nodeiden} {form} = {node.repr()}')
                     else:
                         delnode = True
-                        protonode = await editor.addNode(form, valu[0])
+                        try:
+                            protonode = await editor.addNode(form, valu[0])
+                        except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
+                            await runt.warn(e.errinfo.get('mesg'))
+                            await asyncio.sleep(0)
+                            continue
 
                 elif doapply:
-                    protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                    try:
+                        protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                    except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
+                        await runt.warn(e.errinfo.get('mesg'))
+                        await asyncio.sleep(0)
+                        continue
 
                 for name, (valu, stortype) in sode.get('props', {}).items():
 
@@ -4144,7 +4160,12 @@ class MergeCmd(Cmd):
                             subs.append((s_layer.EDIT_PROP_TOMB_DEL, (name,)))
 
             if doapply and protonode is None:
-                protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                try:
+                    protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                except (s_exc.BadTypeValu, s_exc.IsDeprLocked) as e:
+                    await runt.warn(e.errinfo.get('mesg'))
+                    await asyncio.sleep(0)
+                    continue
 
             if not notags:
                 for tag, valu in sode.get('tags', {}).items():
