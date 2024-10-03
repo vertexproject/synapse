@@ -723,7 +723,7 @@ CSV Tool or the Optic Ingest Tool).
 
 For users who need to create one-off guid forms, this process can be simpilfied via custom Storm commands
 (such as the ``gen.*`` commands) or automation (such as a macro that performs the necessary deconfliction
-and node creation, if a ``gen.*`` command is not avaiilable).
+and node creation, if a ``gen.*`` command is not available).
 
 **Predictable guids** used on their own (i.e., without first performing secondary property deconfliction)
 may be sufficient in some cases. For example, for data sources that are unique you can use predictable guids
