@@ -102,6 +102,7 @@ class Migrator(s_base.Base):
             'biz:dealtype': (self.rename, {'name': 'biz:deal:type:taxonomy'}),
             'biz:prodtype': (self.rename, {'name': 'biz:product:type:taxonomy'}),
             'geo:place:taxonomy': (self.rename, {'name': 'geo:place:type:taxonomy'}),
+            'inet:url': (self.renorm, {'name': 'inet:url'}),
             'it:prod:hardwaretype': (self.rename, {'name': 'it:prod:hardware:type:taxonomy'}),
             'mat:type': (self.rename, {'name': 'mat:item:type:taxonomy'}),
             'media:news:taxonomy': (self.rename, {'name': 'media:news:type:taxonomy'}),
@@ -172,11 +173,10 @@ class Migrator(s_base.Base):
         ])
 
     def rename(self, valu, opts):
-        return valu
+        return valu, {}
 
     def renorm(self, valu, opts):
-        norm = opts['type'].norm(valu)
-        return norm[0]
+        return opts['type'].norm(valu)
 
     async def _chkValid(self):
         '''
@@ -281,10 +281,10 @@ class Migrator(s_base.Base):
                     buid = triginfo.pop('buid')
 
                     if (nid := self.getNidByBuid(buid)) is None:
-                        if (newv := self.migrslab.get(buid, db=self.migrbuids)) is None:
+                        if (newv := self.migrslab.get(buid, db=self.migrinfo)) is None:
                             view.trigqueue.pop(offs)
                             continue
-                        (nid, buid, form, valu) = s_msgpack.un(newv)
+                        nid = s_msgpack.un(newv)[0]
 
                     triginfo['nid'] = nid
                     view.trigqueue.put(triginfo, indx=offs)
@@ -300,7 +300,8 @@ class Migrator(s_base.Base):
                 self.migrslab = await s_lmdbslab.Slab.anit(path, map_async=True, readonly=False)
             self.migrdb = self.migrslab.initdb('migr')
             self.unkbuids = self.migrslab.initdb('unkbuids')
-            self.migrbuids = self.migrslab.initdb('migrbuids')
+            self.migrinfo = self.migrslab.initdb('migrinfo')
+            self.migrnids = self.migrslab.initdb('migrnids')
             self.onfini(self.migrslab.fini)
 
         # open cell
@@ -479,7 +480,7 @@ class Migrator(s_base.Base):
                 for buid, form, edits in nodeedits:
                     if (nid := self.getNidByBuid(buid)) is None:
                         if form in self.formmigr:
-                            if (newv := self.migrslab.get(buid, db=self.migrbuids)) is None:
+                            if (newv := self.migrslab.get(buid, db=self.migrinfo)) is None:
                                 # this is a buid for a migrated form which has no value
                                 # in any layers so we cannot compute the new buid
                                 continue
@@ -500,7 +501,7 @@ class Migrator(s_base.Base):
                             (verb, n2iden) = edit
                             n2buid = s_common.uhex(n2iden)
                             if (n2nid := self.getNidByBuid(n2buid)) is None:
-                                if (newv := self.migrslab.get(n2buid, db=self.migrbuids)) is not None:
+                                if (newv := self.migrslab.get(n2buid, db=self.migrinfo)) is not None:
                                     n2nid = s_msgpack.un(newv)[0]
 
                             if n2nid is None:
@@ -808,7 +809,7 @@ class Migrator(s_base.Base):
 
                     if migr is not None:
                         try:
-                            valu = migrfunc(valu, migropts)
+                            valu, norminfo = migrfunc(valu, migropts)
                         except:
                             print(f'Failed to migrate value for {form}={valu}')
                             continue
@@ -817,8 +818,9 @@ class Migrator(s_base.Base):
                         nid = self._genIndxNid(newbuid, (newform, valu))
 
                         if newbuid != buid:
-                            migv = s_msgpack.en((nid, newbuid, newform, valu))
-                            self.migrslab.put(buid, migv, db=self.migrbuids)
+                            migv = s_msgpack.en((nid, newbuid, newform, valu, norminfo))
+                            self.migrslab.put(buid, migv, db=self.migrinfo)
+                            self.migrslab.put(nid, b'\x01', db=self.migrnids)
                     else:
                         self._genIndxNid(buid, (newform, valu))
 
@@ -834,13 +836,14 @@ class Migrator(s_base.Base):
         pass
 
     async def _migrLayer(self, layr):
-        async for nodeedits in self.translateLayerNodeEdits(layr.iden):
-            await layr._storNodeEdits([nodeedits], None, None)
+        async for nodeedits in self.translateLayerNodeEdits(layr):
+            await layr._storNodeEdits(nodeedits, None, None)
 
-    async def translateLayerNodeEdits(self, iden):
+    async def translateLayerNodeEdits(self, layr):
         '''
         Scan the full layer and yield artificial sets of nodeedits in 3.x format.
         '''
+        iden = layr.iden
         path = os.path.join(self.src, 'layers', iden, 'layer_v2.lmdb')
         nodedatapath = os.path.join(self.src, 'layers', iden, 'nodedata.lmdb')
         layrkey = s_common.uhex(iden)
@@ -853,6 +856,8 @@ class Migrator(s_base.Base):
             bybuidv3 = layrslab.initdb('bybuidv3')
             nodedata = dataslab.initdb('nodedata')
             propabrv = layrslab.getNameAbrv('propabrv')
+
+            migrsubs = set()
 
             for buid, byts in layrslab.scanByFull(bybuidv3):
 
@@ -872,8 +877,8 @@ class Migrator(s_base.Base):
                     if migr[0] is None:
                         continue
 
-                    if (newv := self.migrslab.get(buid, db=self.migrbuids)) is not None:
-                        (nid, buid, form, valu) = s_msgpack.un(newv)
+                    if (newv := self.migrslab.get(buid, db=self.migrinfo)) is not None:
+                        (nid, buid, form, valu, norminfo) = s_msgpack.un(newv)
                     else:
                         # this is a buid for a migrated form which has no value
                         # in any layers so we cannot compute the new buid
@@ -898,8 +903,17 @@ class Migrator(s_base.Base):
                         print(sode)
                     edits.append((s_layer.EDIT_NODE_ADD, (valu, stortype)))
 
+                    if migr is not None and (subs := norminfo.get('subs')) is not None:
+                        migrsubs.clear()
+                        for subn, subv in subs.items():
+                            migrsubs.add(subn)
+                            stortype = self.model.prop(f'{form}:{subn}').type.stortype
+                            edits.append((s_layer.EDIT_PROP_SET, (subn, subv, None, stortype)))
+
                 propmigr = self.propmigr.get(form)
                 for prop, (valu, stortype) in sode.get('props', {}).items():
+                    if prop in migrsubs:
+                        continue
 
                     if propmigr and (pmig := propmigr.get(prop)) is not None:
                         (pmigfunc, pmigopts) = pmig
@@ -907,7 +921,7 @@ class Migrator(s_base.Base):
                             continue
 
                         try:
-                            valu = pmigfunc(valu, pmigopts)
+                            valu, norminfo = pmigfunc(valu, pmigopts)
                         except:
                             print(f'Failed to migrate value for {form}:{prop}={valu}')
                             continue
@@ -920,7 +934,7 @@ class Migrator(s_base.Base):
                         if (migr := self.formmigr.get(nform)) is not None:
                             (migrfunc, migropts) = migr
                             try:
-                                valu = (migropts['name'], migrfunc(nvalu, migropts))
+                                valu = (migropts['name'], migrfunc(nvalu, migropts)[0])
                             except:
                                 print(f'Failed to migrate value for {form}:{prop}={valu}')
                                 continue
@@ -944,9 +958,9 @@ class Migrator(s_base.Base):
                     verb = lkey[32:].decode()
 
                     if (n2nid := self.getNidByBuid(n2buid)) is None:
-                        if (newv := self.migrslab.get(n2buid, db=self.migrbuids)) is None:
+                        if (newv := self.migrslab.get(n2buid, db=self.migrinfo)) is None:
                             continue
-                        (n2nid, _, n2form, _) = s_msgpack.un(newv)
+                        (n2nid, _, n2form, _, _) = s_msgpack.un(newv)
                     else:
                         n2form = self.getNidNdef(n2nid)[0]
 
@@ -961,6 +975,9 @@ class Migrator(s_base.Base):
 
                     edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2nid)))
 
+                if self.migrslab.get(nid, db=self.migrnids) is not None:
+                    yield await layr.calcEdits([(nid, form, edits)], {})
+                    continue
 
 #                if newedits:
 #                    newnodeedits.append((nid, form, newedits))
@@ -968,7 +985,7 @@ class Migrator(s_base.Base):
 #                if newnodeedits:
 #                    await dstlog.add((nexsiden, event, (newnodeedits, meta), kwargs, meta, etime), indx=offs)
 
-                yield (nid, form, edits)
+                yield [(nid, form, edits)]
 
     async def _migrlogAdd(self, migrop, logtyp, key, val):
         '''
