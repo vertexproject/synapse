@@ -727,7 +727,7 @@ and node creation, if a ``gen.*`` command is not available).
 
 **Predictable guids** used on their own (i.e., without first performing secondary property deconfliction)
 may be sufficient in some cases. For example, for data sources that are unique you can use predictable guids
-to ensure that individual nodes created in a repeatable way (in case you need to reingest the same data)
+to ensure that individual nodes are created in a repeatable way (in case you need to reingest the same data)
 without worrying about deconfliction (because there is no alternate source for the same data to deconflict
 with). Internal log or alert data are examples of this type of "single source" data.
 
