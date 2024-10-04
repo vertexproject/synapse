@@ -277,6 +277,7 @@ class StormTypesRegistry:
                 'desc': getDoc(slib, sname),
                 'locals': locs,
                 'path': ('lib',) + slib._storm_lib_path,
+                'deprecated': slib._storm_lib_deprecation,
             }
             for info in sorted(slib._storm_locals, key=lambda x: x.get('name')):
                 info = s_msgpack.deepcopy(info)
@@ -509,6 +510,7 @@ class Lib(StormType):
     _storm_query = None
     _storm_typename = 'lib'
     _storm_lib_perms = ()
+    _storm_lib_deprecation = None
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -2659,6 +2661,7 @@ class LibBytes(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('bytes',)
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
 
     def getObjLocals(self):
         return {
@@ -5005,6 +5008,7 @@ class List(Prim):
                   ),
                   'returns': {'type': 'any', 'desc': 'The item present in the list at the index position.', }}},
         {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methListLength',
                   'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'append', 'desc': 'Append a value to the list.',
