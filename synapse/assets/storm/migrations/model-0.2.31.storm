@@ -38,14 +38,22 @@ function getRefInfo(formname) {
     }
 }
 
+$roPropCache = ({})
+
 function getRoProps(form) {
+    $cached = $roPropCache.$form
+    if $cached { return($cached) }
+
     $ret = ([])
 
     syn:prop:form=$form
     +:ro=(true)
     $ret.append(:base)
 
-    fini { return($ret) }
+    fini {
+        $roPropCache.$form = $ret
+        return($ret)
+    }
 }
 
 function _storeNode(n, viewiden, layriden) {
@@ -66,13 +74,13 @@ function _storeNode(n, viewiden, layriden) {
         "edits": ([]),
     })
 
-    $lib.log.debug(`Saving invalid {$form} node info: {$repr}`)
+    $lib.log.debug(`Saving invalid {$form} node info: {$repr}`, extra=({'iden': $iden}))
 
     $refinfos = $getRefInfo($form)
 
     $references = ([])
 
-    // This loop recursively removes all the references to the node about to be deleted
+    // This loop recursively stores all the references to the node about to be deleted
     for $view in $views {
         if (not $layers.has($view.layers.0.iden)) { continue }
 
@@ -131,7 +139,8 @@ function _storeNode(n, viewiden, layriden) {
         if (not $layers.has($rview.layers.0.iden)) { continue }
 
         view.exec $rview.iden {
-            $layer = $rview.layers.0
+            $layer = $lib.layer.get()
+            $_viewiden = $lib.view.get().iden
 
             $edit = ({})
 
@@ -158,7 +167,7 @@ function _storeNode(n, viewiden, layriden) {
             }
 
             if $edit {
-                $edit.view = $rview.iden
+                $edit.view = $_viewiden
                 $edit.layer = $layer.iden
                 $edits.append($edit)
             }
@@ -180,7 +189,7 @@ function _storeNode(n, viewiden, layriden) {
                     "node": $dst,
                     "direction": "n1",
                     "layer": $layer.iden,
-                    "view": $rview.iden,
+                    "view": $_viewiden,
                 })
 
                 $edges.append($edge)
@@ -202,7 +211,7 @@ function _storeNode(n, viewiden, layriden) {
                     "node": $src,
                     "direction": "n2",
                     "layer": $layer.iden,
-                    "view": $rview.iden,
+                    "view": $_viewiden,
                 })
 
                 $edges.append($edge)
@@ -260,7 +269,7 @@ function removeNode(n, viewiden, layriden) {
     $form = $n.form()
     $ndef = $n.ndef()
 
-    $lib.log.debug(`Removing invalid {$form} node info: {$repr}`)
+    $lib.log.debug(`Removing invalid {$form} node info: {$repr}`, extra=({'iden': $iden}))
 
     $refinfos = $getRefInfo($form)
 
@@ -286,7 +295,7 @@ function removeNode(n, viewiden, layriden) {
                 for $refnode in $lib.model.migration.liftByPropValuNoNorm($formname, $propname, $oldvalu) {
                     if $isro {
                         // The property is readonly so we can only delete it
-                        $lib.log.warning(`{$formname}:{$propname} is readonly, cannot modify. Storing node: {$node.repr()}`)
+                        $lib.log.warning(`{$formname}:{$propname} is readonly, cannot modify. Storing node: {$node.repr()}`, extra=({'iden': $node.iden()}))
                         $removeNode($refnode, $_viewiden, $_layriden)
                         | delnode |
                         continue
@@ -316,7 +325,7 @@ function removeNode(n, viewiden, layriden) {
         }
     }
 
-    // This loop stores all the edits and edges from every layer
+    // This loop removes all the edits and edges from every layer
     for $rview in $rviews {
         if (not $layers.has($rview.layers.0.iden)) { continue }
 
@@ -358,7 +367,7 @@ function migrateCpeNode(oldcpe, newcpe) {
 
                     if $isro {
                         // The property is readonly so we can only delete it
-                        $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Storing node: {$node.repr()}`)
+                        $lib.log.warning(`{$form}:{$prop} is readonly, cannot modify. Storing node: {$node.repr()}`, extra=({'iden': $node.iden()}))
                         $removeNode($node, $_viewiden, $_layriden)
                         | delnode
                         continue
@@ -389,9 +398,6 @@ function migrateCpeNode(oldcpe, newcpe) {
     return()
 }
 
-// This is a separate function because I was getting weird bugs from scoping
-// issues. Mainly, the $view variable being overwritten because this code was
-// scoped to the whole script.
 function main() {
 
     // Delete invalid floating :v2_2 props in all views
@@ -400,7 +406,7 @@ function main() {
 
         view.exec $rview.iden {
 
-            for $sode in $rview.layers.0.getStorNodesByForm(it:sec:cpe) {
+            for $sode in $lib.layer.get().getStorNodesByForm(it:sec:cpe) {
                 ($buid, $info) = $sode
 
                 // If the valu is present on the sode, this is a full node in this view, go around
@@ -446,7 +452,7 @@ function main() {
                      * all the views to fix the references.
                      */
 
-                    $lib.log.debug(`Migrating invalid it:sec:cpe node: {$oldcpe.repr()} -> {$info.valu}`)
+                    $lib.log.debug(`Migrating invalid it:sec:cpe node: {$oldcpe.repr()} -> {$info.valu}`, extra=({'iden': $oldcpe.iden()}))
 
                     [ it:sec:cpe=$info.valu
                         .seen ?= $oldcpe.props.".seen"
