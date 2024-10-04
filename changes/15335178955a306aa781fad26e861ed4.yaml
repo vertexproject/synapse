@@ -1,5 +1,5 @@
 ---
-desc: Tag add operations with the try syntax ( ``+?#`` ) now catches BadTag exceptions
+desc: Tag add operations with the try syntax ( ``+?#`` ) now catch BadTag exceptions
   raised by tags which are not valid for a defined tag model.
 prs: []
 type: bug
