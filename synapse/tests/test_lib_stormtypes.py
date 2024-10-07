@@ -576,11 +576,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq(('o', 'o', 'b', 'a'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1, 5))'))
             self.eq(('o', 'o', 'b', 'a', 'r'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1))'))
 
-            self.true(await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).0)'))
-            self.false(await core.callStorm('return($lib.trycast(inet:ipv4, asdf).0)'))
+            self.true(await core.callStorm('return($lib.trycast(inet:ip, 1.2.3.4).0)'))
+            self.false(await core.callStorm('return($lib.trycast(inet:ip, asdf).0)'))
 
-            self.eq(None, await core.callStorm('return($lib.trycast(inet:ipv4, asdf).1)'))
-            self.eq(0x01020304, await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).1)'))
+            self.eq(None, await core.callStorm('return($lib.trycast(inet:ip, asdf).1)'))
+            self.eq((4, 0x01020304), await core.callStorm('return($lib.trycast(inet:ip, 1.2.3.4).1)'))
 
             # trycast/cast a property instead of a form/type
             flow = json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
@@ -870,7 +870,7 @@ class StormTypesTest(s_test.SynTest):
 
             self.none(await s_stormtypes.tobuidhex(None, noneok=True))
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(nodes[0]))
             stormnode = s_stormtypes.Node(nodes[0])
             self.eq(nodes[0].iden(), await s_stormtypes.tobuidhex(stormnode))
@@ -880,18 +880,18 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[ ou:org=* ou:org=* ]', opts=opts)
             self.eq(2, await core.callStorm('return($lib.len($lib.layer.get().getStorNodes()))', opts=opts))
 
-            await core.nodes('[ media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ipv4=1.2.3.4 } ]')
+            await core.nodes('[ media:news=c0dc5dc1f7c3d27b725ef3015422f8e2 +(refs)> { inet:ip=1.2.3.4 } ]')
             edges = await core.callStorm('''
                 $edges = ([])
                 media:news=c0dc5dc1f7c3d27b725ef3015422f8e2
                 for $i in $lib.layer.get().getEdgesByN1($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
-            self.eq([('refs', '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f')], edges)
+            self.eq([('refs', '6ff89ac24110dec0216d5ce85382056ed50f508dbf718764039f061fc190b3c8')], edges)
 
             edges = await core.callStorm('''
                 $edges = ([])
-                inet:ipv4=1.2.3.4
+                inet:ip=1.2.3.4
                 for $i in $lib.layer.get().getEdgesByN2($node.iden()) { $edges.append($i) }
                 fini { return($edges) }
             ''')
@@ -904,7 +904,7 @@ class StormTypesTest(s_test.SynTest):
             ''')
             self.isin(('ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528',
                        'refs',
-                       '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
+                       '6ff89ac24110dec0216d5ce85382056ed50f508dbf718764039f061fc190b3c8'), edges)
 
             msgs = await core.stormlist('$lib.print($lib.null)')
             self.stormIsInPrint('$lib.null', msgs)
@@ -962,7 +962,7 @@ class StormTypesTest(s_test.SynTest):
             self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
             with self.raises(s_exc.BadArg):
-                await core.schedCoro(core.stormlist('inet:ipv4', opts={'task': iden}))
+                await core.schedCoro(core.stormlist('inet:ip', opts={'task': iden}))
 
             # Verify that the long query got truncated
             msgs = await core.stormlist('ps.list')
@@ -1104,7 +1104,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('''
                 function foo(x) {
                     return(${
-                        [ inet:ipv4=$x ]
+                        [ inet:ip=$x ]
                     })
                 }
 
@@ -1115,11 +1115,11 @@ class StormTypesTest(s_test.SynTest):
                 -> { yield $genr }
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
             nodes = await core.nodes('''
                 function foo(x) {
-                    return( ${ [ inet:ipv4=$x ] } )
+                    return( ${ [ inet:ip=$x ] } )
                 }
 
                 [it:dev:str=5.5.5.5]
@@ -1128,10 +1128,10 @@ class StormTypesTest(s_test.SynTest):
 
                 $genr.exec()
             ''')
-            self.len(1, await core.nodes('inet:ipv4=5.5.5.5'))
+            self.len(1, await core.nodes('inet:ip=5.5.5.5'))
 
             msgs = await core.stormlist('''
-                $embed = ${[inet:ipv4=1.2.3.4]}
+                $embed = ${[inet:ip=1.2.3.4]}
                 for $xnode in $embed {
                     $lib.print($xnode.repr())
                 }
@@ -1679,16 +1679,16 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             opts = {'user': visi.iden, 'vars': {'iden': nodes[0].iden()}}
             sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
-            self.eq(sode['form'], 'inet:ipv4')
-            self.eq(sode['valu'], (0x01020304, 4))
+            self.eq(sode['form'], 'inet:ip')
+            self.eq(sode['valu'], ((4, 0x01020304), 26))
 
             opts = {'user': visi.iden, 'vars': {'nid': s_common.int64un(nodes[0].nid)}}
             sode = await core.callStorm('return($lib.layer.get().getStorNodeByNid($nid))', opts=opts)
-            self.eq(sode['form'], 'inet:ipv4')
-            self.eq(sode['valu'], (0x01020304, 4))
+            self.eq(sode['form'], 'inet:ip')
+            self.eq(sode['valu'], ((4, 0x01020304), 26))
 
             # check auth deny...
             layriden = await core.callStorm('return($lib.view.get().fork().layers.0.iden)')
@@ -1714,8 +1714,8 @@ class StormTypesTest(s_test.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.callStorm('[inet:ipv4=1.2.3.4 +#foo=2021 +#foo:score=9001]')
-            q = 'inet:ipv4 $lib.fire(msg:pack, sode=$node.getStorNodes())'
+            await core.callStorm('[inet:ip=1.2.3.4 +#foo=2021 +#foo:score=9001]')
+            q = 'inet:ip $lib.fire(msg:pack, sode=$node.getStorNodes())'
             gotn = [mesg async for mesg in core.storm(q) if mesg[0] == 'storm:fire']
             self.len(1, gotn)
             self.eq(gotn[0][1]['data']['sode'][0]['tagprops'], {'foo': {'score': (9001, 9)}})
@@ -1723,7 +1723,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_node_repr(self):
         text = '''
-            [ inet:ipv4=1.2.3.4 :loc=us]
+            [ inet:ip=1.2.3.4 :loc=us]
             $ipv4 = $node.repr()
             $loc = $node.repr(loc)
             $latlong = $node.repr(latlong, defv="??")
@@ -1737,12 +1737,12 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], '1.2.3.4 in us at ??')
 
-            mesgs = await core.stormlist('inet:ipv4 $repr=$node.repr(newp)')
+            mesgs = await core.stormlist('inet:ip $repr=$node.repr(newp)')
 
             err = mesgs[-2][1]
             self.eq(err[0], 'NoSuchProp')
             self.eq(err[1].get('prop'), 'newp')
-            self.eq(err[1].get('form'), 'inet:ipv4')
+            self.eq(err[1].get('form'), 'inet:ip')
 
     async def test_storm_csv(self):
         async with self.getTestCore() as core:
@@ -1799,12 +1799,12 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.nodes('[inet:ipv4=1.2.3.4 :asn=20]')
-            await core.nodes('[inet:ipv4=5.6.7.8 :asn=30]')
+            await core.nodes('[inet:ip=1.2.3.4 :asn=20]')
+            await core.nodes('[inet:ip=5.6.7.8 :asn=30]')
 
             q = '''
                 $set = $lib.set()
-                inet:ipv4 $set.add(:asn)
+                inet:ip $set.add(:asn)
                 [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
@@ -1813,7 +1813,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.set()
-                inet:ipv4 $set.adds((:asn,:asn))
+                inet:ip $set.adds((:asn,:asn))
                 [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
             nodes = await core.nodes(q)
@@ -1822,7 +1822,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.set()
-                inet:ipv4 $set.adds((:asn,:asn))
+                inet:ip $set.adds((:asn,:asn))
                 { +:asn=20 $set.rem(:asn) }
                 [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
@@ -1832,7 +1832,7 @@ class StormTypesTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.set()
-                inet:ipv4 $set.add(:asn)
+                inet:ip $set.add(:asn)
                 $set.rems((:asn,:asn))
                 [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
@@ -1989,7 +1989,7 @@ class StormTypesTest(s_test.SynTest):
                 init {
                     $set = $lib.set()
                 }
-                inet:ipv4
+                inet:ip
 
                 $set.add($node)
                 $set.add($node)
@@ -2161,7 +2161,7 @@ class StormTypesTest(s_test.SynTest):
 
             # path
             q = '''
-                inet:ipv4
+                inet:ip
                 $set = $lib.set()
                 $set.add($path)
             '''
@@ -2170,7 +2170,7 @@ class StormTypesTest(s_test.SynTest):
 
             # PathMeta
             q = '''
-                inet:ipv4
+                inet:ip
                 $set = $lib.set()
                 $meta = $path.meta
                 $set.add($meta)
@@ -2180,7 +2180,7 @@ class StormTypesTest(s_test.SynTest):
 
             # pathvars
             q = '''
-                inet:ipv4
+                inet:ip
                 $set = $lib.set()
                 $vars = $path.vars
                 $set.add($vars)
@@ -2234,15 +2234,15 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
             q = '''
-                inet:fqdn=vertex.link -> inet:dns:a -> inet:ipv4
+                inet:fqdn=vertex.link -> inet:dns:a -> inet:ip
                 $idens = $path.idens()
                 [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$idens ]
             '''
 
             idens = (
-                '02488bc284ffd0f60f474d5af66a8c0cf89789f766b51fde1d3da9b227005f47',
-                '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+                '02883f0e6b303c824b91d40ecddb609b2f03df4274a71758d0e5d3d01c5ee16e',
                 '3ecd51e142a5acfcde42c02ff5c68378bfaf1eaf49fe9721550b6e7d6013b699',
+                '6ff89ac24110dec0216d5ce85382056ed50f508dbf718764039f061fc190b3c8',
             )
 
             nodes = await core.nodes(q)
@@ -2708,19 +2708,19 @@ class StormTypesTest(s_test.SynTest):
             core.dmon.share('fake', fake)
             lurl = core.getLocalUrl(share='fake')
 
-            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
+            await core.nodes('[ inet:ip=1.2.3.4 :asn=20 ]')
 
             varz = {'url': lurl}
             opts = {'vars': varz}
 
-            q = '[ inet:ipv4=1.2.3.4 :asn=20 ] $asn = $lib.telepath.open($url).doit(:asn) [ :asn=$asn ]'
+            q = '[ inet:ip=1.2.3.4 :asn=20 ] $asn = $lib.telepath.open($url).doit(:asn) [ :asn=$asn ]'
             nodes = await core.nodes(q, opts=opts)
             self.eq(40, nodes[0].get('asn'))
 
             nodes = await core.nodes('for $fqdn in $lib.telepath.open($url).fqdns() { [ inet:fqdn=$fqdn ] }', opts=opts)
             self.len(2, nodes)
 
-            nodes = await core.nodes('for $ipv4 in $lib.telepath.open($url).ipv4s() { [ inet:ipv4=$ipv4 ] }', opts=opts)
+            nodes = await core.nodes('for $ipv4 in $lib.telepath.open($url).ipv4s() { [ inet:ip=$ipv4 ] }', opts=opts)
             self.len(2, nodes)
 
             with self.raises(s_exc.NoSuchName):
@@ -2772,13 +2772,13 @@ class StormTypesTest(s_test.SynTest):
             name = await core.callStorm('$q = $lib.queue.get(visi) return ($q.name)')
             self.eq(name, 'visi')
 
-            nodes = await core.nodes('$q = $lib.queue.get(visi) [ inet:ipv4=1.2.3.4 ] $q.put( $node.repr() )')
-            nodes = await core.nodes('$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ipv4=$ipv4')
+            nodes = await core.nodes('$q = $lib.queue.get(visi) [ inet:ip=1.2.3.4 ] $q.put( $node.repr() )')
+            nodes = await core.nodes('$q = $lib.queue.get(visi) ($offs, $ipv4) = $q.get(0) inet:ip=$ipv4')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
             # test iter use case
-            q = '$q = $lib.queue.add(blah) [ inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5 ] $q.put( $node.repr() )'
+            q = '$q = $lib.queue.add(blah) [ inet:ip=1.2.3.4 inet:ip=5.5.5.5 ] $q.put( $node.repr() )'
             nodes = await core.nodes(q)
             self.len(2, nodes)
 
@@ -2788,7 +2788,7 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('''
                 $q = $lib.queue.get(blah)
                 for ($offs, $ipv4) in $q.gets(0, wait=0) {
-                    inet:ipv4=$ipv4
+                    inet:ip=$ipv4
                 }
             ''')
             self.len(2, nodes)
@@ -2796,13 +2796,13 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('''
                 $q = $lib.queue.get(blah)
                 for ($offs, $ipv4) in $q.gets(wait=0) {
-                    inet:ipv4=$ipv4
+                    inet:ip=$ipv4
                     $q.cull($offs)
                 }
             ''')
             self.len(2, nodes)
 
-            q = '$q = $lib.queue.get(blah) for ($offs, $ipv4) in $q.gets(wait=0) { inet:ipv4=$ipv4 }'
+            q = '$q = $lib.queue.get(blah) for ($offs, $ipv4) in $q.gets(wait=0) { inet:ip=$ipv4 }'
             nodes = await core.nodes(q)
             self.len(0, nodes)
 
@@ -2961,7 +2961,7 @@ class StormTypesTest(s_test.SynTest):
             asvisi['view'] = view
             layr = core.getView(view).layers[0]
             await visi.addRule((True, ('node',)), gateiden=layr.iden)
-            await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(woot, (10))', opts=asvisi)
+            await core.nodes('[ inet:ip=1.2.3.4 ] $node.data.set(woot, (10))', opts=asvisi)
 
             # test interaction between LibLift and setting node data
             q = '''
@@ -4067,10 +4067,10 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'vars': {'props': {'asn': 'asdf'}}}
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('yield $lib.view.get().addNode(inet:ipv4, 1.2.3.4, props=$props)', opts=opts)
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+                await core.nodes('yield $lib.view.get().addNode(inet:ip, 1.2.3.4, props=$props)', opts=opts)
+            self.len(0, await core.nodes('inet:ip=1.2.3.4'))
             opts = {'vars': {'props': {'asn': '1234'}}}
-            nodes = await core.nodes('yield $lib.view.get().addNode(inet:ipv4, 1.2.3.4, props=$props)', opts=opts)
+            nodes = await core.nodes('yield $lib.view.get().addNode(inet:ip, 1.2.3.4, props=$props)', opts=opts)
             self.eq(1234, nodes[0].get('asn'))
 
         # view.addNode() behavior
@@ -4294,7 +4294,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('trigger.add tug:udd --prop another:newp --query {[ +#count2 ]}')
             self.stormIsInErr('data.cond must be one of', mesgs)
 
-            mesgs = await core.stormlist('trigger.add tag:add --form inet:ipv4 --tag test')
+            mesgs = await core.stormlist('trigger.add tag:add --form inet:ip --tag test')
             self.stormIsInErr('Missing a required option: --query', mesgs)
 
             mesgs = await core.stormlist('trigger.add node:add --form test:str --tag foo --query {test:str}')
@@ -5181,26 +5181,26 @@ class StormTypesTest(s_test.SynTest):
 
             self.nn(visi.profile.get('cortex:view'))
 
-            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts=opts))
+            self.len(1, await core.nodes('[ inet:ip=1.2.3.4 ]', opts=opts))
 
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4'))
 
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts=opts))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4', opts={'user': visi.iden, 'view': core.view.iden}))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4', opts=opts))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4', opts={'user': visi.iden, 'view': core.view.iden}))
 
             async with core.getLocalProxy(user='visi') as prox:
-                self.eq(1, await prox.count('inet:ipv4=1.2.3.4'))
-                self.eq(0, await prox.count('inet:ipv4=1.2.3.4', opts={'view': core.view.iden}))
+                self.eq(1, await prox.count('inet:ip=1.2.3.4'))
+                self.eq(0, await prox.count('inet:ip=1.2.3.4', opts={'view': core.view.iden}))
 
             async with core.getLocalProxy(user='root') as prox:
-                self.eq(0, await prox.count('inet:ipv4=1.2.3.4'))
+                self.eq(0, await prox.count('inet:ip=1.2.3.4'))
 
     async def test_storm_lib_lift(self):
 
         async with self.getTestCore() as core:
 
-            await core.nodes('[ inet:ipv4=5.5.5.5 ]')
-            await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.data.set(hehe, haha) $node.data.set(lulz, rofl)')
+            await core.nodes('[ inet:ip=5.5.5.5 ]')
+            await core.nodes('[ inet:ip=1.2.3.4 ] $node.data.set(hehe, haha) $node.data.set(lulz, rofl)')
 
             nodes = await core.nodes('yield $lib.lift.byNodeData(newp) $node.data.load(lulz)')
             self.len(0, nodes)
@@ -5209,7 +5209,7 @@ class StormTypesTest(s_test.SynTest):
             podes = [n[1] for n in msgs if n[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
-            self.eq(('inet:ipv4', 0x01020304), pode[0])
+            self.eq(('inet:ip', (4, 0x01020304)), pode[0])
 
             # nodedata must still be specifically loaded even when lifting by data name
             self.none(pode[1]['nodedata'].get('hehe'))
@@ -5219,7 +5219,7 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('haha', msgs)
 
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.data.pop(hehe)')
+            nodes = await core.nodes('inet:ip=1.2.3.4 $node.data.pop(hehe)')
             self.len(0, await core.nodes('yield $lib.lift.byNodeData(hehe)'))
 
     async def test_stormtypes_node(self):
@@ -5231,37 +5231,37 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', iden))
             self.len(1, nodes)
 
-            await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 ]')
-            self.eq(20, await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.get(asn))'))
-            self.isin(('asn', 20), await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.list())'))
+            await core.nodes('[ inet:ip=1.2.3.4 :asn=20 ]')
+            self.eq(20, await core.callStorm('inet:ip=1.2.3.4 return($node.props.get(asn))'))
+            self.isin(('asn', 20), await core.callStorm('inet:ip=1.2.3.4 return($node.props.list())'))
 
             fakeuser = await core.auth.addUser('fakeuser')
             opts = {'user': fakeuser.iden}
             with self.raises(s_exc.NoSuchProp):
-                await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(lolnope, 42))')
+                await core.callStorm('inet:ip=1.2.3.4 return($node.props.set(lolnope, 42))')
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
+                await core.callStorm('inet:ip=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('inet:ipv4=1.2.3.4 $node.props."dns:rev" = "vertex.link"', opts=opts)
+                await core.callStorm('inet:ip=1.2.3.4 $node.props."dns:rev" = "vertex.link"', opts=opts)
 
             await fakeuser.addRule((True, ('node', 'prop', 'set')))
-            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
+            retn = await core.callStorm('inet:ip=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
             self.true(retn)
-            node = await core.nodes('inet:ipv4=1.2.3.4')
+            node = await core.nodes('inet:ip=1.2.3.4')
             self.eq(node[0].get('dns:rev'), 'vertex.link')
 
-            retn = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props.set(dns:rev, "foo.bar.com"))', opts=opts)
+            retn = await core.callStorm('inet:ip=1.2.3.4 return($node.props.set(dns:rev, "foo.bar.com"))', opts=opts)
             self.true(retn)
-            node = await core.nodes('inet:ipv4=1.2.3.4')
+            node = await core.nodes('inet:ip=1.2.3.4')
             self.eq(node[0].get('dns:rev'), 'foo.bar.com')
 
-            props = await core.callStorm('inet:ipv4=1.2.3.4 return($node.props)')
+            props = await core.callStorm('inet:ip=1.2.3.4 return($node.props)')
             self.eq(20, props['asn'])
 
-            self.eq(0x01020304, await core.callStorm('inet:ipv4=1.2.3.4 return($node)'))
+            self.eq((4, 0x01020304), await core.callStorm('inet:ip=1.2.3.4 return($node)'))
 
             with self.raises(s_exc.StormRuntimeError) as cm:
-                _ = await core.nodes('inet:ipv4=1.2.3.4 $lib.print($lib.len($node))')
+                _ = await core.nodes('inet:ip=1.2.3.4 $lib.print($lib.len($node))')
             self.eq(cm.exception.get('mesg'), 'Object synapse.lib.node.Node does not have a length.')
 
             nodes = await core.nodes('[test:guid=(beep,)] $node.props.size="12"')
@@ -5281,17 +5281,17 @@ class StormTypesTest(s_test.SynTest):
                 self.true(await core.callStorm('[test:guid=(beep,)] $node.props.size=(foo, bar)'))
 
             with self.raises(s_exc.AuthDeny):
-                await core.callStorm('inet:ipv4=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
+                await core.callStorm('inet:ip=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
 
-            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            nodes = await core.nodes('inet:ip=1.2.3.4')
             self.nn(nodes[0].get('dns:rev'))
 
             await fakeuser.addRule((True, ('node', 'prop', 'del')))
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
+            nodes = await core.nodes('inet:ip=1.2.3.4 $node.props."dns:rev" = $lib.undef', opts=opts)
             self.none(nodes[0].get('dns:rev'))
 
-            await core.nodes('$n=$lib.null inet:ipv4=1.2.3.4 $n=$node spin | $n.props."dns:rev" = "vertex.link"')
-            nodes = await core.nodes('inet:ipv4=1.2.3.4')
+            await core.nodes('$n=$lib.null inet:ip=1.2.3.4 $n=$node spin | $n.props."dns:rev" = "vertex.link"')
+            nodes = await core.nodes('inet:ip=1.2.3.4')
             self.eq(nodes[0].get('dns:rev'), 'vertex.link')
 
             with self.raises(s_exc.NoSuchProp):
@@ -5402,7 +5402,7 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.nodes('[inet:ipv4=1.2.3.4]')
+            await core.nodes('[inet:ip=1.2.3.4]')
 
             # TODO: should we asciify the buid here so it is json compatible?
             q = '''$list = $lib.list()
@@ -5415,7 +5415,7 @@ class StormTypesTest(s_test.SynTest):
             retn = []
             for edits in nodeedits:
                 for edit in edits:
-                    if edit[1] == 'inet:ipv4':
+                    if edit[1] == 'inet:ip':
                         retn.append(edit)
 
             self.len(1, retn)
@@ -5424,15 +5424,15 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             self.eq(0, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
-            await core.nodes('[ inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8 :asn=20 inet:asn=20 +#foo.bar ]')
+            await core.nodes('[ inet:ip=1.2.3.4 inet:ip=5.6.7.8 :asn=20 inet:asn=20 +#foo.bar ]')
             self.eq(0, await core.callStorm('return($lib.layer.get().getPropCount(ps:person))'))
-            self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ipv4))'))
-            self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ipv4:asn))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ip))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getPropCount(inet:ip:asn))'))
             self.eq(3, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar))'))
-            self.eq(2, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar, formname=inet:ipv4))'))
+            self.eq(2, await core.callStorm('return($lib.layer.get().getTagCount(foo.bar, formname=inet:ip))'))
 
             self.eq(6, await core.callStorm("return($lib.layer.get().getPropCount('.created'))"))
-            self.eq(2, await core.callStorm("return($lib.layer.get().getPropCount(inet:ipv4.created))"))
+            self.eq(2, await core.callStorm("return($lib.layer.get().getPropCount(inet:ip.created))"))
             self.eq(0, await core.callStorm("return($lib.layer.get().getPropCount('.seen'))"))
 
             with self.raises(s_exc.NoSuchProp):
@@ -5446,9 +5446,9 @@ class StormTypesTest(s_test.SynTest):
             await core.addTagProp('score', ('int', {}), {})
 
             q = '''[
-                inet:ipv4=1
-                inet:ipv4=2
-                inet:ipv4=3
+                inet:ip=([4, 1])
+                inet:ip=([4, 2])
+                inet:ip=([4, 3])
                 :asn=4
 
                 (ou:org=*
@@ -5464,16 +5464,16 @@ class StormTypesTest(s_test.SynTest):
             ]'''
             await core.nodes(q)
 
-            q = 'return($lib.layer.get().getPropCount(inet:ipv4:asn, valu=1))'
+            q = 'return($lib.layer.get().getPropCount(inet:ip:asn, valu=1))'
             self.eq(0, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(inet:ipv4:loc, valu=1))'
+            q = 'return($lib.layer.get().getPropCount(inet:ip:loc, valu=1))'
             self.eq(0, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(inet:ipv4:asn, valu=4))'
+            q = 'return($lib.layer.get().getPropCount(inet:ip:asn, valu=4))'
             self.eq(3, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(inet:ipv4.seen, valu=2020))'
+            q = 'return($lib.layer.get().getPropCount(inet:ip.seen, valu=2020))'
             self.eq(3, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropCount(".seen", valu=2020))'
@@ -5482,7 +5482,7 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropCount(".test:univ", valu=1))'
             self.eq(0, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropCount(inet:ipv4, valu=1))'
+            q = 'return($lib.layer.get().getPropCount(inet:ip, valu=([4, 1])))'
             self.eq(1, await core.callStorm(q))
 
             q = 'return($lib.layer.get().getPropCount(ou:org:names, valu=(foo, bar)))'
@@ -5524,7 +5524,7 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadTypeValu):
-                q = 'return($lib.layer.get().getPropArrayCount(inet:ipv4, valu=1))'
+                q = 'return($lib.layer.get().getPropArrayCount(inet:ip, valu=1))'
                 await core.callStorm(q)
 
             q = 'return($lib.layer.get().getTagPropCount(foo, score))'
@@ -5851,13 +5851,13 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             await self.agenlen(0, s_stormtypes.toiter(None, noneok=True))
 
-            await core.nodes('[inet:ipv4=0] [inet:ipv4=1]')
+            await core.nodes('[inet:ip=([4, 0])] [inet:ip=([4, 1])]')
 
             # explicit test for a pattern in some stormsvcs
             scmd = '''
             function add() {
                 $x=$lib.set()
-                inet:ipv4
+                inet:ip
                 $x.add($node)
                 fini { return($x) }
             }
@@ -5873,7 +5873,7 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm('$x=$lib.set() $y=({"foo": "1", "bar": "2"}) $x.adds($y) return($x)')
             self.eq({('foo', '1'), ('bar', '2')}, ret)
 
-            ret = await core.nodes('$x=$lib.set() $x.adds(${inet:ipv4}) for $n in $x { yield $n.iden() }')
+            ret = await core.nodes('$x=$lib.set() $x.adds(${inet:ip}) for $n in $x { yield $n.iden() }')
             self.len(2, ret)
 
             ret = await core.callStorm('$x=$lib.set() $x.adds((1,2,3)) return($x)')
@@ -6261,24 +6261,24 @@ words\tword\twrd'''
 
             opts = {'vars': {'iden': iden}}
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.addEdge(refs, $iden) -(refs)> ou:industry', opts=opts)
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ] $node.addEdge(refs, $iden) -(refs)> ou:industry', opts=opts)
             self.eq(nodes[0].iden(), iden)
 
             nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
             self.len(1, nodes)
-            self.eq('inet:ipv4', nodes[0].ndef[0])
+            self.eq('inet:ip', nodes[0].ndef[0])
 
             nodes = await core.nodes('ou:industry for ($verb, $n2iden) in $node.edges(reverse=(0)) { -> { yield $n2iden } }')
             self.len(0, nodes)
 
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
+            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2iden) in $node.edges(reverse=(1)) { -> { yield $n2iden } }')
             self.len(0, nodes)
 
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 for ($verb, $n2iden) in $node.edges() { -> { yield $n2iden } }')
+            nodes = await core.nodes('inet:ip=1.2.3.4 for ($verb, $n2iden) in $node.edges() { -> { yield $n2iden } }')
             self.len(1, nodes)
             self.eq('ou:industry', nodes[0].ndef[0])
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ] $node.delEdge(refs, $iden) -(refs)> ou:industry', opts=opts)
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ] $node.delEdge(refs, $iden) -(refs)> ou:industry', opts=opts)
             self.len(0, nodes)
 
             with self.raises(s_exc.BadCast):
@@ -6505,9 +6505,9 @@ words\tword\twrd'''
             forkopts = {'view': view2['iden']}
 
             q = '''[
-                inet:ipv4=1
-                inet:ipv4=2
-                inet:ipv4=3
+                inet:ip=([4, 1])
+                inet:ip=([4, 2])
+                inet:ip=([4, 3])
                 :asn=4
 
                 (ou:org=*
@@ -6524,9 +6524,9 @@ words\tword\twrd'''
             await core.nodes(q)
 
             q = '''[
-                inet:ipv4=4
-                inet:ipv4=5
-                inet:ipv4=6
+                inet:ip=([4, 4])
+                inet:ip=([4, 5])
+                inet:ip=([4, 6])
                 :asn=4
 
                 (ou:org=*
@@ -6542,25 +6542,25 @@ words\tword\twrd'''
             ]'''
             await core.nodes(q, opts=forkopts)
 
-            q = 'return($lib.view.get().getPropCount(inet:ipv4:asn))'
+            q = 'return($lib.view.get().getPropCount(inet:ip:asn))'
             self.eq(6, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ipv4:asn, valu=1))'
+            q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ipv4:loc, valu=1))'
+            q = 'return($lib.view.get().getPropCount(inet:ip:loc, valu=1))'
             self.eq(0, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ipv4:asn, valu=4))'
+            q = 'return($lib.view.get().getPropCount(inet:ip:asn, valu=4))'
             self.eq(6, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ipv4.seen, valu=2020))'
+            q = 'return($lib.view.get().getPropCount(inet:ip.seen, valu=2020))'
             self.eq(6, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropCount(".seen", valu=2020))'
             self.eq(10, await core.callStorm(q, opts=forkopts))
 
-            q = 'return($lib.view.get().getPropCount(inet:ipv4, valu=1))'
+            q = 'return($lib.view.get().getPropCount(inet:ip, valu=([4, 1])))'
             self.eq(1, await core.callStorm(q, opts=forkopts))
 
             q = 'return($lib.view.get().getPropCount(ou:org:names, valu=(foo, bar)))'
@@ -6590,7 +6590,7 @@ words\tword\twrd'''
                 await core.callStorm(q, opts=forkopts)
 
             with self.raises(s_exc.BadTypeValu):
-                q = 'return($lib.view.get().getPropArrayCount(inet:ipv4, valu=1))'
+                q = 'return($lib.view.get().getPropArrayCount(inet:ip, valu=([4, 1])))'
                 await core.callStorm(q, opts=forkopts)
 
             q = 'return($lib.view.get().getTagPropCount(foo, score))'
@@ -6784,7 +6784,7 @@ words\tword\twrd'''
             fork = core.getView(forkdef.get('iden'))
 
             opts = {'view': fork.iden}
-            await core.stormlist('[ inet:ipv4=1.2.3.0/20 ]', opts=opts)
+            await core.stormlist('[ inet:ip=1.2.3.0/20 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
             self.eq([fork.iden], await core.callStorm(merging))
@@ -6870,7 +6870,7 @@ words\tword\twrd'''
             fork = core.getView(forkdef.get('iden'))
 
             opts = {'view': fork.iden}
-            await core.stormlist('[ inet:ipv4=5.5.5.5 ]', opts=opts)
+            await core.stormlist('[ inet:ip=5.5.5.5 ]', opts=opts)
             await core.callStorm('return($lib.view.get().setMergeRequest())', opts=opts)
 
             self.eq(set([fork.iden, fork01['iden']]), set(await core.callStorm(merging)))
@@ -6894,7 +6894,7 @@ words\tword\twrd'''
             async with self.getTestCore(dirn=dirn) as lead:
                 while lead.getView(fork.iden) is not None:
                     await asyncio.sleep(0.1)
-                self.len(1, await lead.nodes('inet:ipv4=5.5.5.5'))
+                self.len(1, await lead.nodes('inet:ip=5.5.5.5'))
 
             # test that a mirror starts without firing the merge and then fires it on promotion
             dirn = s_common.genpath(core.dirn, 'backups', 'mirror00')
@@ -6905,7 +6905,7 @@ words\tword\twrd'''
                 await mirror.promote(graceful=False)
                 self.true(await view.waitfini(6))
                 self.true(await layr.waitfini(6))
-                self.len(1, await mirror.nodes('inet:ipv4=5.5.5.5'))
+                self.len(1, await mirror.nodes('inet:ip=5.5.5.5'))
 
             msgs = await core.stormlist('$lib.view.get().set(quorum, $lib.null)')
             self.stormHasNoWarnErr(msgs)

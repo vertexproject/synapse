@@ -95,85 +95,84 @@ class InetModelTest(s_t_utils.SynTest):
 
             for i in range(5):
                 valu = f'1.2.3.{i}'
-                nodes = await core.nodes('[inet:ipv4=$valu]', opts={'vars': {'valu': valu}})
+                nodes = await core.nodes('[inet:ip=$valu]', opts={'vars': {'valu': valu}})
                 self.len(1, nodes)
 
-            self.len(3, await core.nodes('inet:ipv4=1.2.3.1-1.2.3.3'))
-            self.len(3, await core.nodes('[inet:ipv4=1.2.3.1-1.2.3.3]'))
-            self.len(3, await core.nodes('inet:ipv4 +inet:ipv4=1.2.3.1-1.2.3.3'))
-            self.len(3, await core.nodes('inet:ipv4*range=(1.2.3.1, 1.2.3.3)'))
+            self.len(3, await core.nodes('inet:ip=1.2.3.1-1.2.3.3'))
+            self.len(3, await core.nodes('[inet:ip=1.2.3.1-1.2.3.3]'))
+            self.len(3, await core.nodes('inet:ip +inet:ip=1.2.3.1-1.2.3.3'))
+            self.len(3, await core.nodes('inet:ip*range=(1.2.3.1, 1.2.3.3)'))
 
     async def test_ipv4_filt_cidr(self):
 
         async with self.getTestCore() as core:
 
-            self.len(5, await core.nodes('[ inet:ipv4=1.2.3.0/30 inet:ipv4=5.5.5.5 ]'))
-            self.len(4, await core.nodes('inet:ipv4 +inet:ipv4=1.2.3.0/30'))
-            self.len(1, await core.nodes('inet:ipv4 -inet:ipv4=1.2.3.0/30'))
+            self.len(5, await core.nodes('[ inet:ip=1.2.3.0/30 inet:ip=5.5.5.5 ]'))
+            self.len(4, await core.nodes('inet:ip +inet:ip=1.2.3.0/30'))
+            self.len(1, await core.nodes('inet:ip -inet:ip=1.2.3.0/30'))
 
-            self.len(256, await core.nodes('[ inet:ipv4=192.168.1.0/24]'))
-            self.len(256, await core.nodes('[ inet:ipv4=192.168.2.0/24]'))
-            self.len(256, await core.nodes('inet:ipv4=192.168.1.0/24'))
+            self.len(256, await core.nodes('[ inet:ip=192.168.1.0/24]'))
+            self.len(256, await core.nodes('[ inet:ip=192.168.2.0/24]'))
+            self.len(256, await core.nodes('inet:ip=192.168.1.0/24'))
 
             # Seed some nodes for bounds checking
             vals = list(range(1, 33))
-            q = 'for $v in $vals { [inet:ipv4=`10.2.1.{$v}` ] }'
+            q = 'for $v in $vals { [inet:ip=`10.2.1.{$v}` ] }'
             self.len(len(vals), await core.nodes(q, opts={'vars': {'vals': vals}}))
 
-            nodes = await core.nodes('inet:ipv4=10.2.1.4/32')
+            nodes = await core.nodes('inet:ip=10.2.1.4/32')
             self.len(1, nodes)
-            self.len(1, await core.nodes('inet:ipv4 +inet:ipv4=10.2.1.4/32'))
+            self.len(1, await core.nodes('inet:ip +inet:ip=10.2.1.4/32'))
 
-            nodes = await core.nodes('inet:ipv4=10.2.1.4/31')
+            nodes = await core.nodes('inet:ip=10.2.1.4/31')
             self.len(2, nodes)
-            self.len(2, await core.nodes('inet:ipv4 +inet:ipv4=10.2.1.4/31'))
+            self.len(2, await core.nodes('inet:ip +inet:ip=10.2.1.4/31'))
 
             # 10.2.1.1/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-            nodes = await core.nodes('inet:ipv4=10.2.1.1/30')
+            nodes = await core.nodes('inet:ip=10.2.1.1/30')
             self.len(3, nodes)
 
             # 10.2.1.2/30 is 10.2.1.0 -> 10.2.1.3 but we don't have 10.2.1.0 in the core
-            nodes = await core.nodes('inet:ipv4=10.2.1.2/30')
+            nodes = await core.nodes('inet:ip=10.2.1.2/30')
             self.len(3, nodes)
 
             # 10.2.1.1/29 is 10.2.1.0 -> 10.2.1.7 but we don't have 10.2.1.0 in the core
-            nodes = await core.nodes('inet:ipv4=10.2.1.1/29')
+            nodes = await core.nodes('inet:ip=10.2.1.1/29')
             self.len(7, nodes)
 
             # 10.2.1.8/29 is 10.2.1.8 -> 10.2.1.15
-            nodes = await core.nodes('inet:ipv4=10.2.1.8/29')
+            nodes = await core.nodes('inet:ip=10.2.1.8/29')
             self.len(8, nodes)
 
             # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
-            nodes = await core.nodes('inet:ipv4=10.2.1.1/28')
+            nodes = await core.nodes('inet:ip=10.2.1.1/28')
             self.len(15, nodes)
 
-    async def test_addr(self):
-        formname = 'inet:addr'
+    async def test_sockaddr(self):
+        formname = 'inet:sockaddr'
         async with self.getTestCore() as core:
             t = core.model.type(formname)
 
             # Proto defaults to tcp
-            self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
+            self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ip': (4, 16909060), 'proto': 'tcp'}}))
             self.eq(t.norm('1.2.3.4:80'),
-                          ('tcp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060, 'proto': 'tcp'}}))
+                          ('tcp://1.2.3.4:80', {'subs': {'port': 80, 'ip': (4, 16909060), 'proto': 'tcp'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'https://192.168.1.1:80')  # bad proto
 
             # IPv4
-            self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
+            self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': {'ip': (4, 16909060), 'proto': 'tcp'}}))
             self.eq(t.norm('udp://1.2.3.4:80'),
-                    ('udp://1.2.3.4:80', {'subs': {'port': 80, 'ipv4': 16909060, 'proto': 'udp'}}))
-            self.eq(t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': {'ipv4': 16909060, 'proto': 'tcp'}}))
+                    ('udp://1.2.3.4:80', {'subs': {'port': 80, 'ip': (4, 16909060), 'proto': 'udp'}}))
+            self.eq(t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': {'ip': (4, 16909060), 'proto': 'tcp'}}))
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:-1')
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:66000')
 
             # IPv6
-            self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ipv6': '::1', 'proto': 'icmp'}}))
-            self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ipv6': '::1', 'port': 2, 'proto': 'tcp'}}))
-            self.eq(t.norm('tcp://[::1]'), ('tcp://[::1]', {'subs': {'ipv6': '::1', 'proto': 'tcp'}}))
+            self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': {'ip': (6, 1), 'proto': 'icmp'}}))
+            self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': {'ip': (6, 1), 'port': 2, 'proto': 'tcp'}}))
+            self.eq(t.norm('tcp://[::1]'), ('tcp://[::1]', {'subs': {'ip': (6, 1), 'proto': 'tcp'}}))
             self.eq(t.norm('tcp://[::fFfF:0102:0304]:2'),
-                    ('tcp://[::ffff:1.2.3.4]:2', {'subs': {'ipv6': '::ffff:1.2.3.4',
-                                                           'ipv4': 0x01020304,
+                    ('tcp://[::ffff:1.2.3.4]:2', {'subs': {'ip': (6, 0xffff01020304),
                                                            'port': 2,
                                                            'proto': 'tcp',
                                                            }}))
@@ -203,55 +202,57 @@ class InetModelTest(s_t_utils.SynTest):
             self.none(node.get('name'))
             self.none(node.get('owner'))
 
-            nodes = await core.nodes('[inet:asnet4=(54959, (1.2.3.4, 5.6.7.8))]')
+            nodes = await core.nodes('[inet:asnet=(54959, (1.2.3.4, 5.6.7.8))]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:asnet4', (54959, (0x01020304, 0x05060708))))
+            self.eq(node.ndef, ('inet:asnet', (54959, ((4, 0x01020304), (4, 0x05060708)))))
             self.eq(node.get('asn'), 54959)
-            self.eq(node.get('net4'), (0x01020304, 0x05060708))
-            self.eq(node.get('net4:min'), 0x01020304)
-            self.eq(node.get('net4:max'), 0x05060708)
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
-            self.len(1, await core.nodes('inet:ipv4=5.6.7.8'))
+            self.eq(node.get('net'), ((4, 0x01020304), (4, 0x05060708)))
+            self.eq(node.get('net:min'), (4, 0x01020304))
+            self.eq(node.get('net:max'), (4, 0x05060708))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
+            self.len(1, await core.nodes('inet:ip=5.6.7.8'))
 
-            nodes = await core.nodes('[ inet:asnet6=(99, (ff::00, ff::0100)) ]')
+            minv = (6, 0xff0000000000000000000000000000)
+            maxv = (6, 0xff0000000000000000000000000100)
+            nodes = await core.nodes('[ inet:asnet=(99, (ff::00, ff::0100)) ]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:asnet6', (99, ('ff::', 'ff::100'))))
+            self.eq(node.ndef, ('inet:asnet', (99, (minv, maxv))))
             self.eq(node.get('asn'), 99)
-            self.eq(node.get('net6'), ('ff::', 'ff::100'))
-            self.eq(node.get('net6:min'), 'ff::')
-            self.eq(node.get('net6:max'), 'ff::100')
-            self.len(1, await core.nodes('inet:ipv6="ff::"'))
-            self.len(1, await core.nodes('inet:ipv6="ff::100"'))
+            self.eq(node.get('net'), (minv, maxv))
+            self.eq(node.get('net:min'), minv)
+            self.eq(node.get('net:max'), maxv)
+            self.len(1, await core.nodes('inet:ip="ff::"'))
+            self.len(1, await core.nodes('inet:ip="ff::100"'))
 
     async def test_cidr4(self):
-        formname = 'inet:cidr4'
+        formname = 'inet:cidr'
         async with self.getTestCore() as core:
 
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            valu = '0/24'
+            valu = '0.0.0.0/24'
             expected = ('0.0.0.0/24', {'subs': {
-                'broadcast': 255,
-                'network': 0,
+                'broadcast': (4, 255),
+                'network': (4, 0),
                 'mask': 24,
             }})
             self.eq(t.norm(valu), expected)
 
             valu = '192.168.1.101/24'
             expected = ('192.168.1.0/24', {'subs': {
-                'broadcast': 3232236031,  # 192.168.1.255
-                'network': 3232235776,    # 192.168.1.0
+                'broadcast': (4, 3232236031),  # 192.168.1.255
+                'network': (4, 3232235776),    # 192.168.1.0
                 'mask': 24,
             }})
             self.eq(t.norm(valu), expected)
 
             valu = '123.123.0.5/30'
             expected = ('123.123.0.4/30', {'subs': {
-                'broadcast': 2071658503,  # 123.123.0.7
-                'network': 2071658500,    # 123.123.0.4
+                'broadcast': (4, 2071658503),  # 123.123.0.7
+                'network': (4, 2071658500),    # 123.123.0.4
                 'mask': 30,
             }})
             self.eq(t.norm(valu), expected)
@@ -265,16 +266,16 @@ class InetModelTest(s_t_utils.SynTest):
             valu = '192[.]168.1.123/24'
             expected_ndef = (formname, '192.168.1.0/24')  # ndef is network/mask, not ip/mask
 
-            nodes = await core.nodes('[inet:cidr4=$valu]', opts={'vars': {'valu': valu}})
+            nodes = await core.nodes('[inet:cidr=$valu]', opts={'vars': {'valu': valu}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, expected_ndef)
-            self.eq(node.get('network'), 3232235776)  # 192.168.1.0
-            self.eq(node.get('broadcast'), 3232236031)  # 192.168.1.255
+            self.eq(node.get('network'), (4, 3232235776))  # 192.168.1.0
+            self.eq(node.get('broadcast'), (4, 3232236031))  # 192.168.1.255
             self.eq(node.get('mask'), 24)
 
     async def test_cidr6(self):
-        formname = 'inet:cidr6'
+        formname = 'inet:cidr'
         async with self.getTestCore() as core:
 
             # Type Tests ======================================================
@@ -282,16 +283,16 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = '::/0'
             expected = ('::/0', {'subs': {
-                'broadcast': 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff',
-                'network': '::',
+                'broadcast': (6, 0xffffffffffffffffffffffffffffffff),
+                'network': (6, 0),
                 'mask': 0,
             }})
             self.eq(t.norm(valu), expected)
 
             valu = '2001:db8::/59'
             expected = ('2001:db8::/59', {'subs': {
-                'broadcast': '2001:db8:0:1f:ffff:ffff:ffff:ffff',
-                'network': '2001:db8::',
+                'broadcast': (6, 0x20010db80000001fffffffffffffffff),
+                'network': (6, 0x20010db8000000000000000000000000),
                 'mask': 59,
             }})
             self.eq(t.norm(valu), expected)
@@ -301,16 +302,16 @@ class InetModelTest(s_t_utils.SynTest):
     async def test_client(self):
         data = (
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
-                'ipv4': 2130706433,
+                'ip': (4, 2130706433),
                 'port': 12345,
                 'proto': 'tcp',
             }),
             ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
-                'ipv4': 2130706433,
+                'ip': (4, 2130706433),
                 'proto': 'tcp',
             }),
             ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
-                'ipv6': '::1',
+                'ip': (6, 1),
                 'port': 12345,
                 'proto': 'tcp',
             }),
@@ -350,13 +351,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('file'), 'sha256:' + 64 * 'b')
             self.eq(node.get('fqdn'), 'vertex.link')
             self.eq(node.get('client'), 'tcp://127.0.0.1:45654')
-            self.eq(node.get('client:ipv4'), 2130706433)
-            self.eq(node.get('client:port'), 45654)
-            self.eq(node.get('client:proto'), 'tcp')
             self.eq(node.get('server'), 'tcp://1.2.3.4:80')
-            self.eq(node.get('server:ipv4'), 0x01020304)
-            self.eq(node.get('server:port'), 80)
-            self.eq(node.get('server:proto'), 'tcp')
 
     async def test_email(self):
         formname = 'inet:email'
@@ -464,8 +459,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('duration'), 1)
             self.eq(node.get('from'), pfrom)
             self.eq(node.get('src'), 'tcp://127.0.0.1:45654')
-            self.eq(node.get('src:port'), 45654)
-            self.eq(node.get('src:proto'), 'tcp')
+#            self.eq(node.get('src:proto'), 'tcp')
             self.eq(node.get('src:host'), shost)
             self.eq(node.get('src:proc'), sproc)
             self.eq(node.get('src:exe'), sexe)
@@ -473,9 +467,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('src:txbytes'), 1)
             self.eq(node.get('src:handshake'), 'Hello There')
             self.eq(node.get('dst'), 'tcp://1.2.3.4:80')
-            self.eq(node.get('dst:port'), 80)
-            self.eq(node.get('dst:proto'), 'tcp')
-            self.eq(node.get('dst:ipv4'), 0x01020304)
+#            self.eq(node.get('dst:proto'), 'tcp')
             self.eq(node.get('dst:host'), dhost)
             self.eq(node.get('dst:proc'), dproc)
             self.eq(node.get('dst:exe'), dexe)
@@ -814,12 +806,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('session'), sess)
             self.eq(node.get('sandbox:file'), 'sha256:' + 64 * 'c')
             self.eq(node.get('client'), 'tcp://1.2.3.4')
-            self.eq(node.get('client:ipv4'), 0x01020304)
             self.eq(node.get('client:host'), client)
             self.eq(node.get('server'), 'tcp://5.5.5.5:443')
             self.eq(node.get('server:host'), server)
-            self.eq(node.get('server:ipv4'), 0x05050505)
-            self.eq(node.get('server:port'), 443)
 
             self.len(1, await core.nodes('inet:http:request -> inet:http:request:header'))
             self.len(1, await core.nodes('inet:http:request -> inet:http:response:header'))
@@ -842,8 +831,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :network=$p.network
                 :type=Cool
                 :mac="ff:00:ff:00:ff:00"
-                :ipv4=1.2.3.4
-                :ipv6="ff::00"
+                :ip=1.2.3.4
                 :phone=12345678910
                 :wifi:ssid="hehe haha"
                 :wifi:bssid="00:ff:00:ff:00:ff"
@@ -858,8 +846,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('network'), netw)
             self.eq(node.get('type'), 'cool')
             self.eq(node.get('mac'), 'ff:00:ff:00:ff:00')
-            self.eq(node.get('ipv4'), 0x01020304)
-            self.eq(node.get('ipv6'), 'ff::')
+            self.eq(node.get('ip'), (4, 0x01020304))
             self.eq(node.get('phone'), '12345678910')
             self.eq(node.get('wifi:ssid'), 'hehe haha')
             self.eq(node.get('wifi:bssid'), '00:ff:00:ff:00:ff')
@@ -867,29 +854,29 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('mob:imsi'), 12345678901234)
 
     async def test_ipv4(self):
-        formname = 'inet:ipv4'
+        formname = 'inet:ip'
         async with self.getTestCore() as core:
 
             # Type Tests ======================================================
             t = core.model.type(formname)
-            ip_int = 16909060
+            ip_tup = (4, 16909060)
             ip_str = '1.2.3.4'
             ip_str_enfanged = '1[.]2[.]3[.]4'
             ip_str_enfanged2 = '1(.)2(.)3(.)4'
             ip_str_unicode = '1\u200b.\u200b2\u200b.\u200b3\u200b.\u200b4'
 
-            info = {'subs': {'type': 'unicast'}}
-            self.eq(t.norm(ip_int), (ip_int, info))
-            self.eq(t.norm(ip_str), (ip_int, info))
-            self.eq(t.norm(ip_str_enfanged), (ip_int, info))
-            self.eq(t.norm(ip_str_enfanged2), (ip_int, info))
-            self.eq(t.norm(ip_str_unicode), (ip_int, info))
-            self.eq(t.repr(ip_int), ip_str)
+            info = {'subs': {'type': 'unicast', 'version': 4}}
+            self.eq(t.norm(ip_tup), (ip_tup, info))
+            self.eq(t.norm(ip_str), (ip_tup, info))
+            self.eq(t.norm(ip_str_enfanged), (ip_tup, info))
+            self.eq(t.norm(ip_str_enfanged2), (ip_tup, info))
+            self.eq(t.norm(ip_str_unicode), (ip_tup, info))
+            self.eq(t.repr(ip_tup), ip_str)
 
             # Link local test
             ip_str = '169.254.1.1'
             norm, info = t.norm(ip_str)
-            self.eq(2851995905, norm)
+            self.eq((4, 2851995905), norm)
             self.eq(info.get('subs').get('type'), 'linklocal')
 
             norm, info = t.norm('100.63.255.255')
@@ -925,12 +912,12 @@ class InetModelTest(s_t_utils.SynTest):
                 'latlong': '-50.12345, 150.56789',
                 'place': place,
             }
-            q = '[(inet:ipv4=$valu :asn=$p.asn :loc=$p.loc :dns:rev=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
+            q = '[(inet:ip=$valu :asn=$p.asn :loc=$p.loc :dns:rev=$p."dns:rev" :latlong=$p.latlong :place=$p.place)]'
             opts = {'vars': {'valu': '1.2.3.4', 'p': props}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:ipv4', 0x01020304))
+            self.eq(node.ndef, ('inet:ip', (4, 0x01020304)))
             self.eq(node.get('asn'), 3)
             self.eq(node.get('loc'), 'us')
             self.eq(node.get('type'), 'unicast')
@@ -939,104 +926,108 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('place'), place)
 
             # > / < lifts and filters
-            self.len(4, await core.nodes('[inet:ipv4=0 inet:ipv4=1 inet:ipv4=2 inet:ipv4=3]'))
+            self.len(4, await core.nodes('[inet:ip=0.0.0.0 inet:ip=0.0.0.1 inet:ip=0.0.0.2 inet:ip=0.0.0.3]'))
             # Lifts
-            self.len(0, await core.nodes('inet:ipv4<0'))
-            self.len(1, await core.nodes('inet:ipv4<=0'))
-            self.len(1, await core.nodes('inet:ipv4<1'))
-            self.len(3, await core.nodes('inet:ipv4<=2'))
-            self.len(2, await core.nodes('inet:ipv4>2'))
-            self.len(3, await core.nodes('inet:ipv4>=2'))
-            self.len(0, await core.nodes('inet:ipv4>=255.0.0.1'))
+            self.len(0, await core.nodes('inet:ip<0.0.0.0'))
+            self.len(1, await core.nodes('inet:ip<=0.0.0.0'))
+            self.len(1, await core.nodes('inet:ip<0.0.0.1'))
+            self.len(3, await core.nodes('inet:ip<=0.0.0.2'))
+            self.len(2, await core.nodes('inet:ip>0.0.0.2'))
+            self.len(3, await core.nodes('inet:ip>=0.0.0.2'))
+            self.len(0, await core.nodes('inet:ip>=255.0.0.1'))
             with self.raises(s_exc.BadTypeValu):
-                self.len(5, await core.nodes('inet:ipv4>=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}}))
+                self.len(5, await core.nodes('inet:ip>=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}}))
             # Filters
-            self.len(0, await core.nodes('.created +inet:ipv4<0'))
-            self.len(1, await core.nodes('.created +inet:ipv4<1'))
-            self.len(3, await core.nodes('.created +inet:ipv4<=2'))
-            self.len(2, await core.nodes('.created +inet:ipv4>2'))
-            self.len(3, await core.nodes('.created +inet:ipv4>=2'))
-            self.len(0, await core.nodes('.created +inet:ipv4>=255.0.0.1'))
+            self.len(0, await core.nodes('.created +inet:ip<0.0.0.0'))
+            self.len(1, await core.nodes('.created +inet:ip<0.0.0.1'))
+            self.len(3, await core.nodes('.created +inet:ip<=0.0.0.2'))
+            self.len(2, await core.nodes('.created +inet:ip>0.0.0.2'))
+            self.len(3, await core.nodes('.created +inet:ip>=0.0.0.2'))
+            self.len(0, await core.nodes('.created +inet:ip>=255.0.0.1'))
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[inet:ipv4=foo]')
+                await core.nodes('[inet:ip=foo]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[inet:ipv4=foo-bar.com]')
+                await core.nodes('[inet:ip=foo-bar.com]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[inet:ipv4=foo-bar-duck.com]')
+                await core.nodes('[inet:ip=foo-bar-duck.com]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[inet:ipv4=3.87/nice/index.php]')
+                await core.nodes('[inet:ip=3.87/nice/index.php]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[inet:ipv4=3.87/33]')
+                await core.nodes('[inet:ip=3.87/33]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo"] [inet:ipv4=$node.value()]')
+                await core.nodes('[test:str="foo"] [inet:ip=$node.value()]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo-bar.com"] [inet:ipv4=$node.value()]')
+                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value()]')
 
-            self.len(0, await core.nodes('[inet:ipv4?=foo]'))
-            self.len(0, await core.nodes('[inet:ipv4?=foo-bar.com]'))
+            self.len(0, await core.nodes('[inet:ip?=foo]'))
+            self.len(0, await core.nodes('[inet:ip?=foo-bar.com]'))
 
-            self.len(0, await core.nodes('[test:str="foo"] [inet:ipv4?=$node.value()] -test:str'))
-            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ipv4?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value()] -test:str'))
 
             q = '''init { $l = () }
-            [inet:ipv4=192.0.0.9 inet:ipv4=192.0.0.0 inet:ipv4=192.0.0.255] $l.append(:type)
+            [inet:ip=192.0.0.9 inet:ip=192.0.0.0 inet:ip=192.0.0.255] $l.append(:type)
             fini { return ( $l ) }'''
             resp = await core.callStorm(q)
             self.eq(resp, ['unicast', 'private', 'private'])
 
     async def test_ipv6(self):
-        formname = 'inet:ipv6'
+        formname = 'inet:ip'
         async with self.getTestCore() as core:
 
             # Type Tests ======================================================
             t = core.model.type(formname)
 
-            info = {'subs': {'type': 'loopback', 'scope': 'link-local'}}
-            self.eq(t.norm('::1'), ('::1', info))
-            self.eq(t.norm('0:0:0:0:0:0:0:1'), ('::1', info))
+            info = {'subs': {'type': 'loopback', 'scope': 'link-local', 'version': 6}}
+            self.eq(t.norm('::1'), ((6, 1), info))
+            self.eq(t.norm('0:0:0:0:0:0:0:1'), ((6, 1), info))
 
-            self.eq(t.norm('ff01::1'), ('ff01::1', {'subs': {'type': 'multicast', 'scope': 'interface-local'}}))
+            addrnorm = (6, 0xff010000000000000000000000000001)
+            info = {'subs': {'type': 'multicast', 'scope': 'interface-local', 'version': 6}}
+            self.eq(t.norm('ff01::1'), (addrnorm, info))
 
-            info = {'subs': {'type': 'private', 'scope': 'global'}}
-            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), ('2001:db8::ff00:42:8329', info))
-            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), ('2001:db8::ff00:42:8329', info))
+            addrnorm = (6, 0x20010db8000000000000ff0000428329)
+            info = {'subs': {'type': 'private', 'scope': 'global', 'version': 6}}
+            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042:8329'), (addrnorm, info))
+            self.eq(t.norm('2001:0db8:0000:0000:0000:ff00:0042\u200b:8329'), (addrnorm, info))
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
 
             # Specific examples given in RFC5952
-            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:0db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:db8::0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:0db8::1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:db8:0:0:1::1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:DB8:0:0:1::1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], '2001:db8::1:0:0:1')
+            addrnorm = (6, 0x20010db8000000000001000000000001)
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], addrnorm)
+            self.eq(t.norm('2001:0db8:0:0:1:0:0:1')[0], addrnorm)
+            self.eq(t.norm('2001:db8::1:0:0:1')[0], addrnorm)
+            self.eq(t.norm('2001:db8::0:1:0:0:1')[0], addrnorm)
+            self.eq(t.norm('2001:0db8::1:0:0:1')[0], addrnorm)
+            self.eq(t.norm('2001:db8:0:0:1::1')[0], addrnorm)
+            self.eq(t.norm('2001:DB8:0:0:1::1')[0], addrnorm)
+            self.eq(t.norm('2001:DB8:0:0:1:0000:0000:1')[0], addrnorm)
             self.raises(s_exc.BadTypeValu, t.norm, '::1::')
-            self.eq(t.norm('2001:0db8::0001')[0], '2001:db8::1')
-            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
-            self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], '2001:db8:0:1:1:1:1:1')
-            self.eq(t.norm('2001:0:0:1:0:0:0:1')[0], '2001:0:0:1::1')
-            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], '2001:db8::1:0:0:1')
-            self.eq(t.norm('::ffff:1.2.3.4')[0], '::ffff:1.2.3.4')
-            self.eq(t.norm('2001:db8::0:1')[0], '2001:db8::1')
-            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], '2001:db8::2:1')
-            self.eq(t.norm('2001:db8::')[0], '2001:db8::')
+            self.eq(t.norm('2001:0db8::0001')[0], (6, 0x20010db8000000000000000000000001))
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], (6, 0x20010db8000000000000000000020001))
+            self.eq(t.norm('2001:db8:0:1:1:1:1:1')[0], (6, 0x20010db8000000010001000100010001))
+            self.eq(t.norm('2001:0:0:1:0:0:0:1')[0], (6, 0x20010000000000010000000000000001))
+            self.eq(t.norm('2001:db8:0:0:1:0:0:1')[0], (6, 0x20010db8000000000001000000000001))
+            self.eq(t.norm('::ffff:1.2.3.4')[0], (6, 0xffff01020304))
+            self.eq(t.norm('2001:db8::0:1')[0], (6, 0x20010db8000000000000000000000001))
+            self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], (6, 0x20010db8000000000000000000020001))
+            self.eq(t.norm('2001:db8::')[0], (6, 0x20010db8000000000000000000000000))
 
-            self.eq(t.norm(0)[0], '::')
-            self.eq(t.norm(1)[0], '::1')
-            self.eq(t.norm(2**128 - 1)[0], 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+#            self.eq(t.norm(0)[0], '::')
+#            self.eq(t.norm(1)[0], '::1')
+#            self.eq(t.norm(2**128 - 1)[0], 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
 
             # Link local test
             ip_str = 'fe80::1'
             norm, info = t.norm(ip_str)
-            self.eq('fe80::1', norm)
+            self.eq(norm, (6, 0xfe800000000000000000000000000001))
             self.eq(info.get('subs').get('type'), 'linklocal')
 
             # Form Tests ======================================================
@@ -1049,58 +1040,58 @@ class InetModelTest(s_t_utils.SynTest):
                 'place': place,
             }
             opts = {'vars': {'valu': valu, 'p': props}}
-            q = '[(inet:ipv6=$valu :loc=$p.loc :latlong=$p.latlong :dns:rev=$p."dns:rev" :place=$p.place)]'
+            q = '[(inet:ip=$valu :loc=$p.loc :latlong=$p.latlong :dns:rev=$p."dns:rev" :place=$p.place)]'
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:ipv6', valu.lower()))
+            self.eq(node.ndef, ('inet:ip', (6, 0xffff01020304)))
             self.eq(node.get('dns:rev'), 'vertex.link')
-            self.eq(node.get('ipv4'), 0x01020304)
+#            self.eq(node.get('ipv4'), 0x01020304)
             self.eq(node.get('latlong'), (0.0, 2.0))
             self.eq(node.get('loc'), 'cool')
             self.eq(node.get('place'), place)
 
-            nodes = await core.nodes('[inet:ipv6="::1"]')
+            nodes = await core.nodes('[inet:ip="::1"]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef, ('inet:ipv6', '::1'))
+            self.eq(node.ndef, ('inet:ip', (6, 1)))
             self.none(node.get('ipv4'))
 
-            self.len(1, await core.nodes('inet:ipv6=0::1'))
-            self.len(1, await core.nodes('inet:ipv6*range=(0::1, 0::1)'))
+            self.len(1, await core.nodes('inet:ip=0::1'))
+            self.len(1, await core.nodes('inet:ip*range=(0::1, 0::1)'))
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[inet:ipv6=foo]')
+                await core.nodes('[inet:ip=foo]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[inet:ipv6=foo-bar.com]')
+                await core.nodes('[inet:ip=foo-bar.com]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[inet:ipv6=foo-bar-duck.com]')
+                await core.nodes('[inet:ip=foo-bar-duck.com]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo"] [inet:ipv6=$node.value()]')
+                await core.nodes('[test:str="foo"] [inet:ip=$node.value()]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[test:str="foo-bar.com"] [inet:ipv6=$node.value()]')
+                await core.nodes('[test:str="foo-bar.com"] [inet:ip=$node.value()]')
 
-            self.len(0, await core.nodes('[inet:ipv6?=foo]'))
-            self.len(0, await core.nodes('[inet:ipv6?=foo-bar.com]'))
+            self.len(0, await core.nodes('[inet:ip?=foo]'))
+            self.len(0, await core.nodes('[inet:ip?=foo-bar.com]'))
 
-            self.len(0, await core.nodes('[test:str="foo"] [inet:ipv6?=$node.value()] -test:str'))
-            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ipv6?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo"] [inet:ip?=$node.value()] -test:str'))
+            self.len(0, await core.nodes('[test:str="foo-bar.com"] [inet:ip?=$node.value()] -test:str'))
 
-            await core.nodes('[ inet:ipv6=2a00:: inet:ipv6=2a00::1 ]')
+            await core.nodes('[ inet:ip=2a00:: inet:ip=2a00::1 ]')
 
-            self.len(1, await core.nodes('inet:ipv6>2a00::'))
-            self.len(2, await core.nodes('inet:ipv6>=2a00::'))
-            self.len(2, await core.nodes('inet:ipv6<2a00::'))
-            self.len(3, await core.nodes('inet:ipv6<=2a00::'))
+            self.len(1, await core.nodes('inet:ip>2a00::'))
+            self.len(2, await core.nodes('inet:ip>=2a00::'))
+            self.len(2, await core.nodes('inet:ip<2a00::'))
+            self.len(3, await core.nodes('inet:ip<=2a00::'))
 
-            self.len(1, await core.nodes('inet:ipv6 +inet:ipv6>2a00::'))
-            self.len(2, await core.nodes('inet:ipv6 +inet:ipv6>=2a00::'))
-            self.len(2, await core.nodes('inet:ipv6 +inet:ipv6<2a00::'))
-            self.len(3, await core.nodes('inet:ipv6 +inet:ipv6<=2a00::'))
+            self.len(1, await core.nodes('inet:ip +inet:ip>2a00::'))
+            self.len(2, await core.nodes('inet:ip +inet:ip>=2a00::'))
+            self.len(2, await core.nodes('inet:ip +inet:ip<2a00::'))
+            self.len(3, await core.nodes('inet:ip +inet:ip<=2a00::'))
 
     async def test_ipv6_lift_range(self):
 
@@ -1108,57 +1099,57 @@ class InetModelTest(s_t_utils.SynTest):
 
             for i in range(5):
                 valu = f'0::f00{i}'
-                nodes = await core.nodes('[inet:ipv6=$valu]', opts={'vars': {'valu': valu}})
+                nodes = await core.nodes('[inet:ip=$valu]', opts={'vars': {'valu': valu}})
                 self.len(1, nodes)
 
-            self.len(3, await core.nodes('inet:ipv6=0::f001-0::f003'))
-            self.len(3, await core.nodes('[inet:ipv6=0::f001-0::f003]'))
-            self.len(3, await core.nodes('inet:ipv6 +inet:ipv6=0::f001-0::f003'))
-            self.len(3, await core.nodes('inet:ipv6*range=(0::f001, 0::f003)'))
+            self.len(3, await core.nodes('inet:ip=0::f001-0::f003'))
+            self.len(3, await core.nodes('[inet:ip=0::f001-0::f003]'))
+            self.len(3, await core.nodes('inet:ip +inet:ip=0::f001-0::f003'))
+            self.len(3, await core.nodes('inet:ip*range=(0::f001, 0::f003)'))
 
     async def test_ipv6_filt_cidr(self):
 
         async with self.getTestCore() as core:
 
-            self.len(5, await core.nodes('[ inet:ipv6=0::f000/126 inet:ipv6=0::ffff:a2c4 ]'))
-            self.len(4, await core.nodes('inet:ipv6 +inet:ipv6=0::f000/126'))
-            self.len(1, await core.nodes('inet:ipv6 -inet:ipv6=0::f000/126'))
+            self.len(5, await core.nodes('[ inet:ip=0::f000/126 inet:ip=0::ffff:a2c4 ]'))
+            self.len(4, await core.nodes('inet:ip +inet:ip=0::f000/126'))
+            self.len(1, await core.nodes('inet:ip -inet:ip=0::f000/126'))
 
-            self.len(256, await core.nodes('[ inet:ipv6=0::ffff:192.168.1.0/120]'))
-            self.len(256, await core.nodes('[ inet:ipv6=0::ffff:192.168.2.0/120]'))
-            self.len(256, await core.nodes('inet:ipv6=0::ffff:192.168.1.0/120'))
+            self.len(256, await core.nodes('[ inet:ip=0::ffff:192.168.1.0/120]'))
+            self.len(256, await core.nodes('[ inet:ip=0::ffff:192.168.2.0/120]'))
+            self.len(256, await core.nodes('inet:ip=0::ffff:192.168.1.0/120'))
 
             # Seed some nodes for bounds checking
             vals = list(range(1, 33))
-            q = 'for $v in $vals { [inet:ipv6=`0::10.2.1.{$v}` ] }'
+            q = 'for $v in $vals { [inet:ip=`0::10.2.1.{$v}` ] }'
             self.len(len(vals), await core.nodes(q, opts={'vars': {'vals': vals}}))
 
-            nodes = await core.nodes('inet:ipv6=0::10.2.1.4/128')
+            nodes = await core.nodes('inet:ip=0::10.2.1.4/128')
             self.len(1, nodes)
-            self.len(1, await core.nodes('inet:ipv6 +inet:ipv6=0::10.2.1.4/128'))
-            self.len(1, await core.nodes('inet:ipv6 +inet:ipv6=0::10.2.1.4'))
+            self.len(1, await core.nodes('inet:ip +inet:ip=0::10.2.1.4/128'))
+            self.len(1, await core.nodes('inet:ip +inet:ip=0::10.2.1.4'))
 
-            nodes = await core.nodes('inet:ipv6=0::10.2.1.4/127')
+            nodes = await core.nodes('inet:ip=0::10.2.1.4/127')
             self.len(2, nodes)
-            self.len(2, await core.nodes('inet:ipv6 +inet:ipv6=0::10.2.1.4/127'))
+            self.len(2, await core.nodes('inet:ip +inet:ip=0::10.2.1.4/127'))
 
             # 0::10.2.1.0 -> 0::10.2.1.3 but we don't have 0::10.2.1.0 in the core
-            nodes = await core.nodes('inet:ipv6=0::10.2.1.1/126')
+            nodes = await core.nodes('inet:ip=0::10.2.1.1/126')
             self.len(3, nodes)
 
-            nodes = await core.nodes('inet:ipv6=0::10.2.1.2/126')
+            nodes = await core.nodes('inet:ip=0::10.2.1.2/126')
             self.len(3, nodes)
 
             # 0::10.2.1.0 -> 0::10.2.1.7 but we don't have 0::10.2.1.0 in the core
-            nodes = await core.nodes('inet:ipv6=0::10.2.1.0/125')
+            nodes = await core.nodes('inet:ip=0::10.2.1.0/125')
             self.len(7, nodes)
 
             # 0::10.2.1.8 -> 0::10.2.1.15
-            nodes = await core.nodes('inet:ipv6=0::10.2.1.8/125')
+            nodes = await core.nodes('inet:ip=0::10.2.1.8/125')
             self.len(8, nodes)
 
             # 0::10.2.1.0 -> 0::10.2.1.15 but we don't have 0::10.2.1.0 in the core
-            nodes = await core.nodes('inet:ipv6=0::10.2.1.1/124')
+            nodes = await core.nodes('inet:ip=0::10.2.1.1/124')
             self.len(15, nodes)
 
     async def test_mac(self):
@@ -1187,20 +1178,20 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('vendor'), 'Cool')
 
     async def test_net4(self):
-        tname = 'inet:net4'
+        tname = 'inet:net'
         async with self.getTestCore() as core:
             # Type Tests ======================================================
             t = core.model.type(tname)
 
             valu = ('1.2.3.4', '5.6.7.8')
-            expected = ((16909060, 84281096), {'subs': {'min': 16909060, 'max': 84281096}})
+            expected = (((4, 16909060), (4, 84281096)), {'subs': {'min': (4, 16909060), 'max': (4, 84281096)}})
             self.eq(t.norm(valu), expected)
 
             valu = '1.2.3.4-5.6.7.8'
             self.eq(t.norm(valu), expected)
 
             valu = '1.2.3.0/24'
-            expected = ((0x01020300, 0x010203ff), {'subs': {'min': 0x01020300, 'max': 0x010203ff}})
+            expected = (((4, 0x01020300), (4, 0x010203ff)), {'subs': {'min': (4, 0x01020300), 'max': (4, 0x010203ff)}})
             self.eq(t.norm(valu), expected)
 
             valu = '5.6.7.8-1.2.3.4'
@@ -1210,27 +1201,29 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, valu)
 
     async def test_net6(self):
-        tname = 'inet:net6'
+        tname = 'inet:net'
         async with self.getTestCore() as core:
             # Type Tests ======================================================
             t = core.model.type(tname)
 
             valu = ('0:0:0:0:0:0:0:0', '::Ff')
-            expected = (('::', '::ff'), {'subs': {'min': '::', 'max': '::ff'}})
+            expected = (((6, 0), (6, 0xff)), {'subs': {'min': (6, 0), 'max': (6, 0xff)}})
             self.eq(t.norm(valu), expected)
 
             valu = '0:0:0:0:0:0:0:0-::Ff'
             self.eq(t.norm(valu), expected)
 
             # Test case in which ipaddress ordering is not alphabetical
+            minv = (6, 0x33000100000000000000000000000000)
+            maxv = (6, 0x3300010000010000000000000000ffff)
             valu = ('3300:100::', '3300:100:1::ffff')
-            expected = (('3300:100::', '3300:100:1::ffff'), {'subs': {'min': '3300:100::', 'max': '3300:100:1::ffff'}})
+            expected = ((minv, maxv), {'subs': {'min': minv, 'max': maxv}})
             self.eq(t.norm(valu), expected)
 
+            minv = (6, 0x20010db8000000000000000000000000)
+            maxv = (6, 0x20010db8000000000000000007ffffff)
             valu = '2001:db8::/101'
-
-            expected = (('2001:db8::', '2001:db8::7ff:ffff'),
-                        {'subs': {'min': '2001:db8::', 'max': '2001:db8::7ff:ffff'}})
+            expected = ((minv, maxv), {'subs': {'min': minv, 'max': maxv}})
             self.eq(t.norm(valu), expected)
 
             valu = ('fe00::', 'fd00::')
@@ -1304,16 +1297,16 @@ class InetModelTest(s_t_utils.SynTest):
         formname = 'inet:server'
         data = (
             ('tcp://127.0.0.1:12345', 'tcp://127.0.0.1:12345', {
-                'ipv4': 2130706433,
+                'ip': (4, 2130706433),
                 'port': 12345,
                 'proto': 'tcp',
             }),
             ('tcp://127.0.0.1', 'tcp://127.0.0.1', {
-                'ipv4': 2130706433,
+                'ip': (4, 2130706433),
                 'proto': 'tcp',
             }),
             ('tcp://[::1]:12345', 'tcp://[::1]:12345', {
-                'ipv6': '::1',
+                'ip': (6, 1),
                 'port': 12345,
                 'proto': 'tcp',
             }),
@@ -1343,9 +1336,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('inet:servfile', ('tcp://127.0.0.1:4040', 'sha256:' + 64 * 'f')))
             self.eq(node.get('server'), 'tcp://127.0.0.1:4040')
             self.eq(node.get('server:host'), 32 * 'a')
-            self.eq(node.get('server:port'), 4040)
-            self.eq(node.get('server:proto'), 'tcp')
-            self.eq(node.get('server:ipv4'), 2130706433)
             self.eq(node.get('file'), 'sha256:' + 64 * 'f')
 
     async def test_ssl_cert(self):
@@ -1357,9 +1347,6 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('file'), 'guid:abcdabcdabcdabcdabcdabcdabcdabcd')
             self.eq(node.get('server'), 'tcp://1.2.3.4:443')
-
-            self.eq(node.get('server:port'), 443)
-            self.eq(node.get('server:ipv4'), 0x01020304)
 
     async def test_url(self):
         formname = 'inet:url'
@@ -1408,7 +1395,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': 'http',
                 'path': '/index.html',
                 'params': '?foo=bar',
-                'ipv4': 0,
+                'ip': (4, 0),
                 'port': 80,
                 'base': 'http://0.0.0.0/index.html'
             }})
@@ -1422,7 +1409,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': 'smb',
                 'params': '',
                 'path': '/share/path/to/filename.txt',
-                'ipv6': '::1',
+                'ip': (6, 1),
             }})
             self.eq(valu, expected)
 
@@ -1435,7 +1422,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'path': '/share/filename.txt',
                 'params': '',
                 'port': 1234,
-                'ipv6': '::1',
+                'ip': (6, 1),
             }})
             self.eq(valu, expected)
 
@@ -1486,7 +1473,6 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ inet:url="https://+:80/woot" ]')
             self.len(1, nodes)
 
-            self.none(nodes[0].get('ipv4'))
             self.none(nodes[0].get('fqdn'))
 
             q = '''
@@ -1506,49 +1492,49 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('proto'), 'http')
             self.eq(nodes[0].get('path'), '/index.html')
             self.eq(nodes[0].get('params'), '')
-            self.eq(nodes[0].get('ipv6'), 'fedc:ba98:7654:3210:fedc:ba98:7654:3210')
+            self.eq(nodes[0].get('ip'), (6, 0xfedcba9876543210fedcba9876543210))
             self.eq(nodes[0].get('port'), 80)
 
             self.eq(nodes[1].get('base'), 'http://[1080::8:800:200c:417a]/index.html')
             self.eq(nodes[1].get('proto'), 'http')
             self.eq(nodes[1].get('path'), '/index.html')
             self.eq(nodes[1].get('params'), '?foo=bar')
-            self.eq(nodes[1].get('ipv6'), '1080::8:800:200c:417a')
+            self.eq(nodes[1].get('ip'), (6, 0x108000000000000000080800200c417a))
             self.eq(nodes[1].get('port'), 80)
 
             self.eq(nodes[2].get('base'), 'http://[3ffe:2a00:100:7031::1]')
             self.eq(nodes[2].get('proto'), 'http')
             self.eq(nodes[2].get('path'), '')
             self.eq(nodes[2].get('params'), '')
-            self.eq(nodes[2].get('ipv6'), '3ffe:2a00:100:7031::1')
+            self.eq(nodes[2].get('ip'), (6, 0x3ffe2a00010070310000000000000001))
             self.eq(nodes[2].get('port'), 80)
 
             self.eq(nodes[3].get('base'), 'http://[1080::8:800:200c:417a]/foo')
             self.eq(nodes[3].get('proto'), 'http')
             self.eq(nodes[3].get('path'), '/foo')
             self.eq(nodes[3].get('params'), '')
-            self.eq(nodes[3].get('ipv6'), '1080::8:800:200c:417a')
+            self.eq(nodes[3].get('ip'), (6, 0x108000000000000000080800200c417a))
             self.eq(nodes[3].get('port'), 80)
 
-            self.eq(nodes[4].get('base'), 'http://[::c009:505]/ipng')
+            self.eq(nodes[4].get('base'), 'http://[::192.9.5.5]/ipng')
             self.eq(nodes[4].get('proto'), 'http')
             self.eq(nodes[4].get('path'), '/ipng')
             self.eq(nodes[4].get('params'), '')
-            self.eq(nodes[4].get('ipv6'), '::c009:505')
+            self.eq(nodes[4].get('ip'), (6, 0xc0090505))
             self.eq(nodes[4].get('port'), 80)
 
             self.eq(nodes[5].get('base'), 'http://[::ffff:129.144.52.38]:80/index.html')
             self.eq(nodes[5].get('proto'), 'http')
             self.eq(nodes[5].get('path'), '/index.html')
             self.eq(nodes[5].get('params'), '')
-            self.eq(nodes[5].get('ipv6'), '::ffff:129.144.52.38')
+            self.eq(nodes[5].get('ip'), (6, 0xffff81903426))
             self.eq(nodes[5].get('port'), 80)
 
             self.eq(nodes[6].get('base'), 'https://[2010:836b:4179::836b:4179]')
             self.eq(nodes[6].get('proto'), 'https')
             self.eq(nodes[6].get('path'), '')
             self.eq(nodes[6].get('params'), '')
-            self.eq(nodes[6].get('ipv6'), '2010:836b:4179::836b:4179')
+            self.eq(nodes[6].get('ip'), (6, 0x2010836b4179000000000000836b4179))
             self.eq(nodes[6].get('port'), 443)
 
     async def test_url_file(self):
@@ -1688,8 +1674,8 @@ class InetModelTest(s_t_utils.SynTest):
             url = 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/'
             expected = (url, {'subs': {
                 'proto': 'file',
-                'ipv4': 117901063,
                 'base': 'file://foo@bar.com:neato@password@7.7.7.7/c:/invisig0th/code/synapse/',
+                'ip': (4, 117901063),
                 'path': 'c:/invisig0th/code/synapse/',
                 'user': 'foo@bar.com',
                 'passwd': 'neato@password',
@@ -1777,9 +1763,9 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type('inet:url')
 
             host = '192[.]168.1[.]1'
-            norm_host = core.model.type('inet:ipv4').norm(host)[0]
-            repr_host = core.model.type('inet:ipv4').repr(norm_host)
-            self.eq(norm_host, 3232235777)
+            norm_host = core.model.type('inet:ip').norm(host)[0]
+            repr_host = core.model.type('inet:ip').repr(norm_host)
+            self.eq(norm_host, (4, 3232235777))
             self.eq(repr_host, '192.168.1.1')
 
             await self._test_types_url_behavior(t, 'ipv4', host, norm_host, repr_host)
@@ -1789,16 +1775,16 @@ class InetModelTest(s_t_utils.SynTest):
             t = core.model.type('inet:url')
 
             host = '::1'
-            norm_host = core.model.type('inet:ipv6').norm(host)[0]
-            repr_host = core.model.type('inet:ipv6').repr(norm_host)
-            self.eq(norm_host, '::1')
+            norm_host = core.model.type('inet:ip').norm(host)[0]
+            repr_host = core.model.type('inet:ip').repr(norm_host)
+            self.eq(norm_host, (6, 1))
             self.eq(repr_host, '::1')
 
             await self._test_types_url_behavior(t, 'ipv6', host, norm_host, repr_host)
 
             # IPv6 Port Special Cases
             weird = t.norm('http://::1:81/hehe')
-            self.eq(weird[1]['subs']['ipv6'], '::1:81')
+            self.eq(weird[1]['subs']['ip'], (6, 0x10081))
             self.eq(weird[1]['subs']['port'], 80)
 
             self.raises(s_exc.BadTypeValu, t.norm, 'http://0:0:0:0:0:0:0:0:81/')
@@ -1812,6 +1798,9 @@ class InetModelTest(s_t_utils.SynTest):
         if htype == 'ipv6':
             host_port = f'[{host}]'
             repr_host_port = f'[{repr_host}]'
+
+        if htype in ('ipv4', 'ipv6'):
+            htype = 'ip'
 
         # URL with auth and port.
         url = f'https://user:password@{host_port}:1234/a/b/c/'
@@ -2031,7 +2020,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'realname:en': 'brutus',
                 'signup': 3,
                 'signup:client': '0.0.0.4',
-                'signup:client:ipv6': '::1',
                 'tagline': 'Taglines are not tags',
                 'url': 'https://blogs.vertex.link/',
                 'webpage': 'https://blogs.vertex.link/brutus',
@@ -2042,7 +2030,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :name=$p.name :aliases=$p.aliases :name:en=$p."name:en"
                 :realname=$p.realname :realname:en=$p."realname:en"
                 :occupation=$p.occupation :passwd=$p.passwd :phone=$p.phone
-                :signup=$p.signup :signup:client=$p."signup:client" :signup:client:ipv6=$p."signup:client:ipv6"
+                :signup=$p.signup :signup:client=$p."signup:client"
                 :tagline=$p.tagline :url=$p.url :webpage=$p.webpage :recovery:email=$p."recovery:email")]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
@@ -2066,8 +2054,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('phone'), '5555555555')
             self.eq(node.get('signup'), 3)
             self.eq(node.get('signup:client'), 'tcp://0.0.0.4')
-            self.eq(node.get('signup:client:ipv4'), 4)
-            self.eq(node.get('signup:client:ipv6'), '::1')
             self.eq(node.get('tagline'), 'Taglines are not tags')
             self.eq(node.get('recovery:email'), 'recovery@vertex.link')
             self.eq(node.get('url'), 'https://blogs.vertex.link/')
@@ -2090,7 +2076,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('acct:user'), 'vertexmc')
             self.eq(node.get('time'), 0)
             self.eq(node.get('client'), 'tcp://0.0.0.0')
-            self.eq(node.get('client:ipv4'), 0)
             self.eq(node.get('loc'), 'ru')
             self.eq(node.get('latlong'), (30.0, 30.0))
             self.eq(node.get('place'), place)
@@ -2098,8 +2083,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '[inet:web:action=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://::ffff:8.7.6.5"]'
             self.len(1, await core.nodes(q))
-            self.len(1, await core.nodes('inet:ipv4=8.7.6.5'))
-            self.len(1, await core.nodes('inet:ipv6="::ffff:8.7.6.5"'))
+            self.len(1, await core.nodes('inet:ip="::ffff:8.7.6.5"'))
             self.len(1, await core.nodes('inet:fqdn=newp.com'))
             self.len(1, await core.nodes('inet:user=hehe'))
 
@@ -2121,14 +2105,12 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('acct:site'), 'vertex.link')
             self.eq(node.get('acct:user'), 'vertexmc')
             self.eq(node.get('client'), 'tcp://0.0.0.3')
-            self.eq(node.get('client:ipv4'), 3)
             self.eq(node.get('time'), 0)
             self.eq(node.get('pv'), ('inet:web:acct:site', 'example.com'))
             self.eq(node.get('pv:prop'), 'inet:web:acct:site')
             q = '[inet:web:chprofile=(test,) :acct:user=hehe :acct:site=newp.com :client="tcp://::ffff:8.7.6.5"]'
             self.len(1, await core.nodes(q))
-            self.len(1, await core.nodes('inet:ipv4=8.7.6.5'))
-            self.len(1, await core.nodes('inet:ipv6="::ffff:8.7.6.5"'))
+            self.len(1, await core.nodes('inet:ip="::ffff:8.7.6.5"'))
             self.len(1, await core.nodes('inet:user=hehe'))
 
     async def test_web_file(self):
@@ -2146,7 +2128,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('name'), 'cool')
             self.eq(node.get('posted'), 0)
             self.eq(node.get('client'), 'tcp://::1')
-            self.eq(node.get('client:ipv6'), '::1')
 
     async def test_web_follows(self):
         async with self.getTestCore() as core:
@@ -2221,7 +2202,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('acct'), ('vertex.link', 'vertexmc'))
             self.eq(node.get('time'), 0)
             self.eq(node.get('client'), 'tcp://::')
-            self.eq(node.get('client:ipv6'), '::')
             self.eq(node.get('logout'), 1)
             self.eq(node.get('loc'), 'ru')
             self.eq(node.get('latlong'), (30.0, 30.0))
@@ -2282,7 +2262,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('time'), 0)
             self.eq(node.get('url'), 'https://vertex.link/messages/0')
             self.eq(node.get('client'), 'tcp://1.2.3.4')
-            self.eq(node.get('client:ipv4'), 0x01020304)
             self.eq(node.get('deleted'), True)
             self.eq(node.get('text'), 'a cool Message')
             self.eq(node.get('file'), file0)
@@ -2293,7 +2272,6 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:web:mesg', (('vertex.link', 'visi'), ('vertex.link', 'epiphyte'), 0)))
             self.eq(node.get('client'), 'tcp://::1')
-            self.eq(node.get('client:ipv6'), '::1')
 
     async def test_web_post(self):
         async with self.getTestCore() as core:
@@ -2330,7 +2308,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('acct:site'), 'vertex.link')
             self.eq(node.get('acct:user'), 'vertexmc')
             self.eq(node.get('client'), 'tcp://1.2.3.4')
-            self.eq(node.get('client:ipv4'), 0x01020304)
             self.eq(node.get('text'), 'my cooL POST')
             self.eq(node.get('time'), 0)
             self.eq(node.get('deleted'), True)
@@ -2350,7 +2327,6 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:web:post', valu))
             self.eq(node.get('client'), 'tcp://::1')
-            self.eq(node.get('client:ipv6'), '::1')
             self.len(1, await core.nodes('inet:fqdn=vertex.link'))
             self.len(1, await core.nodes('inet:group=ninjas'))
 
@@ -2429,11 +2405,11 @@ class InetModelTest(s_t_utils.SynTest):
             props = {
                 'time': 2554869000000,
                 'fqdn': 'arin.whois.net',
-                'ipv4': 167772160,
+                'ip': (4, 167772160),
                 'success': True,
                 'rec': rec,
             }
-            q = '[(inet:whois:ipquery=$valu :time=$p.time :fqdn=$p.fqdn :success=$p.success :rec=$p.rec :ipv4=$p.ipv4)]'
+            q = '[(inet:whois:ipquery=$valu :time=$p.time :fqdn=$p.fqdn :success=$p.success :rec=$p.rec :ip=$p.ip)]'
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2442,16 +2418,16 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('fqdn'), 'arin.whois.net')
             self.eq(node.get('success'), True)
             self.eq(node.get('rec'), rec)
-            self.eq(node.get('ipv4'), 167772160)
+            self.eq(node.get('ip'), (4, 167772160))
 
             valu = s_common.guid()
             props = {
                 'time': 2554869000000,
                 'url': 'http://myrdap/rdap/?query=3300%3A100%3A1%3A%3Affff',
-                'ipv6': '3300:100:1::ffff',
+                'ip': '3300:100:1::ffff',
                 'success': False,
             }
-            q = '[(inet:whois:ipquery=$valu :time=$p.time :url=$p.url :success=$p.success :ipv6=$p.ipv6)]'
+            q = '[(inet:whois:ipquery=$valu :time=$p.time :url=$p.url :success=$p.success :ip=$p.ip)]'
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2460,7 +2436,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('url'), 'http://myrdap/rdap/?query=3300%3A100%3A1%3A%3Affff')
             self.eq(node.get('success'), False)
             self.none(node.get('rec'))
-            self.eq(node.get('ipv6'), '3300:100:1::ffff')
+            self.eq(node.get('ip'), (6, 0x3300010000010000000000000000ffff))
 
             contact = s_common.guid()
             pscontact = s_common.guid()
@@ -2542,7 +2518,7 @@ class InetModelTest(s_t_utils.SynTest):
             addlcontact = s_common.guid()
             rec_ipv4 = s_common.guid()
             props = {
-                'net4': '10.0.0.0/28',
+                'net': '10.0.0.0/28',
                 'asof': 2554869000000,
                 'created': 2554858000000,
                 'updated': 2554858000000,
@@ -2559,7 +2535,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'type': 'direct allocation',
                 'links': ('http://rdap.com/foo', 'http://rdap.net/bar'),
             }
-            q = '''[(inet:whois:iprec=$valu :net4=$p.net4 :asof=$p.asof :created=$p.created :updated=$p.updated
+            q = '''[(inet:whois:iprec=$valu :net=$p.net :asof=$p.asof :created=$p.created :updated=$p.updated
                 :text=$p.text :desc=$p.desc :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
                 :registrant=$p.registrant :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
                 :links=$p.links)]'''
@@ -2567,9 +2543,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:iprec', rec_ipv4))
-            self.eq(node.get('net4'), (167772160, 167772175))
-            self.eq(node.get('net4:min'), 167772160)
-            self.eq(node.get('net4:max'), 167772175)
+            self.eq(node.get('net'), ((4, 167772160), (4, 167772175)))
+            self.eq(node.get('net:min'), (4, 167772160))
+            self.eq(node.get('net:max'), (4, 167772175))
             self.eq(node.get('asof'), 2554869000000)
             self.eq(node.get('created'), 2554858000000)
             self.eq(node.get('updated'), 2554858000000)
@@ -2588,7 +2564,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             rec_ipv6 = s_common.guid()
             props = {
-                'net6': '2001:db8::/101',
+                'net': '2001:db8::/101',
                 'asof': 2554869000000,
                 'created': 2554858000000,
                 'updated': 2554858000000,
@@ -2602,16 +2578,19 @@ class InetModelTest(s_t_utils.SynTest):
                 'type': 'allocated-BY-rir',
             }
 
-            q = '''[(inet:whois:iprec=$valu :net6=$p.net6 :asof=$p.asof :created=$p.created :updated=$p.updated
+            minv = (6, 0x20010db8000000000000000000000000)
+            maxv = (6, 0x20010db8000000000000000007ffffff)
+
+            q = '''[(inet:whois:iprec=$valu :net=$p.net :asof=$p.asof :created=$p.created :updated=$p.updated
                 :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name
                 :registrant=$p.registrant :country=$p.country :status=$p.status :type=$p.type)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv6, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:iprec', rec_ipv6))
-            self.eq(node.get('net6'), ('2001:db8::', '2001:db8::7ff:ffff'))
-            self.eq(node.get('net6:min'), '2001:db8::')
-            self.eq(node.get('net6:max'), '2001:db8::7ff:ffff')
+            self.eq(node.get('net'), (minv, maxv))
+            self.eq(node.get('net:min'), minv)
+            self.eq(node.get('net:max'), maxv)
             self.eq(node.get('asof'), 2554869000000)
             self.eq(node.get('created'), 2554858000000)
             self.eq(node.get('updated'), 2554858000000)
@@ -2672,18 +2651,19 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('text'), 'Hi There')
-            self.eq(node.get('server:port'), 443)
-            self.eq(node.get('server:ipv4'), 0x01020304)
+            self.eq(node.get('server'), 'tcp://1.2.3.4:443')
 
             self.len(1, await core.nodes('it:dev:str="Hi There"'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
             nodes = await core.nodes('[inet:banner=("tcp://::ffff:8.7.6.5", sup)]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.get('text'), 'sup')
-            self.none(node.get('server:port'))
-            self.eq(node.get('server:ipv6'), '::ffff:8.7.6.5')
+            self.eq(node.get('server'), 'tcp://::ffff:8.7.6.5')
+
+            self.len(1, await core.nodes('it:dev:str="sup"'))
+            self.len(1, await core.nodes('inet:ip="::ffff:8.7.6.5"'))
 
     async def test_search_query(self):
         async with self.getTestCore() as core:
@@ -2754,8 +2734,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :headers=(('to', 'Visi Stark <visi@vertex.link>'),)
                 :cc=(baz@faz.org, foo@bar.com, baz@faz.org)
                 :bytes="*"
-                :received:from:ipv4=1.2.3.4
-                :received:from:ipv6="::1"
+                :received:from:ip=1.2.3.4
                 :received:from:fqdn=smtp.vertex.link
                 :flow=$flow
                 :links={[
@@ -2774,8 +2753,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
-            self.eq(nodes[0].get('received:from:ipv6'), '::1')
-            self.eq(nodes[0].get('received:from:ipv4'), 0x01020304)
+            self.eq(nodes[0].get('received:from:ip'), (4, 0x01020304))
             self.eq(nodes[0].get('received:from:fqdn'), 'smtp.vertex.link')
             self.eq(nodes[0].get('flow'), flow)
 
@@ -2838,7 +2816,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(1675296000000, nodes[0].get('time'))
             self.eq('beacon.exe', nodes[0].get('name'))
             self.eq('tcp://1.2.3.4', nodes[0].get('client'))
-            self.eq(0x01020304, nodes[0].get('client:ipv4'))
 
             self.nn(nodes[0].get('post'))
             self.nn(nodes[0].get('mesg'))
@@ -2856,15 +2833,12 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:egress=*
                 :host = *
                 :client=1.2.3.4
-                :client:ipv6="::1"
             ]
             ''')
 
             self.len(1, nodes)
             self.nn(nodes[0].get('host'))
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
-            self.eq(nodes[0].get('client:ipv4'), 0x01020304)
-            self.eq(nodes[0].get('client:ipv6'), '::1')
 
     async def test_model_inet_tls_handshake(self):
 

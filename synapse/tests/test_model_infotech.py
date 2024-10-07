@@ -348,8 +348,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :target:host={[ it:host=* :name=visihost ]}
                     :target:fqdn=vertex.link
                     :target:url=https://vertex.link
-                    :target:ipv4=1.2.3.4
-                    :target:ipv6='::1'
+                    :target:ip=1.2.3.4
                     :multi:scan={[ it:av:scan:result=*
                         :scanner:name="visi total"
                         :multi:count=10
@@ -364,8 +363,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('visi scan', nodes[0].get('scanner:name'))
             self.eq('vertex.link', nodes[0].get('target:fqdn'))
             self.eq('https://vertex.link', nodes[0].get('target:url'))
-            self.eq(0x01020304, nodes[0].get('target:ipv4'))
-            self.eq('::1', nodes[0].get('target:ipv6'))
+            self.eq((4, 0x01020304), nodes[0].get('target:ip'))
             self.eq('omgwtfbbq', nodes[0].get('signame'))
 
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:host'))
@@ -392,8 +390,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             [ it:network=(vertex, ops, lan)
                 :desc="Vertex Project Operations LAN"
                 :name="opslan.lax.vertex.link"
-                :net4="10.1.0.0/16"
-                :net6="fe80::0/64"
+                :net="10.1.0.0/16"
                 :org={ gen.ou.org "Vertex Project" }
                 :type=virtual.sdn
             ]
@@ -403,8 +400,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('it:network', s_common.guid(('vertex', 'ops', 'lan'))))
             self.eq(nodes[0].get('desc'), 'Vertex Project Operations LAN')
             self.eq(nodes[0].get('name'), 'opslan.lax.vertex.link')
-            self.eq(nodes[0].get('net4'), (167837696, 167903231))
-            self.eq(nodes[0].get('net6'), ('fe80::', 'fe80::ffff:ffff:ffff:ffff'))
+            self.eq(nodes[0].get('net'), ((4, 167837696), (4, 167903231)))
             self.eq(nodes[0].get('type'), 'virtual.sdn.')
 
             nodes = await core.nodes('''[
@@ -521,7 +517,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             props = {
                 'name': 'Bobs laptop',
                 'desc': 'Bobs paperweight',
-                'ipv4': '1.2.3.4',
+                'ip': '1.2.3.4',
                 'latlong': '0.0, 0.0',
                 'place': place,
                 'os': sver0,
@@ -534,7 +530,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'ext:id': 'foo123',
                 'image': image.ndef[1],
             }
-            q = '''[(it:host=$valu :name=$p.name :desc=$p.desc :ipv4=$p.ipv4 :place=$p.place :latlong=$p.latlong
+            q = '''[(it:host=$valu :name=$p.name :desc=$p.desc :ip=$p.ip :place=$p.place :latlong=$p.latlong
                 :os=$p.os :manu=$p.manu :model=$p.model :serial=$p.serial :loc=$p.loc :operator=$p.operator
                 :org=$p.org :ext:id=$p."ext:id" :image=$p.image)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': host0, 'p': props}})
@@ -543,7 +539,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.ndef[1], host0)
             self.eq(node.get('name'), 'bobs laptop')
             self.eq(node.get('desc'), 'Bobs paperweight')
-            self.eq(node.get('ipv4'), 0x01020304)
+            self.eq(node.get('ip'), (4, 0x01020304))
             self.eq(node.get('latlong'), (0.0, 0.0))
             self.eq(node.get('place'), place)
             self.eq(node.get('os'), sver0)
@@ -1163,8 +1159,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             user = 'serviceadmin'
             pid = 20
             key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
-            ipv4 = 0x01020304
-            ipv6 = '::1'
 
             sandfile = 'sha256:' + 'b' * 64
             addr4 = f'tcp://1.2.3.4:{port}'
@@ -1215,7 +1209,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('it:cmd', 'rar a -r yourfiles.rar *.txt'))
 
             q = '''
-            [ it:host=(VTX001, 192.168.0.10) :name=VTX001 :ipv4=192.168.0.10 ]
+            [ it:host=(VTX001, 192.168.0.10) :name=VTX001 :ip=192.168.0.10 ]
             $host = $node
 
             [( it:cmd:session=(202405170900, 202405171000, bash, $host)
@@ -1342,8 +1336,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('time'), tick)
             self.eq(node.get('url'), url)
             self.eq(node.get('client'), addr4)
-            self.eq(node.get('client:ipv4'), ipv4)
-            self.eq(node.get('client:port'), port)
             self.eq(node.get('sandbox:file'), sandfile)
             self.nn(node.get('page:pdf'))
             self.nn(node.get('page:html'))
@@ -1367,8 +1359,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('it:exec:url', u1))
             self.eq(node.get('client'), addr6)
-            self.eq(node.get('client:ipv6'), ipv6)
-            self.eq(node.get('client:port'), port)
 
             b0 = s_common.guid()
             bprops = {
@@ -1391,8 +1381,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('host'), host)
             self.eq(node.get('time'), tick)
             self.eq(node.get('server'), addr4)
-            self.eq(node.get('server:ipv4'), ipv4)
-            self.eq(node.get('server:port'), port)
             self.eq(node.get('sandbox:file'), sandfile)
 
             b1 = s_common.guid()
@@ -1402,8 +1390,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('it:exec:bind', b1))
             self.eq(node.get('server'), addr6)
-            self.eq(node.get('server:ipv6'), ipv6)
-            self.eq(node.get('server:port'), port)
 
             faprops = {
                 'exe': exe,
@@ -1584,8 +1570,8 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 (it:app:yara:netmatch=* :node=(inet:fqdn, foo.com))
-                (it:app:yara:netmatch=* :node=(inet:ipv4, 1.2.3.4))
-                (it:app:yara:netmatch=* :node=(inet:ipv6, "::ffff"))
+                (it:app:yara:netmatch=* :node=(inet:ip, 1.2.3.4))
+                (it:app:yara:netmatch=* :node=(inet:ip, "::ffff"))
                 (it:app:yara:netmatch=* :node=(inet:url, "http://foo.com"))
                     :rule=$rule
                     :version=1.2.3
@@ -1644,14 +1630,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1420070400000, nodes[0].get('time'))
 
             self.eq('tcp://[::ffff:1.2.3.4]:0', nodes[0].get('src'))
-            self.eq(0, nodes[0].get('src:port'))
-            self.eq(0x01020304, nodes[0].get('src:ipv4'))
-            self.eq('::ffff:1.2.3.4', nodes[0].get('src:ipv6'))
-
             self.eq('tcp://[::ffff:5.5.5.5]:80', nodes[0].get('dst'))
-            self.eq(80, nodes[0].get('dst:port'))
-            self.eq(0x05050505, nodes[0].get('dst:ipv4'))
-            self.eq('::ffff:5.5.5.5', nodes[0].get('dst:ipv6'))
 
             self.eq(0x10000200003, nodes[0].get('version'))
 

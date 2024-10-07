@@ -1878,7 +1878,7 @@ class CellTest(s_t_utils.SynTest):
 
             # Make our first backup
             async with self.getTestCore() as core:
-                self.len(1, await core.nodes('[inet:ipv4=1.2.3.4]'))
+                self.len(1, await core.nodes('[inet:ip=1.2.3.4]'))
 
                 # Punch in a value to the cell.yaml to ensure it persists
                 core.conf['storm:log'] = True
@@ -1906,14 +1906,14 @@ class CellTest(s_t_utils.SynTest):
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
-                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
                             self.true(core.conf.get('storm:log'))
 
                     # Turning the service back on with the restore URL is fine too.
                     with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
-                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
                             # Take a backup of the cell with the restore.done file in place
                             async with await axon.upload() as upfd:
@@ -1943,7 +1943,7 @@ class CellTest(s_t_utils.SynTest):
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
-                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
             # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
             furl2 = f'{url}{s_common.ehex(sha256r)}'
@@ -1955,7 +1955,7 @@ class CellTest(s_t_utils.SynTest):
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
-                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
                     rpath = s_common.genpath(cdir, 'restore.done')
                     with s_common.genfile(rpath) as fd:
@@ -2234,7 +2234,7 @@ class CellTest(s_t_utils.SynTest):
 
                 conf = {'limit:disk:free': 0}
                 async with self.getTestCore(dirn=path00, conf=conf) as core00:
-                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                    await core00.nodes('[ inet:ip=1.2.3.4 ]')
 
                 s_tools_backup.backup(path00, path01)
 
@@ -2254,21 +2254,21 @@ class CellTest(s_t_utils.SynTest):
                             self.stormIsInErr(errmsg, msgs)
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
                             self.stormIsInErr(errmsg, msgs)
-                            self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
+                            self.len(1, await core00.nodes('[ inet:ip=2.3.4.5 ]'))
 
                             offs = await core00.getNexsIndx()
                             self.false(await core01.waitNexsOffs(offs, 1))
 
-                            self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
-                            self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
+                            self.len(1, await core01.nodes('inet:ip=1.2.3.4'))
+                            self.len(0, await core01.nodes('inet:ip=2.3.4.5'))
                             revt.clear()
 
                         revt.clear()
                         self.true(await asyncio.wait_for(revt.wait(), 1))
                         await core01.sync()
 
-                        self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
-                        self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))
+                        self.len(1, await core01.nodes('inet:ip=1.2.3.4'))
+                        self.len(1, await core01.nodes('inet:ip=2.3.4.5'))
 
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 600):
 
@@ -2282,9 +2282,9 @@ class CellTest(s_t_utils.SynTest):
 
                     with mock.patch('shutil.disk_usage', full_disk):
                         opts = {'view': viewiden}
-                        msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ipv4=$x]}', opts=opts)
+                        msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ip=([4, $x])]}', opts=opts)
                         self.stormIsInErr(errmsg, msgs)
-                        nodes = await core.nodes('inet:ipv4', opts=opts)
+                        nodes = await core.nodes('inet:ip', opts=opts)
                         self.gt(len(nodes), 0)
                         self.lt(len(nodes), 20000)
 
@@ -2303,7 +2303,7 @@ class CellTest(s_t_utils.SynTest):
                     opts = {'view': viewiden}
                     with self.getLoggerStream('synapse.lib.lmdbslab',
                                               'Error during slab resize callback - foo') as stream:
-                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
+                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ip=([4, $x])]}', opts=opts)
                         self.true(stream.wait(1))
 
         async with self.getTestCore() as core:

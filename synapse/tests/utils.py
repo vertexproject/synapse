@@ -319,13 +319,13 @@ testmodel = {
 
         ('test:ndef', ('ndef', {}), {}),
         ('test:ndef:formfilter1', ('ndef', {
-            'forms': ('inet:ipv4', 'inet:ipv6')
+            'forms': ('inet:ip',)
         }), {}),
         ('test:ndef:formfilter2', ('ndef', {
             'interfaces': ('meta:taxonomy',)
         }), {}),
         ('test:ndef:formfilter3', ('ndef', {
-            'forms': ('inet:ipv4',),
+            'forms': ('inet:ip',),
             'interfaces': ('file:mime:msoffice',)
         }), {}),
 
@@ -497,13 +497,13 @@ class TestCmd(s_storm.Cmd):
     forms = {
         'input': [
             'test:str',
-            'inet:ipv6',
+            'inet:ip',
         ],
         'output': [
             'inet:fqdn',
         ],
         'nodedata': [
-            ('foo', 'inet:ipv4'),
+            ('foo', 'inet:ip'),
             ('bar', 'inet:fqdn'),
         ],
     }

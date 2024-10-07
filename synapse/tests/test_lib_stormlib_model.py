@@ -12,7 +12,7 @@ class StormlibModelTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            q = '$val = $lib.model.type(inet:ipv4).repr(42) [test:str=$val]'
+            q = '$val = $lib.model.type(inet:ip).repr(([4, 42])) [test:str=$val]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', '0.0.0.42'))
@@ -23,17 +23,17 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
-            self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))
-            self.eq(s_layer.STOR_TYPE_U32, await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.stortype)'))
+            self.eq('inet:ip', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.name)'))
+            self.eq(s_layer.STOR_TYPE_IPADDR, await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.stortype)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
 
-            self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ipv4).repr($(0x01020304)))'))
+            self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ip).repr(([4, $(0x01020304)])))'))
             self.eq('123', await core.callStorm('return($lib.model.type(int).repr((1.23 *100)))'))
             self.eq((123, {}), await core.callStorm('return($lib.model.type(int).norm((1.23 *100)))'))
-            self.eq(0x01020304, await core.callStorm('return($lib.model.type(inet:ipv4).norm(1.2.3.4).index(0))'))
-            self.eq({'subs': {'type': 'unicast'}}, await core.callStorm('return($lib.model.type(inet:ipv4).norm(1.2.3.4).index(1))'))
-            self.eq('inet:dns:a:ipv4', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ipv4).full)'))
-            self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).form.name)'))
+            self.eq((4, 0x01020304), await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(0))'))
+            self.eq({'subs': {'type': 'unicast', 'version': 4}}, await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(1))'))
+            self.eq('inet:dns:a:ip', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ip).full)'))
+            self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).form.name)'))
 
             await core.addTagProp('score', ('int', {}), {})
             self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))

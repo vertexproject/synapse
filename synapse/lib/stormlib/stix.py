@@ -148,31 +148,29 @@ _DefaultConfig = {
             },
         },
 
-        'inet:ipv4': {
-            'default': 'ipv4-addr',
+        'inet:ip': {
+            'dynopts': ('ipv4-addr', 'ipv6-addr'),
+            'dyndefault': '''
+                if (:version=4) { return(ipv4-addr) }
+                elif (:version=6) { return(ipv6-addr) }
+            ''',
             'stix': {
                 'ipv4-addr': {
                     'props': {
-                        'value': 'return($node.repr())',
+                        'value': '+:version=4 return($node.repr())',
                     },
                     'rels': (
                         ('belongs-to', 'autonomous-system', '-> inet:asn'),
                     ),
-                }
-            },
-        },
-
-        'inet:ipv6': {
-            'default': 'ipv6-addr',
-            'stix': {
+                },
                 'ipv6-addr': {
                     'props': {
-                        'value': 'return($node.repr())',
+                        'value': '+:version=6 return($node.repr())',
                     },
                     'rels': (
                         ('belongs-to', 'autonomous-system', '-> inet:asn'),
                     ),
-                }
+                },
             },
         },
 
@@ -184,8 +182,8 @@ _DefaultConfig = {
                         'value': 'return($node.repr())',
                         'resolves_to_refs': '''
                             init { $refs = $lib.list() }
-                            { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
-                            { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
+                            { -> inet:dns:a -> inet:ip $refs.append($bundle.add($node)) }
+                            { -> inet:dns:aaaa -> inet:ip $refs.append($bundle.add($node)) }
                             { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
                             fini { if $refs { return($refs)} }
                          ''',
@@ -523,21 +521,29 @@ def _validateConfig(core, config):
 
         stixdef = formconf.get('default')
         if stixdef is None:
-            mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
-            raise s_exc.NeedConfValu(mesg=mesg)
+            if (stixdyn := formconf.get('dyndefault')) is None:
+                mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
+                raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixdef not in alltypes:
-            mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
-            raise s_exc.BadConfValu(mesg=mesg)
+            stixdefs = formconf.get('dynopts')
+
+        else:
+            stixdefs = (stixdef,)
+
+        for stixdef in stixdefs:
+            if stixdef not in alltypes:
+                mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
+                raise s_exc.BadConfValu(mesg=mesg)
 
         stixmaps = formconf.get('stix')
         if stixmaps is None:
             mesg = f'STIX Bundle config is missing STIX maps for form {formname}.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixmaps.get(stixdef) is None:
-            mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
-            raise s_exc.BadConfValu(mesg=mesg)
+        for stixdef in stixdefs:
+            if stixmaps.get(stixdef) is None:
+                mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
+                raise s_exc.BadConfValu(mesg=mesg)
 
         for stixtype, stixinfo in stixmaps.items():
 
@@ -1109,7 +1115,7 @@ class LibStixExport(s_stormtypes.Lib):
                             "domain-name": {
                                 ...
                                 "pivots": [
-                                    {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                                    {"storm": "-> inet:dns:a -> inet:ip", "stixtype": "ipv4-addr"}
                                 ]
                             {
                         }
@@ -1315,7 +1321,10 @@ class StixBundle(s_stormtypes.Prim):
             return None
 
         if stixtype is None:
-            stixtype = formconf.get('default')
+            if (stixtype := formconf.get('default')) is None:
+                stixdyn = formconf.get('dyndefault')
+                if (stixtype := await self._callStorm(stixdyn, node)) is None:
+                    return None
 
         # cyber observables have UUIDv5 the rest have UUIDv4
         if stixtype in stix_observables:

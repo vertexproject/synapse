@@ -102,8 +102,8 @@ class StormCellTest(s_test.SynTest):
                     self.gt(len(await ahawait.wait(timeout=6)), 0)  # nexus replay fires 2 events
                     self.true(await s_coro.event_wait(core01.nexsroot._mirready, timeout=6))
 
-                    await core01.nodes('[ inet:ipv4=1.2.3.4 ]')
-                    self.len(1, await core00.nodes('inet:ipv4=1.2.3.4'))
+                    await core01.nodes('[ inet:ip=1.2.3.4 ]')
+                    self.len(1, await core00.nodes('inet:ip=1.2.3.4'))
 
                     expurls = ['aha://01.cortex.synapse']
 

@@ -1085,8 +1085,8 @@ class ItModule(s_module.CoreModule):
                     ('domain', ('it:domain', {}), {
                         'doc': 'The authentication domain that the host is a member of.'}),
 
-                    ('ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The last known ipv4 address for the host.'}),
+                    ('ip', ('inet:ip', {}), {
+                        'doc': 'The last known IP address for the host.'}),
 
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The last known location for the host.'}),
@@ -1242,12 +1242,8 @@ class ItModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that owns/operates the network.'}),
 
-                    ('net4', ('inet:net4', {}), {
-                        'doc': 'The optional contiguous IPv4 address range of this network.'}),
-
-                    ('net6', ('inet:net6', {}), {
-                        'doc': 'The optional contiguous IPv6 address range of this network.'}),
-
+                    ('net', ('inet:net', {}), {
+                        'doc': 'The optional contiguous IP address range of this network.'}),
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
@@ -1337,11 +1333,8 @@ class ItModule(s_module.CoreModule):
                     ('client:host', ('it:host', {}), {
                         'doc': 'The host where the logon originated.',
                     }),
-                    ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 where the logon originated.',
-                    }),
-                    ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 where the logon originated.',
+                    ('client:ip', ('inet:ip', {}), {
+                        'doc': 'The IP where the logon originated.',
                     }),
                 )),
                 ('it:hosturl', {}, (
@@ -2318,11 +2311,8 @@ class ItModule(s_module.CoreModule):
                     ('target:url', ('inet:url', {}), {
                         'doc': 'The URL that was scanned to produce the result.'}),
 
-                    ('target:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 address that was scanned to produce the result.'}),
-
-                    ('target:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 address that was scanned to produce the result.'}),
+                    ('target:ip', ('inet:ip', {}), {
+                        'doc': 'The IP address that was scanned to produce the result.'}),
 
                     ('multi:scan', ('it:av:scan:result', {}), {
                         'doc': 'Set if this result was part of running multiple scanners.'}),
@@ -2660,15 +2650,6 @@ class ItModule(s_module.CoreModule):
                     ('client', ('inet:client', {}), {
                         'doc': 'The address of the client during the URL retrieval.'
                     }),
-                    ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 of the client during the URL retrieval.'
-                    }),
-                    ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 of the client during the URL retrieval.'
-                    }),
-                    ('client:port', ('inet:port', {}), {
-                        'doc': 'The client port during the URL retrieval.'
-                    }),
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
@@ -2687,16 +2668,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time the port was bound.',
                     }),
                     ('server', ('inet:server', {}), {
-                        'doc': 'The inet:addr of the server when binding the port.'
-                    }),
-                    ('server:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 address specified to bind().'
-                    }),
-                    ('server:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 address specified to bind().'
-                    }),
-                    ('server:port', ('inet:port', {}), {
-                        'doc': 'The bound (listening) TCP port.'
+                        'doc': 'The socket address of the server when binding the port.'
                     }),
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
@@ -2980,22 +2952,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The snort rule that matched the file.'}),
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The inet:flow that matched the snort rule.'}),
-                    ('src', ('inet:addr', {}), {
+                    ('src', ('inet:sockaddr', {}), {
                         'doc': 'The source address of flow that caused the hit.'}),
-                    ('src:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The source IPv4 address of the flow that caused the hit.'}),
-                    ('src:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The source IPv6 address of the flow that caused the hit.'}),
-                    ('src:port', ('inet:port', {}), {
-                        'doc': 'The source port of the flow that caused the hit.'}),
-                    ('dst', ('inet:addr', {}), {
+                    ('dst', ('inet:sockaddr', {}), {
                         'doc': 'The destination address of the trigger.'}),
-                    ('dst:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
-                    ('dst:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
-                    ('dst:port', ('inet:port', {}), {
-                        'doc': 'The destination port of the flow that caused the hit.'}),
                     ('time', ('time', {}), {
                         'doc': 'The time of the network flow that caused the hit.'}),
                     ('sensor', ('it:host', {}), {
@@ -3087,7 +3047,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The YARA rule that triggered the match.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
-                    ('node', ('ndef', {'forms': ('inet:fqdn', 'inet:ipv4', 'inet:ipv6', 'inet:url')}), {
+                    ('node', ('ndef', {'forms': ('inet:fqdn', 'inet:ip', 'inet:url')}), {
                         'doc': 'The node which matched the rule.'}),
                 )),
 
