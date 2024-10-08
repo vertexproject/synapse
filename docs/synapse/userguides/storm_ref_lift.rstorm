@@ -49,7 +49,7 @@ inherit the interface.
 .. TIP::
   
   In a production instance of Synapse, lifting **all** nodes of a commonly used form (e.g., ``inet:fqdn`` or
-  ``inet:ipv4``) or lifting by an interface that is inherited by numerous forms (e.g. ``it:host:activity``)
+  ``inet:ip``) or lifting by an interface that is inherited by numerous forms (e.g. ``it:host:activity``)
   may return thousands or tens of thousands of nodes. Lifting by form or interface can be used with the Storm
   :ref:`storm-limit` command to return only a specified number of nodes (for example, to view a sample of
   available data).
@@ -186,13 +186,13 @@ Lift by Secondary Property
 
 **Examples:**
 
-*Lift all IPv4 (inet:ipv4) nodes that have a location (:loc property):*
+*Lift all IP (inet:ip) nodes that have a location (:loc property):*
 
-.. storm-pre:: [ (inet:ipv4=41.164.23.42 :loc=za.wc.worcester) (inet:ipv4=155.254.9.3 :loc='us.mt.three forks') (inet:ipv4=102.64.66.222 :loc='tz.02.dar es salaam') ]
-.. storm-pre:: inet:ipv4:loc
+.. storm-pre:: [ (inet:ip=41.164.23.42 :loc=za.wc.worcester) (inet:ip=155.254.9.3 :loc='us.mt.three forks') (inet:ip=102.64.66.222 :loc='tz.02.dar es salaam') ]
+.. storm-pre:: inet:ip:loc
 ::
   
-  inet:ipv4:loc
+  inet:ip:loc
 
 *Lift all file (file:bytes) nodes that have a PDB path (:mime:pe:pdbpath property):*
 
@@ -346,19 +346,18 @@ properties whose type supports the comparison (e.g., integers, dates/times, etc.
 
 .. TIP::
   
-  IPv4 addresses (``inet:ipv4`` nodes) are stored as their decimal integer equivalents (even though they are
-  displayed in familiar "dotted decimal" format), and can be used with the various inequality operators:
+  IP addresses (``inet:ip`` nodes) are stored as their decimal integer equivalents (even though they are
+  displayed in human friendly format), and can be used with the various inequality operators:
   
   ::
     
-    inet:ipv4 < 192.168.0.0
+    inet:ip < 192.168.0.0
   
-  IPv6 addresses (``inet:ipv6`` nodes) are stored as strings due to limitations with msgpack, but can be
-  used with the various inequality operators if enclosed in single or double quotes:
+  IPv6 addresses can also be used with the various inequality operators if enclosed in single or double quotes:
   
   ::
     
-    inet:ipv6 >= '::0'
+    inet:ip >= '::0'
   
 
 .. _lift-prop-std-primary:
@@ -868,20 +867,22 @@ within a specified range of values. The comparator can be used with types such a
 
 .. NOTE::
   
-  The ``*range=`` operator can be used to lift both ``inet:ipv4`` and ``inet:ipv6`` values (which are stored
-  as decimal integers and strings, respectively). However, ranges of :ref:`type-inet-ipv4` and ``inet:ipv6``
-  nodes can also be lifted directly by specifying the lower and upper addresses in the range using
-  ``<min>-<max>`` format. For example:
-  
-  ``inet:ipv4 = 192.168.0.0-192.168.0.10``
-  
-  Because IPv6 nodes are stored as strings, the range must be enclosed in quotes:
-  
-  ``inet:ipv6 = "::0-ff::ff"``
-  
   The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
   (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
 
+  The ``*range=`` operator can be used to lift ``inet:ip`` values.
+  However, ranges of :ref:`type-inet-ip` nodes can also be lifted directly
+  by specifying the lower and upper addresses in the range using
+  ``<min>-<max>`` format. For example:
+  
+  ``inet:ip = 192.168.0.0-192.168.0.10``
+  
+  For IPv6 values, the range must be enclosed in quotes:
+  
+  ``inet:ip = "::0-ff::ff"``
+    
+  The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
+  (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
 
 **Syntax:**
 
@@ -965,13 +966,13 @@ The set membership extended comparator (``*in=``) supports lifting nodes whose *
   
   ou:name *in= ( fsb, gru, svr )
 
-*Lift all IPv4 addresses associated with any of the specified Autonomous System (AS) numbers:*
+*Lift all IP addresses associated with any of the specified Autonomous System (AS) numbers:*
 
 .. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ]
-.. storm-pre:: inet:ipv4:asn *in= ( 9009, 20473, 44477 )
+.. storm-pre:: inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   
-  inet:ipv4:asn *in= ( 9009, 20473, 44477 )
+  inet:ip:asn *in= ( 9009, 20473, 44477 )
 
 *Lift all tags (syn:tag nodes) whose final tag element matches any of the specified string values:*
 
@@ -1097,7 +1098,7 @@ A "lift by tag" operation lifts **all** nodes that have the specified tag.
 
 *Lift all nodes that ESET associates with Sednit:*
 
-.. storm-pre:: [ inet:fqdn=kg-news.org inet:ipv4=92.114.92.125 +#rep.eset.sednit ]
+.. storm-pre:: [ inet:fqdn=kg-news.org inet:ip=92.114.92.125 +#rep.eset.sednit ]
 .. storm-pre:: #rep.eset.sednit
 ::
   
@@ -1105,7 +1106,7 @@ A "lift by tag" operation lifts **all** nodes that have the specified tag.
 
 *Lift all nodes associated with anonymized infrastructure:*
 
-.. storm-pre:: [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ipv4=104.244.73.193 +#cno.infra.anon.tor.exit) ]
+.. storm-pre:: [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ip=104.244.73.193 +#cno.infra.anon.tor.exit) ]
 .. storm-pre:: #cno.infra.anon
 ::
   
@@ -1134,19 +1135,19 @@ Lift form by tag lifts only those nodes of the specified form that have a partic
 
 *Lift the FQDN nodes that ESET associates with Sednit:*
 
-.. storm-pre:: [ inet:fqdn=kg-news.org inet:ipv4=92.114.92.125 +#rep.eset.sednit ]
+.. storm-pre:: [ inet:fqdn=kg-news.org inet:ip=92.114.92.125 +#rep.eset.sednit ]
 .. storm-pre:: inet:fqdn#rep.eset.sednit
 ::
   
   inet:fqdn#rep.eset.sednit
 
-*Lift the inet:ipv4 nodes associated with DNS sinkhole infrastructure:*
+*Lift the inet:ip nodes associated with DNS sinkhole infrastructure:*
 
-.. storm-pre:: [ inet:ipv4=134.209.227.14 +#cno.infra.dns.sink.hole ]
-.. storm-pre:: inet:ipv4#cno.infra.dns.sink.hole
+.. storm-pre:: [ inet:ip=134.209.227.14 +#cno.infra.dns.sink.hole ]
+.. storm-pre:: inet:ip#cno.infra.dns.sink.hole
 ::
   
-  inet:ipv4#cno.infra.dns.sink.hole
+  inet:ip#cno.infra.dns.sink.hole
 
 .. TIP::
   
@@ -1177,7 +1178,7 @@ See :ref:`lift-interval` for additional detail on the use of the ``@=`` operator
 
 *Lift any nodes that were associated with anonymous VPN infrastructure between December 1, 2023 and January 1, 2024:*
 
-.. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ipv6=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ]
+.. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ip=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ]
 .. storm-pre:: #cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ::
   
@@ -1193,11 +1194,11 @@ See :ref:`lift-interval` for additional detail on the use of the ``@=`` operator
 
 *Lift the IP addresses that were TOR exit nodes between April 1, 2023 and July 1, 2023:*
 
-.. storm-pre:: [ ( inet:ipv4=185.29.8.215 +#cno.infra.anon.tor.exit=(2023/05/08 14:30:51, 2024/01/04 22:05:03) ) ( inet:ipv4=91.208.162.197 +#cno.infra.anon.tor.exit=(2023/03/14 15:00:25, 2023/09/12 15:35:57) ) ]
-.. storm-pre:: inet:ipv4#cno.infra.anon.tor.exit @= ( 2023/04/01, 2023/07/01 )
+.. storm-pre:: [ ( inet:ip=185.29.8.215 +#cno.infra.anon.tor.exit=(2023/05/08 14:30:51, 2024/01/04 22:05:03) ) ( inet:ip=91.208.162.197 +#cno.infra.anon.tor.exit=(2023/03/14 15:00:25, 2023/09/12 15:35:57) ) ]
+.. storm-pre:: inet:ip#cno.infra.anon.tor.exit @= ( 2023/04/01, 2023/07/01 )
 ::
   
-  inet:ipv4#cno.infra.anon.tor.exit @= ( 2023/04/01, 2023/07/01 )
+  inet:ip#cno.infra.anon.tor.exit @= ( 2023/04/01, 2023/07/01 )
 
 .. _lift-tag-prop:
 
@@ -1220,7 +1221,7 @@ whose tags have a specific tag property (regardless of the value of the property
 
 *Lift any nodes with a ":risk" property reported by Symantec:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ]
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ]
 .. storm-pre:: #rep.symantec:risk
 ::
   
@@ -1228,7 +1229,7 @@ whose tags have a specific tag property (regardless of the value of the property
   
 *Lift all FQDNs with a ":risk" property reported by Symantec:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ]
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ]
 .. storm-pre:: inet:fqdn#rep.symantec:risk
 ::
   
@@ -1263,7 +1264,7 @@ more complex Storm queries (such as automation or Storm-based ingest queries).
 
 *Lift any nodes with a ":risk" property value of 100 as reported by ESET:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ]
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ]
 .. storm-pre:: #rep.eset:risk = 100
 ::
   
@@ -1271,7 +1272,7 @@ more complex Storm queries (such as automation or Storm-based ingest queries).
 
 *Lift all FQDNs with a ":risk" property value greater than 90 as reported by domaintools:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ]
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ]
 .. storm-pre:: inet:fqdn#rep.domaintools:risk > 90
 ::
   
@@ -1279,7 +1280,7 @@ more complex Storm queries (such as automation or Storm-based ingest queries).
 
 *Lift all FQDNs with a ":risk" property with a value between 45 and 70 as reported by Symantec:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ]
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ]
 .. storm-pre:: inet:fqdn#rep.symantec:risk *range= ( 45, 70 )
 ::
   
@@ -1334,7 +1335,7 @@ The query above will:
 - Lift all nodes tagged ``#rep.mandiant.avail.public``, such as ``syn:tag`` nodes for tools or malware families
   that Mandiant assesses are publicly available (e.g., ``syn:tag=rep.mandiant.gh0st`` or ``syn:tag=rep.mandiant.beacon``).
 - Lift any nodes tagged with those tags (e.g., ``#rep.mandiant.gh0st`` or ``#rep.mandiant.beacon``). This would
-  typically include IOCs such as hashes, FQDNs, IPv4s, URLs, etc.
+  typically include IOCs such as hashes, FQDNs, IPs, URLs, etc.
 - If any nodes tagged with the additional tags (``#rep.mandiant.gh0st``, etc.) are ``syn:tag`` nodes, repeat the
   process, continuing until no more ``syn:tag`` nodes are lifted.
 - Return the recursively lifted set of nodes (excluding any ``syn:tag`` nodes).
@@ -1388,16 +1389,16 @@ A "reverse" lift can be followed by additional Storm operations (pivots, filters
 
 **Examples:**
 
-*Lift inet:ipv4 nodes with a :loc property (sorted descending based on the :loc property value):*
+*Lift inet:ip nodes with a :loc property (sorted descending based on the :loc property value):*
 
-.. storm-pre:: [ (inet:ipv4=197.155.229.194 :loc=zw.ha.harare) (inet:ipv4=41.221.147.14 :loc=zw) (inet:ipv4=41.164.23.42 :loc=za.wc.worcester) (inet:ipv4=155.254.9.3 :loc='us.mt.three forks') (inet:ipv4=102.64.66.222 :loc='tz.02.dar es salaam') ]
-.. storm-cli:: reverse ( inet:ipv4:loc )
+.. storm-pre:: [ (inet:ip=197.155.229.194 :loc=zw.ha.harare) (inet:ip=41.221.147.14 :loc=zw) (inet:ip=41.164.23.42 :loc=za.wc.worcester) (inet:ip=155.254.9.3 :loc='us.mt.three forks') (inet:ip=102.64.66.222 :loc='tz.02.dar es salaam') ]
+.. storm-cli:: reverse ( inet:ip:loc )
 
 
-*Lift five inet:ipv4 nodes (sorted descending based on the integer value of the inet:ipv4 primary property):*
+*Lift five inet:ip nodes (sorted descending based on the integer value of the inet:ip primary property):*
 
-.. storm-pre:: [ inet:ipv4=255.255.255.255 inet:ipv4=223.159.33.195 inet:ipv4=198.42.76.23 inet:ipv4=52.16.48.7 inet:ipv4=40.250.10.120 inet:ipv4=12.163.57.22 ]
-.. storm-cli:: reverse ( inet:ipv4 ) | limit 5
+.. storm-pre:: [ inet:ip=255.255.255.255 inet:ip=223.159.33.195 inet:ip=198.42.76.23 inet:ip=52.16.48.7 inet:ip=40.250.10.120 inet:ip=12.163.57.22 ]
+.. storm-cli:: reverse ( inet:ip ) | limit 5
 
 
 *Lift the five most recently-created inet:email nodes (sorted descending by the .created property value):*
@@ -1428,23 +1429,23 @@ The Storm "try" operator ( ``?=`` ) can be used in lift operations as an alterna
 comparison operator.
 
 Properties in Synapse are subject to :ref:`gloss-type-enforce`. Type enforcement makes a reasonable attempt to ensure
-that a value "makes sense" for the property in question - that the value you specify for an ``inet:ipv4`` node looks
-reasonably like an IPv4 address (and not an FQDN or URL). If you try to lift a set of nodes using a property value that
+that a value "makes sense" for the property in question - that the value you specify for an ``inet:ip`` node looks
+reasonably like an IP address (and not an FQDN or URL). If you try to lift a set of nodes using a property value that
 does not pass Synapse's type enforcement validation, Synapse will generate an error. The error will cause the currently
 executing Storm query to halt and stop processing. For example, the following query halts based on the bad value
-(``evil.com``) provided for an ``inet:ipv4`` node:
+(``evil.com``) provided for an ``inet:ip`` node:
 
-.. storm-pre:: [ inet:ipv4=8.8.8.8 ]
+.. storm-pre:: [ inet:ip=8.8.8.8 ]
 .. storm-fail:: true
-.. storm-cli:: inet:ipv4 = evil.com inet:ipv4 = 8.8.8.8
+.. storm-cli:: inet:ip = evil.com inet:ip = 8.8.8.8
 .. storm-fail:: false
 
 When using the try operator ( ``?=`` ), Synapse will to attempt (try) to lift the node(s) using the specified property
 value. However, instead of halting in the event of an error, Synapse will ignore the error (silently fail on that
 specific lift operation) but continue processing the rest of the Storm query. Using the try operator below, Synapse
-ignores the bad value for the first IPv4 address but returns the second one:
+ignores the bad value for the first IP address but returns the second one:
 
-.. storm-cli:: inet:ipv4 ?= evil.com inet:ipv4 ?= 8.8.8.8
+.. storm-cli:: inet:ip ?= evil.com inet:ip ?= 8.8.8.8
 
 The try operator is generally not necessary for interactive Storm queries. However, it can be very useful for more
 complex Storm queries or Storm-based automation (see :ref:`storm-ref-automation`), where a single badly-formatted
@@ -1477,10 +1478,10 @@ during execution.
 .. storm-cli::  hash:md5 ?= 174cc541c8d9e1accef73025293923a6
 
 
-*Try to lift the DNS A nodes whose :ipv4 property is 192.168.0.100:*
+*Try to lift the DNS A nodes whose :ip property is 192.168.0.100:*
 
 .. storm-pre:: [ inet:dns:a=(woot.com,192.168.0.100) ]
-.. storm-cli:: inet:dns:a:ipv4 ?= 192.168.0.100
+.. storm-cli:: inet:dns:a:ip ?= 192.168.0.100
 
 
 *Try to lift the email address nodes for ron@vertex.link and ozzie@vertex.link:*

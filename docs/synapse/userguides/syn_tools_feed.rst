@@ -65,7 +65,7 @@ to a single node, with all of the properties, tags, and nodedata on the node enc
 ::
 
   [["it:reveng:function", "9710579930d831abd88acff1f2ecd04f"], {"iden": "508204ebc73709faa161ba8c111aec323f63a78a84495694f317feb067f41802", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625069466909, "description": "An example function"},   "tagprops": {}, "nodedata": {}, "path": {}}]
-  [["inet:ipv4", 386412289], {"iden": "d6270ca2dc592cd0e8edf8c73000f80b63df4bcd601c9a631d8c68666fdda5ae", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625069584577, "type": "unicast"}, "tagprops": {}, "nodedata": {}, "path": {}}]
+  [["inet:ip", [4, 386412289]], {"iden": "d6270ca2dc592cd0e8edf8c73000f80b63df4bcd601c9a631d8c68666fdda5ae", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625069584577, "type": "unicast"}, "tagprops": {}, "nodedata": {}, "path": {}}]
   [["inet:url", "https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide"], {"iden": "dba0a280fc1f8cf317dffa137df0e1761b6f94cacbf56523809d4f17d8263840", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625069758843, "proto": "https", "path": "/en/latest/synapse/userguide.html#userguide", "params": "", "fqdn": "synapse.docs.vertex.link", "port": 443, "base": "https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide"}, "tagprops": {}, "nodedata": {}, "path": {}}]
   [["file:bytes", "sha256:ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c"], {"iden": "137fd16d2caab221e7580be63c149f83a11dd11f10f078d9f582fedef9b57ad5", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625070470041, "sha256": "ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c", "md5": "be1bb5ab2057d69fb6d0a9d0684168fe", "sha1": "57d13f1fa2322058dc80e5d6d768546b47238fcd", "size": 16}, "tagprops": {}, "nodedata": {}, "path": {}}]
 
@@ -97,7 +97,7 @@ From which we can issue Storm commands to interact with and validate the nodes t
            .created = 2021/06/30 19:46:31.810
            :description = An example function
            #my.cool.tag
-  inet:ipv4=23.8.47.1
+  inet:ip=23.8.47.1
            .created = 2021/06/30 19:46:31.810
            :type = unicast
            #my.cool.tag
@@ -129,7 +129,7 @@ want to load the nodes into, and the same nodes should be added.
 
   python -m synapse.tools.feed --cortex "aha://cortex..." testnodes.jsonl
     
-However, once we've inspected the data, let's say that the it:reveng:function and inet:ipv4 nodes are not allowed in
+However, once we've inspected the data, let's say that the it:reveng:function and inet:ip nodes are not allowed in
 the production Cortex, but the inet:url and file:bytes are. We can skip these two nodes by using a combination of
 the ``chunksize`` and ``offset`` parameters:
 

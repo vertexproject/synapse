@@ -76,7 +76,7 @@ Filter by Form Name
 
 *Filter the current working set to only include domains (inet:fqdn nodes):*
 
-.. storm-pre:: [ inet:fqdn=woot.com inet:fqdn=vertex.link  inet:fqdn=google.com inet:ipv4=127.0.0.1 ] +inet:fqdn
+.. storm-pre:: [ inet:fqdn=woot.com inet:fqdn=vertex.link  inet:fqdn=google.com inet:ip=127.0.0.1 ] +inet:fqdn
 ::
   
   <query> +inet:fqdn
@@ -179,8 +179,8 @@ the specified property (secondary, universal, or extended), regardless of the pr
 .. TIP::
   
   When filtering by property, you can specify the property using either the **full** property name (i.e.,
-  the combined form and property, such as ``inet:dns:a:ipv4``) or the **relative** property name (i.e.,
-  the property name alone, including its separator character, such as ``:ipv4``).
+  the combined form and property, such as ``inet:dns:a:ip``) or the **relative** property name (i.e.,
+  the property name alone, including its separator character, such as ``:ip``).
   
   Using the relative property name allows for simplified syntax and more efficient data entry ("less
   typing"). Full property names can be used for clarity (i.e., specifying **exactly** what you want to
@@ -188,7 +188,7 @@ the specified property (secondary, universal, or extended), regardless of the pr
   
   Full property names are **required** when filtering on a property using an interface. They may also be required
   in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
-  ``inet:dns:a:ipv4`` and ``inet:url:ipv4``) and you only wish to filter based on the property of one of
+  ``inet:dns:a:ip`` and ``inet:url:ip``) and you only wish to filter based on the property of one of
   the forms.
   
   Each example below is shown using both the full property name (*<form>:<prop>*) and the relative
@@ -339,9 +339,9 @@ In Synapse, we define **standard comparison operators** as the following set of 
 For filter operations, the not equal ( ``!=`` ) operator is also supported.
 
 When filtering by secondary or extended property value, you can specify the property using either the
-**full** property name (i.e., the combined form and property, such as ``inet:dns:a:ipv4``) or the
+**full** property name (i.e., the combined form and property, such as ``inet:dns:a:ip``) or the
 **relative** property name (i.e., the property name alone, including its separator character, such as
-``:ipv4``).
+``:ip``).
 
 When filtering by universal property value, only the relative property name is required.
 
@@ -353,7 +353,7 @@ Full property names are **required**:
 
 - when filtering based on an interface property value.
 - in cases where multiple nodes in the inbound working set have the same relative property name (e.g.,
-  ``inet:dns:a:ipv4`` and ``inet:url:ipv4``, or a universal property such as ``.seen``) and you only wish to
+  ``inet:dns:a:ip`` and ``inet:url:ip``, or a universal property such as ``.seen``) and you only wish to
   filter based on the property of one of the forms.
 
 Each example below is shown using both the full property name (*<form>:<prop>*) and the relative
@@ -378,17 +378,17 @@ Filter by Primary Property Value
 *<query>* **+** | **-** *<form>* *<operator>* *<valu>*
 
 
-*Filter the current working set to exclude the loopback IPv4 address (127.0.0.1):*
+*Filter the current working set to exclude the loopback IP address (127.0.0.1):*
 
-.. storm-pre:: [ inet:ipv4=127.0.0.1 inet:ipv4=8.8.8.8 ] -inet:ipv4 = 127.0.0.1
+.. storm-pre:: [ inet:ip=127.0.0.1 inet:ip=8.8.8.8 ] -inet:ip = 127.0.0.1
 ::
   
-  <query> -inet:ipv4 = 127.0.0.1
+  <query> -inet:ip = 127.0.0.1
 
-.. storm-pre:: [ inet:ipv4=127.0.0.1 inet:ipv4=8.8.8.8 ] +inet:ipv4 != 127.0.0.1
+.. storm-pre:: [ inet:ip=127.0.0.1 inet:ip=8.8.8.8 ] +inet:ip != 127.0.0.1
 ::
   
-  <query> +inet:ipv4 != 127.0.0.1
+  <query> +inet:ip != 127.0.0.1
 
 
 .. _filter-prop-std-secondary:
@@ -885,18 +885,18 @@ fall within a specified range of values. The comparator can be used with types s
 
 .. NOTE::
   
-  The ``*range=`` operator can be used to filter both ``inet:ipv4`` and ``inet:ipv6`` values (which are stored
-  as decimal integers and strings, respectively). However, ranges of :ref:`type-inet-ipv4` and inet:ipv6
-  nodes can also be filtered directly by specifying the lower and upper addresses in the range using
+  The ``*range=`` operator can be used to filter ``inet:ip`` values.
+  However, ranges of :ref:`type-inet-ip` nodes can also be filtered directly
+  by specifying the lower and upper addresses in the range using
   ``<min>-<max>`` format. For example:
   
-  - ``+inet:ipv4 = 192.168.0.0-192.168.0.10``
-  - ``+:ipv4 = 192.168.0.0-192.168.0.10``
+  - ``+inet:ip = 192.168.0.0-192.168.0.10``
+  - ``+:ip = 192.168.0.0-192.168.0.10``
   
-  Because IPv6 nodes are stored as strings, the range must be enclosed in quotes:
+  For IPv6 values, the range must be enclosed in quotes:
   
-  - ``+inet:ipv6 = "::0-ff::ff"``
-  - ``+:ipv6 = "::0-ff::ff"``
+  - ``+inet:ip = "::0-ff::ff"``
+  - ``+:ip = "::0-ff::ff"``
     
   The ``*range=`` operator cannot be used to compare a time range with a property value that is an interval
   (``ival`` type). The interval ( ``@=`` ) operator should be used instead.
@@ -1015,15 +1015,15 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
   
   <query> -ou:name *in= ( fsb, gru, svr )
 
-*Filter the current working set to only include IPv4 addresses associated with any of the specified Autonomous System (AS) numbers:*
+*Filter the current working set to only include IP addresses associated with any of the specified Autonomous System (AS) numbers:*
 
 .. storm-pre:: [ (inet:asn=44477 :name='stark industries solutions ltd') (inet:asn=20473 :name=as-choopa) (inet:asn=9009 :name='m247 europe srl') ]
-.. storm-pre:: [ ( inet:ipv4=45.67.34.75 :asn=44477 ) ( inet:ipv4=149.248.1.50 :asn=20473 ) ( inet:ipv4=89.249.66.255 :asn=9009 ) ] +inet:ipv4:asn *in= ( 9009, 20473, 44477 )
+.. storm-pre:: [ ( inet:ip=45.67.34.75 :asn=44477 ) ( inet:ip=149.248.1.50 :asn=20473 ) ( inet:ip=89.249.66.255 :asn=9009 ) ] +inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   
-  <query> +inet:ipv4:asn *in= ( 9009, 20473, 44477 )
+  <query> +inet:ip:asn *in= ( 9009, 20473, 44477 )
 
-.. storm-pre:: [ ( inet:ipv4=45.67.34.75 :asn=44477 ) ( inet:ipv4=149.248.1.50 :asn=20473 ) ( inet:ipv4=89.249.66.255 :asn=9009 ) ] +inet:ipv4:asn *in= ( 9009, 20473, 44477 )
+.. storm-pre:: [ ( inet:ip=45.67.34.75 :asn=44477 ) ( inet:ip=149.248.1.50 :asn=20473 ) ( inet:ip=89.249.66.255 :asn=9009 ) ] +inet:ip:asn *in= ( 9009, 20473, 44477 )
 ::
   
   <query> +:asn *in= ( 9009, 20473, 44477 )
@@ -1157,14 +1157,14 @@ the specified tag.
 
 *Filter the current working set to exclude all nodes that ESET associates with Sednit:*
 
-.. storm-pre:: [ inet:fqdn=kg-news.org inet:ipv4=92.114.92.125 +#rep.eset.sednit ] -#rep.eset.sednit
+.. storm-pre:: [ inet:fqdn=kg-news.org inet:ip=92.114.92.125 +#rep.eset.sednit ] -#rep.eset.sednit
 ::
   
   <query> -#rep.eset.sednit
 
 *Filter the current working set to only include nodes associated with anonymized infrastructure:*
 
-.. storm-pre:: [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ipv4=104.244.73.193 +#cno.infra.anon.tor.exit) ] +#cno.infra.anon
+.. storm-pre:: [ (inet:fqdn=ca2.vpn.airdns.org +#cno.infra.anon.vpn) (inet:ip=104.244.73.193 +#cno.infra.anon.tor.exit) ] +#cno.infra.anon
 ::
   
   <query> +#cno.infra.anon
@@ -1223,7 +1223,7 @@ The tag glob filter above uses the single asterisk to match any tag element in t
 
 *Filter the current working set to include any nodes tagged as "cobaltstrike" by any third-party reporting organization whose name begins with 'm':*
 
-.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.mandiant.cobaltstrike ) ( inet:fqdn=evil.com +#rep.microsoft.cobaltstrike ) ( inet:ipv4=1.1.1.1 +#rep.malwarebazaar.cobaltstrike ) ] +#rep.m*.cobaltstrike
+.. storm-pre:: [ ( inet:fqdn=woot.com +#rep.mandiant.cobaltstrike ) ( inet:fqdn=evil.com +#rep.microsoft.cobaltstrike ) ( inet:ip=1.1.1.1 +#rep.malwarebazaar.cobaltstrike ) ] +#rep.m*.cobaltstrike
 ::
   
   <query> +#rep.m*.cobaltstrike
@@ -1282,7 +1282,7 @@ that ends in "blizzard", regardless of tag depth. The filter will match all of t
 
 *Filter the current working set to exclude any nodes tagged with any tag that starts with "cno" and is followed by any string:*
 
-.. storm-pre:: [ ( inet:ipv4=93.90.223.185 +#cno.infra.dns.sink.hole ) ( inet:fqdn=vertex.link +#cno ) ] -#cno**
+.. storm-pre:: [ ( inet:ip=93.90.223.185 +#cno.infra.dns.sink.hole ) ( inet:fqdn=vertex.link +#cno ) ] -#cno**
 ::
   
   <query> -#cno**
@@ -1342,7 +1342,7 @@ See :ref:`filter-interval` for additional detail on the use of the ``@=`` operat
 
 *Filter the current result set to only include nodes that were associated with anonymous VPN infrastructure between December 1, 2023 and January 1, 2024:*
 
-.. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ipv6=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ] +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
+.. storm-pre:: [ (inet:fqdn=wazn.airservers.org +#cno.infra.anon.vpn=(2023/05/24 23:16:51.423, 2023/12/05 23:12:40.626)) (inet:ip=2607:9000:0:85:68a3:75b4:13ab:770a +#cno.infra.anon.vpn=(2023/08/15 00:12:15,2023/12/05 23:12:54) ) ] +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
 ::
   
   <query> +#cno.infra.anon.vpn @= ( 2023/12/01, 2024/01/01 )
@@ -1376,14 +1376,14 @@ whose tags have a specific tag property (regardless of the value of the property
 
 *Filter the current working set to only include nodes with a ":risk" property reported by Symantec:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk
 ::
   
   <query> +#rep.symantec:risk
 
 *Filter the current working set to include nodes with a ":risk" property associated with any tag:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#**:risk
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#**:risk
 ::
   
   <query> +#**:risk
@@ -1423,21 +1423,21 @@ by integers.
 
 *Filter the current working set to include nodes with a ":risk" property value of 100 as reported by ESET:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ] +#rep.eset:risk = 100
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42) (inet:fqdn=vertex.link +#rep.eset:risk=100) ] +#rep.eset:risk = 100
 ::
   
   <query> +#rep.eset:risk = 100
 
 *Filter the current working set to exclude nodes with a ":risk" property value less than 90 as reported by domaintools:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ] -#rep.domaintools:risk < 90
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) (inet:fqdn=vertex.link +#rep.vertex:risk=100) ] -#rep.domaintools:risk < 90
 ::
   
   <query> -#rep.domaintools:risk < 90
 
 *Filter the current working set to include nodes with a ":risk" property with a value between 45 and 70 as reported by Symantec:*
 
-.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ipv4=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk *range= ( 45, 70 )
+.. storm-pre:: [ (inet:fqdn=woot.com +#rep.symantec:risk=87) (inet:ip=8.8.8.8 +#rep.domaintools:risk=42 ) ] +#rep.symantec:risk *range= ( 45, 70 )
 ::
   
   <query> +#rep.symantec:risk *range= ( 45, 70 )
@@ -1531,37 +1531,37 @@ Refer to the :ref:`storm-ref-subquery` guide for additional information on subqu
 
 **Examples:**
 
-*Filter the current working set of FQDNs (inet:fqdn nodes) to only FQDNs that have resolved to an IPv4 address that Trend Micro associates with Pawn Storm (i.e., an IP address tagged #rep.trend.pawnstorm):*
+*Filter the current working set of FQDNs (inet:fqdn nodes) to only FQDNs that have resolved to an IP address that Trend Micro associates with Pawn Storm (i.e., an IP address tagged #rep.trend.pawnstorm):*
 
-.. storm-pre:: inet:fqdn +{ -> inet:dns:a -> inet:ipv4 +#rep.trend.pawnstorm }
+.. storm-pre:: inet:fqdn +{ -> inet:dns:a -> inet:ip +#rep.trend.pawnstorm }
 ::
   
-  <inet:fqdn> +{ -> inet:dns:a -> inet:ipv4 +#rep.trend.pawnstorm }
+  <inet:fqdn> +{ -> inet:dns:a -> inet:ip +#rep.trend.pawnstorm }
 
 The subquery filter above takes the inbound ``inet:fqdn`` nodes and (within the subquery):
 
 - pivots to the associated DNS A records (``inet:dns:a`` nodes);
-- pivots to the asssociated IPv4 addresses (``inet:ipv4`` nodes);
-- checks the IPv4 for the presence of a ``#rep.trend.pawnstorm`` tag.
+- pivots to the asssociated IP addresses (``inet:ip`` nodes);
+- checks the IP for the presence of a ``#rep.trend.pawnstorm`` tag.
 
 The subquery filter returns only those ``inet:fqdn`` nodes where, if you performed the operations
-within the subquery, **would** (based on the inclusive filter) result in an ``inet:ipv4`` node with a
+within the subquery, **would** (based on the inclusive filter) result in an ``inet:ip`` node with a
 ``#rep.trend.pawnstorm`` tag.
 
 
-*Filter the current working set of IPv4 addresses (inet:ipv4 nodes) to exclude any IPv4 associated with an Autonomous System (AS) whose name starts with "makonix":*
+*Filter the current working set of IP addresses (inet:ip nodes) to exclude any IP associated with an Autonomous System (AS) whose name starts with "makonix":*
 
-.. storm-pre:: inet:ipv4 -{ :asn -> inet:asn +:name ^= makonix }
+.. storm-pre:: inet:ip -{ :asn -> inet:asn +:name ^= makonix }
 ::
   
-  <inet:ipv4> -{ :asn -> inet:asn +:name ^= makonix }
+  <inet:ip> -{ :asn -> inet:asn +:name ^= makonix }
 
-The subquery filter above takes the inbound ``inet:ipv4`` nodes and (within the subquery):
+The subquery filter above takes the inbound ``inet:ip`` nodes and (within the subquery):
 
 - pivots to the associated ``inet:asn`` nodes; and
 - checks the ``inet:asn`` nodes for a ``:name`` value that starts with "makonix".
 
-The subquery filter returns only those ``inet:ipv4`` nodes where, if you performed the operations
+The subquery filter returns only those ``inet:ip`` nodes where, if you performed the operations
 within the subquery, **would not** (based on the exclusive filter) result in an ``inet:asn`` node
 with a ``:name`` value starting with "makonix".
 
@@ -1666,7 +1666,7 @@ and checks to see if the result is greater than 1.
 
 *Filter the current set of nodes associated with any threat group or threat cluster (e.g., tagged ``#cno.threat.<threat_name>``), to include only those nodes that are attributed to more than one threat (e.g., that have more than one #cno.threat.<threat_name> tag):*
 
-.. storm-pre:: [ ( inet:ipv4=4.4.4.4 +#cno.threat.foo ) ( inet:ipv4=7.7.7.7 +#cno.threat.hurr +#cno.threat.derp ) ] +$( $node.globtags(cno.threat.*).size() > 1 )
+.. storm-pre:: [ ( inet:ip=4.4.4.4 +#cno.threat.foo ) ( inet:ip=7.7.7.7 +#cno.threat.hurr +#cno.threat.derp ) ] +$( $node.globtags(cno.threat.*).size() > 1 )
 ::
   
   #cno.threat +$( $node.globtags(cno.threat.*).size() > 1 )
@@ -1726,7 +1726,7 @@ property value from a nearby node, it is known as "embedded property syntax".
 Embedded property syntax expresses something that is similar (in concept, though not in practice) to a
 secondary-to-secondary property pivot (see :ref:`storm-ref-pivot`). The syntax expresses navigation:
 
-- From a **secondary property** of a form (such as ``inet:ipv4:asn``), to
+- From a **secondary property** of a form (such as ``inet:ip:asn``), to
 - The **form** for that secondary property (i.e., ``inet:asn``), to
 - A **secondary property** (or property value) of that **target form** (such as ``inet:asn:name``).
 
@@ -1761,12 +1761,12 @@ Despite its similarity to a pivot operation, embedded property syntax is commonl
 
 The examples below illustrate the use of embedded property syntax in a filter expresssion.
 
-*Filter the current working set of IPv4 addresses (inet:ipv4 nodes) to exclude any IPv4 associated with an Autonomous System (AS) whose name starts with "makonix":*
+*Filter the current working set of IP addresses (inet:ip nodes) to exclude any IP associated with an Autonomous System (AS) whose name starts with "makonix":*
 
-.. storm-pre:: [ (inet:ipv4=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] -:asn::name ^= makonix
+.. storm-pre:: [ (inet:ip=185.86.150.67 :asn=52173) (inet:asn=52173 :name="makonix, lv") ] -:asn::name ^= makonix
 ::
   
-  <inet:ipv4> -:asn::name ^= makonix
+  <inet:ip> -:asn::name ^= makonix
 
 .. TIP::
   
@@ -1775,7 +1775,7 @@ The examples below illustrate the use of embedded property syntax in a filter ex
   
   ::
     
-    <inet:ipv4> -{ :asn -> inet:asn +:name ^= makonix }
+    <inet:ip> -{ :asn -> inet:asn +:name ^= makonix }
   
 
 *Filter the current working set of sandbox "file add" operations (it:exec:file:add nodes) to only those "add" operations performed by a file that has a PDB path (:mime:pe:pdbpath property):*
@@ -1822,15 +1822,15 @@ Instead, embedded property syntax is used to represent the pivots from:
 
 Embedded property syntax can also be used when assigning variables (see :ref:`storm-adv-vars`).
 
-*Set the variable $name to the name of the Autonomous System (AS) associated with a given IPv4 address:*
+*Set the variable $name to the name of the Autonomous System (AS) associated with a given IP address:*
 
-.. storm-pre:: inet:ipv4 $name=:asn::name
+.. storm-pre:: inet:ip $name=:asn::name
 ::
   
-  <inet:ipv4> $name=:asn::name
+  <inet:ip> $name=:asn::name
 
-This example uses embedded property syntax to pivot from the inbound ``inet:ipv4`` node, to the ASN (``inet:asn`` node)
-associated with the IPv4's ``:asn`` property, and assigns the value of the ASN's ``:name`` property to the variable ``$name``.
+This example uses embedded property syntax to pivot from the inbound ``inet:ip`` node, to the ASN (``inet:asn`` node)
+associated with the IP's ``:asn`` property, and assigns the value of the ASN's ``:name`` property to the variable ``$name``.
 
    
 .. _Vertex-Threat-Intel: https://synapse.docs.vertex.link/projects/rapid-powerups/en/latest/storm-packages/vertex-threat-intel/index.html

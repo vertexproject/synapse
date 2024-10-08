@@ -459,7 +459,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('duration'), 1)
             self.eq(node.get('from'), pfrom)
             self.eq(node.get('src'), 'tcp://127.0.0.1:45654')
-#            self.eq(node.get('src:proto'), 'tcp')
             self.eq(node.get('src:host'), shost)
             self.eq(node.get('src:proc'), sproc)
             self.eq(node.get('src:exe'), sexe)
@@ -467,7 +466,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('src:txbytes'), 1)
             self.eq(node.get('src:handshake'), 'Hello There')
             self.eq(node.get('dst'), 'tcp://1.2.3.4:80')
-#            self.eq(node.get('dst:proto'), 'tcp')
             self.eq(node.get('dst:host'), dhost)
             self.eq(node.get('dst:proc'), dproc)
             self.eq(node.get('dst:exe'), dexe)
@@ -1019,10 +1017,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm('2001:db8::0:1')[0], (6, 0x20010db8000000000000000000000001))
             self.eq(t.norm('2001:db8:0:0:0:0:2:1')[0], (6, 0x20010db8000000000000000000020001))
             self.eq(t.norm('2001:db8::')[0], (6, 0x20010db8000000000000000000000000))
-
-#            self.eq(t.norm(0)[0], '::')
-#            self.eq(t.norm(1)[0], '::1')
-#            self.eq(t.norm(2**128 - 1)[0], 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
 
             # Link local test
             ip_str = 'fe80::1'

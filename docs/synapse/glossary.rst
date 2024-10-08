@@ -1076,7 +1076,7 @@ Property, Derived
 Within Synapse, a derived property is a secondary property that can be extracted (derived) from a node's primary
 property. For example, the domain ``inet:fqdn=www.google.com`` can be used to derive ``inet:fqdn:domain=google.com``
 and ``inet:fqdn:host=www``; the DNS A record ``inet:dns:a=(woot.com, 1.2.3.4)`` can be used to derive 
-``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ipv4=1.2.3.4``. 
+``inet:dns:a:fqdn=woot.com`` and ``inet:dns:a:ip=1.2.3.4``. 
 
 Synapse will automatically set (:ref:`gloss-autoadd`) any secondary properties that can be derived from a node's
 primary property. Because derived properties are based on primary property values, derived
@@ -1603,9 +1603,9 @@ of common types.
 Type, Model-Specific
 --------------------
 
-Within Synapse, knowledge-domain-specific forms may themselves be specialized types. For example, an IPv4 address
-(``inet:ipv4``) is its own specialized type. While an IPv4 address is ultimately stored as an integer, the type has
-additional constraints, e.g., IPv4 values must fall within the allowable IPv4 address space.
+Within Synapse, knowledge-domain-specific forms may themselves be specialized types. For example, an IP address
+(``inet:ip``) is its own specialized type. While an IP address is ultimately stored as a tuple of integers, the type has
+additional constraints, e.g., IP values must fall within the allowable IP address space.
 
 .. _gloss-type-aware:
 

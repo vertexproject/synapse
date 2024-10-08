@@ -130,8 +130,8 @@ See :ref:`data-mod-combo` below for examples showing the use of edit brackets wi
 The Storm "try" operator can be used in edit operations when setting properties ( ``?=`` ) or adding tags ( ``+?#`` ).
 
 Properties in Synapse are subject to :ref:`gloss-type-enforce`. Type enforcement makes a reasonable attempt to ensure
-that a value "makes sense" for the property in question - that the value you specify for an ``inet:ipv4`` node looks
-reasonably like an IPv4 address (and not an FQDN or URL). If you try to set a property value that does not pass
+that a value "makes sense" for the property in question - that the value you specify for an ``inet:ip`` node looks
+reasonably like an IP address (and not an FQDN or URL). If you try to set a property value that does not pass
 Synapse's type enforcement validation, Synapse will generate a ``BadTypeValu`` error. The error will cause the
 currently executing Storm query to halt and stop processing.
 
@@ -145,13 +145,13 @@ query to fail in the middle.
 
 For example:
 
-``[ inet:ipv4 ?= woot.com ]``
+``[ inet:ip ?= woot.com ]``
 
-will silently fail to create an ``inet:ipv4`` node with the improper value ``woot.com``.
+will silently fail to create an ``inet:ip`` node with the improper value ``woot.com``.
 
 In contrast:
 
-``[ inet:ipv4 = woot.com ]``
+``[ inet:ip = woot.com ]``
 
 will throw a ``BadTypeValu`` error and exit.
 
@@ -167,14 +167,14 @@ Tags and the "Try" Operator
 Tags are also nodes (``syn:tag`` nodes), and tag values are also subject to type enforcement. As such, the "try"
 operator can also be used when applying tags:
 
-``inet:ipv4 = 58.158.177.102 [ +?#cno.infra.dns.sink.hole ]``
+``inet:ip = 58.158.177.102 [ +?#cno.infra.dns.sink.hole ]``
  
 While Synapse automatically normalizes tag elements (e.g., by replacing dash characters ( ``-`` ) or spaces
 with underscores ( ``_`` )), some characters (such as ASCII symbols other than the underscore) are not allowed.
 The "try" operator may be useful when ingesting third-party data or constructing a tag using a :ref:`gloss-variable`
 where the variable may contain unexpected values. For example:
 
-``inet:ipv4 = 8.8.8.8 [ +?#foo.$tag ]``
+``inet:ip = 8.8.8.8 [ +?#foo.$tag ]``
 
 ... where ``$tag`` is a variable representing a tag element derived from the source data.
 
@@ -271,10 +271,10 @@ Operation to add the specified node(s) to a Cortex.
 *Create multiple nodes in a single edit operation:*
 
 
-.. storm-pre:: [ inet:fqdn=woot.com inet:ipv4=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
+.. storm-pre:: [ inet:fqdn=woot.com inet:ip=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 ::
 
-    [ inet:fqdn=woot.com inet:ipv4=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
+    [ inet:fqdn=woot.com inet:ip=12.34.56.78 hash:md5=d41d8cd98f00b204e9800998ecf8427e ]
 
 
 **Usage Notes:**
@@ -314,10 +314,10 @@ The same syntax is used to apply a new property or modify an existing property.
 *Add (or modify) a secondary property:*
 
 
-.. storm-pre:: [ inet:ipv4=127.0.0.1 ] [ :loc=us.oh.wilmington ]
+.. storm-pre:: [ inet:ip=127.0.0.1 ] [ :loc=us.oh.wilmington ]
 ::
 
-    <inet:ipv4> [ :loc=us.oh.wilmington ]
+    <inet:ip> [ :loc=us.oh.wilmington ]
 
 
 *Add (or modify) a universal property:*
@@ -418,13 +418,13 @@ Operation to delete (fully remove) one or more properties from the specified nod
 
 **Examples:**
 
-*Delete the :loc property from an inet:ipv4 node:*
+*Delete the :loc property from an inet:ip node:*
 
 
-.. storm-pre:: inet:ipv4=127.0.0.1 [ -:loc ]
+.. storm-pre:: inet:ip=127.0.0.1 [ -:loc ]
 ::
 
-    <inet:ipv4> [ -:loc ]
+    <inet:ip> [ -:loc ]
 
 
 *Delete multiple properties from a media:news node:*
@@ -475,14 +475,14 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Examples:**
 
-*Link the specified FQDN and IPv4 to the media:news node referenced by the Storm expression using a "refs" light edge:*
+*Link the specified FQDN and IP to the media:news node referenced by the Storm expression using a "refs" light edge:*
 
 
-.. storm-pre:: inet:fqdn=woot.com inet:ipv4=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
+.. storm-pre:: inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
 .. storm-pre:: [inet:fqdn=newsonet.net inet:fqdn=staycools.net inet:fqdn=hugesoft.org inet:fqdn=purpledaily.com +#rep.mandiant.apt1]
 ::
 
-    inet:fqdn=woot.com inet:ipv4=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
+    inet:fqdn=woot.com inet:ip=1.2.3.4 [ <(refs)+ { media:news=a3759709982377809f28fc0555a38193 } ]
 
 
 *Link the specified media:news node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
@@ -497,20 +497,20 @@ See :ref:`data-light-edge` for details on light edges.
 *Link the inet:whois:iprec netblock registration (whois) record to any IP address within the specified netblock range (as referenced by the Storm expression) that already exists in Synapse using an "ipwhois" light edge:*
 
 
-.. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net4:min=198.50.240.220 :net4:max=198.50.240.223 ) ]
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ipv4=198.50.240.220-198.50.240.223 } ]
+.. storm-pre:: [ ( inet:whois:iprec=6aa3294c11baddd193a545c6f29207d5 :name=OVH-CUST-3399212 :net:min=198.50.240.220 :net:max=198.50.240.223 ) ]
+.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
 ::
 
-    inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ipv4=198.50.240.220-198.50.240.223 } ]
+    inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { inet:ip=198.50.240.220-198.50.240.223 } ]
 
 
 *Link the inet:whois:iprec netblock registration (whois) record to every IP in the specified netblock range (as referenced by the Storm expression) using an "ipwhois" light edge, creating the IPs if they do not exist:*
 
 
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ipv4=198.50.240.220-198.50.240.223 ] } ]
+.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
 ::
 
-    inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ipv4=198.50.240.220-198.50.240.223 ] } ]
+    inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ip=198.50.240.220-198.50.240.223 ] } ]
 
 
 **Usage Notes:**
@@ -574,10 +574,10 @@ See :ref:`data-light-edge` for details on light edges.
 *Delete the "ipwhois" light edge linking IP 1.2.3.4 to the specified netblock registration (whois) record:*
 
 
-.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ipv4=1.2.3.4 } ]
+.. storm-pre:: inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 ::
 
-    inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ipv4=1.2.3.4 } ]
+    inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ip=1.2.3.4 } ]
 
 
 **Usage Notes:**
@@ -606,10 +606,10 @@ Operation to add one or more tags to the specified node(s).
 
 *Add a single tag:*
 
-.. storm-pre:: [ inet:ipv4=185.29.8.215 +#cno.infra.anon.tor.exit ]
+.. storm-pre:: [ inet:ip=185.29.8.215 +#cno.infra.anon.tor.exit ]
 ::
   
-  <inet:ipv4> [ +#cno.infra.anon.tor.exit ]
+  <inet:ip> [ +#cno.infra.anon.tor.exit ]
 
 *Add multiple tags:*
 
@@ -747,18 +747,18 @@ Removing a tag from a node differs from deleting the node representing a tag (a 
 *Remove a leaf tag (i.e., the final or rightmost element of the tag):*
 
 
-.. storm-pre:: inet:ipv4 [ -#cno.infra.anon.tor.exit ]
+.. storm-pre:: inet:ip [ -#cno.infra.anon.tor.exit ]
 ::
 
-    <inet:ipv4> [ -#cno.infra.anon.tor.exit ]
+    <inet:ip> [ -#cno.infra.anon.tor.exit ]
 
 
 *Remove a full tag (i.e., the entire tag):*
 
-.. storm-pre::  inet:ipv4 [ -#cno ]
+.. storm-pre::  inet:ip [ -#cno ]
 ::
   
-  <inet:ipv4> [ -#cno ]
+  <inet:ip> [ -#cno ]
 
 
 **Usage Notes:**
@@ -827,10 +827,10 @@ Simple Examples
 *Create a node and add secondary properties:*
 
 
-.. storm-pre:: [ inet:ipv4=94.75.194.194 :loc=nl :asn=60781 ]
+.. storm-pre:: [ inet:ip=94.75.194.194 :loc=nl :asn=60781 ]
 ::
 
-    [ inet:ipv4=94.75.194.194 :loc=nl :asn=60781 ]
+    [ inet:ip=94.75.194.194 :loc=nl :asn=60781 ]
 
 
 *Create a node and add a tag:*
@@ -907,10 +907,10 @@ We can see the difference in the output of the example query:
 Consider the following Storm query that uses only edit brackets:
 
 
-.. storm-pre:: [inet:ipv4=1.2.3.4 :asn=1111 inet:ipv4=5.6.7.8 :asn=2222]
+.. storm-pre:: [inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222]
 ::
 
-    [inet:ipv4=1.2.3.4 :asn=1111 inet:ipv4=5.6.7.8 :asn=2222]
+    [inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222]
 
 
 The query will:
@@ -923,20 +923,20 @@ The query will:
 We can see the effects in the output of our example query:
 
 
-.. storm-cli:: [inet:ipv4=1.2.3.4 :asn=1111 inet:ipv4=5.6.7.8 :asn=2222]
+.. storm-cli:: [inet:ip=1.2.3.4 :asn=1111 inet:ip=5.6.7.8 :asn=2222]
 
 
 Consider the same query using edit parens inside the brackets:
 
 
-.. storm-pre:: [ (inet:ipv4=1.2.3.4 :asn=1111) (inet:ipv4=5.6.7.8 :asn=2222) ]
+.. storm-pre:: [ (inet:ip=1.2.3.4 :asn=1111) (inet:ip=5.6.7.8 :asn=2222) ]
 ::
 
-    [ (inet:ipv4=1.2.3.4 :asn=1111) (inet:ipv4=5.6.7.8 :asn=2222) ]
+    [ (inet:ip=1.2.3.4 :asn=1111) (inet:ip=5.6.7.8 :asn=2222) ]
 
 
 Because the brackets separate the two sets of modifications, IP ``1.2.3.4`` has its ``:asn``
 property set to ``1111`` while IP ``5.6.7.8`` has its ``:asn`` property set to ``2222``:
 
-.. storm-cli:: [ (inet:ipv4=1.2.3.4 :asn=1111) (inet:ipv4=5.6.7.8 :asn=2222) ]
+.. storm-cli:: [ (inet:ip=1.2.3.4 :asn=1111) (inet:ip=5.6.7.8 :asn=2222) ]
 

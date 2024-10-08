@@ -142,9 +142,9 @@ Whitespace characters can **optionally** be used when performing the following o
 
 ::
   
-  storm> [inet:ipv4=192.168.0.1]
+  storm> [inet:ip=192.168.0.1]
   
-  storm> [inet:ipv4 = 192.168.0.1]
+  storm> [inet:ip = 192.168.0.1]
 
 - Comparison operations:
 
@@ -158,9 +158,9 @@ Whitespace characters can **optionally** be used when performing the following o
 
 ::
   
-  storm> inet:ipv4->*
+  storm> inet:ip->*
   
-  storm> inet:ipv4 -> *
+  storm> inet:ip -> *
   
 - Specifying the content of edit brackets or edit parentheses:
 
@@ -170,9 +170,9 @@ Whitespace characters can **optionally** be used when performing the following o
   
   storm> [ inet:fqdn=vertex.link ]
   
-  storm> [ inet:fqdn=vertx.link (inet:ipv4=1.2.3.4 :asn=5678) ]
+  storm> [ inet:fqdn=vertx.link (inet:ip=1.2.3.4 :asn=5678) ]
   
-  storm> [ inet:fqdn=vertex.link ( inet:ipv4=1.2.3.4 :asn=5678 ) ]
+  storm> [ inet:fqdn=vertex.link ( inet:ip=1.2.3.4 :asn=5678 ) ]
 
 Whitespace characters **cannot** be used between reserved characters when performing the following CLI operations:
 
@@ -182,7 +182,7 @@ Whitespace characters **cannot** be used between reserved characters when perfor
 
 ::
 
-  storm> inet:ipv4 = 192.168.0.1 [ -#oldtag +#newtag ]
+  storm> inet:ip = 192.168.0.1 [ -#oldtag +#newtag ]
 
 .. _storm-literals:
 
@@ -271,7 +271,7 @@ a format string, such as variables, node properties, tags, or function calls.
 
 ::
 
-  storm> inet:ipv4=1.2.3.4 $lib.print(`IP {$node.repr()}: asn={:asn} .seen={.seen} foo={#foo}`)
+  storm> inet:ip=1.2.3.4 $lib.print(`IP {$node.repr()}: asn={:asn} .seen={.seen} foo={#foo}`)
 
 - Lift a node using a format string:
 
@@ -283,7 +283,7 @@ Backtick format strings may also span multiple lines, which will include the new
 
 ::
 
-    storm> inet:ipv4=1.2.3.4 $lib.print(`
+    storm> inet:ip=1.2.3.4 $lib.print(`
     IP {$node.repr()}:
     asn={:asn}
     .seen={.seen}
@@ -332,12 +332,12 @@ multiple operations to be **chained** together to form increasingly complex quer
   
   storm> inet:fqdn=vertex.link -> inet:dns:a
   
-  storm> inet:fqdn=vertex.link -> inet:dns:a -> inet:ipv4
+  storm> inet:fqdn=vertex.link -> inet:dns:a -> inet:ip
   
-  storm> inet:fqdn=vertex.link -> inet:dns:a -> inet:ipv4 +:type=unicast
+  storm> inet:fqdn=vertex.link -> inet:dns:a -> inet:ip +:type=unicast
 
 The above example demonstrates chaining a lift (``inet:fqdn=vetex.link``) with two pivots
-(``-> inet:dns:a``, ``-> inet:ipv4``) and a filter (``+:type=unicast``).
+(``-> inet:dns:a``, ``-> inet:ip``) and a filter (``+:type=unicast``).
 
 When Storm operations are concatenated in this manner, they are processed **in order from left to right** with each
 operation (lift, filter, or pivot) acting on the output of the previous operation. A Storm query is not evaluated
@@ -352,7 +352,7 @@ next operation.
 
 You do not have to write (or execute) Storm queries "one operation at a time" - this example is meant to illustrate
 how you can chain individual Storm operations together to form longer queries. If you know that the question
-you want Storm to answer is "show me the unicast IPv4 addresses that the FQDN vertex.link has resolved to", you can
+you want Storm to answer is "show me the unicast IP addresses that the FQDN vertex.link has resolved to", you can
 simply run the final query in its entirety. But you can also "build" queries one operation at a time if you're
 exploring the data or aren't sure yet where your analysis will take you.
 
@@ -374,10 +374,10 @@ Take our operation chaining example above:
  - When we pivot to the DNS A records for that FQDN, we navigate away from (drop) our initial ``inet:fqdn`` node, and
    navigate to (add) the DNS A nodes. Our **current working set** now consists of the DNS A records (``inet:dns:a`` nodes)
    for vertex.link.
- - Similarly, when we pivot to the IPv4 addresses, we navigate away from (drop) the DNS A nodes and navigate to (add)
-   the IPv4 nodes. Our current working set is made up of the ``inet:ipv4`` nodes.
- - Finally, when we perform our filter operation, we may discard (drop) any IPv4 nodes representing non-unicast IPs
-   (such as ``inet:ipv4=127.0.0.1``) if present.
+ - Similarly, when we pivot to the IP addresses, we navigate away from (drop) the DNS A nodes and navigate to (add)
+   the IP nodes. Our current working set is made up of the ``inet:ip`` nodes.
+ - Finally, when we perform our filter operation, we may discard (drop) any IP nodes representing non-unicast IPs
+   (such as ``inet:ip=127.0.0.1``) if present.
  
 We refer to this transformation (in particular, dropping) of some or all nodes by a given Storm operation as **consuming**
 nodes. Most Storm operations consume nodes (that is, change your working set in some way - what comes out of the operation
