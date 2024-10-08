@@ -45,6 +45,16 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
+                ('ou:asset', ('guid', {}), {
+                    'doc': 'A node for tracking assets which belong to an organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'id'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'org::name'}},
+                        ),
+                    }}),
+
                 ('ou:orgtype', ('taxonomy', {}), {
                     'doc': 'An org type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
@@ -727,6 +737,41 @@ class OuModule(s_module.CoreModule):
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),
                     ('name', ('ou:name', {}), {}),
+                )),
+
+                ('ou:asset', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization which owns the asset.'}),
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the asset.'}),
+
+                    ('name', ('str', {'strip': True, 'onespace': True}), {
+                        'doc': 'The name of the assset.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The overall priority of protecting the asset.'}),
+
+                    ('priority:confidentiality', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the confidentiality of the asset.'}),
+
+                    ('priority:integrity', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the integrity of the asset.'}),
+
+                    ('priority:availability', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the availability of the asset.'}),
+
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node which represents the asset.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place where the asset is deployed.'}),
+
+                    ('owner', ('ps:contact', {}), {
+                        'doc': 'The contact information of the asset owner.'}),
+
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The contact information of the user/operator of the asset.'}),
                 )),
                 ('ou:position', {}, (
                     ('org', ('ou:org', {}), {
