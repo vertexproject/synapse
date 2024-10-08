@@ -470,7 +470,7 @@ class RStormLibTest(s_test.SynTest):
             with s_common.genfile(path) as fd:
                 fd.write(fail00.encode())
             text = await get_rst_text(path)
-            self.isin('ERROR: Invalid IP Address', text)
+            self.isin('ERROR: Invalid IP address', text)
             self.isin('storm> inet:ip=1.2.3.4', text)
             self.isin(':type = unicast', text)
 
