@@ -543,7 +543,7 @@ class ModelType(s_stormtypes.Prim):
 @s_stormtypes.registry.registerLib
 class LibModelEdge(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with light edges and manipulating their key-value attributes.
+    A Storm Library for interacting with light edges and manipulating their key-value attributes. This Library is deprecated.
     '''
     _storm_locals = (
         {'name': 'get', 'desc': 'Get the key-value data for a given Edge verb.',
@@ -588,6 +588,7 @@ class LibModelEdge(s_stormtypes.Lib):
     hivepath = ('cortex', 'model', 'edges')
 
     _storm_lib_path = ('model', 'edge')
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
 
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name)
