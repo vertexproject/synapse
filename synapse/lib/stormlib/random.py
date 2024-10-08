@@ -13,7 +13,7 @@ randinst = random.SystemRandom()
 @s_stormtypes.registry.registerType
 class Random(s_stormtypes.StormType):
     '''
-    A seeded random number generator.
+    A random number generator.
     '''
     _storm_typename = 'random'
     _storm_locals = (
