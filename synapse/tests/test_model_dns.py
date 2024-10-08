@@ -281,11 +281,11 @@ class DnsModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('[inet:dns:a=(foo.com, "::")]')
-            self.isin('got 6 expected 4', cm.exception.get('mesg'))
+            self.isin('expected an IPv4', cm.exception.get('mesg'))
 
             with self.raises(s_exc.BadTypeValu) as cm:
                 await core.nodes('[inet:dns:aaaa=(foo.com, 1.2.3.4)]')
-            self.isin('got 4 expected 6', cm.exception.get('mesg'))
+            self.isin('expected an IPv6', cm.exception.get('mesg'))
 
     # The inet:dns:answer form has a large number of properties on it,
     async def test_model_inet_dns_answer(self):

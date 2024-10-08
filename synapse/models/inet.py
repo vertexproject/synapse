@@ -127,6 +127,8 @@ class IPAddr(s_types.Type):
             '>=': self._storLiftNorm,
         })
 
+        self.reqvers = self.opts.get('version')
+
     def _ctorCmprEq(self, valu):
 
         if isinstance(valu, str):
@@ -181,12 +183,17 @@ class IPAddr(s_types.Type):
             raise s_exc.BadTypeValu(mesg=mesg)
 
         vers = valu[0]
+
+        if self.reqvers is not None and vers != self.reqvers:
+            mesg = f'Invalid IP address version: got {valu} expected {self.reqvers}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
         subs = {'version': vers}
 
         if vers == 4:
             try:
                 ipaddr = ipaddress.IPv4Address(valu[1])
-            except OSError as e:
+            except ValueError as e:
                 mesg = f'Invalid IP address tuple: {valu}'
                 raise s_exc.BadTypeValu(mesg=mesg)
 
@@ -194,7 +201,7 @@ class IPAddr(s_types.Type):
             try:
                 ipaddr = ipaddress.IPv6Address(valu[1])
                 subs['scope'] = getAddrScope(ipaddr)
-            except OSError as e:
+            except ValueError as e:
                 mesg = f'Invalid IP address tuple: {valu}'
                 raise s_exc.BadTypeValu(mesg=mesg)
 
@@ -216,6 +223,10 @@ class IPAddr(s_types.Type):
         subs = {}
 
         if valu.find(':') != -1:
+            if self.reqvers is not None and self.reqvers != 6:
+                mesg = f'Invalid IP address version, expected an IPv4, got: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
             try:
                 byts = socket.inet_pton(socket.AF_INET6, valu)
                 addr = (6, int.from_bytes(byts, 'big'))
@@ -223,16 +234,20 @@ class IPAddr(s_types.Type):
                 subs |= {'version': 6, 'scope': getAddrScope(ipaddr)}
                 # v4 = v6.ipv4_mapped
             except OSError as e:
-                mesg = f'Invalid IP Address: {text}'
+                mesg = f'Invalid IP address: {text}'
                 raise s_exc.BadTypeValu(mesg=mesg) from None
         else:
+            if self.reqvers is not None and self.reqvers != 4:
+                mesg = f'Invalid IP address version, expected an IPv6, got: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
             try:
                 byts = socket.inet_pton(socket.AF_INET, valu)
                 addr = (4, int.from_bytes(byts, 'big'))
                 ipaddr = ipaddress.IPv4Address(addr[1])
                 subs['version'] = 4
             except OSError as e:
-                mesg = f'Invalid IP Address: {text}'
+                mesg = f'Invalid IP address: {text}'
                 raise s_exc.BadTypeValu(mesg=mesg) from None
 
         subs['type'] = getAddrType(ipaddr)
@@ -469,7 +484,7 @@ class Cidr(s_types.Str):
             try:
                 netw = ipaddress.IPv6Network(valu)
             except Exception as e:
-                raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
             norm = str(netw)
             info = {
@@ -1130,6 +1145,12 @@ class InetModule(s_module.CoreModule):
                 ),
 
                 'types': (
+
+                    ('inet:ipv4', ('inet:ip', {'version': 4}), {
+                        'doc': 'An IPv4 address.'}),
+
+                    ('inet:ipv6', ('inet:ip', {'version': 6}), {
+                        'doc': 'An IPv4 address.'}),
 
                     ('inet:asn', ('int', {}), {
                         'doc': 'An Autonomous System Number (ASN).'}),

@@ -542,3 +542,31 @@ class StormLibStixTest(s_test.SynTest):
             self.len(1, rels)
             self.true(rels[0]['target_ref'].startswith('attack-pattern--'))
             self.true(rels[0]['source_ref'].startswith('course-of-action--'))
+
+    async def test_stix_export_dyndefault(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[ it:dev:str=foo it:dev:str=bar ]')
+
+            bund = await core.callStorm('''
+                init {
+                    $config = $lib.stix.export.config()
+                    $config.forms."it:dev:str"=({
+                        "dynopts": ["location"],
+                        "dyndefault": "+it:dev:str=foo { return(location) }",
+                        "stix": {
+                            "location": {"props": {"name": "return($node.repr())"}}
+                        }
+                    })
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                }
+
+                it:dev:str
+                $bundle.add($node)
+
+                fini { return($bundle) }
+            ''')
+
+            locs = [obj for obj in bund['objects'] if obj['type'] == 'location']
+            self.len(1, locs)
+            self.eq(locs[0]['name'], 'foo')

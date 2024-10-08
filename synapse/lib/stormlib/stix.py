@@ -1323,7 +1323,7 @@ class StixBundle(s_stormtypes.Prim):
         if stixtype is None:
             if (stixtype := formconf.get('default')) is None:
                 stixdyn = formconf.get('dyndefault')
-                if (stixtype := await self._callStorm(stixdyn, node)) is None:
+                if (stixtype := await self._callStorm(stixdyn, node)) is s_common.novalu:
                     return None
 
         # cyber observables have UUIDv5 the rest have UUIDv4

@@ -370,13 +370,17 @@ class LayerTest(s_t_utils.SynTest):
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
 
-    async def test_layer_stortype_ipv6(self):
+    async def test_layer_stortype_ip(self):
         stor = s_layer.StorTypeIpv6(None)
 
         vals = ('::1', 'fe80::431c:39b2:888:974')
 
         for valu, indx in ((v, stor.indx(v)) for v in vals):
             self.eq(valu, stor.decodeIndx(indx[0]))
+
+        stor = s_layer.StorTypeIPAddr(None)
+        with self.raises(s_exc.BadTypeValu):
+            stor._getIndxByts((7, 1))
 
     async def test_layer_stortype_fqdn(self):
         stor = s_layer.StorTypeFqdn(None)

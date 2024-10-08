@@ -103,6 +103,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('inet:ip +inet:ip=1.2.3.1-1.2.3.3'))
             self.len(3, await core.nodes('inet:ip*range=(1.2.3.1, 1.2.3.3)'))
 
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:ip="1.2.3.1-::"')
+
     async def test_ipv4_filt_cidr(self):
 
         async with self.getTestCore() as core:
@@ -147,6 +150,12 @@ class InetModelTest(s_t_utils.SynTest):
             # 10.2.1.1/28 is 10.2.1.0 -> 10.2.1.15 but we don't have 10.2.1.0 in the core
             nodes = await core.nodes('inet:ip=10.2.1.1/28')
             self.len(15, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:ip=1.2.3.4/a')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:ip=1.2.3.4/40')
 
     async def test_sockaddr(self):
         formname = 'inet:sockaddr'
@@ -298,6 +307,9 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(t.norm(valu), expected)
 
             self.raises(s_exc.BadTypeValu, t.norm, '10.0.0.1/-1')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:cidr=0::10.2.1.1/300')
 
     async def test_client(self):
         data = (
@@ -898,8 +910,24 @@ class InetModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 t.norm('foo-bar.com')
+
             with self.raises(s_exc.BadTypeValu):
                 t.norm('bar.com')
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm((1, 2, 3))
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm((4, -1))
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm((6, -1))
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm((7, 1))
+
+            with self.raises(s_exc.BadTypeValu):
+                t.repr((7, 1))
 
             # Form Tests ======================================================
             place = s_common.guid()
@@ -934,7 +962,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(3, await core.nodes('inet:ip>=0.0.0.2'))
             self.len(0, await core.nodes('inet:ip>=255.0.0.1'))
             with self.raises(s_exc.BadTypeValu):
-                self.len(5, await core.nodes('inet:ip>=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}}))
+                await core.nodes('inet:ip>=$foo', {'vars': {'foo': 0xFFFFFFFF + 1}})
             # Filters
             self.len(0, await core.nodes('.created +inet:ip<0.0.0.0'))
             self.len(1, await core.nodes('.created +inet:ip<0.0.0.1'))
@@ -1081,6 +1109,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:ip>=2a00::'))
             self.len(2, await core.nodes('inet:ip<2a00::'))
             self.len(3, await core.nodes('inet:ip<=2a00::'))
+            self.len(0, await core.nodes('inet:ip>ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff'))
 
             self.len(1, await core.nodes('inet:ip +inet:ip>2a00::'))
             self.len(2, await core.nodes('inet:ip +inet:ip>=2a00::'))
@@ -1145,6 +1174,9 @@ class InetModelTest(s_t_utils.SynTest):
             # 0::10.2.1.0 -> 0::10.2.1.15 but we don't have 0::10.2.1.0 in the core
             nodes = await core.nodes('inet:ip=0::10.2.1.1/124')
             self.len(15, nodes)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:ip=0::10.2.1.1/300')
 
     async def test_mac(self):
         formname = 'inet:mac'
@@ -1225,6 +1257,9 @@ class InetModelTest(s_t_utils.SynTest):
 
             valu = ('fd00::', 'fe00::', 'ff00::')
             self.raises(s_exc.BadTypeValu, t.norm, valu)
+
+            with self.raises(s_exc.BadTypeValu):
+                t.norm(((6, 1), (4, 1)))
 
     async def test_passwd(self):
         async with self.getTestCore() as core:

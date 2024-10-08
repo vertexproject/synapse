@@ -70,16 +70,12 @@ class DnsName(s_types.Str):
         else:
             # Try fallbacks to parse out possible ipv4/ipv6 garbage queries
             try:
-                ipv4norm, info = self.modl.type('inet:ip').norm(norm)
+                ipnorm, info = self.modl.type('inet:ip').norm(norm)
             except s_exc.BadTypeValu as e:
-                try:
-                    ipv6norm, info = self.modl.type('inet:ip').norm(norm)
-                except s_exc.BadTypeValu as e2:
-                    pass
-                else:
-                    subs['ip'] = ipv6norm
+                pass
             else:
-                subs['ip'] = ipv4norm
+                subs['ip'] = ipnorm
+                return norm, {'subs': subs}
 
             # Lastly, try give the norm'd valu a shot as an inet:fqdn
             try:
@@ -108,17 +104,11 @@ class DnsModule(s_module.CoreModule):
 
             'types': (
 
-                ('inet:dns:a', ('comp', {
-                    'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip')),
-                    'subs': ({}, {'version': 4})
-                    }), {
+                ('inet:dns:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv4'))}), {
                     'ex': '(vertex.link,1.2.3.4)',
                     'doc': 'The result of a DNS A record lookup.'}),
 
-                ('inet:dns:aaaa', ('comp', {
-                    'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip')),
-                    'subs': ({}, {'version': 6})
-                    }), {
+                ('inet:dns:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ipv6'))}), {
                     'ex': '(vertex.link,2607:f8b0:4004:809::200e)',
                     'doc': 'The result of a DNS AAAA record lookup.'}),
 
@@ -159,16 +149,10 @@ class DnsModule(s_module.CoreModule):
                 ('inet:dns:answer', ('guid', {}), {
                     'doc': 'A single answer from within a DNS reply.'}),
 
-                ('inet:dns:wild:a', ('comp', {
-                    'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip')),
-                    'subs': ({}, {'version': 4})
-                    }), {
+                ('inet:dns:wild:a', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
                     'doc': 'A DNS A wild card record and the IPv4 it resolves to.'}),
 
-                ('inet:dns:wild:aaaa', ('comp', {
-                    'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip')),
-                    'subs': ({}, {'version': 6})
-                    }), {
+                ('inet:dns:wild:aaaa', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('ip', 'inet:ip'))}), {
                     'doc': 'A DNS AAAA wild card record and the IPv6 it resolves to.'}),
 
                 ('inet:dns:dynreg', ('guid', {}), {
