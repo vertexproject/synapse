@@ -1430,6 +1430,18 @@ class InetModelTest(s_t_utils.SynTest):
             }})
             self.eq(valu, expected)
 
+            url = '  http://0.0.0.0/index.html?foo=bar  '
+            valu = t.norm(url)
+            expected = (url.strip(), {'subs': {
+                'proto': 'http',
+                'path': '/index.html',
+                'params': '?foo=bar',
+                'ipv4': 0,
+                'port': 80,
+                'base': 'http://0.0.0.0/index.html'
+            }})
+            self.eq(valu, expected)
+
             unc = '\\\\0--1.ipv6-literal.net\\share\\path\\to\\filename.txt'
             url = 'smb://::1/share/path/to/filename.txt'
             valu = t.norm(unc)
