@@ -535,8 +535,6 @@ class Comp(Type):
         adds = []
         norms = []
 
-        reqsubs = self.opts.get('subs')
-
         for i, (name, _) in enumerate(fields):
 
             _type = self.tcache[name]
@@ -547,13 +545,7 @@ class Comp(Type):
             norms.append(norm)
 
             for k, v in info.get('subs', {}).items():
-                full = f'{name}:{k}'
-                subs[full] = v
-
-                if reqsubs is not None and (reqv := reqsubs[i].get(k)) is not None:
-                    if reqv != v:
-                        mesg = f'invalid {full} value for {self.name}: got {v} expected {reqv}'
-                        raise s_exc.BadTypeValu(name=self.name, field=name, prop=k, valu=v, mesg=mesg)
+                subs[f'{name}:{k}'] = v
 
             typeform = self.modl.form(_type.name)
             if typeform is not None:

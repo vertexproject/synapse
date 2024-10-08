@@ -185,7 +185,7 @@ class IPAddr(s_types.Type):
         vers = valu[0]
 
         if self.reqvers is not None and vers != self.reqvers:
-            mesg = f'Invalid IP address version: got {valu} expected {self.reqvers}'
+            mesg = f'Invalid IP address version: got {vers} expected {self.reqvers}'
             raise s_exc.BadTypeValu(mesg=mesg)
 
         subs = {'version': vers}
