@@ -99,6 +99,10 @@ class TestLibStormRandom(s_test.SynTest):
             valu = await core.callStorm(q)
             self.eq(valu, 7)
 
+            # Sad path
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('$r=$lib.random.generator(seed="") return($r.int(maxval=0, minval=1))')
+
             # Printing objects
             msgs = await core.stormlist('$lib.print($lib.random.generator())')
             self.stormIsInPrint('random', msgs)
