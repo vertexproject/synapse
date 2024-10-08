@@ -1068,7 +1068,6 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:ip', (6, 0xffff01020304)))
             self.eq(node.get('dns:rev'), 'vertex.link')
-#            self.eq(node.get('ipv4'), 0x01020304)
             self.eq(node.get('latlong'), (0.0, 2.0))
             self.eq(node.get('loc'), 'cool')
             self.eq(node.get('place'), place)
@@ -1436,7 +1435,7 @@ class InetModelTest(s_t_utils.SynTest):
                 'proto': 'http',
                 'path': '/index.html',
                 'params': '?foo=bar',
-                'ipv4': 0,
+                'ip': (4, 0),
                 'port': 80,
                 'base': 'http://0.0.0.0/index.html'
             }})
