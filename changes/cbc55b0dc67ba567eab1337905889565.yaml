@@ -1,5 +1,5 @@
 ---
-desc: Add ``$lib.random.seed()`` to get a seeded random number generator in Storm.
+desc: Add ``$lib.random.generator()`` to get a random number generator in Storm.
 prs: []
 type: feat
 ...
