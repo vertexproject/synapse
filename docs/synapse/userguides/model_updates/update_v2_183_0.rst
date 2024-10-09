@@ -6,10 +6,10 @@
 v2.183.0 Model Updates
 ######################
 
-The following model updates were made during the ``v2.182.0`` Synapse release.
+The following model updates were made during the ``v2.183.0`` Synapse release.
 
 ******************
-properties updated
+Updated Properties
 ******************
 
 ``it:exec:file:add``
