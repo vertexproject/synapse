@@ -1,7 +1,7 @@
 ---
-desc: Fix bug where the ``:path:base``, ``:path:dir``, and ``:path:ext`` secondary
+desc: Fix an issue where the ``:path:base``, ``:path:dir``, and ``:path:ext`` secondary
   properties were marked readonly on the ``it:fs:file``, ``it:exec:file:add``, ``it:exec:file:del``,
   ``it:exec:file:read``, and ``it:exec:file:write`` forms.
 prs: []
-type: bug
+type: model
 ...
