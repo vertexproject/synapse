@@ -1,6 +1,0 @@
----
-desc: Added ``task.get`` and ``task.del`` permissions declarations so they get included in
-  the output of the ``auth.perms.list`` command.
-prs: []
-type: bug
-...
