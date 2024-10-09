@@ -79,11 +79,8 @@ class OuModule(s_module.CoreModule):
                     'deprecated': True,
                     'doc': 'The knowledge that an organization has an alias.',
                 }),
-                ('ou:orgnet4', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net4'))}), {
+                ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
                     'doc': "An organization's IPv4 netblock.",
-                }),
-                ('ou:orgnet6', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net6'))}), {
-                    'doc': "An organization's IPv6 netblock.",
                 }),
                 ('ou:name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The name of an organization. This may be a formal name or informal name of the '
@@ -806,25 +803,12 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Alias for the organization.',
                     }),
                 )),
-                ('ou:orgnet4', {}, (
+                ('ou:orgnet', {}, (
                     ('org', ('ou:org', {}), {
                         'ro': True,
                         'doc': 'The org guid which owns the netblock.',
                     }),
-                    ('net', ('inet:net4', {}), {
-                        'ro': True,
-                        'doc': 'Netblock owned by the organization.',
-                    }),
-                    ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The name that the organization assigns to this netblock.'
-                    }),
-                )),
-                ('ou:orgnet6', {}, (
-                    ('org', ('ou:org', {}), {
-                        'ro': True,
-                        'doc': 'The org guid which owns the netblock.',
-                    }),
-                    ('net', ('inet:net6', {}), {
+                    ('net', ('inet:net', {}), {
                         'ro': True,
                         'doc': 'Netblock owned by the organization.',
                     }),

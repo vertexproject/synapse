@@ -101,7 +101,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['name'], 'testpkg')
             self.eq(pdef['version'], '0.0.1')
             self.eq(pdef['modules'][0]['name'], 'testmod')
-            self.eq(pdef['modules'][0]['storm'], 'inet:ipv4\n')
+            self.eq(pdef['modules'][0]['storm'], 'inet:ip\n')
             self.eq(pdef['modules'][1]['name'], 'apimod')
             self.isin('function search', pdef['modules'][1]['storm'])
             self.eq(pdef['modules'][2]['name'], 'testpkg.testext')
@@ -109,7 +109,7 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['modules'][3]['name'], 'testpkg.testextfile')
             self.eq(pdef['modules'][3]['storm'], 'inet:fqdn\n')
             self.eq(pdef['commands'][0]['name'], 'testpkgcmd')
-            self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
+            self.eq(pdef['commands'][0]['storm'], 'inet:ip\n')
 
             self.eq(pdef['perms'][0]['perm'], ['power-ups', 'testpkg', 'user'])
             self.eq(pdef['perms'][0]['gate'], 'cortex')
@@ -206,8 +206,8 @@ class GenPkgTest(s_test.SynTest):
             pkg = s_genpkg.tryLoadPkgProto(ymlpath, readonly=True)
 
             self.eq(pkg.get('name'), 'testpkg')
-            self.eq(pkg.get('modules')[0].get('storm'), 'inet:ipv4\n')
-            self.eq(pkg.get('commands')[0].get('storm'), 'inet:ipv6\n')
+            self.eq(pkg.get('modules')[0].get('storm'), 'inet:ip\n')
+            self.eq(pkg.get('commands')[0].get('storm'), 'inet:ip\n')
 
         # Missing files are still a problem
         with self.getTestDir(copyfrom=srcpath) as dirn:

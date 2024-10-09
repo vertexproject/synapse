@@ -319,7 +319,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Test that isrunning updated, cancelling works
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
-                        'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ipv4=1 ] | sleep 120',
+                        'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ip=([4, 1]) ] | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
@@ -743,7 +743,7 @@ class AgendaTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
-                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.nodes('[ inet:ip=1.2.3.4 ]')
 
             s_tools_backup.backup(path00, path01)
 

@@ -202,12 +202,12 @@ class DataModelTest(s_t_utils.SynTest):
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
 
-            await core.addFormProp('test:comp', '_ipv4', ('inet:ipv4', {}), {})
+            await core.addFormProp('test:comp', '_ip', ('inet:ip', {}), {})
 
             refs = core.model.form('test:comp').getRefsOut()
             self.len(2, refs['prop'])
 
-            await core.delFormProp('test:comp', '_ipv4')
+            await core.delFormProp('test:comp', '_ip')
 
             refs = core.model.form('test:comp').getRefsOut()
             self.len(1, refs['prop'])
@@ -314,10 +314,10 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addEdge(('hehe', 'woot', 'newp'), {})
 
             with self.raises(s_exc.NoSuchForm):
-                core.model.addEdge(('inet:ipv4', 'woot', 'newp'), {})
+                core.model.addEdge(('inet:ip', 'woot', 'newp'), {})
 
             with self.raises(s_exc.BadArg):
-                core.model.addEdge(('inet:ipv4', 10, 'inet:ipv4'), {})
+                core.model.addEdge(('inet:ip', 10, 'inet:ip'), {})
 
             with self.raises(s_exc.BadArg):
                 core.model.addEdge(('meta:rule', 'matches', None), {})

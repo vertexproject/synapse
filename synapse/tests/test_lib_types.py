@@ -1000,8 +1000,8 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('test:str.created +:ndefs*[form>it:dev:str]')
 
             ndef = core.model.type('test:ndef:formfilter1')
-            ndef.norm(('inet:ipv4', '1.2.3.4'))
-            ndef.norm(('inet:ipv6', '::1'))
+            ndef.norm(('inet:ip', '1.2.3.4'))
+            ndef.norm(('inet:ip', '::1'))
 
             with self.raises(s_exc.BadTypeValu):
                 ndef.norm(('inet:fqdn', 'newp.com'))
@@ -1012,7 +1012,7 @@ class TypesTest(s_t_utils.SynTest):
                 ndef.norm(('inet:fqdn', 'newp.com'))
 
             ndef = core.model.type('test:ndef:formfilter3')
-            ndef.norm(('inet:ipv4', '1.2.3.4'))
+            ndef.norm(('inet:ip', '1.2.3.4'))
             ndef.norm(('file:mime:msdoc', s_common.guid()))
 
             with self.raises(s_exc.BadTypeValu):
@@ -1054,7 +1054,7 @@ class TypesTest(s_t_utils.SynTest):
 
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
-        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
+        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ip', {})})  # inet is not loaded yet
 
     async def test_range_filter(self):
         async with self.getTestCore() as core:
@@ -1512,15 +1512,15 @@ class TypesTest(s_t_utils.SynTest):
 
         mdef = {
             'types': (
-                ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
-                ('test:arraycomp', ('comp', {'fields': (('ipv4s', 'test:array'), ('int', 'test:int'))}), {}),
+                ('test:array', ('array', {'type': 'inet:ip'}), {}),
+                ('test:arraycomp', ('comp', {'fields': (('ips', 'test:array'), ('int', 'test:int'))}), {}),
                 ('test:witharray', ('guid', {}), {}),
             ),
             'forms': (
                 ('test:array', {}, (
                 )),
                 ('test:arraycomp', {}, (
-                    ('ipv4s', ('test:array', {}), {}),
+                    ('ips', ('test:array', {}), {}),
                     ('int', ('test:int', {}), {}),
                 )),
                 ('test:witharray', {}, (
@@ -1542,8 +1542,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # create a long array (fails pre-020)
-            arr = ','.join([str(i) for i in range(300)])
-            nodes = await core.nodes(f'[ test:array=({arr}) ]')
+            arr = ','.join([f'[4, {i}]' for i in range(300)])
+            nodes = await core.nodes(f'[ test:array=([{arr}]) ]')
             self.len(1, nodes)
 
             nodes = await core.nodes('test:array*[=1.2.3.4]')
@@ -1558,12 +1558,12 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:arraycomp', ((0x01020304, 0x05060708), 10)))
+            self.eq(nodes[0].ndef, ('test:arraycomp', (((4, 0x01020304), (4, 0x05060708)), 10)))
             self.eq(nodes[0].get('int'), 10)
-            self.eq(nodes[0].get('ipv4s'), (0x01020304, 0x05060708))
+            self.eq(nodes[0].get('ips'), ((4, 0x01020304), (4, 0x05060708)))
 
             # make sure "adds" got added
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
+            nodes = await core.nodes('inet:ip=1.2.3.4 inet:ip=5.6.7.8')
             self.len(2, nodes)
 
             nodes = await core.nodes('[ test:witharray="*" :fqdns="woot.com, VERTEX.LINK, vertex.link" ]')

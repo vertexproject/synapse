@@ -2380,6 +2380,9 @@ class View(s_nexus.Pusher):  # type: ignore
 
         (formname, formvalu), forminfo = nodedefn
 
+        if isinstance(formvalu, list):
+            formvalu = tuple(formvalu)
+
         props = forminfo.get('props')
 
         # remove any universal created props...

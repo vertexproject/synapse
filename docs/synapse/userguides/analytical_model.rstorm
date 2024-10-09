@@ -139,13 +139,13 @@ to have been true throughout the entire date range (though depending on the mean
 That said, the use of timestamps allows much greater granularity in recording observations in cases where the timing
 of an assessment ("when" something was true or applicable) is relevant.
 
-As an example, tag timestamps can be used to indicate when an IPv4 address was used as a TOR exit node. This knowledge
+As an example, tag timestamps can be used to indicate when an IP address was used as a TOR exit node. This knowledge
 can aid with both current and historical analysis of network infrastructure.
 
-.. storm-pre:: [inet:ipv4=185.29.8.215 :asn=60567 :loc=se.ab.stockholm :type=unicast +#cno.infra.anon.tor.exit=('2023/05/08 14:30:51', '2023/08/17 19:39:48') ]
-.. storm-cli:: inet:ipv4 = 185.29.8.215 
+.. storm-pre:: [inet:ip=185.29.8.215 :asn=60567 :loc=se.ab.stockholm :type=unicast +#cno.infra.anon.tor.exit=('2023/05/08 14:30:51', '2023/08/17 19:39:48') ]
+.. storm-cli:: inet:ip = 185.29.8.215 
 
-The tag ``cno.infra.anon.tor.exit`` indicates that the IPv4 has been used as a TOR exit; the dates associated with
+The tag ``cno.infra.anon.tor.exit`` indicates that the IP has been used as a TOR exit; the dates associated with
 the tag indicate the "first seen" and "last seen" times.
 
 .. _tag-properties:
@@ -180,7 +180,7 @@ Tags Associated with Nodes
 ==========================
 
 Tags can represent observations or assessments. In some cases tags can stand on their own - the tag 
-``cno.infra.anon.tor.exit`` used to indicate that a node (such as an IPv4 address) represents anonymous network
+``cno.infra.anon.tor.exit`` used to indicate that a node (such as an IP address) represents anonymous network
 infrastructure (specifically, a TOR exit node) is straightforward. In other cases, a tag may represent or
 "say something" about a larger concept. The tag ``rep.mandiant.apt1`` means that Mandiant associates an indicator
 (such as a malware binary) with the threat group APT1. This provides context to the malware binary, but may
@@ -278,14 +278,14 @@ Tag Precision
 -------------
 
 A tag should represent "one thing" - an atomic assessment. This makes it easier to change that specific assessment
-without impacting other assessments. For example, let's say you assess that an IPv4 address was used by the Vicious
+without impacting other assessments. For example, let's say you assess that an IP address was used by the Vicious
 Wombat threat group as a C2 location for Redtree malware. It might be tempting to create a tag such as:
 
 ``cno.threat.vicious_wombat.redtree.c2``
 
-By combining three assessments (who used the IPv4, the malware associated with the IPv4, and how the IPv4 was used)
+By combining three assessments (who used the IP, the malware associated with the IP, and how the IP was used)
 you have made it much more difficult to update the context on the IP if any one of those three assessments changes.
-What if you realize the IPv4 was used by Sparkling Unicorn instead? Or that the IPv4 was used for data exfiltration
+What if you realize the IP was used by Sparkling Unicorn instead? Or that the IP was used for data exfiltration
 and not C2? Using three separate tags makes it much easier to revise your assessments if necessary:
 
 - ``cno.threat.vicious_wombat.use``

@@ -61,9 +61,9 @@ Synapse's data model includes standard types such as integers and strings, but f
 types such as globally unique identifiers (``guid``), date/time values (``time``), time intervals (``ival``), and
 tags (``syn:tag``).
 
-Objects (nodes) may also be specialized types. For example, an IPv4 address (``inet:ipv4``) is its own type.
-An IPv4 address is stored as an integer, but the ``inet:ipv4`` type has additional constraints (e.g., to ensure
-that IPv4s created in Synapse only use integer values that fall within the allowable IPv4 address space). These
+Objects (nodes) may also be specialized types. For example, an IP address (``inet:ip``) is its own type.
+An IP address is stored as a tuple of integers, but the ``inet:ip`` type has additional constraints (e.g., to ensure
+that IPs created in Synapse only use values that fall within the allowable IPv4 or IPv6 address spaces). These
 constraints may be defined by a :ref:`gloss-constructor` that specifies how a property of that type can
 be created (constructed) in Synapse.
 
@@ -258,8 +258,8 @@ associated secondary property values. Any secondary properties derived from a no
 (just like the primary property they are based on) and cannot be changed once set.
 
 Any secondary properties **not** based on a node's primary property are **optional.** Their values can be set if
-the data is available and relevant to your use case; otherwise they can remain unset. For example, an IPv4 node
-(``inet:ipv4``) has an optional secondary property for its associated Autonomous System (AS) number (``inet:ipv4:asn``).
+the data is available and relevant to your use case; otherwise they can remain unset. For example, an IP node
+(``inet:ip``) has an optional secondary property for its associated Autonomous System (AS) number (``inet:ip:asn``).
 All optional secondary property values can be set, modified, or removed as needed.
 
 .. _data-prop-universal:
@@ -447,7 +447,7 @@ Simple Form
 A simple form refers to a form whose primary property is a single value. Simple forms are commonly used
 to represent an :ref:`node-object` and are the most readily understood from a modeling perspective. The "object
 itself" is unique by definition, so the form's primary property value is the object. Examples of simple forms
-include FQDNs, IP addresses (IPv4 or IPv6), hashes, and so on.
+include FQDNs, IP addresses, hashes, and so on.
 
 .. _form-comp:
 
@@ -459,7 +459,7 @@ While no single element makes the form unique, a set of elements may be sufficie
 the form. Comp forms are often (though not universally) used to represent a :ref:`node-relationship`.
 
 Fused DNS A records are an example of a comp form. A DNS A record can be uniquely defined by the combination
-of the domain (``inet:fqdn``) and the IP address (``inet:ipv4``) in the A record. In Synapse, an ``inet:dns:a``
+of the domain (``inet:fqdn``) and the IP address (``inet:ip``) in the A record. In Synapse, an ``inet:dns:a``
 form represents the knowledge that a given domain resolved to a specific IP at some time, or within a time window.
 (The universal ``.seen`` property captures "when" (first observed / last observed) the resolution took place.)
 
@@ -540,7 +540,7 @@ simple form:
 Relationship
 ------------
 
-Nodes can represent specific **relationships** among entities. Examples include a domain resolving to an IPv4
+Nodes can represent specific **relationships** among entities. Examples include a domain resolving to an IP
 address, a malware dropper containing or extracting another file, a company being a subsidiary of another business,
 or a person being a member of a group.
 

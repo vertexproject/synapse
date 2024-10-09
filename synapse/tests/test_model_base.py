@@ -123,7 +123,7 @@ class BaseTest(s_t_utils.SynTest):
                     :text="while TRUE { BAD }"
                     :ext:id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     <(has)+ { meta:ruleset }
-                    +(matches)> { [inet:ipv4=123.123.123] }
+                    +(matches)> { [inet:ip=123.123.123.123] }
                 ]
             ''')
             self.len(1, nodes)
@@ -151,10 +151,10 @@ class BaseTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             SYN_6315 = [
-                'inet:dns:query:client', 'inet:dns:query:name', 'inet:dns:query:name:ipv4',
-                'inet:dns:query:name:ipv6', 'inet:dns:query:name:fqdn', 'inet:dns:query:type',
+                'inet:dns:query:client', 'inet:dns:query:name', 'inet:dns:query:name:ip',
+                'inet:dns:query:name:fqdn', 'inet:dns:query:type',
                 'inet:dns:request:time', 'inet:dns:request:query', 'inet:dns:request:query:name',
-                'inet:dns:request:query:name:ipv4', 'inet:dns:request:query:name:ipv6',
+                'inet:dns:request:query:name:ip',
                 'inet:dns:request:query:name:fqdn', 'inet:dns:request:query:type',
                 'inet:dns:request:server', 'inet:dns:answer:ttl', 'inet:dns:answer:request',
                 'ou:team:org', 'ou:team:name',
@@ -162,8 +162,8 @@ class BaseTest(s_t_utils.SynTest):
                 'pol:country:tld', 'tel:mob:carrier:mcc', 'tel:mob:carrier:mnc',
                 'tel:mob:telem:time', 'tel:mob:telem:latlong', 'tel:mob:telem:cell',
                 'tel:mob:telem:cell:carrier', 'tel:mob:telem:imsi', 'tel:mob:telem:imei',
-                'tel:mob:telem:phone', 'tel:mob:telem:mac', 'tel:mob:telem:ipv4',
-                'tel:mob:telem:ipv6', 'tel:mob:telem:wifi', 'tel:mob:telem:wifi:ssid',
+                'tel:mob:telem:phone', 'tel:mob:telem:mac', 'tel:mob:telem:ip',
+                'tel:mob:telem:wifi', 'tel:mob:telem:wifi:ssid',
                 'tel:mob:telem:wifi:bssid', 'tel:mob:telem:adid', 'tel:mob:telem:aaid',
                 'tel:mob:telem:idfa', 'tel:mob:telem:name', 'tel:mob:telem:email',
                 'tel:mob:telem:acct', 'tel:mob:telem:app', 'tel:mob:telem:data',

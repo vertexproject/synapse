@@ -712,13 +712,13 @@ the final tally. The associated nodes can optionally be displayed with the ``--y
   Earth Preta:
 
 
-.. storm-pre:: [ inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#rep.trend.earthpreta ]
-.. storm-cli:: inet:ipv4#rep.trend.earthpreta | count
+.. storm-pre:: [ inet:ip=66.129.222.1 inet:ip=184.82.164.104 inet:ip=209.161.249.125 inet:ip=69.90.65.240 inet:ip=70.62.232.98 +#rep.trend.earthpreta ]
+.. storm-cli:: inet:ip#rep.trend.earthpreta | count
 
 - Count nodes from a lift and yield the output:
 
-.. storm-pre:: [ inet:ipv4=66.129.222.1 inet:ipv4=184.82.164.104 inet:ipv4=209.161.249.125 inet:ipv4=69.90.65.240 inet:ipv4=70.62.232.98 +#rep.trend.earthpreta ]
-.. storm-cli:: inet:ipv4#rep.trend.earthpreta | count --yield
+.. storm-pre:: [ inet:ip=66.129.222.1 inet:ip=184.82.164.104 inet:ip=209.161.249.125 inet:ip=69.90.65.240 inet:ip=70.62.232.98 +#rep.trend.earthpreta ]
+.. storm-cli:: inet:ip#rep.trend.earthpreta | count --yield
 
 - Count the number of DNS A records for the domain woot.com where the lift produces no results:
 
@@ -1341,7 +1341,7 @@ The ``iden`` command lifts one or more nodes by their node identifier (node ID /
 
 - Lift the node with node ID 20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f:
 
-.. storm-pre:: [inet:ipv4=1.2.3.4]
+.. storm-pre:: [inet:ip=1.2.3.4]
 .. storm-cli:: iden 20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f
 
 .. _storm-intersect:
@@ -1565,7 +1565,7 @@ number of nodes.
 
 - Lift a single IP address that FireEye associates with the threat group APT1:
 
-.. storm-cli:: inet:ipv4#aka.feye.thr.apt1 | limit 1
+.. storm-cli:: inet:ip#aka.feye.thr.apt1 | limit 1
 
 
 **Usage Notes:**
@@ -2229,8 +2229,8 @@ can be used to return the scraped nodes rather than the input nodes.
   updated):
 
   - FQDNs
-  - IPv4s
-  - Servers (IPv4 / port combinations)
+  - IPs
+  - Servers (IP / port combinations)
   - Hashes (MD5, SHA1, SHA256)
   - URLs
   - Email addresses
@@ -2412,13 +2412,13 @@ result set.
 - Return the set of domains and IP addresses associated with a set of DNS A records.
 
 .. storm-pre:: [inet:dns:a=(foo.mydomain.com,8.8.8.8) inet:dns:a=(bar.mydomain.com,34.56.78.90) inet:dns:a=(baz.mydomain.com,127.0.0.2)] 
-.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ipv4 }
+.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee { -> inet:fqdn } { -> inet:ip }
 
 
 - Return the set of domains and IP addresses associated with a set of DNS A records along with the
   original DNS A records.
 
-.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ipv4 }
+.. storm-cli:: inet:fqdn:zone=mydomain.com -> inet:dns:a | tee --join { -> inet:fqdn } { -> inet:ip }
 
 
 **Usage Notes:**
@@ -2596,27 +2596,28 @@ specified value or combination of values.
   resolved to:
 
 .. storm-pre:: [inet:dns:a=(gdforum.info, 111.90.148.124) inet:dns:a=(live-settings.com, 209.99.40.222) inet:dns:a=(drive-google.ga, 141.8.224.221) ] -> inet:fqdn [+#rep.threatconnect.fancybear ]
-.. storm-pre:: inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ipv4 | uniq
+.. storm-pre:: inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 ::
   
-  inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ipv4 | uniq
+  inet:fqdn#rep.threatconnect.fancybear -> inet:dns:a -> inet:ip | uniq
 
 
-- Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IPv4 address:
+- Lift a set of network flow (``inet:flow``) nodes and unique (de-duplicate) them based on the source IP address:
+TODO: update to use *addr virtual prop
 
-.. storm-pre:: [ ( inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=2.2.2.2 ) ( inet:flow=* :src:ipv4=11.11.11.11 :dst:ipv4=3.3.3.3 ) ( inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=4.4.4.4 ) ( inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=4.4.4.4 ) ( inet:flow=* :src:ipv4=121.121.121.121 :dst:ipv4=2.2.2.2 ) ]
-.. storm-pre:: inet:flow | uniq :src:ipv4
+.. storm-pre:: [ ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://2.2.2.2 ) ( inet:flow=* :src=tcp://11.11.11.11 :dst=tcp://3.3.3.3 ) ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://4.4.4.4 ) ( inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://4.4.4.4 ) ( inet:flow=* :src=tcp://121.121.121.121 :dst=tcp://2.2.2.2 ) ]
+.. storm-pre:: inet:flow | uniq :src
 ::
   
-  inet:flow | uniq :src:ipv4
+  inet:flow | uniq :src
 
 
-- Lift a set of network flow (``inet:flow``) nodes and de-duplicate them based on each unique combination of source and destination IPv4 addresses:
+- Lift a set of network flow (``inet:flow``) nodes and de-duplicate them based on each unique combination of source and destination IP addresses:
 
-.. storm-pre:: inet:flow | uniq (:src:ipv4, :dst:ipv4)
+.. storm-pre:: inet:flow | uniq (:src, :dst)
 ::
   
-  inet:flow | uniq (:src:ipv4, :dst:ipv4)
+  inet:flow | uniq (:src, :dst)
 
 - Nodes can be uniqued based on variables. Alert (``risk:alert``) nodes can be categorized in various ways. This
   includes ``:priority`` and ``:severity`` properties, both of which use a set of fixed text values (e.g., "low" vs.

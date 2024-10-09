@@ -546,12 +546,8 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The fused list of e-mail addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identities:ipv4s', ('array', {'type': 'inet:ipv4', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The fused list of IPv4 addresses identified by the cert CN and SANs.',
-                    }),
-
-                    ('identities:ipv6s', ('array', {'type': 'inet:ipv6', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The fused list of IPv6 addresses identified by the cert CN and SANs.',
+                    ('identities:ips', ('array', {'type': 'inet:ip', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The fused list of IP addresses identified by the cert CN and SANs.',
                     }),
 
                     ('identities:urls', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {

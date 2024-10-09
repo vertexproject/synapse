@@ -209,7 +209,7 @@ class GeoTest(s_t_utils.SynTest):
             formname = 'geo:nloc'
             t = core.model.type(formname)
 
-            ndef = ('inet:ipv4', '0.0.0.0')
+            ndef = ('inet:ip', '0.0.0.0')
             latlong = ('0.000000000', '0')
             stamp = -0
 
@@ -218,14 +218,14 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'[(geo:nloc=$valu :place=$place :loc=$loc)]', opts=opts)
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], (('inet:ipv4', 0), (0.0, 0.0), stamp))
-            self.eq(node.get('ndef'), ('inet:ipv4', 0))
-            self.eq(node.get('ndef:form'), 'inet:ipv4')
+            self.eq(node.ndef[1], (('inet:ip', (4, 0)), (0.0, 0.0), stamp))
+            self.eq(node.get('ndef'), ('inet:ip', (4, 0)))
+            self.eq(node.get('ndef:form'), 'inet:ip')
             self.eq(node.get('latlong'), (0.0, 0.0))
             self.eq(node.get('time'), 0)
             self.eq(node.get('place'), place)
             self.eq(node.get('loc'), 'us.hehe.haha')
-            self.len(1, await core.nodes('inet:ipv4=0'))
+            self.len(1, await core.nodes('inet:ip=([4, 0])'))
 
             # geo:place
 

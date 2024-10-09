@@ -349,7 +349,7 @@ class NodeTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
             self.len(1, nodes)
 
             node = nodes[0]
@@ -365,7 +365,7 @@ class NodeTest(s_t_utils.SynTest):
 
     async def test_node_data(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
             self.len(1, nodes)
 
             node = nodes[0]
@@ -391,7 +391,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq((4, 5, 6), await node.getData('bar'))
 
             await node.delete()
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
             node = nodes[0]
 
             self.none(await node.getData('foo'))
@@ -424,7 +424,7 @@ class NodeTest(s_t_utils.SynTest):
     async def test_node_edges(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5]')
+            nodes = await core.nodes('[inet:ip=1.2.3.4 inet:ip=5.5.5.5]')
             with self.raises(s_exc.BadArg):
                 await nodes[0].addEdge('foo', 'bar')
             with self.raises(s_exc.BadArg):

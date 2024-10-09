@@ -891,14 +891,6 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
 
-                    ('via:ipv4', ('inet:ipv4', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('via:ipv6', ('inet:ipv6', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
                     ('via:email', ('inet:email', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),

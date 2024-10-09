@@ -426,7 +426,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.isin('sess=""', newcookie)
 
                 # session no longer works
-                data = {'query': '[ inet:ipv4=1.2.3.4 ]'}
+                data = {'query': '[ inet:ip=1.2.3.4 ]'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
@@ -661,7 +661,7 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
 
-                data = {'query': '[ inet:ipv4=1.2.3.4 ]', 'opts': opts}
+                data = {'query': '[ inet:ip=1.2.3.4 ]', 'opts': opts}
 
                 podes = []
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
@@ -673,10 +673,10 @@ class HttpApiTest(s_tests.SynTest):
 
                         podes.append(json.loads(byts))
 
-                self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
+                self.eq(podes[0][0], ('inet:ip', (4, 0x01020304)))
 
                 msgs = []
-                data = {'query': '[ inet:ipv4=5.5.5.5 ]', 'opts': opts}
+                data = {'query': '[ inet:ip=5.5.5.5 ]', 'opts': opts}
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=data) as resp:
 
@@ -687,7 +687,7 @@ class HttpApiTest(s_tests.SynTest):
 
                         msgs.append(json.loads(byts))
                 podes = [m[1] for m in msgs if m[0] == 'node']
-                self.eq(podes[0][0], ('inet:ipv4', 0x05050505))
+                self.eq(podes[0][0], ('inet:ip', (4, 0x05050505)))
 
     async def test_http_coreinfo(self):
         async with self.getTestCore() as core:
@@ -760,11 +760,11 @@ class HttpApiTest(s_tests.SynTest):
                 self.len(1, core.sessions)  # We still have one session since the cookie was reused
 
                 # Norm via GET
-                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                body = {'prop': 'inet:ip', 'value': '1.2.3.4'}
                 async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
-                    self.eq(0x01020304, retn['result']['norm'])
+                    self.eq((4, 0x01020304), retn['result']['norm'])
                     self.eq('unicast', retn['result']['info']['subs']['type'])
 
                 body = {'prop': 'fake:prop', 'value': '1.2.3.4'}
@@ -778,11 +778,11 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('MissingField', retn.get('code'))
 
                 # Norm via POST
-                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                body = {'prop': 'inet:ip', 'value': '1.2.3.4'}
                 async with sess.post(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
-                    self.eq(0x01020304, retn['result']['norm'])
+                    self.eq((4, 0x01020304), retn['result']['norm'])
                     self.eq('unicast', retn['result']['info']['subs']['type'])
 
             # Auth failures
@@ -792,7 +792,7 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
 
-                body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
+                body = {'prop': 'inet:ip', 'value': '1.2.3.4'}
                 async with sess.get(f'https://visi:newp@localhost:{port}/api/v1/model/norm', json=body) as resp:
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
@@ -1284,11 +1284,11 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('ok', retn.get('status'))
                     self.eq('visi', retn['result']['name'])
 
-                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                body = {'query': 'inet:ip', 'opts': {'user': core.auth.rootuser.iden}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     self.eq(resp.status, 403)
 
-                body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
+                body = {'query': 'inet:ip', 'opts': {'user': core.auth.rootuser.iden}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
                     self.eq(resp.status, 403)
 
@@ -1299,7 +1299,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('SchemaViolation', item.get('code'))
 
                 node = None
-                body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
+                body = {'query': '[ inet:ip=1.2.3.4 ]'}
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
 
@@ -1314,7 +1314,7 @@ class HttpApiTest(s_tests.SynTest):
                             node = mesg[1]
 
                     self.nn(node)
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
 
@@ -1328,10 +1328,10 @@ class HttpApiTest(s_tests.SynTest):
                         if mesg[0] == 'node':
                             node = mesg[1]
 
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 node = None
-                body = {'query': '[ inet:ipv4=1.2.3.4 ]'}
+                body = {'query': '[ inet:ip=1.2.3.4 ]'}
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
 
@@ -1342,7 +1342,7 @@ class HttpApiTest(s_tests.SynTest):
 
                         node = json.loads(byts)
 
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 async with sess.post(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
 
@@ -1353,7 +1353,7 @@ class HttpApiTest(s_tests.SynTest):
 
                         node = json.loads(byts)
 
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 body['stream'] = 'jsonlines'
 
@@ -1376,7 +1376,7 @@ class HttpApiTest(s_tests.SynTest):
                                 bufr = jstr
                                 break
 
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
 
@@ -1401,7 +1401,7 @@ class HttpApiTest(s_tests.SynTest):
                             if mesg[0] == 'node':
                                 node = mesg[1]
 
-                    self.eq(0x01020304, node[0][1])
+                    self.eq((4, 0x01020304), node[0][1])
 
                 # Task cancellation during long running storm queries works as intended
                 body = {'query': '.created | sleep 10'}
@@ -1631,7 +1631,7 @@ class HttpApiTest(s_tests.SynTest):
             await root.setPasswd('secret')
 
             async with self.getHttpSess(port=port) as sess:
-                body = {'items': [(('inet:ipv4', 0x05050505), {})]}
+                body = {'items': [(('inet:ip', (4, 0x05050505)), {})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('NotAuthenticated', (await resp.json())['code'])
 
@@ -1643,16 +1643,16 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('NoSuchView', (await resp.json())['code'])
 
-                body = {'items': [(('inet:ipv4', 0x05050505), {'tags': {'hehe': (None, None)}})]}
+                body = {'items': [(('inet:ip', (4, 0x05050505)), {'tags': {'hehe': (None, None)}})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('ok', (await resp.json())['status'])
-                self.len(1, await core.nodes('inet:ipv4=5.5.5.5 +#hehe'))
+                self.len(1, await core.nodes('inet:ip=5.5.5.5 +#hehe'))
 
             async with self.getHttpSess(auth=('visi', 'secret'), port=port) as sess:
-                body = {'items': [(('inet:ipv4', 0x01020304), {})]}
+                body = {'items': [(('inet:ip', (4, 0x01020304)), {})]}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/feed', json=body)
                 self.eq('AuthDeny', (await resp.json())['code'])
-                self.len(0, await core.nodes('inet:ipv4=1.2.3.4'))
+                self.len(0, await core.nodes('inet:ip=1.2.3.4'))
 
     async def test_http_sess_mirror(self):
 

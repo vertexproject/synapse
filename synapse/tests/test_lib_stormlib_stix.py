@@ -78,8 +78,8 @@ class StormLibStixTest(s_test.SynTest):
             self.len(22, await core.nodes('''[
                 (inet:asn=30 :name=woot30)
                 (inet:asn=40 :name=woot40)
-                (inet:ipv4=1.2.3.4 :asn=30)
-                (inet:ipv6="::ff" :asn=40)
+                (inet:ip=1.2.3.4 :asn=30)
+                (inet:ip="::ff" :asn=40)
                 inet:email=visi@vertex.link
                 (ps:contact=* :name="visi stark" :email=visi@vertex.link)
                 (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
@@ -106,8 +106,7 @@ class StormLibStixTest(s_test.SynTest):
                 init { $bundle = $lib.stix.export.bundle() }
 
                 inet:asn
-                inet:ipv4
-                inet:ipv6
+                inet:ip
                 inet:email
                 inet:web:acct
                 media:news
@@ -505,7 +504,7 @@ class StormLibStixTest(s_test.SynTest):
                 init {
                     $config = $lib.stix.export.config()
                     $config.forms."inet:fqdn".stix."domain-name".pivots = ([
-                        {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                        {"storm": "-> inet:dns:a -> inet:ip", "stixtype": "ipv4-addr"}
                     ])
                     $bundle = $lib.stix.export.bundle(config=$config)
                 }
@@ -516,7 +515,7 @@ class StormLibStixTest(s_test.SynTest):
                 fini { return($bundle) }
             ''')
             stixids = [obj['id'] for obj in bund['objects']]
-            self.isin('ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db', stixids)
+            self.isin('ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7', stixids)
 
     async def test_stix_revs(self):
 
@@ -543,3 +542,31 @@ class StormLibStixTest(s_test.SynTest):
             self.len(1, rels)
             self.true(rels[0]['target_ref'].startswith('attack-pattern--'))
             self.true(rels[0]['source_ref'].startswith('course-of-action--'))
+
+    async def test_stix_export_dyndefault(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[ it:dev:str=foo it:dev:str=bar ]')
+
+            bund = await core.callStorm('''
+                init {
+                    $config = $lib.stix.export.config()
+                    $config.forms."it:dev:str"=({
+                        "dynopts": ["location"],
+                        "dyndefault": "+it:dev:str=foo { return(location) }",
+                        "stix": {
+                            "location": {"props": {"name": "return($node.repr())"}}
+                        }
+                    })
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                }
+
+                it:dev:str
+                $bundle.add($node)
+
+                fini { return($bundle) }
+            ''')
+
+            locs = [obj for obj in bund['objects'] if obj['type'] == 'location']
+            self.len(1, locs)
+            self.eq(locs[0]['name'], 'foo')

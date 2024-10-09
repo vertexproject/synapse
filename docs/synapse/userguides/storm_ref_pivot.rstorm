@@ -126,12 +126,12 @@ For the specialized use case of :ref:`raw-pivot-syntax`, the target of the pivot
   
   You cannot specify property **values** in pivot operations. For example, the following is invalid:
   
-  ``inet:fqdn=vertex.link -> inet:dns:a:ipv4=127.0.0.1``
+  ``inet:fqdn=vertex.link -> inet:dns:a:ip=127.0.0.1``
   
   If you want to pivot to a specific node or subset of nodes, you must navigate to the target forms,
   and then filter your results based on the property value(s) you are interested in:
   
-  ``inet:fqdn=vertex.link -> inet:dns:a +:ipv4=127.0.0.1``
+  ``inet:fqdn=vertex.link -> inet:dns:a +:ip=127.0.0.1``
 
 Depending on the kind of pivot operation, you may need to specify a **source property** for the pivot as
 well; see the discussion of :ref:`implicit-pivot-syntax` below.
@@ -165,35 +165,35 @@ properties for the pivot. This is referred to as **explicit pivot syntax** or "e
 short.
 
 When researching network infrastructure, a common set of pivots is to navigate from a set of FQDNs
-(``inet:fqdn`` nodes) to their DNS A records (``inet:dns:a`` nodes) and then to the IPv4 addresses
-(``inet:ipv4`` nodes) that the A records point to. The following Storm query performs those pivots
+(``inet:fqdn`` nodes) to their DNS A records (``inet:dns:a`` nodes) and then to the IP addresses
+(``inet:ip`` nodes) that the A records point to. The following Storm query performs those pivots
 using **explicit syntax**:
 
 .. storm-pre:: [ inet:dns:a=(vertex.link,1.1.1.1) ]
-.. storm-pre:: inet:fqdn = vertex.link -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
+.. storm-pre:: inet:fqdn = vertex.link -> inet:dns:a:fqdn :ip -> inet:ip
 ::
   
-  inet:fqdn = vertex.link -> inet:dns:a:fqdn :ipv4 -> inet:ipv4
+  inet:fqdn = vertex.link -> inet:dns:a:fqdn :ip -> inet:ip
 
 The query:
 
 - lifts the FQDN ``vertex.link``;
 - pivots from the FQDN to any DNS A node with the same FQDN property value (``-> inet:dns:a:fqdn``); and
-- pivots from the ``:ipv4`` property of the ``inet:dns:a`` nodes to any ``inet:ipv4`` nodes with the
-  same value ( ``:ipv4 -> inet:ipv4`` ).
+- pivots from the ``:ip`` property of the ``inet:dns:a`` nodes to any ``inet:ip`` nodes with the
+  same value ( ``:ip -> inet:ip`` ).
 
 We explicitly specify ``inet:dns:a:fqdn`` as the **target** property of our first pivot; and we explicitly
-specify the ``:ipv4`` property of the ``inet:dns:a`` nodes as the **source** property of our second pivot.
+specify the ``:ip`` property of the ``inet:dns:a`` nodes as the **source** property of our second pivot.
 Explicit syntax tells Storm **exactly** what you want to do; there is no ambiguity in the query or in
 "how" you want to navigate the data.
 
 .. NOTE::
   
-  When specifying a secondary property as the source of a pivot (such as ``:ipv4`` above), you must
+  When specifying a secondary property as the source of a pivot (such as ``:ip`` above), you must
   specify the property using relative property syntax (i.e., using the property name alone). If you
-  were to use full property syntax (``inet:dns:a:ipv4``) Synapse would interpret that as a lift
+  were to use full property syntax (``inet:dns:a:ip``) Synapse would interpret that as a lift
   operation - i.e., "after you pivot to the DNS A records with an FQDN of vertex.link, then lift all
-  DNS A records that have an IPv4 property, and pivot to ALL of the associated IPv4 nodes".
+  DNS A records that have an IP property, and pivot to ALL of the associated IP nodes".
 
 Explicit syntax is precise, but there is extra work ("more typing") involved to create the query,
 especially when there is an "obvious" source and / or target for the pivot. In other words, if you are
@@ -207,11 +207,11 @@ not need to specify the source or target property in cases where it is self-evid
 
 Using implicit syntax, we can rewrite the above query as follows:
 
-.. storm-pre:: inet:fqdn = vertex.link -> inet:dns:a -> inet:ipv4
+.. storm-pre:: inet:fqdn = vertex.link -> inet:dns:a -> inet:ip
 
 ::
   
-  inet:fqdn = vertex.link -> inet:dns:a -> inet:ipv4
+  inet:fqdn = vertex.link -> inet:dns:a -> inet:ip
 
 With implicit syntax, we can simply specify the source and target **forms**, and allow Synapse to identify
 the source and target **properties** using `types`_ and type awareness.
@@ -305,24 +305,25 @@ that are FQDNs) is ``:query:name:fqdn``. You could optionally use explicit synta
   
   <inet:fqdn nodes> -> inet:dns:request:query:name:fqdn
 
-*Pivot from a set of IPv4 addresses (inet:ipv4 nodes) to any network flows (inet:flow nodes) associated with the IPs:*
+*Pivot from a set of IP addresses (inet:ip nodes) to any network flows (inet:flow nodes) associated with the IPs:*
 
-.. storm-pre:: [ inet:ipv4=1.1.1.1 inet:ipv4=2.2.2.2 inet:ipv4=3.3.3.3 (inet:flow=* :src:ipv4=1.1.1.1 :dst:ipv4=2.2.2.2 :dst:port=1337) (inet:flow=* :dst:ipv4=3.3.3.3 :dst:port=80) ]
-.. storm-pre:: inet:ipv4 -> inet:flow
-.. storm-pre:: inet:ipv4 -> inet:flow:dst:ipv4
+.. storm-pre:: [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 inet:ip=3.3.3.3 (inet:flow=* :src=tcp://1.1.1.1 :dst=tcp://2.2.2.2:1337) (inet:flow=* :dst=tcp://3.3.3.3:80) ]
+.. storm-pre:: inet:ip -> (inet:server, inet:client) -> inet:flow
+.. storm-pre:: inet:ip -> inet:server -> inet:flow:dst
 
 ::
   
-  <inet:ipv4 nodes> -> inet:flow
+  <inet:ip nodes> -> inet:flow
 
+TODO: this should probably work using a *addr virtual prop on the inet:sockaddr type
 The query above uses implicit syntax. Note that because ``inet:flow`` nodes have two target properties of type
-``inet:ipv4`` (``:src:ipv4`` and ``:dst:ipv4``), the result of this query will be all ``inet:flow`` nodes where
-the inbound IPv4s are either the source **or** destination IP. If you only want to see flows where the inbound
-IPv4s are the destination IP (for example), you must use explicit syntax to clarify this:
+``inet:ip`` (``:src`` and ``:dst``), the result of this query will be all ``inet:flow`` nodes where
+the inbound IPs are either the source **or** destination IP. If you only want to see flows where the inbound
+IPs are the destination IP (for example), you must use explicit syntax to clarify this:
 
 ::
   
-  <inet:ipv4 nodes> -> inet:flow:dst:ipv4
+  <inet:ip nodes> -> inet:flow:dst*addr
 
 *Pivot from a set of tags (syn:tag nodes) to the threat clusters (risk:threat nodes) represented by those tags:*
 
@@ -531,8 +532,8 @@ pivot to the FQDNs associated with the name server (NS) FQDNs (for example), you
   <crypto:x509:cert nodes> -> *
 
 The query above is an example of a **wildcard pivot out**. For any secondary properties on the source nodes,
-the query will return the associated nodes. For example, if the ``crypto:x509:cert:identities:ipv4s`` property
-is set, the query will return the associated ``inet:ipv4`` nodes. A wildcard pivot out is also known as a "refs
+the query will return the associated nodes. For example, if the ``crypto:x509:cert:identities:ips`` property
+is set, the query will return the associated ``inet:ip`` nodes. A wildcard pivot out is also known as a "refs
 out" pivot (for "references") because it pivots to the nodes "referenced by" the source nodes' secondary properties.
 
 
@@ -542,8 +543,9 @@ Secondary to Secondary Property Pivot
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When pivoting from a secondary property of a set of source nodes to target nodes with the same secondary
-property (e.g., from the ``:ipv4`` property of a set of DNS A nodes to a set of network flow nodes with
-the same IPv4 as a ``:dst:ipv4`` property), the target can be:
+property (e.g., from the ``:ip`` property of a set of DNS A nodes to a set of network flow nodes with
+TODO: fix this example
+the same IP as a ``:dst`` property), the target can be:
 
 - a form name and property name;
 - a list of form and property names; or
@@ -589,12 +591,12 @@ You must use explicit syntax to specify both the source and target properties.
 
 *Pivot from a set of DNS A records (inet:dns:a nodes) to any network flows (inet:flow) or service banners (inet:banner) associated with the IPs:*
 
-.. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :dst:ipv4=8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
-.. storm-pre:: inet:dns:a :ipv4 -> ( inet:flow:dst:ipv4, inet:banner:server:ipv4 )
+.. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :dst=tcp://8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
+.. storm-pre:: inet:dns:a :ip -> ( inet:flow:dst, inet:banner:server )
 
 ::
   
-  <inet:dns:a nodes> -> ( inet:flow:dst:ipv4, inet:banner:server:ipv4 )
+  <inet:dns:a nodes> -> ( inet:flow:dst, inet:banner:server )
 
 
 .. _pivot-in:
@@ -928,9 +930,9 @@ tag is included in all of those trees).
   
   As are these:
   
-  ``syn:tag=rep.microsoft.forest_blizzard -> ( inet:fqdn, inet:ipv4 )``
+  ``syn:tag=rep.microsoft.forest_blizzard -> ( inet:fqdn, inet:ip )``
   
-  ``inet:fqdn#rep.microsoft.forest_blizzard inet:ipv4#rep.microsoft.forest_blizzard``
+  ``inet:fqdn#rep.microsoft.forest_blizzard inet:ip#rep.microsoft.forest_blizzard``
   
   Pivot from tags can be useful when used with :ref:`pivot-to-tags`. For example, you can take a set of inbound
   tagged nodes, use pivot to tags to navigate to some or all of the associated ``syn:tag`` nodes, and then
@@ -978,13 +980,13 @@ The query above would return (for example) ``inet:dns:a`` nodes, ``inet:dns:requ
   
   <syn:tag nodes> -> it:host:activity
 
-*Pivot from a set of syn:tag nodes to any IPv4 (inet:ipv4), IPv6 (inet:ipv6), server (inet:server), or network flow (inet:flow) nodes with those tags applied and retain the syn:tag nodes in the results (pivot and join):*
+*Pivot from a set of syn:tag nodes to any IP (inet:ip), server (inet:server), or network flow (inet:flow) nodes with those tags applied and retain the syn:tag nodes in the results (pivot and join):*
 
-.. storm-pre:: syn:tag -+> ( inet:ipv4, inet:ipv6, inet:server, inet:flow )
+.. storm-pre:: syn:tag -+> ( inet:ip, inet:server, inet:flow )
 
 ::
   
-  <syn:tag nodes> -+> ( inet:ipv4, inet:ipv6, inet:server, inet:flow )
+  <syn:tag nodes> -+> ( inet:ip, inet:server, inet:flow )
 
 *Pivot from a set of syn:tag nodes to all nodes that have any of the tags applied:*
 
@@ -1105,14 +1107,14 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
   
   <media:news> -(refs)> *
 
-*Traverse the "ipwhois" light edge from a set of IPv4 addresses (inet:ipv4 nodes) to the network registration / network WHOIS records (inet:whois:iprec nodes) the IPs are associated with:*
+*Traverse the "ipwhois" light edge from a set of IP addresses (inet:ip nodes) to the network registration / network WHOIS records (inet:whois:iprec nodes) the IPs are associated with:*
 
-.. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net4:min=8.8.8.0 :net4:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ipv4=8.8.8.8 ] } ]
-.. storm-pre:: inet:ipv4 <(ipwhois)- inet:whois:iprec
+.. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net:min=8.8.8.0 :net:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ip=8.8.8.8 ] } ]
+.. storm-pre:: inet:ip <(ipwhois)- inet:whois:iprec
 
 ::
   
-  <inet:ipv4 nodes> <(ipwhois)- inet:whois:iprec
+  <inet:ip nodes> <(ipwhois)- inet:whois:iprec
   
 *Traverse the "seen" light edges from a set of DNS A records (inet:dns:a nodes) to the sources (meta:source nodes) that "saw" (observed or provided data for) the record:*
 
@@ -1252,7 +1254,7 @@ operation ( ``-> *`` ) with a wildcard (any / all edges) edge traversal operatio
 
 *Pivot from a set of IP netblock registration records (inet:whois:iprec nodes) to all nodes associated with the records' secondary properties and all nodes linked to the records by light edges:*
 
-.. storm-pre:: [ (inet:whois:iprec="*" :net4:min=89.249.65.0 :net4:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ipv4=89.249.65.153 ] } ]
+.. storm-pre:: [ (inet:whois:iprec="*" :net:min=89.249.65.0 :net:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ip=89.249.65.153 ] } ]
 .. storm-pre:: inet:whois:iprec --> *
 
 ::
@@ -1274,13 +1276,13 @@ operation ( ``<- *`` ) with a wildcard (any / all edges) edge traversal operatio
 
 **Examples:**
 
-*Pivot from a set of IPv4 addresses (inet:ipv4 nodes) to all nodes that reference the IPs and all nodes linked to the IPs by light edges:*
+*Pivot from a set of IP addresses (inet:ip nodes) to all nodes that reference the IPs and all nodes linked to the IPs by light edges:*
 
 
-.. storm-pre:: inet:ipv4 <-- *
+.. storm-pre:: inet:ip <-- *
 ::
 
-    <inet:ipv4> <-- *
+    <inet:ip> <-- *
 
 
 .. _storm-join:
@@ -1326,13 +1328,13 @@ primary to secondary property, secondary to secondary property, etc.)
   
   <ou:org nodes> -+> ps:contact
 
-*Pivot from a set of DNS A records (inet:dns:a nodes) to their associated IPv4 addresses (inet:ipv4 nodes), retaining the DNS A records in the results:*
+*Pivot from a set of DNS A records (inet:dns:a nodes) to their associated IP addresses (inet:ip nodes), retaining the DNS A records in the results:*
 
-.. storm-pre:: inet:dns:a :ipv4 -+> inet:ipv4
+.. storm-pre:: inet:dns:a :ip -+> inet:ip
 
 ::
   
-  <inet:dns:a nodes> -+> inet:ipv4
+  <inet:dns:a nodes> -+> inet:ip
 
 
 *Pivot from a set of domain WHOIS records (inet:whois:rec nodes) to the DNS A records (inet:dns:a nodes) associated with the FQDNs, retaining the WHOIS records in the results:*
@@ -1460,12 +1462,12 @@ navigation, the only valid target for this operation is the wildcard ( ``*`` ).
   
   <media:news> --+> *
 
-*Join a set of IPv4 addresses (inet:ipv4 nodes) with all nodes that reference the IPs (pivot in) and all nodes linked to the IPs by "left-facing" light edges:*
+*Join a set of IP addresses (inet:ip nodes) with all nodes that reference the IPs (pivot in) and all nodes linked to the IPs by "left-facing" light edges:*
 
-.. storm-pre:: inet:ipv4 <+-- *
+.. storm-pre:: inet:ip <+-- *
 ::
 
-   <inet:ipv4> <+-- *
+   <inet:ip> <+-- *
 
 .. _properties: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#property
 .. _light edge: https://synapse.docs.vertex.link/en/latest/synapse/userguides/data_model.html#lightweight-light-edge

@@ -18,14 +18,13 @@ class TestService(s_stormsvc.StormSvc):
                     'descr': 'foobar is a great service',
                     'forms': {
                         'input': [
-                            'inet:ipv4',
-                            'inet:ipv6',
+                            'inet:ip',
                         ],
                         'output': [
                             'inet:fqdn',
                         ],
                         'nodedata': [
-                            ('foo', 'inet:ipv4'),
+                            ('foo', 'inet:ip'),
                             ('bar', 'inet:fqdn'),
                         ],
                     },
@@ -35,7 +34,7 @@ class TestService(s_stormsvc.StormSvc):
                     'name': 'ohhai',
                     'forms': {
                         'output': [
-                            'inet:ipv4',
+                            'inet:ip',
                         ],
                     },
                     'storm': '',
@@ -172,12 +171,12 @@ class SynModelTest(s_t_utils.SynTest):
             self.true(node.get('extmodel'))
 
             # A deeper nested prop will have different base and relname values
-            nodes = await core.nodes('syn:prop="inet:flow:dst:port"')
+            nodes = await core.nodes('syn:prop="inet:flow:dst:host"')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(('syn:prop', 'inet:flow:dst:port'), node.ndef)
-            self.eq('port', node.get('base'))
-            self.eq('dst:port', node.get('relname'))
+            self.eq(('syn:prop', 'inet:flow:dst:host'), node.ndef)
+            self.eq('host', node.get('base'))
+            self.eq('dst:host', node.get('relname'))
 
             # forms are also props but have some slightly different keys populated
             nodes = await core.nodes('syn:prop="test:type10"')
@@ -257,7 +256,7 @@ class SynModelTest(s_t_utils.SynTest):
                     {n.ndef for n in nodes})
 
             # Some forms inherit from a single type
-            nodes = await core.nodes('syn:type="inet:addr" -> syn:type:subof')
+            nodes = await core.nodes('syn:type="inet:sockaddr" -> syn:type:subof')
             self.ge(len(nodes), 2)
             pprops = {n.ndef[1] for n in nodes}
             self.isin('inet:server', pprops)
@@ -270,7 +269,7 @@ class SynModelTest(s_t_utils.SynTest):
             # Can't add an edge to a runt node
             await self.asyncraises(s_exc.IsRuntForm, nodes[0].addEdge('newp', 'newp'))
 
-            q = core.nodes('syn:form [ +(newp)> { inet:ipv4 } ]')
+            q = core.nodes('syn:form [ +(newp)> { inet:ip } ]')
             await self.asyncraises(s_exc.IsRuntForm, q)
 
             q = core.nodes('[ test:str=foo +(newp)> { syn:form } ]')
@@ -349,40 +348,40 @@ class SynModelTest(s_t_utils.SynTest):
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'foobar'))
                 self.eq(nodes[0].get('doc'), 'foobar is a great service')
-                self.eq(nodes[0].get('input'), ('inet:ipv4', 'inet:ipv6'))
+                self.eq(nodes[0].get('input'), ('inet:ip',))
                 self.eq(nodes[0].get('output'), ('inet:fqdn',))
-                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
+                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ip'), ('bar', 'inet:fqdn')))
                 self.eq(nodes[0].get('package'), 'foo')
                 self.eq(nodes[0].get('svciden'), iden)
 
                 self.eq(nodes[1].ndef, ('syn:cmd', 'ohhai'))
                 self.eq(nodes[1].get('doc'), 'No description')
                 self.none(nodes[1].get('input'))
-                self.eq(nodes[1].get('output'), ('inet:ipv4',))
+                self.eq(nodes[1].get('output'), ('inet:ip',))
                 self.none(nodes[1].get('nodedata'))
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
 
                 # Pivot from cmds to their forms
                 nodes = await core.nodes('syn:cmd=foobar -> *')
-                self.len(3, nodes)
-                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6'), ('syn:form', 'inet:fqdn')},
+                self.len(2, nodes)
+                self.eq({('syn:form', 'inet:ip'), ('syn:form', 'inet:fqdn')},
                         {n.ndef for n in nodes})
                 nodes = await core.nodes('syn:cmd=foobar :input -> *')
-                self.len(2, nodes)
-                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6')},
+                self.len(1, nodes)
+                self.eq({('syn:form', 'inet:ip')},
                         {n.ndef for n in nodes})
                 nodes = await core.nodes('syn:cmd=foobar :output -> *')
                 self.len(1, nodes)
                 self.eq(('syn:form', 'inet:fqdn'), nodes[0].ndef)
 
                 nodes = await core.nodes('syn:cmd=foobar :input -+> *')
-                self.len(3, nodes)
-                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6'), ('syn:cmd', 'foobar')},
+                self.len(2, nodes)
+                self.eq({('syn:form', 'inet:ip'), ('syn:cmd', 'foobar')},
                         {n.ndef for n in nodes})
 
-                nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
-                self.len(1, nodes)
+                nodes = await core.nodes('syn:cmd +:input*[=inet:ip]')
+                self.len(2, nodes)
 
                 # Test a cmpr that isn't '='
                 nodes = await core.nodes('syn:cmd~="foo"')
@@ -399,6 +398,6 @@ class SynModelTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'testcmd'))
-                self.eq(nodes[0].get('input'), ('test:str', 'inet:ipv6'))
+                self.eq(nodes[0].get('input'), ('test:str', 'inet:ip'))
                 self.eq(nodes[0].get('output'), ('inet:fqdn',))
-                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
+                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ip'), ('bar', 'inet:fqdn')))

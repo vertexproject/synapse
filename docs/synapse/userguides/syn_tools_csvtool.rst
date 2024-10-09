@@ -224,17 +224,17 @@ For example:
       .created = 2019/07/03 22:25:43.966
       .seen = ('2018/10/03 00:47:29.000', '2018/10/04 18:26:06.000')
       :fqdn = hurr.net
-      :ipv4 = 5.6.7.8
+      :ip = 5.6.7.8
   inet:dns:a=('derp.org', '4.4.4.4')
       .created = 2019/07/03 22:25:43.968
       .seen = ('2019/06/09 09:00:18.000', '2019/07/03 15:07:52.000')
       :fqdn = derp.org
-      :ipv4 = 4.4.4.4
+      :ip = 4.4.4.4
   inet:dns:a=('woot.com', '1.2.3.4')
       .created = 2019/07/03 22:25:43.962
       .seen = ('2018/04/18 13:12:47.000', '2018/06/23 09:45:12.000')
       :fqdn = woot.com
-      :ipv4 = 1.2.3.4
+      :ip = 1.2.3.4
   complete. 3 nodes in 12 ms (250/sec).
 
 **Loading the Data:**
@@ -500,7 +500,7 @@ To lift the DNS A records for the domains ``woot.com``, ``hurr.net``, and ``derp
 In this case we want ``$lib.csv.emit()`` to include:
 
 - the domain (``:fqdn`` property of the ``inet:dns:a`` node).
-- the IP (``:ipv4`` property of the ``inet:dns:a`` node).
+- the IP (``:ip`` property of the ``inet:dns:a`` node).
 - the first observed resolution (the first half of the ``.seen`` property).
 - the most recently observed resolution (the second half of the ``.seen`` property).
 
@@ -508,17 +508,17 @@ As a first attempt, we could specify our output format as follows to export thos
 
 ::
   
-  $lib.csv.emit(:fqdn, :ipv4, .seen)
+  $lib.csv.emit(:fqdn, :ip, .seen)
 
 This exports the data from the relevant nodes as expected, but does so in the following format:
 
 ::
   
-  woot.com,16909060,"(1524057167000, 1529747112000)"
+  woot.com,"(4, 16909060)","(1524057167000, 1529747112000)"
 
 We have a few potential issues with our current output:
 
-- The IP address is exported using its raw integer value instead of in human-friendly dotted-decimal format.
+- The IP address is exported using its raw value instead of in human-friendly dotted-decimal format.
 - The ``.seen`` value is exported into a single field as a combined ``"(<min>, <max>)"`` pair, not as individual comma-separated timestamps.
 - The ``.seen`` values are exported using their raw Epoch millis format instead of in human-friendly datetime strings.
 
@@ -526,15 +526,15 @@ We need to do some additional formatting to get the output we want in the CSV fi
 
 *IP Address*
 
-Synapse stores IP addresses as integers, so specifying ``:ipv4`` for our output definition gives us the raw integer value for that property. If we want the human-readable value, we need to use the human-friendly representation (:ref:`gloss-repr`) of the value. We can do this using the :ref:`meth-node-repr` method to tell Storm to obtain and use the repr value of a node instead of its raw value (:ref:`meth-node-value`).
+Synapse stores IP addresses as tuples of integers, so specifying ``:ip`` for our output definition gives us the raw value for that property. If we want the human-readable value, we need to use the human-friendly representation (:ref:`gloss-repr`) of the value. We can do this using the :ref:`meth-node-repr` method to tell Storm to obtain and use the repr value of a node instead of its raw value (:ref:`meth-node-value`).
 
-``$node.repr()`` by itself (e.g., with no parameters passed to the method) returns the repr of the primary property value of the node passing through the runtime. Our original Storm query, above, lifts DNS A records - so the nodes passing through the runtime are ``inet:dns:a`` nodes, not IPv4 nodes. This means that using ``$node.repr()`` by itself will return the repr of the ``inet:dns:a`` node, not the ``:ipv4`` property.
+``$node.repr()`` by itself (e.g., with no parameters passed to the method) returns the repr of the primary property value of the node passing through the runtime. Our original Storm query, above, lifts DNS A records - so the nodes passing through the runtime are ``inet:dns:a`` nodes, not IP nodes. This means that using ``$node.repr()`` by itself will return the repr of the ``inet:dns:a`` node, not the ``:ip`` property.
 
 We can tell ``$node.repr()`` to return the repr of a specific secondary property of the node by passing the **string** of the property name to the method:
 
 ::
   
-  $node.repr(ipv4)
+  $node.repr(ip)
 
 *.seen times*
 
@@ -544,7 +544,7 @@ We can tell ``$node.repr()`` to return the repr of a specific secondary property
   
   ($first, $last) = .seen
 
-However, simply splitting the value will result in the variables ``$first`` and ``$last`` storing (and emitting) the raw Epoch millis value of the time, not the human-readable repr value. Similar to the way in which we obtained the repr value for the ``:ipv4`` property, we need to assign the human-readable repr values of the ``.seen`` property to ``$first`` and ``$last``:
+However, simply splitting the value will result in the variables ``$first`` and ``$last`` storing (and emitting) the raw Epoch millis value of the time, not the human-readable repr value. Similar to the way in which we obtained the repr value for the ``:ip`` property, we need to assign the human-readable repr values of the ``.seen`` property to ``$first`` and ``$last``:
 
 ::
   
@@ -566,7 +566,7 @@ Our full stormfile query looks like this:
   
   ($first, $last) = $node.repr(".seen")
   
-  $lib.csv.emit(:fqdn, $node.repr(ipv4), $first, $last)
+  $lib.csv.emit(:fqdn, $node.repr(ip), $first, $last)
 
 .. WARNING::
   

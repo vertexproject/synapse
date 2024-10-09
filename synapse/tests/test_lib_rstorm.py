@@ -19,10 +19,10 @@ HI
 .. storm-pre:: [ inet:asn=$foo ]
 .. storm:: $lib.print($bar) $lib.warn(omgomgomg)
 .. storm-expect:: baz
-.. storm-pre:: [ inet:ipv6=0 ]
+.. storm-pre:: [ inet:ip='::ffff:0.0.0.0' ]
 .. storm-pkg:: synapse/tests/files/stormpkg/testpkg.yaml
 .. storm:: --hide-props testpkgcmd foo
-.. storm-pre:: inet:ipv6=0 [ +#foo ]
+.. storm-pre:: inet:ip='::ffff:0.0.0.0' [ +#foo ]
 .. storm:: --hide-props --hide-tags testpkgcmd foo
 .. storm:: --hide-query $lib.print(secret) $lib.print($lib.globals.get(testpkg))
 .. storm:: --hide-query file:bytes
@@ -43,12 +43,12 @@ HI
 ::
 
     storm> testpkgcmd foo
-    inet:ipv6=::ffff:0
+    inet:ip=::ffff:0.0.0.0
 
 ::
 
     storm> testpkgcmd foo
-    inet:ipv6=::ffff:0
+    inet:ip=::ffff:0.0.0.0
 
 ::
 
@@ -73,7 +73,7 @@ rst_in_props = '''
 HI
 ##
 .. storm-cortex:: default
-.. storm:: [ inet:ipv4=0 ]
+.. storm:: [ inet:ip=([4, 0]) ]
 '''
 
 rst_out_props = '''
@@ -81,9 +81,10 @@ HI
 ##
 ::
 
-    storm> [ inet:ipv4=0 ]
-    inet:ipv4=0.0.0.0
+    storm> [ inet:ip=([4, 0]) ]
+    inet:ip=0.0.0.0
             :type = private
+            :version = 4
 
 '''
 
@@ -92,9 +93,9 @@ HI
 ##
 .. storm-cortex:: default
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp1.json
-.. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ipv4=$d.data ]
+.. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ip=$d.data ]
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp2.json
-.. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ipv4=$d.data ]
+.. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.json() [ inet:ip=$d.data ]
 .. storm-mock-http:: synapse/tests/files/rstorm/httpresp3.json
 .. storm:: $resp=$lib.inet.http.get("http://foo.com") $d=$resp.body.decode() [ it:dev:str=$d ]
 '''
@@ -187,7 +188,7 @@ boom8 = '''
 multiline_storm_input = '''
 .. storm-cortex:: default
 Hello
-.. storm-multiline:: QUERY="[inet:ipv4=1.4.2.3]\\n[+#test.tag]"
+.. storm-multiline:: QUERY="[inet:ip=1.4.2.3]\\n[+#test.tag]"
 .. storm:: MULTILINE=QUERY
 Bye!
 '''
@@ -196,10 +197,11 @@ multiline_storm_output = '''
 Hello
 ::
 
-    storm> [inet:ipv4=1.4.2.3]
+    storm> [inet:ip=1.4.2.3]
     [+#test.tag]
-    inet:ipv4=1.4.2.3
+    inet:ip=1.4.2.3
             :type = unicast
+            :version = 4
             #test.tag
 
 Bye!
@@ -233,20 +235,20 @@ fail00 = '''
 
 A fail test
 
-.. storm-pre:: [inet:ipv4=1.2.3.4]
+.. storm-pre:: [inet:ip=1.2.3.4]
 .. storm-fail:: true
-.. storm:: inet:ipv4=woot.com
+.. storm:: inet:ip=woot.com
 
 # Fail state is cleared
 
-.. storm:: inet:ipv4=1.2.3.4
+.. storm:: inet:ip=1.2.3.4
 
 '''
 
 fail01 = fail00 + '''
 Since the fail state was cleared, now we'll fail on the next error.
 
-.. storm:: inet:ipv4=woot.com
+.. storm:: inet:ip=woot.com
 '''
 
 fail02 = '''
@@ -254,9 +256,9 @@ fail02 = '''
 
 A fail test that expects to fail but does not.
 
-.. storm-pre:: [inet:ipv4=1.2.3.4]
+.. storm-pre:: [inet:ip=1.2.3.4]
 .. storm-fail:: true
-.. storm:: inet:ipv4=1.2.3.4
+.. storm:: inet:ip=1.2.3.4
 '''
 
 ctor_fail = '''
@@ -330,8 +332,8 @@ class RStormLibTest(s_test.SynTest):
                 fd.write(rst_in_http.encode())
 
             text = await get_rst_text(path)
-            self.isin('inet:ipv4=1.2.3.4', text)  # first mock
-            self.isin('inet:ipv4=5.6.7.8', text)  # one mock at a time
+            self.isin('inet:ip=1.2.3.4', text)  # first mock
+            self.isin('inet:ip=5.6.7.8', text)  # one mock at a time
             self.isin('it:dev:str=notjson', text)  # one mock at a time
 
             # multi request in 1 rstorm command
@@ -468,8 +470,8 @@ class RStormLibTest(s_test.SynTest):
             with s_common.genfile(path) as fd:
                 fd.write(fail00.encode())
             text = await get_rst_text(path)
-            self.isin('ERROR: illegal IP address string passed to inet_aton', text)
-            self.isin('storm> inet:ipv4=1.2.3.4', text)
+            self.isin('ERROR: Invalid IP address', text)
+            self.isin('storm> inet:ip=1.2.3.4', text)
             self.isin(':type = unicast', text)
 
             path = s_common.genpath(dirn, 'fail01.rst')
@@ -529,4 +531,4 @@ class RStormLibTest(s_test.SynTest):
 
             text = await get_rst_text(path)
             self.notin('[ps:person=(p0,)', text)
-            self.isin('inet:ipv4=1.2.3.4', text)
+            self.isin('inet:ip=1.2.3.4', text)
