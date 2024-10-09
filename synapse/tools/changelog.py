@@ -651,7 +651,7 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
             rst.addLines(f'``{form}``')
             upd_form_props = list(info.get('updated_properties').items())
             if len(upd_form_props) > 1:
-                rst.addLines('  The form had the following updated properties:', '\n')
+                rst.addLines('  The form had the following properties updated:', '\n')
                 upd_form_props.sort(key=lambda x: x[0])
                 for prop, pnfo in upd_form_props:
                     ptyp = pnfo.get('type')

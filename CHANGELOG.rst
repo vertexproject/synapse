@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.182.0 - 2024-10-09
+v2.183.0 - 2024-10-09
 =====================
 
 Model Changes
@@ -16,7 +16,7 @@ Model Changes
   ``it:exec:file:add``, ``it:exec:file:del``, ``it:exec:file:read``, and
   ``it:exec:file:write`` forms.
   (`#3942 <https://github.com/vertexproject/synapse/pull/3942>`_)
-- See :ref:`userguide_model_v2_182_0` for more detailed model changes.
+- See :ref:`userguide_model_v2_183_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------

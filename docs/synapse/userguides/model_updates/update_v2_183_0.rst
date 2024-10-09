@@ -1,19 +1,19 @@
 
 
-.. _userguide_model_v2_182_0:
+.. _userguide_model_v2_183_0:
 
 ######################
-v2.182.0 Model Updates
+v2.183.0 Model Updates
 ######################
 
 The following model updates were made during the ``v2.182.0`` Synapse release.
 
 ******************
-Updated Properties
+properties updated
 ******************
 
 ``it:exec:file:add``
-  The form had the following updated properties:
+  The form had the following properties updated:
 
 
     The property ``path:base`` is no longer marked as read only.
@@ -26,7 +26,7 @@ Updated Properties
 
 
 ``it:exec:file:del``
-  The form had the following updated properties:
+  The form had the following properties updated:
 
 
     The property ``path:base`` is no longer marked as read only.
@@ -39,7 +39,7 @@ Updated Properties
 
 
 ``it:exec:file:read``
-  The form had the following updated properties:
+  The form had the following properties updated:
 
 
     The property ``path:base`` is no longer marked as read only.
@@ -52,7 +52,7 @@ Updated Properties
 
 
 ``it:exec:file:write``
-  The form had the following updated properties:
+  The form had the following properties updated:
 
 
     The property ``path:base`` is no longer marked as read only.
@@ -65,7 +65,7 @@ Updated Properties
 
 
 ``it:fs:file``
-  The form had the following updated properties:
+  The form had the following properties updated:
 
 
     The property ``path:base`` is no longer marked as read only.
