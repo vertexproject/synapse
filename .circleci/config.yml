@@ -252,6 +252,85 @@ commands:
             . venv/bin/activate
             twine upload dist/*
 
+  deploy_to_devpi:
+    description: "Publish wheel packages to devpi"
+    parameters:
+      devpi_base_url:
+        description: Base URL for the devpi service
+        type: string
+      devpi_index:
+        description: Index to push packages to and install requirements from.
+        type: string
+      python_tag:
+        description: Python tag to use when building wheels
+        type: string
+      tag_verify:
+        description: Check if the git tag matches the package version.
+        type: boolean
+        default: true
+      pip_install_args:
+        description: Additional args to provide to pip install when installing requirements.
+        type: string
+        default: ''
+      python_smoke_code:
+        description: Code used to smoke test the package before publication.
+        type: string
+    steps:
+      - restore_cache:
+          keys:
+            - v4-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+      - run:
+          name: install python dependencies
+          command: |
+            python3 -m venv venv
+            . venv/bin/activate
+            python3 -m pip install -U wheel pip
+            python3 -m pip install -U -r requirements.txt --index-url="<< parameters.devpi_base_url >><< parameters.devpi_index >>/+simple" << parameters.pip_install_args >>
+            python3 -m pip install -U twine build
+
+      - save_cache:
+          paths:
+            - ./venv
+          key: v4-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+
+      - when:
+          condition: << parameters.tag_verify >>
+          steps:
+            - run:
+                name: verify git tag vs. version
+                command: |
+                  . venv/bin/activate
+                  python ./scripts/verify_version.py
+
+      - run:
+          name: create packages
+          command: |
+            . venv/bin/activate
+            python3 scripts/replace_commit.py
+            export DIST_EXTRA_CONFIG=/tmp/build-opts.cfg
+            echo -e "[bdist_wheel]\npython_tag=<< parameters.python_tag >>" > $DIST_EXTRA_CONFIG
+            python -m build --wheel
+
+      - run:
+          name: smoke packages
+          command: |
+            mkdir -p /tmp/wheeltest
+            python3 -m venv /tmp/wheeltest/venv
+            cp dist/*.whl /tmp/wheeltest
+            cd /tmp/wheeltest
+            . ./venv/bin/activate
+            python3 -m pip install -U wheel pip twine
+            python3 -m twine check *.whl
+            python3 -m pip install *.whl
+            python3 -c "<< parameters.python_smoke_code >>"
+            deactivate
+
+      - run:
+          name: upload to devpi
+          command: |
+            . venv/bin/activate
+            twine upload --repository-url "<< parameters.devpi_base_url >><< parameters.devpi_index >>" dist/*
   
   do_docker_prep:
     description: "Install packages and set commit."
@@ -528,6 +607,26 @@ jobs:
           registry: ${DOCKER_PRIMARY_REGISTRY}
           secondaryregistry: ${DOCKER_SECONDARY_REGISTRY}
 
+  devpi_synapse_3xx:
+    docker:
+      - image: cimg/python:3.11
+    steps:
+      - checkout
+      - run:
+          name: Version bump and date the build.
+          command: |
+            python3 -m pip install bump2version
+            DATE=`date '+%Y%m%d%H%M'`
+            CURRENT_VERSION=`grep "current_version =" .bumpversion.cfg | cut -f 2 -d "=" | tr -d '[:space:]'`
+            # The "patch" value is used here just to fulfill a required argument.
+            python3 -m bumpversion --allow-dirty --no-tag --no-commit --new-version "${CURRENT_VERSION}a${DATE}" patch
+      - deploy_to_devpi:
+          devpi_base_url: ${DEVPI_BASE_URL}
+          devpi_index: vertex/synapse-3xx
+          python_tag: py311
+          tag_verify: false
+          python_smoke_code: import synapse; print(synapse.version)
+
 workflows:
   version: 2
   run_tests:
@@ -575,6 +674,21 @@ workflows:
               only: /^v2\.[0-9]+\.[0-9]+((a|b|rc)[0-9]*)?$/
             branches:
               ignore: /.*/
+
+      - devpi_synapse_3xx:
+          context:
+            - Devpi00Access
+          requires:
+            - doctests
+            - python311
+            - python311_replay
+            - python_package_smoketest
+          filters:
+            tags:
+              ignore: /.*/
+            branches:
+              only:
+                - synapse-3xx
 
       - gh-release/dorelease:
           requires:

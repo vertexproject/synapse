@@ -12,7 +12,7 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-reqver = '>=2.11.0,<3.0.0'
+reqver = '>=3.0.0,<4.0.0'
 
 async def _main(argv, outp):
 

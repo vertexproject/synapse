@@ -157,7 +157,7 @@ You can use the name of an :ref:`interface` to lift all forms that inherit that 
 
 *Lift all taxonomy nodes (all nodes of all forms that inherit the meta:taxonomy interface):*
 
-.. storm-pre:: [ ou:camptype=io.disinformation risk:tool:software:taxonomy=backdoor ]
+.. storm-pre:: [ ou:campaign:type:taxonomy=io.disinformation risk:tool:software:type:taxonomy=backdoor ]
 .. storm-pre:: meta:taxonomy
 
 ::

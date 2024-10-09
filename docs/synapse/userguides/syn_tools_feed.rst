@@ -81,7 +81,7 @@ drop into a prompt to explore the ingested nodes, run:
 
   python -m synapse.tools.feed --test --debug testnodes.jsonl
 
-Assuming the command completed with no errors, we should now have a ``cmdr`` prompt connected to our test Cortex:
+Assuming the command completed with no errors, we should now have a ``storm`` prompt connected to our test Cortex:
 
 ::
 

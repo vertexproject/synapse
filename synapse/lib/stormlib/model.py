@@ -21,76 +21,6 @@ RISK_HASVULN_VULNPROPS = (
 
 stormcmds = [
     {
-        'name': 'model.edge.set',
-        'descr': 'Set a key-value for an edge verb that exists in the current view.',
-        'cmdargs': (
-            ('verb', {'help': 'The edge verb to add a key to.'}),
-            ('key', {'help': 'The key name (e.g. doc).'}),
-            ('valu', {'help': 'The string value to set.'}),
-        ),
-        'storm': '''
-            $verb = $cmdopts.verb
-            $key = $cmdopts.key
-            $lib.model.edge.set($verb, $key, $cmdopts.valu)
-            $lib.print('Set edge key: verb={verb} key={key}', verb=$verb, key=$key)
-        ''',
-    },
-    {
-        'name': 'model.edge.get',
-        'descr': 'Retrieve key-value pairs for an edge verb in the current view.',
-        'cmdargs': (
-            ('verb', {'help': 'The edge verb to retrieve.'}),
-        ),
-        'storm': '''
-            $verb = $cmdopts.verb
-            $kvpairs = $lib.model.edge.get($verb)
-            if $kvpairs {
-                $lib.print('verb = {verb}', verb=$verb)
-                for ($key, $valu) in $kvpairs {
-                    $lib.print('    {key} = {valu}', key=$key, valu=$valu)
-                }
-            } else {
-                $lib.print('verb={verb} contains no key-value pairs.', verb=$verb)
-            }
-        ''',
-    },
-    {
-        'name': 'model.edge.del',
-        'descr': 'Delete a global key-value pair for an edge verb in the current view.',
-        'cmdargs': (
-            ('verb', {'help': 'The edge verb to delete documentation for.'}),
-            ('key', {'help': 'The key name (e.g. doc).'}),
-        ),
-        'storm': '''
-            $verb = $cmdopts.verb
-            $key = $cmdopts.key
-            $lib.model.edge.del($verb, $key)
-            $lib.print('Deleted edge key: verb={verb} key={key}', verb=$verb, key=$key)
-        ''',
-    },
-    {
-        'name': 'model.edge.list',
-        'descr': 'List all edge verbs in the current view and their doc key (if set).',
-        'storm': '''
-            $edgelist = $lib.model.edge.list()
-            if $edgelist {
-                $lib.print('\nname       doc')
-                $lib.print('----       ---')
-                for ($verb, $kvdict) in $edgelist {
-                    $verb = $verb.ljust(10)
-
-                    $doc = $kvdict.doc
-                    if ($doc=$lib.null) { $doc = '' }
-
-                    $lib.print('{verb} {doc}', verb=$verb, doc=$doc)
-                }
-                $lib.print('')
-            } else {
-                $lib.print('No edge verbs found in the current view.')
-            }
-        ''',
-    },
-    {
         'name': 'model.deprecated.lock',
         'descr': 'Edit lock status of deprecated model elements.',
         'cmdargs': (
@@ -159,7 +89,7 @@ stormcmds = [
                     $lib.print("{name}...", name=$name)
 
                     for $layr in $lib.layer.list() {
-                        if $layr.getPropCount($name, maxsize=1) {
+                        if $layr.getPropCount($name) {
                             $lib.warn("Layer {iden} still contains {name}", iden=$layr.iden, name=$name)
                             $ok = $lib.false
                         }
@@ -264,29 +194,29 @@ class LibModelTags(s_stormtypes.Lib):
     async def _delTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
         self.runt.confirm(('model', 'tag', 'set'))
-        return await self.runt.snap.core.delTagModel(tagname)
+        return await self.runt.view.core.delTagModel(tagname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getTagModel(self, tagname):
         tagname = await s_stormtypes.tostr(tagname)
-        return await self.runt.snap.core.getTagModel(tagname)
+        return await self.runt.view.core.getTagModel(tagname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _listTagModel(self):
-        return await self.runt.snap.core.listTagModel()
+        return await self.runt.view.core.listTagModel()
 
     async def _popTagModel(self, tagname, propname):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         self.runt.confirm(('model', 'tag', 'set'))
-        return await self.runt.snap.core.popTagModel(tagname, propname)
+        return await self.runt.view.core.popTagModel(tagname, propname)
 
     async def _setTagModel(self, tagname, propname, propvalu):
         tagname = await s_stormtypes.tostr(tagname)
         propname = await s_stormtypes.tostr(propname)
         propvalu = await s_stormtypes.toprim(propvalu)
         self.runt.confirm(('model', 'tag', 'set'))
-        await self.runt.snap.core.setTagModel(tagname, propname, propvalu)
+        await self.runt.view.core.setTagModel(tagname, propname, propvalu)
 
 @s_stormtypes.registry.registerLib
 class LibModel(s_stormtypes.Lib):
@@ -541,139 +471,6 @@ class ModelType(s_stormtypes.Prim):
         return self.valu.getTypeDef()
 
 @s_stormtypes.registry.registerLib
-class LibModelEdge(s_stormtypes.Lib):
-    '''
-    A Storm Library for interacting with light edges and manipulating their key-value attributes. This Library is deprecated.
-    '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get the key-value data for a given Edge verb.',
-         'type': {'type': 'function', '_funcname': '_methEdgeGet',
-                  'args': (
-                      {'name': 'verb', 'desc': 'The Edge verb to look up.', 'type': 'str', },
-                  ),
-                  'returns': {'type': 'dict', 'desc': 'A dictionary representing the key-value data set on a verb.', }}},
-        {'name': 'validkeys', 'desc': 'Get a list of the valid keys that can be set on an Edge verb.',
-         'type': {'type': 'function', '_funcname': '_methValidKeys',
-                  'returns': {'type': 'list', 'desc': 'A list of the valid keys.', }
-                  }
-        },
-        {'name': 'set', 'desc': 'Set a key-value for a given Edge verb.',
-         'type': {'type': 'function', '_funcname': '_methEdgeSet',
-                  'args': (
-                      {'name': 'verb', 'type': 'str', 'desc': 'The Edge verb to set a value for.', },
-                      {'name': 'key', 'type': 'str', 'desc': 'The key to set.', },
-                      {'name': 'valu', 'type': 'str', 'desc': 'The value to set.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'del', 'desc': 'Delete a key from the key-value store for a verb.',
-         'type': {'type': 'function', '_funcname': '_methEdgeDel',
-                  'args': (
-                      {'name': 'verb', 'type': 'str', 'desc': 'The name of the Edge verb to remove a key from.', },
-                      {'name': 'key', 'type': 'str', 'desc': 'The name of the key to remove from the key-value store.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a list of (verb, key-value dictionary) pairs for Edge verbs in the current Cortex View.',
-         'type': {'type': 'function', '_funcname': '_methEdgeList',
-                  'returns': {'type': 'list', 'desc': 'A list of (str, dict) tuples for each verb in the current Cortex View.', }}},
-    )
-    # Note: The use of extprops in hive paths in this class is an artifact of the
-    # original implementation which used extended property language which had a
-    # very bad cognitive overload with the cortex extended properties, but we
-    # don't want to change underlying data. epiphyte 20200703
-
-    # restrict list of keys which we allow to be set/del through this API.
-    validedgekeys = (
-        'doc',
-    )
-    hivepath = ('cortex', 'model', 'edges')
-
-    _storm_lib_path = ('model', 'edge')
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
-
-    def __init__(self, runt, name=()):
-        s_stormtypes.Lib.__init__(self, runt, name)
-
-    def getObjLocals(self):
-        return {
-            'get': self._methEdgeGet,
-            'set': self._methEdgeSet,
-            'del': self._methEdgeDel,
-            'list': self._methEdgeList,
-            'validkeys': self._methValidKeys,
-        }
-
-    async def _chkEdgeVerbInView(self, verb):
-        async for vverb in self.runt.snap.view.getEdgeVerbs():
-            if vverb == verb:
-                return
-
-        raise s_exc.NoSuchName(mesg=f'No such edge verb in the current view', name=verb)
-
-    async def _chkKeyName(self, key):
-        if key not in self.validedgekeys:
-            raise s_exc.NoSuchProp(mesg=f'The requested key is not valid for light edge metadata.',
-                                   name=key)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    def _methValidKeys(self):
-        s_common.deprecated('model.edge.validkeys', curv='2.165.0')
-        return self.validedgekeys
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methEdgeGet(self, verb):
-        s_common.deprecated('model.edge.get', curv='2.165.0')
-        verb = await s_stormtypes.tostr(verb)
-        await self._chkEdgeVerbInView(verb)
-
-        path = self.hivepath + (verb, 'extprops')
-        return await self.runt.snap.core.getHiveKey(path) or {}
-
-    async def _methEdgeSet(self, verb, key, valu):
-        s_common.deprecated('model.edge.set', curv='2.165.0')
-        verb = await s_stormtypes.tostr(verb)
-        await self._chkEdgeVerbInView(verb)
-
-        key = await s_stormtypes.tostr(key)
-        await self._chkKeyName(key)
-
-        valu = await s_stormtypes.tostr(valu)
-
-        path = self.hivepath + (verb, 'extprops')
-        kvdict = await self.runt.snap.core.getHiveKey(path) or {}
-
-        kvdict[key] = valu
-        await self.runt.snap.core.setHiveKey(path, kvdict)
-
-    async def _methEdgeDel(self, verb, key):
-        s_common.deprecated('model.edge.del', curv='2.165.0')
-        verb = await s_stormtypes.tostr(verb)
-        await self._chkEdgeVerbInView(verb)
-
-        key = await s_stormtypes.tostr(key)
-        await self._chkKeyName(key)
-
-        path = self.hivepath + (verb, 'extprops')
-        kvdict = await self.runt.snap.core.getHiveKey(path) or {}
-
-        oldv = kvdict.pop(key, None)
-        if oldv is None:
-            raise s_exc.NoSuchProp(mesg=f'Key is not set for this edge verb',
-                                   verb=verb, name=key)
-
-        await self.runt.snap.core.setHiveKey(path, kvdict)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methEdgeList(self):
-        s_common.deprecated('model.edge.list', curv='2.165.0')
-        retn = []
-        async for verb in self.runt.snap.view.getEdgeVerbs():
-            path = self.hivepath + (verb, 'extprops')
-            kvdict = await self.runt.snap.core.getHiveKey(path) or {}
-            retn.append((verb, kvdict))
-
-        return retn
-
-@s_stormtypes.registry.registerLib
 class LibModelDeprecated(s_stormtypes.Lib):
     '''
     A storm library for interacting with the model deprecation mechanism.
@@ -728,34 +525,35 @@ class MigrationEditorMixin:
 
         verbs = set()
 
-        async for (verb, n2iden) in src.iterEdgesN1():
+        async for (verb, n2nid) in src.iterEdgesN1():
 
             if verb not in verbs:
                 self.runt.layerConfirm(('node', 'edge', 'add', verb))
                 verbs.add(verb)
 
-            if await self.runt.snap.getNodeByBuid(s_common.uhex(n2iden)) is not None:
-                await proto.addEdge(verb, n2iden)
+            if await self.runt.view.getNodeByNid(n2nid) is not None:
+                await proto.addEdge(verb, n2nid)
 
-        dstiden = proto.iden()
+        if (dstnid := proto.nid) is None:
+            return
 
-        async for (verb, n1iden) in src.iterEdgesN2():
+        async for (verb, n1nid) in src.iterEdgesN2():
 
             if verb not in verbs:
                 self.runt.layerConfirm(('node', 'edge', 'add', verb))
                 verbs.add(verb)
 
-            n1proto = await editor.getNodeByBuid(s_common.uhex(n1iden))
+            n1proto = await editor.getNodeByNid(n1nid)
             if n1proto is not None:
-                await n1proto.addEdge(verb, dstiden)
+                await n1proto.addEdge(verb, dstnid)
 
     async def copyTags(self, src, proto, overwrite=False):
 
-        for name, valu in src.tags.items():
+        for name, valu in src._getTagsDict().items():
             self.runt.layerConfirm(('node', 'tag', 'add', *name.split('.')))
             await proto.addTag(name, valu=valu)
 
-        for tagname, tagprops in src.tagprops.items():
+        for tagname, tagprops in src._getTagPropsDict().items():
             for propname, valu in tagprops.items():
                 if overwrite or not proto.hasTagProp(tagname, propname):
                     await proto.setTagProp(tagname, propname, valu) # use tag perms
@@ -764,7 +562,7 @@ class MigrationEditorMixin:
 
         form = src.form
 
-        for name, valu in src.props.items():
+        for name, valu in src.getProps().items():
             prop = form.props.get(name)
             if not prop.isext:
                 continue
@@ -831,7 +629,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         overwrite = await s_stormtypes.tobool(overwrite)
 
-        async with self.runt.snap.getEditor() as editor:
+        async with self.runt.view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyData(src, proto, overwrite=overwrite)
 
@@ -842,9 +640,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if not isinstance(dst, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.copyEdges() dest argument must be a node.')
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyEdges(editor, src, proto)
 
@@ -857,9 +655,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         overwrite = await s_stormtypes.tobool(overwrite)
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyTags(src, proto, overwrite=overwrite)
 
@@ -870,9 +668,9 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if not isinstance(dst, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.copyExtProps() dest argument must be a node.')
 
-        snap = self.runt.snap
+        view = self.runt.view
 
-        async with snap.getEditor() as editor:
+        async with view.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyExtProps(src, proto)
 
@@ -884,12 +682,12 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         propname = await s_stormtypes.tostr(propname)
         valu = await s_stormtypes.toprim(valu)
 
-        prop = self.runt.snap.core.model.prop(f'{formname}:{propname}')
+        prop = self.runt.view.core.model.prop(f'{formname}:{propname}')
         if prop is None:
             mesg = f'Could not find prop: {formname}:{propname}'
             raise s_exc.NoSuchProp(mesg=mesg, formname=formname, propname=propname)
 
-        if not self.runt.snap.core.migration:
+        if not self.runt.view.core.migration:
             mesg = '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
@@ -901,15 +699,15 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
 
         if prop.type.isarray:
             stortype &= (~s_layer.STOR_FLAG_ARRAY)
-            liftfunc = self.runt.snap.wlyr.liftByPropArray
+            liftfunc = self.runt.view.wlyr.liftByPropArray
         else:
-            liftfunc = self.runt.snap.wlyr.liftByPropValu
+            liftfunc = self.runt.view.wlyr.liftByPropValu
 
         cmprvals = ((cmpr, valu, stortype),)
 
-        layriden = self.runt.snap.wlyr.iden
+        layriden = self.runt.view.wlyr.iden
         async for _, buid, sode in liftfunc(formname, propname, cmprvals, reverse=reverse):
-            yield await self.runt.snap._joinStorNode(buid, {layriden: sode})
+            yield await self.runt.view._joinStorNode(buid, {layriden: sode})
 
     async def _methSetNodePropValuNoNorm(self, n, propname, valu):
         '''
@@ -924,14 +722,14 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         if not isinstance(n, s_node.Node):
             raise s_exc.BadArg(mesg='$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
 
-        if not self.runt.snap.core.migration:
+        if not self.runt.view.core.migration:
             mesg = '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         propname = await s_stormtypes.tostr(propname)
         valu = await s_stormtypes.toprim(valu)
 
-        async with self.runt.snap.getNodeEditor(n) as proto:
+        async with self.runt.view.getNodeEditor(n) as proto:
             await proto.set(propname, valu, norminfo={})
 
         return n
@@ -1096,7 +894,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
         prefer_v22 = await s_stormtypes.tobool(prefer_v22)
         force = await s_stormtypes.tobool(force)
 
-        layr = self.runt.snap.wlyr
+        layr = self.runt.view.wlyr
         # We only need to check :v2_2 since that's the only property that's
         # writable. Everthing else is readonly. And we can do it here once
         # instead of in the loop below which will cause a perf hit.
@@ -1129,7 +927,7 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             if rgx is not None and rgx.group() == v2_2:
                 valu22 = v2_2
 
-        async with self.runt.snap.getNodeEditor(n) as proto:
+        async with self.runt.view.getNodeEditor(n) as proto:
 
             # If both values are populated, this node is valid
             if valu23 is not None and valu22 is not None and not force:
@@ -1252,14 +1050,16 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             self.runt.confirmPropSet(riskvuln.props['.seen'])
             props['.seen'] = seen
 
-        async with self.runt.snap.getEditor() as editor:
+        async with self.runt.view.getEditor() as editor:
 
             for prop, valu in links.items():
 
                 pguid = guid if guid is not None else s_common.guid((guid, prop))
                 pprops = props | {'node': (n.form.props[prop].type.name, valu)}
 
-                proto = await editor.addNode('risk:vulnerable', pguid, props=pprops)
+                node = await self.runt.view.addNode('risk:vulnerable', pguid, props=pprops)
+                proto = editor.loadNode(node)
+
                 retidens.append(proto.iden())
 
                 await self.copyTags(n, proto, overwrite=False)

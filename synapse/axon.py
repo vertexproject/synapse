@@ -797,10 +797,7 @@ class Axon(s_cell.Cell):
         if self.inaugural:
             self.axonmetrics.set('size:bytes', 0)
             self.axonmetrics.set('file:count', 0)
-
-        await self._bumpCellVers('axon:metrics', (
-            (1, self._migrateAxonMetrics),
-        ), nexs=False)
+            self.cellvers.set('axon:metrics', 1)
 
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
@@ -860,16 +857,6 @@ class Axon(s_cell.Cell):
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
-
-    async def _migrateAxonMetrics(self):
-        logger.warning('migrating Axon metrics data out of hive')
-
-        async with await self.hive.open(('axon', 'metrics')) as hivenode:
-            axonmetrics = await hivenode.dict()
-            self.axonmetrics.set('size:bytes', axonmetrics.get('size:bytes', 0))
-            self.axonmetrics.set('file:count', axonmetrics.get('file:count', 0))
-
-        logger.warning('...Axon metrics migration complete!')
 
     async def _initBlobStor(self):
 

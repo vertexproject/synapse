@@ -35,6 +35,8 @@ ipv4max = 2 ** 32 - 1
 
 rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
 
+urlfangs = regex.compile('^(hxxp|hxxps)$')
+
 def getAddrType(ip):
 
     if ip.is_multicast:
@@ -866,6 +868,7 @@ class Url(s_types.Str):
         return cmpr
 
     def _normPyStr(self, valu):
+        valu = valu.strip()
         orig = valu
         subs = {}
         proto = ''
@@ -911,6 +914,8 @@ class Url(s_types.Str):
         if not proto or not valu:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Invalid/Missing protocol') from None
+
+        proto = urlfangs.sub(lambda match: 'http' + match.group(0)[4:], proto)
 
         subs['proto'] = proto
         # Query params first
@@ -1064,7 +1069,7 @@ class InetModule(s_module.CoreModule):
 
             if form == 'inet:email':
 
-                whomail = await node.snap.addNode('inet:whois:email', (fqdn, valu))
+                whomail = await node.view.addNode('inet:whois:email', (fqdn, valu))
                 await whomail.set('.seen', asof)
 
     async def _onAddPasswd(self, node):
@@ -1079,7 +1084,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         domain = node.get('domain')
 
-        async with node.snap.getEditor() as editor:
+        async with node.view.getEditor() as editor:
             protonode = editor.loadNode(node)
             if domain is None:
                 await protonode.set('iszone', False)
@@ -1089,7 +1094,7 @@ class InetModule(s_module.CoreModule):
             if protonode.get('issuffix') is None:
                 await protonode.set('issuffix', False)
 
-            parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+            parent = await node.view.getNodeByNdef(('inet:fqdn', domain))
             if parent is None:
                 parent = await editor.addNode('inet:fqdn', domain)
 
@@ -1114,8 +1119,8 @@ class InetModule(s_module.CoreModule):
 
         issuffix = node.get('issuffix')
 
-        async with node.snap.getEditor() as editor:
-            async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+        async with node.view.getEditor() as editor:
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                 await asyncio.sleep(0)
 
                 if child.get('iszone') == issuffix:
@@ -1140,7 +1145,7 @@ class InetModule(s_module.CoreModule):
             await node.pop('zone')
             return
 
-        parent = await node.snap.addNode('inet:fqdn', domain)
+        parent = await node.view.addNode('inet:fqdn', domain)
 
         zone = parent.get('zone')
         if zone is None:
@@ -1154,10 +1159,10 @@ class InetModule(s_module.CoreModule):
         todo = collections.deque([node.ndef[1]])
         zone = node.get('zone')
 
-        async with node.snap.getEditor() as editor:
+        async with node.view.getEditor() as editor:
             while todo:
                 fqdn = todo.pop()
-                async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                     await asyncio.sleep(0)
 
                     # if they are their own zone level, skip
@@ -1274,7 +1279,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of network tunnel types.'}),
+                        'doc': 'A hierarchical taxonomy of tunnel types.'}),
 
                     ('inet:tunnel', ('guid', {}), {
                         'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
@@ -1505,10 +1510,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
                         'doc': 'A unique email message header.'}),
 
-                    ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
+                    ('inet:email:message:attachment', ('guid', {}), {
                         'doc': 'A file which was attached to an email message.'}),
 
-                    ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
+                    ('inet:email:message:link', ('guid', {}), {
                         'doc': 'A url/link embedded in an email message.'}),
 
                     ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
@@ -1532,7 +1537,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A permission type taxonomy.'}),
+                        'doc': 'A hierarchical taxonomy of service permission types.'}),
 
                     ('inet:service:permission', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1548,7 +1553,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of inet service login methods.'}),
+                        'doc': 'A hierarchical taxonomy of service login methods.'}),
 
                     ('inet:service:session', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1586,7 +1591,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A message type taxonomy.'}),
+                        'doc': 'A hierarchical taxonomy of message types.'}),
 
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
@@ -1594,7 +1599,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of inet service resource types.'}),
+                        'doc': 'A hierarchical taxonomy of service resource types.'}),
 
                     ('inet:service:resource', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1793,6 +1798,12 @@ class InetModule(s_module.CoreModule):
                         ('flow', ('inet:flow', {}), {
                             'doc': 'The inet:flow which delivered the message.'}),
 
+                        ('links', ('array', {'type': 'inet:email:message:link', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of links embedded in the email message.'}),
+
+                        ('attachments', ('array', {'type': 'inet:email:message:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files attached to the email message.'}),
+
                     )),
 
                     ('inet:email:header', {}, (
@@ -1805,25 +1816,17 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:email:message:attachment', {}, (
-                        ('message', ('inet:email:message', {}), {
-                            'ro': True,
-                            'doc': 'The message containing the attached file.'}),
                         ('file', ('file:bytes', {}), {
-                            'ro': True,
                             'doc': 'The attached file.'}),
-                        ('name', ('file:base', {}), {
+                        ('name', ('file:path', {}), {
                             'doc': 'The name of the attached file.'}),
                     )),
 
                     ('inet:email:message:link', {}, (
-                        ('message', ('inet:email:message', {}), {
-                            'ro': True,
-                            'doc': 'The message containing the embedded link.'}),
                         ('url', ('inet:url', {}), {
-                            'ro': True,
                             'doc': 'The url contained within the email message.'}),
                         ('text', ('str', {}), {
-                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
+                            'doc': 'The displayed hyperlink text if it was not the URL.'}),
                     )),
 
                     ('inet:asn', {}, (
@@ -3649,6 +3652,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The period where the session was valid.'}),
                     )),
 
+                    ('inet:service:login:method:taxonomy', {}, ()),
                     ('inet:service:login', {}, (
 
                         ('method', ('inet:service:login:method:taxonomy', {}), {
@@ -3725,10 +3729,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:message:link', {}, (
 
                         ('title', ('str', {'strip': True}), {
-                            'doc': 'The title text for the link.'}),
+                            'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
                         ('url', ('inet:url', {}), {
-                            'doc': 'The URL which was attached to the message.'}),
+                            'doc': 'The URL contained within the message.'}),
                     )),
 
                     ('inet:service:message:attachment', {}, (

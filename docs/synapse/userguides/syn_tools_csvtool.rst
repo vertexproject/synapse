@@ -30,15 +30,16 @@ Syntax
 
 ::
   
-  usage: synapse.tools.csvtool [-h] [--logfile LOGFILE] [--csv-header] [--cli] [--debug]
-    (--cortex CORTEX | --test) [--export] stormfile csvfiles [csvfiles ...]
+  usage: synapse.tools.csvtool [-h] [--logfile LOGFILE] [--csv-header] [--cli] [--debug] 
+    (--cortex CORTEX | --test) [--export] [--view VIEW] [--optsfile OPTSFILE]
+    stormfile csvfiles [csvfiles ...]
 
 Where:
 
 - ``-h`` displays detailed help and examples.
 - ``LOGFILE`` is the optional name / path to log Storm events associated with running the ``csvtool`` command as a JSONL file.  Messages are appended to this file when they are written to them.
 - ``--csv-header`` is an option that indicates the first row in the CSV file is a header row and should be skipped for purposes of parsing and node creation.
-- ``--cli`` opens a ``cmdr`` command prompt after ``csvtool`` exits.
+- ``--cli`` opens a ``storm`` command prompt after ``csvtool`` exits.
 
   - The command prompt will be connected to the Cortex specified by the ``--cortex CORTEX`` or ``--test`` option.
 
@@ -50,6 +51,8 @@ Where:
   - When using a temporary Cortex, you do not need to provide a path.
 
 - ``--export`` is used to extract data from the specified Cortex into a CSV file.
+- ``--view`` is used to optionally specify the iden of a view to use on the Cortex.
+- ``--optsfile`` is used specify additional Storm runtime query options.
 - ``stormfile`` is the name / path to a file containing a Storm query that tells Synapse how to ingest the CSV data (or how to lift and export data if the ``--export`` option is used).
 - ``csvfiles`` is the name / path to one or more CSV files containing the data to be ingested (or the name/path where the CSV output should be written if the ``--export`` option is used).
 
@@ -203,7 +206,7 @@ We can attempt to load our data into a test Cortex using the following command (
   python -m synapse.tools.csvtool --logfile mylog.json --csv-header --cli --test
     stormfile testfile.csv
 
-Assuming the command executed with no errors, we should have a ``cmdr`` CLI prompt for our local test Cortex:
+Assuming the command executed with no errors, we should have a ``storm`` CLI prompt for our local test Cortex:
 
 ::
   
@@ -339,7 +342,7 @@ We can now test our ingest by loading the data into a test Cortex (line is wrapp
   python -m synapse.tools.csvtool --logfile mylog.json --csv-header --cli --test
     stormfile testfile.csv
 
-From the ``cmdr`` CLI, we can now query the data to make sure the nodes were created and the tags applied correctly. For example:
+From the ``storm`` CLI, we can now query the data to make sure the nodes were created and the tags applied correctly. For example:
 
 Check that two ``inet:fqdn`` nodes were created and given the ``#cno.threat.viciouswombat`` tag:
 

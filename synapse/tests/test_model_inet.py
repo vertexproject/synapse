@@ -1375,33 +1375,48 @@ class InetModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, "file://%")  # Missing address/url
 
             self.raises(s_exc.BadTypeValu, t.norm, 'www.google\udcfesites.com/hehe.asp')
-            valu = t.norm('http://www.googlesites.com/hehe\udcfestuff.asp')
-            url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
-            expected = (url, {'subs': {
-                'proto': 'http',
-                'path': '/hehe\udcfestuff.asp',
-                'port': 80,
-                'params': '',
-                'fqdn': 'www.googlesites.com',
-                'base': url
-            }})
-            self.eq(valu, expected)
 
-            url = 'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
-            valu = t.norm(url)
-            expected = (url, {'subs': {
-                'base': url,
-                'proto': 'https',
-                'path': '/600x400/000/fff.png&text=cat@bam.com',
-                'port': 443,
-                'params': '',
-                'fqdn': 'dummyimage.com'
-            }})
-            self.eq(valu, expected)
+            for proto in ('http', 'hxxp', 'hXXp'):
+                url = 'http://www.googlesites.com/hehe\udcfestuff.asp'
+                valu = t.norm(f'{proto}://www.googlesites.com/hehe\udcfestuff.asp')
+                expected = (url, {'subs': {
+                    'proto': 'http',
+                    'path': '/hehe\udcfestuff.asp',
+                    'port': 80,
+                    'params': '',
+                    'fqdn': 'www.googlesites.com',
+                    'base': url
+                }})
+                self.eq(valu, expected)
+
+            for proto in ('https', 'hxxps', 'hXXps'):
+                url = f'https://dummyimage.com/600x400/000/fff.png&text=cat@bam.com'
+                valu = t.norm(f'{proto}://dummyimage.com/600x400/000/fff.png&text=cat@bam.com')
+                expected = (url, {'subs': {
+                    'base': url,
+                    'proto': 'https',
+                    'path': '/600x400/000/fff.png&text=cat@bam.com',
+                    'port': 443,
+                    'params': '',
+                    'fqdn': 'dummyimage.com'
+                }})
+                self.eq(valu, expected)
 
             url = 'http://0.0.0.0/index.html?foo=bar'
             valu = t.norm(url)
             expected = (url, {'subs': {
+                'proto': 'http',
+                'path': '/index.html',
+                'params': '?foo=bar',
+                'ipv4': 0,
+                'port': 80,
+                'base': 'http://0.0.0.0/index.html'
+            }})
+            self.eq(valu, expected)
+
+            url = '  http://0.0.0.0/index.html?foo=bar  '
+            valu = t.norm(url)
+            expected = (url.strip(), {'subs': {
                 'proto': 'http',
                 'path': '/index.html',
                 'params': '?foo=bar',
@@ -1938,11 +1953,11 @@ class InetModelTest(s_t_utils.SynTest):
             url = await core.nodes('inet:url')
             self.len(1, url)
             url = url[0]
-            self.eq(443, url.props['port'])
-            self.eq('', url.props['params'])
-            self.eq('vertex.link', url.props['fqdn'])
-            self.eq('https', url.props['proto'])
-            self.eq('https://vertex.link/a_cool_program.exe', url.props['base'])
+            self.eq(443, url.get('port'))
+            self.eq('', url.get('params'))
+            self.eq('vertex.link', url.get('fqdn'))
+            self.eq('https', url.get('proto'))
+            self.eq('https://vertex.link/a_cool_program.exe', url.get('base'))
 
     async def test_url_mirror(self):
         url0 = 'http://vertex.link'
@@ -2755,10 +2770,17 @@ class InetModelTest(s_t_utils.SynTest):
                 :received:from:ipv6="::1"
                 :received:from:fqdn=smtp.vertex.link
                 :flow=$flow
+                :links={[
+                    inet:email:message:link=*
+                        :url=https://www.vertex.link
+                        :text=Vertex
+                ]}
+                :attachments={[
+                    inet:email:message:attachment=*
+                        :file=*
+                        :name=sploit.exe
+                ]}
             ]
-
-            {[( inet:email:message:link=($node, https://www.vertex.link) :text=Vertex )]}
-            {[( inet:email:message:attachment=($node, "*") :name=sploit.exe )]}
             '''
             nodes = await core.nodes(q, opts={'vars': {'flow': flow}})
             self.len(1, nodes)
@@ -2781,6 +2803,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:email:message:from=visi@vertex.link -> file:bytes'))
             self.len(1, await core.nodes('inet:email=foo@bar.com -> inet:email:message'))
             self.len(1, await core.nodes('inet:email=baz@faz.org -> inet:email:message'))
+            self.len(1, await core.nodes('inet:email:message -> inet:email:message:link +:url=https://www.vertex.link +:text=Vertex'))
+            self.len(1, await core.nodes('inet:email:message -> inet:email:message:attachment +:name=sploit.exe +:file'))
 
     async def test_model_inet_tunnel(self):
         async with self.getTestCore() as core:

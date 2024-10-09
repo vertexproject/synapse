@@ -10,96 +10,71 @@ class SynModule(s_module.CoreModule):
 
     def initCoreModule(self):
 
-        for form, lifter in (('syn:cmd', self._liftRuntSynCmd),
-                             ('syn:cron', self._liftRuntSynCron),
-                             ('syn:form', self._liftRuntSynForm),
-                             ('syn:prop', self._liftRuntSynProp),
-                             ('syn:type', self._liftRuntSynType),
-                             ('syn:tagprop', self._liftRuntSynTagProp),
-                             ('syn:trigger', self._liftRuntSynTrigger),
-                             ):
-            form = self.model.form(form)
-            self.core.addRuntLift(form.full, lifter)
-            for _, prop in form.props.items():
-                pfull = prop.full
-                self.core.addRuntLift(pfull, lifter)
+        self.core.addRuntLift('syn:cmd', self._liftRuntSynCmd)
+        self.core.addRuntLift('syn:form', self._liftRuntSynForm)
+        self.core.addRuntLift('syn:prop', self._liftRuntSynProp)
+        self.core.addRuntLift('syn:type', self._liftRuntSynType)
+        self.core.addRuntLift('syn:tagprop', self._liftRuntSynTagProp)
 
-    async def _liftRuntSynCmd(self, full, valu=None, cmpr=None, view=None):
+    async def _liftRuntSynCmd(self, view, prop, cmprvalu=None):
+        if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+            item = self.core.stormcmds.get(cmprvalu[1])
+            if item is not None:
+                yield item.getRuntPode()
+            return
 
-        genr = self.core.stormcmds.values
+        for scmd in self.core.stormcmds.values():
+            yield scmd.getRuntPode()
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
+    async def _liftRuntSynForm(self, view, prop, cmprvalu=None):
 
-    async def _liftRuntSynCron(self, full, valu=None, cmpr=None, view=None):
+        if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+            item = self.model.form(cmprvalu[1])
+            if item is not None:
+                yield item.getRuntPode()
+            return
 
-        genr = self.core.agenda.appts.values
+        for item in self.model.forms.values():
+            yield item.getRuntPode()
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
+    async def _liftRuntSynProp(self, view, prop, cmprvalu=None):
 
-    async def _liftRuntSynForm(self, full, valu=None, cmpr=None, view=None):
+        if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+            item = self.model.prop(cmprvalu[1])
+            if item is not None:
+                if item.isform:
+                    yield item.getRuntPropPode()
+                else:
+                    yield item.getRuntPode()
+            return
 
-        genr = self.model.forms.values
+        for item in self.model.getProps():
+            if item.isform:
+                yield item.getRuntPropPode()
+            else:
+                yield item.getRuntPode()
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
+    async def _liftRuntSynType(self, view, prop, cmprvalu=None):
 
-    async def _liftRuntSynProp(self, full, valu=None, cmpr=None, view=None):
+        if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+            item = self.model.type(cmprvalu[1])
+            if item is not None:
+                yield item.getRuntPode()
+            return
 
-        genr = self.model.getProps
+        for item in self.model.types.values():
+            yield item.getRuntPode()
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
+    async def _liftRuntSynTagProp(self, view, prop, cmprvalu=None):
 
-    async def _liftRuntSynType(self, full, valu=None, cmpr=None, view=None):
+        if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
+            item = self.model.tagprops.get(cmprvalu[1])
+            if item is not None:
+                yield item.getRuntPode()
+            return
 
-        genr = self.model.types.values
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None, view=None):
-
-        genr = self.model.tagprops.values
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None, view=None):
-
-        view = self.core.getView(iden=view)
-        genr = view.triggers.triggers.values
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
-
-        if cmpr is not None:
-            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
-            if filt is None:
-                raise s_exc.BadCmprValu(cmpr=cmpr)
-
-        fullprop = self.model.prop(full)
-        if fullprop.isform:
-
-            if cmpr is None:
-                for obj in genr():
-                    yield obj.getStorNode(fullprop)
-                return
-
-            for obj in genr():
-                sode = obj.getStorNode(fullprop)
-                if filt(sode[1]['ndef'][1]):
-                    yield sode
-        else:
-            for obj in genr():
-                sode = obj.getStorNode(fullprop.form)
-                propval = sode[1]['props'].get(fullprop.name)
-
-                if propval is not None and (cmpr is None or filt(propval)):
-                    yield sode
+        for item in self.model.tagprops.values():
+            yield item.getRuntPode()
 
     def getModelDefs(self):
 
@@ -117,12 +92,6 @@ class SynModule(s_module.CoreModule):
                 }),
                 ('syn:tagprop', ('str', {'strip': True}), {
                     'doc': 'A user defined tag property.'
-                }),
-                ('syn:cron', ('guid', {}), {
-                    'doc': 'A Cortex cron job.',
-                }),
-                ('syn:trigger', ('guid', {}), {
-                    'doc': 'A Cortex trigger.'
                 }),
                 ('syn:cmd', ('str', {'strip': True}), {
                     'doc': 'A Synapse storm command.'
@@ -205,63 +174,6 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Description of the tagprop definition.'}),
                     ('type', ('syn:type', {}), {
                         'doc': 'The synapse type for this tagprop.', 'ro': True}),
-                )),
-                ('syn:trigger', {'runt': True}, (
-                    ('vers', ('int', {}), {
-                        'doc': 'Trigger version.', 'ro': True,
-                    }),
-                    ('doc', ('str', {}), {
-                        'doc': 'A documentation string describing the trigger.',
-                        'disp': {'hint': 'text'},
-                    }),
-                    ('name', ('str', {}), {
-                        'doc': 'A user friendly name/alias for the trigger.',
-                    }),
-                    ('cond', ('str', {'strip': True, 'lower': True}), {
-                        'doc': 'The trigger condition.', 'ro': True,
-                    }),
-                    ('user', ('str', {}), {
-                        'doc': 'User who owns the trigger.', 'ro': True,
-                    }),
-                    ('storm', ('str', {}), {
-                        'doc': 'The Storm query for the trigger.', 'ro': True,
-                        'disp': {'hint': 'text'},
-                    }),
-                    ('enabled', ('bool', {}), {
-                        'doc': 'Trigger enabled status.', 'ro': True,
-                    }),
-                    ('form', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Form the trigger is watching for.'
-                    }),
-                    ('verb', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Edge verb the trigger is watching for.'
-                    }),
-                    ('n2form', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'N2 form the trigger is watching for.'
-                    }),
-                    ('prop', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Property the trigger is watching for.'
-                    }),
-                    ('tag', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'Tag the trigger is watching for.'
-                    }),
-                )),
-                ('syn:cron', {'runt': True}, (
-
-                    ('doc', ('str', {}), {
-                        'doc': 'A description of the cron job.',
-                        'disp': {'hint': 'text'},
-                    }),
-
-                    ('name', ('str', {}), {
-                        'doc': 'A user friendly name/alias for the cron job.'}),
-
-                    ('storm', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The storm query executed by the cron job.',
-                        'disp': {'hint': 'text'},
-                    }),
-
                 )),
                 ('syn:cmd', {'runt': True}, (
                     ('doc', ('str', {'strip': True}), {

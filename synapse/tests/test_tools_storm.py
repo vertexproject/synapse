@@ -181,33 +181,6 @@ class StormCliTest(s_test.SynTest):
                     for pode in podes:
                         self.sorteq(('bar', 'baz', 'foo'), pode[1]['tags'])
 
-                path = os.path.join(dirn, 'export2.nodes')
-                q = f'!export {path} {{ test:str }} --include-tags foo bar'
-                await s_t_storm.main((lurl, q), outp=outp)
-                text = str(outp)
-                self.isin(f'saved 2 nodes to: {path}', text)
-
-                with open(path, 'rb') as fd:
-                    byts = fd.read()
-                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
-                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
-                    for pode in podes:
-                        self.sorteq(('bar', 'foo'), pode[1]['tags'])
-
-                path = os.path.join(dirn, 'export3.nodes')
-                q = f'!export {path} {{ test:str }} --no-tags'
-                ret = await s_t_storm.main((lurl, q), outp=outp)
-                self.eq(ret, 0)
-                text = str(outp)
-                self.isin(f'saved 2 nodes to: {path}', text)
-
-                with open(path, 'rb') as fd:
-                    byts = fd.read()
-                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
-                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
-                    for pode in podes:
-                        self.eq({}, pode[1]['tags'])
-
                 ret = await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
                 self.eq(ret, 1)
                 text = str(outp)

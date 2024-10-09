@@ -576,13 +576,13 @@ class ItModule(s_module.CoreModule):
 
     async def _onFormMakeDevStr(self, node):
         pprop = node.ndef[1]
-        await node.snap.addNode('it:dev:str', pprop)
+        await node.view.addNode('it:dev:str', pprop)
 
     async def _onPropSoftverArch(self, node, oldv):
         # make it:dev:str for arch
         prop = node.get('arch')
         if prop:
-            await node.snap.addNode('it:dev:str', prop)
+            await node.view.addNode('it:dev:str', prop)
 
     async def _onPropSoftverVers(self, node, oldv):
         # Set vers:norm and make its normed valu
@@ -593,7 +593,7 @@ class ItModule(s_module.CoreModule):
         await node.set('vers:norm', prop)
 
         # Make it:dev:str from version str
-        await node.snap.addNode('it:dev:str', prop)
+        await node.view.addNode('it:dev:str', prop)
 
         # form the semver properly or bruteforce parts
         try:
@@ -631,8 +631,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A GUID that represents a host or system.'}),
 
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of log event types.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of log event types.',
                 }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
@@ -643,7 +643,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:network:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of network types.'}),
+                    'doc': 'A hierarchical taxonomy of network types.'}),
 
                 ('it:domain', ('guid', {}), {
                     'doc': 'A logical boundary of authentication and configuration such as a windows domain.'
@@ -749,8 +749,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Windows registry key/value pair.',
                 }),
                 ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A version control system type taxonomy.',
-                    'interfaces': ('meta:taxonomy',)
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of repository types.',
                 }),
                 ('it:dev:repo:label', ('guid', {}), {
                     'doc': 'A developer selected label.',
@@ -796,8 +796,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A software product name.',
                 }),
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A software type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of software types.',
                 }),
                 ('it:prod:softid', ('guid', {}), {
                     'doc': 'An identifier issued to a given host by a specific software application.'}),
@@ -808,9 +808,9 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:component', ('guid', {}), {
                     'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.',
                 }),
-                ('it:prod:hardwaretype', ('taxonomy', {}), {
-                    'doc': 'An IT hardware type taxonomy.',
+                ('it:prod:hardware:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of IT hardware types.',
                 }),
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
@@ -1023,7 +1023,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:software:image:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of software image types.'}),
+                    'doc': 'A hierarchical taxonomy of software image types.'}),
 
                 ('it:software:image', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
@@ -1038,7 +1038,7 @@ class ItModule(s_module.CoreModule):
                 ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'network.smb',
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of storage volume types.',
+                    'doc': 'A hierarchical taxonomy of storage volume types.',
                 }),
             ),
             'interfaces': (
@@ -1146,6 +1146,7 @@ class ItModule(s_module.CoreModule):
 
                 )),
 
+                ('it:software:image:type:taxonomy', {}, ()),
                 ('it:software:image', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1200,7 +1201,7 @@ class ItModule(s_module.CoreModule):
 
                     ('type', ('it:log:event:type:taxonomy', {}), {
                         'ex': 'windows.eventlog.securitylog',
-                        'doc': 'A taxonometric type for the log event.'}),
+                        'doc': 'The type of log event.'}),
 
                     ('severity', ('int', {'enums': loglevels}), {
                         'doc': 'A log level integer that increases with severity.'}),
@@ -2019,11 +2020,11 @@ class ItModule(s_module.CoreModule):
 
                 )),
 
-                ('it:prod:hardwaretype', {}, ()),
+                ('it:prod:hardware:type:taxonomy', {}, ()),
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
-                    ('type', ('it:prod:hardwaretype', {}), {
+                    ('type', ('it:prod:hardware:type:taxonomy', {}), {
                         'doc': 'The type of hardware.'}),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},

@@ -192,7 +192,7 @@ class CellLib(s_stormtypes.Lib):
             mesg = '$lib.cell.stormFixesApply() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
+        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
         for vers, info in hotfixes:
             if vers <= curv:
                 continue
@@ -218,7 +218,7 @@ class CellLib(s_stormtypes.Lib):
                 logger.exception(f'Error applying storm hotfix {vers}')
                 raise
             else:
-                await self.runt.snap.core.setStormVar(runtime_fixes_key, vers)
+                await self.runt.view.core.setStormVar(runtime_fixes_key, vers)
                 await self.runt.printf(f'Applied hotfix {vers}')
             curv = vers
 
@@ -230,7 +230,7 @@ class CellLib(s_stormtypes.Lib):
             mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        curv = await self.runt.snap.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
+        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
 
         dowork = False
         for vers, info in hotfixes:
@@ -254,28 +254,28 @@ class CellLib(s_stormtypes.Lib):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getCellInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        return await self.runt.snap.core.getCellInfo()
+        return await self.runt.view.core.getCellInfo()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getSystemInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getSystemInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        return await self.runt.snap.core.getSystemInfo()
+        return await self.runt.view.core.getSystemInfo()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getBackupInfo(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getBackupInfo() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        return await self.runt.snap.core.getBackupInfo()
+        return await self.runt.view.core.getBackupInfo()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getHealthCheck(self):
         if not self.runt.isAdmin():
             mesg = '$lib.cell.getHealthCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        return await self.runt.snap.core.getHealthCheck()
+        return await self.runt.view.core.getHealthCheck()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _getMirrorUrls(self, name=None):
@@ -287,9 +287,9 @@ class CellLib(s_stormtypes.Lib):
         name = await s_stormtypes.tostr(name, noneok=True)
 
         if name is None:
-            return await self.runt.snap.core.getMirrorUrls()
+            return await self.runt.view.core.getMirrorUrls()
 
-        ssvc = self.runt.snap.core.getStormSvc(name)
+        ssvc = self.runt.view.core.getStormSvc(name)
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
@@ -307,7 +307,7 @@ class CellLib(s_stormtypes.Lib):
         if consumers is not None:
             consumers = [await s_stormtypes.tostr(turl) async for turl in s_stormtypes.toiter(consumers)]
 
-        return await self.runt.snap.core.trimNexsLog(consumers=consumers, timeout=timeout)
+        return await self.runt.view.core.trimNexsLog(consumers=consumers, timeout=timeout)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _uptime(self, name=None):
@@ -315,9 +315,9 @@ class CellLib(s_stormtypes.Lib):
         name = await s_stormtypes.tostr(name, noneok=True)
 
         if name is None:
-            info = await self.runt.snap.core.getSystemInfo()
+            info = await self.runt.view.core.getSystemInfo()
         else:
-            ssvc = self.runt.snap.core.getStormSvc(name)
+            ssvc = self.runt.view.core.getStormSvc(name)
             if ssvc is None:
                 mesg = f'No service with name/iden: {name}'
                 raise s_exc.NoSuchName(mesg=mesg)

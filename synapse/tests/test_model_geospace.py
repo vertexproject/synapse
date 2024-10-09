@@ -271,7 +271,7 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('geo:place=$place', opts=opts)
             self.len(1, nodes)
 
-            self.len(1, await core.nodes('geo:place -> geo:place:taxonomy'))
+            self.len(1, await core.nodes('geo:place -> geo:place:type:taxonomy'))
 
             q = '[geo:place=(beep,) :latlong=$latlong]'
             opts = {'vars': {'latlong': (11.38, 20.01)}}

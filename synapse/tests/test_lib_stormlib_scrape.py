@@ -154,19 +154,6 @@ class StormScrapeTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            # Backwards compatibility $lib.scrape() adopters
-            text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
-            query = '''for ($form, $ndef) in $lib.scrape($text, $scrape_form, $refang)
-            { $lib.print('{f}={n}', f=$form, n=$ndef) }
-            '''
-            varz = {'text': text, 'scrape_form': None, 'refang': True}
-            msgs = await core.stormlist(query, opts={'vars': varz})
-            self.stormIsInWarn('$lib.scrape() is deprecated. Use $lib.scrape.ndefs().', msgs)
-            # self.stormIsInPrint('inet:ipv4=16909060', msgs)
-            self.stormIsInPrint('inet:ipv4=1.2.3.4', msgs)
-            self.stormIsInPrint('inet:fqdn=foo.bar', msgs)
-            self.stormIsInPrint('inet:fqdn=woot.com', msgs)
-
             # $lib.scrape.ndefs()
             text = 'foo.bar comes from 1.2.3.4 which also knows about woot.com and its bad ness!'
             query = '''for ($form, $ndef) in $lib.scrape.ndefs($text)
