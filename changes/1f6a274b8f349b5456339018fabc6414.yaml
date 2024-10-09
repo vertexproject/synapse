@@ -1,0 +1,6 @@
+---
+desc: Expose Stormlib deprecation status from the Python API.
+prs:
+- 3929
+type: feat
+...

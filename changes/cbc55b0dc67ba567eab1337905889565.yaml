@@ -1,0 +1,5 @@
+---
+desc: Add ``$lib.random.generator()`` to get a random number generator in Storm.
+prs: []
+type: feat
+...
