@@ -83,7 +83,7 @@ stormcmds = [
                     if ($doc=$lib.null) { $doc = '' }
 
                     $lib.print('{verb} {doc}', verb=$verb, doc=$doc)
-                }
+}
                 $lib.print('')
             } else {
                 $lib.print('No edge verbs found in the current view.')
@@ -818,9 +818,6 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
             'copyExtProps': self._methCopyExtProps,
-            'liftByPropValuNoNorm': self._methLiftByPropValuNoNorm,
-            'setNodePropValuNoNorm': self._methSetNodePropValuNoNorm,
-            'copyNodeLayer': self._methCopyNodeLayer,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -876,116 +873,6 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyExtProps(src, proto)
-
-    async def _methCopyNodeLayer(self, src, dst):
-        '''
-        Copy props/tags/edges/data changes that reside in this layer from src to dst.
-
-        No storm docs for this on purpose. It is restricted for use during model migrations only.
-        '''
-
-        if not isinstance(src, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.copyNodeLayer() src argument must be a node.')
-
-        if not isinstance(dst, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.copyNodeLayer() dst argument must be a node.')
-
-        if not self.runt.snap.core.migration:
-            mesg = '$lib.model.migration.copyNodeLayer() is restricted to model migrations only.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        layer = self.runt.snap.wlyr
-
-        async with self.runt.snap.getEditor() as editor:
-            proto = editor.loadNode(dst)
-
-            # Copy N1 edges
-            async for verb, n1iden in layer.iterNodeEdgesN1(src.buid):
-                await proto.addEdge(verb, n1iden)
-
-            # Copy N2 edges
-            async for verb, n2iden in layer.iterNodeEdgesN2(src.buid):
-                n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
-                await n2.addEdge(verb, dst.iden())
-
-            # Copy node data
-            async for name, valu in layer.iterNodeData(src.buid):
-                await proto.setData(name, valu)
-
-            if (sode := await layer.getStorNode(src.buid)):
-
-                # Copy props
-                for (name, valu) in sode.get('props', {}).items():
-                    await proto.set(name, valu[0])
-
-                # Copy tags
-                for (name, valu) in sode.get('tags', {}).items():
-                    await proto.addTag(name, valu=valu)
-
-                # Copy tagprops
-                for tagname, tagprops in sode.get('tagprops', {}).items():
-                    for propname, valu in tagprops.items():
-                        await proto.setTagProp(tagname, propname, valu[0])
-
-    async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
-        '''
-        No storm docs for this on purpose. It is restricted for use during model migrations only.
-        '''
-        formname = await s_stormtypes.tostr(formname)
-        propname = await s_stormtypes.tostr(propname)
-        valu = await s_stormtypes.toprim(valu)
-
-        prop = self.runt.snap.core.model.prop(f'{formname}:{propname}')
-        if prop is None:
-            mesg = f'Could not find prop: {formname}:{propname}'
-            raise s_exc.NoSuchProp(mesg=mesg, formname=formname, propname=propname)
-
-        if not self.runt.snap.core.migration:
-            mesg = '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        stortype = prop.type.stortype
-
-        # Normally we'd call proptype.getStorCmprs() here to get the cmprvals
-        # but getStorCmprs() calls norm() which we're  trying to avoid so build
-        # cmprvals manually here.
-
-        if prop.type.isarray:
-            stortype &= (~s_layer.STOR_FLAG_ARRAY)
-            liftfunc = self.runt.snap.wlyr.liftByPropArray
-        else:
-            liftfunc = self.runt.snap.wlyr.liftByPropValu
-
-        cmprvals = ((cmpr, valu, stortype),)
-
-        layriden = self.runt.snap.wlyr.iden
-        async for _, buid, sode in liftfunc(formname, propname, cmprvals, reverse=reverse):
-            yield await self.runt.snap._joinStorNode(buid, {layriden: sode})
-
-    async def _methSetNodePropValuNoNorm(self, n, propname, valu):
-        '''
-        No storm docs for this on purpose. It is restricted for use during model migrations only.
-        '''
-
-        # NB: I'm sure there are all kinds of edges cases that this function doesn't account for. At the time of it's
-        # creation, this was intended to be used to update array properties with bad it:sec:cpe values in them. It works
-        # for that use case (see model migration 0.2.31). Any additional use of this function should perform heavy
-        # testing.
-
-        if not isinstance(n, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
-
-        if not self.runt.snap.core.migration:
-            mesg = '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        propname = await s_stormtypes.tostr(propname)
-        valu = await s_stormtypes.toprim(valu)
-
-        async with self.runt.snap.getNodeEditor(n) as proto:
-            await proto.set(propname, valu, norminfo={})
-
-        return n
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
@@ -1320,7 +1207,6 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     await self.copyData(n, proto, overwrite=False)
 
         return retidens
-
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations_0_2_31(s_stormtypes.Lib):
