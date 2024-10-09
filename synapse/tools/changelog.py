@@ -222,13 +222,25 @@ class ModelDiffer:
                     deprecated_props_noiface[prop] = cpinfo
                     continue
 
+                okeys = set(opinfo.keys())
+                nkeys = set(cpinfo.keys())
+
+                if nkeys - okeys:
+                    # We've removed a key from the prop def.
+                    raise s_exc.NoSuchImpl(mesg='Have not implemented support for a prop def having a key added')
+
+                if okeys - nkeys:
+                    # We've removed a key from the prop def.
+                    updated_props[prop] = {'type': 'delkey', 'keys': list(okeys - nkeys)}
+                    continue
+
                 # Check if type change happened, we'll want to document that.
                 ctyp = cpinfo.get('type')
                 otyp = opinfo.get('type')
                 if ctyp == otyp:
                     continue
 
-                updated_props[prop] = {'new_type': ctyp, 'old_type': otyp}
+                updated_props[prop] = {'type': 'type_change', 'new_type': ctyp, 'old_type': otyp}
                 is_ifaceprop = False
                 for iface in self.cur_type2iface[form]:
                     upt_iface = self.changes.get('interfaces').get('updated_interfaces', {}).get(iface)
@@ -237,7 +249,7 @@ class ModelDiffer:
                         break
                 if is_ifaceprop:
                     continue
-                updated_props_noiface[prop] = {'new_type': ctyp, 'old_type': otyp}
+                updated_props_noiface[prop] = {'type': 'type_change', 'new_type': ctyp, 'old_type': otyp}
 
             if updated_props:
                 updated_forms[form]['updated_properties'] = updated_props
@@ -317,13 +329,25 @@ class ModelDiffer:
                     deprecated_props[prop] = cpinfo
                     continue
 
+                okeys = set(opinfo.keys())
+                nkeys = set(cpinfo.keys())
+
+                if nkeys - okeys:
+                    # We've removed a key from the prop def.
+                    raise s_exc.NoSuchImpl(mesg='Have not implemented support for a prop def having a key added')
+
+                if okeys - nkeys:
+                    # We've removed a key from the prop def.
+                    updated_props[prop] = {'type': 'delkey', 'keys': list(okeys - nkeys)}
+                    continue
+
                 # Check if type change happened, we'll want to document that.
                 ctyp = cpinfo.get('type')
                 otyp = opinfo.get('type')
                 if ctyp == otyp:
                     continue
 
-                updated_props[prop] = {'new_type': ctyp, 'old_type': otyp}
+                updated_props[prop] = {'type': 'type_change', 'new_type': ctyp, 'old_type': otyp}
             if updated_props:
                 updated_interfaces[iface]['updated_properties'] = updated_props
 
@@ -569,8 +593,14 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
                         lines.append('\n')
                 elif key == 'updated_properties':
                     for prop, pnfo in sorted(valu.items(), key=lambda x: x[0]):
-                        mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
-                               f' to {pnfo.get("new_type")}.'
+                        ptyp = pnfo.get('type')
+                        if ptyp == 'type_change':
+                            mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
+                                   f' to {pnfo.get("new_type")}.'
+                        elif ptyp == 'delkey':
+                            mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys removed from its definition.'
+                        else:
+                            raise s_exc.NoSuchImpl(mesg=f'pnfo.type={ptyp} not supported.')
                         lines.extend(textwrap.wrap(mesg, initial_indent='  ', subsequent_indent='  ',
                                                    width=width))
                         lines.append('\n')
@@ -624,8 +654,14 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
                 rst.addLines('  The form had the following updated properties:', '\n')
                 upd_form_props.sort(key=lambda x: x[0])
                 for prop, pnfo in upd_form_props:
-                    mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
-                           f' to {pnfo.get("new_type")}.'
+                    ptyp = pnfo.get('type')
+                    if ptyp == 'type_change':
+                        mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
+                               f' to {pnfo.get("new_type")}.'
+                    elif ptyp == 'delkey':
+                        mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys removed from its definition.'
+                    else:
+                        raise s_exc.NoSuchImpl(mesg=f'pnfo.type={ptyp} not supported.')
                     lines = [
                         *textwrap.wrap(mesg, initial_indent='    ', subsequent_indent='    ',
                                        width=width),
@@ -635,8 +671,15 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
 
             else:
                 prop, pnfo = upd_form_props[0]
-                mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
-                       f' to {pnfo.get("new_type")}.'
+                ptyp = pnfo.get('type')
+                if ptyp == 'type_change':
+                    mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
+                           f' to {pnfo.get("new_type")}.'
+                elif ptyp == 'delkey':
+                    mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys removed from its definition.'
+                else:
+                    raise s_exc.NoSuchImpl(mesg=f'pnfo.type={ptyp} not supported.')
+
                 lines = [
                     '  The form had the following property updated:',
                     '\n',
