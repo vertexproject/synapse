@@ -6,6 +6,38 @@
 Synapse Changelog
 *****************
 
+v2.183.0 - 2024-10-09
+=====================
+
+Features and Enhancements
+-------------------------
+- Expose Stormlib deprecation status from the Python API.
+  (`#3929 <https://github.com/vertexproject/synapse/pull/3929>`_)
+- Add ``$lib.random.generator()`` to get a random number generator in Storm.
+  (`#3945 <https://github.com/vertexproject/synapse/pull/3945>`_)
+
+Bugfixes
+--------
+- Tag add operations with the try syntax ( ``+?#`` ) now catch BadTag
+  exceptions raised by tags which are not valid for a defined tag model.
+  (`#3941 <https://github.com/vertexproject/synapse/pull/3941>`_)
+- Fix bug where the ``:path:base``, ``:path:dir``, and ``:path:ext`` secondary
+  properties were marked readonly on the ``it:fs:file``, ``it:exec:file:add``,
+  ``it:exec:file:del``, ``it:exec:file:read``, and ``it:exec:file:write``
+  forms.
+  (`#3942 <https://github.com/vertexproject/synapse/pull/3942>`_)
+- Added ``task.get`` and ``task.del`` permissions declarations so they get
+  included in the output of the ``auth.perms.list`` command.
+  (`#3944 <https://github.com/vertexproject/synapse/pull/3944>`_)
+
+Improved documentation
+----------------------
+- Clarify parts of the Storm automation guide.
+  (`#3938 <https://github.com/vertexproject/synapse/pull/3938>`_)
+- Clarify Storm type specific documentation for ``guid`` types.
+  (`#3939 <https://github.com/vertexproject/synapse/pull/3939>`_)
+
+
 v2.182.0 - 2024-09-27
 =====================
 
