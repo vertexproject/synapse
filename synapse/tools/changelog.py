@@ -226,7 +226,7 @@ class ModelDiffer:
                 nkeys = set(cpinfo.keys())
 
                 if nkeys - okeys:
-                    # We've removed a key from the prop def.
+                    # We've added a key to the prop def.
                     raise s_exc.NoSuchImpl(mesg='Have not implemented support for a prop def having a key added')
 
                 if okeys - nkeys:
@@ -333,7 +333,7 @@ class ModelDiffer:
                 nkeys = set(cpinfo.keys())
 
                 if nkeys - okeys:
-                    # We've removed a key from the prop def.
+                    # We've added a key to the prop def.
                     raise s_exc.NoSuchImpl(mesg='Have not implemented support for a prop def having a key added')
 
                 if okeys - nkeys:
