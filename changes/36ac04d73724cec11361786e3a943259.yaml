@@ -1,0 +1,6 @@
+---
+desc: Clarify Storm type specific documentation for ``guid`` types.
+prs:
+- 3939
+type: doc
+...
