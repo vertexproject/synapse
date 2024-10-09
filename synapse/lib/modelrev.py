@@ -1761,4 +1761,3 @@ class ModelMigration_0_2_31:
             await proto.set(propname, valu, norminfo={})
 
         return node
-
