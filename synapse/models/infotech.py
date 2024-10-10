@@ -242,9 +242,9 @@ class Cpe22Str(s_types.Str):
     CPE 2.2 Formatted String
     https://cpe.mitre.org/files/cpe-specification_2.2.pdf
     '''
-    def __init__(self, modl, name, info, opts):
-        opts['lower'] = True
-        s_types.Str.__init__(self, modl, name, info, opts)
+    def postTypeInit(self):
+        self.opts['lower'] = True
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
 
@@ -323,9 +323,9 @@ class Cpe23Str(s_types.Str):
         * = "any"
         - = N/A
     '''
-    def __init__(self, modl, name, info, opts):
-        opts['lower'] = True
-        s_types.Str.__init__(self, modl, name, info, opts)
+    def postTypeInit(self):
+        self.opts['lower'] = True
+        s_types.Str.postTypeInit(self)
 
     def _normPyStr(self, valu):
         text = valu.lower()

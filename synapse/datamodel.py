@@ -787,20 +787,30 @@ class Model:
 
         self.modeldefs.extend(mods)
 
+        ctors = {}
+
         # load all the base type ctors in order...
         for _, mdef in mods:
 
             for name, ctor, opts, info in mdef.get('ctors', ()):
-                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts)
+                item = s_dyndeps.tryDynFunc(ctor, self, name, info, opts, skipinit=True)
                 self.types[name] = item
-                self._modeldef['ctors'].append((name, ctor, opts, info))
+                ctors[name] = (name, ctor, opts, info)
 
         # load all the types in order...
         for _, mdef in mods:
             custom = mdef.get('custom', False)
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
                 typeinfo['custom'] = custom
-                self.addType(typename, basename, typeopts, typeinfo)
+                self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
+
+        # finish initializing types
+        for name, tobj in self.types.items():
+            tobj._initType()
+            if (info := ctors.get(name)) is not None:
+                self._modeldef['ctors'].append(info)
+            else:
+                self._modeldef['types'].append(tobj.getTypeDef())
 
         # load all the interfaces...
         for _, mdef in mods:
@@ -869,12 +879,12 @@ class Model:
             raise s_exc.NoSuchForm.init(name)
         return form
 
-    def addType(self, typename, basename, typeopts, typeinfo):
+    def addType(self, typename, basename, typeopts, typeinfo, skipinit=False):
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)
 
-        newtype = base.extend(typename, typeopts, typeinfo)
+        newtype = base.extend(typename, typeopts, typeinfo, skipinit=skipinit)
 
         if newtype.deprecated and typeinfo.get('custom'):
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
@@ -882,7 +892,9 @@ class Model:
             logger.warning(mesg)
 
         self.types[typename] = newtype
-        self._modeldef['types'].append(newtype.getTypeDef())
+
+        if not skipinit:
+            self._modeldef['types'].append(newtype.getTypeDef())
 
     def addForm(self, formname, forminfo, propdefs):
 

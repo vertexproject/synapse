@@ -268,6 +268,12 @@ testmodel = {
             ),
             'interfaces': ('inet:proto:request',)
         }),
+        ('test:virtarray', {
+            'doc': 'test interface',
+            'props': (
+                ('servers', ('array', {'type': 'inet:server'}), {}),
+            )
+        }),
     ),
     'types': (
         ('test:type10', ('test:type', {'foo': 10}), {
@@ -332,11 +338,15 @@ testmodel = {
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
         ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
         ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
+        ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+        ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
     ),
 
     'univs': (
         ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
         ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
+        ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props'}),
+        ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props'}),
     ),
 
     'forms': (
@@ -466,7 +476,8 @@ testmodel = {
 
         ('test:hasiface', {}, ()),
         ('test:hasiface2', {}, ()),
-
+        ('test:virtiface', {}, ()),
+        ('test:virtiface2', {}, ()),
     ),
 }
 

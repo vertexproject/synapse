@@ -2727,9 +2727,9 @@ class AstTest(s_test.SynTest):
         origprop = s_view.View.nodesByProp
         origvalu = s_view.View.nodesByPropValu
 
-        async def checkProp(self, name, reverse=False, subtype=None):
+        async def checkProp(self, name, reverse=False, virt=None):
             calls.append(('prop', name))
-            async for node in origprop(self, name, reverse=reverse, subtype=subtype):
+            async for node in origprop(self, name, reverse=reverse, virt=virt):
                 yield node
 
         async def checkValu(self, name, cmpr, valu, reverse=False):
@@ -3111,7 +3111,7 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
-            self.eq('p', text[off:end])
+            self.eq(':$p', text[off:end])
 
             text = 'inet:ip=haha'
             msgs = await core.stormlist(text)
@@ -3502,7 +3502,7 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadSyntax):
                 await core.nodes('$tag=taga test:str +#foo.$"tag".$"tag".*:score=2023')
 
-    async def test_ast_subtypes(self):
+    async def test_ast_virts(self):
 
         async with self.getTestCore() as core:
 
@@ -3600,16 +3600,19 @@ class AstTest(s_test.SynTest):
             await core.nodes('test:ival +test:ival*max=? | delnode')
             self.len(0, await core.nodes('test:ival +test:ival*max=?'))
 
-            with self.raises(s_exc.NoSuchType):
+            with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('#tag*newp')
 
-            with self.raises(s_exc.NoSuchType):
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('#tag $lib.print(#tag*newp)')
+
+            with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('ou:campaign#tag*newp')
 
-            with self.raises(s_exc.NoSuchType):
+            with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('ou:campaign:period*newp')
 
-            with self.raises(s_exc.NoSuchType):
+            with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('ou:campaign $lib.print(:period*newp)')
 
     async def test_ast_righthand_relprop(self):
