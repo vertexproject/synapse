@@ -83,7 +83,7 @@ stormcmds = [
                     if ($doc=$lib.null) { $doc = '' }
 
                     $lib.print('{verb} {doc}', verb=$verb, doc=$doc)
-                }
+}
                 $lib.print('')
             } else {
                 $lib.print('No edge verbs found in the current view.')
@@ -818,8 +818,6 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
             'copyExtProps': self._methCopyExtProps,
-            'liftByPropValuNoNorm': self._methLiftByPropValuNoNorm,
-            'setNodePropValuNoNorm': self._methSetNodePropValuNoNorm,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -875,66 +873,6 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
         async with snap.getEditor() as editor:
             proto = editor.loadNode(dst)
             await self.copyExtProps(src, proto)
-
-    async def _methLiftByPropValuNoNorm(self, formname, propname, valu, cmpr='=', reverse=False):
-        '''
-        No storm docs for this on purpose. It is restricted for use during model migrations only.
-        '''
-        formname = await s_stormtypes.tostr(formname)
-        propname = await s_stormtypes.tostr(propname)
-        valu = await s_stormtypes.toprim(valu)
-
-        prop = self.runt.snap.core.model.prop(f'{formname}:{propname}')
-        if prop is None:
-            mesg = f'Could not find prop: {formname}:{propname}'
-            raise s_exc.NoSuchProp(mesg=mesg, formname=formname, propname=propname)
-
-        if not self.runt.snap.core.migration:
-            mesg = '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        stortype = prop.type.stortype
-
-        # Normally we'd call proptype.getStorCmprs() here to get the cmprvals
-        # but getStorCmprs() calls norm() which we're  trying to avoid so build
-        # cmprvals manually here.
-
-        if prop.type.isarray:
-            stortype &= (~s_layer.STOR_FLAG_ARRAY)
-            liftfunc = self.runt.snap.wlyr.liftByPropArray
-        else:
-            liftfunc = self.runt.snap.wlyr.liftByPropValu
-
-        cmprvals = ((cmpr, valu, stortype),)
-
-        layriden = self.runt.snap.wlyr.iden
-        async for _, buid, sode in liftfunc(formname, propname, cmprvals, reverse=reverse):
-            yield await self.runt.snap._joinStorNode(buid, {layriden: sode})
-
-    async def _methSetNodePropValuNoNorm(self, n, propname, valu):
-        '''
-        No storm docs for this on purpose. It is restricted for use during model migrations only.
-        '''
-
-        # NB: I'm sure there are all kinds of edges cases that this function doesn't account for. At the time of it's
-        # creation, this was intended to be used to update array properties with bad it:sec:cpe values in them. It works
-        # for that use case (see model migration 0.2.28). Any additional use of this function should perform heavy
-        # testing.
-
-        if not isinstance(n, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
-
-        if not self.runt.snap.core.migration:
-            mesg = '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.'
-            raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-
-        propname = await s_stormtypes.tostr(propname)
-        valu = await s_stormtypes.toprim(valu)
-
-        async with self.runt.snap.getNodeEditor(n) as proto:
-            await proto.set(propname, valu, norminfo={})
-
-        return n
 
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
@@ -1269,3 +1207,365 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     await self.copyData(n, proto, overwrite=False)
 
         return retidens
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations_0_2_31(s_stormtypes.Lib):
+    '''
+    A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
+    '''
+    _storm_locals = (
+        {'name': 'listNodes', 'desc': 'Yield queued nodes.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'form', 'type': 'form', 'default': None,
+                       'desc': 'Only show entries matching the specified form.'},
+                      {'name': 'offset', 'type': 'int', 'default': 0,
+                       'desc': 'Skip this many entries.'},
+                      {'name': 'size', 'type': 'int', 'default': None,
+                       'desc': 'Only print up to this many entries.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'A tuple of (offset, form, valu) values for the specified node.', }}},
+        {'name': 'printNode', 'desc': 'Print detailed queued node information.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'n', 'type': 'dict', 'desc': 'The queued node to print.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'repairNode', 'desc': 'Repair a queued node.',
+         'type': {'type': 'function', '_funcname': '_storm_query',
+                  'args': (
+                      {'name': 'offset', 'type': 'str', 'desc': 'The node queue offset to repair.'},
+                      {'name': 'newval', 'type': 'any', 'desc': 'The new (corrected) node value.'},
+                      {'name': 'remove', 'type': 'boolean', 'default': False,
+                       'desc': 'Specify whether to delete the repaired node from the queue.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The queue node information'}}},
+    )
+    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
+    _storm_query = '''
+        $nodeq = $lib.queue.get("model_0_2_31:nodes")
+        $refsq = $lib.queue.get("model_0_2_31:nodes:refs")
+        $edgeq = $lib.queue.get("model_0_2_31:nodes:edges")
+        $editq = $lib.queue.get("model_0_2_31:nodes:edits")
+
+        function listNodes(form=$lib.null, offset=(0), size=$lib.null) {
+            if (not $size) {
+                $size = $nodeq.size()
+            }
+
+            for ($offs, $item) in $nodeq.gets(offs=$offset, size=$size, wait=(false)) {
+                if ($form and $item.form != $form) { continue }
+                emit ($offs, $item.form, $item.valu)
+            }
+        }
+
+        function printNode(offset) {
+            $item = $nodeq.get($offset, cull=(false), wait=(false))
+            if (not $item) {
+                $lib.warn(`Queue node with offset {$offset} not found.`)
+                return()
+            }
+
+            $item = $item.1
+
+            $lib.print(`{$item.form}={$item.valu}`)
+
+            for $offs in $item.offsets.edits {
+                $edits = $editq.get($offs, cull=(false), wait=(false))
+                if (not $edits) {
+                    $lib.warn(`Queue node edits with offset {$offs} not found.`)
+                    continue
+                }
+
+                $edits = $edits.1
+
+                for $edit in $edits {
+                    $lib.print(`  view: {$edit.view}`)
+                    for ($propname, $propvalu) in $edit.props {
+                        switch $propname {
+                            ".created": {
+                                $datetime = $lib.time.format($propvalu.0, '%Y-%m-%dT%H:%M:%SZ')
+                                $lib.print(`    .created = {$datetime}`)
+                            }
+                            ".seen": {
+                                ($min, $max) = $propvalu.0
+                                $mindt = $lib.time.format($min, '%Y-%m-%dT%H:%M:%SZ')
+                                $maxdt = $lib.time.format($max, '%Y-%m-%dT%H:%M:%SZ')
+                                $lib.print(`    .seen = ({$mindt}, {$maxdt})`)
+                            }
+                            *: { $lib.print(`    :{$propname} = {$propvalu.0}`) }
+                        }
+                    }
+
+                    for ($tagname, $tagvalu) in $edit.tags {
+                        if ($tagvalu = [null, null]) {
+                            $lib.print(`    #{$tagname}`)
+                        } else {
+                            ($min, $max) = $tagvalu
+                            $mindt = $lib.time.format($min, '%Y-%m-%dT%H:%M:%SZ')
+                            $maxdt = $lib.time.format($max, '%Y-%m-%dT%H:%M:%SZ')
+                            $lib.print(`    #{$tagname} = ({$mindt}, {$maxdt})`)
+                        }
+                    }
+
+                    for ($tagprop, $tagpropvalu) in $edit.tagprops {
+                        for ($prop, $valu) in $tagpropvalu {
+                            $lib.print(`    #{$tagprop}:{$prop} = {$valu.0}`)
+                        }
+                    }
+
+                }
+            }
+
+            $lib.print(`  sources: {$item.sources}`)
+
+            if $item.offsets.refs {
+                $lib.print(`  refs:`)
+
+                for $offs in $item.offsets.refs {
+                    $refs = $refsq.get($offs, cull=(false), wait=(false))
+                    if (not $refs) {
+                        $lib.warn(`Queue node refs with offset {$offs} not found.`)
+                        continue
+                    }
+
+                    $refs = $refs.1
+
+                    for $ref in $refs {
+                        ($form, $prop, $type, $isarray) = $ref.refinfo
+                        $lib.print(`    - {$form}:{$prop} (iden: {$ref.iden}) (view: {$ref.view})` )
+                    }
+                }
+            }
+
+            if $item.offsets.edges {
+                $lib.print(`  edges:`)
+
+                for $offs in $item.offsets.edges {
+                    $edges = $edgeq.get($offs, cull=(false), wait=(false))
+                    if (not $edges) {
+                        $lib.warn(`Queue node edges with offset {$offset} not found.`)
+                        continue
+                    }
+
+                    $edges = $edges.1
+
+                    for $edge in $edges {
+                        if ($edge.direction = "n2") {
+                            $lib.print(`      <({$edge.verb})- {$edge.node} (view: {$edge.view})`)
+                        } else {
+                            $lib.print(`      -({$edge.verb})> {$edge.node} (view: {$edge.view})`)
+                        }
+                    }
+                }
+            }
+        }
+
+        function _checkValidLayer(viewiden, layriden) {
+            try {
+                $view = $lib.view.get($viewiden)
+            } catch NoSuchView as exc {
+                $lib.warn(`View {$viewiden} does not exist.`)
+                return($lib.false)
+            }
+
+            $wlyr = $view.layers.0
+
+            if ($wlyr.iden != $layriden) {
+                $lib.warn(`Layer mismatch for node: expected {$layriden}, got {$wlyr.iden}.`)
+                return($lib.false)
+            }
+
+            if (not $lib.user.allowed("node", gateiden=$wlyr.iden)) {
+                $lib.warn(`User {$lib.user.name()} does not have write access to view {$viewiden}.`)
+                return($lib.false)
+            }
+
+            return($lib.true)
+        }
+
+        function _removeNode(offset) {
+            $item = $nodeq.pop($offset)
+            if (not $item) {
+                $lib.warn(`Queue node not found with offset {$offset}.`)
+                return()
+            }
+
+            $item = $item.1
+
+            for $offs in $item.offsets.refs {
+                $refsq.pop($offs)
+            }
+
+            for $offs in $item.offsets.edges {
+                $edgeq.pop($offs)
+            }
+
+            for $offs in $item.offsets.edits {
+                $editq.pop($offs)
+            }
+        }
+
+        function _repairNode(offset, newval) {
+            $oldnode = $nodeq.get($offset, cull=(false), wait=(false))
+            if (not $oldnode) {
+                $lib.warn(`Queue node not found with offset {$offset}.`)
+                return($lib.false)
+            }
+
+            $oldnode = $oldnode.1
+
+            if (not $_checkValidLayer($oldnode.view, $oldnode.layer)) {
+                $lib.warn("View/layer does not exist to recreate node.")
+                return($lib.false)
+            }
+
+            ($ok, $norm) = $lib.trycast($oldnode.form, $newval)
+            if (not $ok) {
+                $lib.warn(`Invalid value provided for {$oldnode.form}: {$newval}.`)
+                return($lib.false)
+            }
+
+            $lib.print(`Repairing {$offset} from {$oldnode.valu} -> {$newval}.`)
+
+            // First thing, create the node in the right view
+            view.exec $oldnode.view {
+                [ *$oldnode.form = $newval ]
+            }
+
+            for $offs in $oldnode.offsets.edits {
+                $edits = $editq.get($offs, cull=(false), wait=(false))
+                if (not $edits) {
+                    $lib.warn(`Queue node {$offset} missing edits offset {$offs}. Node may be incomplete after restoration.`)
+                    continue
+                }
+
+                $edits = $edits.1
+
+                for $edit in $edits {
+                    if (not $_checkValidLayer($edit.view, $edit.layer)) {
+                        $lib.warn(`Could not apply edits in view {$edit.view}, skipping.`)
+                        continue
+                    }
+
+                    view.exec $edit.view {
+                        *$oldnode.form=$newval
+
+                        { for ($propname, $propvalu) in $edit.props {
+                            [ :$propname = $propvalu.0 ]
+                        }}
+
+                        { for ($tagname, $tagvalu) in $edit.tags {
+                            [ +#$tagname=$tagvalu ]
+                        }}
+
+                        { for ($tagname, $tagvalu) in $edit.tagprops {
+                            for ($name, $valu) in $tagvalu {
+                                [ +#$tagname:$name = $valu.0 ]
+                            }
+                        }}
+
+                        { for ($name, $valu) in $edit.data {
+                            $node.data.set($name, $valu)
+                        }}
+                    }
+                }
+            }
+
+            for $offs in $oldnode.offsets.edges {
+                $edges = $edgeq.get($offs, cull=(false), wait=(false))
+                if (not $edges) {
+                    $lib.warn(`Queue node {$offset} missing edges offset {$offs}. Node may be incomplete after restoration.`)
+                    continue
+                }
+
+                $edges = $edges.1
+
+                for $edge in $edges {
+                    if (not $_checkValidLayer($edge.view, $edge.layer)) {
+                        $lib.warn(`Could not apply edge in view {$edge.view}, skipping.`)
+                        continue
+                    }
+
+                    view.exec $edge.view {
+                        *$oldnode.form=$newval
+
+                        switch $edge.direction {
+                            "n1": {
+                                [ +($edge.verb)> { yield $edge.node } ]
+                            }
+
+                            "n2": {
+                                [ <($edge.verb)+ { yield $edge.node } ]
+                            }
+                        }
+                    }
+                }
+            }
+
+            for $offs in $oldnode.offsets.refs {
+                $refs = $refsq.get($offs, cull=(false), wait=(false))
+                if (not $refs) {
+                    $lib.warn(`Queue node {$offset} missing refs offset {$offs}. Node may be incomplete after restoration.`)
+                    continue
+                }
+
+                $refs = $refs.1
+
+                for $ref in $refs {
+                    if (not $_checkValidLayer($ref.view, $ref.layer)) {
+                        $lib.warn(`Could not restore reference in view {$ref.view}, skipping.`)
+                        continue
+                    }
+
+                    ($form, $prop, $type, $isarray) = $ref.refinfo
+
+                    view.exec $ref.view {
+
+                        yield $ref.iden
+
+                        empty {
+                            $lib.warn(`Skipping invalid reference: {$offs} ({$form}:{$prop}).`)
+                            continue
+                        }
+
+                        if ($node.form() != $form) {
+                            $lib.warn(`Skipping invalid reference: expected {$form}, got {$node.form()}.`)
+                            continue
+                        }
+
+                        // Prop is an array and the new value doesn't already exist in the array
+                        { +$isarray -:$prop*[ =$newval ]
+                            [ :$prop += { *$oldnode.form=$newval } ]
+                        }
+
+                        // Prop is not an array
+                        { -$isarray
+                            if ($type = "ndef") {
+                                $valu = ($oldnode.form, $newval)
+                            } else {
+                                $valu = $newval
+                            }
+
+                            [ :$prop = $valu ]
+                        }
+                    }
+                }
+            }
+
+            return($lib.true)
+        }
+
+        function repairNode(offset, newval, remove=$lib.false) {
+            try {
+                $ok = $_repairNode($offset, $newval)
+                if ($ok and $remove) {
+                    $lib.print(`Removing stored invalid node: {$offset}.`)
+                    $_removeNode($offset)
+                }
+            } catch * as err {
+                $lib.exit(`Error when restoring node {$offset}: {$err}.`) // pragma: no cover
+            }
+        }
+    '''
