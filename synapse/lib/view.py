@@ -158,8 +158,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _wipeViewMeta(self):
         for lkey in self.core.slab.scanKeysByPref(self.bidn, db='view:meta'):
-            self.core.slab.delete(lkey, db='view:meta')
-            await asyncio.sleep(0)
+            await self.core.slab.delete(lkey, db='view:meta')
 
     def getMergeRequest(self):
         byts = self.core.slab.get(self.bidn + b'merge:req', db='view:meta')
@@ -196,7 +195,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         s_schemas.reqValidMerge(mergeinfo)
         lkey = self.bidn + b'merge:req'
-        self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
+        await self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
         await self.core.feedBeholder('view:merge:request:set', {'view': self.iden, 'merge': mergeinfo})
         return mergeinfo
 
@@ -215,8 +214,7 @@ class View(s_nexus.Pusher):  # type: ignore
         merge['comment'] = comment
         s_schemas.reqValidMerge(merge)
         lkey = self.bidn + b'merge:req'
-        self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
-
+        await self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
         await self.core.feedBeholder('view:merge:set', {'view': self.iden, 'merge': merge})
 
         return merge
@@ -227,7 +225,7 @@ class View(s_nexus.Pusher):  # type: ignore
     @s_nexus.Pusher.onPush('merge:del')
     async def _delMergeRequest(self):
         self.reqParentQuorum()
-        byts = self.core.slab.pop(self.bidn + b'merge:req', db='view:meta')
+        byts = await self.core.slab.pop(self.bidn + b'merge:req', db='view:meta')
 
         await self._delMergeMeta()
 
@@ -238,8 +236,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _delMergeMeta(self):
         for lkey in self.core.slab.scanKeysByPref(self.bidn + b'merge:', db='view:meta'):
-            await asyncio.sleep(0)
-            self.core.slab.delete(lkey, db='view:meta')
+            await self.core.slab.delete(lkey, db='view:meta')
 
     async def getMergeVotes(self):
         for lkey, byts in self.core.slab.scanByPref(self.bidn + b'merge:vote', db='view:meta'):
@@ -285,11 +282,10 @@ class View(s_nexus.Pusher):  # type: ignore
         bidn = s_common.uhex(merge.get('iden'))
 
         lkey = self.parent.bidn + b'hist:merge:iden' + bidn
-        self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
+        await self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
 
         lkey = self.parent.bidn + b'hist:merge:time' + tick + bidn
-        self.core.slab.put(lkey, bidn, db='view:meta')
-
+        await self.core.slab.put(lkey, bidn, db='view:meta')
         await self.core.feedBeholder('view:merge:init', {'view': self.iden, 'merge': merge, 'votes': votes})
 
         await self.initMergeTask()
@@ -321,8 +317,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         bidn = s_common.uhex(useriden)
 
-        self.core.slab.put(self.bidn + b'merge:vote' + bidn, s_msgpack.en(vote), db='view:meta')
-
+        await self.core.slab.put(self.bidn + b'merge:vote' + bidn, s_msgpack.en(vote), db='view:meta')
         await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
 
         tick = vote.get('created')
@@ -340,7 +335,7 @@ class View(s_nexus.Pusher):  # type: ignore
         uidn = s_common.uhex(useriden)
 
         lkey = self.bidn + b'merge:vote' + uidn
-        byts = self.core.slab.pop(lkey, db='view:meta')
+        byts = await self.core.slab.pop(lkey, db='view:meta')
 
         if byts is None:
             mesg = 'Cannot set the comment for a vote that does not exist.'
@@ -349,7 +344,7 @@ class View(s_nexus.Pusher):  # type: ignore
         vote = s_msgpack.un(byts)
         vote['updated'] = tick
         vote['comment'] = comment
-        self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
+        await self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
         await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
 
         return vote
@@ -364,7 +359,7 @@ class View(s_nexus.Pusher):  # type: ignore
         uidn = s_common.uhex(useriden)
 
         vote = None
-        byts = self.core.slab.pop(self.bidn + b'merge:vote' + uidn, db='view:meta')
+        byts = await self.core.slab.pop(self.bidn + b'merge:vote' + uidn, db='view:meta')
 
         if byts is not None:
             vote = s_msgpack.un(byts)

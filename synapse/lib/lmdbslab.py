@@ -65,7 +65,7 @@ class Hist:
         if tick is None:
             tick = s_common.now()
         lkey = tick.to_bytes(8, 'big')
-        self.slab.put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
+        self.slab._put(lkey, s_msgpack.en(item), dupdata=True, db=self.db)
 
     def carve(self, tick, tock=None):
 
@@ -140,7 +140,7 @@ class SlabDict:
         '''
         byts = s_msgpack.en(valu)
         lkey = self.pref + name.encode('utf8')
-        self.slab.put(lkey, byts, db=self.db)
+        self.slab._put(lkey, byts, db=self.db)
         self.info[name] = valu
         return valu
 
@@ -157,7 +157,7 @@ class SlabDict:
         '''
         valu = self.info.pop(name, defval)
         lkey = self.pref + name.encode('utf8')
-        self.slab.pop(lkey, db=self.db)
+        self.slab._pop(lkey, db=self.db)
         return valu
 
     def inc(self, name, valu=1):
@@ -229,14 +229,14 @@ class SafeKeyVal:
 
         name = self.reqValidName(name)
 
-        self.slab.put(name, s_msgpack.en(valu), db=self.valudb)
+        self.slab._put(name, s_msgpack.en(valu), db=self.valudb)
         return valu
 
     def pop(self, name, defv=None):
 
         name = self.reqValidName(name)
 
-        if (byts := self.slab.pop(name, db=self.valudb)) is not None:
+        if (byts := self.slab._pop(name, db=self.valudb)) is not None:
             return s_msgpack.un(byts)
         return defv
 
@@ -245,7 +245,7 @@ class SafeKeyVal:
         Delete a key.
         '''
         name = self.reqValidName(name)
-        return self.slab.delete(name, db=self.valudb)
+        return self.slab._delete(name, db=self.valudb)
 
     async def truncate(self, pref=''):
         '''
@@ -259,8 +259,7 @@ class SafeKeyVal:
             genr = self.slab.scanKeysByPref(pref, db=self.valudb)
 
         for lkey in genr:
-            self.slab.delete(lkey, db=self.valudb)
-            await asyncio.sleep(0)
+            await self.slab.delete(lkey, db=self.valudb)
 
     def items(self, pref=''):
 
@@ -351,8 +350,8 @@ class SlabAbrv:
 
         self.offs += 1
 
-        self.slab.put(byts, abrv, db=self.name2abrv)
-        self.slab.put(abrv, byts, db=self.abrv2name)
+        self.slab._put(byts, abrv, db=self.name2abrv)
+        self.slab._put(abrv, byts, db=self.abrv2name)
 
         return abrv
 
@@ -410,7 +409,7 @@ class HotKeyVal(s_base.Base):
         byts = name.encode()
         self.cache.pop(byts, None)
         self.dirty.discard(byts)
-        self.slab.delete(byts, db=self.db)
+        self.slab._delete(byts, db=self.db)
 
     def sync(self):
         tups = [(p, self.EncFunc(self.cache[p])) for p in self.dirty]
@@ -532,7 +531,7 @@ class MultiQueue(s_base.Base):
         Pop a single entry from the named queue by offset.
         '''
         abrv = self.abrv.nameToAbrv(name)
-        byts = self.slab.pop(abrv + s_common.int64en(offs), db=self.qdata)
+        byts = self.slab._pop(abrv + s_common.int64en(offs), db=self.qdata)
         if byts is not None:
             self.sizes.set(name, self.sizes.get(name) - 1)
             return (offs, s_msgpack.un(byts))
@@ -558,7 +557,7 @@ class MultiQueue(s_base.Base):
 
         for item in items:
 
-            putv = self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
+            putv = await self.slab.put(abrv + s_common.int64en(offs), s_msgpack.en(item), db=self.qdata)
             assert putv, 'Put failed'
 
             self.sizes.inc(name, 1)
@@ -627,9 +626,8 @@ class MultiQueue(s_base.Base):
         abrv = self.abrv.nameToAbrv(name)
 
         for lkey, _ in self.slab.scanByRange(abrv + int64min, abrv + indx, db=self.qdata):
-            self.slab.delete(lkey, db=self.qdata)
+            await self.slab.delete(lkey, db=self.qdata)
             self.sizes.set(name, self.sizes.get(name) - 1)
-            await asyncio.sleep(0)
 
     async def dele(self, name, minoffs, maxoffs):
         '''
@@ -648,9 +646,8 @@ class MultiQueue(s_base.Base):
         abrv = self.abrv.nameToAbrv(name)
 
         for lkey, _ in self.slab.scanByRange(abrv + minindx, abrv + maxindx, db=self.qdata):
-            self.slab.delete(lkey, db=self.qdata)
+            await self.slab.delete(lkey, db=self.qdata)
             self.sizes.set(name, self.sizes.get(name) - 1)
-            await asyncio.sleep(0)
 
     async def sets(self, name, offs, items):
         '''
@@ -670,13 +667,13 @@ class MultiQueue(s_base.Base):
             indx = s_common.int64en(offs)
 
             if offs >= self.offsets.get(name, 0):
-                self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
+                await self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
                 offs = self.offsets.set(name, offs + 1)
                 self.sizes.inc(name, 1)
                 wake = True
             else:
                 byts = self.slab.get(abrv + indx, db=self.qdata)
-                self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
+                await self.slab.put(abrv + indx, s_msgpack.en(item), db=self.qdata)
 
                 if byts is None:
                     self.sizes.inc(name, 1)
@@ -706,8 +703,7 @@ class GuidStor:
     async def del_(self, iden):
         bidn = s_common.uhex(iden)
         for lkey, lval in self.slab.scanByPref(bidn, db=self.db):
-            self.slab.pop(lkey, db=self.db)
-            await asyncio.sleep(0)
+            await self.slab.pop(lkey, db=self.db)
 
     def has(self, iden):
         bidn = s_common.uhex(iden)
@@ -718,7 +714,7 @@ class GuidStor:
     def set(self, iden, name, valu):
         bidn = s_common.uhex(iden)
         byts = s_msgpack.en(valu)
-        self.slab.put(bidn + name.encode(), byts, db=self.db)
+        self.slab._put(bidn + name.encode(), byts, db=self.db)
 
     async def dict(self, iden):
         bidn = s_common.uhex(iden)
@@ -1759,21 +1755,41 @@ class Slab(s_base.Base):
 
         return True
 
-    def pop(self, lkey, db=None):
-        return self._xact_action(self.pop, lmdb.Transaction.pop, lkey, db=db)
+    async def pop(self, lkey, db=None):
+        ret = self._pop(lkey, db)
+        await asyncio.sleep(0)
+        return ret
 
-    def delete(self, lkey, val=None, db=None):
-        return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
+    def _pop(self, lkey, db=None):
+        return self._xact_action(self._pop, lmdb.Transaction.pop, lkey, db=db)
 
-    def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
-        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
+    async def delete(self, lkey, val=None, db=None):
+        ret = self._delete(lkey, val, db)
+        await asyncio.sleep(0)
+        return ret
+
+    def _delete(self, lkey, val=None, db=None):
+        return self._xact_action(self._delete, lmdb.Transaction.delete, lkey, val, db=db)
+
+    async def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
+        ret = self._put(lkey, lval, dupdata, overwrite, append, db)
+        await asyncio.sleep(0)
+        return ret
+
+    def _put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
+        return self._xact_action(self._put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
                                  append=append, db=db)
 
-    def replace(self, lkey, lval, db=None):
+    async def replace(self, lkey, lval, db=None):
+        ret = self._replace(lkey, lval, db)
+        await asyncio.sleep(0)
+        return ret
+
+    def _replace(self, lkey, lval, db=None):
         '''
         Like put, but returns the previous value if existed
         '''
-        return self._xact_action(self.replace, lmdb.Transaction.replace, lkey, lval, db=db)
+        return self._xact_action(self._replace, lmdb.Transaction.replace, lkey, lval, db=db)
 
     def forcecommit(self):
         '''
