@@ -3930,6 +3930,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
             await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
+
+            await core.nodes('$lib.graph.mod($iden2, ({"name": "newname"}))', opts=uopts)
+            gdef = await core.callStorm('return($lib.graph.get($iden2))', opts=opts)
+            self.eq(gdef['name'], 'newname')
+
+            await core.nodes('$lib.graph.revoke($iden2, users, $useriden)', opts=opts)
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.mod($iden2, ({"name": "newp"}))', opts=uopts))
+
+            await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
             await core.nodes('$lib.graph.del($iden2)', opts=uopts)
 
             self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
@@ -4017,6 +4026,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
                 self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
+
+                gdef = await core.callStorm('return($lib.graph.add(({"name": "nodef"})))')
+                self.eq(1, gdef['permissions']['default'])
+
+                gdef = await core.callStorm('return($lib.graph.add(({"name": "def", "permissions": {"default": 0}})))')
+                self.eq(0, gdef['permissions']['default'])
 
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
