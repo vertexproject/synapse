@@ -4350,16 +4350,17 @@ class AstTest(s_test.SynTest):
 
             # The runtsafe invocation of the VarListSetOper is done per node.
             q = '''
-            function foo(m){
-                $lib.print($m)
+            init { $count = ({ 'c': (0) }) }
+            function foo(){
+                $count.c = ( $count.c + (1) )
                 return((a, b))
             }
             inet:fqdn=vertex.link
-            ($a, $b) = $foo(onlyOnce)
+            ($a, $b) = $foo()
+            fini { return ( $count ) }
             '''
-            msgs = await core.stormlist(q)
-            prints = [m for m in msgs if m[0] == 'print']
-            self.len(1, prints)
+            valu = await core.callStorm(q)
+            self.eq(valu, {'c': 1})
 
             text = '.created ($foo, $bar, $baz) = $blob'
             with self.raises(s_exc.StormVarListError):
