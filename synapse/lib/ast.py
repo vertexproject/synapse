@@ -1302,8 +1302,9 @@ class VarListSetOper(Oper):
         names = self.kids[0].value()
         vkid = self.kids[1]
 
+        anynodes = False
         async for node, path in genr:
-
+            anynodes = True
             item = await vkid.compute(runt, path)
             item = [i async for i in s_stormtypes.toiter(item)]
 
@@ -1318,7 +1319,7 @@ class VarListSetOper(Oper):
 
             yield node, path
 
-        if vkid.isRuntSafe(runt):
+        if not anynodes and vkid.isRuntSafe(runt):
 
             item = await vkid.compute(runt, None)
             item = [i async for i in s_stormtypes.toiter(item)]

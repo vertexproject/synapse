@@ -1,0 +1,7 @@
+---
+desc: Fix a Storm bug where a runtsafe list unpacking operation which was executed
+  per-node would be executed one additional time after all nodes had finished
+  moving through the pipeline.
+prs: []
+type: bug
+...
