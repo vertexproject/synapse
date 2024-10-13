@@ -1,12 +1,13 @@
 import regex
 import logging
+import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
-import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
 import synapse.models.infotech as s_infotech
@@ -811,11 +812,9 @@ class ModelRev:
         await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:30::/28')
 
     async def revModel_0_2_31(self, layers):
-
-        layridens = [layr.iden for layr in layers]
-
-        migr = await ModelMigration_0_2_31.anit(self.core, layridens)
+        migr = await ModelMigration_0_2_31.anit(self.core, layers)
         await migr.revModel_0_2_31()
+        await self._normFormSubs(layers, 'it:sec:cpe')
 
     async def runStorm(self, text, opts=None):
         '''
@@ -1211,38 +1210,355 @@ class ModelRev:
 
 class ModelMigration_0_2_31:
     @classmethod
-    async def anit(cls, core, layridens):
+    async def anit(cls, core, layers):
         self = cls()
 
         self.core = core
-        self.layridens = layridens
+        self.layers = layers
+        self.layrdict = {layr.iden: layr for layr in self.layers}
 
-        self.views = await self.core.getViewDefs(deporder=True)
-        self.rviews = self.views.copy()
-        self.rviews.reverse()
+        self.sources = await s_spooled.Dict.anit(dirn=self.core.dirn)
+
+        queues = await self.core.listCoreQueues()
+        queues = {k['name']: k for k in queues}
+
+        if queues.get('model_0_2_31:nodes') is None:
+            await self.core.addCoreQueue('model_0_2_31:nodes', {})
+
+        if queues.get('model_0_2_31:nodes:refs') is None:
+            await self.core.addCoreQueue('model_0_2_31:nodes:refs', {})
+
+        if queues.get('model_0_2_31:nodes:edges') is None:
+            await self.core.addCoreQueue('model_0_2_31:nodes:edges', {})
+
+        if queues.get('model_0_2_31:nodes:edits') is None:
+            await self.core.addCoreQueue('model_0_2_31:nodes:edits', {})
 
         return self
 
-    async def iterViews(self, reverse=False):
-        views = self.views
-        if reverse:
-            views = self.rviews
+    async def revModel_0_2_31(self):
+        nodes = await s_spooled.Dict.anit(dirn=self.core.dirn)
 
-        rootuser = self.core.auth.rootuser
+        # Collect all it:sec:cpe nodes
+        for layer in self.layers:
+            async for buid, _ in layer.getStorNodesByForm('it:sec:cpe'):
 
-        for view in views:
-            viewiden = view.get('iden')
-            hview = self.core.getView(viewiden)
+                if nodes.has(buid):
+                    continue
 
-            layriden = hview.layers[0].iden
-            if layriden not in self.layridens:
+                node = await self.getNode(buid)
+                await nodes.set(buid, node)
+
+        for buid, node in nodes.items():
+
+            # Delete any invalid :v2_2 floating edits
+            nodeedits = []
+            for layriden, edits in node.get('edits', {}).items():
+                props = edits.get('props', {})
+                if (propvalu := props.get('v2_2')) is not None and not s_infotech.isValidCpe22(propvalu[0]):
+                    v2_2, stortype = propvalu
+                    nodeedits.append((layriden, (
+                        (buid, node.get('form'), (
+                            (s_layer.EDIT_PROP_DEL, ('v2_2', v2_2, v2_2), ()),
+                        )),
+                    )))
+
+                    props.pop('v2_2')
+
+            if nodeedits:
+                await self.saveEdits(nodeedits)
+
+            verdict, info = self.checkCpeNode(node)
+
+            if verdict == 'ok':
+                # Node is good, nothing to do
                 continue
 
-            snap = await hview.snap(rootuser)
+            elif verdict == 'update':
+                # Just need to update some props
+                await self.updateNode(buid, node, info)
+                continue
 
-            yield (snap, hview)
+            elif verdict == 'store':
+                # This node is completely invalid, store it for later repair
 
-    @s_cache.memoize
+                # Remove the :v2_2 prop because it's invalid and may cause problems during node restoration
+                node['props'].pop('v2_2', None)
+
+                await self.removeNode(buid, node)
+
+            elif verdict == 'migrate':
+                # Invalid primary property, migrate node info and references to a new node with the correct value
+                newcpe = await self.copyNode(node, info)
+                await self.migrateCpeNode(node, newcpe)
+                await self.delNode(buid, node)
+
+        # breakpoint()
+
+        await nodes.fini()
+        await self.sources.fini()
+
+    async def migrateCpeNode(self, oldcpe, newcpe):
+
+        nodevalu = oldcpe.get('repr')
+        nodendef = oldcpe.get('ndef')
+
+        nodeedits = []
+
+        # Delete references
+        references = await self.getNodeReferences(oldcpe)
+        for layriden, reflist in references.items():
+            layer = self.core.getLayer(layriden)
+            if layer is None:
+                continue
+
+            for iden, refinfo in reflist:
+                (formname, propname, proptype, isarray, isro) = refinfo
+
+                if proptype == 'ndef':
+                    propvalu = nodendef
+                    newvalu = newcpe['ndef']
+                else:
+                    propvalu = nodevalu
+                    newvalu = newcpe['repr']
+
+                async for refbuid, _ in self.getSodeByPropValuNoNorm(layer, formname, propname, propvalu):
+                    refnode = await self.getNode(refbuid)
+
+                    if isro:
+                        await self.removeNode(refbuid, refnode)
+                        continue
+
+                    curv, stortype = refnode['props'].get(propname, (None, None))
+
+                    if isarray:
+
+                        _curv = curv
+                        if curv is None:
+                            _curv = []
+
+                        newv = list(_curv).copy()
+
+                        while propvalu in newv:
+                            newv.remove(propvalu)
+
+                        newv.append(newvalu)
+
+                        logger.debug(f'Setting prop: {formname}:{propname}={newv} (old {curv})')
+                        nodeedits.append((layriden, (
+                            (refbuid, formname, (
+                                (s_layer.EDIT_PROP_SET, (propname, newv, curv, stortype), ()),
+                            )),
+                        )))
+
+                    else:
+                        logger.debug(f'Setting prop: {formname}:{propname}={curv}')
+                        nodeedits.append((layriden, (
+                            (refbuid, formname, (
+                                (s_layer.EDIT_PROP_SET, (propname, newvalu, curv, stortype), ()),
+                            )),
+                        )))
+
+        await self.saveEdits(nodeedits)
+
+    async def removeNode(self, buid, node):
+        await self.storeNode(buid, node)
+
+        nodevalu = node.get('repr')
+        nodendef = node.get('ndef')
+
+        nodeedits = []
+
+        # Delete references
+        references = await self.getNodeReferences(node)
+        for layriden, reflist in references.items():
+            layer = self.core.getLayer(layriden)
+            if layer is None:
+                continue
+
+            for iden, refinfo in reflist:
+                (formname, propname, proptype, isarray, isro) = refinfo
+
+                if proptype == 'ndef':
+                    propvalu = nodendef
+                else:
+                    propvalu = nodevalu
+
+                async for refbuid, _ in self.getSodeByPropValuNoNorm(layer, formname, propname, propvalu):
+                    refnode = await self.getNode(refbuid)
+
+                    if isro:
+                        await self.removeNode(refbuid, refnode)
+                        continue
+
+                    curv, stortype = refnode['props'].get(propname, (None, None))
+
+                    if isarray:
+
+                        _curv = curv
+                        if curv is None:
+                            _curv = []
+
+                        newv = list(_curv).copy()
+
+                        while propvalu in newv:
+                            newv.remove(propvalu)
+
+                        if not newv:
+                            logger.debug(f'Deleting prop: {formname}:{propname}={curv}')
+                            nodeedits.append((layriden, (
+                                (refbuid, formname, (
+                                    (s_layer.EDIT_PROP_DEL, (propname, curv, stortype), ()),
+                                )),
+                            )))
+
+                        else:
+                            logger.debug(f'Setting prop: {formname}:{propname}={newv} (old {curv})')
+                            nodeedits.append((layriden, (
+                                (refbuid, formname, (
+                                    (s_layer.EDIT_PROP_SET, (propname, newv, curv, stortype), ()),
+                                )),
+                            )))
+
+                    else:
+                        logger.debug(f'Deleting prop: {formname}:{propname}={curv}')
+                        nodeedits.append((layriden, (
+                            (refbuid, formname, (
+                                (s_layer.EDIT_PROP_DEL, (propname, curv, stortype), ()),
+                            )),
+                        )))
+
+        await self.saveEdits(nodeedits)
+
+        # Delete the node
+        await self.delNode(buid, node)
+
+    async def saveEdits(self, nodeedits):
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        bylayer = {}
+
+        # Collate all edits by layer
+        for layriden, edits in nodeedits:
+            bylayer.setdefault(layriden, [])
+            bylayer[layriden].extend(edits)
+
+        # Process all layer edits as a single batch
+        for layriden, edits in bylayer.items():
+            layer = self.core.getLayer(layriden)
+            if layer is None:
+                continue
+
+            await layer.storNodeEditsNoLift(edits, meta)
+
+    async def getNode(self, buid):
+        roprops = self.getRoProps('it:sec:cpe')
+
+        node = {}
+        node.setdefault('edges', {})
+        node.setdefault('edits', {})
+        node.setdefault('updates', {})
+        node.setdefault('nodedata', {})
+        node.setdefault('references', {})
+
+        layridens = set()
+
+        for layer in self.layers:
+            # Save nodedata
+            nodedata = {name: valu async for name, valu in layer.iterNodeData(buid)}
+            if nodedata:
+                layridens.add(layer.iden)
+                node['nodedata'][layer.iden] = nodedata
+
+            # Save N1 edges
+            n1edges = [(verb, iden, 'n1') async for verb, iden in layer.iterNodeEdgesN1(buid)]
+
+            # Save N2 edges and store seen edge idens
+            n2edges = []
+            async for verb, iden in layer.iterNodeEdgesN2(buid):
+                n2edges.append((verb, iden, 'n2'))
+
+                # Save seen edges to this node in a separate spooled dict so we can resolve them later
+                if verb == 'seen':
+                    await self.sources.set(iden, None)
+
+            if n1edges or n2edges:
+                layridens.add(layer.iden)
+                node['edges'][layer.iden] = n1edges + n2edges
+
+            sode = await layer.getStorNode(buid)
+            if not sode:
+                continue
+
+            layridens.add(layer.iden)
+            node['form'] = sode.get('form')
+
+            # If this isn't a full node, record the edits in this layer and go around
+            if sode.get('valu') is None:
+                node['edits'][layer.iden] = sode
+                continue
+
+            node['layriden'] = layer.iden
+
+            # Remove readonly properties from the sode props
+            props = sode.get('props')
+            [props.pop(roprop) for roprop in roprops if roprop in props]
+
+            node.update(sode)
+
+        node['repr'], node['stortype'] = node['valu']
+        node['ndef'] = (node['form'], node['repr'])
+        node['layridens'] = list(layridens)
+
+        return node
+
+    async def getSourceByIden(self, iden):
+        if not self.sources.has(iden):
+            return None
+
+        if (source := self.sources.get(iden)) is not None:
+            return source
+
+        node = await self.getNode(s_common.uhex(iden))
+        source = node.get('repr')
+        await self.sources.set(iden, source)
+
+        return source
+
+    async def getNodeReferences(self, node):
+        formname = node.get('form')
+        valu = node.get('repr')
+        ndef = (formname, valu)
+
+        references = {}
+        refinfos = self.getRefInfo(formname)
+
+        for refinfo in refinfos:
+            formname, propname, proptype, isarray, isro = refinfo
+            if proptype == 'ndef':
+                nodevalu = ndef
+            else:
+                nodevalu = valu
+
+            for layer in self.layers:
+                async for buid, sode in self.getSodeByPropValuNoNorm(layer, formname, propname, nodevalu):
+                    references.setdefault(layer.iden, [])
+                    references[layer.iden].append((s_common.ehex(buid), refinfo))
+
+        return references
+
+    @s_cache.memoizemethod()
+    def getRoProps(self, formname):
+        roprops = []
+
+        form = self.core.model.form(formname)
+        for propname, prop in form.props.items():
+            if prop.info.get('ro', False):
+                roprops.append(propname)
+
+        return roprops
+
+    @s_cache.memoizemethod()
     def getRefInfo(self, formname):
         props = []
         props.extend(self.core.model.getPropsByType(formname))
@@ -1275,216 +1591,220 @@ class ModelMigration_0_2_31:
 
         return refinfo
 
-    @s_cache.memoize
-    def getRoProps(self, formname):
-        roprops = []
+    async def getSodeByPropValuNoNorm(self, layer, formname, propname, valu, cmpr='='):
+        prop = self.core.model.prop(f'{formname}:{propname}')
+        if prop is None:
+            mesg = f'Could not find prop: {formname}:{propname}'
+            raise s_exc.NoSuchProp(mesg=mesg, formname=formname, propname=propname)
 
-        form = self.core.model.form(formname)
-        for propname, prop in form.props.items():
-            if prop.info.get('ro', False):
-                roprops.append(propname)
+        stortype = prop.type.stortype
 
-        return roprops
+        # Normally we'd call proptype.getStorCmprs() here to get the cmprvals
+        # but getStorCmprs() calls norm() which we're  trying to avoid so build
+        # cmprvals manually here.
 
-    async def revModel_0_2_31(self):
+        if prop.type.isarray:
+            stortype &= (~s_layer.STOR_FLAG_ARRAY)
+            liftfunc = layer.liftByPropArray
+        else:
+            liftfunc = layer.liftByPropValu
 
-        queues = await self.core.listCoreQueues()
-        queues = {k['name']: k for k in queues}
+        cmprvals = ((cmpr, valu, stortype),)
 
-        if queues.get('model_0_2_31:nodes') is None:
-            await self.core.addCoreQueue('model_0_2_31:nodes', {})
+        async for _, buid, sode in liftfunc(formname, propname, cmprvals):
+            yield buid, sode
 
-        if queues.get('model_0_2_31:nodes:refs') is None:
-            await self.core.addCoreQueue('model_0_2_31:nodes:refs', {})
+    async def copyNode(self, oldnode, nodevalu):
+        node = {}
 
-        if queues.get('model_0_2_31:nodes:edges') is None:
-            await self.core.addCoreQueue('model_0_2_31:nodes:edges', {})
+        nodeform = node['form'] = oldnode.get('form')
+        nodelayr = node['layriden'] = oldnode['layriden']
+        formstor = node['stortype'] = oldnode['stortype']
 
-        if queues.get('model_0_2_31:nodes:edits') is None:
-            await self.core.addCoreQueue('model_0_2_31:nodes:edits', {})
+        buid = s_common.buid((nodeform, nodevalu))
 
-        # Delete invalid floating :v2_2 props in all views
-        async for snap, view in self.iterViews(reverse=True):
+        node['repr'] = nodevalu
+        node['ndef'] = (nodeform, nodevalu)
+        node['valu'] = (nodevalu, oldnode['stortype'])
 
-            async for buid, info in snap.wlyr.getStorNodesByForm('it:sec:cpe'):
-                if info.get('valu') or (props := info.get('props')) is None or (v2_2 := props.get('v2_2')) is None:
-                    continue
+        node['props'] = s_msgpack.deepcopy(oldnode['props'])
+        node['tags'] = s_msgpack.deepcopy(oldnode['tags'])
+        node['tagprops'] = s_msgpack.deepcopy(oldnode['tagprops'])
 
-                if s_infotech.isValidCpe22(v2_2[0]):
-                    continue
+        node['edges'] = s_msgpack.deepcopy(oldnode['edges'])
+        node['edits'] = s_msgpack.deepcopy(oldnode['edits'])
+        node['updates'] = s_msgpack.deepcopy(oldnode['updates'])
+        node['nodedata'] = s_msgpack.deepcopy(oldnode['nodedata'])
 
-                node = await snap.getNodeByBuid(buid)
-                if node is None:
-                    continue
+        nodeedits = []
 
-                await node.pop('v2_2')
+        # Node
+        logger.debug(f'Adding node: {nodeform}={repr(nodevalu)}, layer={nodelayr}')
+        nodeedits.append((nodelayr, (
+            (buid, nodeform, (
+                (s_layer.EDIT_NODE_ADD, (nodevalu, formstor), ()),
+            )),
+        )))
 
-        migrated = 0
-        async for snap, view in self.iterViews():
+        # Edits
+        edits = node.get('edits', {})
+        edits[nodelayr] = node
 
-            async for _, buid, sode in view.layers[0].liftByProp('it:sec:cpe', None):
-                oldcpe = await snap.getNodeByBuid(buid)
-                if not oldcpe:
-                    continue
+        for layriden, data in edits.items():
+            props = data.get('props', {})
+            for propname, propvalu in props.items():
+                propvalu, stortype = propvalu
+                logger.debug(f'Adding prop: {nodeform}:{propname}={repr(propvalu)}, layer={layriden}')
+                nodeedits.append((layriden, (
+                    (buid, nodeform, (
+                        (s_layer.EDIT_PROP_SET, (propname, propvalu, None, stortype), ()),
+                    )),
+                )))
 
-                ok, valu = await self.tryMigrateCpeNode(snap, oldcpe)
+            tags = data.get('tags', {})
+            for tagname, tagvalu in tags.items():
+                logger.debug(f'Adding tag: {nodeform}#{tagname}={repr(tagvalu)}, layer={layriden}')
+                nodeedits.append((layriden, (
+                    (buid, nodeform, (
+                        (s_layer.EDIT_TAG_SET, (tagname, tagvalu, None), ()),
+                    )),
+                )))
 
-                if ok and valu is None:
-                    # No primary property changes, nothing to do. Node has been fully migrated.
-                    continue
+            tagprops = data.get('tagprops', {})
+            for tagname, propvalus in tagprops.items():
+                for propname, propvalu in propvalus.items():
+                    propvalu, stortype = propvalu
 
-                if not ok:
-                    logger.debug(f'Could not migrate {oldcpe}, storing/removing.')
-                    # Remove the old :v2_2 prop because it's invalid and it could cause problems during node restoration
-                    await oldcpe.pop('v2_2')
+                    logger.debug(f'Adding tagprop: {nodeform}#{tagname}:{propname}={repr(propvalu)}, layer={layriden}')
+                    nodeedits.append((layriden, (
+                        (buid, nodeform, (
+                            (s_layer.EDIT_TAGPROP_SET, (tagname, propname, propvalu, None, stortype), ()),
+                        )),
+                    )))
 
-                    # Bad node, remove it and any immutable references
-                    await self.storeNode(oldcpe, view.iden, view.layers[0].iden)
-                    await self.removeNode(oldcpe)
+        # Nodedata
+        for layriden, nodedata in node.get('nodedata', {}).items():
+            for name, valu in nodedata.items():
+                logger.debug(f'Adding nodedata: {nodeform} {name}={valu}, layer={layriden}')
+                nodeedits.append((layriden, (
+                    (buid, nodeform, (
+                        (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
+                    )),
+                )))
+
+        # Edges
+        for layriden, edges in node.get('edges', {}).items():
+            for verb, iden, direction in edges:
+                if direction == 'n1':
+                    logger.debug(f'Adding edge: -({verb})> {iden}, layer={layriden}')
+                    nodeedits.append((layriden, (
+                        (buid, nodeform, (
+                            (s_layer.EDIT_EDGE_ADD, (verb, iden), ()),
+                        )),
+                    )))
 
                 else:
-                    # At this point, we have a node that can be fixed but needs to be migrated to a new node because the
-                    # primary property needs to be changed. We'll create a new (correct) node, and copy everything from
-                    # the old node. Then we complete the migration by iterating through all the views to fix the
-                    # references.
+                    logger.debug(f'Adding edge: <({verb})- {iden}, layer={layriden}')
+                    nodeedits.append((layriden, (
+                        (s_common.uhex(iden), nodeform, (
+                            (s_layer.EDIT_EDGE_ADD, (verb, s_common.ehex(buid)), ()),
+                        )),
+                    )))
 
-                    logger.debug(f'Migrating {oldcpe} -> {valu}.')
-                    props = {}
-                    if (seen := oldcpe.props.get('.seen')) is not None:
-                        props['.seen'] = seen
+        await self.saveEdits(nodeedits)
+        return node
 
-                    newcpe = await snap.addNode('it:sec:cpe', valu, props=props)
+    async def delNode(self, buid, node):
 
-                    await self.copyNodeLayer(snap, oldcpe, newcpe)
-                    await self.migrateCpeNode(oldcpe, newcpe)
+        nodeedits = []
+        nodevalu = node.get('repr')
+        nodelayr = node.get('layriden')
+        nodeform = node.get('form')
 
-                    # Iterate through the views in reverse deporder looking for floating node edits
-                    async for rsnap, rview in self.iterViews(reverse=True):
-                        if rview.iden == view.iden:
-                            # Only process views that are higher than the original view
-                            continue
+        # Node
+        logger.debug(f'Deleting node: {nodeform}={repr(nodevalu)}, layer={nodelayr}')
+        nodeedits.append((nodelayr, (
+            (buid, nodeform, (
+                (s_layer.EDIT_NODE_DEL, nodevalu, ()),
+            )),
+        )))
 
-                        _oldcpe = await rsnap.getNodeByBuid(buid)
-                        if _oldcpe is None:
-                            continue
+        # Edits
+        edits = node.get('edits', {})
+        edits[nodelayr] = node
 
-                        async for _newcpe in rsnap.nodesByPropValu('it:sec:cpe', '=', valu):
-                            await self.copyNodeLayer(rsnap, _oldcpe, _newcpe)
+        for layriden, data in edits.items():
 
-                        await self.delNodeEdges(rsnap, _oldcpe)
-                        await _oldcpe.delete(force=True)
+            props = data.get('props', {})
+            for propname, propvalu in props.items():
+                propvalu, stortype = propvalu
+                logger.debug(f'Deleting prop: {nodeform}:{propname}={repr(propvalu)}, layer={layriden}')
+                nodeedits.append((layriden, (
+                    (buid, nodeform, (
+                        (s_layer.EDIT_PROP_DEL, (propname, propvalu, stortype), ()),
+                    )),
+                )))
 
-                    await self.delNodeEdges(snap, oldcpe)
-                    await oldcpe.delete(force=True)
+            tags = data.get('tags', {})
+            for tagname, tagvalu in tags.items():
+                logger.debug(f'Deleting tag: {nodeform}#{tagname}={repr(tagvalu)}, layer={layriden}')
+                nodeedits.append((layriden, (
+                    (buid, nodeform, (
+                        (s_layer.EDIT_TAG_DEL, (tagname, tagvalu), ()),
+                    )),
+                )))
 
-                migrated += 1
-                if migrated % 100 == 0:
-                    logger.info(f'Migrated {migrated} nodes.')
+            tagprops = data.get('tagprops', {})
+            for tagname, propvalus in tagprops.items():
+                for propname, propvalu in propvalus.items():
+                    propvalu, stortype = propvalu
+                    logger.debug(f'Deleting tagprop: {nodeform}#{tagname}:{propname}={repr(propvalu)}, layer={layriden}')
+                    nodeedits.append((layriden, (
+                        (buid, nodeform, (
+                            (s_layer.EDIT_TAGPROP_DEL, (tagname, propname, propvalu, stortype), ()),
+                        )),
+                    )))
 
-    async def tryMigrateCpeNode(self, snap, node):
-        # This function is a heavily modified version of
-        # synapse.lib.stormlib.model.LibModelMigrations._itSecCpe_2_170_0_internal
+        # Nodedata
+        for layriden, nodedata in node.get('nodedata', {}).items():
 
-        if node.form.name != 'it:sec:cpe':
-            raise s_exc.BadArg(f'itSecCpeFix only accepts it:sec:cpe nodes, not {node.form.name}')
+            for name, valu in nodedata.items():
+                logger.debug(f'Deleting nodedata: {nodeform} {name}={valu}, layer={layriden}')
+                nodeedits.append((layriden, (
+                    (buid, nodeform, (
+                        (s_layer.EDIT_NODEDATA_DEL, (name, valu), ()),
+                    )),
+                )))
 
-        curv = node.repr()
+        # Edges
+        for layriden, edges in node.get('edges', {}).items():
 
-        modl = snap.core.model.type('it:sec:cpe')
+            for verb, iden, direction in edges:
+                if direction == 'n1':
+                    logger.debug(f'Deleting edge: -({verb})> {iden}, layer={layriden}')
 
-        valu23 = None
-        valu22 = None
+                    nodeedits.append((layriden, (
+                        (buid, nodeform, (
+                            (s_layer.EDIT_EDGE_DEL, (verb, iden), ()),
+                        )),
+                    )))
 
-        # Check the primary property for validity.
-        if s_infotech.isValidCpe23(curv):
-            valu23 = curv
-
-        # Check the v2_2 property for validity.
-        if (v2_2 := node.props.get('v2_2')) is not None and s_infotech.isValidCpe22(v2_2):
-            valu22 = v2_2
-
-        # If both values are populated, this node is valid
-        if valu23 is not None and valu22 is not None:
-            # Node ok, no primary property changes
-            return (True, None)
-
-        if valu23 is None and valu22 is None:
-            # Bad node
-            return (False, None)
-
-        valu = valu23 or valu22
-
-        # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
-        norm, info = modl.norm(valu)
-        subs = info.get('subs')
-
-        if norm != curv:
-            # Good node, bad primary property
-            return (True, norm)
-
-        async with snap.getNodeEditor(node) as proto:
-
-            # Iterate over the existing properties
-            for propname, propcurv in node.props.items():
-                subscurv = subs.get(propname)
-                if subscurv is None:
-                    continue
-
-                if propname == 'v2_2' and isinstance(subscurv, list):
-                    subscurv = s_infotech.zipCpe22(subscurv)
-
-                # Values are the same, go around
-                if propcurv == subscurv:
-                    continue
-
-                # Update the existing property with the re-normalized property value.
-                await proto.set(propname, subscurv, ignore_ro=True)
-
-            # Good node
-            return (True, None)
-
-    async def migrateCpeNode(self, oldcpe, newcpe):
-        refinfos = self.getRefInfo(oldcpe.form.name)
-
-        async for snap, view in self.iterViews():
-            for formname, propname, proptype, isarray, isro in refinfos:
-                if proptype == 'ndef':
-                    oldvalu = oldcpe.ndef
-                    newvalu = newcpe.ndef
                 else:
-                    oldvalu = oldcpe.repr()
-                    newvalu = newcpe.repr()
+                    logger.debug(f'Deleting edge: <({verb})- {iden}, layer={layriden}')
 
-                async for node in self.liftByPropValuNoNorm(snap, formname, propname, oldvalu):
-                    if isro:
-                        # The property is readonly so we can only delete it
-                        await self.storeNode(node, view.iden, view.layers[0].iden)
-                        await self.removeNode(node)
-                        await node.delete()
-                        continue
+                    nodeedits.append((layriden, (
+                        (s_common.uhex(iden), nodeform, (
+                            (s_layer.EDIT_EDGE_DEL, (verb, s_common.ehex(buid)), ()),
+                        )),
+                    )))
 
-                    if isarray:
-                        # We can't just [ :$prop-=$oldvalu :$prop+=$newvalu ] because the norm() function gets called
-                        # on the array type deep down in the AST. So, instead, we have to operate on the whole array.
+        await self.saveEdits(nodeedits)
 
-                        propval = list(node.props.get(propname, ()))
-                        while oldvalu in propval:
-                            propval.remove(oldvalu)
-
-                        if newvalu not in propval:
-                            propval.append(newvalu)
-
-                        await self.setNodePropValuNoNorm(snap, node, propname, propval)
-
-                    else:
-                        await node.set(propname, newvalu)
-
-    async def storeNode(self, node, viewiden, layriden):
-
-        buid = node.buid
-        valu = node.repr()
-        form = node.form.name
-        ndef = node.ndef
+    async def storeNode(self, buid, node):
+        nodevalu = node.get('repr')
+        nodeform = node.get('form')
+        nodendef = node.get('ndef')
+        nodelayr = node.get('layriden')
 
         offsets = {
             'refs': [],
@@ -1492,21 +1812,20 @@ class ModelMigration_0_2_31:
             'edits': [],
         }
 
-        refinfos = self.getRefInfo(form)
         sources = set()
-        roprops = self.getRoProps(form)
+        roprops = self.getRoProps(nodeform)
 
-        references = []
+        refs = []
         edits = []
         edges = []
 
         async def queueRefs(threshold=1):
-            nonlocal references
-            if len(references) < threshold:
+            nonlocal refs
+            if len(refs) < threshold:
                 return
-            offset = await self.core.coreQueuePuts('model_0_2_31:nodes:refs', (references,))
+            offset = await self.core.coreQueuePuts('model_0_2_31:nodes:refs', (refs,))
             offsets['refs'].append(offset)
-            references = []
+            refs = []
 
         async def queueEdits(threshold=1):
             nonlocal edits
@@ -1524,78 +1843,75 @@ class ModelMigration_0_2_31:
             offsets['edges'].append(offset)
             edges = []
 
-        async for snap, view in self.iterViews(reverse=True):
-            layer = view.layers[0]
+        nodeedits = node['edits'].copy()
+        nodeedits[nodelayr] = node
 
-            edit = {}
-            data = {}
+        # Iterate through all the layers where this node has info
+        for layriden in sorted(node.get('layridens')):
+            item = {}
 
-            data = {name: valu async for name, valu in layer.iterNodeData(buid)}
-            if data:
-                edit['data'] = data
+            # Get nodedata for the current layer if it exists
+            nodedata = node.get('nodedata', {})
+            if (data := nodedata.get(layriden)):
+                item['data'] = data
 
-            sode = await layer.getStorNode(buid)
-            if sode:
-                props = sode.get('props')
-                [props.pop(roprop) for roprop in roprops if roprop in props]
-                if props:
-                    edit['props'] = props
+            edit = nodeedits.get(layriden, {})
 
-                if (tags := sode.get('tags')):
-                    edit['tags'] = tags
+            props = edit.get('props', {})
+            props = {name: valu for name, valu in list(props.items()) if name not in roprops}
+            if props:
+                item['props'] = props
 
-                if (tagprops := sode.get('tagprops')):
-                    edit['tagprops'] = tagprops
+            if (tags := edit.get('tags', {})):
+                item['tags'] = tags
 
-                if edit:
-                    edit['view'] = view.iden
-                    edit['layer'] = layer.iden
-                    edits.append(edit)
+            if (tagprops := edit.get('tagprops', {})):
+                item['tagprops'] = tagprops
 
-                await queueEdits(threshold=1000)
+            if item:
+                item['layer'] = layriden
+                edits.append(item)
 
-            async for verb, dst in layer.iterNodeEdgesN1(buid):
+            await queueEdits(threshold=1000)
+
+            for verb, iden, direction in node['edges'].get(layriden, []):
                 edges.append({
                     'verb': verb,
-                    'node': dst,
-                    'direction': 'n1',
-                    'layer': layer.iden,
-                    'view': view.iden,
+                    'iden': iden,
+                    'direction': direction,
+                    'layer': layriden,
                 })
 
-                await queueEdges(threshold=1000)
-
-            async for verb, src in layer.iterNodeEdgesN2(buid):
-                edges.append({
-                    'verb': verb,
-                    'node': src,
-                    'direction': 'n2',
-                    'layer': layer.iden,
-                    'view': view.iden,
-                })
-
-                # Capture the '<(seen)- meta:source' sources while we're iterating the edges
                 if verb == 'seen':
-                    srcnode = await snap.getNodeByBuid(s_common.uhex(src))
-                    if srcnode is not None and srcnode.form.name == 'meta:source':
-                        sources.add(srcnode.repr())
+                    source = await self.getSourceByIden(iden)
+                    if source is not None:
+                        sources.add(source)
 
                 await queueEdges(threshold=1000)
 
-            for formname, propname, proptype, isarray, isro in refinfos:
-                if proptype == 'ndef':
-                    oldvalu = ndef
-                else:
-                    oldvalu = valu
+        # Store references
+        references = await self.getNodeReferences(node)
 
-                async for ref in self.liftByPropValuNoNorm(snap, formname, propname, oldvalu):
+        for layriden, reflist in references.items():
+            layer = self.core.getLayer(layriden)
+            if layer is None:
+                continue
+
+            for iden, refinfo in reflist:
+                (formname, propname, proptype, isarray, isro) = refinfo
+
+                if proptype == 'ndef':
+                    propvalu = nodendef
+                else:
+                    propvalu = nodevalu
+
+                async for refbuid, _ in self.getSodeByPropValuNoNorm(layer, formname, propname, propvalu):
                     if isro:
                         continue
 
-                    references.append({
-                        'iden': ref.iden(),
-                        'layer': view.layers[0].iden,
-                        'view': view.iden,
+                    refs.append({
+                        'iden': s_common.ehex(refbuid),
+                        'layer': layriden,
                         'refinfo': (formname, propname, proptype, isarray),
                     })
 
@@ -1606,158 +1922,85 @@ class ModelMigration_0_2_31:
         await queueRefs()
 
         item = {
-            'iden': node.iden(),
-            'form': form,
-            'valu': valu,
-            'view': viewiden,
-            'layer': layriden,
+            'iden': s_common.ehex(buid),
+            'form': nodeform,
+            'valu': nodevalu,
+            'layer': nodelayr,
             'offsets': offsets,
             'sources': list(sources),
         }
         await self.core.coreQueuePuts('model_0_2_31:nodes', (item,))
 
-    async def removeNode(self, node):
-        buid = node.buid
-        valu = node.repr()
-        form = node.form.name
-        ndef = node.ndef
+    async def updateNode(self, buid, node, updates):
+        nodeedits = []
+        formname = node.get('form')
+        layriden = node.get('layriden')
 
-        refinfos = self.getRefInfo(form)
+        for update in updates:
+            nodeedits.append((layriden, (
+                (buid, formname, (
+                    (s_layer.EDIT_PROP_SET, update, ()),
+                )),
+            )))
 
-        async for snap, view in self.iterViews():
-            for formname, propname, proptype, isarray, isro in refinfos:
-                if proptype == 'ndef':
-                    oldvalu = ndef
-                else:
-                    oldvalu = valu
+        await self.saveEdits(nodeedits)
 
-                async for ref in self.liftByPropValuNoNorm(snap, formname, propname, oldvalu):
-                    if isro:
-                        await self.storeNode(ref, view.iden, view.layers[0].iden)
-                        await self.removeNode(ref)
-                        await ref.delete()
-                        continue
+    def checkCpeNode(self, node):
+        modl = self.core.model.type('it:sec:cpe')
 
-                    if isarray:
-                        # We can't just [ :$prop-=$oldvalu :$prop+=$newvalu ] because the norm() function gets called
-                        # on the array type deep down in the AST. So, instead, we have to operate on the whole array.
+        valu23 = None
+        valu22 = None
 
-                        propval = list(ref.props.get(propname, ()))
-                        while oldvalu in propval:
-                            propval.remove(oldvalu)
+        curv = node.get('repr')
 
-                        if not propval:
-                            await ref.pop(propname)
-                        else:
-                            await self.setNodePropValuNoNorm(snap, ref, propname, propval)
+        # Check the primary property for validity.
+        if s_infotech.isValidCpe23(curv):
+            valu23 = curv
 
-                    else:
-                        await ref.pop(propname)
+        props = node.get('props', {})
 
-        # This loop removes all the edits and edges from every layer
-        async for snap, view in self.iterViews(reverse=True):
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
+        # Check the v2_2 property for validity.
+        if (v2_2 := props.get('v2_2')) is not None and s_infotech.isValidCpe22(v2_2[0]):
+            valu22 = v2_2[0]
+
+        # If both values are populated, this node is valid
+        if valu23 is not None and valu22 is not None:
+            # Node ok, no primary property changes
+            return ('ok', None)
+
+        if valu23 is None and valu22 is None:
+            # Bad node
+            return ('store', None)
+
+        valu = valu23 or valu22
+
+        # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
+        norm, info = modl.norm(valu)
+        subs = info.get('subs')
+
+        if norm != curv:
+            # Good node, bad primary property
+            return ('migrate', norm)
+
+        # Iterate over the existing properties
+        updates = []
+        for propname, propcurv in props.items():
+            propcurv, stortype = propcurv
+            subscurv = subs.get(propname)
+            if subscurv is None:
                 continue
-            await self.delNodeEdges(snap, node)
-            await node.delete(force=True)
 
-    async def delNodeEdges(self, snap, node):
-        async with await s_spooled.Set.anit(dirn=self.core.dirn) as edges:
-            seenverbs = set()
+            if propname == 'v2_2' and isinstance(subscurv, list):
+                subscurv = s_infotech.zipCpe22(subscurv)
 
-            async for (verb, n2iden) in node.iterEdgesN2():
-                if verb not in seenverbs:
-                    seenverbs.add(verb)
-                await edges.add((verb, n2iden))
+            # Values are the same, go around
+            if propcurv == subscurv:
+                continue
 
-            async with snap.getEditor() as editor:
-                async for (verb, n2iden) in edges:
-                    n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
-                    if n2 is not None:
-                        if await n2.delEdge(verb, node.iden()) and len(editor.protonodes) >= 1000:
-                            await snap.applyNodeEdits(editor.getNodeEdits())
-                            editor.protonodes.clear()
+            updates.append((propname, propcurv, subscurv, stortype))
 
-    async def copyNodeLayer(self, snap, src, dst):
-        '''
-        Copy props/tags/edges/data changes that reside in this layer from src to dst.
-        '''
+        if updates:
+            return ('update', updates)
 
-        layer = snap.wlyr
-
-        form = src.form
-
-        async with snap.getEditor() as editor:
-            proto = editor.loadNode(dst)
-
-            # Copy N1 edges
-            async for verb, n1iden in layer.iterNodeEdgesN1(src.buid):
-                await proto.addEdge(verb, n1iden)
-
-            # Copy N2 edges
-            async for verb, n2iden in layer.iterNodeEdgesN2(src.buid):
-                n2 = await editor.getNodeByBuid(s_common.uhex(n2iden))
-                await n2.addEdge(verb, dst.iden())
-
-            # Copy node data
-            async for name, valu in layer.iterNodeData(src.buid):
-                await proto.setData(name, valu)
-
-            if (sode := await layer.getStorNode(src.buid)):
-                # Copy props
-                for name, valu in sode.get('props', {}).items():
-                    if (prop := form.props.get(name)) is not None and prop.info.get('ro', False):
-                        continue
-                    await proto.set(name, valu[0])
-
-                # Copy tags
-                for name, valu in sode.get('tags', {}).items():
-                    await proto.addTag(name, valu=valu)
-
-                # Copy tagprops
-                for tagname, tagprops in sode.get('tagprops', {}).items():
-                    for propname, valu in tagprops.items():
-                        await proto.setTagProp(tagname, propname, valu[0])
-
-    async def liftByPropValuNoNorm(self, snap, formname, propname, valu, cmpr='=', reverse=False):
-        '''
-        No storm docs for this on purpose. It is restricted for use during model migrations only.
-        '''
-        prop = snap.core.model.prop(f'{formname}:{propname}')
-        if prop is None:
-            mesg = f'Could not find prop: {formname}:{propname}'
-            raise s_exc.NoSuchProp(mesg=mesg, formname=formname, propname=propname)
-
-        stortype = prop.type.stortype
-
-        # Normally we'd call proptype.getStorCmprs() here to get the cmprvals
-        # but getStorCmprs() calls norm() which we're  trying to avoid so build
-        # cmprvals manually here.
-
-        if prop.type.isarray:
-            stortype &= (~s_layer.STOR_FLAG_ARRAY)
-            liftfunc = snap.wlyr.liftByPropArray
-        else:
-            liftfunc = snap.wlyr.liftByPropValu
-
-        cmprvals = ((cmpr, valu, stortype),)
-
-        layriden = snap.wlyr.iden
-        async for _, buid, sode in liftfunc(formname, propname, cmprvals, reverse=reverse):
-            yield await snap._joinStorNode(buid, {layriden: sode})
-
-    async def setNodePropValuNoNorm(self, snap, node, propname, valu):
-        '''
-        No storm docs for this on purpose. It is restricted for use during model migrations only.
-        '''
-
-        # NB: I'm sure there are all kinds of edges cases that this function doesn't account for. At the time of it's
-        # creation, this was intended to be used to update array properties with bad it:sec:cpe values in them. It works
-        # for that use case (see model migration 0.2.31). Any additional use of this function should perform heavy
-        # testing.
-
-        async with snap.getNodeEditor(node) as proto:
-            await proto.set(propname, valu, norminfo={})
-
-        return node
+        # Good node
+        return ('ok', None)
