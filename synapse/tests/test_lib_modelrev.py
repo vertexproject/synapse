@@ -1442,12 +1442,37 @@ class ModelRevTest(s_tests.SynTest):
                 ),
             ])
 
-            lines = [
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.printNode((200))')
+            self.stormIsInWarn('Queued node with offset 200 not found.', msgs)
 
-            ]
-            for line in lines:
-                self.stormIsInPrint(line, msgs)
-            # self.stormIsInPrint('\n'.join(lines), msgs)
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.repairNode((200))')
+            self.stormIsInWarn('Queued node with offset 200 not found.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.printNode((2))')
+            self.stormHasNoWarnErr(msgs)
+
+            output = textwrap.dedent('''
+                it:sec:cpe='cpe:2.3:a:openbsd:openssh:7.4\\r\\n:*:*:*:*:*:*:*'
+                    :v2_2 = cpe:/a:openbsd:openssh_server:7.4
+                    :_cpe22valid = 0
+                    :_cpe23valid = 0
+                    .seen = (2020/01/01 00:00:00.000, 2021/01/01 00:00:00.000)
+                    #test
+                    #test.cpe
+                    #test.cpe.23invalid
+                    #test.cpe.22invalid
+                    #test.tagprop
+                    #test.tagprop:score = 0
+                  sources: ['008af0047a8350287cde7abe31a7c706', 'a7a4739e0a52674df0fa3a8226de0c3f']
+                  refs:
+                    - inet:flow:src:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7
+                    - risk:vulnerable:node (iden: d2c0737b821ba0a699e1ff168e2bf1677590dbf677ce7e5c02894f8868ae080a
+                  edges:
+                    <(seen)- 051d93252abe655e43265b89149b6a2d5a8f5f2df33b56c986ab8671c081e394
+                    <(seen)- 6db5f4049ac1916928f41cc5928fa60cd8fe80c453c6b2325324874a184e77da
+                    -(refs)> f0315900f365f45f2e027edc66ed8477d8661dad501d51f3ac8067c36565f07c
+            ''')[1:-1]
+            self.stormIsInPrint(output, msgs)
 
             q = '''
                 $lib.model.migration.s.model_0_2_31.repairNode((2),

@@ -1,14 +1,11 @@
 import regex
 import logging
-import contextlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
-import synapse.lib.msgpack as s_msgpack
-import synapse.lib.spooled as s_spooled
 
 import synapse.models.infotech as s_infotech
 
@@ -1342,7 +1339,7 @@ class ModelMigration_0_2_31:
         # Process all layer edits as a single batch
         for layriden, edits in bylayer.items():
             layer = self.core.getLayer(layriden)
-            if layer is None:
+            if layer is None: # pragma: no cover
                 continue
 
             await layer.storNodeEditsNoLift(edits, meta)
@@ -1357,7 +1354,7 @@ class ModelMigration_0_2_31:
         for layer in self.layers:
             async for _, buid, sode in layer.liftByProp('it:sec:cpe', 'v2_2'):
 
-                if (props := sode.get('props')) is None or (propvalu := props.get('v2_2')) is None:
+                if (props := sode.get('props')) is None or (propvalu := props.get('v2_2')) is None: # pragma: no cover
                     continue
 
                 propvalu, stortype = propvalu
@@ -1372,11 +1369,11 @@ class ModelMigration_0_2_31:
         count = 0
         for layer in self.layers:
             async for _, buid, sode in layer.liftByProp('it:sec:cpe', None):
-                if (formvalu := sode.get('valu')) is None:
+                if (formvalu := sode.get('valu')) is None: # pragma: no cover
                     continue
 
                 count += 1
-                if count % 1000 == 0:
+                if count % 1000 == 0: # pragma: no cover
                     logger.info(f'Processed {count} it:sec:cpe nodes')
 
                 formvalu, formstor = formvalu
@@ -1388,7 +1385,6 @@ class ModelMigration_0_2_31:
                 propvalu = sode.get('props', {}).get('v2_2')
                 if propvalu is None or not s_infotech.isValidCpe22(propvalu[0]):
                     # Missing/bad :v2_2 also, this node is invalid
-                    # FIXME: Store node
                     await self.removeNode(layer.iden, buid, 'it:sec:cpe', formvalu)
                     continue
 
@@ -1420,7 +1416,7 @@ class ModelMigration_0_2_31:
         refinfo = []
         for prop in props:
 
-            if prop.form.name == formname:
+            if prop.form.name == formname: # pragma: no cover
                 continue
 
             proptype = prop.type
@@ -1472,7 +1468,7 @@ class ModelMigration_0_2_31:
         references = await self.getNodeReferences(formname, formvalu)
         for reflayr, reflist in references.items():
             layer = self.core.getLayer(reflayr)
-            if layer is None:
+            if layer is None: # pragma: no cover
                 continue
 
             for iden, refinfo in reflist:
@@ -1485,8 +1481,7 @@ class ModelMigration_0_2_31:
 
                 async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
                     if isro:
-                        if (refvalu := refsode.get('valu')) is None:
-                            breakpoint()
+                        if (refvalu := refsode.get('valu')) is None: # pragma: no cover
                             continue
 
                         await self.removeNode(reflayr, refbuid, refform, refvalu[0])
@@ -1620,7 +1615,7 @@ class ModelMigration_0_2_31:
 
         for layriden, reflist in references.items():
             layer = self.core.getLayer(layriden)
-            if layer is None:
+            if layer is None: # pragma: no cover
                 continue
 
             for iden, refinfo in reflist:
@@ -1801,7 +1796,7 @@ class ModelMigration_0_2_31:
         references = await self.getNodeReferences(formname, oldvalu)
         for reflayr, reflist in references.items():
             layer = self.core.getLayer(reflayr)
-            if layer is None:
+            if layer is None: # pragma: no cover
                 continue
 
             for iden, refinfo in reflist:
@@ -1816,8 +1811,7 @@ class ModelMigration_0_2_31:
 
                 async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, oldpropv):
                     if isro:
-                        if (refvalu := refsode.get('valu')) is None:
-                            breakpoint()
+                        if (refvalu := refsode.get('valu')) is None: # pragma: no cover
                             continue
 
                         await self.removeNode(layer.iden, refbuid, refform, refvalu[0])

@@ -7,8 +7,6 @@ import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes
 
-import synapse.models.infotech as s_infotech
-
 RISK_HASVULN_VULNPROPS = (
     'hardware',
     'host',
@@ -1084,17 +1082,17 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         node = node[1]
 
-        await self.runt.printf(f'{node["form"]}={node["valu"]}')
+        await self.runt.printf(f'{node["form"]}={repr(node["valu"])}')
 
         for offs in node['offsets']['edits']:
             edits = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes:edits', offs=offs, cull=False)
-            if not edits:
+            if not edits: # pragma: no cover
                 await self.runt.warn(f'Queued node edits with offset {offs} not found.')
                 continue
 
             edits = edits[1]
             for edit in edits:
-                for propname, propvalu in edit['props'].items():
+                for propname, propvalu in edit.get('props', {}).items():
                     if propname == '.created':
                         await self.runt.printf(f'    .created = {s_time.repr(propvalu)}')
                     elif propname == '.seen':
@@ -1105,7 +1103,8 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     else:
                         await self.runt.printf(f'    :{propname} = {propvalu[0]}')
 
-                for tagname, tagvalu in edit['tags'].items():
+            for edit in edits:
+                for tagname, tagvalu in edit.get('tags', {}).items():
                     if tagvalu == (None, None):
                         await self.runt.printf(f'    #{tagname}')
                     else:
@@ -1114,25 +1113,27 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                         maxdt = s_time.repr(maxtime)
                         await self.runt.printf(f'    #{tagname} = ({mindt}, {maxdt})')
 
-                for tagprop, tagpropvalu in edit['tagprops'].items():
+            for edit in edits:
+                for tagprop, tagpropvalu in edit.get('tagprops', {}).items():
                     for prop, valu in tagpropvalu.items():
                         await self.runt.printf(f'    #{tagprop}:{prop} = {valu[0]}')
 
-        await self.runt.printf(f'  sources: {node["sources"]}')
+        if sources := node['sources']:
+            await self.runt.printf(f'  sources: {sorted(sources)}')
 
         if noderefs := node['offsets']['refs']:
             await self.runt.printf('  refs:')
 
             for offs in noderefs:
                 refs = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes:refs', offs=offs, cull=False)
-                if not refs:
+                if not refs: # pragma: no cover
                     await self.runt.warn(f'Queued node refs with offset {offs} not found.')
                     continue
 
                 refs = refs[1]
 
                 for ref in refs:
-                    form, prop, *_ = ref
+                    form, prop, *_ = ref.get('refinfo')
                     await self.runt.printf(f'    - {form}:{prop} (iden: {ref["iden"]}')
 
         if nodeedges := node['offsets']['edges']:
@@ -1140,7 +1141,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
             for offs in nodeedges:
                 edges = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes:edges', offs=offs, cull=False)
-                if not edges:
+                if not edges: # pragma: no cover
                     await self.runt.warn(f'Queued node edges with offset {offs} not found.')
                     continue
 
@@ -1158,12 +1159,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     async def _removeNode(self, offset):
         offset = await s_stormtypes.toint(offset)
 
-        item = await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
-        if item is None:
-            await self.runt.warn(f'Queued node with offset {offset} not found.')
-            return
-
-        node = item[1]
+        _, node = await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
 
         for offs in node['offsets']['refs']:
             await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes:refs', offs)
@@ -1190,7 +1186,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         layriden = node['layer']
         layer = self.runt.snap.core.getLayer(layriden)
-        if layer is None:
+        if layer is None: # pragma: no cover
             await self.runt.warn(f'Layer does not exist to recreate node: {layriden}.')
             return False
 
@@ -1222,7 +1218,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         for offs in node['offsets']['edits']:
             edits = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes:edits', offs=offs, cull=False)
-            if not edits:
+            if not edits: # pragma: no cover
                 await self.runt.warn(f'Queued node edits with offset {offs} not found.')
                 continue
 
@@ -1263,7 +1259,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         for offs in node['offsets']['refs']:
             refs = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes:refs', offs=offs, cull=False)
-            if not refs:
+            if not refs: # pragma: no cover
                 await self.runt.warn(f'Queued node refs with offset {offs} not found.')
                 continue
 
@@ -1285,7 +1281,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         for offs in node['offsets']['edges']:
             edges = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes:edges', offs=offs, cull=False)
-            if not edges:
+            if not edges: # pragma: no cover
                 await self.runt.warn(f'Queued node edges with offset {offs} not found.')
                 continue
 
@@ -1306,7 +1302,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
                 else:
                     nodeedits.append((layriden, (
-                        # FIXME: nodeform is not the right value!?
+                        # NOTE: nodeform is not the right form but the edit goes through anyway
                         (s_common.uhex(iden), nodeform, (
                             (s_layer.EDIT_EDGE_ADD, (verb, s_common.ehex(buid)), ()),
                         )),
@@ -1324,7 +1320,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         # Process all layer edits as a single batch
         for layriden, edits in bylayer.items():
             layer = self.runt.snap.core.getLayer(layriden)
-            if layer is None:
+            if layer is None: # pragma: no cover
                 continue
 
             await layer.storNodeEditsNoLift(edits, meta)
@@ -1336,7 +1332,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         try:
             ok = await self._repairNode(offset, newvalu)
-        except s_exc.SynErr as exc:
+        except s_exc.SynErr as exc: # pragma: no cover
             mesg = exc.get('mesg')
             await self.runt.warn(f'Error when restoring node {offset}: {mesg}')
 
