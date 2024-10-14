@@ -1445,7 +1445,7 @@ class ModelRevTest(s_tests.SynTest):
             msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.printNode((200))')
             self.stormIsInWarn('Queued node with offset 200 not found.', msgs)
 
-            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.repairNode((200))')
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.repairNode((200), "")')
             self.stormIsInWarn('Queued node with offset 200 not found.', msgs)
 
             msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.printNode((2))')
