@@ -403,36 +403,7 @@ class StormlibModelTest(s_test.SynTest):
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
 
-            with self.raises(s_exc.NoSuchProp) as exc:
-                await core.callStorm('$lib.model.migration.liftByPropValuNoNorm(formname, propname, valu)')
-            self.eq(exc.exception.get('mesg'), 'Could not find prop: formname:propname')
-
-            with self.raises(s_exc.AuthDeny) as exc:
-                await core.callStorm('$lib.model.migration.liftByPropValuNoNorm(it:prod:soft, cpe, valu)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.')
-
-            with self.raises(s_exc.BadArg) as exc:
-                await core.callStorm('$lib.model.migration.setNodePropValuNoNorm(notanode, propname, valu)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
-
-            with self.raises(s_exc.AuthDeny) as exc:
-                await core.callStorm('test:str $lib.model.migration.setNodePropValuNoNorm($node, propname, valu)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.')
-
-            with self.raises(s_exc.BadArg) as exc:
-                await core.callStorm('$lib.model.migration.copyNodeLayer(notanode, notanode)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.copyNodeLayer() src argument must be a node.')
-
-            with self.raises(s_exc.BadArg) as exc:
-                await core.callStorm('test:str $lib.model.migration.copyNodeLayer($node, notanode)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.copyNodeLayer() dst argument must be a node.')
-
-            with self.raises(s_exc.AuthDeny) as exc:
-                await core.callStorm('test:str $lib.model.migration.copyNodeLayer($node, $node)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.copyNodeLayer() is restricted to model migrations only.')
-
             # copy extended properties
-
             await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyExtProps($node, newp)'))
             await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyExtProps(newp, $node)'))
 
