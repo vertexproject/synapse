@@ -3947,6 +3947,10 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('$mod=$lib.import(foosmod) help $mod.f')
             self.stormIsInErr('help does not currently support runtime defined functions.', msgs)
 
+            msgs = await core.stormlist('help --verbose $lib.bytes')
+            self.stormIsInPrint('Warning', msgs)
+            self.stormIsInPrint('', msgs)
+
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
 
