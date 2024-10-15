@@ -382,7 +382,7 @@ class Node(NodeBase):
         async with self.view.getNodeEditor(self) as editor:
             return await editor.set(name, valu)
 
-    def has(self, name):
+    def has(self, name, virts=None):
 
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
@@ -395,7 +395,11 @@ class Node(NodeBase):
             if props is None:
                 continue
 
-            if props.get(name) is not None:
+            if (valt := props.get(name)) is not None:
+                if virts:
+                    for virt in virts:
+                        if (valt := virt(valt)) is None:
+                            return False
                 return True
 
         return False
@@ -425,7 +429,32 @@ class Node(NodeBase):
 
         return False
 
-    def get(self, name, defv=None):
+    def valu(self, defv=None, virts=None):
+        if virts is None:
+            return self.ndef[1]
+
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defv
+
+            if (valu := sode.get('valu')) is not None:
+                for virt in virts:
+                    valu = virt(valu)
+                return valu
+
+        return defv
+
+    def valuvirts(self, defv=None):
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defv
+
+            if (valu := sode.get('valu')) is not None:
+                return valu[-1]
+
+        return defv
+
+    def get(self, name, defv=None, virts=None):
         '''
         Return a secondary property or tag value from the Node.
 
@@ -449,6 +478,10 @@ class Node(NodeBase):
                 continue
 
             if (valt := item.get(name)) is not None:
+                if virts:
+                    for virt in virts:
+                        valt = virt(valt)
+                    return valt
                 return valt[0]
 
         return defv
@@ -948,10 +981,10 @@ class RuntNode(NodeBase):
 
         self.nid = None
 
-    def get(self, name, defv=None):
+    def get(self, name, defv=None, virts=None):
         return self.pode[1]['props'].get(name, defv)
 
-    def has(self, name):
+    def has(self, name, virts=None):
         return self.pode[1]['props'].get(name) is not None
 
     def iden(self):

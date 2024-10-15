@@ -303,7 +303,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('exited'), 1612224000000)
             self.eq(nodes[0].get('name'), 'RunDLL32')
             self.eq(nodes[0].get('path'), 'c:/windows/system32/rundll32.exe')
-            self.eq(nodes[0].get('path:base'), 'rundll32.exe')
+            self.len(1, await core.nodes('it:exec:proc:path*base=rundll32.exe'))
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :killedby -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:proc=80e6c59d9c349ac15f716eaa825a23fa :sandbox:file -> file:bytes'))
 
@@ -1414,9 +1414,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('time'), tick)
             self.eq(node.get('file'), fbyts)
             self.eq(node.get('path'), fpath)
-            self.eq(node.get('path:dir'), 'c:/temp')
-            self.eq(node.get('path:base'), 'yourfiles.rar')
-            self.eq(node.get('path:ext'), 'rar')
+            self.len(1, await core.nodes('it:exec:file:add:path*dir=c:/temp'))
+            self.len(1, await core.nodes('it:exec:file:add:path*base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:exec:file:add:path*ext=rar'))
             self.eq(node.get('sandbox:file'), sandfile)
 
             fr0 = s_common.guid()
@@ -1433,9 +1433,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('time'), tick)
             self.eq(node.get('file'), fbyts)
             self.eq(node.get('path'), fpath)
-            self.eq(node.get('path:dir'), 'c:/temp')
-            self.eq(node.get('path:base'), 'yourfiles.rar')
-            self.eq(node.get('path:ext'), 'rar')
+            self.len(1, await core.nodes('it:exec:file:read:path*dir=c:/temp'))
+            self.len(1, await core.nodes('it:exec:file:read:path*base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:exec:file:read:path*ext=rar'))
             self.eq(node.get('sandbox:file'), sandfile)
 
             fw0 = s_common.guid()
@@ -1452,9 +1452,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('time'), tick)
             self.eq(node.get('file'), fbyts)
             self.eq(node.get('path'), fpath)
-            self.eq(node.get('path:dir'), 'c:/temp')
-            self.eq(node.get('path:base'), 'yourfiles.rar')
-            self.eq(node.get('path:ext'), 'rar')
+            self.len(1, await core.nodes('it:exec:file:write:path*dir=c:/temp'))
+            self.len(1, await core.nodes('it:exec:file:write:path*base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:exec:file:write:path*ext=rar'))
             self.eq(node.get('sandbox:file'), sandfile)
 
             fd0 = s_common.guid()
@@ -1471,9 +1471,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('time'), tick)
             self.eq(node.get('file'), fbyts)
             self.eq(node.get('path'), fpath)
-            self.eq(node.get('path:dir'), 'c:/temp')
-            self.eq(node.get('path:base'), 'yourfiles.rar')
-            self.eq(node.get('path:ext'), 'rar')
+            self.len(1, await core.nodes('it:exec:file:del:path*dir=c:/temp'))
+            self.len(1, await core.nodes('it:exec:file:del:path*base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:exec:file:del:path*ext=rar'))
             self.eq(node.get('sandbox:file'), sandfile)
 
             file0 = s_common.guid()
@@ -1501,9 +1501,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('mtime'), tick + 1)
             self.eq(node.get('atime'), tick + 2)
             self.eq(node.get('path'), fpath)
-            self.eq(node.get('path:dir'), 'c:/temp')
-            self.eq(node.get('path:base'), 'yourfiles.rar')
-            self.eq(node.get('path:ext'), 'rar')
+            self.len(1, await core.nodes('it:fs:file:path*dir=c:/temp'))
+            self.len(1, await core.nodes('it:fs:file:path*base=yourfiles.rar'))
+            self.len(1, await core.nodes('it:fs:file:path*ext=rar'))
 
             rprops = {
                 'host': host,
