@@ -246,6 +246,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
                 }),
+                ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of requirement types.'}),
                 ('ou:requirement', ('guid', {}), {
                     'doc': 'A specific requirement.'}),
             ),
@@ -341,8 +344,11 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The currency of the econ:price values.',
                     }),
                     ('costs', ('econ:price', {}), {
-                        'doc': 'The costs/expenditures over the period.',
-                    }),
+                        'doc': 'The costs/expenditures over the period.'}),
+
+                    ('budget', ('econ:price', {}), {
+                        'doc': 'The budget allocated for the period.'}),
+
                     ('revenue', ('econ:price', {}), {
                         'doc': 'The gross revenue over the period.',
                     }),
@@ -1213,10 +1219,14 @@ class OuModule(s_module.CoreModule):
                     }),
                     # TODO duration ('duration'
                 )),
+                ('ou:requirement:type:taxonomy', {}, ()),
                 ('ou:requirement', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the requirement.'}),
+
+                    ('type', ('ou:requirement:type:taxonomy', {}), {
+                        'doc': 'The type of requirement.'}),
 
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
