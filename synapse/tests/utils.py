@@ -70,6 +70,7 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
@@ -156,6 +157,7 @@ class LibTst(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'beep',
+         'deprecated': {'eoldate': '8080-08-08'},
          'desc': '''
         Example storm func.
 
@@ -168,6 +170,7 @@ class LibTst(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
         {'name': 'someargs',
          'desc': '''Example storm func with args.''',
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'This is a test library was deprecated from the day it was made.'},
          'type': {'type': 'function', '_funcname': 'someargs',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
@@ -197,6 +200,32 @@ class LibTst(s_stormtypes.Lib):
         '''
         ret = f'A {valu} beep which {bar} the {faz}!'
         return ret
+
+class LibDepr(s_stormtypes.Lib):
+    '''
+    Deprecate me!
+    '''
+    _storm_locals = (
+        {'name': 'boop',
+         'desc': '''
+         An example storm function that's not deprecated on its own, but the entire library is.
+         ''',
+         'type': {'type': 'function', '_funcname': 'boop',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'What to boop.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The booped.', }}},
+    )
+    _storm_lib_path = ('depr',)
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
+
+    def addLibFuncs(self):  # pragma: no cover
+        self.locls.update({
+            'boop': self.boop,
+        })
+
+    async def boop(self, valu):  # pragma: no cover
+        return f'You have been booped, {valu}!'
 
 class TestType(s_types.Type):
 
@@ -677,7 +706,7 @@ class TstEnv:
 
 class TstOutPut(s_output.OutPutStr):
 
-    def expect(self, substr, throw=True):
+    def expect(self, substr, throw=True, whitespace=True):
         '''
         Check if a string is present in the messages captured by the OutPutStr object.
 
@@ -689,6 +718,11 @@ class TstOutPut(s_output.OutPutStr):
             bool: True if the string is present; False if the string is not present and throw is False.
         '''
         outs = str(self)
+
+        if not whitespace:
+            outs = ' '.join(outs.split())
+            substr = ' '.join(outs.split())
+
         if outs.find(substr) == -1:
             if throw:
                 mesg = 'TestOutPut.expect(%s) not in %s' % (substr, outs)
@@ -1010,11 +1044,23 @@ class SynTest(unittest.TestCase):
             yield regrdir
 
     @contextlib.asynccontextmanager
-    async def getRegrCore(self, vers, conf=None):
+    async def getRegrCore(self, vers, conf=None, maxvers=None):
         with self.withNexusReplay():
             with self.getRegrDir('cortexes', vers) as dirn:
-                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    yield core
+                if maxvers is not None:
+
+                    orig = s_modelrev.ModelRev
+                    class ModelRev(orig):
+                        def __init__(self, core):
+                            orig.__init__(self, core)
+                            self.revs = [k for k in self.revs if k[0] <= maxvers]
+
+                    with mock.patch.object(s_modelrev, 'ModelRev', ModelRev):
+                        async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                            yield core
+                else:
+                    async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        yield core
 
     @contextlib.asynccontextmanager
     async def getRegrAxon(self, vers, conf=None):
@@ -1297,31 +1343,17 @@ class SynTest(unittest.TestCase):
         Returns:
             s_cortex.Cortex: A Cortex object.
         '''
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
+        conf = self.getCellConf(conf=conf)
 
-        conf = copy.deepcopy(conf)
-
-        mods = conf.get('modules')
-
-        if mods is None:
-            mods = []
-            conf['modules'] = mods
+        mods = list(conf.get('modules', ()))
+        conf['modules'] = mods
 
         mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
 
         with self.withNexusReplay():
 
-            if dirn is not None:
+            with self.mayTestDir(dirn) as dirn:
 
-                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    yield core
-
-                return
-
-            with self.getTestDir() as dirn:
                 async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
                     yield core
 
@@ -1342,11 +1374,7 @@ class SynTest(unittest.TestCase):
     @contextlib.asynccontextmanager
     async def getTestJsonStor(self, dirn=None, conf=None):
 
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-        conf = copy.deepcopy(conf)
+        conf = self.getCellConf(conf=conf)
 
         with self.withNexusReplay():
             if dirn is not None:
@@ -1367,20 +1395,10 @@ class SynTest(unittest.TestCase):
         Returns:
             s_cryotank.CryoCell: Test cryocell.
         '''
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-        conf = copy.deepcopy(conf)
+        conf = self.getCellConf(conf=conf)
 
         with self.withNexusReplay():
-            if dirn is not None:
-                async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
-                    yield cryo
-
-                return
-
-            with self.getTestDir() as dirn:
+            with self.mayTestDir(dirn) as dirn:
                 async with await s_cryotank.CryoCell.anit(dirn, conf=conf) as cryo:
                     yield cryo
 
@@ -1409,26 +1427,13 @@ class SynTest(unittest.TestCase):
             s_certdir.delCertPath(certpath)
 
     @contextlib.asynccontextmanager
-    async def getTestCell(self, ctor, conf=None, dirn=None):
+    async def getTestCell(self, ctor=s_cell.Cell, conf=None, dirn=None):
         '''
         Get a test Cell.
         '''
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-
-        conf = copy.deepcopy(conf)
-
+        conf = self.getCellConf(conf=conf)
         with self.withNexusReplay():
-            if dirn is not None:
-
-                async with await ctor.anit(dirn, conf=conf) as cell:
-                    yield cell
-
-                return
-
-            with self.getTestDir() as dirn:
+            with self.mayTestDir(dirn) as dirn:
                 async with await ctor.anit(dirn, conf=conf) as cell:
                     yield cell
 
@@ -1451,68 +1456,83 @@ class SynTest(unittest.TestCase):
 
                 yield core, prox, testsvc
 
-    @contextlib.asynccontextmanager
-    async def getTestAha(self, conf=None, dirn=None):
-
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-        conf = copy.deepcopy(conf)
-
-        with self.withNexusReplay():
-            if dirn:
-                async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
-                    yield aha
-            else:
-                with self.getTestDir() as dirn:
-                    async with await s_aha.AhaCell.anit(dirn, conf=conf) as aha:
-                        yield aha
-
-    @contextlib.asynccontextmanager
-    async def getTestAhaProv(self, conf=None, dirn=None):
+    @contextlib.contextmanager
+    def mayTestDir(self, dirn: str | None) -> contextlib.AbstractContextManager[str, None, None]:
         '''
-        Get an Aha cell that is configured for provisioning on aha.loop.vertex.link.
+        Convenience method to make a temporary directory or use an existing one.
 
         Args:
-            conf: Optional configuration information for the Aha cell.
-            dirn: Optional path to create the Aha cell in.
+            dirn: Directory to use, or None.
 
         Returns:
-            s_aha.AhaCell: The provisioned Aha cell.
+            The directory to use.
         '''
-        bconf = {
-            'aha:name': 'aha',
-            'aha:network': 'loop.vertex.link',
-            'provision:listen': 'ssl://aha.loop.vertex.link:0'
-        }
+        if dirn is not None:
+            yield dirn
+            return
+
+        with self.getTestDir() as dirn:
+            yield dirn
+
+    @contextlib.asynccontextmanager
+    async def getTestAha(self, conf=None, dirn=None, ctor=None):
 
         if conf is None:
-            conf = bconf
-        else:
-            for k, v in bconf.items():
-                conf.setdefault(k, v)
+            conf = {}
 
-        name = conf.get('aha:name')
-        netw = conf.get('aha:network')
-        dnsname = f'{name}.{netw}'
+        if ctor is None:
+            ctor = s_aha.AhaCell.anit
 
-        async with self.getTestAha(conf=conf, dirn=dirn) as aha:
-            addr, port = aha.provdmon.addr
-            # update the config to reflect the dynamically bound port
-            aha.conf['provision:listen'] = f'ssl://{dnsname}:{port}'
+        conf = s_msgpack.deepcopy(conf)
 
-            # do this config ex-post-facto due to port binding...
-            host, ahaport = await aha.dmon.listen(f'ssl://0.0.0.0:0?hostname={dnsname}&ca={netw}')
-            aha.conf['aha:urls'] = (f'ssl://{dnsname}:{ahaport}',)
+        hasdmonlisn = 'dmon:listen' in conf
+        hasprovlisn = 'provision:listen' in conf
 
-            yield aha
+        network = conf.setdefault('aha:network', 'synapse')
+        hostname = conf.setdefault('dns:name', '00.aha.loop.vertex.link')
+
+        if hostname:
+            conf.setdefault('provision:listen', f'ssl://0.0.0.0:0?hostname={hostname}')
+            conf.setdefault('dmon:listen', f'ssl://0.0.0.0:0?hostname={hostname}&ca={network}')
+
+        conf.setdefault('health:sysctl:checks', False)
+
+        with self.withNexusReplay():
+
+            with self.mayTestDir(dirn) as dirn:
+
+                if conf.get('aha:network') == 'synapse':
+                    dstpath = os.path.join(dirn, 'certs')
+                    if not os.path.isdir(dstpath):
+                        srcpath = self.getTestFilePath('aha/certs')
+                        shutil.copytree(srcpath, os.path.join(dirn, 'certs'))
+
+                async with await ctor(dirn, conf=conf) as aha:
+
+                    mods = {}
+                    if not hasdmonlisn and hostname:
+                        mods['dmon:listen'] = f'ssl://0.0.0.0:{aha.sockaddr[1]}?hostname={hostname}&ca={network}'
+
+                    if not hasprovlisn and hostname:
+                        mods['provision:listen'] = f'ssl://0.0.0.0:{aha.provaddr[1]}?hostname={hostname}'
+
+                    if mods:
+                        aha.modCellConf(mods)
+
+                    yield aha
+
+    def getCellConf(self, conf=None):
+        if conf is None:
+            conf = {}
+        conf = s_msgpack.deepcopy(conf)
+        conf.setdefault('health:sysctl:checks', False)
+        return conf
 
     @contextlib.asynccontextmanager
     async def addSvcToAha(self, aha, svcname, ctor,
                           conf=None, dirn=None, provinfo=None):
         '''
-        Creates as service and provision it in a Aha network via the provisioning API.
+        Creates a service and provisions it in an Aha network via the provisioning API.
 
         This assumes the Aha cell has a provision:listen and aha:urls set.
 
@@ -1522,42 +1542,25 @@ class SynTest(unittest.TestCase):
             ctor: Service class to add.
             conf (dict): Optional service conf.
             dirn (str): Optional directory.
-            provinfo (dict)): Optional provisioning info.
+            provinfo (dict): Optional provisioning info.
 
         Notes:
             The config data for the cell is pushed into dirn/cell.yaml.
             The cells are created with the ``ctor.anit()`` function.
         '''
+        ahanetw = aha.conf.req('aha:network')
+        svcfull = f'{svcname}.{ahanetw}'
         onetime = await aha.addAhaSvcProv(svcname, provinfo=provinfo)
 
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-
+        conf = self.getCellConf(conf=conf)
         conf['aha:provision'] = onetime
 
-        logger.info(f'Adding {svcname}')
-
-        n = 1  # a simple svcname like "foo"
-        if len(svcname.split('.')) > 1:
-            n = 2  # A replica name like 00.foo
-        if provinfo and 'mirror' in provinfo:
-            n = 1  # A mirror like 01.foo with mirror: foo
-
-        waiter = aha.waiter(n, 'aha:svcadd')
-
-        if dirn:
+        waiter = aha.waiter(1, f'aha:svcadd:{svcfull}')
+        with self.mayTestDir(dirn) as dirn:
             s_common.yamlsave(conf, dirn, 'cell.yaml')
             async with await ctor.anit(dirn) as svc:
-                self.ge(len(await waiter.wait(timeout=12)), n)
+                self.true(await waiter.wait(timeout=12))
                 yield svc
-        else:
-            with self.getTestDir() as dirn:
-                s_common.yamlsave(conf, dirn, 'cell.yaml')
-                async with await ctor.anit(dirn) as svc:
-                    self.ge(len(await waiter.wait(timeout=12)), n)
-                    yield svc
 
     async def addSvcToCore(self, svc, core, svcname='svc'):
         '''
@@ -1592,7 +1595,7 @@ class SynTest(unittest.TestCase):
         return s_telepath.openurl(f'tcp:///{name}', **kwargs)
 
     @contextlib.contextmanager
-    def getTestDir(self, mirror=None, copyfrom=None, chdir=False, startdir=None):
+    def getTestDir(self, mirror=None, copyfrom=None, chdir=False, startdir=None) -> contextlib.AbstractContextManager[str, None, None]:
         '''
         Get a temporary directory for test purposes.
         This destroys the directory afterwards.
@@ -2058,6 +2061,7 @@ class SynTest(unittest.TestCase):
         Assert X is not None
         '''
         self.assertIsNotNone(x, msg=msg)
+        return x
 
     def none(self, x, msg=None):
         '''
@@ -2154,7 +2158,7 @@ class SynTest(unittest.TestCase):
             count += 1
         self.eq(x, count, msg=msg)
 
-    def stormIsInPrint(self, mesg, mesgs, deguid=False):
+    def stormIsInPrint(self, mesg, mesgs, deguid=False, whitespace=True):
         '''
         Check if a string is present in all of the print messages from a stream of storm messages.
 
@@ -2166,6 +2170,9 @@ class SynTest(unittest.TestCase):
             mesg = deguidify(mesg)
 
         print_str = '\n'.join([m[1].get('mesg') for m in mesgs if m[0] == 'print'])
+        if not whitespace:
+            mesg = ' '.join(mesg.split())
+            print_str = ' '.join(print_str.split())
 
         if deguid:
             print_str = deguidify(print_str)

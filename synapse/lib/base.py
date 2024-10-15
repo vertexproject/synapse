@@ -178,7 +178,24 @@ class Base:
     def onfini(self, func):
         '''
         Add a function/coroutine/Base to be called on fini().
+
+        The rules around how to register function/coroutine/Base to be called:
+            - Call this method with an instance of Base (this class) if holding
+              a reference to a bound method of the instance (such as a fini()
+              method) would cause the object to be leaked. This is appropriate
+              for ephemeral objects that may be constructed/destroyed multiple
+              times over the lifetime of a process.
+
+            - Call this method with an instance method if you want the object to
+              have a lifetime as long as the thing being fini'd.
         '''
+        if self.isfini:
+            if isinstance(func, Base):
+                s_coro.create_task(func.fini())
+            else:
+                s_coro.create_task(s_coro.ornot(func))
+            return
+
         if isinstance(func, Base):
             self.tofini.add(func)
             return
@@ -408,8 +425,6 @@ class Base:
         for fini in self._fini_funcs:
             try:
                 await s_coro.ornot(fini)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
             except Exception:
                 logger.exception(f'{self} - fini function failed: {fini}')
 
@@ -493,9 +508,8 @@ class Base:
         def taskDone(task):
             self._active_tasks.remove(task)
             try:
-                if not task.done():
-                    task.result()
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                task.result()
+            except asyncio.CancelledError:
                 pass
             except Exception:
                 logger.exception('Task %s scheduled through Base.schedCoro raised exception', task)
@@ -579,7 +593,7 @@ class Base:
         loop.add_signal_handler(signal.SIGINT, sigint)
         loop.add_signal_handler(signal.SIGTERM, sigterm)
 
-    async def main(self):
+    async def main(self): # pragma: no cover
         '''
         Helper function to setup signal handlers for this base as the main object.
         ( use base.waitfini() to block )
@@ -590,7 +604,7 @@ class Base:
         await self.addSignalHandlers()
         return await self.waitfini()
 
-    def waiter(self, count, *names):
+    def waiter(self, count, *names, timeout=None):
         '''
         Construct and return a new Waiter for events on this base.
 
@@ -615,16 +629,17 @@ class Base:
             race conditions with this mechanism ;)
 
         '''
-        return Waiter(self, count, *names)
+        return Waiter(self, count, *names, timeout=timeout)
 
 class Waiter:
     '''
     A helper to wait for a given number of events on a Base.
     '''
-    def __init__(self, base, count, *names):
+    def __init__(self, base, count, *names, timeout=None):
         self.base = base
         self.names = names
         self.count = count
+        self.timeout = timeout
         self.event = asyncio.Event()
 
         self.events = []
@@ -656,6 +671,9 @@ class Waiter:
                 doStuff(evnt)
 
         '''
+        if timeout is None:
+            timeout = self.timeout
+
         try:
 
             retn = await s_coro.event_wait(self.event, timeout)
@@ -675,6 +693,18 @@ class Waiter:
         if not self.names:
             self.base.unlink(self._onWaitEvent)
         del self.event
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc, cls, tb):
+        if exc is None:
+            if await self.wait() is None: # pragma: no cover
+                # these lines are 100% covered by the tests but
+                # the coverage plugin cannot seem to see them...
+                events = ','.join(self.names)
+                mesg = f'timeout waiting for {self.count} event(s): {events}'
+                raise s_exc.TimeOut(mesg=mesg)
 
 class BaseRef(Base):
     '''
@@ -776,9 +806,6 @@ async def schedGenr(genr, maxsize=100):
                 await q.put((True, item))
 
             await q.put((False, None))
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception:
             if not base.isfini:

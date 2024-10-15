@@ -2,13 +2,14 @@ import regex
 import logging
 
 import synapse.exc as s_exc
+import synapse.assets as s_assets
 import synapse.common as s_common
 
 import synapse.lib.layer as s_layer
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 26)
+maxvers = (0, 2, 30)
 
 class ModelRev:
 
@@ -40,6 +41,10 @@ class ModelRev:
             ((0, 2, 24), self.revModel_0_2_24),
             ((0, 2, 25), self.revModel_0_2_25),
             ((0, 2, 26), self.revModel_0_2_26),
+            ((0, 2, 27), self.revModel_0_2_27),
+            # Model revision 0.2.28 skipped
+            ((0, 2, 29), self.revModel_0_2_29),
+            ((0, 2, 30), self.revModel_0_2_30),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -782,6 +787,32 @@ class ModelRev:
             if stortype == s_layer.STOR_TYPE_NDEF:
                 logger.info(f'Updating ndef indexing for {name}')
                 await self._updatePropStortype(layers, prop.full)
+
+    async def revModel_0_2_27(self, layers):
+        await self._normPropValu(layers, 'it:dev:repo:commit:id')
+
+    async def revModel_0_2_28(self, layers):
+
+        opts = {'vars': {
+            'layridens': [layr.iden for layr in layers],
+        }}
+
+        text = s_assets.getStorm('migrations', 'model-0.2.28.storm')
+        await self.runStorm(text, opts=opts)
+
+    async def revModel_0_2_29(self, layers):
+        await self._propToForm(layers, 'ou:industry:type', 'ou:industry:type:taxonomy')
+
+    async def revModel_0_2_30(self, layers):
+        await self._normFormSubs(layers, 'inet:ipv4', cmprvalu='192.0.0.0/24')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='64:ff9b:1::/48')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2002::/16')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:1::1/128')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:1::2/128')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:3::/32')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:4:112::/48')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:20::/28')
+        await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:30::/28')
 
     async def runStorm(self, text, opts=None):
         '''

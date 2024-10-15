@@ -1,4 +1,6 @@
 import copy
+
+import synapse.exc as s_exc
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -153,6 +155,10 @@ LibTst for testing!
 beep(valu)
 ==========
 
+.. warning::
+   ``$lib.test.beep`` has been deprecated and will be removed on or after 8080-08-08.
+
+
 Example storm func.
 
 Notes:
@@ -172,6 +178,11 @@ Returns:
 
 someargs(valu, bar=$lib.true, faz=$lib.null)
 ============================================
+
+.. warning::
+   ``$lib.test.someargs`` has been deprecated and will be removed in version v3.0.0.
+   This is a test library was deprecated from the day it was made.
+
 
 Example storm func with args.
 
@@ -220,6 +231,10 @@ LibTst for testing!
 $lib.test.beep(valu)
 ====================
 
+.. warning::
+   ``$lib.test.beep`` has been deprecated and will be removed on or after 8080-08-08.
+
+
 Example storm func.
 
 Notes:
@@ -240,6 +255,11 @@ Returns:
 $lib.test.someargs(valu, bar=$lib.true, faz=$lib.null)
 ======================================================
 
+.. warning::
+   ``$lib.test.someargs`` has been deprecated and will be removed in version v3.0.0.
+   This is a test library was deprecated from the day it was made.
+
+
 Example storm func with args.
 
 
@@ -256,4 +276,69 @@ Args:
 
 Returns:
     The beeped string. The return type is ``str``.'''
+        self.eq(text, expected)
+
+        badlocls = copy.deepcopy(libtst._storm_locals)
+        badlocls[0]['deprecated']['eolvers'] = 'v4.4.4'
+        page = s_autodoc.RstHelp()
+        doc = {
+            'desc': s_stormtypes.getDoc(libtst, "err"),
+            'path': ('lib',) + libtst._storm_lib_path,
+            'locals': badlocls,
+        }
+        with self.raises(s_exc.SchemaViolation):
+            s_autodoc.docStormTypes(page, (doc,), linkprefix='test')
+
+        libdepr = s_t_utils.LibDepr
+        locls = copy.deepcopy(libdepr._storm_locals)
+        [obj.get('type', {}).pop('_funcname', None) for obj in locls]
+        doc = {
+            'desc': s_stormtypes.getDoc(libdepr, "err"),
+            'path': ('lib',) + libdepr._storm_lib_path,
+            'locals': locls,
+            'deprecated': libdepr._storm_lib_deprecation
+        }
+        page = s_autodoc.RstHelp()
+        page.addHead('Test')
+        page.addLines('I am a line.')
+        s_autodoc.docStormTypes(page, (doc,), linkprefix='test', islib=True)
+        text = page.getRstText()
+        expected = '''
+####
+Test
+####
+
+I am a line.
+
+
+.. _test-lib-depr:
+
+*********
+$lib.depr
+*********
+
+Deprecate me!
+
+
+
+.. _test-lib-depr-boop:
+
+$lib.depr.boop(valu)
+====================
+
+.. warning::
+   ``$lib.depr.boop`` has been deprecated and will be removed in version v3.0.0.
+
+
+An example storm function that's not deprecated on its own, but the entire library is.
+
+
+
+Args:
+    valu (str): What to boop.
+
+
+
+Returns:
+    The booped. The return type is ``str``.'''
         self.eq(text, expected)

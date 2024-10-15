@@ -95,7 +95,7 @@ class OuModelTest(s_t_utils.SynTest):
             :techniques=$p.techniques :sophistication=$p.sophistication :tag=$p.tag
             :reporter=$p.reporter :reporter:name=$p."reporter:name" :timeline=$p.timeline
             :mitre:attack:campaign=$p."mitre:attack:campaign"
-            :ext:id=Foo
+            :ext:id=Foo :slogan="For The People"
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': camp, 'p': props}})
             self.len(1, nodes)
@@ -118,7 +118,9 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(node.get('reporter'))
             self.eq(node.get('reporter:name'), 'vertex')
             self.eq(node.get('mitre:attack:campaign'), 'C0011')
+            self.eq(node.get('slogan'), 'for the people')
 
+            self.len(1, await core.nodes(f'ou:campaign={camp} :slogan -> lang:phrase'))
             nodes = await core.nodes(f'ou:campaign={camp} -> it:mitre:attack:campaign')
             self.len(1, nodes)
             nodes = nodes[0]
@@ -238,7 +240,7 @@ class OuModelTest(s_t_utils.SynTest):
                 :logo=$p.logo :alias=$p.alias :phone=$p.phone :sic=$p.sic :naics=$p.naics :url=$p.url
                 :us:cage=$p."us:cage" :founded=$p.founded :dissolved=$p.dissolved
                 :techniques=$p.techniques :goals=$p.goals
-                :ext:id=Foo
+                :ext:id=Foo :motto="DONT BE EVIL"
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid0, 'p': props}})
             self.len(1, nodes)
@@ -261,11 +263,13 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('goals'), (goal,))
             self.eq(node.get('ext:id'), 'Foo')
             self.nn(node.get('logo'))
+            self.eq('dont be evil', node.get('motto'))
 
             await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
             self.len(1, await core.nodes('ou:org:country:code=ua'))
             self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
             self.len(1, await core.nodes('ou:org -> ou:orgtype'))
+            self.len(1, await core.nodes('ou:org :motto -> lang:phrase'))
 
             nodes = await core.nodes('ou:name')
             self.sorteq([x.ndef[1] for x in nodes], (normname, 'vertex') + altnames)
@@ -636,6 +640,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[ ou:requirement=50b757fafe4a839ec499023ebcffe7c0
                 :name="acquire pizza toppings"
+                :type=foo.bar
                 :text="The team must acquire ANSI standard pizza toppings."
                 :goal={[ ou:goal=* :name=pizza ]}
                 :issuer={[ ps:contact=* :name=visi ]}
@@ -653,6 +658,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('The team must acquire ANSI standard pizza toppings.', nodes[0].get('text'))
             self.eq(1, nodes[0].get('deps:min'))
             self.eq(50, nodes[0].get('priority'))
+            self.eq('foo.bar.', nodes[0].get('type'))
             self.eq(True, nodes[0].get('optional'))
             self.eq(1328140800000, nodes[0].get('issued'))
             self.eq((1672531200000, 9223372036854775807), nodes[0].get('period'))
@@ -661,6 +667,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:goal +:name=pizza'))
             self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 :issuer -> ps:contact +:name=visi'))
             self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 :assignee -> ps:contact +:orgname=ledos'))
+            self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:requirement:type:taxonomy'))
 
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
@@ -828,6 +835,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :orgfqdn = wootwoot.com
                     :currency = USD
                     :costs = 200
+                    :budget = 300
                     :revenue = 500
                     :profit = 300
                     :valuation = 1000000000
@@ -846,6 +854,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('orgfqdn'), 'wootwoot.com')
             self.eq(nodes[0].get('currency'), 'usd')
             self.eq(nodes[0].get('costs'), '200')
+            self.eq(nodes[0].get('budget'), '300')
             self.eq(nodes[0].get('revenue'), '500')
             self.eq(nodes[0].get('profit'), '300')
             self.eq(nodes[0].get('valuation'), '1000000000')

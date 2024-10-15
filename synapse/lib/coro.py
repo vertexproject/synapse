@@ -39,6 +39,20 @@ async def agen(item):
     for x in item:
         yield x
 
+async def chunks(genr, size=100):
+
+    retn = []
+    async for item in genr:
+
+        retn.append(item)
+
+        if len(retn) == size:
+            yield retn
+            retn = []
+
+    if retn:
+        yield retn
+
 async def pause(genr, iterations=10):
     idx = 0
 
@@ -147,6 +161,19 @@ async def ornot(func, *args, **kwargs):
     if iscoro(retn):
         return await retn
     return retn
+
+bgtasks = set()
+def create_task(coro):
+
+    task = asyncio.get_running_loop().create_task(coro)
+    bgtasks.add(task)
+
+    def done(t):
+        bgtasks.remove(t)
+
+    task.add_done_callback(done)
+
+    return task
 
 class GenrHelp:
 

@@ -746,8 +746,10 @@ Interface
 ---------
 
 In Synapse, an interface is a data model element that defines a set of secondary properties that are common to a
-subset of related forms. Forms that should have the set of secondary properties can be defined so as to "inherit"
-the interface and its properties, as opposed to explicitly declaring each property on every form.
+set of related forms. Forms that should have these secondary properties can be defined so as to "inherit" the
+interface and its properties, as opposed to explicitly declaring each property on each form.
+
+See the :ref:`interface` section of the the :ref:`data-model-terms` document for additional detail.
 
 .. _gloss-inst-know:
 
@@ -1593,7 +1595,7 @@ Within Synapse, one of the primary methods for interacting with data in a :ref:`
 to navigating the data by crossing ("walking") a lighweight (light) edge (:ref:`gloss-edge-light`) betweeen 
 nodes. Compare with :ref:`gloss-lift`, :ref:`gloss-pivot`, and :ref:`gloss-filter`.
 
-See :ref:`walk-light-edge` for additional detail.
+See :ref:`storm-traverse` for additional detail.
 
 .. _gloss-trigger:
 

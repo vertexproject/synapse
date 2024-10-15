@@ -407,6 +407,35 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('net6'), ('fe80::', 'fe80::ffff:ffff:ffff:ffff'))
             self.eq(nodes[0].get('type'), 'virtual.sdn.')
 
+            nodes = await core.nodes('''[
+                it:sec:stix:indicator=*
+                    :id=zoinks
+                    :name=woot
+                    :confidence=90
+                    :revoked=(false)
+                    :description="my neato indicator"
+                    :pattern="some rule text"
+                    :pattern_type=yara
+                    :created=20240815
+                    :updated=20240815
+                    :labels=(hehe, haha)
+                    :valid_from=20240815
+                    :valid_until=20240815
+            ]''')
+            self.len(1, nodes)
+            self.eq('zoinks', nodes[0].get('id'))
+            self.eq('woot', nodes[0].get('name'))
+            self.eq(90, nodes[0].get('confidence'))
+            self.eq(False, nodes[0].get('revoked'))
+            self.eq('my neato indicator', nodes[0].get('description'))
+            self.eq('some rule text', nodes[0].get('pattern'))
+            self.eq('yara', nodes[0].get('pattern_type'))
+            self.eq(('haha', 'hehe'), nodes[0].get('labels'))
+            self.eq(1723680000000, nodes[0].get('created'))
+            self.eq(1723680000000, nodes[0].get('updated'))
+            self.eq(1723680000000, nodes[0].get('valid_from'))
+            self.eq(1723680000000, nodes[0].get('valid_until'))
+
     async def test_infotech_ios(self):
 
         async with self.getTestCore() as core:
@@ -1518,6 +1547,45 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.nn(node.get('reg'))
                 self.eq(node.get('sandbox:file'), sandfile)
 
+        async with self.getTestCore() as core:
+            forms = [
+                'it:fs:file',
+                'it:exec:file:add',
+                'it:exec:file:del',
+                'it:exec:file:read',
+                'it:exec:file:write',
+            ]
+
+            for form in forms:
+                opts = {'vars': {'form': form}}
+                nodes = await core.nodes('[ *$form=($form, calc) :path="c:/windows/system32/calc.exe" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/windows/system32/calc.exe')
+                self.eq(nodes[0].get('path:base'), 'calc.exe')
+                self.eq(nodes[0].get('path:dir'), 'c:/windows/system32')
+                self.eq(nodes[0].get('path:ext'), 'exe')
+
+                nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/blackout/script.ps1" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/blackout/script.ps1')
+                self.eq(nodes[0].get('path:base'), 'script.ps1')
+                self.eq(nodes[0].get('path:dir'), 'c:/users/blackout')
+                self.eq(nodes[0].get('path:ext'), 'ps1')
+
+                nodes = await core.nodes('*$form=($form, calc) [ -:path:base -:path:dir -:path:ext ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/blackout/script.ps1')
+                self.none(nodes[0].get('path:base'))
+                self.none(nodes[0].get('path:dir'))
+                self.none(nodes[0].get('path:ext'))
+
+                nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/admin/superscript.bat" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/admin/superscript.bat')
+                self.eq(nodes[0].get('path:base'), 'superscript.bat')
+                self.eq(nodes[0].get('path:dir'), 'c:/users/admin')
+                self.eq(nodes[0].get('path:ext'), 'bat')
+
     async def test_it_app_yara(self):
 
         async with self.getTestCore() as core:
@@ -1552,6 +1620,24 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('file'))
             self.eq(rule, nodes[0].get('rule'))
             self.eq(0x10000200003, nodes[0].get('version'))
+
+            nodes = await core.nodes('''[
+                (it:app:yara:netmatch=* :node=(inet:fqdn, foo.com))
+                (it:app:yara:netmatch=* :node=(inet:ipv4, 1.2.3.4))
+                (it:app:yara:netmatch=* :node=(inet:ipv6, "::ffff"))
+                (it:app:yara:netmatch=* :node=(inet:url, "http://foo.com"))
+                    :rule=$rule
+                    :version=1.2.3
+            ]''', opts=opts)
+            self.len(4, nodes)
+            for node in nodes:
+                self.nn(node.get('node'))
+                self.nn(node.get('version'))
+
+            self.len(4, await core.nodes('it:app:yara:rule=$rule -> it:app:yara:netmatch', opts=opts))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[it:app:yara:netmatch=* :node=(it:dev:str, foo)]')
 
     async def test_it_app_snort(self):
 
@@ -1589,8 +1675,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1640995200000, nodes[0].get('updated'))
             self.nn(nodes[0].get('author'))
 
-            nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('''[ it:app:snort:hit=$hit
+                :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0"
+                :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host
+                :version=1.2.3 :dropped=true ]''', opts=opts)
             self.len(1, nodes)
+            self.true(nodes[0].get('dropped'))
             self.eq(rule, nodes[0].get('rule'))
             self.eq(flow, nodes[0].get('flow'))
             self.eq(host, nodes[0].get('sensor'))

@@ -11,6 +11,7 @@ import synapse.common as s_common
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -875,14 +876,19 @@ class LibStixImport(s_stormtypes.Lib):
         bundle = await s_stormtypes.toprim(bundle)
         config = await s_stormtypes.toprim(config)
 
+        if not isinstance(config, dict):
+            mesg = 'STIX ingest config must be a dictionary.'
+            raise s_exc.BadArg(mesg=mesg)
+
         config.setdefault('bundle', {})
         config.setdefault('objects', {})
         config.setdefault('relationships', [])
 
-        rellook = {r['type']: r for r in config.get('relationships', ())}
-
-        nodesbyid = {}
-        relationships = []
+        try:
+            rellook = {r['type']: r for r in config.get('relationships', ())}
+        except Exception as e:
+            mesg = f'Error processing relationships in STIX bundle ingest config: {e}.'
+            raise s_exc.BadArg(mesg=mesg)
 
         bundlenode = None
 
@@ -890,13 +896,44 @@ class LibStixImport(s_stormtypes.Lib):
         if bundleconf is None:
             bundleconf = {}
 
+        if not isinstance(bundleconf, dict):
+            mesg = 'STIX ingest config bundle value must be a dictionary.'
+            raise s_exc.BadArg(mesg=mesg)
+
         bundlestorm = bundleconf.get('storm')
         if bundlestorm:
+            if not isinstance(bundlestorm, str):
+                mesg = 'STIX ingest config storm query must be a string.'
+                raise s_exc.BadArg(mesg=mesg)
+
             bundlenode = await self._callStorm(bundlestorm, {'bundle': bundle})
 
         self.runt.layerConfirm(('node', 'edge', 'add', 'refs'))
 
-        for obj in bundle.get('objects'):
+        config = s_schemas.reqValidStixIngestConfig(config)
+        bundle = s_schemas.reqValidStixIngestBundle(bundle)
+
+        try:
+            nodesbyid = await self._ingestObjects(bundle, config, rellook)
+        except Exception as e:
+            mesg = f'Error processing objects in STIX bundle ingest: {e}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if bundlenode is not None:
+            for node in nodesbyid.values():
+                await bundlenode.addEdge('refs', node.iden())
+                await asyncio.sleep(0)
+            yield bundlenode
+
+        for node in nodesbyid.values():
+            yield node
+
+    async def _ingestObjects(self, bundle, config, rellook):
+
+        nodesbyid = {}
+        relationships = []
+
+        for obj in bundle.get('objects', ()):
 
             objtype = obj.get('type')
 
@@ -971,7 +1008,7 @@ class LibStixImport(s_stormtypes.Lib):
                 await self.runt.snap.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
 
         # attempt to resolve object_refs
-        for obj in bundle.get('objects'):
+        for obj in bundle.get('objects', ()):
 
             node = nodesbyid.get(obj.get('id'))
             if node is None:
@@ -984,17 +1021,7 @@ class LibStixImport(s_stormtypes.Lib):
 
                 await node.addEdge('refs', refsnode.iden())
 
-        if bundlenode is not None:
-            for node in nodesbyid.values():
-                await bundlenode.addEdge('refs', node.iden())
-                await asyncio.sleep(0)
-            yield bundlenode
-
-        for node in nodesbyid.values():
-            yield node
-
-        if bundlenode:
-            yield bundlenode
+        return nodesbyid
 
     async def _callStorm(self, text, varz):
 

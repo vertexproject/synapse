@@ -159,10 +159,13 @@ class StormlibVaultTest(s_test.SynTest):
 
             # Rename vault
             opts = {'vars': {'giden': giden}}
+            self.eq('gvault', await core.callStorm('return($lib.vault.get($giden).name)', opts=opts))
             q = '$lib.vault.get($giden).name = foobar'
             await core.callStorm(q, opts=opts)
             vault = core.getVault(giden)
             self.eq(vault.get('name'), 'foobar')
+            self.nn(await core.callStorm('return($lib.vault.byname(foobar))'))
+            await self.asyncraises(s_exc.NoSuchName, core.callStorm('return($lib.vault.byname(gvault))'))
 
             # Get secrets without EDIT perms
             opts = {'vars': {'giden': giden}, 'user': visi1.iden}
@@ -222,9 +225,16 @@ class StormlibVaultTest(s_test.SynTest):
             q = '$vault = $lib.vault.get($giden) return($vault.setPerm($iden, $lib.auth.easyperm.level.deny))'
             self.true(await core.callStorm(q, opts=opts))
 
-            # List vaults again
             opts = {'user': visi1.iden}
             self.eq(0, await core.callStorm('return($lib.len($lib.vault.list()))', opts=opts))
+
+            # Remove permission on global vault
+            opts = {'vars': {'iden': visi1.iden, 'giden': giden}}
+            q = '$vault = $lib.vault.get($giden) return($vault.setPerm($iden, $lib.null))'
+            self.true(await core.callStorm(q, opts=opts))
+
+            opts = {'user': visi1.iden}
+            self.eq(1, await core.callStorm('return($lib.len($lib.vault.list()))', opts=opts))
 
             # Runtime asroot
 

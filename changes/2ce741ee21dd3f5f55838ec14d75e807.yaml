@@ -1,0 +1,5 @@
+---
+desc: Added ``it:app:snort:hit:dropped`` property to track when hits result in the traffic being dropped.
+prs: []
+type: model
+...

@@ -97,9 +97,23 @@ YIELD.1: /yield(?=[\s\{])/
 
 // Split out case subqueries to prevent invalid state merging
 casesubquery: "{" query "}" -> baresubquery
-switchcase: "switch" _varvalu "{" ((DEFAULTCASE | DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | formatstring | CASEBARE) ":" casesubquery)* "}"
+_caseentry: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | CASEBARE
+_mcaseentry: DOUBLEQUOTEDSTRING | SINGLEQUOTEDSTRING | MCASEBARE
+caseentry: (DEFAULTCASE | _caseentry | "(" _mcaseentry ("," _mcaseentry)+ ")") ":" casesubquery
+switchcase: "switch" _varvalu "{" caseentry* "}"
 DEFAULTCASE.2: "*"
-CASEBARE.2: /(?<=[\s{])(?!\*)([^:\s"']+)(?=[\s]*:[\s]*\{)/
+CASEBARE.2: /
+    (?<=[\s{])          # can follow whitespace or the opening curly brace of the switch statement
+    (?!\*)              # should not include the DEFAULTCASE bare asterisk
+    ([^:\s"'()]+)       # can be anything except these characters
+    (?=[\s]*:[\s]*\{)   # must precede a colon and the open brace of the subquery (with any whitespace in between)
+/x
+MCASEBARE.2: /
+    (?<=[\s(,])         # can follow whitespace, open parens, or comma
+    ([^:\s"'(),]+)      # can be anything except these characters
+    (?=\s*(?:,|\)\s*:)) # must precede a comma or a close parens with colon (with any whitespace in between)
+/x
+
 
 yieldvalu: YIELD _argvalu
 

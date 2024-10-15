@@ -1,0 +1,5 @@
+---
+desc: Added ``ou:vitals:budget`` property to track budget allocations.
+prs: []
+type: model
+...

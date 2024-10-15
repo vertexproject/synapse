@@ -76,7 +76,8 @@ async def main(argv, outp=s_output.stdout):
                 if isinstance(ahaurls, str):
                     ahaurls = (ahaurls,)
 
-                ahaurls = set(s_telepath.modurl(ahaurls, user=ahauser))
+                certname = f'{ahauser}@{ahanetw}'
+                ahaurls = set(s_telepath.modurl(ahaurls, certname=certname))
                 servers = teleyaml.get('aha:servers')
 
                 # repack the servers so lists are tuplized like values
