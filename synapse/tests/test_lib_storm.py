@@ -3954,6 +3954,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('$lib.bytes.size`` has been deprecated and will be removed in version v3.0.0', msgs)
             self.stormIsInPrint('$lib.bytes.upload`` has been deprecated and will be removed in version v3.0.0', msgs)
             self.stormIsInPrint('$lib.bytes.hashset`` has been deprecated and will be removed in version v3.0.0', msgs)
+            self.stormIsInPrint('Use the corresponding ``$lib.axon`` function.', msgs)
 
     async def test_liftby_edge(self):
         async with self.getTestCore() as core:
