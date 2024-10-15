@@ -274,6 +274,7 @@ reqValidSslCtxOpts = s_config.getJsValidator({
         'verify': {'type': 'boolean', 'default': True},
         'client_cert': {'type': ['string', 'null'], 'default': None},
         'client_key': {'type': ['string', 'null'], 'default': None},
+        'ca_cert': {'type': ['string', 'null'], 'default': None},
     },
     'additionalProperties': False,
 })
@@ -454,3 +455,99 @@ tabularConfSchema = {
 }
 
 reqValidTabularConf = s_config.getJsValidator(tabularConfSchema)
+
+emptySchema = {'object': {}, 'additionalProperties': False}
+re_drivename = r'^[\w_.-]{1,128}$'
+
+driveInfoSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'parent': {'type': 'string', 'pattern': s_config.re_iden},
+        'type': {'type': 'string', 'pattern': re_drivename},
+        'name': {'type': 'string', 'pattern': re_drivename},
+        'perm': s_msgpack.deepcopy(easyPermSchema),
+        'kids': {'type': 'number', 'minimum': 0},
+        'created': {'type': 'number'},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        # these are also data version info...
+        'size': {'type': 'number', 'minimum': 0},
+        'updated': {'type': 'number'},
+        'updater': {'type': 'string', 'pattern': s_config.re_iden},
+        'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
+    },
+    'required': ('iden', 'parent', 'name', 'created', 'creator', 'kids'),
+    'additionalProperties': False,
+}
+reqValidDriveInfo = s_config.getJsValidator(driveInfoSchema)
+
+driveDataVersSchema = {
+    'type': 'object',
+    'properties': {
+        'size': {'type': 'number', 'minimum': 0},
+        'updated': {'type': 'number'},
+        'updater': {'type': 'string', 'pattern': s_config.re_iden},
+        'version': {'type': 'array', 'items': {'type': 'number', 'minItems': 3, 'maxItems': 3}},
+    },
+    'required': ('size', 'version', 'updated', 'updater'),
+    'additionalProperties': False,
+}
+reqValidDriveDataVers = s_config.getJsValidator(driveDataVersSchema)
+
+stixIngestConfigSchema = {
+    'type': 'object',
+    'properties': {
+        'bundle': {
+            'type': ['object', 'null'],
+            'properties': {'storm': {'type': 'string'}},
+        },
+        'objects': {
+            'type': 'object',
+            'properties': {'storm': {'type': 'string'}},
+        },
+        'relationships': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'type': {
+                        'type': 'array',
+                        'items': {
+                            'type': ['string', 'null'],
+                            'minItems': 3,
+                            'maxItems': 3,
+                        },
+                    },
+                    'storm': {'type': 'string'},
+                },
+                'required': ['type'],
+            },
+        },
+    },
+    'required': ['bundle', 'objects'],
+}
+reqValidStixIngestConfig = s_config.getJsValidator(stixIngestConfigSchema)
+
+stixIngestBundleSchema = {
+    'type': 'object',
+    'properties': {
+        'objects': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'id': {'type': 'string'},
+                    'type': {'type': 'string'},
+                    'object_refs': {'type': 'array', 'items': {'type': 'string'}},
+                    'relationship_type': {'type': 'string'},
+                    'source_ref': {'type': 'string'},
+                    'target_ref': {'type': 'string'},
+                },
+                'required': ['id', 'type'],
+                'if': {'properties': {'type': {'const': 'relationship'}}},
+                'then': {'required': ['source_ref', 'target_ref']},
+            }
+        },
+    },
+}
+reqValidStixIngestBundle = s_config.getJsValidator(stixIngestBundleSchema)

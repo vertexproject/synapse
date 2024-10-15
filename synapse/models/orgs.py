@@ -246,6 +246,9 @@ class OuModule(s_module.CoreModule):
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.',
                 }),
+                ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of requirement types.'}),
                 ('ou:requirement', ('guid', {}), {
                     'doc': 'A specific requirement.'}),
             ),
@@ -341,8 +344,11 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The currency of the econ:price values.',
                     }),
                     ('costs', ('econ:price', {}), {
-                        'doc': 'The costs/expenditures over the period.',
-                    }),
+                        'doc': 'The costs/expenditures over the period.'}),
+
+                    ('budget', ('econ:price', {}), {
+                        'doc': 'The budget allocated for the period.'}),
+
                     ('revenue', ('econ:price', {}), {
                         'doc': 'The gross revenue over the period.',
                     }),
@@ -479,6 +485,9 @@ class OuModule(s_module.CoreModule):
 
                     ('goal', ('ou:goal', {}), {
                         'doc': 'The assessed primary goal of the campaign.'}),
+
+                    ('slogan', ('lang:phrase', {}), {
+                        'doc': 'The slogan used by the campaign.'}),
 
                     ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'Actors who participated in the campaign.'}),
@@ -633,12 +642,16 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Location for an organization.'
                     }),
                     ('name', ('ou:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The localized name of an organization.',
                     }),
                     ('type', ('str', {'lower': True, 'strip': True}), {
                         'deprecated': True,
                         'doc': 'The type of organization.',
                     }),
+                    ('motto', ('lang:phrase', {}), {
+                        'doc': 'The motto used by the organization.'}),
+
                     ('orgtype', ('ou:orgtype', {}), {
                         'doc': 'The type of organization.',
                         'disp': {'hint': 'taxonomy'},
@@ -775,6 +788,7 @@ class OuModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'A list of types that apply to the contract.'}),
                 )),
+                ('ou:industry:type:taxonomy', {}, ()),
                 ('ou:industry', {}, (
 
                     ('name', ('ou:industryname', {}), {
@@ -1205,10 +1219,14 @@ class OuModule(s_module.CoreModule):
                     }),
                     # TODO duration ('duration'
                 )),
+                ('ou:requirement:type:taxonomy', {}, ()),
                 ('ou:requirement', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the requirement.'}),
+
+                    ('type', ('ou:requirement:type:taxonomy', {}), {
+                        'doc': 'The type of requirement.'}),
 
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},

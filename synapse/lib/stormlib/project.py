@@ -847,7 +847,7 @@ class LibProjects(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the Project to get'},
                   ),
                   'returns': {'type': 'proj:project',
-                              'desc': 'The `proj:project `object, if it exists, otherwise null'}}},
+                              'desc': 'The project object, if it exists, otherwise null'}}},
 
         {'name': 'add', 'desc': 'Add a new project',
          'type': {'type': 'function', '_funcname': '_funcProjAdd',

@@ -27,6 +27,10 @@ class LangModuleTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.callStorm('return($lib.gen.langByCode(neeeeewp))')
 
+            nodes = await core.nodes('[ lang:phrase="For   The  People" ]')
+            self.len(1, nodes)
+            self.eq('for the people', nodes[0].repr())
+
     async def test_forms_idiom(self):
         async with self.getTestCore() as core:
             valu = 'arbitrary text 123'
