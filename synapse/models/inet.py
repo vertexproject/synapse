@@ -367,20 +367,20 @@ class SockAddr(s_types.Str):
         self.porttype = self.modl.type('inet:port')
 
         self.virtindx |= {
-            'addr': 'addr',
+            'ip': 'ip',
             'port': 'port',
         }
 
         self.virts |= {
-            'addr': (self.iptype, self._getAddr),
+            'ip': (self.iptype, self._getIP),
             'port': (self.porttype, self._getPort),
         }
 
-    def _getAddr(self, valu):
+    def _getIP(self, valu):
         if (virts := valu[2]) is None:
             return None
 
-        if (valu := virts.get('addr')) is None:
+        if (valu := virts.get('ip')) is None:
             return None
 
         return valu[0]
@@ -443,7 +443,7 @@ class SockAddr(s_types.Str):
                 ipv6 = self.iptype.norm(ipv6)[0]
                 host = self.iptype.repr(ipv6)
                 subs['ip'] = ipv6
-                virts['addr'] = (ipv6, self.iptype.stortype)
+                virts['ip'] = (ipv6, self.iptype.stortype)
 
                 portstr = ''
                 if port is not None:
@@ -461,7 +461,7 @@ class SockAddr(s_types.Str):
             ipv6 = self.iptype.norm(valu)[0]
             host = self.iptype.repr(ipv6)
             subs['ip'] = ipv6
-            virts['addr'] = (ipv6, self.iptype.stortype)
+            virts['ip'] = (ipv6, self.iptype.stortype)
             return f'{proto}://{host}', {'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
@@ -473,7 +473,7 @@ class SockAddr(s_types.Str):
         ipv4 = self.iptype.norm(valu)[0]
         ipv4_repr = self.iptype.repr(ipv4)
         subs['ip'] = ipv4
-        virts['addr'] = (ipv4, self.iptype.stortype)
+        virts['ip'] = (ipv4, self.iptype.stortype)
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 

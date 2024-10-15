@@ -3178,8 +3178,7 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if norm:
-            # TODO or virts is not None?
+        if norm or virts is not None:
             cmprvals = prop.type.getStorCmprs(cmpr, valu, virts=virts)
             # an empty return probably means ?= with invalid value
             if not cmprvals:
@@ -3251,8 +3250,7 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'Array syntax is invalid on non array type: {prop.type.name}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if norm:
-            # TODO or virts is not None?
+        if norm or virts is not None:
             cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu, virts=virts)
         else:
             cmprvals = ((cmpr, valu, prop.type.arraytype.stortype),)

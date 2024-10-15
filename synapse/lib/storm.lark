@@ -146,17 +146,23 @@ formpivot_jointags: _RIGHTJOIN (ALLTAGS | tagmatch)
 ALLTAGS.3: /#(?=\/[\/\*]|\s|$|\})/
 
 formpivot_pivotout:    _RIGHTPIVOT "*"
-formpivot_:            _RIGHTPIVOT (PROPS | UNIVNAME | WILDPROPS | valulist | _varvalu)
+formpivot_:            _RIGHTPIVOT (pivottarg | pivottarglist)
 
 formjoin: _RIGHTJOIN "*"     -> formjoin_pivotout
-        | _RIGHTJOIN (PROPS | UNIVNAME | WILDPROPS | valulist | _varvalu) -> formjoin_formpivot
+        | _RIGHTJOIN (pivottarg | pivottarglist) -> formjoin_formpivot
 
 formpivotin: _LEFTPIVOT "*"
 
 formjoinin: _LEFTJOIN "*"
 
-operrelprop: relprop _RIGHTPIVOT ("*" | PROPS | UNIVNAME | valulist | _varvalu) -> operrelprop_pivot
-           | relprop _RIGHTJOIN ("*" | PROPS | UNIVNAME | valulist | _varvalu) -> operrelprop_join
+operrelprop: pivotprop _RIGHTPIVOT (pivottarg | pivottarglist) -> operrelprop_pivot
+           | pivotprop _RIGHTPIVOT "*" -> operrelprop_pivotout
+           | pivotprop _RIGHTJOIN (pivottarg | pivottarglist) -> operrelprop_join
+           | pivotprop _RIGHTJOIN "*" -> operrelprop_joinout
+
+pivotprop: relprop virtprop? -> relpropvalue
+pivottarg: (PROPS | UNIVNAME | WILDPROPS | _varvalu) virtprop?
+pivottarglist: "(" pivottarg ("," pivottarg)* ")"
 
 rawpivot: _RIGHTPIVOT "{" query "}"
 
@@ -338,7 +344,8 @@ innerdollarexpr: "(" expror ")" -> dollarexpr
 exprrelprop: (EXPRRELNAME | _COLONDOLLAR _exprvarvaluatom) -> relprop
 EXPRRELNAME: /(?<!\w):\.?[a-z_][a-z0-9_]*(?:(\:\:|\:|\.)[a-z_][a-z0-9_]*)*/
 
-exprunivprop: (UNIVNAME | "." _exprvarvalu) -> univprop
+exprunivprop: (EXPRUNIVNAME | "." _exprvarvalu) -> univprop
+EXPRUNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 
 exprrelpropvalue: (exprrelprop | exprunivprop) virtprop? -> relpropvalue
 
@@ -381,8 +388,11 @@ tagpropvalu: (tagprop | tagpropwithspace) virtprop?
 _COLONDOLLAR: /(?<!\w|\'|\"):\$/
 relpropvalu: (RELNAME | _COLONDOLLAR _varvaluatom) virtprop?
 univpropvalu: univprop virtprop?
-virtprop: _VIRTPROP VARTOKN
+
+virtprop: _VIRTPROP VIRTNAME
 _VIRTPROP.2: /(?<!\s)\*(?=\w+)(?!\w+(\*\w+)*[@?!<>^~=]*[<>=])/
+VIRTNAME: /[\w\*]+/
+
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 

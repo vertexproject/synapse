@@ -2185,17 +2185,17 @@ class FormPivot(PivotOper):
     -> foo:bar
     '''
 
-    def pivogenr(self, runt, prop):
+    def pivogenr(self, runt, prop, virts=None):
 
         # -> baz:ndef
         if isinstance(prop.type, s_types.Ndef):
 
             async def pgenr(node, strict=True):
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
-                async for pivo in runt.view.nodesByPropValu(prop.full, '=', node.ndef, norm=False):
+                async for pivo in runt.view.nodesByPropValu(prop.full, '=', node.ndef, norm=False, virts=virts):
                     yield pivo, link
 
-        elif not prop.isform:
+        elif not prop.isform or virts is not None:
 
             isarray = isinstance(prop.type, s_types.Array)
 
@@ -2203,13 +2203,13 @@ class FormPivot(PivotOper):
             async def pgenr(node, strict=True):
                 if isarray:
                     if isinstance(prop.type.arraytype, s_types.Ndef):
-                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef, norm=False)
+                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef, norm=False, virts=virts)
                     else:
                         norm = prop.arraytypehash is not node.form.typehash
-                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=norm)
+                        ngenr = runt.view.nodesByPropArray(prop.full, '=', node.ndef[1], norm=norm, virts=virts)
                 else:
                     norm = prop.typehash is not node.form.typehash
-                    ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1], norm=norm)
+                    ngenr = runt.view.nodesByPropValu(prop.full, '=', node.ndef[1], norm=norm, virts=virts)
 
                 link = {'type': 'prop', 'prop': prop.name, 'reverse': True}
                 async for pivo in ngenr:
@@ -2339,32 +2339,22 @@ class FormPivot(PivotOper):
 
         return pgenr
 
-    def buildgenr(self, runt, name):
+    def buildgenr(self, runt, targets):
 
-        if isinstance(name, list) or (prop := runt.model.props.get(name)) is None:
+        if not isinstance(targets, list):
+            prop, virts = targets
+            return self.pivogenr(runt, prop, virts=virts)
 
-            proplist = None
-            if isinstance(name, list):
-                proplist = name
-            else:
-                proplist = runt.model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
+        pgenrs = []
+        for (prop, virts) in targets:
+            pgenrs.append(self.pivogenr(runt, prop, virts=virts))
 
-            pgenrs = []
-            for propname in proplist:
-                prop = runt.model.props.get(propname)
-                if prop is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
+        async def listpivot(node):
+            for pgenr in pgenrs:
+                async for item in pgenr(node, strict=False):
+                    yield item
 
-                pgenrs.append(self.pivogenr(runt, prop))
-
-            async def listpivot(node):
-                for pgenr in pgenrs:
-                    async for pivo, valu in pgenr(node, strict=False):
-                        yield pivo, valu
-
-            return listpivot
-
-        return self.pivogenr(runt, prop)
+        return listpivot
 
     async def run(self, runt, genr):
 
@@ -2374,8 +2364,8 @@ class FormPivot(PivotOper):
         async for node, path in genr:
 
             if pgenr is None or not self.kids[0].isconst:
-                name = await self.kids[0].compute(runt, None)
-                pgenr = self.buildgenr(runt, name)
+                targets = await self.kids[0].compute(runt, None)
+                pgenr = self.buildgenr(runt, targets)
 
             if self.isjoin:
                 yield node, path
@@ -2404,32 +2394,24 @@ class PropPivotOut(PivotOper):
             if self.isjoin:
                 yield node, path
 
-            name = await self.kids[0].compute(runt, path)
-
-            prop = node.form.props.get(name)
-            if prop is None:
-                # all filters must sleep
-                await asyncio.sleep(0)
-                continue
-
-            valu = node.get(name)
+            srctype, valu, srcname = await self.kids[0].getTypeValuProp(runt, path, strict=False)
             if valu is None:
                 # all filters must sleep
                 await asyncio.sleep(0)
                 continue
 
-            link = {'type': 'prop', 'prop': prop.name}
-            if prop.type.isarray:
-                if isinstance(prop.type.arraytype, s_types.Ndef):
+            link = {'type': 'prop', 'prop': srcname}
+            if srctype.isarray:
+                if isinstance(srctype.arraytype, s_types.Ndef):
                     for item in valu:
                         if (pivo := await runt.view.getNodeByNdef(item)) is not None:
                             yield pivo, path.fork(pivo, link)
                     continue
 
-                fname = prop.type.arraytype.name
+                fname = srctype.arraytype.name
                 if runt.model.forms.get(fname) is None:
                     if not warned:
-                        mesg = f'The source property "{name}" array type "{fname}" is not a form. Cannot pivot.'
+                        mesg = f'The source property "{srcname}" array type "{fname}" is not a form. Cannot pivot.'
                         await runt.warn(mesg, log=False)
                         warned = True
                     continue
@@ -2442,7 +2424,7 @@ class PropPivotOut(PivotOper):
 
             # ndef pivot out syntax...
             # :ndef -> *
-            if isinstance(prop.type, s_types.Ndef):
+            if isinstance(srctype, s_types.Ndef):
                 pivo = await runt.view.getNodeByNdef(valu)
                 if pivo is None:
                     logger.warning(f'Missing node corresponding to ndef {valu}')
@@ -2451,10 +2433,10 @@ class PropPivotOut(PivotOper):
                 continue
 
             # :prop -> *
-            fname = prop.type.name
-            if prop.modl.form(fname) is None:
+            fname = srctype.name
+            if runt.model.form(fname) is None:
                 if warned is False:
-                    await runt.warn(f'The source property "{name}" type "{fname}" is not a form. Cannot pivot.', log=False)
+                    await runt.warn(f'The source property "{srcname}" type "{fname}" is not a form. Cannot pivot.', log=False)
                     warned = True
                 continue
 
@@ -2465,15 +2447,14 @@ class PropPivotOut(PivotOper):
             if pivo:
                 yield pivo, path.fork(pivo, link)
 
-
 class PropPivot(PivotOper):
     '''
     :foo -> bar:foo
     '''
 
-    def pivogenr(self, runt, prop):
+    def pivogenr(self, runt, prop, virts=None):
 
-        async def pgenr(node, srcname, srctype, valu, strict=True):
+        async def pgenr(node, srcname, srctype, valu):
 
             link = {'type': 'prop', 'prop': srcname}
             if not prop.isform:
@@ -2492,7 +2473,7 @@ class PropPivot(PivotOper):
 
                 norm = srctype.arraytype.typehash is not prop.typehash
                 for arrayval in valu:
-                    async for pivo in runt.view.nodesByPropValu(prop.full, '=', arrayval, norm=norm):
+                    async for pivo in runt.view.nodesByPropValu(prop.full, '=', arrayval, norm=norm, virts=virts):
                         yield pivo, link
 
                 return
@@ -2511,44 +2492,32 @@ class PropPivot(PivotOper):
 
             if prop.type.isarray and not srctype.isarray:
                 norm = prop.arraytypehash is not srctype.typehash
-                genr = runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm)
+                genr = runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm, virts=virts)
             else:
                 norm = prop.typehash is not srctype.typehash
-                genr = runt.view.nodesByPropValu(prop.full, '=', valu, norm=norm)
+                genr = runt.view.nodesByPropValu(prop.full, '=', valu, norm=norm, virts=virts)
 
             async for pivo in genr:
                 yield pivo, link
 
         return pgenr
 
-    def buildgenr(self, runt, name):
+    def buildgenr(self, runt, targets):
 
-        if isinstance(name, list) or (prop := runt.model.props.get(name)) is None:
+        if not isinstance(targets, list):
+            prop, virts = targets
+            return self.pivogenr(runt, prop, virts=virts)
 
-            if isinstance(name, list):
-                proplist = name
-            else:
-                proplist = runt.model.ifaceprops.get(name)
+        pgenrs = []
+        for (prop, virts) in targets:
+            pgenrs.append(self.pivogenr(runt, prop, virts=virts))
 
-            if proplist is None:
-                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        async def listpivot(node, srcname, srctype, valu):
+            for pgenr in pgenrs:
+                async for pivo in pgenr(node, srcname, srctype, valu):
+                    yield pivo
 
-            pgenrs = []
-            for propname in proplist:
-                prop = runt.model.props.get(propname)
-                if prop is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(propname))
-
-                pgenrs.append(self.pivogenr(runt, prop))
-
-            async def listpivot(node, srcname, srctype, valu):
-                for pgenr in pgenrs:
-                    async for pivo in pgenr(node, srcname, srctype, valu, strict=False):
-                        yield pivo
-
-            return listpivot
-
-        return self.pivogenr(runt, prop)
+        return listpivot
 
     async def run(self, runt, genr):
 
@@ -2558,8 +2527,8 @@ class PropPivot(PivotOper):
         async for node, path in genr:
 
             if pgenr is None or not self.kids[1].isconst:
-                name = await self.kids[1].compute(runt, None)
-                pgenr = self.buildgenr(runt, name)
+                targets = await self.kids[1].compute(runt, None)
+                pgenr = self.buildgenr(runt, targets)
 
             if self.isjoin:
                 yield node, path
@@ -3480,7 +3449,7 @@ class PropValue(Value):
     def isRuntSafeAtom(self, runt):
         return False
 
-    async def getTypeValuProp(self, runt, path):
+    async def getTypeValuProp(self, runt, path, strict=True):
         if not path:
             return None, None, None
 
@@ -3491,6 +3460,9 @@ class PropValue(Value):
         if (prop := node.form.props.get(realprop)) is None:
             propname = await self.kids[0].compute(runt, path)
             if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                if not strict:
+                    return None, None, None
+
                 mesg = f'No property named {propname}.'
                 exc = s_exc.NoSuchProp(mesg=mesg, name=propname, form=path.node.form.name)
 
@@ -4105,6 +4077,70 @@ class FormName(Value):
 
     async def compute(self, runt, path):
         return await self.kids[0].compute(runt, path)
+
+class PivotTarget(Value):
+
+    def init(self, core):
+        [k.init(core) for k in self.kids]
+
+        self.virts = None
+        if len(self.kids) == 2:
+            self.virts = self.kids[1].value().split('*')
+
+        self.isconst = isinstance(self.kids[0], Const)
+        if not self.isconst:
+            return
+
+        self.constval = self.getPropList(self.kids[0].value(), core.model)
+
+    def getPropList(self, name, model):
+        if (prop := model.props.get(name)) is not None:
+            return (prop, self.virts)
+
+        proplist = model.reqPropsByLook(name, extra=self.kids[0].addExcInfo)
+        return [(model.props.get(prop), self.virts) for prop in proplist]
+
+    async def compute(self, runt, path):
+        if self.isconst:
+            return self.constval
+
+        valu = await self.kids[0].compute(runt, path)
+
+        if not isinstance(valu, list):
+            return self.getPropList(valu, runt.model)
+
+        proplist = []
+        for name in valu:
+            prop = self.getPropList(name, runt.model)
+            if isinstance(prop, list):
+                proplist.extend(prop)
+            else:
+                proplist.append(prop)
+
+        return proplist
+
+class PivotTargetList(List):
+
+    def prepare(self):
+        self.isconst = all(k.isconst for k in self.kids)
+        if self.isconst:
+            self.constval = []
+            for kid in self.kids:
+                self.constval.append(kid.constval)
+
+    async def compute(self, runt, path):
+        if self.isconst:
+            return self.constval
+
+        targets = []
+        for kid in self.kids:
+            targ = await kid.compute(runt, path)
+            if isinstance(targ, list):
+                targets.extend(targ)
+            else:
+                targets.append(targ)
+
+        return targets
 
 class RelProp(PropName):
     pass

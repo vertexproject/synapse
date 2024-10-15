@@ -164,41 +164,41 @@ class InetModelTest(s_t_utils.SynTest):
 
             # Proto defaults to tcp
             subs = {'ip': (4, 16909060), 'proto': 'tcp'}
-            virts = {'addr': ((4, 16909060), 26)}
+            virts = {'ip': ((4, 16909060), 26)}
             self.eq(t.norm('1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
 
             subs = {'ip': (4, 16909060), 'proto': 'tcp', 'port': 80}
-            virts = {'addr': ((4, 16909060), 26), 'port': (80, 9)}
+            virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
             self.eq(t.norm('1.2.3.4:80'), ('tcp://1.2.3.4:80', {'subs': subs, 'virts': virts}))
             self.raises(s_exc.BadTypeValu, t.norm, 'https://192.168.1.1:80')  # bad proto
 
             # IPv4
             subs = {'ip': (4, 16909060), 'proto': 'tcp'}
-            virts = {'addr': ((4, 16909060), 26)}
+            virts = {'ip': ((4, 16909060), 26)}
             self.eq(t.norm('tcp://1.2.3.4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
             self.eq(t.norm('tcp://1[.]2.3[.]4'), ('tcp://1.2.3.4', {'subs': subs, 'virts': virts}))
 
             subs = {'ip': (4, 16909060), 'proto': 'udp', 'port': 80}
-            virts = {'addr': ((4, 16909060), 26), 'port': (80, 9)}
+            virts = {'ip': ((4, 16909060), 26), 'port': (80, 9)}
             self.eq(t.norm('udp://1.2.3.4:80'), ('udp://1.2.3.4:80', {'subs': subs, 'virts': virts}))
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:-1')
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://1.2.3.4:66000')
 
             # IPv6
             subs = {'ip': (6, 1), 'proto': 'icmp'}
-            virts = {'addr': ((6, 1), 26)}
+            virts = {'ip': ((6, 1), 26)}
             self.eq(t.norm('icmp://::1'), ('icmp://::1', {'subs': subs, 'virts': virts}))
 
             subs = {'ip': (6, 1), 'proto': 'tcp', 'port': 2}
-            virts = {'addr': ((6, 1), 26), 'port': (2, 9)}
+            virts = {'ip': ((6, 1), 26), 'port': (2, 9)}
             self.eq(t.norm('tcp://[::1]:2'), ('tcp://[::1]:2', {'subs': subs, 'virts': virts}))
 
             subs = {'ip': (6, 1), 'proto': 'tcp'}
-            virts = {'addr': ((6, 1), 26)}
+            virts = {'ip': ((6, 1), 26)}
             self.eq(t.norm('tcp://[::1]'), ('tcp://[::1]', {'subs': subs, 'virts': virts}))
 
             subs = {'ip': (6, 0xffff01020304), 'proto': 'tcp', 'port': 2}
-            virts = {'addr': ((6, 0xffff01020304), 26), 'port': (2, 9)}
+            virts = {'ip': ((6, 0xffff01020304), 26), 'port': (2, 9)}
             self.eq(t.norm('tcp://[::fFfF:0102:0304]:2'),
                     ('tcp://[::ffff:1.2.3.4]:2', {'subs': subs, 'virts': virts}))
             self.raises(s_exc.BadTypeValu, t.norm, 'tcp://[::1')  # bad ipv6 w/ port

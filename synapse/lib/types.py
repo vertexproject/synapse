@@ -193,11 +193,16 @@ class Type:
         return self.norm(node.ndef[1])
 
     def pack(self):
-        return {
+        info = {
             'info': dict(self.info),
             'opts': dict(self.opts),
             'stortype': self.stortype,
         }
+
+        if self.virts:
+            info['virts'] = {name: valu[0].pack() for (name, valu) in self.virts.items()}
+
+        return info
 
     def getTypeDef(self):
         basename = self.info['bases'][-1]

@@ -95,8 +95,10 @@ terminalEnglishMap = {
     'TRYSETPLUS': '?+=',
     'TRYSETMINUS': '?-=',
     'UNIVNAME': 'universal property',
+    'EXPRUNIVNAME': 'universal property',
     'VARTOKN': 'variable',
     'EXPRVARTOKN': 'variable',
+    'VIRTNAME': 'virtual prop names',
     'VBAR': '|',
     'WHILE': 'while',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
@@ -300,20 +302,6 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         astinfo = self.metaToAstInfo(meta)
         return s_ast.VarList(astinfo, [k.valu for k in kids])
-
-    @lark.v_args(meta=True)
-    def operrelprop_pivot(self, meta, kids, isjoin=False):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        relprop, rest = kids[0], kids[1:]
-        if not rest:
-            return s_ast.PropPivotOut(astinfo, kids=kids, isjoin=isjoin)
-        pval = s_ast.RelPropValue(astinfo, kids=(relprop,))
-        return s_ast.PropPivot(astinfo, kids=(pval, *kids[1:]), isjoin=isjoin)
-
-    @lark.v_args(meta=True)
-    def operrelprop_join(self, meta, kids):
-        return self.operrelprop_pivot(meta, kids, isjoin=True)
 
     @lark.v_args(meta=True)
     def stormcmdargs(self, meta, kids):
@@ -717,9 +705,15 @@ ruleClassMap = {
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
     'notcond': s_ast.NotCond,
+    'operrelprop_join': lambda astinfo, kids: s_ast.PropPivot(astinfo, kids, isjoin=True),
+    'operrelprop_joinout': lambda astinfo, kids: s_ast.PropPivotOut(astinfo, kids, isjoin=True),
+    'operrelprop_pivot': s_ast.PropPivot,
+    'operrelprop_pivotout': s_ast.PropPivotOut,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
+    'pivottarg': s_ast.PivotTarget,
+    'pivottarglist': s_ast.PivotTargetList,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
     'relprop': lambda astinfo, kids: s_ast.RelProp(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
