@@ -84,8 +84,8 @@ class StormWhoisTest(s_test.SynTest):
             '''
             opts = {'vars': {'props': props}}
             mesgs = await core.stormlist(stormcmd, opts=opts)
-            warn = [m[1]['mesg'] for m in mesgs if m[0] == 'warn']
-            self.isin('Insufficient guid vals identified, using random guid:', warn[0])
+            self.stormIsInWarn('$lib.inet.whois.guid() is deprecated', mesgs)
+            self.stormIsInWarn('Insufficient guid vals identified, using random guid:', mesgs)
             self.len(1, await core.nodes(f'inet:whois:ipquery:fqdn={props["fqdn"]}'))
 
             props = {
@@ -97,8 +97,8 @@ class StormWhoisTest(s_test.SynTest):
             '''
             opts = {'vars': {'props': props}}
             mesgs = await core.stormlist(stormcmd, opts=opts)
-            warn = [m[1]['mesg'] for m in mesgs if m[0] == 'warn']
-            self.isin('Insufficient guid vals identified, using random guid:', warn[0])
+            self.stormIsInWarn('$lib.inet.whois.guid() is deprecated', mesgs)
+            self.stormIsInWarn('Insufficient guid vals identified, using random guid:', mesgs)
             self.len(1, await core.nodes(f'inet:whois:ipcontact:asn={props["asn"]}'))
 
             # Failure cases

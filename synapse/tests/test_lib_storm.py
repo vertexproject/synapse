@@ -3917,6 +3917,11 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('Warning', msgs)
             self.stormIsInPrint('``$lib.infosec.cvss.saveVectToNode`` has been deprecated and will be removed in version v3.0.0.', msgs)
 
+            msgs = await core.stormlist('help --verbose $lib.inet.whois.guid')
+            self.stormIsInPrint('Warning', msgs)
+            self.stormIsInPrint('``$lib.inet.whois.guid`` has been deprecated and will be removed in version v3.0.0.', msgs)
+            self.stormIsInPrint('Please use the GUID constructor syntax.', msgs)
+
             msgs = await core.stormlist('help $lib.inet')
             self.stormIsInPrint('The following libraries are available:\n\n'
                                 '$lib.inet.http                : A Storm Library exposing an HTTP client API.\n'
