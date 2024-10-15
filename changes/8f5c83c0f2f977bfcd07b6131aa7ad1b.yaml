@@ -1,0 +1,6 @@
+---
+desc: Mark all functions in a deprecated Storm library as deprecated.
+prs:
+- 3952
+type: feat
+...
