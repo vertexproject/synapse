@@ -22,6 +22,7 @@ LKEY_INFO = b'\x02' # <bidn> = <info>
 LKEY_DATA = b'\x03' # <bidn> <vers> = <data>
 LKEY_VERS = b'\x04' # <bidn> <vers> = <versinfo>
 LKEY_INFO_BYTYPE = b'\x05' # <type> 00 <bidn> = 01
+LKEY_TYPE_VERS = b'\x06' # <type> = <uint64>
 
 rootdir = '00000000000000000000000000000000'
 
@@ -60,24 +61,30 @@ class Drive(s_base.Base):
 
         return [reqValidName(p.strip().lower()) for p in path]
 
-    def getItemInfo(self, iden):
-        return self._getItemInfo(s_common.uhex(iden))
+    def getItemInfo(self, iden, typename=None):
+        info = self._getItemInfo(s_common.uhex(iden))
+        if typename is not None and info.get('type') != typename:
+            raise s_exc.SynErr(mesg='Drive item has the wrong type.')
+        return info
 
     def _getItemInfo(self, bidn):
         byts = self.slab.get(LKEY_INFO + bidn, db=self.dbname)
         if byts is not None:
             return s_msgpack.un(byts)
 
-    def reqItemInfo(self, iden):
-        return self._reqItemInfo(s_common.uhex(iden))
+    def reqItemInfo(self, iden, typename=None):
+        return self._reqItemInfo(s_common.uhex(iden), typename=typename)
 
-    def _reqItemInfo(self, bidn):
+    def _reqItemInfo(self, bidn, typename=None):
         info = self._getItemInfo(bidn)
-        if info is not None:
-            return info
+        if info is None:
+            mesg = f'No drive item with ID {s_common.ehex(bidn)}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
 
-        mesg = f'No drive item with ID {s_common.ehex(bidn)}.'
-        raise s_exc.NoSuchIden(mesg=mesg)
+        if typename is not None and info.get('type') != typename:
+            raise s_exc.SynErr(mesg='Drive item has the wrong type.')
+
+        return info
 
     async def setItemPath(self, iden, path):
         '''
@@ -494,9 +501,16 @@ class Drive(s_base.Base):
         if byts is not None:
             return s_msgpack.un(byts)
 
-    async def setTypeSchema(self, typename, schema, callback=None):
+    async def setTypeSchema(self, typename, schema, callback=None, vers=None):
 
         reqValidName(typename)
+
+        if vers is not None:
+            verskey = LKEY_TYPE_VERS + typename.encode()
+            byts = self.slab.get(verskey, db=self.dbname)
+            if byts is not None:
+                if s_msgpack.un(byts) == vers:
+                    return
 
         vtor = s_config.getJsValidator(schema)
 
@@ -505,6 +519,9 @@ class Drive(s_base.Base):
         lkey = LKEY_TYPE + typename.encode()
 
         self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
+
+        if vers is not None:
+            self.slab.put(verskey, s_msgpack.en(vers), db=self.dbname)
 
         if callback is not None:
             async for info in self.getItemsByType(typename):
