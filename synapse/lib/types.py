@@ -200,7 +200,7 @@ class Type:
         }
 
         if self.virts:
-            info['virts'] = {name: valu[0].pack() for (name, valu) in self.virts.items()}
+            info['virts'] = {name: valu[0].name for (name, valu) in self.virts.items()}
 
         return info
 
