@@ -1675,8 +1675,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1640995200000, nodes[0].get('updated'))
             self.nn(nodes[0].get('author'))
 
-            nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('''[ it:app:snort:hit=$hit
+                :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0"
+                :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host
+                :version=1.2.3 :dropped=true ]''', opts=opts)
             self.len(1, nodes)
+            self.true(nodes[0].get('dropped'))
             self.eq(rule, nodes[0].get('rule'))
             self.eq(flow, nodes[0].get('flow'))
             self.eq(host, nodes[0].get('sensor'))

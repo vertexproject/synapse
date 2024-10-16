@@ -2661,7 +2661,7 @@ class LibBytes(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('bytes',)
-    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.axon`` function.'}
 
     def getObjLocals(self):
         return {
