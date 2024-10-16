@@ -549,3 +549,12 @@ class StormtypesModelextTest(s_test.SynTest):
             self.notin('_test:iface:flow', core.model.ifaceprops['inet:proto:request:flow'])
             self.notin('_test:iface:proc', core.model.ifaceprops['inet:proto:request:proc'])
             self.notin('_test:iface:proc', core.model.ifaceprops['it:host:activity:proc'])
+
+            await core.stormlist('''
+                $forminfo = ({"interfaces": ["newp"]})
+                $lib.model.ext.addForm(_test:iface, str, ({}), $forminfo)
+            ''')
+            self.nn(core.model.form('_test:iface'))
+
+            await core.callStorm('$lib.model.ext.delForm(_test:iface)')
+            self.none(core.model.form('_test:iface'))

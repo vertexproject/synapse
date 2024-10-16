@@ -1124,14 +1124,13 @@ class Model:
             return
 
         for propname, typedef, propinfo in iface.get('props', ()):
-            if (prop := form.props.get(propname)) is None:
-                continue
+            fullprop = f'{form.name}:{propname}'
             self.delFormProp(form.name, propname)
-            self.ifaceprops[f'{name}:{propname}'].remove(prop.full)
+            self.ifaceprops[f'{name}:{propname}'].remove(fullprop)
 
             if subifaces is not None:
                 for subi in subifaces:
-                    self.ifaceprops[f'{subi}:{propname}'].remove(prop.full)
+                    self.ifaceprops[f'{subi}:{propname}'].remove(fullprop)
 
         form.ifaces.pop(name, None)
         self.formsbyiface[name].remove(form.name)
