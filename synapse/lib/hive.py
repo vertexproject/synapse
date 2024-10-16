@@ -473,12 +473,12 @@ class SlabHive(Hive):
     async def storNodeValu(self, full, valu):
         lval = s_msgpack.en(valu)
         lkey = '\x00'.join(full).encode('utf8')
-        self.slab.put(lkey, lval, db=self.db)
+        await self.slab.put(lkey, lval, db=self.db)
         return valu
 
     async def storNodeDele(self, full):
         lkey = '\x00'.join(full).encode('utf8')
-        self.slab.pop(lkey, db=self.db)
+        await self.slab.pop(lkey, db=self.db)
 
 class HiveApi(s_base.Base):
 
