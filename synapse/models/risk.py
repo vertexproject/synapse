@@ -209,10 +209,13 @@ class RiskModule(s_module.CoreModule):
 
                 (('risk:mitigation', 'uses', 'meta:rule'), {
                     'doc': 'The mitigation uses the rule.'}),
+
                 (('risk:mitigation', 'uses', 'it:app:yara:rule'), {
                     'doc': 'The mitigation uses the YARA rule.'}),
+
                 (('risk:mitigation', 'uses', 'it:app:snort:rule'), {
                     'doc': 'The mitigation uses the Snort rule.'}),
+
                 (('risk:mitigation', 'uses', 'inet:service:rule'), {
                     'doc': 'The mitigation uses the service rule.'}),
 
