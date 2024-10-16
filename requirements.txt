@@ -26,7 +26,7 @@ bech32==1.2.0
 oauthlib>=3.2.1,<4.0.0
 idna>=3.6,<3.8
 python-dateutil>=2.8,<3.0
-pytz>=2023.3,<2024.1
+pytz>=2024.1,<2025.0
 beautifulsoup4[html5lib]>=4.11.1,<5.0.0
 # Cryptography is a pyopenssl dependency which has now has a maximum version
 # pin. Cryptography also vendors a copy of OpenSSL, so it needs to be able to
