@@ -45,6 +45,10 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
+                ('ou:asset:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An asset type taxonomy.'}),
+
                 ('ou:asset', ('guid', {}), {
                     'doc': 'A node for tracking assets which belong to an organization.',
                     'display': {
@@ -754,6 +758,9 @@ class OuModule(s_module.CoreModule):
 
                     ('name', ('str', {'strip': True, 'onespace': True}), {
                         'doc': 'The name of the assset.'}),
+
+                    ('type', ('ou:asset:type:taxonomy', {}), {
+                        'doc': 'The asset type.'}),
 
                     ('priority', ('meta:priority', {}), {
                         'doc': 'The overall priority of protecting the asset.'}),
