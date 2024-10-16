@@ -244,13 +244,29 @@ class OuModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                 }),
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A title for a position within an org.',
-                }),
+                    'doc': 'A title for a position within an org.'}),
+
+                ('ou:policy:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of policy types.'}),
+
+                ('ou:policy', ('guid', {}), {
+                    'doc': 'Guiding principles used to reach a set of goals.'}),
+
+                ('ou:standard:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of types of standards.'}),
+
+                ('ou:standard', ('guid', {}), {
+                    'doc': 'A group of requirements which define how to implement a policy.'}),
+
                 ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of requirement types.'}),
+
                 ('ou:requirement', ('guid', {}), {
                     'doc': 'A specific requirement.'}),
+
             ),
             'edges': (
                 (('ou:campaign', 'uses', 'ou:technique'), {
