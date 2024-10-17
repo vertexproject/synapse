@@ -10,6 +10,14 @@ contracttypes = (
     'partnership',
 )
 
+assetstatus = (
+    (10, 'planned'),
+    (20, 'staging'),
+    (30, 'deployed'),
+    (40, 'deprecated'),
+    (50, 'retired'),
+)
+
 class OuModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -749,6 +757,7 @@ class OuModule(s_module.CoreModule):
                     ('name', ('ou:name', {}), {}),
                 )),
 
+                ('ou:asset:type:taxonomy', {}, ()),
                 ('ou:asset', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization which owns the asset.'}),
@@ -758,6 +767,12 @@ class OuModule(s_module.CoreModule):
 
                     ('name', ('str', {'strip': True, 'onespace': True}), {
                         'doc': 'The name of the assset.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the asset was being tracked.'}),
+
+                    ('status', ('int', {'enums': assetstatus}), {
+                        'doc': 'The current status of the asset.'}),
 
                     ('type', ('ou:asset:type:taxonomy', {}), {
                         'doc': 'The asset type.'}),
@@ -781,10 +796,10 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The place where the asset is deployed.'}),
 
                     ('owner', ('ps:contact', {}), {
-                        'doc': 'The contact information of the asset owner.'}),
+                        'doc': 'The contact information of the owner or administrator of the asset.'}),
 
                     ('operator', ('ps:contact', {}), {
-                        'doc': 'The contact information of the user/operator of the asset.'}),
+                        'doc': 'The contact information of the user or operator of the asset.'}),
                 )),
                 ('ou:position', {}, (
                     ('org', ('ou:org', {}), {

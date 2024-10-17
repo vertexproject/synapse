@@ -669,6 +669,38 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 :assignee -> ps:contact +:orgname=ledos'))
             self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:requirement:type:taxonomy'))
 
+            nodes = await core.nodes('''
+                [ ou:asset=*
+                    :id=V-31337
+                    :name="visi laptop"
+                    :type=host.laptop
+                    :priority=highest
+                    :priority:confidentiality=highest
+                    :priority:integrity=highest
+                    :priority:availability=highest
+                    :node = (it:host, *)
+                    :period=(2016, ?)
+                    :status=deployed
+                    :org={[ ou:org=* :name=vertex ]}
+                    :owner={[ ps:contact=* :name=foo ]}
+                    :operator={[ ps:contact=* :name=bar ]}
+                ]''')
+            self.len(1, nodes)
+            self.eq((1451606400000, 9223372036854775807), nodes[0].get('period'))
+            self.eq('visi laptop', nodes[0].get('name'))
+            self.eq('host.laptop.', nodes[0].get('type'))
+            self.eq(30, nodes[0].get('status'))
+            self.eq(50, nodes[0].get('priority'))
+            self.eq(50, nodes[0].get('priority:confidentiality'))
+            self.eq(50, nodes[0].get('priority:integrity'))
+            self.eq(50, nodes[0].get('priority:availability'))
+
+            self.len(1, await core.nodes('ou:asset -> ou:asset:type:taxonomy'))
+            self.len(1, await core.nodes('ou:asset :node -> it:host'))
+            self.len(1, await core.nodes('ou:asset :org -> ou:org +:name=vertex'))
+            self.len(1, await core.nodes('ou:asset :owner -> ps:contact +:name=foo '))
+            self.len(1, await core.nodes('ou:asset :operator -> ps:contact +:name=bar '))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()
