@@ -689,7 +689,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq((1451606400000, 9223372036854775807), nodes[0].get('period'))
             self.eq('visi laptop', nodes[0].get('name'))
             self.eq('host.laptop.', nodes[0].get('type'))
-            self.eq(30, nodes[0].get('status'))
+            self.eq('deployed.', nodes[0].get('status'))
             self.eq(50, nodes[0].get('priority'))
             self.eq(50, nodes[0].get('priority:confidentiality'))
             self.eq(50, nodes[0].get('priority:integrity'))

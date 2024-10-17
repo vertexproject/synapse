@@ -10,14 +10,6 @@ contracttypes = (
     'partnership',
 )
 
-assetstatus = (
-    (10, 'planned'),
-    (20, 'staging'),
-    (30, 'deployed'),
-    (40, 'deprecated'),
-    (50, 'retired'),
-)
-
 class OuModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
@@ -56,6 +48,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:asset:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'An asset type taxonomy.'}),
+
+                ('ou:asset:status:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An asset status taxonomy.'}),
 
                 ('ou:asset', ('guid', {}), {
                     'doc': 'A node for tracking assets which belong to an organization.',
@@ -758,6 +754,7 @@ class OuModule(s_module.CoreModule):
                 )),
 
                 ('ou:asset:type:taxonomy', {}, ()),
+                ('ou:asset:status:taxonomy', {}, ()),
                 ('ou:asset', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization which owns the asset.'}),
@@ -771,7 +768,7 @@ class OuModule(s_module.CoreModule):
                     ('period', ('ival', {}), {
                         'doc': 'The period of time when the asset was being tracked.'}),
 
-                    ('status', ('int', {'enums': assetstatus}), {
+                    ('status', ('ou:asset:status:taxonomy', {}), {
                         'doc': 'The current status of the asset.'}),
 
                     ('type', ('ou:asset:type:taxonomy', {}), {
