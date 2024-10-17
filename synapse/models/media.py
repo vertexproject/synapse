@@ -38,7 +38,6 @@ class MediaModule(s_module.CoreModule):
                 ('publisher', ('ou:org', {}), {
                     'doc': 'The organization which published the news.'}),
 
-
                 ('publisher:name', ('ou:name', {}), {
                     'doc': 'The name of the publishing org used to publish the news.'}),
 

@@ -264,6 +264,19 @@ class Auth(s_nexus.Pusher):
     def _getRoleIden(self, name):
         return self.roleidenbyname.get(name)
 
+    # TODO convert getUserByName() and getRoleByName()
+    # back from async? These were plumbed to avoid infecting
+    # type norm/repr functions with async...
+    def _getRoleByName(self, name):
+        roleiden = self.roleidenbynamecache.get(name)
+        if roleiden is not None:
+            return self.role(roleiden)
+
+    def _getUserByName(self, name):
+        useriden = self.useridenbynamecache.get(name)
+        if useriden is not None:
+            return self.user(useriden)
+
     @s_nexus.Pusher.onPushAuto('user:profile:set')
     async def setUserProfileValu(self, iden, name, valu):
         user = await self.reqUser(iden)

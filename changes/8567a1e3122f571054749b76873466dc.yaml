@@ -1,0 +1,5 @@
+---
+desc: Added support for ``syn:user`` and ``syn:role`` types to be converted to/from names.
+prs: []
+type: feat
+...

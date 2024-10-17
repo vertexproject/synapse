@@ -2,9 +2,66 @@ import logging
 
 import synapse.exc as s_exc
 
+import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
+
+class SynUser(s_types.Guid):
+
+    def _normPyStr(self, text):
+
+        core = self.modl.core
+        if core is not None:
+
+            # direct use of an iden takes precedence...
+            user = core.auth.user(text)
+            if user is not None:
+                return user.iden, {}
+
+            user = core.auth._getUserByName(text)
+            if user is not None:
+                return user.iden, {}
+
+        return s_types.Guid._normPyStr(self, text)
+
+    def repr(self, iden):
+
+        core = self.modl.core
+        if core is not None:
+            user = core.auth.user(iden)
+            if user is not None:
+                return user.name
+
+        return iden
+
+class SynRole(s_types.Guid):
+
+    def _normPyStr(self, text):
+
+        core = self.modl.core
+        if core is not None:
+
+            # direct use of an iden takes precedence...
+            role = core.auth.role(text)
+            if role is not None:
+                return role.iden, {}
+
+            role = core.auth._getRoleByName(text)
+            if role is not None:
+                return role.iden, {}
+
+        return s_types.Guid._normPyStr(self, text)
+
+    def repr(self, iden):
+
+        core = self.modl.core
+        if core is not None:
+            role = core.auth.role(iden)
+            if role is not None:
+                return role.name
+
+        return iden
 
 class SynModule(s_module.CoreModule):
 
@@ -105,6 +162,13 @@ class SynModule(s_module.CoreModule):
 
         return (('syn', {
 
+            'ctors': (
+                ('syn:user', 'synapse.models.syn.SynUser', {}, {
+                    'doc': 'A Synapse user.'}),
+
+                ('syn:role', 'synapse.models.syn.SynRole', {}, {
+                    'doc': 'A Synapse role.'}),
+            ),
             'types': (
                 ('syn:type', ('str', {'strip': True}), {
                     'doc': 'A Synapse type used for normalizing nodes and properties.',
@@ -129,12 +193,6 @@ class SynModule(s_module.CoreModule):
                 }),
                 ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
                     'doc': 'A nodedata key and the form it may be present on.',
-                }),
-                ('syn:user', ('guid', {'strip': True}), {
-                    'doc': 'A Synapse user GUID.'
-                }),
-                ('syn:role', ('guid', {'strip': True}), {
-                    'doc': 'A Synapse role GUID.'
                 }),
             ),
 
