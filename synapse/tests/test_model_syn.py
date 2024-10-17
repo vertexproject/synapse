@@ -46,16 +46,27 @@ class TestService(s_stormsvc.StormSvc):
 
 class SynModelTest(s_t_utils.SynTest):
 
-    async def test_syn_basics(self):
+    async def test_syn_userrole(self):
+
         async with self.getTestCore() as core:
 
             (ok, iden) = await core.callStorm('return($lib.trycast(syn:user, root))')
             self.true(ok)
             self.eq(iden, core.auth.rootuser.iden)
 
+            # coverage for iden taking precedence
+            (ok, iden) = await core.callStorm(f'return($lib.trycast(syn:user, {iden}))')
+            self.true(ok)
+            self.eq(iden, core.auth.rootuser.iden)
+
             self.eq('root', await core.callStorm(f'return($lib.repr(syn:user, {iden}))'))
 
             (ok, iden) = await core.callStorm('return($lib.trycast(syn:role, all))')
+            self.true(ok)
+            self.eq(iden, core.auth.allrole.iden)
+
+            # coverage for iden taking precedence
+            (ok, iden) = await core.callStorm(f'return($lib.trycast(syn:role, {iden}))')
             self.true(ok)
             self.eq(iden, core.auth.allrole.iden)
 
