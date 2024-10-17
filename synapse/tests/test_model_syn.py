@@ -46,6 +46,21 @@ class TestService(s_stormsvc.StormSvc):
 
 class SynModelTest(s_t_utils.SynTest):
 
+    async def test_syn_basics(self):
+        async with self.getTestCore() as core:
+
+            (ok, iden) = await core.callStorm('return($lib.trycast(syn:user, root))')
+            self.true(ok)
+            self.eq(iden, core.auth.rootuser.iden)
+
+            self.eq('root', await core.callStorm(f'return($lib.repr(syn:user, {iden}))'))
+
+            (ok, iden) = await core.callStorm('return($lib.trycast(syn:role, all))')
+            self.true(ok)
+            self.eq(iden, core.auth.allrole.iden)
+
+            self.eq('all', await core.callStorm(f'return($lib.repr(syn:role, {iden}))'))
+
     async def test_syn_tag(self):
 
         async with self.getTestCore() as core:
