@@ -762,7 +762,7 @@ class OuModule(s_module.CoreModule):
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The ID of the asset.'}),
 
-                    ('name', ('str', {'onespace': True}), {
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the assset.'}),
 
                     ('period', ('ival', {}), {
