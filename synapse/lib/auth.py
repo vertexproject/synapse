@@ -266,7 +266,7 @@ class Auth(s_nexus.Pusher):
 
     # TODO convert getUserByName() and getRoleByName()
     # back from async? These were plumbed to avoid infecting
-    # type # norm/repr functions with async...
+    # type norm/repr functions with async...
     def _getRoleByName(self, name):
         roleiden = self.roleidenbynamecache.get(name)
         if roleiden is not None:
