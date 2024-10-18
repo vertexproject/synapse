@@ -2,14 +2,16 @@ import regex
 import logging
 
 import synapse.exc as s_exc
-import synapse.assets as s_assets
 import synapse.common as s_common
 
+import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+
+import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 30)
+maxvers = (0, 2, 31)
 
 class ModelRev:
 
@@ -45,6 +47,7 @@ class ModelRev:
             # Model revision 0.2.28 skipped
             ((0, 2, 29), self.revModel_0_2_29),
             ((0, 2, 30), self.revModel_0_2_30),
+            ((0, 2, 31), self.revModel_0_2_31),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -791,15 +794,6 @@ class ModelRev:
     async def revModel_0_2_27(self, layers):
         await self._normPropValu(layers, 'it:dev:repo:commit:id')
 
-    async def revModel_0_2_28(self, layers):
-
-        opts = {'vars': {
-            'layridens': [layr.iden for layr in layers],
-        }}
-
-        text = s_assets.getStorm('migrations', 'model-0.2.28.storm')
-        await self.runStorm(text, opts=opts)
-
     async def revModel_0_2_29(self, layers):
         await self._propToForm(layers, 'ou:industry:type', 'ou:industry:type:taxonomy')
 
@@ -813,6 +807,11 @@ class ModelRev:
         await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:4:112::/48')
         await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:20::/28')
         await self._normFormSubs(layers, 'inet:ipv6', cmprvalu='2001:30::/28')
+
+    async def revModel_0_2_31(self, layers):
+        migr = await ModelMigration_0_2_31.anit(self.core, layers)
+        await migr.revModel_0_2_31()
+        await self._normFormSubs(layers, 'it:sec:cpe')
 
     async def runStorm(self, text, opts=None):
         '''
@@ -1205,3 +1204,642 @@ class ModelRev:
         }
         '''
         await self.runStorm(storm, opts=opts)
+
+class ModelMigration_0_2_31:
+    @classmethod
+    async def anit(cls, core, layers):
+        self = cls()
+
+        self.core = core
+        self.layers = layers
+
+        queues = await self.core.listCoreQueues()
+        queues = {k['name']: k for k in queues}
+
+        if queues.get('model_0_2_31:nodes') is None:
+            await self.core.addCoreQueue('model_0_2_31:nodes', {})
+
+        if queues.get('model_0_2_31:nodes:refs') is None:
+            await self.core.addCoreQueue('model_0_2_31:nodes:refs', {})
+
+        if queues.get('model_0_2_31:nodes:edges') is None:
+            await self.core.addCoreQueue('model_0_2_31:nodes:edges', {})
+
+        if queues.get('model_0_2_31:nodes:edits') is None:
+            await self.core.addCoreQueue('model_0_2_31:nodes:edits', {})
+
+        return self
+
+    def _editNodeAdd(self, layriden, buid, formname, formvalu, stortype):
+        logger.debug(f'Adding node: {formname}={repr(formvalu)}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_NODE_ADD, (formvalu, stortype), ()),
+            )),
+        ))
+
+    def _editPropSet(self, layriden, buid, formname, propname, newvalu, oldvalu, stortype):
+        logger.debug(f'Setting prop: {formname}:{propname}={newvalu} (was {oldvalu})')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_PROP_SET, (propname, newvalu, oldvalu, stortype), ()),
+            )),
+        ))
+
+    def _editTagSet(self, layriden, buid, formname, tagname, newvalu, oldvalu):
+        logger.debug(f'Adding tag: {formname}#{tagname}={repr(newvalu)}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_TAG_SET, (tagname, newvalu, oldvalu), ()),
+            )),
+        ))
+
+    def _editTagpropSet(self, layriden, buid, formname, tagname, propname, newvalu, oldvalu, stortype):
+        logger.debug(f'Adding tagprop: {formname}#{tagname}:{propname}={repr(newvalu)}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_TAGPROP_SET, (tagname, propname, newvalu, oldvalu, stortype), ()),
+            )),
+        ))
+
+    def _editNodedataSet(self, layriden, buid, formname, name, newvalu, oldvalu):
+        logger.debug(f'Adding nodedata: {formname} {name}={newvalu}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_NODEDATA_SET, (name, newvalu, oldvalu), ()),
+            )),
+        ))
+
+    def _editEdgeAdd(self, layriden, buid, formname, verb, iden):
+        logger.debug(f'Adding edge: -({verb})> {iden}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_EDGE_ADD, (verb, iden), ()),
+            )),
+        ))
+
+    def _editNodeDel(self, layriden, buid, formname, formvalu):
+        logger.debug(f'Deleting node: {formname}={repr(formvalu)}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_NODE_DEL, formvalu, ()),
+            )),
+        ))
+
+    def _editPropDel(self, layriden, buid, formname, propname, propvalu, stortype):
+        logger.debug(f'Deleting prop: {formname}:{propname}={propvalu}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_PROP_DEL, (propname, propvalu, stortype), ()),
+            )),
+        ))
+
+    def _editTagDel(self, layriden, buid, formname, tagname, tagvalu):
+        logger.debug(f'Deleting tag: {formname}#{tagname}={repr(tagvalu)}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_TAG_DEL, (tagname, tagvalu), ()),
+            )),
+        ))
+
+    def _editTagpropDel(self, layriden, buid, formname, tagname, propname, propvalu, stortype):
+        logger.debug(f'Deleting tagprop: {formname}#{tagname}:{propname}={repr(propvalu)}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_TAGPROP_DEL, (tagname, propname, propvalu, stortype), ()),
+            )),
+        ))
+
+    def _editNodedataDel(self, layriden, buid, formname, name, valu):
+        logger.debug(f'Deleting nodedata: {formname} {name}={valu}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_NODEDATA_DEL, (name, valu), ()),
+            )),
+        ))
+
+    def _editEdgeDel(self, layriden, buid, formname, verb, iden):
+        logger.debug(f'Deleting edge: -({verb})> {iden}, layer={layriden}')
+        return (layriden, (
+            (buid, formname, (
+                (s_layer.EDIT_EDGE_DEL, (verb, iden), ()),
+            )),
+        ))
+
+    async def saveEdits(self, nodeedits):
+        meta = {'time': s_common.now(), 'user': self.core.auth.rootuser.iden}
+
+        bylayer = {}
+
+        # Collate all edits by layer
+        for layriden, edits in nodeedits:
+            bylayer.setdefault(layriden, [])
+            bylayer[layriden].extend(edits)
+
+        # Process all layer edits as a single batch
+        for layriden, edits in bylayer.items():
+            layer = self.core.getLayer(layriden)
+            if layer is None: # pragma: no cover
+                continue
+
+            await layer.storNodeEditsNoLift(edits, meta)
+
+    async def revModel_0_2_31(self):
+
+        nodeedits = []
+
+        form = self.core.model.form('it:sec:cpe')
+
+        # Remove invalid :v2_2 props in all layers
+        for layer in self.layers:
+            async for _, buid, sode in layer.liftByProp('it:sec:cpe', 'v2_2'):
+
+                if (props := sode.get('props')) is None or (propvalu := props.get('v2_2')) is None: # pragma: no cover
+                    continue
+
+                propvalu, stortype = propvalu
+
+                if not s_infotech.isValidCpe22(propvalu):
+                    nodeedits.append(
+                        self._editPropDel(layer.iden, buid, 'it:sec:cpe', 'v2_2', propvalu, stortype)
+                    )
+
+        await self.saveEdits(nodeedits)
+
+        count = 0
+        for layer in self.layers:
+            async for _, buid, sode in layer.liftByProp('it:sec:cpe', None):
+                if (formvalu := sode.get('valu')) is None: # pragma: no cover
+                    continue
+
+                count += 1
+                if count % 1000 == 0: # pragma: no cover
+                    logger.info(f'Processed {count} it:sec:cpe nodes')
+
+                formvalu, formstor = formvalu
+
+                if s_infotech.isValidCpe23(formvalu):
+                    # Good node, go around
+                    continue
+
+                propvalu = sode.get('props', {}).get('v2_2')
+                if propvalu is None or not s_infotech.isValidCpe22(propvalu[0]):
+                    # Missing/bad :v2_2 also, this node is invalid
+                    await self.removeNode(layer.iden, buid, 'it:sec:cpe', formvalu)
+                    continue
+
+                # We have a good :v2_2 prop but the primary property value is bad so we have to reconstruct and migrate
+                # this node
+                norm, norminfo = form.type.norm(propvalu[0])
+                await self.moveNode(layer.iden, buid, 'it:sec:cpe', formvalu, norm)
+
+    @s_cache.memoizemethod()
+    def getRoProps(self, formname):
+        roprops = []
+
+        form = self.core.model.form(formname)
+        for propname, prop in form.props.items():
+            if prop.info.get('ro', False):
+                roprops.append(propname)
+
+        return roprops
+
+    @s_cache.memoizemethod()
+    def getRefInfo(self, formname):
+        props = []
+        props.extend(self.core.model.getPropsByType(formname))
+        props.extend(self.core.model.getPropsByType('array'))
+        props.extend(self.core.model.getPropsByType('ndef'))
+
+        props = [k for k in props if k.form.name != formname]
+
+        refinfo = []
+        for prop in props:
+
+            if prop.form.name == formname: # pragma: no cover
+                continue
+
+            proptype = prop.type
+
+            if prop.type.isarray:
+                proptype = prop.type.arraytype
+
+                if proptype.name not in (formname, 'ndef'):
+                    continue
+
+            refinfo.append((
+                prop.form.name,
+                prop.name,
+                proptype.name,
+                prop.type.isarray,
+                prop.info.get('ro', False)
+            ))
+
+        return refinfo
+
+    async def getNodeReferences(self, formname, formvalu):
+        ndef = (formname, formvalu)
+
+        references = {}
+        refinfos = self.getRefInfo(formname)
+
+        for refinfo in refinfos:
+            refform, refprop, reftype, isarray, isro = refinfo
+            if reftype == 'ndef':
+                nodevalu = ndef
+            else:
+                nodevalu = formvalu
+
+            for layer in self.layers:
+                async for buid, sode in self.getSodeByPropValuNoNorm(layer, refform, refprop, nodevalu):
+                    references.setdefault(layer.iden, [])
+                    references[layer.iden].append((s_common.ehex(buid), refinfo))
+
+        return references
+
+    async def removeNode(self, layriden, buid, formname, formvalu):
+        await self.storeNode(layriden, buid, formname, formvalu)
+
+        formndef = (formname, formvalu)
+
+        nodeedits = []
+
+        # Delete references
+        references = await self.getNodeReferences(formname, formvalu)
+        for reflayr, reflist in references.items():
+            layer = self.core.getLayer(reflayr)
+            if layer is None: # pragma: no cover
+                continue
+
+            for iden, refinfo in reflist:
+                (refform, refprop, reftype, isarray, isro) = refinfo
+
+                if reftype == 'ndef':
+                    propvalu = formndef
+                else:
+                    propvalu = formvalu
+
+                async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                    if isro:
+                        if (refvalu := refsode.get('valu')) is None: # pragma: no cover
+                            continue
+
+                        await self.removeNode(reflayr, refbuid, refform, refvalu[0])
+                        continue
+
+                    curv, stortype = refsode['props'].get(refprop, (None, None))
+
+                    if isarray:
+
+                        _curv = curv
+                        if curv is None:
+                            _curv = []
+
+                        newv = list(_curv).copy()
+
+                        while propvalu in newv:
+                            newv.remove(propvalu)
+
+                        if not newv:
+                            nodeedits.append(
+                                self._editPropDel(reflayr, refbuid, refform, refprop, curv, stortype)
+                            )
+
+                        else:
+                            nodeedits.append(
+                                self._editPropSet(reflayr, refbuid, refform, refprop, newv, curv, stortype)
+                            )
+
+                    else:
+                        nodeedits.append(
+                            self._editPropDel(reflayr, refbuid, refform, refprop, curv, stortype)
+                        )
+
+        await self.saveEdits(nodeedits)
+        await self.delNode(layriden, buid, formname, formvalu)
+
+    async def storeNode(self, layriden, buid, formname, formvalu):
+        formndef = (formname, formvalu)
+
+        offsets = {
+            'refs': [],
+            'edges': [],
+            'edits': [],
+        }
+
+        srcidens = set()
+        roprops = self.getRoProps(formname)
+
+        refs = []
+        edits = []
+        edges = []
+
+        async def queueRefs(threshold=1):
+            nonlocal refs
+            if len(refs) < threshold:
+                return
+            offset = await self.core.coreQueuePuts('model_0_2_31:nodes:refs', (refs,))
+            offsets['refs'].append(offset)
+            refs = []
+
+        async def queueEdits(threshold=1):
+            nonlocal edits
+            if len(edits) < threshold:
+                return
+            offset = await self.core.coreQueuePuts('model_0_2_31:nodes:edits', (edits,))
+            offsets['edits'].append(offset)
+            edits = []
+
+        async def queueEdges(threshold=1):
+            nonlocal edges
+            if len(edges) < threshold:
+                return
+            offset = await self.core.coreQueuePuts('model_0_2_31:nodes:edges', (edges,))
+            offsets['edges'].append(offset)
+            edges = []
+
+        for layer in self.layers:
+            item = {}
+
+            # Nodedata
+            data = {name: valu async for name, valu in layer.iterNodeData(buid)}
+            if data:
+                item['data'] = data
+
+            # Save N1 edges
+            async for verb, iden in layer.iterNodeEdgesN1(buid):
+                edges.append({
+                    'verb': verb,
+                    'iden': iden,
+                    'direction': 'n1',
+                    'layer': layer.iden,
+                })
+
+            # Save N2 edges
+            async for verb, iden in layer.iterNodeEdgesN2(buid):
+                edges.append({
+                    'verb': verb,
+                    'iden': iden,
+                    'direction': 'n2',
+                    'layer': layer.iden,
+                })
+
+                if verb == 'seen':
+                    srcidens.add(iden)
+
+                await queueEdges(threshold=1000)
+
+            sode = await layer.getStorNode(buid)
+            if not sode:
+                continue
+
+            props = sode.get('props', {})
+            props = {name: valu for name, valu in list(props.items()) if name not in roprops}
+            if props:
+                item['props'] = props
+
+            if (tags := sode.get('tags', {})):
+                item['tags'] = tags
+
+            if (tagprops := sode.get('tagprops', {})):
+                item['tagprops'] = tagprops
+
+            if item:
+                item['layer'] = layer.iden
+                edits.append(item)
+
+            await queueEdits(threshold=1000)
+
+        # Store references
+        references = await self.getNodeReferences(formname, formvalu)
+
+        for layriden, reflist in references.items():
+            layer = self.core.getLayer(layriden)
+            if layer is None: # pragma: no cover
+                continue
+
+            for iden, refinfo in reflist:
+                (refform, refprop, reftype, isarray, isro) = refinfo
+
+                if reftype == 'ndef':
+                    propvalu = formndef
+                else:
+                    propvalu = formvalu
+
+                async for refbuid, _ in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
+                    if isro:
+                        continue
+
+                    refs.append({
+                        'iden': s_common.ehex(refbuid),
+                        'layer': layriden,
+                        'refinfo': (refform, refprop, reftype, isarray),
+                    })
+
+                    await queueRefs(threshold=1000)
+
+        await queueEdits()
+        await queueEdges()
+        await queueRefs()
+
+        # Resolve sources
+        sources = set()
+        if srcidens:
+            for layer in self.layers:
+                for iden in srcidens:
+                    sode = await layer.getStorNode(s_common.uhex(iden))
+                    if (valu := sode.get('valu')) is None:
+                        continue
+
+                    sources.add(valu[0])
+
+        item = {
+            'iden': s_common.ehex(buid),
+            'form': formname,
+            'valu': formvalu,
+            'layer': layriden,
+            'offsets': offsets,
+            'sources': list(sources),
+        }
+        await self.core.coreQueuePuts('model_0_2_31:nodes', (item,))
+
+    async def getSodeByPropValuNoNorm(self, layer, formname, propname, valu, cmpr='='):
+        prop = self.core.model.reqProp(f'{formname}:{propname}')
+
+        stortype = prop.type.stortype
+
+        # Normally we'd call proptype.getStorCmprs() here to get the cmprvals
+        # but getStorCmprs() calls norm() which we're  trying to avoid so build
+        # cmprvals manually here.
+
+        if prop.type.isarray:
+            stortype &= (~s_layer.STOR_FLAG_ARRAY)
+            liftfunc = layer.liftByPropArray
+        else:
+            liftfunc = layer.liftByPropValu
+
+        cmprvals = ((cmpr, valu, stortype),)
+
+        async for _, buid, sode in liftfunc(formname, propname, cmprvals):
+            yield buid, sode
+
+    async def delNode(self, layriden, buid, formname, formvalu):
+        nodeedits = []
+
+        # Node
+        nodeedits.append(
+            self._editNodeDel(layriden, buid, formname, formvalu)
+        )
+
+        # Edits
+        for layer in self.layers:
+
+            sode = await layer.getStorNode(buid)
+
+            props = sode.get('props', {})
+            for propname, propvalu in props.items():
+                propvalu, stortype = propvalu
+                nodeedits.append(
+                    self._editPropDel(layer.iden, buid, formname, propname, propvalu, stortype)
+                )
+
+            tags = sode.get('tags', {})
+            for tagname, tagvalu in tags.items():
+                nodeedits.append(
+                    self._editTagDel(layer.iden, buid, formname, tagname, tagvalu)
+                )
+
+            tagprops = sode.get('tagprops', {})
+            for tagname, propvalus in tagprops.items():
+                for propname, propvalu in propvalus.items():
+                    propvalu, stortype = propvalu
+                    nodeedits.append(
+                        self._editTagpropDel(layer.iden, buid, formname, tagname, propname, propvalu, stortype)
+                    )
+
+            async for name, valu in layer.iterNodeData(buid):
+                nodeedits.append(
+                    self._editNodedataDel(layer.iden, buid, formname, name, valu)
+                )
+
+            async for verb, iden in layer.iterNodeEdgesN1(buid):
+                nodeedits.append(
+                    self._editEdgeDel(layer.iden, buid, formname, verb, iden)
+                )
+
+            async for verb, iden in layer.iterNodeEdgesN2(buid):
+                nodeedits.append(
+                    self._editEdgeDel(layer.iden, s_common.uhex(iden), formname, verb, s_common.ehex(buid))
+                )
+
+        await self.saveEdits(nodeedits)
+
+    async def moveNode(self, layriden, buid, formname, oldvalu, newvalu):
+        nodeedits = []
+
+        oldndef = (formname, oldvalu)
+        newndef = (formname, newvalu)
+        newbuid = s_common.buid((formname, newvalu))
+
+        form = self.core.model.reqForm(formname)
+
+        # Node
+        nodeedits.append(
+            self._editNodeAdd(layriden, newbuid, formname, newvalu, form.type.stortype)
+        )
+
+        # Edits
+        for layer in self.layers:
+
+            sode = await layer.getStorNode(buid)
+
+            props = sode.get('props', {})
+            for propname, propvalu in props.items():
+                propvalu, stortype = propvalu
+                nodeedits.append(
+                    self._editPropSet(layer.iden, newbuid, formname, propname, propvalu, None, stortype)
+                )
+
+            tags = sode.get('tags', {})
+            for tagname, tagvalu in tags.items():
+                nodeedits.append(
+                    self._editTagSet(layer.iden, newbuid, formname, tagname, tagvalu, None)
+                )
+
+            tagprops = sode.get('tagprops', {})
+            for tagname, propvalus in tagprops.items():
+                for propname, propvalu in propvalus.items():
+                    propvalu, stortype = propvalu
+
+                    nodeedits.append(
+                        self._editTagpropSet(layer.iden, newbuid, formname, tagname, propname, propvalu, None, stortype)
+                    )
+
+            # Nodedata
+            async for name, valu in layer.iterNodeData(buid):
+                nodeedits.append(
+                    self._editNodedataSet(layer.iden, newbuid, formname, name, valu, None)
+                )
+
+            # Edges
+            async for verb, iden in layer.iterNodeEdgesN1(buid):
+                nodeedits.append(
+                    self._editEdgeAdd(layer.iden, newbuid, formname, verb, iden)
+                )
+
+            async for verb, iden in layer.iterNodeEdgesN2(buid):
+                nodeedits.append(
+                    self._editEdgeAdd(layer.iden, s_common.uhex(iden), formname, verb, s_common.ehex(newbuid))
+                )
+
+        # Move references
+        references = await self.getNodeReferences(formname, oldvalu)
+        for reflayr, reflist in references.items():
+            layer = self.core.getLayer(reflayr)
+            if layer is None: # pragma: no cover
+                continue
+
+            for iden, refinfo in reflist:
+                (refform, refprop, reftype, isarray, isro) = refinfo
+
+                if reftype == 'ndef':
+                    oldpropv = oldndef
+                    newpropv = newndef
+                else:
+                    oldpropv = oldvalu
+                    newpropv = newvalu
+
+                async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, oldpropv):
+                    if isro:
+                        if (refvalu := refsode.get('valu')) is None: # pragma: no cover
+                            continue
+
+                        await self.removeNode(layer.iden, refbuid, refform, refvalu[0])
+                        continue
+
+                    curv, stortype = refsode['props'].get(refprop, (None, None))
+
+                    if isarray:
+
+                        _curv = curv
+                        if curv is None:
+                            _curv = []
+
+                        newv = list(_curv).copy()
+
+                        while oldpropv in newv:
+                            newv.remove(oldpropv)
+
+                        newv.append(newpropv)
+
+                        nodeedits.append(
+                            self._editPropSet(reflayr, refbuid, refform, refprop, newv, curv, stortype)
+                        )
+
+                    else:
+                        nodeedits.append(
+                            self._editPropSet(reflayr, refbuid, refform, refprop, newpropv, curv, stortype)
+                        )
+
+        await self.saveEdits(nodeedits)
+        await self.delNode(layriden, buid, formname, oldvalu)
