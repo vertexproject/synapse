@@ -159,6 +159,13 @@ class RiskModule(s_module.CoreModule):
                 ('risk:extortion', ('guid', {}), {
                     'doc': 'An event where an attacker attempted to extort a victim.'}),
 
+                ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An outage cause taxonomy.'}),
+
+                ('risk:outage', ('guid', {}), {
+                    'doc': 'An outage event which effected resource availability.'}),
+
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of extortion event types.'}),
@@ -224,6 +231,9 @@ class RiskModule(s_module.CoreModule):
 
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
+
+                (('risk:outage', 'impacted', None), {
+                    'doc': 'The outage event impacted the availability of the target node.'}),
             ),
             'forms': (
 
@@ -1020,6 +1030,20 @@ class RiskModule(s_module.CoreModule):
                     ('size:percent', ('int', {'min': 0, 'max': 100}), {
                         'doc': 'The total percent of the data leaked.'}),
 
+                )),
+
+                ('risk:outage:cause:taxonomy', {}, ()),
+                ('risk:outage:impact:taxonomy', {}, ()),
+                ('risk:outage', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A name for the outage event.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period where the outage impacted availability.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The priority of the outage.'}),
                 )),
 
                 ('risk:extortion:type:taxonomy', {}, ()),
