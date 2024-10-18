@@ -69,7 +69,7 @@ Light Edges
     When used with a ``risk:mitigation`` and an ``inet:service:rule`` node, the
     edge indicates the mitigation uses the service rule.
 
-    When used with a ``risk:mitigation`` and an ``meta:rule`` node, the edge
+    When used with a ``risk:mitigation`` and a ``meta:rule`` node, the edge
     indicates the mitigation uses the rule.
 
     When used with a ``risk:mitigation`` and an ``it:app:yara:rule`` node, the
