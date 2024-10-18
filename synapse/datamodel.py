@@ -988,7 +988,17 @@ class Model:
         if form is None:
             return
 
-        formprops = [p for p in form.props.values() if p.univ is None]
+        ifaceprops = set()
+        for iface in form.ifaces.values():
+            for prop in iface.get('props', ()):
+                ifaceprops.add(prop[0])
+
+        formprops = []
+        for propname, prop in form.props.items():
+            if prop.univ is not None or propname in ifaceprops:
+                continue
+            formprops.append(prop)
+
         if formprops:
             propnames = ', '.join(prop.name for prop in formprops)
             mesg = f'Form has extended properties: {propnames}'
@@ -997,8 +1007,8 @@ class Model:
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].pop(form.name, None)
 
-        for ifname in form.ifaces.keys():
-            self.formsbyiface[ifname].remove(formname)
+        for ifname in form.type.info.get('interfaces', ()):
+            self._delFormIface(form, ifname)
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
@@ -1108,6 +1118,34 @@ class Model:
 
             for ifname in ifaces:
                 self._addFormIface(form, ifname, subifaces=subifaces)
+
+    def _delFormIface(self, form, name, subifaces=None):
+
+        if (iface := self.ifaces.get(name)) is None:
+            return
+
+        for propname, typedef, propinfo in iface.get('props', ()):
+            fullprop = f'{form.name}:{propname}'
+            self.delFormProp(form.name, propname)
+            self.ifaceprops[f'{name}:{propname}'].remove(fullprop)
+
+            if subifaces is not None:
+                for subi in subifaces:
+                    self.ifaceprops[f'{subi}:{propname}'].remove(fullprop)
+
+        form.ifaces.pop(name, None)
+        self.formsbyiface[name].remove(form.name)
+
+        if (ifaces := iface.get('interfaces')) is not None:
+            if subifaces is None:
+                subifaces = []
+            else:
+                subifaces = list(subifaces)
+
+            subifaces.append(name)
+
+            for ifname in ifaces:
+                self._delFormIface(form, ifname, subifaces=subifaces)
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)
