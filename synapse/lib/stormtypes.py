@@ -9476,7 +9476,7 @@ class CronJob(Prim):
         return job
 
 # These will go away once we have value objects in storm runtime
-async def toprim(valu, path=None):
+async def toprim(valu, path=None, use_list=False):
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
@@ -9485,16 +9485,19 @@ async def toprim(valu, path=None):
         retn = []
         for v in valu:
             try:
-                retn.append(await toprim(v))
+                retn.append(await toprim(v, use_list=use_list))
             except s_exc.NoSuchType:
                 pass
-        return tuple(retn)
+
+        if not use_list:
+            return tuple(retn)
+        return retn
 
     if isinstance(valu, dict):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await toprim(v)
+                retn[k] = await toprim(v, use_list=use_list)
             except s_exc.NoSuchType:
                 pass
         return retn
