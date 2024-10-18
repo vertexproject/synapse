@@ -1,6 +1,0 @@
----
-desc: Deprecate ``$lib.inet.whois.guid``.
-prs:
-- 3951
-type: deprecation
-...
