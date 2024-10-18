@@ -47,10 +47,54 @@ class ProjectModule(s_module.CoreModule):
 
             ('proj', {
 
+                'interfaces': (
+                    ('proj:task', {
+                        'template': {'task': 'task'},
+                        'props': (
+
+                            ('id', ('str', {'strip': True}), {
+                                'doc': 'The ID of the {task}.'}),
+
+                            ('project', ('proj:project', {}), {
+                                'doc': 'The project to which the {task} is assigned.'}),
+
+                            ('status', ('int', {}), {
+                                # TODO: make runtime setable int enum typeopts
+                                'doc': 'The status of the {task}.'}),
+
+                            ('priority', ('meta:priority', {}), {
+                                'doc': 'The priority of the {task}.'}),
+
+                            ('created', ('time', {}), {
+                                'doc': 'The time the {task} was created.'}),
+
+                            ('updated', ('time', {}), {
+                                'doc': 'The time the {task} was last updated.'}),
+
+                            ('due', ('time', {}), {
+                                'doc': 'The time the {task} must be complete.'}),
+
+                            ('completed', ('time', {}), {
+                                'doc': 'The time the {task} was completed.'}),
+
+                            ('creator', ('syn:user', {}), {
+                                'doc': 'The user which created the {task}.'}),
+
+                            ('assignee', ('syn:user', {}), {
+                                'doc': 'The user assigned to complete the {task}.'}),
+
+                            ('ext:creator', ('ps:contact', {}), {
+                                'doc': 'The contact information of the creator from an external system.'}),
+
+                            ('ext:assignee', ('ps:contact', {}), {
+                                'doc': 'The contact information of the assignee from an external system.'}),
+                        ),
+                    }),
+                ),
                 'types': (
                     ('proj:epic', ('guid', {}), {
-                        'doc': 'A collection of tickets related to a topic.',
-                    }),
+                        'doc': 'A collection of tickets related to a topic.'}),
+
                     ('proj:ticket', ('guid', {}), {
                         'doc': 'A ticket in a ticketing system.'}),
 

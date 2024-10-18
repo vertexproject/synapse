@@ -264,19 +264,13 @@ class OuModule(s_module.CoreModule):
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.'}),
 
-                ('ou:policy:type:taxonomy', ('taxonomy', {}), {
+                ('ou:enacted:status:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of policy types.'}),
+                    'doc': 'A taxonomy of enacted statuses.'}),
 
-                ('ou:policy', ('guid', {}), {
-                    'doc': 'Guiding principles used to reach a set of goals.'}),
-
-                ('ou:standard:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of types of standards.'}),
-
-                ('ou:standard', ('guid', {}), {
-                    'doc': 'A group of requirements which define how to implement a policy.'}),
+                ('ou:enacted', ('guid', {}), {
+                    'interfaces': ('proj:task',),
+                    'doc': 'An organization enacting a document.'}),
 
                 ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
@@ -1297,8 +1291,16 @@ class OuModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The contest result website URL.',
                     }),
-                    # TODO duration ('duration'
                 )),
+                ('ou:enacted:status:taxonomy', {}, ()),
+                ('ou:enacted', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization which is enacting the document.'}),
+
+                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
+                        'doc': 'The document enacted by the organization.'}),
+                )),
+
                 ('ou:requirement:type:taxonomy', {}, ()),
                 ('ou:requirement', {}, (
 
