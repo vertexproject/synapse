@@ -1,5 +1,7 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.stormsvc as s_stormsvc
 
@@ -45,6 +47,47 @@ class TestService(s_stormsvc.StormSvc):
     )
 
 class SynModelTest(s_t_utils.SynTest):
+
+    async def test_syn_userrole(self):
+
+        async with self.getTestCore() as core:
+
+            (ok, iden) = await core.callStorm('return($lib.trycast(syn:user, root))')
+            self.true(ok)
+            self.eq(iden, core.auth.rootuser.iden)
+
+            # coverage for iden taking precedence
+            (ok, iden) = await core.callStorm(f'return($lib.trycast(syn:user, {iden}))')
+            self.true(ok)
+            self.eq(iden, core.auth.rootuser.iden)
+
+            self.eq('root', await core.callStorm(f'return($lib.repr(syn:user, {iden}))'))
+
+            (ok, iden) = await core.callStorm('return($lib.trycast(syn:role, all))')
+            self.true(ok)
+            self.eq(iden, core.auth.allrole.iden)
+
+            # coverage for iden taking precedence
+            (ok, iden) = await core.callStorm(f'return($lib.trycast(syn:role, {iden}))')
+            self.true(ok)
+            self.eq(iden, core.auth.allrole.iden)
+
+            self.eq('all', await core.callStorm(f'return($lib.repr(syn:role, {iden}))'))
+
+            # coverage for DataModel without a cortex reference
+            iden = s_common.guid()
+
+            model = core.model
+            model.core = None
+
+            synuser = model.type('syn:user')
+            synrole = model.type('syn:user')
+
+            self.eq(iden, synuser.repr(iden))
+            self.eq(iden, synrole.repr(iden))
+
+            self.eq(iden, synuser.norm(iden)[0])
+            self.eq(iden, synrole.norm(iden)[0])
 
     async def test_syn_tag(self):
 

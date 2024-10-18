@@ -1328,6 +1328,22 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
+        {'name': 'repr', 'desc': '''
+            Attempt to convert a system mode value to a display mode string.
+
+            Examples:
+                Print the Synapse user name for an iden::
+
+                    $lib.print($lib.repr(syn:user, $iden))
+
+         ''',
+         'type': {'type': 'function', '_funcname': '_repr',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the model type.'},
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to convert.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'A display mode representation of the value.'}}},
+
         {'name': 'debug', 'desc': '''
             True if the current runtime has debugging enabled.
 
@@ -1400,6 +1416,7 @@ class LibBase(Lib):
             'false': False,
             'text': self._text,
             'cast': self._cast,
+            'repr': self._repr,
             'warn': self._warn,
             'print': self._print,
             'raise': self._raise,
@@ -1489,22 +1506,26 @@ class LibBase(Lib):
             mesg = 'Nested type does not support being copied!'
             raise s_exc.BadArg(mesg=mesg) from None
 
+    def _reqTypeByName(self, name):
+        typeitem = self.runt.snap.core.model.type(name)
+        if typeitem is not None:
+            return typeitem
+
+        # If a type cannot be found for the form, see if name is a property
+        # that has a type we can use
+        propitem = self.runt.snap.core.model.prop(name)
+        if propitem is not None:
+            return propitem.type
+
+        mesg = f'No type or prop found for name {name}.'
+        raise s_exc.NoSuchType(mesg=mesg)
+
     @stormfunc(readonly=True)
     async def _cast(self, name, valu):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        typeitem = self.runt.snap.core.model.type(name)
-        if typeitem is None:
-            # If a type cannot be found for the form, see if name is a property
-            # that has a type we can use
-            propitem = self.runt.snap.core.model.prop(name)
-            if propitem is None:
-                mesg = f'No type or prop found for name {name}.'
-                raise s_exc.NoSuchType(mesg=mesg)
-
-            typeitem = propitem.type
-
+        typeitem = self._reqTypeByName(name)
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = typeitem.norm(valu)
@@ -1515,22 +1536,20 @@ class LibBase(Lib):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        typeitem = self.runt.snap.core.model.type(name)
-        if typeitem is None:
-            # If a type cannot be found for the form, see if name is a property
-            # that has a type we can use
-            propitem = self.runt.snap.core.model.prop(name)
-            if propitem is None:
-                mesg = f'No type or prop found for name {name}.'
-                raise s_exc.NoSuchType(mesg=mesg)
-
-            typeitem = propitem.type
+        typeitem = self._reqTypeByName(name)
 
         try:
             norm, info = typeitem.norm(valu)
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu:
             return (False, None)
+
+    @stormfunc(readonly=True)
+    async def _repr(self, name, valu):
+        name = await toprim(name)
+        valu = await toprim(valu)
+
+        return self._reqTypeByName(name).repr(valu)
 
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
