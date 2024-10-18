@@ -1299,6 +1299,9 @@ class OuModule(s_module.CoreModule):
 
                     ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
                         'doc': 'The document enacted by the organization.'}),
+
+                    ('scope', ('ndef', {}), {
+                        'doc': 'The scope of responsbility for the assignee to enact the document.'}),
                 )),
 
                 ('ou:requirement:type:taxonomy', {}, ()),

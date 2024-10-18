@@ -7,7 +7,12 @@ class DocModule(s_module.CoreModule):
         return (('doc', {
             'interfaces': (
                 ('doc:document', {
-                    'template': {'document': 'document'},
+
+                    'template': {
+                        'type': 'NEWP',
+                        'document': 'document',
+                        'documents': 'documents'},
+
                     'props': (
 
                         ('id', ('str', {'strip': True}), {
@@ -15,6 +20,9 @@ class DocModule(s_module.CoreModule):
 
                         ('name', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The {document} name.'}),
+
+                        ('type', ('{type}', {}), {
+                            'doc': 'The type of {document}.'}),
 
                         ('text', ('str', {}), {
                             'doc': 'The text of the {document}.'}),
@@ -32,13 +40,13 @@ class DocModule(s_module.CoreModule):
                             'doc': 'The contact information of the primary author.'}),
 
                         ('contributors', ('array', {'type': 'ps:contact', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of contacts which contributed to the {document}'}),
+                            'doc': 'An array of contacts which contributed to the {document}.'}),
 
                         ('version', ('it:semver', {}), {
                             'doc': 'The version of the {document}.'}),
 
                         ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of {document}s which are superseded by this {document}.'}),
+                            'doc': 'An array of {documents} which are superseded by this {document}.'}),
                     ),
                 }),
             ),
@@ -50,7 +58,10 @@ class DocModule(s_module.CoreModule):
 
                 ('doc:policy', ('guid', {}), {
                     'interfaces': ('doc:document',),
-                    'template': {'document': 'policy'},
+                    'template': {
+                        'document': 'policy',
+                        'documents': 'policies',
+                        'type': 'doc:policy:type:taxonomy'},
                     'doc': 'Guiding principles used to reach a set of goals.'}),
 
                 ('doc:standard:type:taxonomy', ('taxonomy', {}), {
@@ -59,7 +70,10 @@ class DocModule(s_module.CoreModule):
 
                 ('doc:standard', ('guid', {}), {
                     'interfaces': ('doc:document',),
-                    'template': {'document': 'standard'},
+                    'template': {
+                        'document': 'standard',
+                        'documents': 'standards',
+                        'type': 'doc:standard:type:taxonomy'},
                     'doc': 'A group of requirements which define how to implement a policy or goal.'}),
             ),
             'forms': (

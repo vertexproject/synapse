@@ -715,6 +715,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :completed=20241018
                     :creator=root
                     :assignee=visi
+                    :scope=(ou:team, *)
                     :ext:creator={[ ps:contact=* :name=root ]}
                     :ext:assignee={[ ps:contact=* :name=visi ]}
                 ]
@@ -732,10 +733,12 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(visi.iden, nodes[0].get('assignee'))
             self.eq(core.auth.rootuser.iden, nodes[0].get('creator'))
 
+            self.nn(nodes[0].get('scope'))
             self.nn(nodes[0].get('ext:creator'))
             self.nn(nodes[0].get('ext:assignee'))
 
             self.len(1, await core.nodes('ou:enacted -> proj:project'))
+            self.len(1, await core.nodes('ou:enacted :scope -> ou:team'))
             self.len(1, await core.nodes('ou:enacted :ext:creator -> ps:contact +:name=root'))
             self.len(1, await core.nodes('ou:enacted :ext:assignee -> ps:contact +:name=visi'))
 
