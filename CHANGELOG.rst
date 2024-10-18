@@ -6,6 +6,52 @@
 Synapse Changelog
 *****************
 
+
+v2.184.0 - 2024-10-18
+=====================
+
+Model Changes
+-------------
+- Added ``ou:requirement:type`` taxonomy property to track requirement types.
+  (`#3954 <https://github.com/vertexproject/synapse/pull/3954>`_)
+- Added ``it:app:snort:hit:dropped`` property to track when hits result in the
+  traffic being dropped.
+  (`#3954 <https://github.com/vertexproject/synapse/pull/3954>`_)
+- Added ``ou:vitals:budget`` property to track budget allocations.
+  (`#3954 <https://github.com/vertexproject/synapse/pull/3954>`_)
+- Added ``risk:mitigation:type`` as a ``taxonomy`` to track mitigation types.
+  (`#3957 <https://github.com/vertexproject/synapse/pull/3957>`_)
+- Added ``ou:asset`` form and associated properties to model organizational
+  asset tracking.
+  (`#3957 <https://github.com/vertexproject/synapse/pull/3957>`_)
+- See :ref:`userguide_model_v2_184_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.graph.revoke()`` API for revoking user/role permissions on a graph
+  projection.
+  (`#3950 <https://github.com/vertexproject/synapse/pull/3950>`_)
+- Mark all functions in a deprecated Storm library as deprecated.
+  (`#3952 <https://github.com/vertexproject/synapse/pull/3952>`_)
+
+Bugfixes
+--------
+- Fix a Storm bug where a runtsafe list unpacking operation which was executed
+  per-node would be executed one additional time after all nodes had finished
+  moving through the pipeline.
+  (`#3949 <https://github.com/vertexproject/synapse/pull/3949>`_)
+- Fix an issue where the default permission level specified when adding a graph
+  projection was overwritten.
+  (`#3950 <https://github.com/vertexproject/synapse/pull/3950>`_)
+- Fixed an issue where extended model forms which implemented interfaces could
+  not be removed due to inherited props.
+  (`#3958 <https://github.com/vertexproject/synapse/pull/3958>`_)
+
+Deprecations
+------------
+- Deprecate ``$lib.inet.whois.guid``.
+  (`#3951 <https://github.com/vertexproject/synapse/pull/3951>`_)
+
 v2.183.0 - 2024-10-09
 =====================
 
