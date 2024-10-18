@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where extended model forms which implemented interfaces could
+  not be removed due to inherited props.
+prs: []
+type: bug
+...
