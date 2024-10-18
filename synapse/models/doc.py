@@ -69,7 +69,7 @@ class DocModule(s_module.CoreModule):
 
                 ('doc:standard:type:taxonomy', {}, ()),
                 ('doc:standard', {}, (
-                    ('policy', ('ou:policy', {}), {
+                    ('policy', ('doc:policy', {}), {
                         'doc': 'The policy which was used to derive the standard.'}),
                 )),
             ),
