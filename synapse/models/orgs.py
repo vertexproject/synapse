@@ -45,6 +45,24 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
+                ('ou:asset:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An asset type taxonomy.'}),
+
+                ('ou:asset:status:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An asset status taxonomy.'}),
+
+                ('ou:asset', ('guid', {}), {
+                    'doc': 'A node for tracking assets which belong to an organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'id'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'org::name'}},
+                        ),
+                    }}),
+
                 ('ou:orgtype', ('taxonomy', {}), {
                     'doc': 'An org type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
@@ -733,6 +751,52 @@ class OuModule(s_module.CoreModule):
                 ('ou:team', {}, (
                     ('org', ('ou:org', {}), {}),
                     ('name', ('ou:name', {}), {}),
+                )),
+
+                ('ou:asset:type:taxonomy', {}, ()),
+                ('ou:asset:status:taxonomy', {}, ()),
+                ('ou:asset', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization which owns the asset.'}),
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the asset.'}),
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the assset.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the asset was being tracked.'}),
+
+                    ('status', ('ou:asset:status:taxonomy', {}), {
+                        'doc': 'The current status of the asset.'}),
+
+                    ('type', ('ou:asset:type:taxonomy', {}), {
+                        'doc': 'The asset type.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The overall priority of protecting the asset.'}),
+
+                    ('priority:confidentiality', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the confidentiality of the asset.'}),
+
+                    ('priority:integrity', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the integrity of the asset.'}),
+
+                    ('priority:availability', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the availability of the asset.'}),
+
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node which represents the asset.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place where the asset is deployed.'}),
+
+                    ('owner', ('ps:contact', {}), {
+                        'doc': 'The contact information of the owner or administrator of the asset.'}),
+
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The contact information of the user or operator of the asset.'}),
                 )),
                 ('ou:position', {}, (
                     ('org', ('ou:org', {}), {
