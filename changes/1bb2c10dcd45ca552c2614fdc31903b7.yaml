@@ -1,0 +1,5 @@
+---
+desc: Added ``risk:mitigation:type`` as a ``taxonomy`` to track mitigation types.
+prs: []
+type: model
+...
