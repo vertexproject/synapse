@@ -1,5 +1,0 @@
----
-desc: Add ``$lib.graph.revoke()`` API for revoking user/role permissions on a graph projection.
-prs: []
-type: feat
-...
