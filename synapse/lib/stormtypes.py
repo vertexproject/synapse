@@ -1332,7 +1332,7 @@ class LibBase(Lib):
             Attempt to convert a system mode value to a display mode string.
 
             Examples:
-                Print the synapse user name for an iden::
+                Print the Synapse user name for an iden::
 
                     $lib.print($lib.repr(syn:user, $iden))
 
