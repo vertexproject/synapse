@@ -3489,6 +3489,12 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq('bar', await core.callStorm('return($lib.import(priv.exec).asroot())', opts=asvisi))
 
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes('view.exec newp {}')
+
+            with self.raises(s_exc.NoSuchView):
+                await core.nodes('.created view.exec newp {}')
+
             opts = {'vars': {'view': fork}}
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('$newp=$lib view.exec $view { $newp.log.warning(bar) }', opts=opts)
