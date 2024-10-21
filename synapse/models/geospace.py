@@ -409,9 +409,9 @@ class GeoModule(s_module.CoreModule):
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
 
-                    ('geo:place:taxonomy', ('taxonomy', {}), {
-                        'doc': 'A taxonomy of place types.',
+                    ('geo:place:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
+                        'doc': 'A hierarchical taxonomy of place types.',
                     }),
 
                     ('geo:address', ('str', {'lower': True, 'onespace': True}), {
@@ -491,13 +491,13 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The node that was observed at the associated time and place.'}),
                     )),
 
-                    ('geo:place:taxonomy', {}, ()),
+                    ('geo:place:type:taxonomy', {}, ()),
                     ('geo:place', {}, (
 
                         ('name', ('geo:name', {}), {
                             'doc': 'The name of the place.'}),
 
-                        ('type', ('geo:place:taxonomy', {}), {
+                        ('type', ('geo:place:type:taxonomy', {}), {
                             'doc': 'The type of place.'}),
 
                         ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {

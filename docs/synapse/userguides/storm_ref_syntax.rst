@@ -28,8 +28,8 @@ The Storm Reference documentation provides numerous examples of both abstract St
 
     - *<form>* refers to a form / node primary property, such as ``inet:fqdn``.
     - *<valu>* refers to the value of a primary property, such as ``woot.com`` in ``inet:fqdn=woot.com``.
-    - *<prop>* refers to a node secondary property (including universal properties) such as ``inet:ipv4:asn`` or ``inet:ipv4.created``.
-    - *<pval>* refers to the value of a secondary property, such as ``4808`` in ``inet:ipv4:asn=4808``.
+    - *<prop>* refers to a node secondary property (including universal properties) such as ``inet:ip:asn`` or ``inet:ip.created``.
+    - *<pval>* refers to the value of a secondary property, such as ``4808`` in ``inet:ip:asn=4808``.
     - *<query>* refers to a Storm query.
     - *<inet:fqdn>* refers to a Storm query whose results contain the specified form(s)
     - *<tag>* refers to a tag (``#sometag`` as opposed to a ``syn:tag`` form).
@@ -51,7 +51,7 @@ The Storm Reference documentation provides numerous examples of both abstract St
 The Storm query above adds a new node.
 
 - The outer brackets are in **bold** and are required literal characters to specify a data modification (add) operation. Similarly, the equals signs are in **bold** to indicate literal characters.
-- *<form>* and *<valu>* would need to be replaced by the specific form (such as ``inet:ipv4``) and primary property value (such as ``1.2.3.4``) for the node being created.
+- *<form>* and *<valu>* would need to be replaced by the specific form (such as ``inet:ip``) and primary property value (such as ``1.2.3.4``) for the node being created.
 - The inner brackets are not bolded and indicate that one or more secondary properties can **optionally** be specified.
 - *<prop>* and *<pval>* would need to be replaced by the specific secondary property and value to add to the node, such as ``:loc = us``.
 - The ellipsis ( ``...`` ) indicate that additional secondary properties can optionally be specified. 
@@ -67,7 +67,7 @@ Examples of specific queries represent fully literal input, but are not shown in
 
 **Example query:**
 
-[ inet:ipv4 = 1.2.3.4 :loc = us ]
+[ inet:ip = 1.2.3.4 :loc = us ]
 
 Type-Specific Behavior
 ----------------------

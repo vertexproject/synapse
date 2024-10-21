@@ -1,5 +1,0 @@
----
-desc: Added ``$lib.repr()`` to convert a system mode value to a display mode string.
-prs: []
-type: feat
-...

@@ -38,7 +38,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(40, nodes[0].get('sophistication'))
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.len(1, await core.nodes('ou:technique -> syn:tag'))
-            self.len(1, await core.nodes('ou:technique -> ou:technique:taxonomy'))
+            self.len(1, await core.nodes('ou:technique -> ou:technique:type:taxonomy'))
             self.len(1, await core.nodes('ou:technique -> it:mitre:attack:technique'))
             self.len(1, await core.nodes('ou:technique :reporter -> ou:org'))
 
@@ -76,7 +76,7 @@ class OuModelTest(s_t_utils.SynTest):
                 'goal': goal,
                 'goals': (goal,),
                 'actors': (acto,),
-                'camptype': 'get.pizza',
+                'type': 'get.pizza',
                 'name': 'MyName',
                 'names': ('foo', 'bar', 'Bar'),
                 'type': 'MyType',
@@ -91,7 +91,7 @@ class OuModelTest(s_t_utils.SynTest):
                 'mitre:attack:campaign': 'C0011',
             }
             q = '''[(ou:campaign=$valu :org=$p.org :goal=$p.goal :goals=$p.goals :actors=$p.actors
-            :camptype=$p.camptype :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :success=$p.success
+            :type=$p.type :name=$p.name :names=$p.names :type=$p.type :desc=$p.desc :success=$p.success
             :techniques=$p.techniques :sophistication=$p.sophistication :tag=$p.tag
             :reporter=$p.reporter :reporter:name=$p."reporter:name" :timeline=$p.timeline
             :mitre:attack:campaign=$p."mitre:attack:campaign"
@@ -107,12 +107,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('actors'), (acto,))
             self.eq(node.get('name'), 'myname')
             self.eq(node.get('names'), ('bar', 'foo'))
-            self.eq(node.get('type'), 'MyType')
+            self.eq(node.get('type'), 'mytype.')
             self.eq(node.get('desc'), 'MyDesc')
             self.eq(node.get('ext:id'), 'Foo')
             self.eq(node.get('success'), 1)
             self.eq(node.get('sophistication'), 40)
-            self.eq(node.get('camptype'), 'get.pizza.')
             self.eq(node.get('techniques'), tuple(sorted(teqs)))
             self.eq(node.get('timeline'), timeline)
             self.nn(node.get('reporter'))
@@ -222,7 +221,6 @@ class OuModelTest(s_t_utils.SynTest):
                 'loc': 'US.CA',
                 'name': name,
                 'type': 'corp',
-                'orgtype': 'Corp.Lolz',
                 'names': altnames,
                 'logo': '*',
                 'alias': 'arrow',
@@ -236,7 +234,7 @@ class OuModelTest(s_t_utils.SynTest):
                 'techniques': teqs,
                 'goals': (goal,),
             }
-            q = '''[(ou:org=$valu :loc=$p.loc :name=$p.name :type=$p.type :orgtype=$p.orgtype :names=$p.names
+            q = '''[(ou:org=$valu :loc=$p.loc :name=$p.name :type=$p.type :names=$p.names
                 :logo=$p.logo :alias=$p.alias :phone=$p.phone :sic=$p.sic :naics=$p.naics :url=$p.url
                 :us:cage=$p."us:cage" :founded=$p.founded :dissolved=$p.dissolved
                 :techniques=$p.techniques :goals=$p.goals
@@ -247,8 +245,7 @@ class OuModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('ou:org', guid0))
             self.eq(node.get('loc'), 'us.ca')
-            self.eq(node.get('type'), 'corp')
-            self.eq(node.get('orgtype'), 'corp.lolz.')
+            self.eq(node.get('type'), 'corp.')
             self.eq(node.get('name'), normname)
             self.eq(node.get('names'), altnames)
             self.eq(node.get('alias'), 'arrow')
@@ -268,7 +265,7 @@ class OuModelTest(s_t_utils.SynTest):
             await core.nodes('ou:org:us:cage=7qe71 [ :country={ gen.pol.country ua } :country:code=ua ]')
             self.len(1, await core.nodes('ou:org:country:code=ua'))
             self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
-            self.len(1, await core.nodes('ou:org -> ou:orgtype'))
+            self.len(1, await core.nodes('ou:org -> ou:org:type:taxonomy'))
             self.len(1, await core.nodes('ou:org :motto -> lang:phrase'))
 
             nodes = await core.nodes('ou:name')
@@ -318,20 +315,22 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('alias'), 'evilcorp')
             self.eq(node.get('org'), guid0)
 
-            nodes = await core.nodes('[ou:orgnet4=$valu]',
+            nodes = await core.nodes('[ou:orgnet=$valu]',
                                      opts={'vars': {'valu': (guid0, ('192.168.1.1', '192.168.1.127'))}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], (guid0, (3232235777, 3232235903)))
-            self.eq(node.get('net'), (3232235777, 3232235903))
+            self.eq(node.ndef[1], (guid0, ((4, 3232235777), (4, 3232235903))))
+            self.eq(node.get('net'), ((4, 3232235777), (4, 3232235903)))
             self.eq(node.get('org'), guid0)
 
-            nodes = await core.nodes('[ou:orgnet6=$valu]',
+            nodes = await core.nodes('[ou:orgnet=$valu]',
                                      opts={'vars': {'valu': (guid0, ('fd00::1', 'fd00::127'))}})
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.ndef[1], (guid0, ('fd00::1', 'fd00::127')))
-            self.eq(node.get('net'), ('fd00::1', 'fd00::127'))
+            minv = (6, 0xfd000000000000000000000000000001)
+            maxv = (6, 0xfd000000000000000000000000000127)
+            self.eq(node.ndef[1], (guid0, (minv, maxv)))
+            self.eq(node.get('net'), (minv, maxv))
             self.eq(node.get('org'), guid0)
 
             nodes = await core.nodes('[ou:org:has=$valu]',
@@ -744,7 +743,6 @@ class OuModelTest(s_t_utils.SynTest):
             [ ou:contract=*
                 :title="Fullbright Scholarship"
                 :type=foo.bar
-                :types="nda,grant"
                 :sponsor={iden0}
                 :currency=USD
                 :award:price=20.00
@@ -770,17 +768,16 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(1583020800000, nodes[0].get('expires'))
             self.eq(1585699200000, nodes[0].get('completed'))
             self.eq(1588291200000, nodes[0].get('terminated'))
-            self.sorteq(('grant', 'nda'), nodes[0].get('types'))
             self.sorteq((iden1, iden2), nodes[0].get('parties'))
             self.sorteq((goal0, goal1), nodes[0].get('requirements'))
 
-            nodes = await core.nodes('ou:contract -> ou:conttype')
+            nodes = await core.nodes('ou:contract -> ou:contract:type:taxonomy')
             self.len(1, nodes)
             self.eq(1, nodes[0].get('depth'))
             self.eq('bar', nodes[0].get('base'))
             self.eq('foo.', nodes[0].get('parent'))
 
-            nodes = await core.nodes('ou:conttype')
+            nodes = await core.nodes('ou:contract:type:taxonomy')
             self.len(2, nodes)
             self.eq(0, nodes[0].get('depth'))
             self.eq('foo', nodes[0].get('base'))
@@ -825,8 +822,8 @@ class OuModelTest(s_t_utils.SynTest):
                     :postings = {[ inet:url=https://vertex.link ]}
                     :contact = {[ ps:contact=* :email=visi@vertex.link ]}
                     :loc = us.va
-                    :jobtype = it.dev
-                    :employment = fulltime.salary
+                    :job:type = it.dev
+                    :employment:type = fulltime.salary
                     :jobtitle = PyDev
                     :remote = (1)
                     :yearlypay = 20
@@ -840,7 +837,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('remote'), 1)
             self.eq(nodes[0].get('yearlypay'), '20')
             self.eq(nodes[0].get('paycurrency'), 'btc')
-            self.eq(nodes[0].get('employment'), 'fulltime.salary.')
+            self.eq(nodes[0].get('employment:type'), 'fulltime.salary.')
             self.eq(nodes[0].get('posted'), 1628294400000)
             self.eq(nodes[0].get('removed'), 1640995200000)
             self.eq(nodes[0].get('postings'), ('https://vertex.link',))
@@ -853,7 +850,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:opening -> inet:url'))
             self.len(1, await core.nodes('ou:opening -> inet:fqdn'))
             self.len(1, await core.nodes('ou:opening -> ou:jobtitle'))
-            self.len(1, await core.nodes('ou:opening -> ou:employment'))
+            self.len(1, await core.nodes('ou:opening -> ou:employment:type:taxonomy'))
             self.len(1, await core.nodes('ou:opening :contact -> ps:contact'))
 
     async def test_ou_vitals(self):

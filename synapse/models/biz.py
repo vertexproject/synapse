@@ -30,26 +30,28 @@ class BizModule(s_module.CoreModule):
                     'doc': 'A service which is performed by a specific organization.',
                 }),
                 ('biz:service:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of service offering types.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of service types.',
                 }),
-                ('biz:dealstatus', ('taxonomy', {}), {
-                    'doc': 'A deal/rfp status taxonomy.',
+                ('biz:deal:status:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of deal status values.',
                 }),
-                ('biz:dealtype', ('taxonomy', {}), {
-                    'doc': 'A deal type taxonomy.',
+                ('biz:deal:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of deal types.',
                 }),
-                ('biz:prodtype', ('taxonomy', {}), {
-                    'doc': 'A product type taxonomy.',
+                ('biz:product:type:taxonomy', ('taxonomy', {}), {
+                    'doc': 'A hierarchical taxonomy of product types.',
                     'interfaces': ('meta:taxonomy',),
                 }),
             ),
             'forms': (
-                ('biz:dealtype', {}, ()),
-                ('biz:prodtype', {}, ()),
-                ('biz:dealstatus', {}, ()),
+                ('biz:deal:type:taxonomy', {}, ()),
+                ('biz:product:type:taxonomy', {}, ()),
+                ('biz:service:type:taxonomy', {}, ()),
+                ('biz:deal:type:taxonomy', {}, ()),
+                ('biz:deal:status:taxonomy', {}, ()),
                 ('biz:rfp', {}, (
                     ('ext:id', ('str', {}), {
                         'doc': 'An externally specified identifier for the RFP.',
@@ -61,8 +63,7 @@ class BizModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A brief summary of the RFP.',
                     }),
-                    ('status', ('biz:dealstatus', {}), {
-                        'disp': {'hint': 'enum'},
+                    ('status', ('biz:deal:status:taxonomy', {}), {
                         'doc': 'The status of the RFP.',
                     }),
                     ('url', ('inet:url', {}), {
@@ -96,13 +97,11 @@ class BizModule(s_module.CoreModule):
                     ('title', ('str', {}), {
                         'doc': 'A title for the deal.',
                     }),
-                    ('type', ('biz:dealtype', {}), {
+                    ('type', ('biz:deal:type:taxonomy', {}), {
                         'doc': 'The type of deal.',
-                        'disp': {'hint': 'taxonomy'},
                     }),
-                    ('status', ('biz:dealstatus', {}), {
+                    ('status', ('biz:deal:status:taxonomy', {}), {
                         'doc': 'The status of the deal.',
-                        'disp': {'hint': 'taxonomy'},
                     }),
                     ('updated', ('time', {}), {
                         'doc': 'The last time the deal had a significant update.',
@@ -228,9 +227,8 @@ class BizModule(s_module.CoreModule):
                     ('name', ('str', {}), {
                         'doc': 'The name of the product.',
                     }),
-                    ('type', ('biz:prodtype', {}), {
+                    ('type', ('biz:product:type:taxonomy', {}), {
                         'doc': 'The type of product.',
-                        'disp': {'hint': 'taxonomy'},
                     }),
                     # TODO ('upc', ('biz:upc', {}), {}),
                     ('summary', ('str', {}), {

@@ -103,7 +103,6 @@ class BadCoreStore(SynErr):
 
 class BadCtorType(SynErr): pass
 class BadFormDef(SynErr): pass
-class BadHivePath(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadEdgeDef(SynErr): pass
@@ -142,6 +141,7 @@ class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
 class CantDelCmd(SynErr): pass
+class CantDelEdge(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass

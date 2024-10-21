@@ -5,6 +5,7 @@ class MatTest(s_t_utils.SynTest):
 
     async def test_model_mat_spec_item(self):
         async with self.getTestCore() as core:
+
             place = s_common.guid()
             n0_guid = s_common.guid()
             n1_guid = s_common.guid()
@@ -21,12 +22,12 @@ class MatTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node1 = nodes[0]
 
-            self.eq(node0.props.get('name'), 'f16 fighter jet')
-            self.none(node0.props.get('latlong'))
-            self.eq(node1.props.get('name'), "visi's f16 fighter jet")
-            self.eq(node1.props.get('latlong'), (0.0, 0.0))
-            self.eq(node1.props.get('place'), place)
-            self.eq(node1.props.get('loc'), 'us.hehe.haha')
+            self.eq(node0.get('name'), 'f16 fighter jet')
+            self.none(node0.get('latlong'))
+            self.eq(node1.get('name'), "visi's f16 fighter jet")
+            self.eq(node1.get('latlong'), (0.0, 0.0))
+            self.eq(node1.get('place'), place)
+            self.eq(node1.get('loc'), 'us.hehe.haha')
 
             nodes = await core.nodes('[mat:specimage=$valu]', opts={'vars': {'valu': (n0_guid, f0_valu)}})
             self.len(1, nodes)
@@ -36,10 +37,10 @@ class MatTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node3 = nodes[0]
 
-            self.eq(node2.props.get('spec'), n0_guid)
-            self.eq(node2.props.get('file'), f0_valu)
+            self.eq(node2.get('spec'), n0_guid)
+            self.eq(node2.get('file'), f0_valu)
 
-            self.eq(node3.props.get('item'), n1_guid)
-            self.eq(node3.props.get('file'), f0_valu)
+            self.eq(node3.get('item'), n1_guid)
+            self.eq(node3.get('file'), f0_valu)
 
             self.len(1, await core.nodes('mat:spec:name="f16 fighter jet" -> mat:item'))

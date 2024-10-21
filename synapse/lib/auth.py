@@ -16,13 +16,6 @@ import synapse.lib.crypto.passwd as s_passwd
 
 logger = logging.getLogger(__name__)
 
-def getShadow(passwd):  # pragma: no cover
-    '''This API is deprecated.'''
-    s_common.deprecated('hiveauth.getShadow()', curv='2.110.0')
-    salt = s_common.guid()
-    hashed = s_common.guid((salt, passwd))
-    return (salt, hashed)
-
 def textFromRule(rule):
     text = '.'.join(rule[1])
     if not rule[0]:

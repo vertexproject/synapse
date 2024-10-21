@@ -576,13 +576,13 @@ class ItModule(s_module.CoreModule):
 
     async def _onFormMakeDevStr(self, node):
         pprop = node.ndef[1]
-        await node.snap.addNode('it:dev:str', pprop)
+        await node.view.addNode('it:dev:str', pprop)
 
     async def _onPropSoftverArch(self, node, oldv):
         # make it:dev:str for arch
         prop = node.get('arch')
         if prop:
-            await node.snap.addNode('it:dev:str', prop)
+            await node.view.addNode('it:dev:str', prop)
 
     async def _onPropSoftverVers(self, node, oldv):
         # Set vers:norm and make its normed valu
@@ -593,7 +593,7 @@ class ItModule(s_module.CoreModule):
         await node.set('vers:norm', prop)
 
         # Make it:dev:str from version str
-        await node.snap.addNode('it:dev:str', prop)
+        await node.view.addNode('it:dev:str', prop)
 
         # form the semver properly or bruteforce parts
         try:
@@ -631,8 +631,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A GUID that represents a host or system.'}),
 
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of log event types.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of log event types.',
                 }),
                 ('it:log:event', ('guid', {}), {
                     'doc': 'A GUID representing an individual log event.',
@@ -643,7 +643,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:network:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of network types.'}),
+                    'doc': 'A hierarchical taxonomy of network types.'}),
 
                 ('it:domain', ('guid', {}), {
                     'doc': 'A logical boundary of authentication and configuration such as a windows domain.'
@@ -749,8 +749,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A Windows registry key/value pair.',
                 }),
                 ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A version control system type taxonomy.',
-                    'interfaces': ('meta:taxonomy',)
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of repository types.',
                 }),
                 ('it:dev:repo:label', ('guid', {}), {
                     'doc': 'A developer selected label.',
@@ -796,8 +796,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A software product name.',
                 }),
                 ('it:prod:soft:taxonomy', ('taxonomy', {}), {
-                    'doc': 'A software type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of software types.',
                 }),
                 ('it:prod:softid', ('guid', {}), {
                     'doc': 'An identifier issued to a given host by a specific software application.'}),
@@ -808,9 +808,9 @@ class ItModule(s_module.CoreModule):
                 ('it:prod:component', ('guid', {}), {
                     'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.',
                 }),
-                ('it:prod:hardwaretype', ('taxonomy', {}), {
-                    'doc': 'An IT hardware type taxonomy.',
+                ('it:prod:hardware:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of IT hardware types.',
                 }),
                 ('it:adid', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'An advertising identification string.'}),
@@ -1023,7 +1023,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:software:image:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of software image types.'}),
+                    'doc': 'A hierarchical taxonomy of software image types.'}),
 
                 ('it:software:image', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
@@ -1038,7 +1038,7 @@ class ItModule(s_module.CoreModule):
                 ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'network.smb',
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of storage volume types.',
+                    'doc': 'A hierarchical taxonomy of storage volume types.',
                 }),
             ),
             'interfaces': (
@@ -1085,8 +1085,8 @@ class ItModule(s_module.CoreModule):
                     ('domain', ('it:domain', {}), {
                         'doc': 'The authentication domain that the host is a member of.'}),
 
-                    ('ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The last known ipv4 address for the host.'}),
+                    ('ip', ('inet:ip', {}), {
+                        'doc': 'The last known IP address for the host.'}),
 
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The last known location for the host.'}),
@@ -1146,6 +1146,7 @@ class ItModule(s_module.CoreModule):
 
                 )),
 
+                ('it:software:image:type:taxonomy', {}, ()),
                 ('it:software:image', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1200,7 +1201,7 @@ class ItModule(s_module.CoreModule):
 
                     ('type', ('it:log:event:type:taxonomy', {}), {
                         'ex': 'windows.eventlog.securitylog',
-                        'doc': 'A taxonometric type for the log event.'}),
+                        'doc': 'The type of log event.'}),
 
                     ('severity', ('int', {'enums': loglevels}), {
                         'doc': 'A log level integer that increases with severity.'}),
@@ -1241,12 +1242,8 @@ class ItModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The org that owns/operates the network.'}),
 
-                    ('net4', ('inet:net4', {}), {
-                        'doc': 'The optional contiguous IPv4 address range of this network.'}),
-
-                    ('net6', ('inet:net6', {}), {
-                        'doc': 'The optional contiguous IPv6 address range of this network.'}),
-
+                    ('net', ('inet:net', {}), {
+                        'doc': 'The optional contiguous IP address range of this network.'}),
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
@@ -1336,11 +1333,8 @@ class ItModule(s_module.CoreModule):
                     ('client:host', ('it:host', {}), {
                         'doc': 'The host where the logon originated.',
                     }),
-                    ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 where the logon originated.',
-                    }),
-                    ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 where the logon originated.',
+                    ('client:ip', ('inet:ip', {}), {
+                        'doc': 'The IP where the logon originated.',
                     }),
                 )),
                 ('it:hosturl', {}, (
@@ -2019,11 +2013,11 @@ class ItModule(s_module.CoreModule):
 
                 )),
 
-                ('it:prod:hardwaretype', {}, ()),
+                ('it:prod:hardware:type:taxonomy', {}, ()),
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
-                    ('type', ('it:prod:hardwaretype', {}), {
+                    ('type', ('it:prod:hardware:type:taxonomy', {}), {
                         'doc': 'The type of hardware.'}),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -2317,11 +2311,8 @@ class ItModule(s_module.CoreModule):
                     ('target:url', ('inet:url', {}), {
                         'doc': 'The URL that was scanned to produce the result.'}),
 
-                    ('target:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 address that was scanned to produce the result.'}),
-
-                    ('target:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 address that was scanned to produce the result.'}),
+                    ('target:ip', ('inet:ip', {}), {
+                        'doc': 'The IP address that was scanned to produce the result.'}),
 
                     ('multi:scan', ('it:av:scan:result', {}), {
                         'doc': 'Set if this result was part of running multiple scanners.'}),
@@ -2659,15 +2650,6 @@ class ItModule(s_module.CoreModule):
                     ('client', ('inet:client', {}), {
                         'doc': 'The address of the client during the URL retrieval.'
                     }),
-                    ('client:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 of the client during the URL retrieval.'
-                    }),
-                    ('client:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 of the client during the URL retrieval.'
-                    }),
-                    ('client:port', ('inet:port', {}), {
-                        'doc': 'The client port during the URL retrieval.'
-                    }),
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
                     }),
@@ -2686,16 +2668,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time the port was bound.',
                     }),
                     ('server', ('inet:server', {}), {
-                        'doc': 'The inet:addr of the server when binding the port.'
-                    }),
-                    ('server:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The IPv4 address specified to bind().'
-                    }),
-                    ('server:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The IPv6 address specified to bind().'
-                    }),
-                    ('server:port', ('inet:port', {}), {
-                        'doc': 'The bound (listening) TCP port.'
+                        'doc': 'The socket address of the server when binding the port.'
                     }),
                     ('sandbox:file', ('file:bytes', {}), {
                         'doc': 'The initial sample given to a sandbox environment to analyze.'
@@ -2964,22 +2937,10 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The snort rule that matched the file.'}),
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The inet:flow that matched the snort rule.'}),
-                    ('src', ('inet:addr', {}), {
+                    ('src', ('inet:sockaddr', {}), {
                         'doc': 'The source address of flow that caused the hit.'}),
-                    ('src:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The source IPv4 address of the flow that caused the hit.'}),
-                    ('src:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The source IPv6 address of the flow that caused the hit.'}),
-                    ('src:port', ('inet:port', {}), {
-                        'doc': 'The source port of the flow that caused the hit.'}),
-                    ('dst', ('inet:addr', {}), {
+                    ('dst', ('inet:sockaddr', {}), {
                         'doc': 'The destination address of the trigger.'}),
-                    ('dst:ipv4', ('inet:ipv4', {}), {
-                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
-                    ('dst:ipv6', ('inet:ipv6', {}), {
-                        'doc': 'The destination IPv4 address of the flow that caused the hit.'}),
-                    ('dst:port', ('inet:port', {}), {
-                        'doc': 'The destination port of the flow that caused the hit.'}),
                     ('time', ('time', {}), {
                         'doc': 'The time of the network flow that caused the hit.'}),
                     ('sensor', ('it:host', {}), {
@@ -3074,7 +3035,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The YARA rule that triggered the match.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
-                    ('node', ('ndef', {'forms': ('inet:fqdn', 'inet:ipv4', 'inet:ipv6', 'inet:url')}), {
+                    ('node', ('ndef', {'forms': ('inet:fqdn', 'inet:ip', 'inet:url')}), {
                         'doc': 'The node which matched the rule.'}),
                 )),
 
