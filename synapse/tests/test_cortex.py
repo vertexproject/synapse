@@ -2969,6 +2969,9 @@ class CortexTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('ou:org', node.ndef[0])
 
+            with self.raises(s_exc.NoSuchProp):
+                nodes = await core.nodes('ou:org:hq::email::newp=a')
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed

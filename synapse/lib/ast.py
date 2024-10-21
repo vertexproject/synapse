@@ -1427,16 +1427,16 @@ class LiftOper(Oper):
         self.reverse = True
 
     def getPivNames(self, runt, prop, pivs):
-        pivonames = []
+        pivnames = []
         typename = prop.type.name
         for piv in pivs:
-            pivoprop = runt.model.reqProp(f'{typename}:{piv}', extra=self.kids[0].addExcInfo)
-            pivonames.append(pivoprop.full)
-            typename = pivoprop.type.name
+            pivprop = runt.model.reqProp(f'{typename}:{piv}', extra=self.kids[0].addExcInfo)
+            pivnames.append(pivprop.full)
+            typename = pivprop.type.name
 
-        return pivonames
+        return pivnames
 
-    async def _pivovals(self, runt, prop, genr):
+    async def _pivvals(self, runt, prop, genr):
         async for node in genr:
             async for pivo in runt.snap.nodesByPropValu(prop, '=', node.ndef[1], reverse=self.reverse):
                 yield pivo
@@ -1444,12 +1444,12 @@ class LiftOper(Oper):
     async def pivlift(self, runt, props, pivnames, genr):
 
         for pivname in pivnames[-2::-1]:
-            genr = self._pivovals(runt, pivname, genr)
+            genr = self._pivvals(runt, pivname, genr)
 
         async for node in genr:
-            pivovalu = node.ndef[1]
+            valu = node.ndef[1]
             for prop in props:
-                async for node in runt.snap.nodesByPropValu(prop.full, '=', pivovalu, reverse=self.reverse):
+                async for node in runt.snap.nodesByPropValu(prop.full, '=', valu, reverse=self.reverse):
                     yield node
 
     async def run(self, runt, genr):
