@@ -1,0 +1,5 @@
+---
+desc: Fixed incorrect coersion behavior in .dict.pop() and docs for .dict.has().
+prs: []
+type: bug
+...
