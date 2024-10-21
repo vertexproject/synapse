@@ -1044,6 +1044,11 @@ class LibStixExport(s_stormtypes.Lib):
     '''
     A Storm Library for exporting to STIX version 2.1 CS02.
     '''
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'stix', 'export', 'maxsize'), 'gate': 'cortex',
+         'desc': 'Controls the ability to specify a STIX export bundle maxsize of greater than 10,000.'},
+    )
+
     _storm_locals = (  # type: ignore
         {
             'name': 'bundle',

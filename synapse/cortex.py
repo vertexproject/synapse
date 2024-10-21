@@ -1453,9 +1453,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('storm', 'macro', 'edit'), 'gate': 'cortex',
              'desc': 'Controls access to edit a storm macro.'},
 
-            {'perm': ('storm', 'lib', 'stix', 'export', 'maxsize'), 'gate': 'cortex',
-             'desc': 'Controls the ability to specify a STIX export bundle maxsize of greater than 10,000.'},
-
             {'perm': ('task', 'get'), 'gate': 'cortex',
              'desc': 'Controls access to view other users tasks.'},
             {'perm': ('task', 'del'), 'gate': 'cortex',

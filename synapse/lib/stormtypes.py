@@ -1739,7 +1739,7 @@ class LibDict(Lib):
          'type': {'type': 'function', '_funcname': '_has',
                   'args': (
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary being checked.'},
-                      {'name': 'key', 'type': 'str', 'desc': 'The key to check.'},
+                      {'name': 'key', 'type': 'any', 'desc': 'The key to check.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the key is present, false if the key is not present.'}}},
         {'name': 'keys', 'desc': 'Retrieve a list of keys in the specified dictionary.',
@@ -1752,7 +1752,7 @@ class LibDict(Lib):
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
-                      {'name': 'key', 'type': 'str', 'desc': 'The key to pop.'},
+                      {'name': 'key', 'type': 'any', 'desc': 'The key to pop.'},
                       {'name': 'default', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'Optional default value to return if the key does not exist in the dictionary.'},
                   ),
