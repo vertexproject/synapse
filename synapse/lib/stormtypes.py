@@ -1739,7 +1739,7 @@ class LibDict(Lib):
          'type': {'type': 'function', '_funcname': '_has',
                   'args': (
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary being checked.'},
-                      {'name': 'name', 'type': 'str', 'desc': 'The key name to check.'},
+                      {'name': 'key', 'type': 'str', 'desc': 'The key to check.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the key is present, false if the key is not present.'}}},
         {'name': 'keys', 'desc': 'Retrieve a list of keys in the specified dictionary.',
@@ -1752,7 +1752,7 @@ class LibDict(Lib):
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
-                      {'name': 'key', 'type': 'str', 'desc': 'The key name of the value to pop.'},
+                      {'name': 'key', 'type': 'str', 'desc': 'The key to pop.'},
                       {'name': 'default', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'Optional default value to return if the key does not exist in the dictionary.'},
                   ),
@@ -1795,10 +1795,11 @@ class LibDict(Lib):
         raise s_exc.BadArg(mesg=mesg)
 
     @stormfunc(readonly=True)
-    async def _has(self, valu, name):
+    async def _has(self, valu, key):
         await self._check_type(valu)
+        key = await toprim(key)
         valu = await toprim(valu)
-        return name in valu
+        return key in valu
 
     @stormfunc(readonly=True)
     async def _keys(self, valu):
@@ -1810,8 +1811,8 @@ class LibDict(Lib):
     async def _pop(self, valu, key, default=undef):
         await self._check_type(valu)
 
+        key = await toprim(key)
         real = await toprim(valu)
-        key = await tostr(key)
 
         if key not in real:
             if default == undef:
