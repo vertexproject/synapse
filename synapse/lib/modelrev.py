@@ -1241,7 +1241,7 @@ class ModelMigration_0_2_31:
         self.nodeedits[layriden].append(edit)
         self.editcount += 1
 
-        if self.editcount >= 1000:
+        if self.editcount >= 1000: # pragma: no cover
             await self._flushEdits()
 
     async def _flushEdits(self):
@@ -1438,14 +1438,6 @@ class ModelMigration_0_2_31:
         if n1edges:
             node['n1edges'][layer.iden] = n1edges
 
-        n1edges = node['n1edges'].get(layer.iden, [])
-        async for edge in layer.iterNodeEdgesN1(buid):
-            if edge not in n1edges:
-                n1edges.append(edge)
-
-        if n1edges:
-            node['n1edges'][layer.iden] = n1edges
-
         # Collect N2 edges
         n2edges = []
         async for verb, iden in layer.iterNodeEdgesN2(buid):
@@ -1638,17 +1630,11 @@ class ModelMigration_0_2_31:
                 for layriden, sode in node.get('sodes').items():
                     props = sode.get('props', {})
                     propvalu, stortype = props.get('v2_2', (None, None))
-                    if propvalu is None:
-                        continue
-
-                if propvalu is None:
-                    continue
+                    if propvalu is not None:
+                        break
 
                 newvalu, _ = form.type.norm(propvalu)
-
-                assert newvalu is not None
-
-                await self.moveNode(buid, newvalu, node=node)
+                await self.moveNode(buid, newvalu, node)
 
             elif action == 'remove':
                 newvalu = None
@@ -1664,13 +1650,13 @@ class ModelMigration_0_2_31:
                     await self.editPropDel(layriden, buid, 'it:sec:cpe', 'v2_2', propvalu, stortype)
 
                     # Oh yeah! Migrate the node instead of removing it
-                    await self.moveNode(buid, newvalu, node=node)
+                    await self.moveNode(buid, newvalu, node)
                     break
 
                 else:
                     await self.removeNode(buid, node)
 
-            if count % 1000 == 0:
+            if count % 1000 == 0: # pragma: no cover
                 logger.info(f'Processed {count} it:sec:cpe nodes')
 
         await self._flushEdits()
@@ -1727,7 +1713,7 @@ class ModelMigration_0_2_31:
             assert self.nodes.has(buid)
             node = self.getNode(buid)
 
-        await self.storeNode(buid, node=node)
+        await self.storeNode(buid, node)
 
         formname = node.get('formname')
         formvalu = node.get('formvalu')
@@ -1775,10 +1761,7 @@ class ModelMigration_0_2_31:
 
         await self.delNode(buid, node)
 
-    async def storeNode(self, buid, node=None):
-        if node is None:
-            assert self.nodes.has(buid)
-            node = self.getNode(buid)
+    async def storeNode(self, buid, node):
 
         formname = node.get('formname')
         formvalu = node.get('formvalu')
@@ -1861,11 +1844,7 @@ class ModelMigration_0_2_31:
         async for _, buid, sode in liftfunc(formname, propname, cmprvals):
             yield buid, sode
 
-    async def delNode(self, buid, node=None):
-        if node is None:
-            assert self.nodes.has(buid)
-            node = self.getNode(buid)
-
+    async def delNode(self, buid, node):
         formname = node.get('formname')
         formvalu = node.get('formvalu')
 
@@ -1903,11 +1882,7 @@ class ModelMigration_0_2_31:
         # Node
         await self.editNodeDel(layriden, buid, formname, formvalu)
 
-    async def moveNode(self, buid, newvalu, node=None):
-        if node is None:
-            assert self.nodes.has(buid)
-            node = self.getNode(buid)
-
+    async def moveNode(self, buid, newvalu, node):
         formname = node.get('formname')
         formvalu = node.get('formvalu')
         refmap = node.get('refmap')
@@ -1995,4 +1970,4 @@ class ModelMigration_0_2_31:
                 else:
                     await self.editPropSet(reflayr, refbuid, refform, refprop, newpropv, curv, stortype)
 
-        await self.delNode(buid, node=node)
+        await self.delNode(buid, node)

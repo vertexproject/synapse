@@ -1088,9 +1088,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             await self.runt.printf(f'  layer: {layriden}')
 
             for propname, propvalu in sode.get('props', {}).items():
-                if propname == '.created':
-                    await self.runt.printf(f'    .created = {s_time.repr(propvalu[0])}')
-                elif propname == '.seen':
+                if propname == '.seen':
                     mintime, maxtime = propvalu[0]
                     mindt = s_time.repr(mintime)
                     maxdt = s_time.repr(maxtime)
