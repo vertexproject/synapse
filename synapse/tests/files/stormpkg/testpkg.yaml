@@ -30,6 +30,16 @@ modules:
             returns:
               type: dict
               desc: A status dictionary.
+        - name: newp
+          desc: Some nonexistent function.
+          deprecated:
+            eolvers: v2.300.4
+            mesg: Newp is no longer maintained. Use bar() instead.
+          type:
+            type: function
+            returns:
+              type: 'null'
+              desc: '``newp()`` does not return data.'
 
 onload: |
   $lib.time.sleep($lib.globals.get(onload_sleep, 0))

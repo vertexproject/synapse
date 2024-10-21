@@ -336,6 +336,7 @@ reqValidPkgdef = s_config.getJsValidator({
             'properties': {
                 'name': {'type': 'string'},
                 'desc': {'type': 'string'},
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
                 'type': {
                     'type': 'object',
                     'properties': {
@@ -388,6 +389,28 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': False,
             'required': ['name', 'desc', 'type']
+        },
+        'deprecatedItem': {
+            'type': 'object',
+            'properties': {
+                'eolvers': {'type': 'string', 'minLength': 1,
+                            'description': "The version which will not longer support the item."},
+                'eoldate': {'type': 'string', 'minLength': 1,
+                            'description': 'Optional string indicating Synapse releases after this date may no longer support the item.'},
+                'mesg': {'type': ['string', 'null'], 'default': None,
+                         'description': 'Optional message to include in the warning text.'}
+            },
+            'oneOf': [
+                {
+                    'required': ['eolvers'],
+                    'not': {'required': ['eoldate']}
+                },
+                {
+                    'required': ['eoldate'],
+                    'not': {'required': ['eolvers']}
+                }
+            ],
+            'additionalProperties': False,
         },
         'apitype': {
             'type': 'string',

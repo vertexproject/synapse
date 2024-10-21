@@ -191,6 +191,12 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             self.isin('status()', s)
 
+            self.isin('newp()', s)
+            self.isin('.. warning::\n', s)
+            self.isin('``newp`` has been deprecated and will be removed in version v2.300.4.', s)
+            self.isin('Newp is no longer maintained. Use bar() instead.', s)
+            self.isin('Some nonexistent function', s)
+
             # coverage for no apidefs
             rst = s_l_autodoc.RstHelp()
             await s_autodoc.processStormModules(rst, 'foo', [])

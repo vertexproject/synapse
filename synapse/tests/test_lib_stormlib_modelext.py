@@ -514,3 +514,55 @@ class StormtypesModelextTest(s_test.SynTest):
                 with self.raises(s_exc.BadArg) as exc:
                     await core.callStorm(query)
                 self.eq(err, exc.exception.get('mesg'))
+
+    async def test_lib_stormlib_modelext_interfaces(self):
+        async with self.getTestCore() as core:
+
+            await core.callStorm('''
+                $forminfo = ({"interfaces": ["test:interface"]})
+                $lib.model.ext.addForm(_test:iface, str, ({}), $forminfo)
+                $lib.model.ext.addFormProp(_test:iface, tick, (time, ({})), ({}))
+            ''')
+
+            self.nn(core.model.form('_test:iface'))
+            self.nn(core.model.prop('_test:iface:flow'))
+            self.nn(core.model.prop('_test:iface:proc'))
+            self.nn(core.model.prop('_test:iface:tick'))
+            self.isin('_test:iface', core.model.formsbyiface['test:interface'])
+            self.isin('_test:iface', core.model.formsbyiface['inet:proto:request'])
+            self.isin('_test:iface', core.model.formsbyiface['it:host:activity'])
+            self.isin('_test:iface:flow', core.model.ifaceprops['inet:proto:request:flow'])
+            self.isin('_test:iface:proc', core.model.ifaceprops['test:interface:proc'])
+            self.isin('_test:iface:proc', core.model.ifaceprops['inet:proto:request:proc'])
+            self.isin('_test:iface:proc', core.model.ifaceprops['it:host:activity:proc'])
+
+            q = '$lib.model.ext.delForm(_test:iface)'
+            with self.raises(s_exc.CantDelForm) as exc:
+                await core.callStorm(q)
+            self.eq('Form has extended properties: tick', exc.exception.get('mesg'))
+
+            await core.callStorm('''
+                $lib.model.ext.delFormProp(_test:iface, tick)
+                $lib.model.ext.delForm(_test:iface)
+            ''')
+
+            self.none(core.model.form('_test:iface'))
+            self.none(core.model.prop('_test:iface:flow'))
+            self.none(core.model.prop('_test:iface:proc'))
+            self.none(core.model.prop('_test:iface:tick'))
+            self.notin('_test:iface', core.model.formsbyiface['test:interface'])
+            self.notin('_test:iface', core.model.formsbyiface['inet:proto:request'])
+            self.notin('_test:iface', core.model.formsbyiface['it:host:activity'])
+            self.notin('_test:iface:flow', core.model.ifaceprops['inet:proto:request:flow'])
+            self.notin('_test:iface:proc', core.model.ifaceprops['test:interface:proc'])
+            self.notin('_test:iface:proc', core.model.ifaceprops['inet:proto:request:proc'])
+            self.notin('_test:iface:proc', core.model.ifaceprops['it:host:activity:proc'])
+
+            await core.stormlist('''
+                $forminfo = ({"interfaces": ["newp"]})
+                $lib.model.ext.addForm(_test:iface, str, ({}), $forminfo)
+            ''')
+            self.nn(core.model.form('_test:iface'))
+
+            await core.callStorm('$lib.model.ext.delForm(_test:iface)')
+            self.none(core.model.form('_test:iface'))

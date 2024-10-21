@@ -157,6 +157,15 @@ class GraphLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'null', }}},
 
+        {'name': 'revoke', 'desc': 'Revoke permissions granted to users/roles on a graph projection.',
+         'type': {'type': 'function', '_funcname': '_methGraphRevoke',
+                  'args': (
+                      {'name': 'gden', 'type': 'str', 'desc': 'Iden of the graph projection to modify.'},
+                      {'name': 'scope', 'type': 'str', 'desc': 'The scope, either "users" or "roles".'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The user/role iden depending on scope.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+
         {'name': 'activate', 'desc': 'Set the graph projection to use for the top level Storm Runtime.',
          'type': {'type': 'function', '_funcname': '_methGraphActivate',
                   'args': (
@@ -174,6 +183,7 @@ class GraphLib(s_stormtypes.Lib):
             'mod': self._methGraphMod,
             'list': self._methGraphList,
             'grant': self._methGraphGrant,
+            'revoke': self._methGraphRevoke,
             'activate': self._methGraphActivate,
         }
 
@@ -218,6 +228,13 @@ class GraphLib(s_stormtypes.Lib):
         level = await s_stormtypes.toint(level, noneok=True)
 
         await self.runt.view.core.setStormGraphPerm(gden, scope, iden, level, user=self.runt.user)
+
+    async def _methGraphRevoke(self, gden, scope, iden):
+        gden = await s_stormtypes.tostr(gden)
+        scope = await s_stormtypes.tostr(scope)
+        iden = await s_stormtypes.tostr(iden)
+
+        await self.runt.view.core.setStormGraphPerm(gden, scope, iden, None, user=self.runt.user)
 
     async def _methGraphActivate(self, iden):
         gdef = await self._methGraphGet(iden)

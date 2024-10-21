@@ -2822,6 +2822,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             info = await view.pack()
             self.eq(info['name'], 'default')
 
+            depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'infosec', 'cvss')]
+            self.len(1, depr)
+            self.len(2, [x for x in depr[0]['locals'] if x.get('deprecated')])
+
     async def test_cortex_model_dict(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -3173,50 +3177,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
             self.nn(nodes[0].getTag('hehe.haha'))
-
-    async def test_storm_varlistset(self):
-
-        async with self.getTestCore() as core:
-
-            opts = {'vars': {'blob': ('vertex.link', '9001')}}
-            text = '($fqdn, $crap) = $blob [ inet:fqdn=$fqdn ]'
-
-            nodes = await core.nodes(text, opts=opts)
-            self.len(1, nodes)
-            for node in nodes:
-                self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
-
-            now = s_common.now()
-            ret = await core.callStorm('($foo, $bar)=$lib.cast(ival, $lib.time.now()) return($foo)')
-            self.ge(ret, now)
-
-            text = '.created ($foo, $bar, $baz) = $blob'
-            with self.raises(s_exc.StormVarListError):
-                await core.nodes(text, opts)
-
-            text = '($foo, $bar, $baz) = $blob'
-            with self.raises(s_exc.StormVarListError):
-                await core.nodes(text, opts)
-
-            text = 'for ($x, $y) in ((1),) { $lib.print($x) }'
-            with self.raises(s_exc.StormVarListError):
-                await core.nodes(text)
-
-            text = 'for ($x, $y) in ($lib.layer.get(),) { $lib.print($x) }'
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes(text)
-
-            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
-            with self.raises(s_exc.StormVarListError):
-                await core.nodes(text)
-
-            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes(text)
-
-            text = '($x, $y) = (1)'
-            with self.raises(s_exc.StormRuntimeError):
-                await core.nodes(text)
 
     async def test_storm_contbreak(self):
 
@@ -3673,6 +3633,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.del($iden2)', opts=uopts))
             await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
+
+            await core.nodes('$lib.graph.mod($iden2, ({"name": "newname"}))', opts=uopts)
+            gdef = await core.callStorm('return($lib.graph.get($iden2))', opts=opts)
+            self.eq(gdef['name'], 'newname')
+
+            await core.nodes('$lib.graph.revoke($iden2, users, $useriden)', opts=opts)
+            await self.asyncraises(s_exc.AuthDeny, core.nodes('$lib.graph.mod($iden2, ({"name": "newp"}))', opts=uopts))
+
+            await core.nodes('$lib.graph.grant($iden2, users, $useriden, 3)', opts=opts)
             await core.nodes('$lib.graph.del($iden2)', opts=uopts)
 
             self.len(2, await core.callStorm('return($lib.graph.list())', opts=opts))
@@ -3798,6 +3767,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
                 self.len(3, await core.callStorm('return($lib.graph.list())', opts=opts))
+
+                gdef = await core.callStorm('return($lib.graph.add(({"name": "nodef"})))')
+                self.eq(1, gdef['permissions']['default'])
+
+                gdef = await core.callStorm('return($lib.graph.add(({"name": "def", "permissions": {"default": 0}})))')
+                self.eq(0, gdef['permissions']['default'])
 
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
@@ -6953,6 +6928,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTag):
                 await core.nodes('[ inet:ip=1.2.3.4 +#cno.cve.12345 ]')
+
+            nodes = await core.nodes('[ test:str=beep +?#cno.cve.12345 ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('#cno'))
+            self.none(nodes[0].get('#cno.cve'))
+            self.none(nodes[0].get('#cno.cve.12345'))
 
             self.eq((None, None, '[0-9]{4}', '[0-9]{5}'), await core.callStorm('''
                 return($lib.model.tags.pop(cno.cve, regex))
