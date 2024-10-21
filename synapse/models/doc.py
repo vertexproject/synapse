@@ -8,6 +8,8 @@ class DocModule(s_module.CoreModule):
             'interfaces': (
                 ('doc:document', {
 
+                    'doc': 'A common interface for documents.',
+
                     'template': {
                         'type': 'NEWP',
                         'document': 'document',

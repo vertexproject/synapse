@@ -1122,6 +1122,11 @@ class Model:
         iface = self._prepFormIface(form, iface)
 
         for propname, typedef, propinfo in iface.get('props', ()):
+
+            # allow form props to take precedence
+            if form.prop(propname) is not None:
+                continue
+
             prop = self._addFormProp(form, propname, typedef, propinfo)
             self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
