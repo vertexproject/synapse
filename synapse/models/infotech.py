@@ -2947,6 +2947,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The sensor host node that produced the hit.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The version of the rule at the time of match.'}),
+
+                    ('dropped', ('bool', {}), {
+                        'doc': 'Set to true if the network traffic was dropped due to the match.'}),
                 )),
 
                 ('it:sec:stix:bundle', {}, (

@@ -4428,3 +4428,61 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, small, {'type': 'prop', 'prop': 'ndefs', 'reverse': True}, nidx=1)
             _assert_edge(msgs, small, {'type': 'edge', 'verb': 'refs', 'reverse': True}, nidx=2)
             _assert_edge(msgs, small, {'type': 'edge', 'verb': '_someedge', 'reverse': True}, nidx=3)
+
+    async def test_ast_varlistset(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'blob': ('vertex.link', '9001')}}
+            text = '($fqdn, $crap) = $blob [ inet:fqdn=$fqdn ]'
+
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
+
+            now = s_common.now()
+            ret = await core.callStorm('($foo, $bar)=$lib.cast(ival, $lib.time.now()) return($foo)')
+            self.ge(ret, now)
+
+            # The runtsafe invocation of the VarListSetOper is done per node.
+            q = '''
+            init { $count = ({ 'c': (0) }) }
+            function foo(){
+                $count.c = ( $count.c + (1) )
+                return((a, b))
+            }
+            inet:fqdn=vertex.link
+            ($a, $b) = $foo()
+            fini { return ( $count ) }
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, {'c': 1})
+
+            text = '.created ($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
+            text = '($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
+            text = 'for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = 'for ($x, $y) in ($lib.layer.get(),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '($x, $y) = (1)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)

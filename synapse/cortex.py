@@ -854,7 +854,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._exthttpapicache = s_cache.FixedCache(self._getHttpExtApiByPath, size=1000)
         self._initCortexExtHttpApi()
 
-        self.model = s_datamodel.Model()
+        self.model = s_datamodel.Model(core=self)
 
         # Perform module loading
         await self._loadCoreMods()
