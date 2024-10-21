@@ -5185,9 +5185,7 @@ class ViewExecCmd(Cmd):
 
             opts = {'vars': runtvars | pathvars}
 
-            if (view := runt.snap.core.getView(iden)) is None:
-                raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
-
+            view = runt.snap.core.reqView(iden)
             query = await runt.getStormQuery(text)
             async with await runt.snap.core.snap(user=user, view=view) as snap:
                 async with await Runtime.anit(query, snap, user=user, opts=opts) as subr:
@@ -5217,9 +5215,7 @@ class ViewExecCmd(Cmd):
 
             opts = {'vars': runtvars}
 
-            if (view := runt.snap.core.getView(iden)) is None:
-                raise s_exc.NoSuchView(mesg=f'No such view: {iden=}', iden=iden)
-
+            view = runt.snap.core.reqView(iden)
             query = await runt.getStormQuery(text)
             async with await runt.snap.core.snap(user=user, view=view) as snap:
                 async with await Runtime.anit(query, snap, user=user, opts=opts) as subr:
