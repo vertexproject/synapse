@@ -1153,6 +1153,8 @@ class Model:
         if (iface := self.ifaces.get(name)) is None:
             return
 
+        iface = self._prepFormIface(form, iface)
+
         for propname, typedef, propinfo in iface.get('props', ()):
             fullprop = f'{form.name}:{propname}'
             self.delFormProp(form.name, propname)
