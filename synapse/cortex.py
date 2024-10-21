@@ -51,7 +51,6 @@ import synapse.lib.crypto.rsa as s_rsa
 
 # Importing these registers their commands
 import synapse.lib.stormhttp as s_stormhttp  # NOQA
-import synapse.lib.stormwhois as s_stormwhois  # NOQA
 
 import synapse.lib.stormtypes as s_stormtypes
 

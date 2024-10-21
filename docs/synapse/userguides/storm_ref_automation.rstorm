@@ -494,9 +494,9 @@ As such, triggers are most appropriate for automating tasks that should occur ri
 or importance). Example use cases for triggers include:
 
 - **Performing enrichment.** There may be circumstances where you **always** want to retrieve additional information
-  about an object (node) within Synapse. For example, whenever a unicast IPv4 (``inet:ipv4`` node) is added to Synapse,
+  about an object (node) within Synapse. For example, whenever a unicast IP (``inet:ip`` node) is added to Synapse,
   you want to automatically look up Autonomous System (AS), geolocation, and network whois data. You can use a
-  trigger to enrich the ``inet:ipv4`` using the appropriate `Power-Ups`_ as soon as the IPv4 is created (e.g.,
+  trigger to enrich the ``inet:ip`` using the appropriate `Power-Ups`_ as soon as the IP is created (e.g.,
   by firing on a ``node:add`` event).
   
   Similarly, when a node is assessed to be malicious (e.g., associated with a threat cluster or malware
@@ -505,9 +505,9 @@ or importance). Example use cases for triggers include:
   extensive "enrichment" query (or macro).
 
 - **Encoding analytical logic.** You can use Storm to encode your analysis logic, such as the criteria or decision
-  process used to apply a tag. As a simplified example, assume you have identified an IPv4 address as a DNS sinkhole.
-  You assess that any FQDN resolving to the IPv4 is highly likely to be a sinkholed domain. When a DNS A node
-  (``inet:dns:a``) is created where the associated IPv4 (``:ipv4`` property) is the IP of the sinkhole
+  process used to apply a tag. As a simplified example, assume you have identified an IP address as a DNS sinkhole.
+  You assess that any FQDN resolving to the IP is highly likely to be a sinkholed domain. When a DNS A node
+  (``inet:dns:a``) is created where the associated IP (``:ip`` property) is the IP of the sinkhole
   (a ``prop:set`` event), a trigger can automatically tag the associated FQDN as sinkholed. If you want
   an analyst to confirm the assessment (vs. applying it in a fully automated fashion), you can apply a
   "review" tag instead. Alternatively, if additional criteria would better support your assessment (e.g., if
@@ -672,10 +672,10 @@ The output of ``trigger.list`` includes the following columns:
 
 **node:add example**
 
-Whenever an IPv4 node is added to Synapse, you want to immediately retrieve the associated Autonomous System (AS),
+Whenever an IP node is added to Synapse, you want to immediately retrieve the associated Autonomous System (AS),
 geolocation, and DNS PTR data using various Storm commands.
 
-.. storm-cli:: trigger.add node:add --name 'Basic IPv4 enrichment' --form inet:ipv4 --query { maxmind | nettools.dns }
+.. storm-cli:: trigger.add node:add --name 'Basic IP enrichment' --form inet:ip --query { maxmind | nettools.dns }
 
 
 .. TIP::
@@ -900,18 +900,18 @@ The examples below show creating macros using the ``macro.set`` command.
 
 **Self-contained macro - example**
 
-You have a set of IPv4 addresses that you have identified as sinkholes (tagged ``#cno.infra.dns.sink.hole``).
-By analyzing associated DNS and domain whois data, you have tagged several FQDNs resolving to the IPv4s
-as sinkholed domains (``#cno.infra.dns.sink.holed``). You want to periodically check the sinkhole IPv4s for
+You have a set of IP addresses that you have identified as sinkholes (tagged ``#cno.infra.dns.sink.hole``).
+By analyzing associated DNS and domain whois data, you have tagged several FQDNs resolving to the IPs
+as sinkholed domains (``#cno.infra.dns.sink.holed``). You want to periodically check the sinkhole IPs for
 newly sinkholed FQDNs. To do this, you create a macro called ``sinkhole.check`` that will:
 
-- query a passive DNS data source to check for new FQDNs resolving to the various sinkhole IPv4s;
+- query a passive DNS data source to check for new FQDNs resolving to the various sinkhole IPs;
 - perform a live DNS A lookup on the FQDNs to double-check against the passive DNS results;
 - retrieve the domains' current whois records; and
 - tag the FQDNs for review, including a timestamp so the reviewer knows when the FQDN was added to the set
   of domains for review.
 
-.. storm-cli:: macro.set sinkhole.check { $now=$lib.time.now() inet:ipv4#cno.infra.dns.sink.hole | alienvault.otx.pdns --yield | -> inet:fqdn :zone -> inet:fqdn -#cno.infra.dns.sink.holed | uniq | nettools.dns | nettools.whois | [ +#int.review.sinkhole=$now ] }
+.. storm-cli:: macro.set sinkhole.check { $now=$lib.time.now() inet:ip#cno.infra.dns.sink.hole | alienvault.otx.pdns --yield | -> inet:fqdn :zone -> inet:fqdn -#cno.infra.dns.sink.holed | uniq | nettools.dns | nettools.whois | [ +#int.review.sinkhole=$now ] }
 
 The Storm for this macro is broken down below (with comments) for clarity. (You can include comments within
 a macro; Synapse will ignore comment lines during execution.)
@@ -921,8 +921,8 @@ a macro; Synapse will ignore comment lines during execution.)
   // Get the current time (in UTC) to use for the tag timestamp
   $now=$lib.time.now()
   
-  // Lift IPv4 nodes tagged as sinkholes
-  inet:ipv4#cno.infra.dns.sink.hole
+  // Lift IP nodes tagged as sinkholes
+  inet:ip#cno.infra.dns.sink.hole
   
   // Obtain PDNS information from AlienVault and yield the resulting inet:dns:a nodes
   alienvault.otx.pdns --yield |
@@ -975,7 +975,7 @@ Instead of requiring the analyst to remember and run multiple individual Storm c
 to create a macro called ``enrich`` that can take a variety of different nodes as input, and automatically run
 the appropriate Storm commands to call the data sources that can enrich the input node(s).
 
-.. storm-pre:: macro.set enrich { +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4) switch $node.form() { ("hash:md5", "hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ipv4": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
+.. storm-pre:: macro.set enrich { +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ip) switch $node.form() { ("hash:md5", "hash:sha1"): { { | virustotal.file.enrich | virustotal.file.behavior } }  "hash:sha256": { { | virustotal.file.enrich | virustotal.file.behavior | alienvault.otx.files } }  "inet:fqdn": { { +:iszone=1 +:issuffix=0 { | nettools.dns --type A AAAA CNAME MX NS SOA TXT | nettools.whois | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } }  { +:iszone=0 +:issuffix=0 { | nettools.dns --type A AAAA CNAME | virustotal.pdns | virustotal.commfiles | alienvault.otx.domain | alienvault.otx.pdns } } }  "inet:ip": { +:type=unicast  { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns } }  *: { } } }
 
 Once again, we create the macro with the ``macro.set`` command. Because of the length of the associated Storm,
 the full ``<storm_query>`` is provided below for readability.
@@ -989,7 +989,7 @@ The content of the macro (the ``<storm_query>``, with comments):
 ::
   
   // Filter inbound nodes to supported forms only
-  +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ipv4)
+  +(hash:md5 or hash:sha1 or hash:sha256 or inet:fqdn or inet:ip)
   
   // Switch statement to handle different forms
   switch $node.form() {
@@ -1017,7 +1017,7 @@ The content of the macro (the ``<storm_query>``, with comments):
         }
     }
     
-    "inet:ipv4": {
+    "inet:ip": {
         
         +:type=unicast
         { | maxmind | nettools.dns | nettools.whois | virustotal.pdns | virustotal.commfiles | censys.hosts.enrich | alienvault.otx.ip | alienvault.otx.pdns }

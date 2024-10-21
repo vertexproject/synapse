@@ -110,7 +110,7 @@ You can print the value of a variable, to check its value at a given point in yo
 
 ::
   
-  inet:ipv4=1.2.3.4
+  inet:ip=1.2.3.4
   $asn=:asn
   $lib.print($asn)
 
@@ -397,7 +397,7 @@ the node's form).
 
       "inet:fqdn": { | pdns.service | whois.service }
 
-      "inet:ipv4": { | pdns.service }
+      "inet:ip": { | pdns.service }
 
       "inet:email": { | whois.service }
 

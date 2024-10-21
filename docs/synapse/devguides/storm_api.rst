@@ -257,17 +257,17 @@ edits
 
 Example::
 
-    # Nodeedits produced by the following query: [(inet:ipv4=1.2.3.4 :asn=1)]
+    # Nodeedits produced by the following query: [(inet:ip=1.2.3.4 :asn=1)]
 
     ('node:edits',
      {'edits': (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                 'inet:ipv4',
-                 ((0, (16909060, 4), ()),
+                 'inet:ip',
+                 ((0, ((4, 16909060), 26), ()),
                   (2, ('.created', 1662578208195, None, 21), ()),
                   (2, ('type', 'unicast', None, 1), ()))),)})
     ('node:edits',
      {'edits': (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
-                 'inet:ipv4',
+                 'inet:ip',
                  ((2, ('asn', 1, None, 9), ()),)),
                 ('371bfbcd479fec0582d55e8cf1011c91c97f306cf66ceea994ac9c37e475a537',
                  'inet:asn',
@@ -288,7 +288,7 @@ count
 
 Example::
 
-    # counts produced by the following query: [(inet:ipv4=1.2.3.4 :asn=1)]
+    # counts produced by the following query: [(inet:ip=1.2.3.4 :asn=1)]
 
     ('node:edits:count', {'count': 3})
     ('node:edits:count', {'count': 3})
@@ -330,8 +330,8 @@ Example::
 
     ('look:miss', {'ndef': ('inet:fqdn', 'hehe.com')})
 
-    # The ipv4 value is presented in system mode.
-    ('look:miss', {'ndef': ('inet:ipv4', 16909060)})
+    # The ip value is presented in system mode.
+    ('look:miss', {'ndef': ('inet:ip', (4, 16909060))})
 
 csv\:row
 --------
@@ -519,7 +519,7 @@ Example:
 
         ndefs = (
             ('inet:fqdn', 'com'),
-            ('inet:ipv4', 134744072),
+            ('inet:ip', (4, 134744072)),
         )
 
         opts = {'ndefs': ndefs}
@@ -573,7 +573,7 @@ Example:
 
     opts = {'path': True}
 
-    # A Storm node message with a node path added to it, from the query inet:ipv4 -> inet:asn.
+    # A Storm node message with a node path added to it, from the query inet:ip -> inet:asn.
 
     ('node',
      (('inet:asn', 1),
@@ -613,7 +613,7 @@ Example:
     # A Storm node message with reprs added to it.
 
     ('node',
-     (('inet:ipv4', 134744072),
+     (('inet:ip', (4, 134744072)),
       {'iden': 'ee6b92c9fd848a2cb00f3a3618148c512b58456b8b51fbed79251811597eeea3',
        'nodedata': {},
        'path': {},

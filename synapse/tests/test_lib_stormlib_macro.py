@@ -10,9 +10,9 @@ class MacroTest(s_test.SynTest):
             visi = await core.auth.addUser('visi')
             asvisi = {'user': visi.iden}
 
-            await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            await core.nodes('[ inet:ip=1.2.3.4 ]')
 
-            msgs = await core.stormlist('macro.set hehe ${ inet:ipv4 }')
+            msgs = await core.stormlist('macro.set hehe ${ inet:ip }')
             self.stormHasNoWarnErr(msgs)
 
             msgs = await core.stormlist('macro.set hoho "+#foo"')
@@ -26,20 +26,20 @@ class MacroTest(s_test.SynTest):
             self.stormIsInPrint('2 macros found', msgs)
 
             nodes = await core.nodes('macro.exec hehe', opts=asvisi)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
             nodes = await core.nodes('$name="hehe" | macro.exec $name',)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
             nodes = await core.nodes('macro.exec hehe | macro.exec hoho', opts=asvisi)
             self.len(0, nodes)
 
             await core.nodes('macro.set bam ${ [ +#foo ] }')
-            nodes = await core.nodes('inet:ipv4 | macro.exec bam')
+            nodes = await core.nodes('inet:ip | macro.exec bam')
             self.len(1, nodes)
             self.isin('foo', [t[0] for t in nodes[0].getTags()])
 
-            self.len(1, await core.nodes('inet:ipv4 | macro.exec hoho'))
+            self.len(1, await core.nodes('inet:ip | macro.exec hoho'))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ test:str=hehe ] $name=$node.value() | macro.exec $name')
@@ -54,7 +54,7 @@ class MacroTest(s_test.SynTest):
                 await core.nodes('$lib.macro.del(hehe)', opts=asvisi)
 
             with self.raises(s_exc.BadArg):
-                await core.nodes('$lib.macro.set("", ${ inet:ipv4 })')
+                await core.nodes('$lib.macro.set("", ${ inet:ip })')
 
             with self.raises(s_exc.BadArg):
                 await core.nodes('$lib.macro.get("")')
@@ -75,7 +75,7 @@ class MacroTest(s_test.SynTest):
                 await core.nodes('$lib.macro.mod("", ({"name": "foobar"}))')
 
             with self.raises(s_exc.AuthDeny):
-                await core.nodes('$lib.macro.set(hehe, ${ inet:ipv6 })', opts=asvisi)
+                await core.nodes('$lib.macro.set(hehe, ${ inet:ip })', opts=asvisi)
 
             await core.addStormMacro({'name': 'foo', 'storm': '$lib.print(woot)'})
 
@@ -103,11 +103,11 @@ class MacroTest(s_test.SynTest):
             with self.raises(s_exc.BadArg):
                 await core.nodes('$lib.macro.mod(foo, bar)', opts=asvisi)
 
-            msgs = await core.stormlist('macro.set hehe ${ inet:ipv4 -:asn=30 }')
+            msgs = await core.stormlist('macro.set hehe ${ inet:ip -:asn=30 }')
             self.stormIsInPrint('Set macro: hehe', msgs)
 
             msgs = await core.stormlist('macro.get hehe')
-            self.stormIsInPrint('inet:ipv4 -:asn=30', msgs)
+            self.stormIsInPrint('inet:ip -:asn=30', msgs)
 
             msgs = await core.stormlist('macro.del hehe')
             self.stormIsInPrint('Removed macro: hehe', msgs)
@@ -335,11 +335,11 @@ class MacroTest(s_test.SynTest):
             self.stormHasNoWarnErr(msgs)
 
             visi = await core.auth.addUser('visi')
-            msgs = await core.stormlist('macro.set asdf {inet:ipv4}', opts={'user': visi.iden})
+            msgs = await core.stormlist('macro.set asdf {inet:ip}', opts={'user': visi.iden})
             self.stormIsInErr('User requires edit permission on macro: asdf', msgs)
 
             await visi.addRule((True, ('storm', 'macro', 'edit')))
-            msgs = await core.stormlist('macro.set asdf {inet:ipv4}', opts={'user': visi.iden})
+            msgs = await core.stormlist('macro.set asdf {inet:ip}', opts={'user': visi.iden})
             self.stormHasNoWarnErr(msgs)
 
             msgs = await core.stormlist('macro.del asdf', opts={'user': visi.iden})
@@ -371,7 +371,7 @@ class MacroTest(s_test.SynTest):
 
                     await core.callStorm('''
                         $lib.macro.set('foobar', ${ file:bytes | [+#neato] })
-                        $lib.macro.set('foobar', ${ inet:ipv4 | [+#burrito] })
+                        $lib.macro.set('foobar', ${ inet:ip | [+#burrito] })
                         $lib.macro.mod('foobar', ({'name': 'bizbaz'}))
                         $lib.macro.grant('bizbaz', users, $visi, 3)
                         $lib.macro.del('bizbaz')
@@ -389,7 +389,7 @@ class MacroTest(s_test.SynTest):
                     self.eq('storm:macro:mod', setmesg['data']['event'])
                     event = setmesg['data']['info']
                     self.nn(event['macro'])
-                    self.eq(event['info']['storm'], 'inet:ipv4 | [+#burrito]')
+                    self.eq(event['info']['storm'], 'inet:ip | [+#burrito]')
                     self.nn(event['info']['updated'])
 
                     modmesg = await sock.receive_json()

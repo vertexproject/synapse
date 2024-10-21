@@ -364,7 +364,7 @@ You can assign the value of a particular node property (secondary or universal) 
   same IP address in the same time window:
 
 .. storm-pre:: [ ( inet:dns:a=(hurr.net,1.2.3.4) .seen=("2018/12/09 06:02:53","2019/01/03 11:27:01") ) ( inet:dns:a=(derp.org,1.2.3.4) .seen=("2019/09/03 01:11:23","2019/12/14 14:22:00"))]
-.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=.seen -> inet:ipv4 -> inet:dns:a +.seen@=$time
+.. storm-cli:: inet:dns:a=(woot.com,1.2.3.4) $time=.seen -> inet:ip -> inet:dns:a +.seen@=$time
 
 .. TIP::
   
@@ -407,18 +407,18 @@ most useful.
 - **Node method:** Assign the **primary property value** of a domain node to the variable ``$fqdn`` using
   the ``$node.value()`` method:
 
-.. storm-pre:: [ inet:dns:a=(mail.mydomain.com,11.12.13.14) inet:dns:a=(mail.mydomain.com,25.25.25.25) ( inet:ipv4=25.25.25.25 :dns:rev=mail.mydomain.com ) ]
+.. storm-pre:: [ inet:dns:a=(mail.mydomain.com,11.12.13.14) inet:dns:a=(mail.mydomain.com,25.25.25.25) ( inet:ip=25.25.25.25 :dns:rev=mail.mydomain.com ) ]
 .. storm-cli:: inet:fqdn=mail.mydomain.com $fqdn=$node.value() $lib.print($fqdn)
     
 
 - Find the DNS A records associated with a given domain where the PTR record for the IP matches the FQDN:
 
-.. storm-cli:: inet:fqdn=mail.mydomain.com $fqdn=$node.value() -> inet:dns:a +{ -> inet:ipv4 +:dns:rev=$fqdn }
+.. storm-cli:: inet:fqdn=mail.mydomain.com $fqdn=$node.value() -> inet:dns:a +{ -> inet:ip +:dns:rev=$fqdn }
 
 .. TIP::
   
   The example above uses a subquery filter (see :ref:`filter-subquery`) to pivot from the DNS A records
-  to associated IPv4 nodes (``inet:ipv4``) and checks whether the ``:dns:rev`` property matches the FQDN
+  to associated IP nodes (``inet:ip``) and checks whether the ``:dns:rev`` property matches the FQDN
   in the variable ``$fqdn``.
 
 

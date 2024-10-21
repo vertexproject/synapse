@@ -193,7 +193,7 @@ class AstTest(s_test.SynTest):
             opts = {'mode': 'autoadd'}
             nodes = await core.nodes('1.2.3.4 woot.com visi@vertex.link', opts=opts)
             self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
             self.eq(nodes[1].ndef, ('inet:fqdn', 'woot.com'))
             self.eq(nodes[2].ndef, ('inet:email', 'visi@vertex.link'))
 
@@ -201,7 +201,7 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
-                inet:ipv4=1.2.3.4
+                inet:ip=1.2.3.4
                 inet:fqdn=foo.bar.com
                 inet:email=visi@vertex.link
                 inet:url="https://[ff::00]:4443/hehe?foo=bar&baz=faz"
@@ -250,7 +250,7 @@ class AstTest(s_test.SynTest):
                 msgs = await s_test.alist(prox.storm('1.2.3.4', opts))
                 nodes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, nodes)
-                self.eq(nodes[0][0], ('inet:ipv4', 0x01020304))
+                self.eq(nodes[0][0], ('inet:ip', (4, 0x01020304)))
 
     async def test_ast_subq_vars(self):
 
@@ -435,10 +435,10 @@ class AstTest(s_test.SynTest):
             self.nn(nodes[1].getTag('visi'))
             self.none(nodes[0].getTag('visi'))
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value()) +#foo ) ]')
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]  [ (inet:dns:a=(vertex.link, $node.value()) +#foo ) ]')
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
             self.none(nodes[0].getTag('foo'))
-            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
+            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', (4, 0x01020304))))
             self.nn(nodes[1].getTag('foo'))
 
             # test nested
@@ -454,7 +454,7 @@ class AstTest(s_test.SynTest):
 
             user = await core.auth.addUser('newb')
             with self.raises(s_exc.AuthDeny):
-                await core.nodes('[ (inet:ipv4=1.2.3.4 :asn=20) ]', opts={'user': user.iden})
+                await core.nodes('[ (inet:ip=1.2.3.4 :asn=20) ]', opts={'user': user.iden})
 
     async def test_subquery_yield(self):
 
@@ -751,9 +751,9 @@ class AstTest(s_test.SynTest):
     async def test_ast_pivot(self):
         # a general purpose pivot test. come on in!
         async with self.getTestCore() as core:
-            self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :asn -> *'))
-            self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :foo -> *'))
-            self.len(0, await core.nodes('[ inet:ipv4=1.2.3.4 ] :asn -> inet:asn'))
+            self.len(0, await core.nodes('[ inet:ip=1.2.3.4 ] :asn -> *'))
+            self.len(0, await core.nodes('[ inet:ip=1.2.3.4 ] :foo -> *'))
+            self.len(0, await core.nodes('[ inet:ip=1.2.3.4 ] :asn -> inet:asn'))
 
             q = '''[
                 it:log:event=(event,)
@@ -975,7 +975,7 @@ class AstTest(s_test.SynTest):
             opts = {'vars': {'verbs': ('_stuff', '_other', '_wat', '_place')}}
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
-            await core.nodes('[test:str=neato :hehe=haha +(_stuff)> { [inet:ipv4=1.2.3.0/24] }]')
+            await core.nodes('[test:str=neato :hehe=haha +(_stuff)> { [inet:ip=1.2.3.0/24] }]')
             await core.nodes('[test:str=burrito :hehe=stuff <(_stuff)+ { test:str=baz }]')
             await core.nodes('test:str=neato [ <(_other)+ { test:str=foo } ]')
 
@@ -983,7 +983,7 @@ class AstTest(s_test.SynTest):
             self.len(257, nodes)
             self.eq(('test:str', 'neato'), nodes[0].ndef)
             for n in nodes[1:]:
-                self.eq('inet:ipv4', n.ndef[0])
+                self.eq('inet:ip', n.ndef[0])
 
             nodes = await core.nodes('test:str=neato | tee { --+> * } { <+(_other)- * }')
             self.len(259, nodes)
@@ -992,7 +992,7 @@ class AstTest(s_test.SynTest):
             self.eq(('test:str', 'neato'), nodes[-2].ndef)
 
             for n in nodes[1:257]:
-                self.eq('inet:ipv4', n.ndef[0])
+                self.eq('inet:ip', n.ndef[0])
 
             await core.nodes('test:str=foo [ +(_wat)> {[test:int=12]}]')
 
@@ -1144,16 +1144,16 @@ class AstTest(s_test.SynTest):
 
             # ensure that we get a proper exception when using += (et al) on non-array props
             with self.raises(s_exc.StormRuntimeError):
-                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn+=10 ]')
+                nodes = await core.nodes('[ inet:ip=1.2.3.4 :asn+=10 ]')
 
             with self.raises(s_exc.StormRuntimeError):
-                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn?+=10 ]')
+                nodes = await core.nodes('[ inet:ip=1.2.3.4 :asn?+=10 ]')
 
             with self.raises(s_exc.StormRuntimeError):
-                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn-=10 ]')
+                nodes = await core.nodes('[ inet:ip=1.2.3.4 :asn-=10 ]')
 
             with self.raises(s_exc.StormRuntimeError):
-                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :asn?-=10 ]')
+                nodes = await core.nodes('[ inet:ip=1.2.3.4 :asn?-=10 ]')
 
     async def test_ast_del_array(self):
 
@@ -1257,7 +1257,7 @@ class AstTest(s_test.SynTest):
             self.eq(cm.exception.get('text'), '[it:dev:str=hehe it:dev:str=haha]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ipv4=1.2.3.0/24]} ]')
+                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ip=1.2.3.0/24]} ]')
 
             await core.nodes('ou:org:alias=visiacme [ -:name]')
             nodes = await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
@@ -1266,7 +1266,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
             self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
 
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ipv4=1.2.3.0/24]} ]')
+            nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ip=1.2.3.0/24]} ]')
             self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
 
             # Filter by Subquery value
@@ -1939,9 +1939,9 @@ class AstTest(s_test.SynTest):
 
             await core.setStormCmd(scmd)
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#visi ] | foocmd')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 +#visi ] | foocmd')
             self.eq(nodes[0].ndef, ('test:str', 'visi'))
-            self.eq(nodes[1].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[1].ndef, ('inet:ip', (4, 0x01020304)))
 
             msgs = await core.stormlist('''
                 function lolol() {
@@ -2441,14 +2441,14 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('if (true) { [inet:ipv4=1.2.3.4] }')
+            nodes = await core.nodes('if (true) { [inet:ip=1.2.3.4] }')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
 
-            nodes = await core.nodes('if (false) { [inet:ipv4=1.2.3.4] }')
+            nodes = await core.nodes('if (false) { [inet:ip=1.2.3.4] }')
             self.len(0, nodes)
 
-            nodes = await core.nodes('if (null) { [inet:ipv4=1.2.3.4] }')
+            nodes = await core.nodes('if (null) { [inet:ip=1.2.3.4] }')
             self.len(0, nodes)
 
             self.none(await core.callStorm('return((null))'))
@@ -2580,54 +2580,54 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 ]'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4', opts={'readonly': True}))
+            self.len(1, await core.nodes('[ inet:ip=1.2.3.4 ]'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4', opts={'readonly': True}))
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('[ inet:ipv4=1.2.3.4 ]', opts={'readonly': True})
+                await core.nodes('[ inet:ip=1.2.3.4 ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ :asn=20 ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ -:asn ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ +#foo ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ -#foo ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ +#foo:bar=10 ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ +#foo:bar=10 ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ -#foo:bar ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ -#foo:bar ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ .seen=2020 ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ .seen=2020 ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ -.seen ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ -.seen ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ +(refs)> { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ +(refs)> { inet:ip=1.2.3.4 } ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ -(refs)> { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ -(refs)> { inet:ip=1.2.3.4 } ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ <(refs)+ { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ <(refs)+ { inet:ip=1.2.3.4 } ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4=1.2.3.4 [ <(refs)- { inet:ipv4=1.2.3.4 } ]', opts={'readonly': True})
+                await core.nodes('inet:ip=1.2.3.4 [ <(refs)- { inet:ip=1.2.3.4 } ]', opts={'readonly': True})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('[ (inet:ipv4=1.2.3.4 :asn=20) ]', opts={'readonly': True})
+                await core.nodes('[ (inet:ip=1.2.3.4 :asn=20) ]', opts={'readonly': True})
 
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | limit 10', opts={'readonly': True}))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 | limit 10', opts={'readonly': True}))
             with self.raises(s_exc.IsReadOnly):
-                self.len(1, await core.nodes('inet:ipv4=1.2.3.4 | delnode', opts={'readonly': True}))
+                self.len(1, await core.nodes('inet:ip=1.2.3.4 | delnode', opts={'readonly': True}))
 
             iden = await core.callStorm('return($lib.view.get().iden)')
             await core.nodes('view.list', opts={'readonly': True})
@@ -2642,7 +2642,7 @@ class AstTest(s_test.SynTest):
                 await core.nodes('vertex.link', opts={'readonly': True, 'mode': 'autoadd'})
 
             with self.raises(s_exc.IsReadOnly):
-                await core.nodes('inet:ipv4 | limit 1 | tee { [+#foo] }', opts={'readonly': True})
+                await core.nodes('inet:ip | limit 1 | tee { [+#foo] }', opts={'readonly': True})
 
             q = 'function func(arg) { $lib.print(`hello {$arg}`) return () } $func(world)'
             msgs = await core.stormlist(q, opts={'readonly': True})
@@ -2742,76 +2742,76 @@ class AstTest(s_test.SynTest):
                 async with self.getTestCore() as core:
 
                     self.len(1, await core.nodes('[inet:asn=200 :name=visi]'))
-                    self.len(1, await core.nodes('[inet:ipv4=1.2.3.4 :asn=200]'))
-                    self.len(1, await core.nodes('[inet:ipv4=5.6.7.8]'))
-                    self.len(1, await core.nodes('[inet:ipv4=5.6.7.9 :loc=us]'))
-                    self.len(1, await core.nodes('[inet:ipv4=5.6.7.10 :loc=uk]'))
+                    self.len(1, await core.nodes('[inet:ip=1.2.3.4 :asn=200]'))
+                    self.len(1, await core.nodes('[inet:ip=5.6.7.8]'))
+                    self.len(1, await core.nodes('[inet:ip=5.6.7.9 :loc=us]'))
+                    self.len(1, await core.nodes('[inet:ip=5.6.7.10 :loc=uk]'))
                     self.len(1, await core.nodes('[test:str=a :bar=(test:str, a) :tick=19990101]'))
                     self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
 
                     await core.nodes('.created [.seen=20200101]')
                     calls = []
 
-                    nodes = await core.nodes('inet:ipv4 +:loc=us')
+                    nodes = await core.nodes('inet:ip +:loc=us')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'inet:ipv4:loc', '=', 'us')])
+                    self.eq(calls, [('valu', 'inet:ip:loc', '=', 'us')])
                     calls = []
 
-                    nodes = await core.nodes('inet:ipv4 +:loc')
+                    nodes = await core.nodes('inet:ip +:loc')
                     self.len(2, nodes)
-                    self.eq(calls, [('prop', 'inet:ipv4:loc')])
+                    self.eq(calls, [('prop', 'inet:ip:loc')])
                     calls = []
 
-                    nodes = await core.nodes('$loc=us inet:ipv4 +:loc=$loc')
+                    nodes = await core.nodes('$loc=us inet:ip +:loc=$loc')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'inet:ipv4:loc', '=', 'us')])
+                    self.eq(calls, [('valu', 'inet:ip:loc', '=', 'us')])
                     calls = []
 
-                    nodes = await core.nodes('$prop=loc inet:ipv4 +:$prop=us')
+                    nodes = await core.nodes('$prop=loc inet:ip +:$prop=us')
                     self.len(1, nodes)
-                    self.eq(calls, [('valu', 'inet:ipv4:loc', '=', 'us')])
+                    self.eq(calls, [('valu', 'inet:ip:loc', '=', 'us')])
                     calls = []
 
                     # Don't optimize if a non-lift happens before the filter
-                    nodes = await core.nodes('$loc=us inet:ipv4 $loc=uk +:loc=$loc')
+                    nodes = await core.nodes('$loc=us inet:ip $loc=uk +:loc=$loc')
                     self.len(1, nodes)
-                    self.eq(calls, [('prop', 'inet:ipv4')])
+                    self.eq(calls, [('prop', 'inet:ip')])
                     calls = []
 
-                    nodes = await core.nodes('inet:ipv4:loc {$loc=:loc inet:ipv4 +:loc=$loc}')
+                    nodes = await core.nodes('inet:ip:loc {$loc=:loc inet:ip +:loc=$loc}')
                     self.len(2, nodes)
                     exp = [
-                        ('prop', 'inet:ipv4:loc'),
-                        ('valu', 'inet:ipv4:loc', '=', 'uk'),
-                        ('valu', 'inet:ipv4:loc', '=', 'us'),
+                        ('prop', 'inet:ip:loc'),
+                        ('valu', 'inet:ip:loc', '=', 'uk'),
+                        ('valu', 'inet:ip:loc', '=', 'us'),
                     ]
                     self.eq(calls, exp)
                     calls = []
 
-                    nodes = await core.nodes('inet:ipv4 +.seen')
+                    nodes = await core.nodes('inet:ip +.seen')
                     self.len(4, nodes)
-                    self.eq(calls, [('prop', 'inet:ipv4.seen')])
+                    self.eq(calls, [('prop', 'inet:ip.seen')])
                     calls = []
 
                     # Should optimize both lifts
-                    nodes = await core.nodes('inet:ipv4 test:str +.seen@=2020')
+                    nodes = await core.nodes('inet:ip test:str +.seen@=2020')
                     self.len(6, nodes)
                     exp = [
-                        ('valu', 'inet:ipv4.seen', '@=', '2020'),
+                        ('valu', 'inet:ip.seen', '@=', '2020'),
                         ('valu', 'test:str.seen', '@=', '2020'),
                     ]
                     self.eq(calls, exp)
                     calls = []
 
                     # Optimize pivprop filter a bit
-                    nodes = await core.nodes('inet:ipv4 +:asn::name=visi')
+                    nodes = await core.nodes('inet:ip +:asn::name=visi')
                     self.len(1, nodes)
-                    self.eq(calls, [('prop', 'inet:ipv4:asn')])
+                    self.eq(calls, [('prop', 'inet:ip:asn')])
                     calls = []
 
-                    nodes = await core.nodes('inet:ipv4 +:asn::name')
+                    nodes = await core.nodes('inet:ip +:asn::name')
                     self.len(1, nodes)
-                    self.eq(calls, [('prop', 'inet:ipv4:asn')])
+                    self.eq(calls, [('prop', 'inet:ip:asn')])
                     calls = []
 
                     nodes = await core.nodes('test:str +:tick*range=(19701125, 20151212)')
@@ -2833,16 +2833,16 @@ class AstTest(s_test.SynTest):
                     calls = []
 
                     # Shouldn't optimize this, make sure the edit happens
-                    msgs = await core.stormlist('inet:ipv4 | limit 1 | [.seen=now] +#notag')
+                    msgs = await core.stormlist('inet:ip | limit 1 | [.seen=now] +#notag')
                     self.len(1, [m for m in msgs if m[0] == 'node:edits'])
                     self.len(0, [m for m in msgs if m[0] == 'node'])
-                    self.eq(calls, [('prop', 'inet:ipv4')])
+                    self.eq(calls, [('prop', 'inet:ip')])
 
                     calls = []
 
                     # Skip lifting forms when there is a prop filter for
                     # prop they don't have
-                    msgs = await core.stormlist('inet:ipv4 +:name')
+                    msgs = await core.stormlist('inet:ip +:name')
                     self.stormHasNoWarnErr(msgs)
                     self.len(0, calls)
 
@@ -2916,9 +2916,9 @@ class AstTest(s_test.SynTest):
 
     async def test_ast_condeval(self):
         async with self.getTestCore() as core:
-            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=20 +#foo ] +$lib.true'))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4  +(#foo and $lib.false)'))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4  +$(:asn + 20 >= 42)'))
+            self.len(1, await core.nodes('[ inet:ip=1.2.3.4 :asn=20 +#foo ] +$lib.true'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4  +(#foo and $lib.false)'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4  +$(:asn + 20 >= 42)'))
 
             opts = {'vars': {'asdf': b'asdf'}}
             await core.nodes('[ file:bytes=$asdf ]', opts=opts)
@@ -2932,31 +2932,31 @@ class AstTest(s_test.SynTest):
             iden = await core.callStorm('[ meta:source=* :name=woot ] return($node.repr())')
             opts = {'vars': {'iden': iden}}
 
-            await core.nodes('[ inet:ipv4=5.5.5.5 ]')
-            await core.nodes('[ inet:ipv4=1.2.3.4 <(seen)+ { meta:source=$iden } ]', opts=opts)
+            await core.nodes('[ inet:ip=5.5.5.5 ]')
+            await core.nodes('[ inet:ip=1.2.3.4 <(seen)+ { meta:source=$iden } ]', opts=opts)
 
             with self.raises(s_exc.StormRuntimeError):
-                self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- *=woot'))
+                self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- *=woot'))
 
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- *'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- *'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source:name'))
 
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source=$iden', opts=opts))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name^=wo'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name=woot'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source=$iden', opts=opts))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source:name^=wo'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source:name=woot'))
 
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source=*'))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name^=vi'))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name=visi'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source=*'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source:name^=vi'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source:name=visi'))
 
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- (inet:fqdn, inet:ipv4)'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- (meta:source, inet:fqdn)'))
-            self.len(1, await core.nodes('function form() {return(meta:source)} inet:ipv4=1.2.3.4 <(seen)- $form()'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4 <(seen)- (inet:fqdn, inet:ip)'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- (meta:source, inet:fqdn)'))
+            self.len(1, await core.nodes('function form() {return(meta:source)} inet:ip=1.2.3.4 <(seen)- $form()'))
 
-            await core.nodes('[ inet:ipv4=1.2.3.4 <(seen)+ { [meta:source=*] } ]')
-            self.len(2, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source'))
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 <(seen)- meta:source:name'))
+            await core.nodes('[ inet:ip=1.2.3.4 <(seen)+ { [meta:source=*] } ]')
+            self.len(2, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source'))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 <(seen)- meta:source:name'))
 
     async def test_ast_contexts(self):
         async with self.getTestCore() as core:
@@ -3048,7 +3048,7 @@ class AstTest(s_test.SynTest):
             self.true(err.exception.errinfo.get('runtsafe'))
 
             q = '''
-            [ inet:ipv4=1.2.3.4 ]
+            [ inet:ip=1.2.3.4 ]
             { +:asn $bar=:asn }
             $lib.print($bar)
             '''
@@ -3062,7 +3062,7 @@ class AstTest(s_test.SynTest):
 
             q = '['
             for x in range(1000):
-                q += f'inet:ipv4={x} '
+                q += f'inet:ip=([4, {x}]) '
             q += ']'
 
             with self.raises(s_exc.RecursionLimitHit) as err:
@@ -3101,19 +3101,19 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('inet:ipv5', text[off:end])
 
-            text = '[ inet:ipv4=1.2.3.4 ] $x=:haha'
+            text = '[ inet:ip=1.2.3.4 ] $x=:haha'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
             self.eq(':haha', text[off:end])
 
-            text = '$p=haha inet:ipv4 $x=:$p'
+            text = '$p=haha inet:ip $x=:$p'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('p', text[off:end])
 
-            text = 'inet:ipv4=haha'
+            text = 'inet:ip=haha'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
@@ -3128,23 +3128,23 @@ class AstTest(s_test.SynTest):
             strtoffs = await core.getView().layers[0].getEditIndx()
 
             q = '''
-            [ inet:ipv4=1.2.3.4
+            [ inet:ip=1.2.3.4
                 +(refs)> { for $x in $lib.range(1005) {[ it:dev:str=$x ]} }
             ]
             '''
             self.len(1, await core.nodes(q))
-            self.len(1005, await core.nodes('inet:ipv4=1.2.3.4 -(refs)> *'))
+            self.len(1005, await core.nodes('inet:ip=1.2.3.4 -(refs)> *'))
 
             # node creation + 2 batches of edits
             nextoffs = await core.getView().layers[0].getEditIndx()
             self.eq(strtoffs + 3, nextoffs)
 
             q = '''
-            inet:ipv4=1.2.3.4
+            inet:ip=1.2.3.4
             [ -(refs)> { for $x in $lib.range(1010) {[ it:dev:str=$x ]} } ]
             '''
             self.len(1, await core.nodes(q))
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 -(refs)> *'))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4 -(refs)> *'))
 
             # 2 batches of edits
             self.eq(nextoffs + 2, await core.getView().layers[0].getEditIndx())
@@ -3152,16 +3152,16 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('syn:prop limit 1')
             await self.asyncraises(s_exc.IsRuntForm, nodes[0].delEdge('foo', 'bar'))
 
-            q = 'inet:ipv4=1.2.3.4 [ <(newp)+ { syn:prop } ]'
+            q = 'inet:ip=1.2.3.4 [ <(newp)+ { syn:prop } ]'
             await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
 
-            q = 'syn:prop [ -(newp)> { inet:ipv4=1.2.3.4 } ]'
+            q = 'syn:prop [ -(newp)> { inet:ip=1.2.3.4 } ]'
             await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
 
-            q = 'inet:ipv4=1.2.3.4 [ <(newp)- { syn:prop } ]'
+            q = 'inet:ip=1.2.3.4 [ <(newp)- { syn:prop } ]'
             await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
 
-            q = 'inet:ipv4=1.2.3.4 [ -(newp)> { syn:prop } ]'
+            q = 'inet:ip=1.2.3.4 [ -(newp)> { syn:prop } ]'
             await self.asyncraises(s_exc.IsRuntForm, core.nodes(q))
 
     async def test_ast_subgraph_2pass(self):
@@ -3169,19 +3169,19 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             nodes = await core.nodes('''
-                [ media:news=40ebf9be8fb56bd60fff542299c1b5c2 +(refs)> {[ inet:ipv4=1.2.3.4 ]} ] inet:ipv4
+                [ media:news=40ebf9be8fb56bd60fff542299c1b5c2 +(refs)> {[ inet:ip=1.2.3.4 ]} ] inet:ip
             ''')
             news = nodes[0]
             ipv4 = nodes[1]
 
-            msgs = await core.stormlist('media:news inet:ipv4', opts={'graph': True})
+            msgs = await core.stormlist('media:news inet:ip', opts={'graph': True})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(2, nodes)
             self.eq(nodes[1][1]['path']['edges'], (('8f66c747665dc3f16603bb25c78323ede90086d255ac07176a98a579069c4bb6',
                         {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
 
             opts = {'graph': {'existing': (news.iden(),)}}
-            msgs = await core.stormlist('inet:ipv4', opts=opts)
+            msgs = await core.stormlist('inet:ip', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
             self.eq(nodes[0][1]['path']['edges'], (('8f66c747665dc3f16603bb25c78323ede90086d255ac07176a98a579069c4bb6',
@@ -3191,10 +3191,10 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('media:news', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
-            self.eq(nodes[0][1]['path']['edges'], (('20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f',
+            self.eq(nodes[0][1]['path']['edges'], (('6ff89ac24110dec0216d5ce85382056ed50f508dbf718764039f061fc190b3c8',
                         {'type': 'edge', 'verb': 'refs'}),))
 
-            msgs = await core.stormlist('media:news inet:ipv4', opts={'graph': {'maxsize': 1}})
+            msgs = await core.stormlist('media:news inet:ip', opts={'graph': {'maxsize': 1}})
             self.len(1, [m[1] for m in msgs if m[0] == 'node'])
             self.stormIsInWarn('Graph projection hit max size 1. Truncating results.', msgs)
 
@@ -3213,9 +3213,9 @@ class AstTest(s_test.SynTest):
             await core.nodes('for $verb in $verbs { $lib.model.ext.addEdge(*, $verb, *, ({})) }', opts=opts)
 
             limits = (0, 1, 10, 255, 256, 10000)
-            ipv4s = await core.nodes('[inet:ipv4=1.2.3.0/24]')
+            ipv4s = await core.nodes('[inet:ip=1.2.3.0/24]')
             neato = await core.nodes('''[
-                test:str=neato +(refs)> { inet:ipv4 }
+                test:str=neato +(refs)> { inet:ip }
             ]''')
             await core.nodes('[test:str=neato +(_selfrefs)> { test:str=neato }]')
             self.len(1, neato)
@@ -3255,7 +3255,7 @@ class AstTest(s_test.SynTest):
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
                 testedges(msgs)
 
-            burrito = await core.nodes('[test:str=burrito <(_awesome)+ { inet:ipv4 }]')
+            burrito = await core.nodes('[test:str=burrito <(_awesome)+ { inet:ip }]')
             self.len(1, burrito)
 
             iden = burrito[0].iden()
@@ -3313,7 +3313,7 @@ class AstTest(s_test.SynTest):
                     node = m[1]
                     form = node[0][0]
                     edges = node[1]['path'].get('edges', ())
-                    if form == 'inet:ipv4':
+                    if form == 'inet:ip':
                         self.len(0, edges)
                     elif form == 'test:str':
                         self.len(258, edges)
@@ -3327,8 +3327,8 @@ class AstTest(s_test.SynTest):
                                 self.eq('refs', e[1]['verb'])
                 self.eq(selfrefs, 2)
 
-            boop = await core.nodes('[test:str=boop +(refs)> {[inet:ipv4=5.6.7.0/24]}]')
-            await core.nodes('[test:str=boop <(refs)+ {[inet:ipv4=4.5.6.0/24]}]')
+            boop = await core.nodes('[test:str=boop +(refs)> {[inet:ip=5.6.7.0/24]}]')
+            await core.nodes('[test:str=boop <(refs)+ {[inet:ip=4.5.6.0/24]}]')
             self.len(1, boop)
             boopiden = boop[0].iden()
             opts['idens'] = [boopiden,]
@@ -3809,25 +3809,25 @@ class AstTest(s_test.SynTest):
 
             visi = (await core.addUser('visi'))['iden']
 
-            self.len(1, await core.nodes('[ inet:ipv4=1.2.3.4 :asn=10 ]'))
+            self.len(1, await core.nodes('[ inet:ip=1.2.3.4 :asn=10 ]'))
 
             with self.raises(s_exc.AuthDeny) as cm:
-                await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'user': visi})
-            self.isin('must have permission node.prop.set.inet:ipv4.asn', cm.exception.get('mesg'))
+                await core.nodes('inet:ip=1.2.3.4 [ :asn=20 ]', opts={'user': visi})
+            self.isin('must have permission node.prop.set.inet:ip.asn', cm.exception.get('mesg'))
 
             with self.raises(s_exc.AuthDeny) as cm:
-                await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'user': visi})
-            self.isin('must have permission node.prop.del.inet:ipv4.asn', cm.exception.get('mesg'))
+                await core.nodes('inet:ip=1.2.3.4 [ -:asn ]', opts={'user': visi})
+            self.isin('must have permission node.prop.del.inet:ip.asn', cm.exception.get('mesg'))
 
-            msgs = await core.stormlist('auth.user.addrule visi node.prop.set.inet:ipv4.asn')
+            msgs = await core.stormlist('auth.user.addrule visi node.prop.set.inet:ip.asn')
             self.stormHasNoWarnErr(msgs)
 
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ :asn=20 ]', opts={'user': visi}))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 [ :asn=20 ]', opts={'user': visi}))
 
-            msgs = await core.stormlist('auth.user.addrule visi node.prop.del.inet:ipv4.asn')
+            msgs = await core.stormlist('auth.user.addrule visi node.prop.del.inet:ip.asn')
             self.stormHasNoWarnErr(msgs)
 
-            self.len(1, await core.nodes('inet:ipv4=1.2.3.4 [ -:asn ]', opts={'user': visi}))
+            self.len(1, await core.nodes('inet:ip=1.2.3.4 [ -:asn ]', opts={'user': visi}))
 
         # When evaluating the property set permissions:
         #
@@ -4264,7 +4264,7 @@ class AstTest(s_test.SynTest):
             opts = {'links': True}
 
             # non-runtsafe lift could be anything
-            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts={'links': True, 'vars': {'form': 'inet:ipv4'}})
+            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts={'links': True, 'vars': {'form': 'inet:ip'}})
             _assert_edge(msgs, tstr, {'type': 'runtime'}, nidx=1)
 
             # FormPivot

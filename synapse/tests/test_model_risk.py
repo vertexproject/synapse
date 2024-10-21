@@ -52,8 +52,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :target:host={host}
                     :target:place={plac}
                     :target:person={pers}
-                    :via:ipv4=1.2.3.4
-                    :via:ipv6=ff::01
                     :via:email=visi@vertex.link
                     :via:phone=1234567890
                     :used:vuln={vuln}
@@ -83,8 +81,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('target:place'), plac)
             self.eq(node.get('target:person'), pers)
             self.eq(node.get('reporter:name'), 'vertex')
-            self.eq(node.get('via:ipv4'), 0x01020304)
-            self.eq(node.get('via:ipv6'), 'ff::1')
             self.eq(node.get('via:email'), 'visi@vertex.link')
             self.eq(node.get('via:phone'), '1234567890')
             self.eq(node.get('used:vuln'), vuln)

@@ -27,7 +27,7 @@ enforcement, see the online documentation_ or the Synapse source code_.
 - `file:bytes`_ (file)
 - `guid`_ (globally unique identifier)
 - `inet:fqdn`_ (FQDN)
-- `inet:ipv4`_ (IPv4)
+- `inet:ip`_ (IP)
 - `int`_ (integer)
 - `ival`_ (time interval)
 - `loc`_ (location)
@@ -73,8 +73,8 @@ Parsing
 +++++++
 
 Because an ``array`` is a list or set of typed values, ``array`` elements can be input in any format supported
-by the type of the elements themselves. For example, if an ``array`` consists of ``inet:ipv4`` values, the
-values can be input in any supported ``inet:ipv4`` format (e.g., integer, hex, dotted-decimal string, etc.).
+by the type of the elements themselves. For example, if an ``array`` consists of ``inet:ip`` values, the
+values can be input in any supported ``inet:ip`` format (e.g., dotted-decimal string, tuple, etc.).
 
 Insertion
 +++++++++
@@ -151,7 +151,7 @@ the "fail silently" behavior for the "edit try" operator. The ``:authors`` prope
   value are either set, modified (updated), or the property is deleted altogether.) As with other uses of 
   "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation
   attempts to remove a value from an array that does not match the array's defined type. For example, attempting
-  to remove an IPv4 from an array of email addresses will halt with a ``BadTypeValu`` error if the standard 
+  to remove an IP from an array of email addresses will halt with a ``BadTypeValu`` error if the standard 
   remove operator ( ``-=``) is used, but silently fail (do nothing and continue) if the "edit try" version
   ( ``?-=``) is used.
 
@@ -162,7 +162,7 @@ Lifting and Filtering
 ~~~~~~~~~~~~~~~~~~~~~
 
 Lifting or filtering array properties using the equals ( ``=`` ) operator requires an **exact match** of the
-full array property value. This makes sense for forms with simple values like ``inet:ipv4=1.2.3.4``, but is
+full array property value. This makes sense for forms with simple values like ``inet:ip=1.2.3.4``, but is
 often infeasible for arrays because lifting by the **full** array value requires you to know the **exact**
 values of each of the array elements as well as their **exact** order:
 
@@ -957,79 +957,78 @@ Downselect a set of DNS A records to those with domains ending with ``.museum``:
 - Domains can be lifted or filtered using the regular expression (regex) extended operator (``~=``). For example
   ``inet:fqdn~=google`` is valid (see :ref:`lift-regex` and :ref:`filter-regex`).
 
-.. _type-inet-ipv4:
+.. _type-inet-ip:
 
-inet\:ipv4
+inet\:ip
 ----------
 
-IPv4 addresses are stored as integers and represented (displayed) to users as dotted-decimal strings.
+IP addresses are stored as tuples of integers and represented (displayed) to users as dotted-decimal strings.
 
 Indexing
 ++++++++
 
-IPv4 addresses are indexed as integers. This optimizes various comparison operations, including greater than /
+IP addresses are indexed as tuples of integers. This optimizes various comparison operations, including greater than /
 less than, range, etc.
 
 Parsing
 +++++++
 
-While IPv4 addresses are stored and indexed as integers, they can be input into Storm (and used within Storm
+While IP addresses are stored and indexed as tuples of integers, they can be input into Storm (and used within Storm
 operations) as any of the following.
 
-- integer: ``inet:ipv4 = 3232235521``
-- hex: ``inet:ipv4 = 0xC0A80001``
-- dotted-decimal string: ``inet:ipv4 = 192.168.0.1``
-- range: ``inet:ipv4 = 192.168.0.1-192.167.0.10``
-- CIDR: ``inet:ipv4 = 192.168.0.0/24``
+- dotted-decimal string: ``inet:ip = 192.168.0.1``
+- range: ``inet:ip = 192.168.0.1-192.167.0.10``
+- CIDR: ``inet:ip = 192.168.0.0/24``
+- tuple of version/value integers: ``inet:ip = ([4, 3232235521])``
 
 Insertion
 +++++++++
 
-The ability to specify IPv4 values using either range or CIDR format allows you to "bulk create" sets of
-``inet:ipv4`` nodes without the need to specify each address individually.
+The ability to specify IP values using either range or CIDR format allows you to "bulk create" sets of
+``inet:ip`` nodes without the need to specify each address individually.
 
 **Examples**
 
 **Note:** results (output) not shown below due to length.
 
-Create ten ``inet:ipv4`` nodes:
+Create ten ``inet:ip`` nodes:
 
 
-.. storm-pre:: [ inet:ipv4 = 192.168.0.1-192.168.0.10 ]
+.. storm-pre:: [ inet:ip = 192.168.0.1-192.168.0.10 ]
 ::
 
-    [ inet:ipv4 = 192.168.0.1-192.168.0.10 ]
+    [ inet:ip = 192.168.0.1-192.168.0.10 ]
 
 
 Create the 256 addresses in the range 192.168.0.0/24:
 
 
-.. storm-pre:: [ inet:ipv4 = 192.168.0.0/24 ]
+.. storm-pre:: [ inet:ip = 192.168.0.0/24 ]
 ::
 
-    [ inet:ipv4 = 192.168.0.0/24 ]
+    [ inet:ip = 192.168.0.0/24 ]
 
 
 Operations
 ++++++++++
 
-Similar to node insertion, lifting or filtering IPV4 addresses by range or by CIDR notation will operate on
-every ``inet:ipv4`` node that exists within the Cortex and falls within the specified range or CIDR block. 
+Similar to node insertion, lifting or filtering IP addresses by range or by CIDR notation will operate on
+every ``inet:ip`` node that exists within the Cortex and falls within the specified range or CIDR block. 
 This allows operating on multiple contiguous IP addresses without the need to specify them individually.
 
 **Examples**
 
-Lift all ``inet:ipv4`` nodes within the specified range that exist within the Cortex:
+Lift all ``inet:ip`` nodes within the specified range that exist within the Cortex:
 
 
-.. storm-pre:: [ inet:ipv4=169.254.18.30 inet:ipv4=169.254.18.36 inet:ipv4=169.254.18.53 ]
-.. storm-cli:: inet:ipv4 = 169.254.18.24-169.254.18.64
+.. storm-pre:: [ inet:ip=169.254.18.30 inet:ip=169.254.18.36 inet:ip=169.254.18.53 ]
+.. storm-cli:: inet:ip = 169.254.18.24-169.254.18.64
 
-Filter a set of DNS A records to only include those whose IPv4 value is within the 172.16.* RFC1918 range:
+Filter a set of DNS A records to only include those whose IP value is within the 172.16.* RFC1918 range:
 
 
 .. storm-pre:: [ inet:dns:a=(woot.com,1.2.3.4) inet:dns:a=(woot.com,127.0.0.1) inet:dns:a=(woot.com,172.16.47.12) ]
-.. storm-cli:: inet:dns:a:fqdn=woot.com +:ipv4=172.16.0.0/12
+.. storm-cli:: inet:dns:a:fqdn=woot.com +:ip=172.16.0.0/12
 
 .. _type-int:
 
@@ -1057,7 +1056,7 @@ Set the ``:count`` of the ``biz:bundle`` to 42:
 
 Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
 
-.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :dst=tcp://142.118.95.50 :dst:proto=tcp :dst:ipv4=142.118.95.50 ]
+.. storm-pre:: [ inet:flow=(tcp://142.118.95.50, tcp, 142.118.95.50) :dst=tcp://142.118.95.50 ]
 .. storm-cli:: inet:flow=684babd42810ae9dc11132805abc2831 [ :ip:proto=0x06 ]
 
 Use an octal value to set the ``:posix:perms`` property for the ``file:archive:entry`` node to 755:
@@ -1084,7 +1083,7 @@ Lift all ``risk:alert`` nodes where the ``:priority`` is set to less than 10:
 
 Lift all ``inet:flow`` nodes tagged with ``#my.tag`` and filter to include only those where the ``:ip:proto`` property is set to the hex equivalent of 6:
 
-.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :dst=tcp://62.152.42.139 :dst:proto=tcp :dst:ipv4=62.152.42.139 :ip:proto=6 +#my.tag]
+.. storm-pre:: [ inet:flow=(tcp://62.152.42.139, tcp, 62.152.42.139) :dst=tcp://62.152.42.139 :ip:proto=6 +#my.tag]
 .. storm-cli:: inet:flow#mytag +:ip:proto=0x06
 
 Use an octal value to lift all ``it:group`` nodes where the ``:posix:gid`` values equate to 278:
@@ -1333,13 +1332,13 @@ Lift all organizations located in Turkey (``tr``):
 Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
 
 
-.. storm-pre:: [ ( inet:ipv4=149.248.52.240 :loc=ca.on ) ( inet:ipv4=49.51.12.195 :loc=ca.on.barrie ) ( inet:ipv4=199.201.123.200 :loc=ca.on.keswick ) ]
-.. storm-cli:: inet:ipv4:loc ^= ca.on
+.. storm-pre:: [ ( inet:ip=149.248.52.240 :loc=ca.on ) ( inet:ip=49.51.12.195 :loc=ca.on.barrie ) ( inet:ip=199.201.123.200 :loc=ca.on.keswick ) ]
+.. storm-cli:: inet:ip:loc ^= ca.on
 
 .. NOTE::
   
-  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ipv4:loc ^= ca.on``
-  will fail to match ``inet:ipv4:loc = ca``.
+  Specifying a more granular prefix value will not match values that are less granular. That is, ``inet:ip:loc ^= ca.on``
+  will fail to match ``inet:ip:loc = ca``.
 
 
 Equals Operator
@@ -1366,7 +1365,7 @@ Lift all organizations located in Turkey:
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
 
-.. storm-cli:: inet:ipv4:loc = ca.on.*
+.. storm-cli:: inet:ip:loc = ca.on.*
 
 .. NOTE::
 
@@ -1822,12 +1821,12 @@ Set the observed time window (technically an ``ival`` type) for when an IP addre
 the ``#cno.infra.dns.sink.hole`` tag) from its known start date to an indefinite future time (i.e., the sinkhole
 is presumed to remain a sinkhole indefinitely / until the values are manually updated with an explicit end date):
 
-.. storm-cli:: [ inet:ipv4=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, "?") ]
+.. storm-cli:: [ inet:ip=1.2.3.4 +#cno.infra.dns.sink.hole=(2017/06/13, "?") ]
 
 
 - Set the observed time window using a time zone offset:
 
-.. storm-cli:: [ inet:ipv4=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, "?") ]
+.. storm-cli:: [ inet:ip=5.6.7.8 +#cno.infra.dns.sink.hole=(2017/06/13 09:46+04:00, "?") ]
 
 
 Insertion

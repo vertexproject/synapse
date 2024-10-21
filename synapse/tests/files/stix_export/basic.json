@@ -52,22 +52,22 @@
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "inet:ipv4",
-            16909060
+            "inet:ip",
+            [4, 16909060]
           ]
         }
       },
-      "id": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+      "id": "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
       "spec_version": "2.1",
       "type": "ipv4-addr",
       "value": "1.2.3.4"
     },
     {
       "created": "2021-04-29T17:34:49.689Z",
-      "id": "relationship--0a7f84d6-961f-46f9-873f-375f96ce2785",
+      "id": "relationship--5e7bcf59-694d-43f7-94a6-2298def37101",
       "modified": "2021-04-29T17:34:49.689Z",
       "relationship_type": "belongs-to",
-      "source_ref": "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
+      "source_ref": "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
       "spec_version": "2.1",
       "target_ref": "autonomous-system--d65f6900-de09-5c01-b825-474ce3f6d86a",
       "type": "relationship"
@@ -77,22 +77,22 @@
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "inet:ipv6",
-            "::ff"
+            "inet:ip",
+            [6, 255]
           ]
         }
       },
-      "id": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+      "id": "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
       "spec_version": "2.1",
       "type": "ipv6-addr",
       "value": "::ff"
     },
     {
       "created": "2021-04-29T17:34:49.693Z",
-      "id": "relationship--56958d44-7ccf-4894-9cfc-9d2a850cbf42",
+      "id": "relationship--46e559e8-d15c-4068-8333-c68fbc457556",
       "modified": "2021-04-29T17:34:49.693Z",
       "relationship_type": "belongs-to",
-      "source_ref": "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+      "source_ref": "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
       "spec_version": "2.1",
       "target_ref": "autonomous-system--1c9278ba-58da-5b55-b7cc-d22d95d46409",
       "type": "relationship"
@@ -186,8 +186,8 @@
       },
       "id": "domain-name--42366d89-6b94-5b97-a7f3-b1afeb9433a3",
       "resolves_to_refs": [
-        "ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db",
-        "ipv6-addr--bbf02768-9552-5877-b4be-6a8750390930",
+        "ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7",
+        "ipv6-addr--01c8fbfb-ab3f-5581-a1b3-685c187de9a4",
         "domain-name--360b9a49-a93e-5c1d-a8c7-6c4ba238a82c"
       ],
       "spec_version": "2.1",

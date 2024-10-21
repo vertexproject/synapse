@@ -107,7 +107,7 @@ commands:
         output:
           - test:int
         nodedata:
-          - [testnd, inet:ipv4]
+          - [testnd, inet:ip]
       cmdargs:
         - - foo
           - help: Help on foo opt
