@@ -1228,6 +1228,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('storm', 'macro', 'edit'), 'gate': 'cortex',
              'desc': 'Controls access to edit a storm macro.'},
 
+            {'perm': ('task', 'get'), 'gate': 'cortex',
+             'desc': 'Controls access to view other users tasks.'},
+            {'perm': ('task', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to terminate other users tasks.'},
+
             {'perm': ('view',), 'gate': 'cortex',
              'desc': 'Controls all view permissions.'},
             {'perm': ('view', 'add'), 'gate': 'cortex',

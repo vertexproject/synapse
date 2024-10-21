@@ -3926,6 +3926,10 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.\n'
                                 'Args:\n    name (str): The name of the org.', msgs)
 
+            msgs = await core.stormlist('help --verbose $lib.infosec.cvss.saveVectToNode')
+            self.stormIsInPrint('Warning', msgs)
+            self.stormIsInPrint('``$lib.infosec.cvss.saveVectToNode`` has been deprecated and will be removed in version v3.0.0.', msgs)
+
             msgs = await core.stormlist('help $lib.inet')
             self.stormIsInPrint('The following libraries are available:\n\n'
                                 '$lib.inet.http                : A Storm Library exposing an HTTP client API.\n'

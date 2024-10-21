@@ -4572,7 +4572,7 @@ class EditTagAdd(Edit):
         else:
             oper_offset = 0
 
-        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
+        excignore = (s_exc.BadTypeValu, s_exc.BadTag) if oper_offset == 1 else ()
 
         hasval = len(self.kids) > 2 + oper_offset
 

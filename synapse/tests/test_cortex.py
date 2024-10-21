@@ -2820,6 +2820,16 @@ class CortexBasicTest(s_t_utils.SynTest):
             info = await view.pack()
             self.eq(info['name'], 'default')
 
+            depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'bytes')]
+            self.len(1, depr)
+            deprinfo = depr[0].get('deprecated')
+            self.nn(deprinfo)
+            self.eq(deprinfo.get('eolvers'), 'v3.0.0')
+
+            depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'infosec', 'cvss')]
+            self.len(1, depr)
+            self.len(2, [x for x in depr[0]['locals'] if x.get('deprecated')])
+
     async def test_cortex_model_dict(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -6951,6 +6961,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTag):
                 await core.nodes('[ inet:ip=1.2.3.4 +#cno.cve.12345 ]')
+
+            nodes = await core.nodes('[ test:str=beep +?#cno.cve.12345 ]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('#cno'))
+            self.none(nodes[0].get('#cno.cve'))
+            self.none(nodes[0].get('#cno.cve.12345'))
 
             self.eq((None, None, '[0-9]{4}', '[0-9]{5}'), await core.callStorm('''
                 return($lib.model.tags.pop(cno.cve, regex))

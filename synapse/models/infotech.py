@@ -2682,15 +2682,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path for the file.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2728,15 +2725,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was created.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2762,15 +2756,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was deleted.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2796,15 +2787,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was read.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2830,15 +2818,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was written to/modified.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {

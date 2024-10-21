@@ -1533,6 +1533,45 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.nn(node.get('reg'))
                 self.eq(node.get('sandbox:file'), sandfile)
 
+        async with self.getTestCore() as core:
+            forms = [
+                'it:fs:file',
+                'it:exec:file:add',
+                'it:exec:file:del',
+                'it:exec:file:read',
+                'it:exec:file:write',
+            ]
+
+            for form in forms:
+                opts = {'vars': {'form': form}}
+                nodes = await core.nodes('[ *$form=($form, calc) :path="c:/windows/system32/calc.exe" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/windows/system32/calc.exe')
+                self.eq(nodes[0].get('path:base'), 'calc.exe')
+                self.eq(nodes[0].get('path:dir'), 'c:/windows/system32')
+                self.eq(nodes[0].get('path:ext'), 'exe')
+
+                nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/blackout/script.ps1" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/blackout/script.ps1')
+                self.eq(nodes[0].get('path:base'), 'script.ps1')
+                self.eq(nodes[0].get('path:dir'), 'c:/users/blackout')
+                self.eq(nodes[0].get('path:ext'), 'ps1')
+
+                nodes = await core.nodes('*$form=($form, calc) [ -:path:base -:path:dir -:path:ext ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/blackout/script.ps1')
+                self.none(nodes[0].get('path:base'))
+                self.none(nodes[0].get('path:dir'))
+                self.none(nodes[0].get('path:ext'))
+
+                nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/admin/superscript.bat" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/admin/superscript.bat')
+                self.eq(nodes[0].get('path:base'), 'superscript.bat')
+                self.eq(nodes[0].get('path:dir'), 'c:/users/admin')
+                self.eq(nodes[0].get('path:ext'), 'bat')
+
     async def test_it_app_yara(self):
 
         async with self.getTestCore() as core:
