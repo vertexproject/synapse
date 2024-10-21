@@ -1436,15 +1436,15 @@ class LiftOper(Oper):
 
         return pivnames
 
-    async def _pivvals(self, runt, prop, genr):
-        async for node in genr:
-            async for pivo in runt.snap.nodesByPropValu(prop, '=', node.ndef[1], reverse=self.reverse):
-                yield pivo
-
     async def pivlift(self, runt, props, pivnames, genr):
 
+        async def pivvals(prop, pivgenr):
+            async for node in pivgenr:
+                async for pivo in runt.snap.nodesByPropValu(prop, '=', node.ndef[1], reverse=self.reverse):
+                    yield pivo
+
         for pivname in pivnames[-2::-1]:
-            genr = self._pivvals(runt, pivname, genr)
+            genr = pivvals(pivname, genr)
 
         async for node in genr:
             valu = node.ndef[1]
