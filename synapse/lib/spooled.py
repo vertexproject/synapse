@@ -84,6 +84,27 @@ class Set(Spooled):
 
         return len(self.realset)
 
+    async def copy(self):
+        newset = await Set.anit(dirn=self.dirn, size=self.size, cell=self.cell)
+        self.onfini(newset.fini)
+
+        if self.fallback:
+            await newset._initFallBack()
+            await self.slab.copydb(None, newset.slab)
+
+        else:
+            newset.realset = self.realset.copy()
+
+        return newset
+
+    async def clear(self):
+        if self.fallback:
+            self.len = 0
+            self.slab.trash()
+            await self._initFallBack()
+        else:
+            self.realset.clear()
+
     async def add(self, valu):
 
         if self.fallback:
