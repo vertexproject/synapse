@@ -16,6 +16,7 @@ class LibWhois(s_stormtypes.Lib):
 
         Raises:
             StormRuntimeError: If form is not supported in this method.''',
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Please use the GUID constructor syntax.'},
          'type': {'type': 'function', '_funcname': '_whoisGuid',
                   'args': (
                       {'name': 'props', 'type': 'dict', 'desc': 'Dictionary of properties used to create the form.', },
@@ -31,6 +32,8 @@ class LibWhois(s_stormtypes.Lib):
          }
 
     async def _whoisGuid(self, props, form):
+        s_common.deprecated('$lib.inet.whois.guid()', curv='2.183.0')
+        await self.runt.snap.warnonce('$lib.inet.whois.guid() is deprecated. Use the GUID constructor syntax.')
         form = await s_stormtypes.tostr(form)
         props = await s_stormtypes.toprim(props)
         if form == 'iprec':
