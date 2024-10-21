@@ -1421,7 +1421,7 @@ class ModelRevTest(s_tests.SynTest):
 
         MAX_SPOOL_SIZE = s_spooled.MAX_SPOOL_SIZE
         for maxval in (MAX_SPOOL_SIZE, 2):
-            with mock.patch('synapse.lib.spooled.MAX_SPOOL_SIZE', maxval):
+            with mock.patch.object(s_spooled, 'MAX_SPOOL_SIZE', maxval):
                 async with self.getRegrCore('model-cpe-migration') as core:
                     riskvuln = s_common.ehex(s_common.buid(('risk:vuln', s_common.guid(('risk', 'vuln')))))
 

@@ -1351,13 +1351,11 @@ class ModelMigration_0_2_31:
         assert self.nodes.has(buid)
         node = self.getNode(buid)
 
-        sode = node['sodes'].get(layriden, {})
-        node['sodes'][layriden] = sode
-
+        sode = node['sodes'][layriden]
         props = sode.get('props', {})
-        sode['props'] = props
 
         assert props.get(propname) == (propvalu, stortype), f'GOT: {props.get(propname)} EXPECTED: {(propvalu, stortype)}'
+
         props.pop(propname)
 
         await self.nodes.set(buid, node)
@@ -1426,7 +1424,9 @@ class ModelMigration_0_2_31:
                     node['formname'] = sode.get('form')
 
                 if layer.iden not in node['layers']:
-                    node['layers'].append(layer.iden)
+                    layers = list(node['layers'])
+                    layers.append(layer.iden)
+                    node['layers'] = layers
 
         # Get nodedata
         nodedata = [k async for k in layer.iterNodeData(buid)]
@@ -1491,13 +1491,11 @@ class ModelMigration_0_2_31:
 
                 # It's possible to have the same node in different layers with different :v2_2 property values. In this
                 # case, don't downgrade the verdict because we can migrate it.
-                if (node := self.nodes.get(buid)) is not None:
+                if (node := self.nodes.get(buid)) is not None and node.get('verdict') == 'migrate' and verdict == 'remove':
                     layers = list(node['layers'])
                     layers.append(layer.iden)
                     node['layers'] = layers
-
-                    if node.get('verdict') == 'migrate' and verdict == 'remove':
-                        continue
+                    continue
 
                 node = self.getNode(buid)
                 node['formvalu'] = formvalu
@@ -1582,7 +1580,9 @@ class ModelMigration_0_2_31:
                                 node = self.getNode(buid)
                                 node['formvalu'] = formvalu
                                 node['formname'] = formname
-                                node['layers'].append(layer.iden)
+                                layers = list(node['layers'])
+                                layers.append(layer.iden)
+                                node['layers'] = layers
 
                                 await self.nodes.set(buid, node)
 
@@ -1614,7 +1614,7 @@ class ModelMigration_0_2_31:
 
                             await self.nodes.set(buid, node)
 
-                await todotmp.fini()
+            await todotmp.fini()
 
         logger.info('Migrating/removing invalid it:sec:cpe nodes')
 
@@ -1634,7 +1634,7 @@ class ModelMigration_0_2_31:
                         break
 
                 newvalu, _ = form.type.norm(propvalu)
-                await self.moveNode(buid, newvalu, node)
+                await self.moveNode(buid, newvalu)
 
             elif action == 'remove':
                 newvalu = None
@@ -1650,11 +1650,11 @@ class ModelMigration_0_2_31:
                     await self.editPropDel(layriden, buid, 'it:sec:cpe', 'v2_2', propvalu, stortype)
 
                     # Oh yeah! Migrate the node instead of removing it
-                    await self.moveNode(buid, newvalu, node)
+                    await self.moveNode(buid, newvalu)
                     break
 
                 else:
-                    await self.removeNode(buid, node)
+                    await self.removeNode(buid)
 
             if count % 1000 == 0: # pragma: no cover
                 logger.info(f'Processed {count} it:sec:cpe nodes')
@@ -1708,12 +1708,11 @@ class ModelMigration_0_2_31:
 
         return refinfo
 
-    async def removeNode(self, buid, node=None):
-        if node is None:
-            assert self.nodes.has(buid)
-            node = self.getNode(buid)
+    async def removeNode(self, buid):
+        assert self.nodes.has(buid)
+        node = self.getNode(buid)
 
-        await self.storeNode(buid, node)
+        await self.storeNode(buid)
 
         formname = node.get('formname')
         formvalu = node.get('formvalu')
@@ -1742,8 +1741,6 @@ class ModelMigration_0_2_31:
                 if isarray:
 
                     _curv = curv
-                    if curv is None:
-                        _curv = []
 
                     newv = list(_curv).copy()
 
@@ -1759,9 +1756,11 @@ class ModelMigration_0_2_31:
                 else:
                     await self.editPropDel(reflayr, refbuid, refform, refprop, curv, stortype)
 
-        await self.delNode(buid, node)
+        await self.delNode(buid)
 
-    async def storeNode(self, buid, node):
+    async def storeNode(self, buid):
+        assert self.nodes.has(buid)
+        node = self.getNode(buid)
 
         formname = node.get('formname')
         formvalu = node.get('formvalu')
@@ -1844,7 +1843,10 @@ class ModelMigration_0_2_31:
         async for _, buid, sode in liftfunc(formname, propname, cmprvals):
             yield buid, sode
 
-    async def delNode(self, buid, node):
+    async def delNode(self, buid):
+        assert self.nodes.has(buid)
+        node = self.getNode(buid)
+
         formname = node.get('formname')
         formvalu = node.get('formvalu')
 
@@ -1882,7 +1884,10 @@ class ModelMigration_0_2_31:
         # Node
         await self.editNodeDel(layriden, buid, formname, formvalu)
 
-    async def moveNode(self, buid, newvalu, node):
+    async def moveNode(self, buid, newvalu):
+        assert self.nodes.has(buid)
+        node = self.getNode(buid)
+
         formname = node.get('formname')
         formvalu = node.get('formvalu')
         refmap = node.get('refmap')
@@ -1955,8 +1960,6 @@ class ModelMigration_0_2_31:
                 if isarray:
 
                     _curv = curv
-                    if curv is None:
-                        _curv = []
 
                     newv = list(_curv).copy()
 
@@ -1970,4 +1973,4 @@ class ModelMigration_0_2_31:
                 else:
                     await self.editPropSet(reflayr, refbuid, refform, refprop, newpropv, curv, stortype)
 
-        await self.delNode(buid, node)
+        await self.delNode(buid)

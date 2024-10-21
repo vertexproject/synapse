@@ -17,7 +17,7 @@ class Spooled(s_base.Base):
     together. Under memory pressure, these objects have a better shot of getting paged out.
     '''
 
-    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
+    async def __anit__(self, dirn=None, size=0, cell=None):
         '''
         Args:
             dirn(Optional[str]): base directory used for backing slab.  If None, system temporary directory is used
@@ -26,6 +26,8 @@ class Spooled(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.cell = cell
+        if size <= 0:
+            size = MAX_SPOOL_SIZE
         self.size = size
         self.dirn = dirn
         self.slab = None
@@ -57,7 +59,7 @@ class Set(Spooled):
     A minimal set-like implementation that will spool to a slab on large growth.
     '''
 
-    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
+    async def __anit__(self, dirn=None, size=0, cell=None):
         await Spooled.__anit__(self, dirn=dirn, size=size, cell=cell)
         self.realset = set()
         self.len = 0
@@ -88,11 +90,11 @@ class Set(Spooled):
 
     async def copy(self):
         newset = await Set.anit(dirn=self.dirn, size=self.size, cell=self.cell)
-        self.onfini(newset.fini)
 
         if self.fallback:
             await newset._initFallBack()
             await self.slab.copydb(None, newset.slab)
+            newset.len = self.len
 
         else:
             newset.realset = self.realset.copy()
@@ -102,7 +104,7 @@ class Set(Spooled):
     async def clear(self):
         if self.fallback:
             self.len = 0
-            self.slab.trash()
+            await self.slab.trash()
             await self._initFallBack()
         else:
             self.realset.clear()
@@ -140,7 +142,7 @@ class Set(Spooled):
 
 class Dict(Spooled):
 
-    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
+    async def __anit__(self, dirn=None, size=0, cell=None):
 
         await Spooled.__anit__(self, dirn=dirn, size=size, cell=cell)
         self.realdict = {}
