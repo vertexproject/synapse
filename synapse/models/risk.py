@@ -96,12 +96,17 @@ class RiskModule(s_module.CoreModule):
                         ),
                     },
                 }),
+                ('risk:mitigation:type:taxonomy', ('taxonomy', {}), {
+                    'interaces': ('taxonomy',),
+                    'doc': 'A taxonomy of mitigation types.',
+                }),
                 ('risk:mitigation', ('guid', {}), {
                     'doc': 'A mitigation for a specific risk:vuln.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
                             {'type': 'prop', 'opts': {'name': 'tag'}},
                         ),
                     },
@@ -198,8 +203,21 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The tool uses the target node.'}),
                 (('risk:compromise', 'stole', None), {
                     'doc': 'The target node was stolen or copied as a result of the compromise.'}),
+
                 (('risk:mitigation', 'addresses', 'ou:technique'), {
                     'doc': 'The mitigation addresses the technique.'}),
+
+                (('risk:mitigation', 'uses', 'meta:rule'), {
+                    'doc': 'The mitigation uses the rule.'}),
+
+                (('risk:mitigation', 'uses', 'it:app:yara:rule'), {
+                    'doc': 'The mitigation uses the YARA rule.'}),
+
+                (('risk:mitigation', 'uses', 'it:app:snort:rule'), {
+                    'doc': 'The mitigation uses the Snort rule.'}),
+
+                (('risk:mitigation', 'uses', 'inet:service:rule'), {
+                    'doc': 'The mitigation uses the service rule.'}),
 
                 (('risk:leak', 'leaked', None), {
                     'doc': 'The leak included the disclosure of the target node.'}),
@@ -334,6 +352,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
 
                 )),
+                ('risk:mitigation:type:taxonomy', {}, ()),
                 ('risk:mitigation', {}, (
 
                     ('vuln', ('risk:vuln', {}), {
@@ -341,6 +360,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
+
+                    ('type', ('risk:mitigation:type:taxonomy', {}), {
+                        'doc': 'A taxonomy type entry for the mitigation.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
