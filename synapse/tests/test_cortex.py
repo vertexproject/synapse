@@ -2820,12 +2820,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             info = await view.pack()
             self.eq(info['name'], 'default')
 
-            depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'bytes')]
-            self.len(1, depr)
-            deprinfo = depr[0].get('deprecated')
-            self.nn(deprinfo)
-            self.eq(deprinfo.get('eolvers'), 'v3.0.0')
-
             depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'infosec', 'cvss')]
             self.len(1, depr)
             self.len(2, [x for x in depr[0]['locals'] if x.get('deprecated')])
