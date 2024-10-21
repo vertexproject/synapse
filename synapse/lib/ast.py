@@ -1426,6 +1426,32 @@ class LiftOper(Oper):
         self.astinfo = astinfo
         self.reverse = True
 
+    def getPivNames(self, runt, prop, pivs):
+        pivonames = []
+        typename = prop.type.name
+        for piv in pivs:
+            pivoprop = runt.model.reqProp(f'{typename}:{piv}', extra=self.kids[0].addExcInfo)
+            pivonames.append(pivoprop.full)
+            typename = pivoprop.type.name
+
+        return pivonames
+
+    async def _pivovals(self, runt, prop, genr):
+        async for node in genr:
+            async for pivo in runt.snap.nodesByPropValu(prop, '=', node.ndef[1], reverse=self.reverse):
+                yield pivo
+
+    async def pivlift(self, runt, props, pivnames, genr):
+
+        for pivname in pivnames[-2::-1]:
+            genr = self._pivovals(runt, pivname, genr)
+
+        async for node in genr:
+            pivovalu = node.ndef[1]
+            for prop in props:
+                async for node in runt.snap.nodesByPropValu(prop.full, '=', pivovalu, reverse=self.reverse):
+                    yield node
+
     async def run(self, runt, genr):
 
         if self.isRuntSafe(runt):
@@ -1584,30 +1610,52 @@ class LiftByArray(LiftOper):
         cmpr = await self.kids[1].compute(runt, path)
         valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-        prop = runt.model.props.get(name)
-        if prop is not None:
-            async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
+        pivs = None
+        if name.find('::') != -1:
+            parts = name.split('::')
+            name, pivs = parts[0], parts[1:]
+
+        if (prop := runt.model.props.get(name)) is not None:
+            props = (prop,)
+        else:
+            proplist = runt.model.ifaceprops.get(name)
+            if proplist is None:
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+
+            props = []
+            for propname in proplist:
+                props.append(runt.model.props.get(propname))
+
+        try:
+            if pivs is not None:
+                pivnames = self.getPivNames(runt, props[0], pivs)
+
+                genr = runt.snap.nodesByPropArray(pivnames[-1], cmpr, valu, reverse=self.reverse)
+                async for node in self.pivlift(runt, props, pivnames, genr):
+                    yield node
+                return
+
+            if len(props) == 1:
+                async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
+                    yield node
+                return
+
+            relname = props[0].name
+            def cmprkey(node):
+                return node.props.get(relname)
+
+            genrs = []
+            for prop in props:
+                genrs.append(runt.snap.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
+
+            async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
                 yield node
-            return
 
-        proplist = runt.model.ifaceprops.get(name)
-        if proplist is None:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        except s_exc.BadTypeValu as e:
+            raise self.kids[2].addExcInfo(e)
 
-        props = []
-        for propname in proplist:
-            props.append(runt.model.props.get(propname))
-
-        relname = props[0].name
-        def cmprkey(node):
-            return node.props.get(relname)
-
-        genrs = []
-        for prop in props:
-            genrs.append(runt.snap.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
-
-        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
-            yield node
+        except s_exc.SynErr as e:
+            raise self.addExcInfo(e)
 
 class LiftTagProp(LiftOper):
     '''
@@ -1839,6 +1887,11 @@ class LiftPropBy(LiftOper):
         if not isinstance(valu, s_node.Node):
             valu = await s_stormtypes.tostor(valu)
 
+        pivs = None
+        if name.find('::') != -1:
+            parts = name.split('::')
+            name, pivs = parts[0], parts[1:]
+
         prop = runt.model.props.get(name)
         if prop is not None:
             props = (prop,)
@@ -1852,6 +1905,14 @@ class LiftPropBy(LiftOper):
                 props.append(runt.model.props.get(propname))
 
         try:
+            if pivs is not None:
+                pivnames = self.getPivNames(runt, props[0], pivs)
+
+                genr = runt.snap.nodesByPropValu(pivnames[-1], cmpr, valu, reverse=self.reverse)
+                async for node in self.pivlift(runt, props, pivnames, genr):
+                    yield node
+                return
+
             if len(props) == 1:
                 prop = props[0]
                 async for node in runt.snap.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse):

@@ -2942,6 +2942,33 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('inet:ipv4 +:asn::_pivo::notaprop')
 
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=a@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=b@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=c@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(a@v.lk, b@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(c@v.lk, d@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(a@v.lk, d@v.lk)]}]')
+
+            nodes = await core.nodes('ou:org:hq::email::user=a')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::email::user*in=(a, b)')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::emails*[=a@v.lk]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::emails*[in=(a@v.lk, c@v.lk)]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
