@@ -464,6 +464,7 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
 
         locls = info.get('locals', ())
         locls = sorted(locls, key=lambda x: x.get('name'))
+        libdepr = info.get('deprecated')
 
         for locl in locls:
 
@@ -478,6 +479,8 @@ def docStormTypes(page, docinfo, linkprefix, islib=False, lvl=1,
             lines = []
             if depr := locl.get('deprecated'):
                 lines.extend(genDeprecationWarning(f'${loclname}', depr, True))
+            elif libdepr is not None:
+                lines.extend(genDeprecationWarning(f'${loclname}', libdepr, True))
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')
@@ -576,6 +579,7 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
 
         page.addLines(*preamble)
 
+        libdepr = info.get('deprecated')
         locls = info.get('locals', ())
         locls = sorted(locls, key=lambda x: x.get('name'))
 
@@ -624,8 +628,11 @@ def runtimeDocStormTypes(page, docinfo, islib=False, lvl=1,
             assert rtype is not None
 
             lines = []
-            if (depr := locl.get('deprecated')) and not oneline:
-                lines.extend(genDeprecationWarning(f'${loclname}', depr))
+            if not oneline:
+                if (depr := locl.get('deprecated')):
+                    lines.extend(genDeprecationWarning(f'${loclname}', depr))
+                elif libdepr is not None:
+                    lines.extend(genDeprecationWarning(f'${loclname}', libdepr))
 
             if isinstance(rtype, dict):
                 rname = rtype.get('type')

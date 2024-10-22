@@ -3563,7 +3563,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})
-        item['permissions']['default'] = default
+        item['permissions'].setdefault('default', default)
 
     async def getTeleApi(self, link, mesg, path):
 
