@@ -1,16 +1,10 @@
 ---
-desc: Migrate invalid ``it:sec:cpe`` nodes if possible. Expanding on the
-  migration helpers added in v2.170.0, this migration will attempt to fix and
-  migrate invalid ``it:sec:cpe`` nodes.
-
-  Migration of these nodes will only be successful if one of the CPE2.3 (primary
-  property) or the CPE2.2 (``:v2_2``) strings are valid CPEs.  If both CPE
-  strings are invalid, the node will be removed from the cortex and stored in a
-  queue (``model_0_2_31:nodes``). All references to these invalid nodes will
-  also be removed and stored in a separate queue (``model_0_2_31:nodes:refs``).
-  All edges to these invalid nodes will be removed and stored in a queue
-  (``model_0_2_31:nodes:edges``). Finally, edits in views higher than the view
-  where the node resides are stored in the queue (``model_0_2_31:nodes:edits``).
+desc: Migrate invalid ``it:sec:cpe`` nodes if possible. Migration of these nodes
+  will only be successful if one of the CPE 2.3 (primary property) or the CPE
+  2.2 (``:v2_2``) strings are valid CPEs.  If both CPE strings are invalid, the
+  node will be removed from the cortex and stored in a queue
+  (``model_0_2_31:nodes``). All references to these invalid nodes will also be
+  removed and stored in a separate queue (``model_0_2_31:nodes:refs``).
 
   The structure of items in these queues are opaque. The intent is for Power-Ups
   to be able to process these queues in an attempt to fix the invalid nodes on a
