@@ -145,6 +145,10 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(await s_coro.event_wait(core00.nexsroot.miruplink, timeout=2))
                         self.true((await core00.getCellInfo())['cell']['uplink'])
                         self.false((await core01.getCellInfo())['cell']['uplink'])
+                        # Note: The following uplink:url may change when SYN-7659 is addressed and greater
+                        # control over the topology update is available during the promotion process.
+                        self.eq((await core00.getCellInfo())['cell']['uplink:url'], 'aha://01.cortex.synapse')
+                        self.eq((await core01.getCellInfo())['cell']['uplink:url'], '')
 
                         mods00 = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(core01.dirn, 'cell.mods.yaml')

@@ -7,7 +7,6 @@ import base64
 import signal
 import socket
 import asyncio
-import logging
 import tarfile
 import collections
 import multiprocessing
@@ -40,8 +39,6 @@ import synapse.lib.platforms.linux as s_linux
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
-
-logger = logging.getLogger(__name__)
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
