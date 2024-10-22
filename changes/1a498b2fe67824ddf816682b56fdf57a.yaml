@@ -1,0 +1,5 @@
+---
+desc: Fixed incorrect coercion behavior in ``$lib.dict.pop()`` and docs for ``$lib.dict.has()``.
+prs: []
+type: bug
+...
