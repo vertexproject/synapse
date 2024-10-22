@@ -1739,7 +1739,7 @@ class LibDict(Lib):
          'type': {'type': 'function', '_funcname': '_has',
                   'args': (
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary being checked.'},
-                      {'name': 'name', 'type': 'str', 'desc': 'The key name to check.'},
+                      {'name': 'key', 'type': 'any', 'desc': 'The key to check.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the key is present, false if the key is not present.'}}},
         {'name': 'keys', 'desc': 'Retrieve a list of keys in the specified dictionary.',
@@ -1752,7 +1752,7 @@ class LibDict(Lib):
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
-                      {'name': 'key', 'type': 'str', 'desc': 'The key name of the value to pop.'},
+                      {'name': 'key', 'type': 'any', 'desc': 'The key to pop.'},
                       {'name': 'default', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'Optional default value to return if the key does not exist in the dictionary.'},
                   ),
@@ -1795,10 +1795,11 @@ class LibDict(Lib):
         raise s_exc.BadArg(mesg=mesg)
 
     @stormfunc(readonly=True)
-    async def _has(self, valu, name):
+    async def _has(self, valu, key):
         await self._check_type(valu)
+        key = await toprim(key)
         valu = await toprim(valu)
-        return name in valu
+        return key in valu
 
     @stormfunc(readonly=True)
     async def _keys(self, valu):
@@ -1810,8 +1811,8 @@ class LibDict(Lib):
     async def _pop(self, valu, key, default=undef):
         await self._check_type(valu)
 
+        key = await toprim(key)
         real = await toprim(valu)
-        key = await tostr(key)
 
         if key not in real:
             if default == undef:
@@ -4827,8 +4828,8 @@ class Dict(Prim):
         name = await toprim(name)
         return self.valu.get(name)
 
-    async def value(self):
-        return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
+    async def value(self, use_list=False):
+        return {await toprim(k): await toprim(v, use_list=use_list) for (k, v) in self.valu.items()}
 
     async def stormrepr(self):
         reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in list(self.valu.items())]
@@ -4864,9 +4865,9 @@ class CmdOpts(Dict):
         name = await tostr(name)
         return getattr(self.valu.opts, name, None)
 
-    async def value(self):
+    async def value(self, use_list=False):
         valu = vars(self.valu.opts)
-        return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
+        return {await toprim(k): await toprim(v, use_list=use_list) for (k, v) in valu.items()}
 
     async def iter(self):
         valu = vars(self.valu.opts)
@@ -5212,8 +5213,10 @@ class List(Prim):
         async for item in toiter(valu):
             self.valu.append(item)
 
-    async def value(self):
-        return tuple([await toprim(v) for v in self.valu])
+    async def value(self, use_list=False):
+        if use_list:
+            return [await toprim(v, use_list=use_list) for v in self.valu]
+        return tuple([await toprim(v, use_list=use_list) for v in self.valu])
 
     async def iter(self):
         for item in self.valu:
@@ -9521,7 +9524,7 @@ class CronJob(Prim):
         return job
 
 # These will go away once we have value objects in storm runtime
-async def toprim(valu, path=None):
+async def toprim(valu, path=None, use_list=False):
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
@@ -9530,22 +9533,28 @@ async def toprim(valu, path=None):
         retn = []
         for v in valu:
             try:
-                retn.append(await toprim(v))
+                retn.append(await toprim(v, use_list=use_list))
             except s_exc.NoSuchType:
                 pass
-        return tuple(retn)
+
+        if not use_list:
+            return tuple(retn)
+        return retn
 
     if isinstance(valu, dict):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await toprim(v)
+                retn[k] = await toprim(v, use_list=use_list)
             except s_exc.NoSuchType:
                 pass
         return retn
 
     if isinstance(valu, Number):
         return float(valu.value())
+
+    if isinstance(valu, (Dict, List)):
+        return await valu.value(use_list=use_list)
 
     if isinstance(valu, Prim):
         return await s_coro.ornot(valu.value)
