@@ -1,0 +1,7 @@
+---
+desc: Add ``uplink:url`` to the output of the ``getCellInfo()`` APIs to indicate which
+  service the current cell is following. This is the sanitized version of the
+  ``mirror`` configuration option for the service.
+prs: []
+type: feat
+...

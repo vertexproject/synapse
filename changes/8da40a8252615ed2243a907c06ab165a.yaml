@@ -1,0 +1,6 @@
+---
+desc: Prevent the ``synapse.tools.promote`` from promoting a service into a leader
+  where a detectable leadership schism would occur.
+prs: []
+type: bug
+...

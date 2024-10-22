@@ -2117,12 +2117,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
+        logger.info(f'HANDOFF {turl=}')
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
 
         if not self.isactive:
-            logger.error(f'HANDOFF: Service {_dispname} is not the leader, cannot perform handoff to the service.')
-            mesg = f'HANDOFF: {_dispname} is am not the current leader and cannot receive the promotion handoff.'
-            raise s_exc.BadState(mesg=mesg)
+            mesg = f'HANDOFF: {_dispname} is not the current leader and cannot receive the promotion handoff' \
+                   f' from {turl}.'
+            logger.error(mesg)
+            raise s_exc.BadState(mesg=mesg, turl=turl, cursvc=_dispname)
 
         logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
         async with await s_telepath.openurl(turl) as cell:
@@ -4445,6 +4447,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A Dictionary of metadata.
         '''
+
+        mirror = self.conf.get('mirror')
+        if mirror is None:
+            mirror = ''
+        else:
+            mirror = s_urlhelp.sanitizeUrl(mirror)
+
         ret = {
             'synapse': {
                 'commit': s_version.commit,
@@ -4464,6 +4473,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
+                'uplink:url': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),

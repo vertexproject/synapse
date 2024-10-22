@@ -108,6 +108,7 @@ class CortexTest(s_t_utils.SynTest):
                         await core00.handoff(core00.getLocalUrl())
 
                     self.false((await core00.getCellInfo())['cell']['uplink'])
+                    self.eq((await core00.getCellInfo())['cell']['uplink:url'], '')
 
                     # provision with the new hostname and mirror config
                     provinfo = {'mirror': '00.cortex'}
@@ -130,10 +131,13 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(await s_coro.event_wait(core01.nexsroot.miruplink, timeout=2))
                         self.false((await core00.getCellInfo())['cell']['uplink'])
                         self.true((await core01.getCellInfo())['cell']['uplink'])
+                        self.eq((await core00.getCellInfo())['cell']['uplink:url'], '')
+                        self.eq((await core01.getCellInfo())['cell']['uplink:url'], 'aha://root@00.cortex...')
 
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
-                        await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
+                        ret = await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
+                        self.eq(ret, 0)
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
