@@ -46,6 +46,7 @@ terminalEnglishMap = {
     'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
+    'EMBEDPROPS': 'absolute property name with embed properties',
     'EQNOSPACE': '=',
     'EQSPACE': '=',
     'EQUAL': '=',
