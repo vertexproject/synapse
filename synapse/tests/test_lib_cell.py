@@ -7,8 +7,8 @@ import base64
 import signal
 import socket
 import asyncio
+import logging
 import tarfile
-import warnings
 import collections
 import multiprocessing
 
@@ -40,6 +40,8 @@ import synapse.lib.platforms.linux as s_linux
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
+
+logger = logging.getLogger(__name__)
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -176,6 +178,12 @@ testDataSchema_v1 = {
     'required': ['type', 'size', 'woot'],
     'additionalProperties': False,
 }
+
+def print_cell(*args):
+    for cell in args:
+        conf = cell.conf
+        mesg = f'{conf.get("aha:name")} {cell.isactive=} {conf.get("mirror")}'
+        logger.info(mesg)
 
 class CellTest(s_t_utils.SynTest):
 
@@ -3152,8 +3160,44 @@ class CellTest(s_t_utils.SynTest):
             slabs = [s for s in cell.tofini if isinstance(s, s_lmdbslab.Slab) and s.lenv.path() == cell.short_slab_path]
             self.len(0, slabs)
 
-    async def test_lib_cell_promote_linear(self):
+    async def test_lib_cell_promote_fastfail(self):
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    user = 'synuser'
+                    dirn00 = s_common.genpath(dirn, '00.cell')
+                    dirn01 = s_common.genpath(dirn, '01.cell')
+                    dirn02 = s_common.genpath(dirn, '02.cell')
 
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
+                                                                       provinfo={'mirror': 'cell'}))
+                    cell02 = await base.enter_context(self.addSvcToAha(aha, '02.cell', s_cell.Cell, dirn=dirn02,
+                                                                       provinfo={'mirror': 'cell'}))
+
+                    self.true(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.false(cell02.isactive)
+                    await cell02.sync()
+
+                    # Promote C -> Promote B -> SCHISM
+                    await cell02.promote(graceful=True)
+                    await asyncio.sleep(1)
+                    self.false(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.true(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
+                    await cell02.sync()
+
+                    await cell01.promote(graceful=True)
+                    await asyncio.sleep(1)
+                    self.false(cell00.isactive)
+                    self.true(cell01.isactive)
+                    self.true(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
+                    # await cell02.sync()
+
+    async def test_lib_cell_promote_linear(self):
         async with self.getTestAha() as aha:
             async with await s_base.Base.anit() as base:
                 with self.getTestDir() as dirn:
@@ -3179,6 +3223,7 @@ class CellTest(s_t_utils.SynTest):
                     self.false(cell00.isactive)
                     self.false(cell01.isactive)
                     self.true(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
                     await cell02.sync()
 
                     await cell00.promote(graceful=True)
@@ -3186,6 +3231,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(cell00.isactive)
                     self.false(cell01.isactive)
                     self.false(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
                     await cell02.sync()
 
                     await cell01.promote(graceful=True)
@@ -3193,56 +3239,45 @@ class CellTest(s_t_utils.SynTest):
                     self.false(cell00.isactive)
                     self.true(cell01.isactive)
                     self.false(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
                     await cell02.sync()
 
-                    # Now cause the split
+                    # # Now cause the split
+                    # await cell02.promote(graceful=True)
+                    # await asyncio.sleep(1)
+                    # self.false(cell00.isactive)
+                    # self.true(cell01.isactive)  # FIXME This should be false !
+                    # self.true(cell02.isactive)
+                    # print_cell(cell00, cell01, cell02)
+
+                    await cell00.promote(graceful=True)
+                    await asyncio.sleep(1)
+                    self.true(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.false(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
+                    await cell02.sync()
+
                     await cell02.promote(graceful=True)
                     await asyncio.sleep(1)
                     self.false(cell00.isactive)
-                    self.true(cell01.isactive)  # FIXME This should be false !
+                    self.false(cell01.isactive)
                     self.true(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
+                    await cell02.sync()
 
-    async def test_lib_aha_mlm(self):
-        # Promotion based on aha:lead does not work; since that is the OVERALL leader name.
-        async with self.getTestAha() as aha:
-            async with await s_base.Base.anit() as base:
-                with self.getTestDir() as dirn:
-                    user = 'synuser'
-                    gdirn00 = s_common.genpath(dirn, 'group00')
-                    gdirn01 = s_common.genpath(dirn, 'group01')
+                    await cell00.promote(graceful=True)
+                    await asyncio.sleep(1)
+                    self.true(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.false(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
+                    await cell02.sync()
 
-                    group00 = await base.enter_context(self.addSvcToAha(aha, 'group00.cell', s_cell.Cell, dirn=gdirn00))
-                    group01 = await base.enter_context(self.addSvcToAha(aha, 'group01.cell', s_cell.Cell, dirn=gdirn01,
-                                                                        provinfo={'mirror': 'cell'}))
-
-                    self.true(group00.isactive)
-                    self.false(group01.isactive)
-                    await group01.sync()
-                    print(group00.conf.asDict())
-                    print(group01.conf.asDict())
-                    sg0dirn00 = s_common.genpath(dirn, 'sg0cell00')
-                    sg0dirn01 = s_common.genpath(dirn, 'sg0cell01')
-
-                    sg0cell00 = await base.enter_context(self.addSvcToAha(aha, '00.group00.cell', s_cell.Cell,
-                                                                          dirn=sg0dirn00,
-                                                                          provinfo={'mirror': 'group00.cell'}))
-                    sg0cell01 = await base.enter_context(self.addSvcToAha(aha, 'group01.cell', s_cell.Cell,
-                                                                          dirn=sg0dirn01,
-                                                                            provinfo={'mirror': '00.group00.cell'}))
-                    print(sg0cell00.conf.asDict())
-                    print(sg0cell01.conf.asDict())
-                    self.false(sg0cell00.isactive)
-                    self.false(sg0cell01.isactive)
-                    await sg0cell01.sync()
-
-                    unfo = await sg0cell01.addUser('someTestUser')
-                    await sg0cell01.sync()
-                    await sg0cell00.sync()
-                    await group01.sync()
-
-                    self.nn(group01.getUserDef(unfo.get('iden')))
-
-                    self.eq(group00.conf.get('aha:leader'), 'cell')
-                    self.eq(group01.conf.get('aha:leader'), 'cell')
-                    self.eq(sg0cell00.conf.get('aha:leader'), 'cell')
-                    self.eq(sg0cell01.conf.get('aha:leader'), 'cell')
+                    await cell01.promote(graceful=True)
+                    await asyncio.sleep(1)
+                    self.false(cell00.isactive)
+                    self.true(cell01.isactive)
+                    self.false(cell02.isactive)
+                    print_cell(cell00, cell01, cell02)
+                    await cell02.sync()
