@@ -1208,6 +1208,9 @@ class ModelRev:
         await self.runStorm(storm, opts=opts)
 
 class ModelMigration_0_2_31:
+    # This is here solely so we can mock.patch it in tests
+    MAX_SPOOL_SIZE = s_spooled.MAX_SPOOL_SIZE
+
     @classmethod
     async def anit(cls, core, layers):
         self = cls()
@@ -1220,8 +1223,8 @@ class ModelMigration_0_2_31:
         self.editcount = 0
         self.nodeedits = {}
 
-        self.nodes = await s_spooled.Dict.anit(dirn=self.core.dirn)
-        self.todos = await s_spooled.Set.anit(dirn=self.core.dirn)
+        self.nodes = await s_spooled.Dict.anit(dirn=self.core.dirn, size=cls.MAX_SPOOL_SIZE)
+        self.todos = await s_spooled.Set.anit(dirn=self.core.dirn, size=cls.MAX_SPOOL_SIZE)
 
         self.core.onfini(self.nodes)
         self.core.onfini(self.todos)

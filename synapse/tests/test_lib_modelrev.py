@@ -7,7 +7,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
-import synapse.lib.spooled as s_spooled
 import synapse.lib.modelrev as s_modelrev
 
 import synapse.tests.utils as s_tests
@@ -1449,10 +1448,15 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('.created')
             self.len(0, nodes)
 
-        MAX_SPOOL_SIZE = s_spooled.MAX_SPOOL_SIZE
+        MAX_SPOOL_SIZE = s_modelrev.ModelMigration_0_2_31.MAX_SPOOL_SIZE
         for maxval in (MAX_SPOOL_SIZE, 1):
-            with mock.patch.object(s_spooled, 'MAX_SPOOL_SIZE', maxval):
+            with mock.patch.object(s_modelrev.ModelMigration_0_2_31, 'MAX_SPOOL_SIZE', maxval):
                 async with self.getRegrCore('model-cpe-migration') as core:
+                    # Make sure the mock worked
+                    migration = await s_modelrev.ModelMigration_0_2_31.anit(core, [])
+                    self.eq(migration.nodes.size, maxval)
+                    self.eq(migration.todos.size, maxval)
+
                     riskvuln = s_common.ehex(s_common.buid(('risk:vuln', s_common.guid(('risk', 'vuln')))))
 
                     views = {view.info.get('name'): view for view in core.listViews()}

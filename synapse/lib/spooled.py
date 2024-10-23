@@ -17,7 +17,7 @@ class Spooled(s_base.Base):
     together. Under memory pressure, these objects have a better shot of getting paged out.
     '''
 
-    async def __anit__(self, dirn=None, size=0, cell=None):
+    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
         '''
         Args:
             dirn(Optional[str]): base directory used for backing slab.  If None, system temporary directory is used
@@ -26,8 +26,6 @@ class Spooled(s_base.Base):
         await s_base.Base.__anit__(self)
 
         self.cell = cell
-        if size <= 0:
-            size = MAX_SPOOL_SIZE
         self.size = size
         self.dirn = dirn
         self.slab = None
@@ -59,7 +57,7 @@ class Set(Spooled):
     A minimal set-like implementation that will spool to a slab on large growth.
     '''
 
-    async def __anit__(self, dirn=None, size=0, cell=None):
+    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
         await Spooled.__anit__(self, dirn=dirn, size=size, cell=cell)
         self.realset = set()
         self.len = 0
@@ -142,7 +140,7 @@ class Set(Spooled):
 
 class Dict(Spooled):
 
-    async def __anit__(self, dirn=None, size=0, cell=None):
+    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
 
         await Spooled.__anit__(self, dirn=dirn, size=size, cell=cell)
         self.realdict = {}
