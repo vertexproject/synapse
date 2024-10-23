@@ -1,0 +1,5 @@
+---
+desc: Update Synapse Docker images to build with Python 3.11.10.
+prs: []
+type: feat
+...

@@ -4,7 +4,7 @@
 # synapse and its dependencies pre-installed.  It does not start any
 # services.
 
-FROM vertexproject/vtx-base-image:py311
+FROM vertexproject/vtx-base-image:dev-py311-10
 
 ENV SYN_LOG_LEVEL="INFO"
 
