@@ -4448,9 +4448,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
 
         mirror = self.conf.get('mirror')
-        if mirror is None:
-            mirror = ''
-        else:
+        if mirror is not None:
             mirror = s_urlhelp.sanitizeUrl(mirror)
 
         ret = {
@@ -4472,7 +4470,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
-                'uplink:url': mirror,
+                'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),

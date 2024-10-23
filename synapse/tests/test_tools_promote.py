@@ -10,8 +10,36 @@ import synapse.tests.utils as s_t_utils
 
 class PromoteToolTest(s_t_utils.SynTest):
 
-    async def test_tool_promote_schism(self):
+    async def test_tool_promote_simple(self):
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    dirn00 = s_common.genpath(dirn, '00.cell')
+                    dirn01 = s_common.genpath(dirn, '01.cell')
 
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
+                                                                       provinfo={'mirror': 'cell'}))
+                    self.true(cell00.isactive)
+                    self.false(cell01.isactive)
+                    await cell01.sync()
+
+                    outp = self.getTestOutp()
+                    argv = ['--svcurl', cell00.getLocalUrl()]
+                    ret = await s_tools_promote.main(argv, outp=outp)
+                    self.eq(1, ret)
+                    outp.expect('Failed to promote service')
+                    outp.expect('promote() called on non-mirror')
+
+                    outp.clear()
+                    argv = ['--svcurl', cell01.getLocalUrl()]
+                    ret = await s_tools_promote.main(argv, outp=outp)
+                    self.eq(0, ret)
+                    self.false(cell00.isactive)
+                    self.true(cell01.isactive)
+                    await cell00.sync()
+
+    async def test_tool_promote_schism(self):
         # Create a mirror of mirrors and try promoting the end mirror.
         async with self.getTestAha() as aha:
             async with await s_base.Base.anit() as base:

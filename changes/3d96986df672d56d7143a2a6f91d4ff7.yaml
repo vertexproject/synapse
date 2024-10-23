@@ -1,7 +1,8 @@
 ---
-desc: Add ``uplink:url`` to the output of the ``getCellInfo()`` APIs to indicate which
-  service the current cell is following. This is the sanitized version of the
-  ``mirror`` configuration option for the service.
+desc: |
+  Add the ``mirror`` URL to the output of the ``getCellInfo()`` APIs to
+  indicate which service is being followed for change events. This URL has
+  password information sanitized from it.
 prs: []
 type: feat
 ...

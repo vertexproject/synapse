@@ -750,7 +750,7 @@ class CellTest(s_t_utils.SynTest):
                 self.ge(cnfo.get('nexsindx'), 0)
                 self.true(cnfo.get('active'))
                 self.false(cnfo.get('uplink'))
-                self.eq(cnfo.get('uplink:url'), '')
+                self.none(cnfo.get('mirror', True))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
