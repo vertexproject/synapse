@@ -1489,14 +1489,6 @@ class ModelMigration_0_2_31:
                 if s_infotech.isValidCpe23(formvalu):
                     continue
 
-                # It's possible to have the same node in different layers with different :v2_2 property values. In this
-                # case, don't downgrade the verdict because we can migrate it.
-                if (node := self.nodes.get(buid)) is not None and node.get('verdict') == 'migrate' and verdict == 'remove':
-                    layers = list(node['layers'])
-                    layers.append(layer.iden)
-                    node['layers'] = layers
-                    continue
-
                 node = self.getNode(buid)
                 node['formvalu'] = formvalu
                 node['formname'] = 'it:sec:cpe'
