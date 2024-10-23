@@ -482,8 +482,9 @@ class Model:
     '''
     The data model used by a Cortex hypergraph.
     '''
-    def __init__(self):
+    def __init__(self, core=None):
 
+        self.core = core
         self.types = {}  # name: Type()
         self.forms = {}  # name: Form()
         self.props = {}  # (form,name): Prop() and full: Prop()
@@ -653,13 +654,16 @@ class Model:
             self.formprefixcache[prefix] = forms
         return forms
 
-    def reqProp(self, name):
+    def reqProp(self, name, extra=None):
         prop = self.prop(name)
         if prop is not None:
             return prop
 
-        mesg = f'No property named {name}.'
-        raise s_exc.NoSuchProp(mesg=mesg, name=name)
+        exc = s_exc.NoSuchProp.init(name)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def reqUniv(self, name):
         prop = self.univ(name)

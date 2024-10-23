@@ -1,5 +1,0 @@
----
-desc: Added ``ou:requirement:type`` taxonomy property to track requirement types.
-prs: []
-type: model
-...
