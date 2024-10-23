@@ -2732,18 +2732,18 @@ class Parser:
         self.exited = True
         return False
 
-    def _wrap_txt(self, txt, wth):
-        ls, cl, clen = [], [], 0
-        for wrd in txt.split():
-            if clen + len(wrd) + bool(cl) > wth:
-                ls.append(' '.join(cl))
-                cl, clen = [wrd], len(wrd)
+    def _wrap_text(self, text, width):
+        lines, curline, curlen = [], [], 0
+        for word in text.split():
+            if curlen + len(word) + bool(curline) > width:
+                lines.append(' '.join(curline))
+                curline, curlen = [word], len(word)
             else:
-                cl.append(wrd)
-                clen += len(wrd) + bool(cl)
-        if cl:
-            ls.append(' '.join(cl))
-        return ls
+                curline.append(word)
+                curlen += len(word) + bool(curline)
+        if curline:
+            lines.append(' '.join(curline))
+        return lines
 
     def _print_optarg(self, names, argdef):
 
@@ -2786,7 +2786,7 @@ class Parser:
         wrap_w = 120 - base_w
 
         first = helplst[0][min_space:]
-        wrap_first = self._wrap_txt(first, wrap_w)
+        wrap_first = self._wrap_text(first, wrap_w)
         self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
@@ -2794,7 +2794,7 @@ class Parser:
             lead_s = len(ln) - len(ln.lstrip())
             rel_ind = lead_s - min_space
             ind = ' ' * (base_w + rel_ind)
-            wrapped = self._wrap_txt(ln.lstrip(), wrap_w - rel_ind)
+            wrapped = self._wrap_text(ln.lstrip(), wrap_w - rel_ind)
             for wl in wrapped:
                 self._printf(f'{ind}{wl}')
 
