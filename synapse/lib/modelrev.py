@@ -6,6 +6,7 @@ import synapse.common as s_common
 
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.spooled as s_spooled
 
 import synapse.models.infotech as s_infotech
@@ -1222,8 +1223,8 @@ class ModelMigration_0_2_31:
         self.nodes = await s_spooled.Dict.anit(dirn=self.core.dirn)
         self.todos = await s_spooled.Set.anit(dirn=self.core.dirn)
 
-        self.core.onfini(self.nodes.fini)
-        self.core.onfini(self.todos.fini)
+        self.core.onfini(self.nodes)
+        self.core.onfini(self.todos)
 
         queues = await self.core.listCoreQueues()
         queues = {k['name']: k for k in queues}
@@ -1771,16 +1772,22 @@ class ModelMigration_0_2_31:
                     sources.add(formvalu)
 
         # Make some changes before serializing
-        item = node.copy()
+        item = s_msgpack.deepcopy(node)
         item.pop('verdict', None)
         item['iden'] = s_common.ehex(buid)
         item['sources'] = list(sources)
 
         roprops = self.getRoProps(formname)
         for layriden, sode in node['sodes'].items():
-            props = sode.get('props', {})
+            props = sode.get('props')
+            if props is None:
+                continue
+
             props = {name: valu for name, valu in list(props.items()) if name not in roprops}
-            item['sodes'][layriden]['props'] = props
+            if props:
+                item['sodes'][layriden]['props'] = props
+            else:
+                item['sodes'][layriden].pop('props')
 
         await self.core.coreQueuePuts('model_0_2_31:nodes', (item,))
 
@@ -1902,16 +1909,16 @@ class ModelMigration_0_2_31:
                 refbuid = s_common.uhex(refiden)
                 (refform, refprop, reftype, isarray, isro) = refinfo
 
+                if isro:
+                    await self.removeNode(refbuid)
+                    continue
+
                 if reftype == 'ndef':
                     oldpropv = oldndef
                     newpropv = newndef
                 else:
                     oldpropv = formvalu
                     newpropv = newvalu
-
-                if isro:
-                    await self.removeNode(refbuid)
-                    continue
 
                 refnode = self.getNode(refbuid)
                 refsode = refnode['sodes'].get(reflayr)

@@ -82,7 +82,7 @@ stormcmds = [
                     if ($doc=$lib.null) { $doc = '' }
 
                     $lib.print('{verb} {doc}', verb=$verb, doc=$doc)
-            }
+                }
                 $lib.print('')
             } else {
                 $lib.print('No edge verbs found in the current view.')

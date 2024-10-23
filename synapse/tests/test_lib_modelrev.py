@@ -1033,7 +1033,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source22, ('it:sec:cpe', invcpe06)), 13),
                       },
                   },
@@ -1055,7 +1054,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source23, ('it:sec:cpe', invcpe06)), 13),
                       },
                   },
@@ -1077,7 +1075,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source22, ('it:sec:cpe', invcpe02)), 13),
                       },
                   },
@@ -1099,7 +1096,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source23, ('it:sec:cpe', invcpe02)), 13),
                       },
                   },
@@ -1121,7 +1117,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source23, ('it:sec:cpe', invcpe04)), 13),
                       },
                   },
@@ -1143,7 +1138,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source23, ('it:sec:cpe', invcpe01)), 13),
                       },
                   },
@@ -1204,7 +1198,6 @@ class ModelRevTest(s_tests.SynTest):
                     },
                     fork03layr: {
                         'form': 'it:sec:cpe',
-                        'props': {},
                         'valu': ('cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*', 1),
                     },
                   },
@@ -1237,7 +1230,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source23, ('it:sec:cpe', invcpe03)), 13),
                       },
                   },
@@ -1259,7 +1251,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source22, ('it:sec:cpe', invcpe03)), 13),
                       },
                   },
@@ -1281,7 +1272,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source23, ('it:sec:cpe', invcpe00)), 13),
                       },
                   },
@@ -1303,7 +1293,6 @@ class ModelRevTest(s_tests.SynTest):
                   'sodes': {
                       fork01layr: {
                           'form': 'meta:seen',
-                          'props': {},
                           'valu': ((source23, ('it:sec:cpe', invcpe05)), 13),
                       },
                   },
@@ -1550,6 +1539,17 @@ class ModelRevTest(s_tests.SynTest):
                             )
                         )
                     )
+
+                    q = '''
+                        $ret = ([])
+                        for ($offs, $form, $valu) in $lib.model.migration.s.model_0_2_31.listNodes(form=it:sec:cpe) {
+                            $ret.append(($form, $valu))
+                        }
+                        return($ret)
+                    '''
+                    nodelist = await core.callStorm(q)
+                    self.len(1, nodelist)
+                    self.eq(nodelist[0], ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'))
 
                     msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.printNode((200))')
                     self.stormIsInWarn('Queued node with offset 200 not found.', msgs)
