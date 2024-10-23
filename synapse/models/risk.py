@@ -232,6 +232,12 @@ class RiskModule(s_module.CoreModule):
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
 
+                (('meta:event', 'caused', 'risk:outage'), {
+                    'doc': 'The event caused the outage.'}),
+
+                (('risk:attack', 'caused', 'risk:outage'), {
+                    'doc': 'The attack caused the outage.'}),
+
                 (('risk:outage', 'impacted', None), {
                     'doc': 'The outage event impacted the availability of the target node.'}),
             ),
@@ -1033,7 +1039,6 @@ class RiskModule(s_module.CoreModule):
                 )),
 
                 ('risk:outage:cause:taxonomy', {}, ()),
-                ('risk:outage:impact:taxonomy', {}, ()),
                 ('risk:outage', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1042,9 +1047,17 @@ class RiskModule(s_module.CoreModule):
                     ('period', ('ival', {}), {
                         'doc': 'The time period where the outage impacted availability.'}),
 
-                    ('priority', ('meta:priority', {}), {
-                        'doc': 'The priority of the outage.'}),
+                    ('cause', ('risk:outage:cause:taxonomy', {}), {
+                        'doc': 'The outage cause type.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the outage event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the outage event.'}),
                 )),
+
+                # TODO risk:outage:vitals to track outage stats over time
 
                 ('risk:extortion:type:taxonomy', {}, ()),
                 ('risk:extortion', {}, (

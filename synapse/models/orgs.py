@@ -864,6 +864,12 @@ class OuModule(s_module.CoreModule):
                     ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternative names for the industry.'}),
 
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the industry.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the industry.'}),
+
                     ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use ou:industry:type taxonomy.'}),

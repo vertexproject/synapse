@@ -107,6 +107,13 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:sophistication', ('int', {'enums': sophenums}), {
                     'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
+
+                ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A type of item being counted in aggregate.'}),
+
+                ('meta:aggregate', ('guid', {}), {
+                    'doc': 'A node which represents an aggregate count a specific type.'}),
             ),
             'interfaces': (
                 ('meta:taxonomy', {
@@ -283,6 +290,17 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A URL which documents the rule.'}),
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the rule.'}),
+                )),
+
+                ('meta:aggregate:type:taxonomy', {}, (),
+                ('meta:aggregate', {}, (
+
+                    ('type', ('meta:aggregate:type:taxonomy', {}),
+                        'ex': 'casualties.civilian',
+                        'doc': 'The type of items being counted in aggregate.'}),
+
+                    ('count', ('int', {}), {
+                        'doc': 'The number of items counted in aggregate.'}),
                 )),
 
                 ('graph:cluster', {}, (
