@@ -113,7 +113,7 @@ class BaseModule(s_module.CoreModule):
                     'doc': 'A type of item being counted in aggregate.'}),
 
                 ('meta:aggregate', ('guid', {}), {
-                    'doc': 'A node which represents an aggregate count a specific type.'}),
+                    'doc': 'A node which represents an aggregate count of a specific type.'}),
             ),
             'interfaces': (
                 ('meta:taxonomy', {
