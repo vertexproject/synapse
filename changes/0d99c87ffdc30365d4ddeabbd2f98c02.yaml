@@ -1,0 +1,5 @@
+---
+desc: Added ``proj:task`` interface to ensure consistent properties on task-like forms.
+prs: []
+type: model
+...
