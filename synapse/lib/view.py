@@ -2579,7 +2579,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         # lift starting with the lowest count
         count, prop, norm = counts[0]
-        async for node in self._nodesByPropAlts(prop, norm):
+        async for node in self.nodesByPropAlts(prop, '=', norm, norm=False):
             await asyncio.sleep(0)
 
             # filter on the remaining props/alts
@@ -2626,15 +2626,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return False
 
-    async def _nodesByPropAlts(self, prop, valu):
-        # valu must be normalized in advance
+    async def nodesByPropAlts(self, prop, cmpr, valu, norm=True, virts=None):
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                async for node in self.nodesByPropArray(prop.full, '=', valu, norm=False):
+                async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=norm, virts=virts):
                     yield node
             else:
-                async for node in self.nodesByPropValu(prop.full, '=', valu, norm=False):
+                async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virts=virts):
                     yield node
 
     async def getTagNode(self, name):

@@ -299,6 +299,7 @@ testmodel = {
         ('test:virtarray', {
             'doc': 'test interface',
             'props': (
+                ('server', ('inet:server', {}), {'alts': ('servers',)}),
                 ('servers', ('array', {'type': 'inet:server'}), {}),
             )
         }),
