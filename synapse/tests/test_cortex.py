@@ -2779,6 +2779,50 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:ip +:asn::_pivo::notaprop')
 
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=a@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=b@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=c@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(a@v.lk, b@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(c@v.lk, d@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(a@v.lk, d@v.lk)]}]')
+
+            nodes = await core.nodes('ou:org:hq::email::user=a')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::email::user*in=(a, b)')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::emails*[=a@v.lk]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::emails*[in=(a@v.lk, c@v.lk)]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            with self.raises(s_exc.NoSuchProp):
+                nodes = await core.nodes('ou:org:hq::email::newp=a')
+
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, cool) :signup:client=tcp://1.2.3.4]} ]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, super) :signup:client=tcp://5.6.7.8]} ]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, newp) :signup:client=tcp://1.2.3.5]} ]}]')
+
+            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client*ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client::ip*in=(1.2.3.4, 5.6.7.8)'))
+
+            await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
+            await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
+            await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
+
+            self.len(1, await core.nodes('ou:org:hq::web:acct::signup:client::ip::asn>6'))
+            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client::ip::asn*in=(5,6)'))
+
 class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed

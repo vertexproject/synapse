@@ -226,9 +226,9 @@ liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | l
 _DEREF.3:  /\*(?=\$)/
 
 liftformtag: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) tagname virtprop? [_cmpr _valu]
-liftpropby: ((PROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
+liftpropby: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) _cmpr _valu
 liftprop: ((PROPS | UNIVNAME | WILDPROPS) | _DEREF _varvalu) virtprop?
-liftbyarray: ((PROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
+liftbyarray: ((PROPS | EMBEDPROPS | UNIVNAME) | _DEREF _varvalu) "*[" _safe_cmpr _valu "]"
 lifttagtag: (_HASH | _HASHSPACE) tagname [_cmpr _valu]
 liftbytag: (tagname | tagnamewithspace) virtprop? [_cmpr _valu]
 liftbytagprop: (tagprop | tagpropwithspace) virtprop? [_cmpr _valu]
@@ -303,13 +303,14 @@ _wildtagsegs:  WILDTAGSEGNOVAR ( "." (WILDTAGSEGNOVAR | "$" varvalue))*
 WILDTAGSEGNOVAR: /[\w*]+/
 
 // A comparison operator
-_cmpr: "*" byname | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
+_cmpr: "*" byname | cmpr
+cmpr: CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
 byname: [ _bynames ] BYNAME BYNAMECMPR
 _bynames: _bynames? BYNAME "*"
 BYNAME.2: /\w+/
 BYNAMECMPR.2: /[@?!<>^~=]*[<>=]/
 
-_safe_cmpr: byname | CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
+_safe_cmpr: byname | cmpr
 
 CMPR: "<=" | ">=" | "!=" | "~=" | "^=" | ">" | "<"
 CMPROTHER: /(?!<=|>=|=(?![@?!<>^~=])|<|>|!=|~=|\^=|\?)[@?!<>^~=][@!<>^~=]*(?![@?<>^~=])/
@@ -464,8 +465,14 @@ formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
 
 // Must be kept consistent with same regexes in synapse/lib/grammar.py
 // A full property.  Must contain at least 1 colon
-PROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
-WILDPROPS.2: /[a-z_][a-z0-9_]*(:\*|(:[a-z0-9_]+)+([:.][a-z0-9_]+)*:?\*)(?![:.a-z0-9_\-\[])/
+PROPS.3: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+([:.][a-z0-9_]+)*(?![:.a-z0-9_\-])/
+
+// A full property containing a wildcard
+WILDPROPS.3: /[a-z_][a-z0-9_]*(:\*|(:[a-z0-9_]+)+([:.][a-z0-9_]+)*:?\*)(?![:.a-z0-9_\-\[])/
+
+// A full property with embed properties
+EMBEDPROPS.2: /[a-z_][a-z0-9_]*(:[a-z0-9_]+)+((\:\:|\:|\.)[a-z0-9_]+)*(?![:.a-z0-9_\-])/
+
 // A universal property
 UNIVNAME.2: /(?<=^|[\s\|\{\(\[+=-])\.[a-z_][a-z0-9_]*([:.][a-z0-9_]+)*/
 univprop:  UNIVNAME | "." _varvalu

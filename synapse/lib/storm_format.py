@@ -30,6 +30,7 @@ TerminalPygMap = {
     'DOT': p_t.Punctuation,
     'DOUBLEQUOTEDSTRING': p_t.Literal.String,
     'ELIF': p_t.Keyword,
+    'EMBEDPROPS': p_t.Name,
     'EQNOSPACE': p_t.Punctuation,
     'EQSPACE': p_t.Punctuation,
     'EQUAL': p_t.Punctuation,
