@@ -270,6 +270,8 @@ class OuModule(s_module.CoreModule):
 
                 ('ou:enacted', ('guid', {}), {
                     'interfaces': ('proj:task',),
+                    'template': {
+                        'task': 'adoption task'},
                     'doc': 'An organization enacting a document.'}),
 
                 ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
