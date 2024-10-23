@@ -82,7 +82,7 @@ stormcmds = [
                     if ($doc=$lib.null) { $doc = '' }
 
                     $lib.print('{verb} {doc}', verb=$verb, doc=$doc)
-}
+            }
                 $lib.print('')
             } else {
                 $lib.print('No edge verbs found in the current view.')
@@ -1071,6 +1071,8 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         nodes = self.runt.snap.core.coreQueueGets('model_0_2_31:nodes', offs=offset, cull=False, size=size)
         async for offs, node in nodes:
+            if form is not None and node['formname'] != form:
+                continue
             yield (offs, node['formname'], node['formvalu'])
 
     async def _methPrintNode(self, offset):
@@ -1115,17 +1117,11 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         if noderefs := node['refs']:
             await self.runt.printf('  refs:')
 
-            for offs in noderefs:
-                refs = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes:refs', offs=offs, cull=False)
-                if not refs: # pragma: no cover
-                    await self.runt.warn(f'Queued node refs with offset {offs} not found.')
-                    continue
-
-                refs = refs[1]
-
-                for ref in refs:
-                    form, prop, *_ = ref.get('refinfo')
-                    await self.runt.printf(f'    - {form}:{prop} (iden: {ref["iden"]}')
+            for layriden, reflist in noderefs.items():
+                await self.runt.printf(f'    layer: {layriden}')
+                for iden, refinfo in reflist:
+                    form, prop, *_ = refinfo
+                    await self.runt.printf(f'      - {form}:{prop} (iden: {iden}')
 
         n1edges = node['n1edges']
         n2edges = node['n2edges']
@@ -1143,11 +1139,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
     async def _removeNode(self, offset):
         offset = await s_stormtypes.toint(offset)
-
-        _, node = await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
-
-        for offs in node['refs']:
-            await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes:refs', offs)
+        await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
 
     async def _repairNode(self, offset, newvalu):
 
@@ -1247,23 +1239,17 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     )),
                 )))
 
-        for offs in node['refs']:
-            refs = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes:refs', offs=offs, cull=False)
-            if not refs: # pragma: no cover
-                await self.runt.warn(f'Queued node refs with offset {offs} not found.')
-                continue
+        for layriden, reflist in node['refs'].items():
+            for iden, refinfo in reflist:
+                formname, propname, proptype, isarray, isro = refinfo
 
-            refs = refs[1]
-
-            for ref in refs:
-                iden = ref['iden']
-                reflayr = ref['layer']
-                formname, propname, proptype, isarray = ref['refinfo']
+                if isro:
+                    continue
 
                 refbuid = s_common.uhex(iden)
                 stortype = self.runt.snap.core.model.type(proptype).stortype
 
-                nodeedits.append((reflayr, (
+                nodeedits.append((layriden, (
                     (refbuid, formname, (
                         (s_layer.EDIT_PROP_SET, (propname, norm, None, stortype), ()),
                     )),

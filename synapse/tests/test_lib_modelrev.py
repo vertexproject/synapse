@@ -1000,10 +1000,9 @@ class ModelRevTest(s_tests.SynTest):
 
             queues = await core.callStorm('return($lib.queue.list())')
             [q.pop('meta') for q in queues]
-            self.len(2, queues)
+            self.len(1, queues)
             self.eq(queues, (
                 {'name': 'model_0_2_31:nodes', 'size': 11, 'offs': 11},
-                {'name': 'model_0_2_31:nodes:refs', 'size': 11, 'offs': 11},
             ))
 
             q = '''
@@ -1023,17 +1022,12 @@ class ModelRevTest(s_tests.SynTest):
                 if (layers := item.get('layers')):
                     item['layers'] = tuple(sorted(layers))
 
-                refs = item.pop('refs')
-                self.len(1, refs)
-                self.le(refs[0], 11)
-
             self.len(11, nodesq)
 
             expected = [
                 {'formname': 'meta:seen',
                   'iden': metaseen08,
                   'layers': (fork01layr,),
-                  # 'refs': (0,),
                   'formvalu': (source22, ('it:sec:cpe', invcpe06)),
                   'sources': (),
                   'sodes': {
@@ -1046,11 +1040,16 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('5fbce86c228ebf052bebca0bebbadbf3ae92a7afbd35f35996a275e6688ad88e',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen09,
                   'layers': (fork01layr,),
-                  # 'refs': (1,),
                   'formvalu': (source23, ('it:sec:cpe', invcpe06)),
                   'sources': (),
                   'sodes': {
@@ -1063,11 +1062,16 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('52d48d748a795329651e62f89c22a1f24e3560f1858aec2c5eba304e711c0bf5',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen02,
                   'layers': (fork01layr,),
-                  # 'refs': (2,),
                   'formvalu': (source22, ('it:sec:cpe', invcpe02)),
                   'sources': (),
                   'sodes': {
@@ -1080,11 +1084,16 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('11f7e64a8dd8aa5f2a9b52c0e95783da4b7486452aff74dfcf80814f72507f88',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen03,
                   'layers': (fork01layr,),
-                  # 'refs': (3,),
                   'formvalu': (source23, ('it:sec:cpe', invcpe02)),
                   'sources': (),
                   'sodes': {
@@ -1097,11 +1106,16 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('b209cfe6fb7167cc7dbae9df50894c2614cb9e179e5b3a4fd85fbcf7fa31a9dd',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen06,
                   'layers': (fork01layr,),
-                  # 'refs': (4,),
                   'formvalu': (source23, ('it:sec:cpe', invcpe04)),
                   'sources': (),
                   'sodes': {
@@ -1114,11 +1128,16 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('e3c389c194609a57cde68c21cac8ae1cd18e6a642e332461a3acd19138904239',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen01,
                   'layers': (fork01layr,),
-                  # 'refs': (5,),
                   'formvalu': (source23, ('it:sec:cpe', invcpe01)),
                   'sources': (),
                   'sodes': {
@@ -1131,6 +1150,12 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('1e0ce923f3dbd57b11d5d95cc5d6d1ccd4de4aba9b6534d57eaa0a2433af9430',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'it:sec:cpe',
                   'iden': badcpe00,
@@ -1154,7 +1179,6 @@ class ModelRevTest(s_tests.SynTest):
                         ('cpe23', 'invalid'),
                     ),
                   },
-                  # 'refs': (6,),
                   'sodes': {
                     fork00layr: {
                         'form': 'it:sec:cpe',
@@ -1184,11 +1208,30 @@ class ModelRevTest(s_tests.SynTest):
                         'valu': ('cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*', 1),
                     },
                   },
+                  'refs': {
+                    fork01layr: (
+                      ('9742664e24fe1a3a37d871b1f62af27453c2945b98f421d753db8436e9a44cc9',
+                       ('it:prod:soft', 'cpe', 'it:sec:cpe', False, False)),
+                      ('16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7',
+                       ('_ext:model:form', 'cpe', 'it:sec:cpe', False, False)),
+                      ('7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
+                       ('inet:flow', 'dst:cpes', 'it:sec:cpe', True, False)),
+                      ('7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
+                       ('inet:flow', 'src:cpes', 'it:sec:cpe', True, False)),
+                      ('81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d',
+                       ('meta:seen', 'node', 'ndef', False, True)),
+                      ('85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9',
+                       ('meta:seen', 'node', 'ndef', False, True)),
+                    ),
+                    fork00layr: (
+                      ('5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3',
+                       ('risk:vulnerable', 'node', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen04,
                   'layers': (fork01layr,),
-                  # 'refs': (7,),
                   'formvalu': (source23, ('it:sec:cpe', invcpe03)),
                   'sources': (),
                   'sodes': {
@@ -1201,11 +1244,16 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('6d09c45666b3a14bf9d298079344d01c079e474423307da553d65ad9917556ae',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen05,
                   'layers': (fork01layr,),
-                  # 'refs': (8,),
                   'formvalu': (source22, ('it:sec:cpe', invcpe03)),
                   'sources': (),
                   'sodes': {
@@ -1218,11 +1266,16 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('208ea1b5593aff3c9cb51c19374616fcd103ea2f554f0dd2a13652aadabb82ae',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen00,
                   'layers': (fork01layr,),
-                  # 'refs': (9,),
                   'formvalu': (source23, ('it:sec:cpe', invcpe00)),
                   'sources': (),
                   'sodes': {
@@ -1235,11 +1288,16 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('86288a55af26e1314ae60e12c54c02f4af2e22ed1580166b39f5352762856335',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
                 {'formname': 'meta:seen',
                   'iden': metaseen07,
                   'layers': (fork01layr,),
-                  # 'refs': (10,),
                   'formvalu': (source23, ('it:sec:cpe', invcpe05)),
                   'sources': (),
                   'sodes': {
@@ -1252,91 +1310,17 @@ class ModelRevTest(s_tests.SynTest):
                   'n1edges': {},
                   'n2edges': {},
                   'nodedata': {},
+                  'refs': {
+                    fork01layr: (
+                        ('53ad1502b6f6de3d9d4efe72cc101cd3889e47323ac8db5e3fd39ae68c72f141',
+                         ('it:sec:vuln:scan:result', 'asset', 'ndef', False, False)),
+                    ),
+                  },
                 },
             ]
 
             for item in expected:
                 self.isin(item, nodesq)
-
-            q = '''
-                $ret = ([])
-                $q = $lib.queue.get('model_0_2_31:nodes:refs')
-                for $ii in $lib.range(($q.size())) {
-                    ($offs, $item) = $q.get($ii, cull=(false), wait=(false))
-                    $ret.append($item)
-                }
-                fini { return($ret) }
-            '''
-            refsq = await core.callStorm(q)
-            self.len(11, refsq)
-            expected = [
-                ({'iden': '5fbce86c228ebf052bebca0bebbadbf3ae92a7afbd35f35996a275e6688ad88e',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                ({'iden': '52d48d748a795329651e62f89c22a1f24e3560f1858aec2c5eba304e711c0bf5',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                ({'iden': '11f7e64a8dd8aa5f2a9b52c0e95783da4b7486452aff74dfcf80814f72507f88',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                ({'iden': 'b209cfe6fb7167cc7dbae9df50894c2614cb9e179e5b3a4fd85fbcf7fa31a9dd',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                ({'iden': 'e3c389c194609a57cde68c21cac8ae1cd18e6a642e332461a3acd19138904239',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                ({'iden': '1e0ce923f3dbd57b11d5d95cc5d6d1ccd4de4aba9b6534d57eaa0a2433af9430',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                (
-                  {'iden': '9742664e24fe1a3a37d871b1f62af27453c2945b98f421d753db8436e9a44cc9',
-                   'layer': fork01layr,
-                   'refinfo': ('it:prod:soft', 'cpe', 'it:sec:cpe', False)},
-                  {'iden': '16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7',
-                   'layer': fork01layr,
-                   'refinfo': ('_ext:model:form', 'cpe', 'it:sec:cpe', False)},
-                  {'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
-                   'layer': fork01layr,
-                   'refinfo': ('inet:flow', 'dst:cpes', 'it:sec:cpe', True)},
-                  {'iden': '7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7',
-                   'layer': fork01layr,
-                   'refinfo': ('inet:flow', 'src:cpes', 'it:sec:cpe', True)},
-                  {'iden': '81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d',
-                   'layer': fork01layr,
-                   'refinfo': ('meta:seen', 'node', 'ndef', False)},
-                  {'iden': '85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9',
-                   'layer': fork01layr,
-                   'refinfo': ('meta:seen', 'node', 'ndef', False)},
-                  {'iden': '5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3',
-                   'layer': fork00layr,
-                   'refinfo': ('risk:vulnerable', 'node', 'ndef', False)},
-                ),
-                ({'iden': '6d09c45666b3a14bf9d298079344d01c079e474423307da553d65ad9917556ae',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                ({'iden': '208ea1b5593aff3c9cb51c19374616fcd103ea2f554f0dd2a13652aadabb82ae',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                ({'iden': '86288a55af26e1314ae60e12c54c02f4af2e22ed1580166b39f5352762856335',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-                ({'iden': '53ad1502b6f6de3d9d4efe72cc101cd3889e47323ac8db5e3fd39ae68c72f141',
-                   'layer': fork01layr,
-                   'refinfo': ('it:sec:vuln:scan:result', 'asset', 'ndef', False)},
-                ),
-            ]
-
-            for item in expected:
-                self.isin(item, refsq)
 
             # There should be nothing in the default view
             nodes = await core.nodes('.created')
@@ -1592,13 +1576,15 @@ class ModelRevTest(s_tests.SynTest):
                             #test.tagprop:score = 0
                           sources: ['008af0047a8350287cde7abe31a7c706', 'a7a4739e0a52674df0fa3a8226de0c3f']
                           refs:
-                            - it:prod:soft:cpe (iden: 9742664e24fe1a3a37d871b1f62af27453c2945b98f421d753db8436e9a44cc9
-                            - _ext:model:form:cpe (iden: 16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7
-                            - inet:flow:dst:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7
-                            - inet:flow:src:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7
-                            - meta:seen:node (iden: 81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d
-                            - meta:seen:node (iden: 85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9
-                            - risk:vulnerable:node (iden: 5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3
+                            layer: {fork01layr}
+                              - it:prod:soft:cpe (iden: 9742664e24fe1a3a37d871b1f62af27453c2945b98f421d753db8436e9a44cc9
+                              - _ext:model:form:cpe (iden: 16e3289346a258c3e3073affad490c1d6ebf1d01295aacc489cdb24658ebc6e7
+                              - inet:flow:dst:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7
+                              - inet:flow:src:cpes (iden: 7d4c31f1364aaf0b4cfaf4b57bb60157f2e86248391ce8ec75d6b7e3cd5f35b7
+                              - meta:seen:node (iden: 81973208bc0f5b99250e4cda7889c66e0573c0573bc2a279083d23426ba3c74d
+                              - meta:seen:node (iden: 85bfc442d87a64a8e75d4ff2831281fb156317767612eef9b75c271ff162c4d9
+                            layer: {fork00layr}
+                              - risk:vulnerable:node (iden: 5fddf1b5fa06aa8a39a1eb297712cecf9ca146764c4d6e5c79296b9e9978d2c3
                           edges:
                             -(refs)> f0315900f365f45f2e027edc66ed8477d8661dad501d51f3ac8067c36565f07c
                             <(seen)- 051d93252abe655e43265b89149b6a2d5a8f5f2df33b56c986ab8671c081e394
@@ -1694,10 +1680,9 @@ class ModelRevTest(s_tests.SynTest):
                     # Check queue status after restoring three nodes
                     queues = await core.callStorm('return($lib.queue.list())')
                     [q.pop('meta') for q in queues]
-                    self.len(2, queues)
+                    self.len(1, queues)
                     self.eq(queues, (
                         {'name': 'model_0_2_31:nodes', 'size': 9, 'offs': 11},
-                        {'name': 'model_0_2_31:nodes:refs', 'size': 9, 'offs': 11},
                     ))
 
                     # There should be nothing in the default view

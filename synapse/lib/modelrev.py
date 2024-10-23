@@ -1231,9 +1231,6 @@ class ModelMigration_0_2_31:
         if queues.get('model_0_2_31:nodes') is None:
             await self.core.addCoreQueue('model_0_2_31:nodes', {})
 
-        if queues.get('model_0_2_31:nodes:refs') is None:
-            await self.core.addCoreQueue('model_0_2_31:nodes:refs', {})
-
         return self
 
     async def _queueEdit(self, layriden, edit):
@@ -1401,9 +1398,9 @@ class ModelMigration_0_2_31:
     def getNode(self, buid):
         node = self.nodes.get(buid, {})
         if not node:
+            node.setdefault('refs', {})
             node.setdefault('sodes', {})
             node.setdefault('layers', [])
-            node.setdefault('refmap', {})
             node.setdefault('n1edges', {})
             node.setdefault('n2edges', {})
             node.setdefault('nodedata', {})
@@ -1516,7 +1513,7 @@ class ModelMigration_0_2_31:
                 formname = node.get('formname')
                 formndef = (formname, formvalu)
 
-                refmap = node['refmap'].get(layer.iden, [])
+                refs = node['refs'].get(layer.iden, [])
 
                 for refinfo in self.getRefInfo(formname):
                     (refform, refprop, reftype, isarray, isro) = refinfo
@@ -1528,13 +1525,13 @@ class ModelMigration_0_2_31:
 
                     async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
                         # Save the reference info
-                        refmap.append((refbuid, refinfo))
+                        refs.append((s_common.ehex(refbuid), refinfo))
 
                         # Add a todo to get valu and refs to the new nodes
                         await self.todos.add(('getvalu', (refbuid, True)))
 
-                if refmap:
-                    node['refmap'][layer.iden] = refmap
+                if refs:
+                    node['refs'][layer.iden] = refs
 
                 await self.nodes.set(buid, node)
 
@@ -1583,8 +1580,8 @@ class ModelMigration_0_2_31:
                             node = self.getNode(buid)
                             formndef = (formname, formvalu)
 
-                            node.setdefault('refmap', {})
-                            refmap = node['refmap'].get(layer.iden, [])
+                            node.setdefault('refs', {})
+                            refs = node['refs'].get(layer.iden, [])
 
                             for refinfo in self.getRefInfo(formname):
                                 (refform, refprop, reftype, isarray, isro) = refinfo
@@ -1596,13 +1593,13 @@ class ModelMigration_0_2_31:
 
                                 async for refbuid, refsode in self.getSodeByPropValuNoNorm(layer, refform, refprop, propvalu):
                                     # Save the reference info
-                                    refmap.append((refbuid, refinfo))
+                                    refs.append((s_common.ehex(refbuid), refinfo))
 
                                     # Add a todo to get valu and refs to the new nodes
                                     await self.todos.add(('getvalu', (refbuid, True)))
 
-                            if refmap:
-                                node['refmap'][layer.iden] = refmap
+                            if refs:
+                                node['refs'][layer.iden] = refs
 
                             await self.nodes.set(buid, node)
 
@@ -1709,11 +1706,12 @@ class ModelMigration_0_2_31:
         formname = node.get('formname')
         formvalu = node.get('formvalu')
         formndef = (formname, formvalu)
-        refmap = node.get('refmap')
+        refs = node.get('refs')
 
         # Delete references
-        for reflayr, reflist in refmap.items():
-            for refbuid, refinfo in reflist:
+        for reflayr, reflist in refs.items():
+            for refiden, refinfo in reflist:
+                refbuid = s_common.uhex(refiden)
                 (refform, refprop, reftype, isarray, isro) = refinfo
 
                 if reftype == 'ndef':
@@ -1756,33 +1754,6 @@ class ModelMigration_0_2_31:
 
         formname = node.get('formname')
         formvalu = node.get('formvalu')
-        refmap = node.get('refmap')
-
-        offsets = []
-
-        refs = []
-
-        async def queueRefs(threshold=1):
-            nonlocal refs
-            if len(refs) < threshold:
-                return
-            offset = await self.core.coreQueuePuts('model_0_2_31:nodes:refs', (refs,))
-            offsets.append(offset)
-            refs = []
-
-        # Store references to this node
-        for reflayr, reflist in refmap.items():
-            for refbuid, refinfo in reflist:
-                refform, refprop, reftype, isarray, isro = refinfo
-                refs.append({
-                    'iden': s_common.ehex(refbuid),
-                    'layer': reflayr,
-                    'refinfo': (refform, refprop, reftype, isarray),
-                })
-
-                await queueRefs(threshold=1000)
-
-        await queueRefs()
 
         sources = set()
         # Resolve sources
@@ -1801,10 +1772,8 @@ class ModelMigration_0_2_31:
 
         # Make some changes before serializing
         item = node.copy()
-        item.pop('refmap')
         item.pop('verdict', None)
         item['iden'] = s_common.ehex(buid)
-        item['refs'] = offsets
         item['sources'] = list(sources)
 
         roprops = self.getRoProps(formname)
@@ -1882,7 +1851,7 @@ class ModelMigration_0_2_31:
 
         formname = node.get('formname')
         formvalu = node.get('formvalu')
-        refmap = node.get('refmap')
+        refs = node.get('refs')
 
         oldndef = (formname, formvalu)
         newndef = (formname, newvalu)
@@ -1928,8 +1897,9 @@ class ModelMigration_0_2_31:
                 await self.editEdgeAdd(layriden, s_common.uhex(iden), formname, verb, s_common.ehex(newbuid))
 
         # Move references
-        for reflayr, reflist in refmap.items():
-            for refbuid, refinfo in reflist:
+        for reflayr, reflist in refs.items():
+            for refiden, refinfo in reflist:
+                refbuid = s_common.uhex(refiden)
                 (refform, refprop, reftype, isarray, isro) = refinfo
 
                 if reftype == 'ndef':
