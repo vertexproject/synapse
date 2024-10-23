@@ -25,8 +25,8 @@ class SlabOffs:
     def set(self, iden, offs):
         buid = s_common.uhex(iden)
         byts = s_common.int64en(offs)
-        self.slab.put(buid, byts, db=self.db)
+        self.slab._put(buid, byts, db=self.db)
 
     def delete(self, iden):
         buid = s_common.uhex(iden)
-        self.slab.delete(buid, db=self.db)
+        self.slab._delete(buid, db=self.db)

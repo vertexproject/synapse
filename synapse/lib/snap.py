@@ -1391,6 +1391,7 @@ class Snap(s_base.Base):
                 return None
 
         # the newly constructed node is cached
+        await asyncio.sleep(0)
         return await self.getNodeByBuid(protonode.buid)
 
     async def _addGuidNodeByDict(self, form, vals, props=None):

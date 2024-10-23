@@ -41,7 +41,7 @@ class SlabSeqn:
         '''
         Pop a single entry at the given offset.
         '''
-        byts = self.slab.pop(s_common.int64en(offs), db=self.db)
+        byts = self.slab._pop(s_common.int64en(offs), db=self.db)
         if byts is not None:
             self.size -= 1
             return (offs, s_msgpack.un(byts))
@@ -55,9 +55,8 @@ class SlabSeqn:
             if itemoffs > offs:
                 return
 
-            if self.slab.delete(s_common.int64en(itemoffs), db=self.db):
+            if await self.slab.delete(s_common.int64en(itemoffs), db=self.db):
                 self.size -= 1
-            await asyncio.sleep(0)
 
     def add(self, item, indx=None):
         '''
@@ -65,19 +64,19 @@ class SlabSeqn:
         '''
         if indx is not None:
             if indx >= self.indx:
-                self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
+                self.slab._put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
                 self.indx = indx + 1
                 self.size += 1
                 self._wake_waiters()
                 return indx
 
-            oldv = self.slab.replace(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
+            oldv = self.slab._replace(s_common.int64en(indx), s_msgpack.en(item), db=self.db)
             if oldv is None:
                 self.size += 1
             return indx
 
         indx = self.indx
-        retn = self.slab.put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
+        retn = self.slab._put(s_common.int64en(indx), s_msgpack.en(item), append=True, db=self.db)
         assert retn, "Not adding the largest index"
 
         self.indx += 1
@@ -266,7 +265,7 @@ class SlabSeqn:
         startkey = s_common.int64en(offs)
         for lkey, _ in self.slab.scanByRange(startkey, db=self.db):
             retn = True
-            if self.slab.delete(lkey, db=self.db):
+            if self.slab._delete(lkey, db=self.db):
                 self.size -= 1
 
         if retn:
