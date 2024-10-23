@@ -1310,3 +1310,91 @@ class AhaTest(s_test.SynTest):
                 async with await s_telepath.openurl(provurl) as prox:
                     info = await prox.getUserInfo()
                     self.eq(info.get('aha:user'), 'bob.grey')
+
+    async def test_aha_gather(self):
+
+        async with self.getTestAha() as aha:
+
+            async with aha.waiter(3, 'aha:svcadd', timeout=10):
+
+                conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
+                cell00 = await aha.enter_context(self.getTestCell(conf=conf))
+
+                conf = {'aha:provision': await aha.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
+                cell01 = await aha.enter_context(self.getTestCell(conf=conf))
+
+            await cell01.sync()
+
+            nexsindx = await cell00.getNexsIndx()
+
+            # test the call endpoint
+            todo = s_common.todo('getCellInfo')
+            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+            self.true(all(item[0] for item in items.values()))
+            self.eq(cell00.runid, items['00.cell.synapse'][1]['cell']['run'])
+            self.eq(cell01.runid, items['01.cell.synapse'][1]['cell']['run'])
+
+            todo = s_common.todo('newp')
+            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            self.false(any(item[0] for item in items.values()))
+            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+
+            # test the genr endpoint
+            reals = [item async for item in cell00.getNexusChanges(0, wait=False)]
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = [item async for item in aha.runGatherGenr(cell00.iden, todo, timeout=3) if item[1]]
+            self.len(nexsindx * 2, items)
+
+            # ensure we handle down services correctly
+            async with aha.waiter(1, 'aha:svcdown', timeout=10):
+                await cell01.fini()
+
+            # test the call endpoint
+            todo = s_common.todo('getCellInfo')
+            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            self.sorteq(items.keys(), ('00.cell.synapse',))
+            self.true(all(item[0] for item in items.values()))
+            self.eq(cell00.runid, items['00.cell.synapse'][1]['cell']['run'])
+
+            # test the genr endpoint
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = [item async for item in aha.runGatherGenr(cell00.iden, todo, timeout=3) if item[1]]
+            self.len(nexsindx, items)
+            self.true(all(item[1][0] for item in items))
+
+            # test some of the gather API implementations...
+            purl00 = await aha.addAhaSvcProv('0.cell')
+            purl01 = await aha.addAhaSvcProv('1.cell', provinfo={'mirror': '0.cell'})
+
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+
+            await cell01.sync()
+
+            async def sleep99(cell):
+                await cell.boss.promote('sleep99', cell.auth.rootuser)
+                await cell00.fire('sleep99')
+                await asyncio.sleep(99)
+
+            async with cell00.waiter(2, 'sleep99', timeout=2):
+                task00 = cell00.schedCoro(sleep99(cell00))
+                task01 = cell01.schedCoro(sleep99(cell01))
+
+            proxy = await aha.enter_context(aha.getLocalProxy())
+            tasks = [task async for task in proxy.getAhaSvcPeerTasks(cell00.iden, timeout=3)]
+            tasks.sort()
+            self.len(2, tasks)
+            self.eq(tasks[0][0], '0.cell.synapse')
+            self.true(tasks[0][1][0])
+            self.eq(tasks[1][0], '1.cell.synapse')
+            self.true(tasks[1][1][0])
+
+            tasks = [task async for task in proxy.getAhaSvcPeerTasks(cell00.iden, timeout=3, skiprun=cell00.runid)]
+            tasks.sort()
+            self.len(1, tasks)
+            self.eq(tasks[0][0], '1.cell.synapse')
+
+            tasks = [task async for task in cell00.getPeerTasks(timeout=3)]
+            print(repr(tasks))
+            self.len(2, tasks)

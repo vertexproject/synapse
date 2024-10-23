@@ -426,6 +426,17 @@ class CellApi(s_base.Base):
     async def kill(self, iden):
         return await self.cell.kill(self.user, iden)
 
+    @adminapi()
+    async def getTasks(self):
+        async for task in self.cell.getTasks():
+            yield task
+
+    async def getFeatures(self):
+        return await self.cell.getFeatures()
+
+    async def hasFeature(self, name):
+        return self.cell.hasFeature(name)
+
     @adminapi(log=True)
     async def behold(self):
         '''
@@ -719,8 +730,8 @@ class CellApi(s_base.Base):
         return await self.cell.saveHiveTree(path=path)
 
     @adminapi()
-    async def getNexusChanges(self, offs, tellready=False):
-        async for item in self.cell.getNexusChanges(offs, tellready=tellready):
+    async def getNexusChanges(self, offs, tellready=False, wait=True):
+        async for item in self.cell.getNexusChanges(offs, tellready=tellready, wait=wait):
             yield item
 
     @adminapi()
@@ -1116,6 +1127,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.netready = asyncio.Event()
 
         self.conf = self._initCellConf(conf)
+        self.features = {
+            'tellready': True,
+            'dynmirror': True,
+        }
 
         self.minfree = self.conf.get('limit:disk:free')
         if self.minfree is not None:
@@ -2323,8 +2338,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initServicePassive(self):  # pragma: no cover
         pass
 
-    async def getNexusChanges(self, offs, tellready=False):
-        async for item in self.nexsroot.iter(offs, tellready=tellready):
+    async def getNexusChanges(self, offs, tellready=False, wait=True):
+        async for item in self.nexsroot.iter(offs, tellready=tellready, wait=wait):
             yield item
 
     def _reqBackDirn(self, name):
@@ -4400,6 +4415,61 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return retn
 
+    async def getPeerTasks(self, timeout=None):
+
+        for task in self.boss.ps():
+            info = task.pack()
+            if self.ahasvcname is not None:
+                info['aha:name'] = self.ahasvcname
+            yield info
+
+        if self.ahaclient is not None:
+
+            proxy = await self.ahaclient.proxy(timeout=timeout)
+            if proxy is None:
+                logger.warning('AHA client connection timed out for getPeerTasks()')
+                return
+
+            if not proxy._hasTeleMeth('getAhaSvcPeerTasks'):
+                logger.warning('AHA server does not implement getAhaSvcPeerTasks(). Please update.')
+                return
+
+            async for (name, (ok, valu)) in proxy.getAhaSvcPeerTasks(self.iden, timeout=timeout, skiprun=self.runid):
+                if not ok:
+                    logger.warning(f'getPeerTasks peer error: {name} {valu}')
+                    await asyncio.sleep(0)
+                valu['aha:name'] = name
+                yield valu
+
+    async def getTasks(self):
+        for task in self.boss.ps():
+            yield task.pack()
+
+    async def ahaGatherPs(self, user):
+
+        if self.ahaclient is None:
+            return await self.ps()
+
+        retn = []
+        todo = s_common.todo('ps')
+
+        allowed = user.allowed(('task', 'get'))
+
+        try:
+            proxy = self.ahaclient.proxy(timeout=4)
+            async for svcfull, (ok, tasks) in proxy.runGatherCall(todo, timeout=4):
+                if ok:
+                    for task in tasks:
+                        if allowed or task['user'] == user.name:
+                            retn.append(task)
+                else:
+                    logger.warning(f'AHA gather ps() from {svcfull}: {tasks}')
+
+        except Exception as e:
+            logger.warning(f'AHA gather ps() on {self.ahasvcname}: {e}')
+
+    # async def _ahaGatherKill(self, user, iden):
+
     async def kill(self, user, iden):
         perm = ('task', 'del')
         isallowed = await self.isUserAllowed(user.iden, perm)
@@ -4467,12 +4537,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'https': self.https_listeners,
                 }
             },
-            'features': {
-                'tellready': True,
-                'dynmirror': True,
-            },
+            'features': self.features,
         }
         return ret
+
+    async def getTeleFeats(self):
+        return dict(self.features)
 
     async def getSystemInfo(self):
         '''

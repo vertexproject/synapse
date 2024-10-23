@@ -3,6 +3,7 @@ import copy
 import random
 import asyncio
 import logging
+import contextlib
 import collections
 
 import cryptography.x509 as c_x509
@@ -135,6 +136,35 @@ class AhaApi(s_cell.CellApi):
         if ahaurls is None:
             return ()
         return ahaurls
+
+    @s_cell.adminapi()
+    async def runGatherCall(self, iden, todo, timeout=None, skiprun=None):
+        async for item in self.cell.runGatherCall(iden, todo, timeout=timeout, skiprun=skiprun):
+            yield item
+
+    @s_cell.adminapi()
+    async def runGatherGenr(self, iden, todo, timeout=None, skiprun=None):
+        async for item in self.cell.runGatherGenr(iden, todo, timeout=timeout, skiprun=skiprun):
+            yield item
+
+    async def addNexsTracker(self, name, iden, network=None):
+        '''
+        Add an explicit nexus tracker which consumes the transactions
+        produced by the iden leader.
+        '''
+        return await self.cell.addNexsTracker(name, iden, network=network)
+
+    async def delNexsTracker(self, name, iden, network=None):
+        '''
+        Remove a nexus tracker entry.
+        '''
+        return await self.cell.delNexsTracker(name, iden, network=network)
+
+    async def getNexsTrackers(self, iden):
+        # services which have the same iden are all automatically trackers
+        # explicitly registered trackers are also yielded here
+        async for item in self.cell.getNexsTrackers(iden):
+            yield item
 
     async def getAhaSvc(self, name, filters=None):
         '''
@@ -366,6 +396,10 @@ class AhaApi(s_cell.CellApi):
         '''
         return await self.cell.clearAhaClones()
 
+    @s_cell.adminapi()
+    async def getAhaSvcPeerTasks(self, iden, timeout=None, skiprun=None):
+        async for task in self.cell.getAhaSvcPeerTasks(iden, timeout=timeout, skiprun=skiprun):
+            yield task
 
 class ProvDmon(s_daemon.Daemon):
 
@@ -571,7 +605,6 @@ class AhaCell(s_cell.Cell):
 
     async def initServiceStorage(self):
 
-        # TODO plumb using a remote jsonstor?
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
         slab = await s_lmdbslab.Slab.anit(dirn)
@@ -682,7 +715,133 @@ class AhaCell(s_cell.Cell):
         self.addHttpApi('/api/v1/aha/services', AhaServicesV1, {'cell': self})
         self.addHttpApi('/api/v1/aha/provision/service', AhaProvisionServiceV1, {'cell': self})
 
+    async def callAhaSvcApi(self, name, todo, timeout=None):
+        name = self._getAhaName(name)
+        svcdef = await self._getAhaSvc(name)
+        return self._callAhaSvcApi(svcdef, todo, timeout=timeout)
+
+    async def _callAhaSvcApi(self, svcdef, todo, timeout=None):
+        try:
+            proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
+            meth = getattr(proxy, todo[0])
+            return await s_common.waitretn(meth(*todo[1], **todo[2]), timeout=timeout)
+        except Exception as e:
+            # in case proxy construction fails
+            return (False, s_common.excinfo(e))
+
+    async def callAhaSvcGenr(self, name, todo, timeout=None):
+        name = self._getAhaName(name)
+        svcdef = await self._getAhaSvc(name)
+
+    async def _callAhaSvcGenr(self, svcdef, todo, timeout=None):
+        try:
+            proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
+            meth = getattr(proxy, todo[0])
+            async for item in s_common.waitgenr(meth(*todo[1], **todo[2]), timeout=timeout):
+                yield item
+        except Exception as e:
+            # in case proxy construction fails
+            yield (False, s_common.excinfo(e))
+
+    async def getAhaSvcPeerTasks(self, iden, timeout=None, skiprun=None):
+        todo = s_common.todo('getTasks')
+        async for item in self.runGatherGenr(iden, todo, timeout=timeout, skiprun=skiprun):
+            yield item
+
+    async def getAhaSvcsByIden(self, iden, online=True, skiprun=None):
+
+        runs = set()
+        async for svcdef in self.getAhaSvcs():
+
+            # TODO services by iden indexes!
+            if svcdef['svcinfo'].get('iden') != iden:
+                continue
+
+            if online and svcdef['svcinfo'].get('online') is None:
+                continue
+
+            svcrun = svcdef['svcinfo'].get('run')
+            if svcrun in runs:
+                continue
+
+            if skiprun == svcrun:
+                continue
+
+            runs.add(svcrun)
+            yield svcdef
+
+    def getAhaSvcUrl(self, svcdef, user='root'):
+        svcfull = svcdef.get('name')
+        svcnetw = svcdef.get('svcnetw')
+        host = svcdef['svcinfo']['urlinfo']['host']
+        port = svcdef['svcinfo']['urlinfo']['port']
+        return f'ssl://{host}:{port}?hostname={svcfull}&certname={user}@{svcnetw}'
+
+    async def runGatherCall(self, iden, todo, timeout=None, skiprun=None):
+
+        if not self.isactive:
+            proxy = await self.nexsroot.client.proxy(timeout=timeout)
+            async for item in proxy.runGatherCall(iden, todo, timeout=timeout, skiprun=skiprun):
+                yield item
+
+        queue = asyncio.Queue()
+        async with await s_base.Base.anit() as base:
+
+            async def call(svcdef):
+                svcfull = svcdef.get('name')
+                await queue.put((svcfull, await self._callAhaSvcApi(svcdef, todo, timeout=timeout)))
+
+            count = 0
+            async for svcdef in self.getAhaSvcsByIden(iden, skiprun=skiprun):
+                count += 1
+                base.schedCoro(call(svcdef))
+
+            for i in range(count):
+                yield await queue.get()
+
+    async def runGatherGenr(self, iden, todo, timeout=None, skiprun=None):
+
+        if not self.isactive:
+            proxy = await self.nexsroot.client.proxy(timeout=timeout)
+            async for item in proxy.runGatherGenr(iden, todo, timeout=timeout, skiprun=skiprun):
+                yield item
+
+        queue = asyncio.Queue()
+        async with await s_base.Base.anit() as base:
+
+            async def call(svcdef):
+                svcfull = svcdef.get('name')
+                try:
+                    async for item in self._callAhaSvcGenr(svcdef, todo, timeout=timeout):
+                        await queue.put((svcfull, item))
+                finally:
+                    await queue.put(None)
+
+            count = 0
+            async for svcdef in self.getAhaSvcsByIden(iden, skiprun=skiprun):
+                count += 1
+                base.schedCoro(call(svcdef))
+
+            while count > 0:
+
+                item = await queue.get()
+                if item is None:
+                    count -= 1
+                    continue
+
+                yield item
+
+    async def _finiSvcClients(self):
+        for client in list(self.clients.values()):
+            await client.fini()
+
+    async def initServicePassive(self):
+        await self._finiSvcClients()
+
     async def initServiceRuntime(self):
+
+        self.clients = {}
+        self.onfini(self._finiSvcClients)
 
         self.addActiveCoro(self._clearInactiveSessions)
 
@@ -897,6 +1056,43 @@ class AhaCell(s_cell.Cell):
         await self.fire('aha:svcadd', svcinfo=svcinfo)
         await self.fire(f'aha:svcadd:{svcfull}', svcinfo=svcinfo)
 
+    async def reqAhaSvcProxy(self, svcdef, timeout=None):
+
+        proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
+        if proxy is not None:
+            return proxy
+
+        mesg = f'The service is not ready {svcfull}.'
+        raise s_exc.NotReady(mesg=mesg)
+
+    async def getAhaSvcProxy(self, svcdef, timeout=None):
+
+        assert self.isactive
+        client = await self.getAhaSvcClient(svcdef)
+        if client is None:
+            return None
+
+        return await client.proxy(timeout=timeout)
+
+    async def getAhaSvcClient(self, svcdef):
+
+        assert self.isactive
+
+        svcfull = svcdef.get('name')
+
+        client = self.clients.get(svcfull)
+        if client is not None:
+            return client
+
+        svcurl = self.getAhaSvcUrl(svcdef)
+
+        client = self.clients[svcfull] = await s_telepath.ClientV2.anit(svcurl)
+        async def fini():
+            self.clients.pop(svcfull, None)
+
+        client.onfini(fini)
+        return client
+
     def _getAhaName(self, name):
         # the modern version of names is absolute or ...
         if name.endswith('...'):
@@ -1065,6 +1261,10 @@ class AhaCell(s_cell.Cell):
 
         logger.info(f'Set [{svcfull}] offline.',
                         extra=await self.getLogExtra(name=svcname, netw=svcnetw))
+
+        client = self.clients.pop(svcfull, None)
+        if client is not None:
+            await client.fini()
 
     async def getAhaSvc(self, name, filters=None):
 
