@@ -2762,7 +2762,7 @@ class Parser:
         if defval is not s_common.novalu and oact not in ('store_true', 'store_false'):
             if isinstance(defval, (tuple, list, dict)):
                 defval_ls = pprint.pformat(defval, width=120).split('\n')
-                defval = '\n'.join(l.strip() for l in defval_ls)
+                defval = '\n'.join(ln.strip() for ln in defval_ls)
 
             if choices is None:
                 if (lambda tst: '\n' in tst if isinstance(tst, str) else False)(defval):
@@ -2780,7 +2780,7 @@ class Parser:
         helplst = helpstr.split('\n')
         if helplst and not helplst[0].strip():
             helplst = helplst[1:]
-        min_space = min((len(l) - len(l.lstrip()) for l in helplst if l.strip()), default=0)
+        min_space = min((len(ln) - len(ln.lstrip()) for ln in helplst if ln.strip()), default=0)
 
         base_w = 32
         wrap_w = 120 - base_w
@@ -2789,12 +2789,12 @@ class Parser:
         wrap_first = self._wrap_txt(first, wrap_w)
         self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
 
-        for l in wrap_first[1:]: self._printf(f'{"":<{base_w}}{l}')
-        for l in helplst[1:]:
-            lead_s = len(l) - len(l.lstrip())
+        for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
+        for ln in helplst[1:]:
+            lead_s = len(ln) - len(ln.lstrip())
             rel_ind = lead_s - min_space
             ind = ' ' * (base_w + rel_ind)
-            wrapped = self._wrap_txt(l.lstrip(), wrap_w - rel_ind)
+            wrapped = self._wrap_txt(ln.lstrip(), wrap_w - rel_ind)
             for wl in wrapped:
                 self._printf(f'{ind}{wl}')
 
