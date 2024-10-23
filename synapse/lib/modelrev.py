@@ -1780,7 +1780,7 @@ class ModelMigration_0_2_31:
         roprops = self.getRoProps(formname)
         for layriden, sode in node['sodes'].items():
             props = sode.get('props')
-            if props is None:
+            if props is None: # pragma: no cover
                 continue
 
             props = {name: valu for name, valu in list(props.items()) if name not in roprops}
