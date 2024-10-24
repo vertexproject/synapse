@@ -1235,8 +1235,10 @@ class ModelMigration_0_2_31:
         return self
 
     async def _queueEdit(self, layriden, edit):
-        self.nodeedits.setdefault(layriden, [])
-        self.nodeedits[layriden].append(edit)
+        self.nodeedits.setdefault(layriden, {})
+        buid, formname, edits = edit
+        self.nodeedits[layriden].setdefault(buid, (buid, formname, []))
+        self.nodeedits[layriden][buid][2].extend(edits)
         self.editcount += 1
 
         if self.editcount >= 1000: # pragma: no cover
@@ -1244,12 +1246,12 @@ class ModelMigration_0_2_31:
 
     async def _flushEdits(self):
         logger.debug(f'Saving {self.editcount} edits')
-        for layriden, edits in self.nodeedits.items():
+        for layriden, layredits in self.nodeedits.items():
             layer = self.core.getLayer(layriden)
             if layer is None: # pragma: no cover
                 continue
 
-            await layer.storNodeEditsNoLift(edits, self.meta)
+            await layer.storNodeEditsNoLift(list(layredits.values()), self.meta)
 
         self.editcount = 0
         self.nodeedits = {}
