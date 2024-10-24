@@ -249,8 +249,24 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Vital statistics about an org for a given time period.',
                 }),
                 ('ou:opening', ('guid', {}), {
-                    'doc': 'A job/work opening within an org.',
-                }),
+                    'doc': 'A job/work opening within an org.'}),
+
+                ('ou:candidate:method:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of methods by which a candidate came under consideration.'}),
+
+                ('ou:candidate', ('guid', {}), {
+                    'doc': 'A candidate being considered for a role within an organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                            {'type': 'prop', 'opts': {'name': 'contact::email'}},
+                            {'type': 'prop', 'opts': {'name': 'submitted'}},
+                            {'type': 'prop', 'opts': {'name': 'org::name'}},
+                            {'type': 'prop', 'opts': {'name': 'opening::jobtitle'}},
+                        ),
+                    }}),
+
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
                     'doc': 'A taxonomy of job types.',
@@ -353,6 +369,37 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The currency that the yearly pay was delivered in.',
                     }),
                     # TODO a way to encode/normalize requirements.
+                )),
+                ('ou:candidate:method:taxonomy', {}, ()),
+                ('ou:candidate', {}, (
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization considering the candidate.'}),
+
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact information of the candidate.'}),
+
+                    ('method', ('ou:candidate:method:taxonomy', {}), {
+                        'doc': 'The method by which the candidate came under consideration.'}),
+
+                    ('submitted', ('time', {}), {
+                        'doc': 'The time the candidate was submitted for consideration.'}),
+
+                    ('resume', ('file:bytes', {}), {
+                        'doc': "The candidate's resume or CV."}),
+
+                    ('opening', ('ou:opening', {}), {
+                        'doc': 'The opening that the candidate is being considered for.'}),
+
+                    ('agent', ('ps:contact', {}), {
+                        'doc': 'The contact information of an agent who advocates for the candidate.'}),
+
+                    ('recruiter', ('ps:contact', {}), {
+                        'doc': 'The contact information of a recruiter who works on behalf of the organization.'}),
+
+                    # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
+                    # TODO: proj:task to track evaluation of the candidate?
+
                 )),
                 ('ou:vitals', {}, (
 
