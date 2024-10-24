@@ -1,0 +1,7 @@
+---
+dsec: |
+  Update ``synapse.tools.promote`` to prevent a graceful promotion of a service where a detectable leadership
+  schism would occur.
+prs: []
+type: bug
+...

@@ -108,6 +108,7 @@ class CortexTest(s_t_utils.SynTest):
                         await core00.handoff(core00.getLocalUrl())
 
                     self.false((await core00.getCellInfo())['cell']['uplink'])
+                    self.none((await core00.getCellInfo())['cell']['mirror'])
 
                     # provision with the new hostname and mirror config
                     provinfo = {'mirror': '00.cortex'}
@@ -130,10 +131,13 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(await s_coro.event_wait(core01.nexsroot.miruplink, timeout=2))
                         self.false((await core00.getCellInfo())['cell']['uplink'])
                         self.true((await core01.getCellInfo())['cell']['uplink'])
+                        self.none((await core00.getCellInfo())['cell']['mirror'])
+                        self.eq((await core01.getCellInfo())['cell']['mirror'], 'aha://root@00.cortex...')
 
                         outp = s_output.OutPutStr()
                         argv = ('--svcurl', core01.getLocalUrl())
-                        await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
+                        ret = await s_tools_promote.main(argv, outp=outp)  # this is a graceful promotion
+                        self.eq(ret, 0)
 
                         self.true(core01.isactive)
                         self.false(core00.isactive)
@@ -141,6 +145,10 @@ class CortexTest(s_t_utils.SynTest):
                         self.true(await s_coro.event_wait(core00.nexsroot.miruplink, timeout=2))
                         self.true((await core00.getCellInfo())['cell']['uplink'])
                         self.false((await core01.getCellInfo())['cell']['uplink'])
+                        # Note: The following mirror may change when SYN-7659 is addressed and greater
+                        # control over the topology update is available during the promotion process.
+                        self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://01.cortex.synapse')
+                        self.none((await core01.getCellInfo())['cell']['mirror'])
 
                         mods00 = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
