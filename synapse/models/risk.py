@@ -159,6 +159,13 @@ class RiskModule(s_module.CoreModule):
                 ('risk:extortion', ('guid', {}), {
                     'doc': 'An event where an attacker attempted to extort a victim.'}),
 
+                ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An outage cause taxonomy.'}),
+
+                ('risk:outage', ('guid', {}), {
+                    'doc': 'An outage event which effected resource availability.'}),
+
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of extortion event types.'}),
@@ -224,6 +231,15 @@ class RiskModule(s_module.CoreModule):
 
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
+
+                (('meta:event', 'caused', 'risk:outage'), {
+                    'doc': 'The event caused the outage.'}),
+
+                (('risk:attack', 'caused', 'risk:outage'), {
+                    'doc': 'The attack caused the outage.'}),
+
+                (('risk:outage', 'impacted', None), {
+                    'doc': 'The outage event impacted the availability of the target node.'}),
             ),
             'forms': (
 
@@ -1021,6 +1037,27 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The total percent of the data leaked.'}),
 
                 )),
+
+                ('risk:outage:cause:taxonomy', {}, ()),
+                ('risk:outage', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A name for the outage event.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period where the outage impacted availability.'}),
+
+                    ('cause', ('risk:outage:cause:taxonomy', {}), {
+                        'doc': 'The outage cause type.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the outage event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the outage event.'}),
+                )),
+
+                # TODO risk:outage:vitals to track outage stats over time
 
                 ('risk:extortion:type:taxonomy', {}, ()),
                 ('risk:extortion', {}, (
