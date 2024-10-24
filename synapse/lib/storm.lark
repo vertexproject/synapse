@@ -324,7 +324,7 @@ exprlist: "[" ((_exprvalu | VARTOKN) ("," (_exprvalu | VARTOKN))* ","? )? "]"
 // Just like _valu, but doesn't allow valu lists or unquoted strings or queries
 _exprvalu: NUMBER | HEXNUMBER | OCTNUMBER | BOOL | NULL | exprlist | exprdict | _exprvarvalu | exprrelpropvalu
     | exprunivpropvalu | exprtagvalu | exprtagpropvalu | TRIPLEQUOTEDSTRING | DOUBLEQUOTEDSTRING
-    | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs
+    | SINGLEQUOTEDSTRING | formatstring | _innerdollarexprs | embedquery
 
 // Expr versions of rules to avoid invalid state merges
 _innerdollarexprs: "$"? innerdollaroper
