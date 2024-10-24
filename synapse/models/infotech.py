@@ -1909,7 +1909,8 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'The commit message describing the changes in the commit.'}),
 
-                    ('id', ('str', {}), {
+                    # we mirror the interface type options...
+                    ('id', ('str', {'strip': True}), {
                         'doc': 'The version control system specific commit identifier.'}),
 
                     ('created', ('time', {}), {

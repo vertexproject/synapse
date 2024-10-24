@@ -1,0 +1,5 @@
+---
+desc: Fixed issue where interfaces took precedence over properties declared on a form.
+prs: []
+type: bug
+...
