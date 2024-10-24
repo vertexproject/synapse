@@ -1134,7 +1134,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                 await self.runt.printf(f'    -({verb})> {iden}')
 
         for layriden, edges in n2edges.items():
-            for verb, iden in edges:
+            for verb, iden, n2form in edges:
                 await self.runt.printf(f'    <({verb})- {iden}')
 
     async def _removeNode(self, offset):
@@ -1155,7 +1155,13 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         norm, info = form.type.norm(newvalu)
 
+        buid = s_common.buid((nodeform, norm))
+
+        nodeedits = {}
+
         for layriden in node['layers']:
+            nodeedits.setdefault(layriden, {})
+
             layer = self.runt.snap.core.getLayer(layriden)
             if layer is None: # pragma: no cover
                 await self.runt.warn(f'Layer does not exist to recreate node: {layriden}.')
@@ -1163,81 +1169,78 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         await self.runt.printf(f'Repairing node at offset {offset} from {node["formvalu"]} -> {norm}')
 
-        buid = s_common.buid((nodeform, norm))
-
-        nodeedits = []
-
         # Create the node in the right layers
         for layriden in node['layers']:
-            nodeedits.append((layriden, (
-                (buid, nodeform, (
-                    (s_layer.EDIT_NODE_ADD, (norm, form.type.stortype), ()),
-                )),
-            )))
+            nodeedits[layriden][buid] = (
+                buid, nodeform, [
+                (s_layer.EDIT_NODE_ADD, (norm, form.type.stortype), ()),
+            ])
 
-        for propname, propvalu in info.get('subs', {}).items():
-            prop = form.prop(propname)
-            if prop is None:
-                continue
+            for propname, propvalu in info.get('subs', {}).items():
+                prop = form.prop(propname)
+                if prop is None:
+                    continue
 
-            stortype = prop.type.stortype
+                stortype = prop.type.stortype
 
-            nodeedits.append((layriden, (
-                (buid, nodeform, (
+                nodeedits[layriden][buid][2].append(
                     (s_layer.EDIT_PROP_SET, (propname, propvalu, None, stortype), ()),
-                )),
-            )))
+                )
 
         for layriden, sode in node['sodes'].items():
+            nodeedits.setdefault(layriden, {})
+            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
 
             for propname, propvalu in sode.get('props', {}).items():
                 propvalu, stortype = propvalu
-                nodeedits.append((layriden, (
-                    (buid, nodeform, (
-                        (s_layer.EDIT_PROP_SET, (propname, propvalu, None, stortype), ()),
-                    )),
-                )))
+
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_PROP_SET, (propname, propvalu, None, stortype), ()),
+                )
 
             for tagname, tagvalu in sode.get('tags', {}).items():
-                nodeedits.append((layriden, (
-                    (buid, nodeform, (
-                        (s_layer.EDIT_TAG_SET, (tagname, tagvalu, None), ()),
-                    )),
-                )))
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_TAG_SET, (tagname, tagvalu, None), ()),
+                )
 
             for tagprop, tagpropvalu in sode.get('tagprops', {}).items():
                 for propname, propvalu in tagpropvalu.items():
                     propvalu, stortype = propvalu
-                    nodeedits.append((layriden, (
-                        (buid, nodeform, (
-                            (s_layer.EDIT_TAGPROP_SET, (tagname, propname, propvalu, None, stortype), ()),
-                        )),
-                    )))
+                    nodeedits[layriden][buid][2].append(
+                        (s_layer.EDIT_TAGPROP_SET, (tagname, propname, propvalu, None, stortype), ()),
+                    )
 
         for layriden, data in node['nodedata'].items():
+            nodeedits.setdefault(layriden, {})
+            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
+
             for name, valu in data:
-                nodeedits.append((layriden, (
-                    (buid, nodeform, (
-                        (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
-                    )),
-                )))
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
+                )
 
         for layriden, edges in node['n1edges'].items():
+            nodeedits.setdefault(layriden, {})
+            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
+
             for verb, iden in edges:
-                nodeedits.append((layriden, (
-                    (buid, nodeform, (
-                        (s_layer.EDIT_EDGE_ADD, (verb, iden), ()),
-                    )),
-                )))
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_EDGE_ADD, (verb, iden), ()),
+                )
 
         for layriden, edges in node['n2edges'].items():
-            for verb, iden in edges:
-                nodeedits.append((layriden, (
-                    # NOTE: nodeform is not the right form but the edit goes through anyway
-                    (s_common.uhex(iden), nodeform, (
-                        (s_layer.EDIT_EDGE_ADD, (verb, s_common.ehex(buid)), ()),
-                    )),
-                )))
+            n1iden = s_common.ehex(buid)
+
+            for verb, iden, n2form in edges:
+                n2buid = s_common.uhex(iden)
+
+                nodeedits.setdefault(layriden, {})
+                # NOTE: nodeform is not the right form but the edit goes through anyway
+                nodeedits[layriden].setdefault(n2buid, (n2buid, n2form, []))
+
+                nodeedits[layriden][n2buid][2].append(
+                    (s_layer.EDIT_EDGE_ADD, (verb, n1iden), ()),
+                )
 
         for layriden, reflist in node['refs'].items():
             for iden, refinfo in reflist:
@@ -1247,30 +1250,25 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                     continue
 
                 refbuid = s_common.uhex(iden)
+
+                nodeedits.setdefault(layriden, {})
+                nodeedits[layriden].setdefault(refbuid, (refbuid, formname, []))
+
                 stortype = self.runt.snap.core.model.type(proptype).stortype
 
-                nodeedits.append((layriden, (
-                    (refbuid, formname, (
-                        (s_layer.EDIT_PROP_SET, (propname, norm, None, stortype), ()),
-                    )),
-                )))
+                nodeedits[layriden][refbuid][2].append(
+                    (s_layer.EDIT_PROP_SET, (propname, norm, None, stortype), ()),
+                )
 
         meta = {'time': s_common.now(), 'user': self.runt.snap.core.auth.rootuser.iden}
 
-        bylayer = {}
-
-        # Collate all edits by layer
-        for layriden, edits in nodeedits:
-            bylayer.setdefault(layriden, [])
-            bylayer[layriden].extend(edits)
-
         # Process all layer edits as a single batch
-        for layriden, edits in bylayer.items():
+        for layriden, edits in nodeedits.items():
             layer = self.runt.snap.core.getLayer(layriden)
             if layer is None: # pragma: no cover
                 continue
 
-            await layer.storNodeEditsNoLift(edits, meta)
+            await layer.storNodeEditsNoLift(list(edits.values()), meta)
 
         return True
 

@@ -1443,8 +1443,7 @@ class ModelMigration_0_2_31:
         async for verb, iden in layer.iterNodeEdgesN2(buid):
             n2edges.append((verb, iden))
 
-            if verb == 'seen':
-                await self.todos.add(('getvalu', (s_common.uhex(iden), False)))
+            await self.todos.add(('getvalu', (s_common.uhex(iden), False)))
 
         if n2edges:
             node['n2edges'][layer.iden] = n2edges
@@ -1760,17 +1759,20 @@ class ModelMigration_0_2_31:
 
         sources = set()
         # Resolve sources
+        n2edges = {}
         for layriden, edges in node['n2edges'].items():
-            for verb, edgeiden in edges:
+            n2edges.setdefault(layriden, [])
+
+            for verb, n2iden in edges:
+                n2buid = s_common.uhex(n2iden)
+                assert self.nodes.has(n2buid)
+                n2node = self.getNode(n2buid)
+
+                n2edges[layriden].append((verb, n2iden, n2node['formname']))
+
                 if verb == 'seen':
-                    edgebuid = s_common.uhex(edgeiden)
-                    assert self.nodes.has(edgebuid)
-
-                    srcnode = self.getNode(edgebuid)
-
-                    formvalu = srcnode.get('formvalu')
+                    formvalu = n2node.get('formvalu')
                     assert formvalu is not None
-
                     sources.add(formvalu)
 
         # Make some changes before serializing
@@ -1778,6 +1780,7 @@ class ModelMigration_0_2_31:
         item.pop('verdict', None)
         item['iden'] = s_common.ehex(buid)
         item['sources'] = list(sources)
+        item['n2edges'] = n2edges
 
         roprops = self.getRoProps(formname)
         for layriden, sode in node['sodes'].items():

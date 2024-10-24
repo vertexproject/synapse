@@ -1163,8 +1163,8 @@ class ModelRevTest(s_tests.SynTest):
                   },
                   'n2edges': {
                     fork01layr: (
-                        ('seen', '051d93252abe655e43265b89149b6a2d5a8f5f2df33b56c986ab8671c081e394'),
-                        ('seen', '6db5f4049ac1916928f41cc5928fa60cd8fe80c453c6b2325324874a184e77da'),
+                        ('seen', '051d93252abe655e43265b89149b6a2d5a8f5f2df33b56c986ab8671c081e394', 'meta:source'),
+                        ('seen', '6db5f4049ac1916928f41cc5928fa60cd8fe80c453c6b2325324874a184e77da', 'meta:source'),
                     ),
                   },
                   'nodedata': {
