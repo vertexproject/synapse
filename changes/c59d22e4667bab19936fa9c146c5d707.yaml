@@ -1,0 +1,5 @@
+---
+desc: Added ``risk:tool:software:ext:id`` to model external identifiers for a tool.
+prs: []
+type: model
+...
