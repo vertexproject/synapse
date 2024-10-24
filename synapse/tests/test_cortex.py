@@ -2726,6 +2726,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[ inet:asn=200 :name=visi ]'))
             self.len(1, await core.nodes('[ inet:ip=1.2.3.4 :asn=200 ]'))
             self.len(1, await core.nodes('[ inet:ip=5.6.7.8 :asn=8080 ]'))
+            self.len(1, await core.nodes('[ inet:ip=6.7.8.9 ]'))
 
             self.len(1, await core.nodes('inet:asn=200 +:name=visi'))
 
@@ -2737,6 +2738,8 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('inet:ip +:asn::name')
             self.len(1, nodes)
+
+            self.len(1, await core.nodes('inet:ip.created +:asn::name'))
 
             await core.nodes('[ ps:contact=* :web:acct=vertex.link/pivuser ]')
             nodes = await core.nodes('ps:contact +:web:acct::site::iszone=1')
@@ -2760,6 +2763,9 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ip +:asn::_pivo')
             self.len(1, nodes)
 
+            await core.nodes('[ risk:vulnerable=* :node=(inet:ip, 1.2.3.4) ]')
+            self.len(1, await core.nodes('risk:vulnerable +:node::asn::name'))
+
             # try to pivot to a node that no longer exists
             await core.nodes('inet:asn | delnode --force')
 
@@ -2773,9 +2779,64 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:ip +:asn::_pivo::notaprop')
 
-            core.model.delFormProp('inet:asn', '_pivo')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=a@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=b@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=c@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(a@v.lk, b@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(c@v.lk, d@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(a@v.lk, d@v.lk)]}]')
+
+            nodes = await core.nodes('ou:org:hq::email::user=a')
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::email::user*in=(a, b)')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::emails*[=a@v.lk]')
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
+            nodes = await core.nodes('ou:org:hq::emails*[in=(a@v.lk, c@v.lk)]')
+            self.len(3, nodes)
+            for node in nodes:
+                self.eq('ou:org', node.ndef[0])
+
             with self.raises(s_exc.NoSuchProp):
-                await core.nodes('inet:ip +:asn::_pivo::notaprop')
+                nodes = await core.nodes('ou:org:hq::email::newp=a')
+
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, cool) :signup:client=tcp://1.2.3.4]} ]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, super) :signup:client=tcp://5.6.7.8]} ]}]')
+            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, newp) :signup:client=tcp://1.2.3.5]} ]}]')
+
+            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client*ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client::ip*in=(1.2.3.4, 5.6.7.8)'))
+
+            await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
+            await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
+            await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
+
+            self.len(1, await core.nodes('ou:org:hq::web:acct::signup:client::ip::asn>6'))
+            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client::ip::asn*in=(5,6)'))
+
+            await core.nodes('[ ou:award=* :org={[ ou:org=* :name=foo ]}]')
+            await core.nodes('[ ou:award=* :org={[ ou:org=* :names=(foo, bar) ]}]')
+            await core.nodes('[ ou:award=* :org={[ ou:org=* :names=(baz, faz) ]}]')
+
+            self.len(2, await core.nodes('ou:award:org::name*alts=foo'))
+            self.len(1, await core.nodes('ou:award:org::name*alts=bar'))
+            self.len(2, await core.nodes('ou:award:org::name*alts*in=(bar, baz)'))
+
+            await core.nodes('[ test:virtiface=* :server=tcp://1.2.3.4 ]')
+            await core.nodes('[ test:virtiface=* :servers=(tcp://1.2.3.4, tcp://5.6.7.8) ]')
+            await core.nodes('[ test:virtiface2=* :servers=(tcp://7.8.9.0,) ]')
+
+            self.len(2, await core.nodes('test:virtarray:server*alts*ip=1.2.3.4'))
+            self.len(2, await core.nodes('test:virtarray:server*alts*ip*in=(5.6.7.8, 7.8.9.0)'))
 
 class CortexBasicTest(s_t_utils.SynTest):
     '''
@@ -6522,9 +6583,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             item0 = await genr.__anext__()
             expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
             expectedits = ((node.nid, 'test:str',
-                            ((s_layer.EDIT_NODE_ADD, ('foo', 1)),
+                            ((s_layer.EDIT_NODE_ADD, ('foo', 1, None)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
-                                                      s_layer.STOR_TYPE_MINTIME)))),)
+                                                      s_layer.STOR_TYPE_MINTIME, None)))),)
             self.eq(expect[1:], item0[1:3])
             self.eq(expectedits, item0[3])
             self.isin('time', item0[4])
@@ -6580,9 +6641,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
             expectedits = ((node.nid, 'test:str',
-                            [(s_layer.EDIT_NODE_ADD, ('bar', 1)),
+                            [(s_layer.EDIT_NODE_ADD, ('bar', 1, None)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
-                                                      s_layer.STOR_TYPE_MINTIME))]),)
+                                                      s_layer.STOR_TYPE_MINTIME, None))]),)
 
             self.eq(expect[1:], item4[1:3])
             self.eq(expectedits, item4[3])
@@ -6611,7 +6672,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expectadd = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8)))
+                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)))
             self.eq(expectadd[1:], item0[1:])
 
             layr = await core.addLayer()
@@ -6642,7 +6703,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item4 = await genr.__anext__()
             expectadd = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8)))
+                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8, None)))
             self.eq(expectadd[1:], item4[1:])
 
             # Make sure progress every 1000 layer log entries works

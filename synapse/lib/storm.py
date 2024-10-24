@@ -3709,7 +3709,7 @@ class CopyToCmd(Cmd):
                     prop = node.form.prop(name)
                     if prop.info.get('ro'):
                         if name == '.created':
-                            proto.props['.created'] = valu
+                            proto.props['.created'] = (valu, None)
                             continue
 
                         curv = proto.get(name)
@@ -4131,7 +4131,7 @@ class MergeCmd(Cmd):
                         await asyncio.sleep(0)
                         continue
 
-                for name, (valu, stortype) in sode.get('props', {}).items():
+                for name, (valu, stortype, _) in sode.get('props', {}).items():
 
                     prop = node.form.prop(name)
                     if propfilter is not None:
@@ -4145,7 +4145,7 @@ class MergeCmd(Cmd):
                     if prop.info.get('ro'):
                         if name == '.created':
                             if doapply:
-                                protonode.props['.created'] = valu
+                                protonode.props['.created'] = (valu, None)
                                 if not self.opts.wipe:
                                     subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype)))
                             continue
@@ -4604,12 +4604,15 @@ class MoveNodesCmd(Cmd):
     async def _moveProps(self, node, sodes, meta, delnode):
 
         movevals = {}
+        virtvals = {}
         form = node.form.name
         nodeiden = node.iden()
 
         for layr, sode in sodes.items():
 
-            for name, (valu, stortype) in sode.get('props', {}).items():
+            for name, (valu, stortype, virts) in sode.get('props', {}).items():
+
+                virtvals[name] = virts
 
                 if (oldv := movevals.get(name)) is not s_common.novalu:
                     if oldv is None:
@@ -4653,7 +4656,7 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{self.destlayr} set {nodeiden} {form}:{name} = {valurepr}')
                     else:
                         stortype = node.form.prop(name).type.stortype
-                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype)))
+                        self.adds.append((s_layer.EDIT_PROP_SET, (name, valu, None, stortype, virtvals.get('name'))))
                 else:
                     if destprops is not None and (destvalu := destprops.get(name)) is not None:
                         if not self.opts.apply:

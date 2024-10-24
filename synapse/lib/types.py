@@ -31,7 +31,7 @@ class Type:
     # ( due to hot-loop needs in the storm runtime )
     isarray = False
 
-    def __init__(self, modl, name, info, opts):
+    def __init__(self, modl, name, info, opts, skipinit=False):
         '''
         Construct a new Type object.
 
@@ -57,8 +57,8 @@ class Type:
         self._cmpr_ctors = {}   # cmpr string to filter function constructor map
         self._cmpr_ctor_lift = {}  # if set, create a cmpr which is passed along with indx ops
 
-        self.subindx = {}
-        self.subtypes = {}
+        self.virts = {}
+        self.virtindx = {}
 
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
@@ -80,7 +80,28 @@ class Type:
         self.locked = False
         self.deprecated = bool(self.info.get('deprecated', False))
 
-        self.postTypeInit()
+        if not skipinit:
+            self.postTypeInit()
+
+            normopts = dict(self.opts)
+            for optn, valu in normopts.items():
+                if isinstance(valu, float):
+                    normopts[optn] = str(valu)
+
+            ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
+            self.typehash = sys.intern(s_common.guid((ctor, s_common.flatten(normopts))))
+
+    def _initType(self):
+        inits = [self.postTypeInit]
+
+        subof = self.subof
+        while subof is not None:
+            styp = self.modl.type(subof)
+            inits.append(styp.postTypeInit)
+            subof = styp.subof
+
+        for init in inits[::-1]:
+            init()
 
         normopts = dict(self.opts)
         for optn, valu in normopts.items():
@@ -116,26 +137,29 @@ class Type:
     def _storLiftRegx(self, cmpr, valu):
         return ((cmpr, valu, self.stortype),)
 
-    def getStorCmprs(self, cmpr, valu):
+    def getStorCmprs(self, cmpr, valu, virts=None):
+
+        if virts:
+            substor = self.virts[virts[0]][0]
+            return substor.getStorCmprs(cmpr, valu, virts[1:])
 
         func = self.storlifts.get(cmpr)
         if func is None:
             mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
-            raise s_exc.NoSuchCmpr(mesg=mesg)
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
 
         return func(cmpr, valu)
 
-    def getSubType(self, name, valu):
-        (subtype, getr) = self.subtypes.get(name, (None, None))
-        if subtype is None:
-            raise s_exc.NoSuchType(name=name, valu=valu, mesg=f'Invalid subtype {name} for type {self.name}')
+    def getVirtValu(self, name, valu):
+        if (virt := self.virts.get(name)) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
 
-        return (subtype, getr(valu))
+        return virt[1](valu)
 
-    def getSubIndx(self, name):
-        indx = self.subindx.get(name, s_common.novalu)
+    def getVirtIndx(self, name):
+        indx = self.virtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for type {self.name}')
+            raise s_exc.NoSuchVirt.init(name, self)
 
         return indx
 
@@ -169,11 +193,16 @@ class Type:
         return self.norm(node.ndef[1])
 
     def pack(self):
-        return {
+        info = {
             'info': dict(self.info),
             'opts': dict(self.opts),
             'stortype': self.stortype,
         }
+
+        if self.virts:
+            info['virts'] = {name: valu[0].name for (name, valu) in self.virts.items()}
+
+        return info
 
     def getTypeDef(self):
         basename = self.info['bases'][-1]
@@ -338,7 +367,7 @@ class Type:
         '''
         return newv
 
-    def extend(self, name, opts, info):
+    def extend(self, name, opts, info, skipinit=False):
         '''
         Extend this type to construct a sub-type.
 
@@ -359,7 +388,7 @@ class Type:
         topt = self.opts.copy()
         topt.update(opts)
 
-        tobj = self.__class__(self.modl, name, tifo, topt)
+        tobj = self.__class__(self.modl, name, tifo, topt, skipinit=skipinit)
         tobj.subof = self.name
         return tobj
 
@@ -468,6 +497,7 @@ class Array(Type):
 
         adds = []
         norms = []
+        virts = {}
 
         form = self.modl.form(self.arraytype.name)
 
@@ -477,6 +507,9 @@ class Array(Type):
             if form is not None:
                 adds.append((form.name, norm, info))
             norms.append(norm)
+
+            if (virt := info.get('virts')) is not None:
+                virts[norm] = virt
 
         if self.isuniq:
 
@@ -494,7 +527,22 @@ class Array(Type):
         if self.issorted:
             norms = tuple(sorted(norms))
 
-        return tuple(norms), {'adds': adds}
+        norminfo = {'adds': adds}
+
+        if virts:
+            realvirts = {}
+
+            for norm in norms:
+                if (virt := virts.get(norm)) is not None:
+                    for vkey, (vval, vtyp) in virt.items():
+                        if (curv := realvirts.get(vkey)) is not None:
+                            curv[0].append(vval)
+                        else:
+                            realvirts[vkey] = ([vval], vtyp | s_layer.STOR_FLAG_ARRAY)
+
+            norminfo['virts'] = realvirts
+
+        return tuple(norms), norminfo
 
     def repr(self, valu):
         rval = [self.arraytype.repr(v) for v in valu]
@@ -766,10 +814,7 @@ class HugeNum(Type):
         ('modulo', None),  # type: ignore
     )
 
-    def __init__(self, modl, name, info, opts):
-
-        Type.__init__(self, modl, name, info, opts)
-
+    def postTypeInit(self):
         self.setCmprCtor('>', self._ctorCmprGt)
         self.setCmprCtor('<', self._ctorCmprLt)
         self.setCmprCtor('>=', self._ctorCmprGe)
@@ -896,9 +941,9 @@ class HugeNum(Type):
 
 class IntBase(Type):
 
-    def __init__(self, modl, name, info, opts):
+    def __init__(self, modl, name, info, opts, skipinit=False):
 
-        Type.__init__(self, modl, name, info, opts)
+        Type.__init__(self, modl, name, info, opts, skipinit=skipinit)
 
         self.setCmprCtor('>=', self._ctorCmprGe)
         self.setCmprCtor('<=', self._ctorCmprLe)
@@ -1096,9 +1141,9 @@ class Float(Type):
 
     stortype = s_layer.STOR_TYPE_FLOAT64
 
-    def __init__(self, modl, name, info, opts):
+    def __init__(self, modl, name, info, opts, skipinit=False):
 
-        Type.__init__(self, modl, name, info, opts)
+        Type.__init__(self, modl, name, info, opts, skipinit=skipinit)
 
         self.setCmprCtor('>=', self._ctorCmprGe)
         self.setCmprCtor('<=', self._ctorCmprLe)
@@ -1214,25 +1259,26 @@ class Ival(Type):
         self.timetype = self.modl.type('time')
         self.duratype = self.modl.type('duration')
 
-        self.subtypes.update({
+        self.virts |= {
             'min': (self.timetype, self._getMin),
             'max': (self.timetype, self._getMax),
             'duration': (self.duratype, self._getDuration),
-        })
+        }
 
-        self.subindx.update({
+        self.virtindx |= {
             'min': None,
             'max': s_layer.INDX_IVAL_MAX,
             'duration': s_layer.INDX_IVAL_DURATION
-        })
+        }
 
-        self.tagsubindx = {
+        self.tagvirtindx = {
             'min': s_layer.INDX_TAG,
             'max': s_layer.INDX_TAG_MAX,
             'duration': s_layer.INDX_TAG_DURATION
         }
 
         # Range stuff with ival's don't make sense
+        self.storlifts.pop('range=', None)
         self._cmpr_ctors.pop('range=', None)
 
         self.setCmprCtor('@=', self._ctorCmprAt)
@@ -1257,6 +1303,17 @@ class Ival(Type):
 
         for oper in ('=', '<', '>', '<=', '>='):
             self.storlifts[f'duration{oper}'] = self._storLiftDuration
+
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        func = self.storlifts.get(cmpr)
+        if func is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return func(cmpr, valu)
 
     def _storLiftAt(self, cmpr, valu):
 
@@ -1334,26 +1391,36 @@ class Ival(Type):
     def _getMin(self, valu):
         if valu is None:
             return None
+
+        if len(valu) == 3:
+            return valu[0][0]
         return valu[0]
 
     def _getMax(self, valu):
         if valu is None:
             return None
+        if len(valu) == 3:
+            return valu[0][1]
         return valu[1]
 
     def _getDuration(self, valu):
         if valu is None:
             return None
 
-        if valu[1] == self.futsize:
+        if len(valu) == 3:
+            ival = valu[0]
+        else:
+            ival = valu
+
+        if ival[1] == self.futsize:
             return self.duratype.maxval
 
-        return valu[1] - valu[0]
+        return ival[1] - ival[0]
 
-    def getTagSubIndx(self, name):
-        indx = self.tagsubindx.get(name, s_common.novalu)
+    def getTagVirtIndx(self, name):
+        indx = self.tagvirtindx.get(name, s_common.novalu)
         if indx is s_common.novalu:
-            raise s_exc.NoSuchType(name=name, mesg=f'Invalid subtype {name} for tag ival')
+            raise s_exc.NoSuchVirt.init(name, self)
 
         return indx
 
@@ -1513,7 +1580,7 @@ class Ndef(Type):
 
         nameopts = {'lower': True, 'strip': True}
         self.formnametype = Str(self.modl, 'formname', {}, nameopts)
-        self.subtypes |= {
+        self.virts |= {
             'form': (self.formnametype, self._getForm),
         }
 
@@ -1542,6 +1609,16 @@ class Ndef(Type):
 
             self.formfilter = filtfunc
 
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            cmpr = f'{virts[0]}{cmpr}'
+
+        if (func := self.storlifts.get(cmpr)) is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return func(cmpr, valu)
+
     def _storLiftForm(self, cmpr, valu):
         valu = valu.lower().strip()
         if self.modl.form(valu) is None:
@@ -1552,9 +1629,11 @@ class Ndef(Type):
         )
 
     def _getForm(self, valu):
-        if valu is None:
-            return None
-        return valu[0]
+        valu = valu[0]
+        if isinstance(valu[0], str):
+            return valu[0]
+
+        return (v[0] for v in valu)
 
     def _normStormNode(self, valu):
         return self._normPyTuple(valu.ndef)

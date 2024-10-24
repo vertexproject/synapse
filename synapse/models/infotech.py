@@ -242,9 +242,9 @@ class Cpe22Str(s_types.Str):
     CPE 2.2 Formatted String
     https://cpe.mitre.org/files/cpe-specification_2.2.pdf
     '''
-    def __init__(self, modl, name, info, opts):
-        opts['lower'] = True
-        s_types.Str.__init__(self, modl, name, info, opts)
+    def postTypeInit(self):
+        self.opts['lower'] = True
+        s_types.Str.postTypeInit(self)
         self.setNormFunc(list, self._normPyList)
         self.setNormFunc(tuple, self._normPyList)
 
@@ -323,9 +323,9 @@ class Cpe23Str(s_types.Str):
         * = "any"
         - = N/A
     '''
-    def __init__(self, modl, name, info, opts):
-        opts['lower'] = True
-        s_types.Str.__init__(self, modl, name, info, opts)
+    def postTypeInit(self):
+        self.opts['lower'] = True
+        s_types.Str.postTypeInit(self)
 
     def _normPyStr(self, valu):
         text = valu.lower()
@@ -2457,9 +2457,6 @@ class ItModule(s_module.CoreModule):
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the executable of the process.',
                     }),
-                    ('path:base', ('file:base', {}), {
-                        'doc': 'The file basename of the executable of the process.',
-                    }),
                     ('src:exe', ('file:path', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Create :src:proc and set :path.',
@@ -2681,15 +2678,6 @@ class ItModule(s_module.CoreModule):
                     ('path', ('file:path', {}), {
                         'doc': 'The path for the file.',
                     }),
-                    ('path:dir', ('file:path', {}), {
-                        'doc': 'The parent directory of the file path (parsed from :path).',
-                    }),
-                    ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The file extension of the file name (parsed from :path).',
-                    }),
-                    ('path:base', ('file:base', {}), {
-                        'doc': 'The final component of the file path (parsed from :path).',
-                    }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file on the host.',
                     }),
@@ -2724,15 +2712,6 @@ class ItModule(s_module.CoreModule):
                     ('path', ('file:path', {}), {
                         'doc': 'The path where the file was created.',
                     }),
-                    ('path:dir', ('file:path', {}), {
-                        'doc': 'The parent directory of the file path (parsed from :path).',
-                    }),
-                    ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The file extension of the file name (parsed from :path).',
-                    }),
-                    ('path:base', ('file:base', {}), {
-                        'doc': 'The final component of the file path (parsed from :path).',
-                    }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was created.',
                     }),
@@ -2754,15 +2733,6 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path where the file was deleted.',
-                    }),
-                    ('path:dir', ('file:path', {}), {
-                        'doc': 'The parent directory of the file path (parsed from :path).',
-                    }),
-                    ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The file extension of the file name (parsed from :path).',
-                    }),
-                    ('path:base', ('file:base', {}), {
-                        'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was deleted.',
@@ -2786,15 +2756,6 @@ class ItModule(s_module.CoreModule):
                     ('path', ('file:path', {}), {
                         'doc': 'The path where the file was read.',
                     }),
-                    ('path:dir', ('file:path', {}), {
-                        'doc': 'The parent directory of the file path (parsed from :path).',
-                    }),
-                    ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The file extension of the file name (parsed from :path).',
-                    }),
-                    ('path:base', ('file:base', {}), {
-                        'doc': 'The final component of the file path (parsed from :path).',
-                    }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was read.',
                     }),
@@ -2816,15 +2777,6 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path where the file was written to/modified.',
-                    }),
-                    ('path:dir', ('file:path', {}), {
-                        'doc': 'The parent directory of the file path (parsed from :path).',
-                    }),
-                    ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The file extension of the file name (parsed from :path).',
-                    }),
-                    ('path:base', ('file:base', {}), {
-                        'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that was modified.',
