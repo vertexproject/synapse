@@ -3053,85 +3053,37 @@ class ArrayCond(Cond):
 
     async def getCondEval(self, runt):
 
-        if isinstance(self.kids[1], ByNameCmpr):
-            cmpr = self.kids[1].getCmpr()
-            names = self.kids[1].getNames()
+        relprop = self.kids[0]
+        valukid = self.kids[2]
 
-            virts = []
-            lastidx = len(names) - 1
-            namecmpr = f'{names[-1]}{cmpr}'
-            relprop = self.kids[0]
+        async def cond(node, path):
 
-            async def cond(node, path):
-
-                realnode, realprop, _ = await relprop.resolvePivs(node, runt, path)
-                if realnode is None:
-                    return False
-
-                if (prop := realnode.form.props.get(realprop)) is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(realprop))
-
-                if not prop.type.isarray:
-                    mesg = f'Array filter syntax is invalid for non-array prop {realprop}.'
-                    raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
-
-                virts.clear()
-                realcmpr = cmpr
-                ptyp = prop.type.arraytype
-
-                for idx, name in enumerate(names):
-                    if (vinfo := ptyp.virts.get(name)) is not None:
-                        (ptyp, getr) = vinfo
-                        virts.append(getr)
-                    elif idx == lastidx:
-                        realcmpr = namecmpr
-                    else:
-                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
-
-                if (items := realnode.get(realprop, virts=virts)) is None:
-                    return False
-
-                ctor = ptyp.getCmprCtor(realcmpr)
-                if ctor is None:
-                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=realcmpr, name=ptyp.name))
-
-                val2 = await self.kids[2].compute(runt, path)
-
-                for item in items:
-                    if ctor(val2)(item):
-                        return True
-
+            realnode, realprop, _ = await relprop.resolvePivs(node, runt, path)
+            if realnode is None:
                 return False
 
-        else:
+            if (prop := realnode.form.props.get(realprop)) is None:
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(realprop))
 
-            cmpr = await self.kids[1].compute(runt, None)
+            if not prop.type.isarray:
+                mesg = f'Array filter syntax is invalid for non-array prop {realprop}.'
+                raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
 
-            async def cond(node, path):
+            cmpr, ptyp, vnames, vgetrs = self.kids[1].getCmprVirts(prop.type.arraytype)
 
-                name = await self.kids[0].compute(runt, None)
-                prop = node.form.props.get(name)
-                if prop is None:
-                    raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+            if (ctor := ptyp.getCmprCtor(cmpr)) is None:
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-                if not prop.type.isarray:
-                    mesg = f'Array filter syntax is invalid for non-array prop {name}.'
-                    raise self.kids[1].addExcInfo(s_exc.BadCmprType(mesg=mesg))
-
-                ctor = prop.type.arraytype.getCmprCtor(cmpr)
-                if ctor is None:
-                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=prop.type.arraytype))
-
-                items = node.get(name)
-                if items is None:
-                    return False
-
-                val2 = await self.kids[2].compute(runt, path)
-
-                for item in items:
-                    if ctor(val2)(item):
-                        return True
+            if (items := realnode.get(realprop, virts=vgetrs)) is None:
                 return False
+
+            val2 = await valukid.compute(runt, path)
+
+            for item in items:
+                if ctor(val2)(item):
+                    return True
+
+            return False
 
         return cond
 
@@ -3254,81 +3206,37 @@ class RelPropCond(Cond):
     '''
     async def getCondEval(self, runt):
 
+        relprop = self.kids[0].kids[0]
         valukid = self.kids[2]
 
-        if isinstance(self.kids[1], ByNameCmpr):
-            cmpr = self.kids[1].getCmpr()
-            names = self.kids[1].getNames()
+        async def cond(node, path):
+            realnode, realprop, _ = await relprop.resolvePivs(node, runt, path)
+            if realnode is None:
+                return False
 
-            virts = []
-            lastidx = len(names) - 1
-            namecmpr = f'{names[-1]}{cmpr}'
-            relprop = self.kids[0].kids[0]
+            if (prop := realnode.form.props.get(realprop)) is None:
+                if (exc := await s_stormtypes.typeerr(realprop, str)) is None:
+                    mesg = f'No property named {realprop}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=realprop, form=realnode.form.name)
 
-            async def cond(node, path):
-                realnode, realprop, _ = await relprop.resolvePivs(node, runt, path)
-                if realnode is None:
-                    return False
+                raise self.kids[0].addExcInfo(exc)
 
-                if (prop := realnode.form.props.get(realprop)) is None:
-                    if (exc := await s_stormtypes.typeerr(realprop, str)) is None:
-                        mesg = f'No property named {realprop}.'
-                        exc = s_exc.NoSuchProp(mesg=mesg, name=realprop, form=realnode.form.name)
+            xval = await valukid.compute(runt, path)
+            if not isinstance(xval, s_node.Node):
+                xval = await s_stormtypes.tostor(xval)
 
-                    raise self.kids[0].addExcInfo(exc)
+            if xval is None:
+                return False
 
-                xval = await valukid.compute(runt, path)
-                if not isinstance(xval, s_node.Node):
-                    xval = await s_stormtypes.tostor(xval)
+            cmpr, ptyp, vnames, vgetrs = self.kids[1].getCmprVirts(prop.type)
 
-                if xval is None:
-                    return False
+            if (valu := realnode.get(realprop, virts=vgetrs)) is None:
+                return False
 
-                virts.clear()
-                realcmpr = cmpr
-                ptyp = prop.type
+            if (ctor := ptyp.getCmprCtor(cmpr)) is None:
+                raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=ptyp.name))
 
-                for idx, name in enumerate(names):
-                    if (vinfo := ptyp.virts.get(name)) is not None:
-                        (ptyp, getr) = vinfo
-                        virts.append(getr)
-                    elif idx == lastidx:
-                        realcmpr = namecmpr
-                    else:
-                        raise self.kids[1].addExcInfo(s_exc.NoSuchVirt.init(name, ptyp))
-
-                if (valu := realnode.get(realprop, virts=virts)) is None:
-                    return False
-
-                ctor = ptyp.getCmprCtor(realcmpr)
-                if ctor is None:
-                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=realcmpr, name=ptyp.name))
-
-                func = ctor(xval)
-                return func(valu)
-        else:
-
-            cmpr = await self.kids[1].compute(runt, None)
-
-            async def cond(node, path):
-
-                vtyp, valu, _ = await self.kids[0].getTypeValuProp(runt, path)
-                if valu is None:
-                    return False
-
-                xval = await valukid.compute(runt, path)
-                if not isinstance(xval, s_node.Node):
-                    xval = await s_stormtypes.tostor(xval)
-
-                if xval is None:
-                    return False
-
-                ctor = vtyp.getCmprCtor(cmpr)
-                if ctor is None:
-                    raise self.kids[1].addExcInfo(s_exc.NoSuchCmpr(cmpr=cmpr, name=vtyp.name))
-
-                func = ctor(xval)
-                return func(valu)
+            return ctor(xval)(valu)
 
         return cond
 
@@ -3363,7 +3271,7 @@ class TagPropCond(Cond):
         cmprname = None
         if isinstance(self.kids[2], ByNameCmpr):
             cmprname = self.kids[2].getNames()[0]
-            subcmpr = self.kids[2].getCmpr()
+            virtcmpr = self.kids[2].getCmpr()
 
         async def cond(node, path):
 
@@ -3393,7 +3301,7 @@ class TagPropCond(Cond):
             if cmprname is not None:
                 if (virt := ptyp.virts.get(cmprname)) is not None:
                     (ptyp, getr) = virt
-                    cmpr = subcmpr
+                    cmpr = virtcmpr
 
             ctor = ptyp.getCmprCtor(cmpr)
             if ctor is None:

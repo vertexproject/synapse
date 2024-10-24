@@ -305,7 +305,7 @@ WILDTAGSEGNOVAR: /[\w*]+/
 // A comparison operator
 _cmpr: "*" byname | cmpr
 cmpr: CMPR | CMPROTHER | EQSPACE | EQNOSPACE | TRYSET | SETTAGOPER
-byname: [ _bynames ] BYNAME BYNAMECMPR
+byname: _bynames? BYNAME BYNAMECMPR
 _bynames: _bynames? BYNAME "*"
 BYNAME.2: /\w+/
 BYNAMECMPR.2: /[@?!<>^~=]*[<>=]/
@@ -390,9 +390,10 @@ _COLONDOLLAR: /(?<!\w|\'|\"):\$/
 relpropvalu: (RELNAME | _COLONDOLLAR _varvaluatom) virtprop?
 univpropvalu: univprop virtprop?
 
-virtprop: _VIRTPROP VIRTNAME
-_VIRTPROP.2: /(?<!\s)\*(?=\w+)(?!\w+(\*\w+)*[@?!<>^~=]*[<>=])/
-VIRTNAME: /[\w\*]+/
+virtprop: _BYVIRT _virtnames? VIRTNAME
+_BYVIRT.2: /(?<!\s)\*(?=\w+)(?!\w+(\*\w+)*[@?!<>^~=]*[<>=])/
+_virtnames: _virtnames? VIRTNAME "*"
+VIRTNAME: /\w+/
 
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
