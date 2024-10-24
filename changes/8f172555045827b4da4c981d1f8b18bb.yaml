@@ -1,0 +1,5 @@
+---
+desc: Update Storm grammar to allow embed queries in JSON expressions.
+prs: []
+type: feat
+...

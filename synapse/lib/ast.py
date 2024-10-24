@@ -3855,7 +3855,7 @@ class ExprDict(Value):
 
     def prepare(self):
         self.const = None
-        if all(isinstance(k, Const) for k in self.kids):
+        if all(isinstance(k, Const) and not isinstance(k, EmbedQuery) for k in self.kids):
             valu = {}
             for i in range(0, len(self.kids), 2):
                 valu[self.kids[i].value()] = self.kids[i + 1].value()
@@ -3885,7 +3885,7 @@ class ExprList(Value):
 
     def prepare(self):
         self.const = None
-        if all(isinstance(k, Const) for k in self.kids):
+        if all(isinstance(k, Const) and not isinstance(k, EmbedQuery) for k in self.kids):
             self.const = s_msgpack.en([k.value() for k in self.kids])
 
     async def compute(self, runt, path):
