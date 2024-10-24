@@ -385,6 +385,9 @@ class OuModule(s_module.CoreModule):
                     ('submitted', ('time', {}), {
                         'doc': 'The time the candidate was submitted for consideration.'}),
 
+                    ('note', ('str', {}), {
+                        'doc': 'A note or cover letter text submitted by the candidate.'}),
+
                     ('resume', ('file:bytes', {}), {
                         'doc': "The candidate's resume or CV."}),
 
