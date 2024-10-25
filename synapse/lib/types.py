@@ -1904,9 +1904,10 @@ class Tag(Str):
             raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
 
         core = self.modl.core
-        if core is not None and not core.isTagValid(norm):
-            mesg = f'The tag ({norm}) does not meet the regex for the tree.'
-            raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
+        if core is not None:
+            (ok, mesg) = core.isTagValid(norm)
+            if not ok:
+                raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
 
         return norm, {'subs': subs, 'toks': toks}
 
