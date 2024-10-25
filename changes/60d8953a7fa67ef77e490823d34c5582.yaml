@@ -1,0 +1,6 @@
+---
+desc: Update tag type normalization to verify the tag is valid for any tag model specifications
+  in the Cortex.
+prs: []
+type: feat
+...

@@ -1903,6 +1903,11 @@ class Tag(Str):
             mesg = f'Tag does not match tagre: [{s_grammar.tagre.pattern}]'
             raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
 
+        core = self.modl.core
+        if core is not None and not core.isTagValid(norm):
+            mesg = f'The tag ({norm}) does not meet the regex for the tree.'
+            raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
+
         return norm, {'subs': subs, 'toks': toks}
 
     def _normPyStr(self, text):

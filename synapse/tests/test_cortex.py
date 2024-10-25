@@ -7224,6 +7224,11 @@ class CortexBasicTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTag):
                 await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.haha ]')
 
+            self.eq((False, None), await core.callStorm('return($lib.trycast(syn:tag, cno.cve.2021.haha))'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('return($lib.cast(syn:tag, cno.cve.2021.haha))')
+
             self.none(await core.callStorm('$lib.model.tags.del(cno.cve)'))
             self.none(await core.callStorm('return($lib.model.tags.get(cno.cve))'))
 
