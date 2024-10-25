@@ -351,8 +351,8 @@ class RiskModule(s_module.CoreModule):
                     ('mitre:attack:software', ('it:mitre:attack:software', {}), {
                         'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
 
-                    ('ext:id', ('str', {'strip': True}), {
-                        'doc': 'An external identifier for the tool.'}),
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An ID for the tool.'}),
 
                 )),
                 ('risk:mitigation:type:taxonomy', {}, ()),
