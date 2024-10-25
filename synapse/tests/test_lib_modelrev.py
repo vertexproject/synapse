@@ -1601,7 +1601,16 @@ class ModelRevTest(s_tests.SynTest):
                     ''')[1:-1]
                     self.stormIsInPrint(output, msgs)
 
+                    oldcpe = 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'
                     newcpe = 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'
+
+                    nodes = await core.nodes('_ext:model:form="22i-23i"', opts=infork01)
+                    self.len(1, nodes)
+                    self.none(nodes[0].get('cpe'))
+
+                    nodes = await core.nodes(f'risk:vulnerable=(22invalid, 23invalid, (it:sec:cpe, "{oldcpe}"))', opts=infork00)
+                    self.len(1, nodes)
+                    self.none(nodes[0].get('node'))
 
                     nodes = await core.nodes('inet:flow=(flow, 22i, 23i)', opts=infork01)
                     self.len(1, nodes)
@@ -1660,6 +1669,14 @@ class ModelRevTest(s_tests.SynTest):
                         ('seen', source22iden),
                         ('seen', source23iden),
                     ])
+
+                    nodes = await core.nodes('_ext:model:form="22i-23i"', opts=infork01)
+                    self.len(1, nodes)
+                    self.eq(nodes[0].get('cpe'), newcpe)
+
+                    nodes = await core.nodes(f'risk:vulnerable=(22invalid, 23invalid, (it:sec:cpe, "{oldcpe}"))', opts=infork00)
+                    self.len(1, nodes)
+                    self.eq(nodes[0].get('node'), ('it:sec:cpe', newcpe))
 
                     nodes = await core.nodes('inet:flow=(flow, 22i, 23i)', opts=infork01)
                     self.len(1, nodes)
