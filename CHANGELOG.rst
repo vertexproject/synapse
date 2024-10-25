@@ -51,10 +51,6 @@ Features and Enhancements
 
 Bugfixes
 --------
-- Fixed an issue where variables containing heavy objects were passed in/out of
-  the ``runas`` and ``view.exec`` commands which could result in unexpected
-  behavior.
-  (`#3960 <https://github.com/vertexproject/synapse/pull/3960>`_)
 - Fixed issue where interfaces took precedence over properties declared on a
   form.
   (`#3962 <https://github.com/vertexproject/synapse/pull/3962>`_)
@@ -67,6 +63,7 @@ Bugfixes
 - Fixed an issue where list variables could be passed into the ``background``
   command or Storm Dmons in such a way that they could not be modified.
   (`#3971 <https://github.com/vertexproject/synapse/pull/3971>`_)
+  (`#3976 <https://github.com/vertexproject/synapse/pull/3976>`_)
 
 v2.184.0 - 2024-10-18
 =====================
