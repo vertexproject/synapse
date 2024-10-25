@@ -76,7 +76,7 @@ Updated Types
 *************
 
 ``proj:ticket``
-  The type interface has been modified from None to ['proj:task'].
+  The type interface now inherits from the ``proj:task`` interface.
 
 
 ``syn:role``
