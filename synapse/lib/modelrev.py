@@ -1766,7 +1766,9 @@ class ModelMigration_0_2_31:
             for verb, n2iden in edges:
                 n2buid = s_common.uhex(n2iden)
                 assert self.nodes.has(n2buid)
-                n2node = self.getNode(n2buid)
+                n2node = self.nodes.get(n2buid)
+                if n2node is None: # pragma: no cover
+                    continue
 
                 n2edges[layriden].append((verb, n2iden, n2node['formname']))
 
@@ -1852,7 +1854,14 @@ class ModelMigration_0_2_31:
 
         for layriden, edges in node['n2edges'].items():
             for verb, iden in edges:
-                await self.editEdgeDel(layriden, s_common.uhex(iden), formname, verb, s_common.ehex(buid))
+                n2buid = s_common.uhex(iden)
+
+                n2node = self.nodes.get(n2buid)
+                if n2node is None: # pragma: no cover
+                    continue
+
+                n2form = n2node.get('formname')
+                await self.editEdgeDel(layriden, n2buid, n2form, verb, s_common.ehex(buid))
 
         # Node
         await self.editNodeDel(layriden, buid, formname, formvalu)
@@ -1906,7 +1915,14 @@ class ModelMigration_0_2_31:
 
         for layriden, edges in node['n2edges'].items():
             for verb, iden in edges:
-                await self.editEdgeAdd(layriden, s_common.uhex(iden), formname, verb, s_common.ehex(newbuid))
+                n2buid = s_common.uhex(iden)
+
+                n2node = self.nodes.get(n2buid)
+                if n2node is None: # pragma: no cover
+                    continue
+
+                n2form = n2node.get('formname')
+                await self.editEdgeAdd(layriden, n2buid, n2form, verb, s_common.ehex(newbuid))
 
         # Move references
         for reflayr, reflist in refs.items():
