@@ -1830,27 +1830,27 @@ class ModelMigration_0_2_31:
                 propvalu, stortype = propvalu
                 await self.editPropDel(layriden, buid, formname, propname, propvalu, stortype)
 
-            tags = sode.get('tags', {}).copy()
+            tags = sode.get('tags', {})
             for tagname, tagvalu in tags.items():
                 await self.editTagDel(layriden, buid, formname, tagname, tagvalu)
 
-            tagprops = sode.get('tagprops', {}).copy()
+            tagprops = sode.get('tagprops', {})
             for tagname, propvalus in tagprops.items():
                 for propname, propvalu in propvalus.items():
                     propvalu, stortype = propvalu
                     await self.editTagpropDel(layriden, buid, formname, tagname, propname, propvalu, stortype)
 
         # Nodedata
-        for layriden, data in node['nodedata'].copy().items():
+        for layriden, data in node['nodedata'].items():
             for name, valu in data:
                 await self.editNodedataDel(layriden, buid, formname, name, valu)
 
         # Edges
-        for layriden, edges in node['n1edges'].copy().items():
+        for layriden, edges in node['n1edges'].items():
             for verb, iden in edges:
                 await self.editEdgeDel(layriden, buid, formname, verb, iden)
 
-        for layriden, edges in node['n2edges'].copy().items():
+        for layriden, edges in node['n2edges'].items():
             for verb, iden in edges:
                 await self.editEdgeDel(layriden, s_common.uhex(iden), formname, verb, s_common.ehex(buid))
 

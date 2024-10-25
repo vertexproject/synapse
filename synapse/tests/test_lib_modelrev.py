@@ -1601,22 +1601,18 @@ class ModelRevTest(s_tests.SynTest):
                     ''')[1:-1]
                     self.stormIsInPrint(output, msgs)
 
-                    q = f'''
-                        $lib.model.migration.s.model_0_2_31.repairNode(({cpeidx}),
-                            "cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*"
-                        )
-                    '''
-                    msgs = await core.stormlist(q)
+                    newcpe = 'cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*'
+
+                    nodes = await core.nodes('inet:flow=(flow, 22i, 23i)', opts=infork01)
+                    self.len(1, nodes)
+                    self.none(nodes[0].get('dst:cpes'))
+                    self.notin(newcpe, nodes[0].get('src:cpes'))
+
+                    msgs = await core.stormlist(f'$lib.model.migration.s.model_0_2_31.repairNode(({cpeidx}), "{newcpe}")')
                     self.stormHasNoWarnErr(msgs)
 
                     # Repair node should be idempotent
-                    q = f'''
-                        $lib.model.migration.s.model_0_2_31.repairNode(({cpeidx}),
-                            "cpe:2.3:a:openbsd:openssh:8.2p1:*:*:*:*:*:*:*",
-                            $lib.true
-                        )
-                    '''
-                    msgs = await core.stormlist(q)
+                    msgs = await core.stormlist(f'$lib.model.migration.s.model_0_2_31.repairNode(({cpeidx}), "{newcpe}", $lib.true)')
                     self.stormHasNoWarnErr(msgs)
 
                     nodes = await core.nodes('it:sec:cpe:vendor=openbsd +:version="8.2p1"', opts=infork00)
@@ -1664,6 +1660,11 @@ class ModelRevTest(s_tests.SynTest):
                         ('seen', source22iden),
                         ('seen', source23iden),
                     ])
+
+                    nodes = await core.nodes('inet:flow=(flow, 22i, 23i)', opts=infork01)
+                    self.len(1, nodes)
+                    self.isin(newcpe, nodes[0].get('dst:cpes'))
+                    self.isin(newcpe, nodes[0].get('src:cpes'))
 
                     nodes = await core.nodes('it:sec:cpe:vendor=openbsd', opts=infork02)
                     self.len(2, nodes)

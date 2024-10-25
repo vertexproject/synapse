@@ -1243,8 +1243,12 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                 )
 
         for layriden, reflist in node['refs'].items():
+            layer = self.runt.snap.core.getLayer(layriden)
+            if layer is None:
+                continue
+
             for iden, refinfo in reflist:
-                formname, propname, proptype, isarray, isro = refinfo
+                refform, refprop, reftype, isarray, isro = refinfo
 
                 if isro:
                     continue
@@ -1252,13 +1256,41 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                 refbuid = s_common.uhex(iden)
 
                 nodeedits.setdefault(layriden, {})
-                nodeedits[layriden].setdefault(refbuid, (refbuid, formname, []))
+                nodeedits[layriden].setdefault(refbuid, (refbuid, refform, []))
 
-                stortype = self.runt.snap.core.model.type(proptype).stortype
+                if reftype == 'ndef':
+                    propvalu = (nodeform, norm)
+                else:
+                    propvalu = norm
 
-                nodeedits[layriden][refbuid][2].append(
-                    (s_layer.EDIT_PROP_SET, (propname, norm, None, stortype), ()),
-                )
+                stortype = self.runt.snap.core.model.type(reftype).stortype
+
+                if isarray:
+
+                    sode = await layer.getStorNode(refbuid)
+                    if not sode:
+                        continue
+
+                    props = sode.get('props', {})
+
+                    curv, _ = props.get(refprop, (None, None))
+                    _curv = curv
+
+                    if _curv is None:
+                        _curv = []
+
+                    newv = list(_curv).copy()
+                    newv.append(propvalu)
+
+                    nodeedits[layriden][refbuid][2].append(
+                        (s_layer.EDIT_PROP_SET, (refprop, newv, curv, stortype | s_layer.STOR_FLAG_ARRAY), ()),
+                    )
+
+                else:
+
+                    nodeedits[layriden][refbuid][2].append(
+                        (s_layer.EDIT_PROP_SET, (refprop, propvalu, None, stortype), ()),
+                    )
 
         meta = {'time': s_common.now(), 'user': self.runt.snap.core.auth.rootuser.iden}
 
