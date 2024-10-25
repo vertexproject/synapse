@@ -35,8 +35,7 @@ async def main(argv, outp=s_output.stdout):
             try:
                 await cell.promote(graceful=graceful)
             except s_exc.BadState as e:
-                mesg = f'Failed to promote service {s_urlhelp.sanitizeUrl(opts.svcurl)} to being a leader; it is' \
-                       f' currently following {e.get("cursvc", "").strip()} which is not a leader.'
+                mesg = f'Failed to promote service to being a leader; {e.get("mesg")}'
                 outp.printf(mesg)
                 return 1
             except s_exc.SynErr as e:
