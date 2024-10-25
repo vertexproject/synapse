@@ -80,11 +80,12 @@ Updated Types
 
 
 ``syn:role``
-  The type has been modified from {'strip': True} to {}.
-
+  The type has been modified to allow norming role names into their
+  guid values, and repring guid values into their role names.
 
 ``syn:user``
-  The type has been modified from {'strip': True} to {}.
+  The type has been modified to allow norming usernames into their
+  guid values, and repring guid values into their usernames.
 
 
 
@@ -95,15 +96,8 @@ Updated Properties
 ``proj:ticket``
   The form had the following properties updated:
 
-
-    The property ``priority`` has been modified from ['int', {'enums': [[0,
-    'none'], [10, 'lowest'], [20, 'low'], [30, 'medium'], [40, 'high'], [50,
-    'highest']]}] to ['meta:priority', {}].
-
-
-    The property ``updated`` has been modified from ['time', {'ismax': True}]
-    to ['time', {}].
-
+    The property ``updated`` has been modified to remove the ``ismax``
+    option.
 
 
 *********************
@@ -114,5 +108,5 @@ Deprecated Properties
   The form had the following property deprecated:
 
   ``ext:id``
-    Deprecated. Please use :id.
+    Deprecated. Please use ``:id``.
 
