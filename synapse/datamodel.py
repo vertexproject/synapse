@@ -654,13 +654,16 @@ class Model:
             self.formprefixcache[prefix] = forms
         return forms
 
-    def reqProp(self, name):
+    def reqProp(self, name, extra=None):
         prop = self.prop(name)
         if prop is not None:
             return prop
 
-        mesg = f'No property named {name}.'
-        raise s_exc.NoSuchProp(mesg=mesg, name=name)
+        exc = s_exc.NoSuchProp.init(name)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def reqUniv(self, name):
         prop = self.univ(name)
@@ -1083,6 +1086,30 @@ class Model:
         self.props[prop.full] = prop
         return prop
 
+    def _prepFormIface(self, form, iface):
+
+        template = iface.get('template', {})
+        template.update(form.type.info.get('template', {}))
+
+        def convert(item):
+
+            if isinstance(item, str):
+
+                if item == '$self':
+                    return form.name
+
+                return item.format(**template)
+
+            if isinstance(item, dict):
+                return {convert(k): convert(v) for (k, v) in item.items()}
+
+            if isinstance(item, (list, tuple)):
+                return tuple([convert(v) for v in item])
+
+            return item
+
+        return convert(iface)
+
     def _addFormIface(self, form, name, subifaces=None):
 
         iface = self.ifaces.get(name)
@@ -1095,9 +1122,14 @@ class Model:
             mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 3.0.0'
             logger.warning(mesg)
 
+        iface = self._prepFormIface(form, iface)
+
         for propname, typedef, propinfo in iface.get('props', ()):
-            if typedef[0] == '$self':
-                typedef = (form.name, typedef[1])
+
+            # allow form props to take precedence
+            if form.prop(propname) is not None:
+                continue
+
             prop = self._addFormProp(form, propname, typedef, propinfo)
             self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
@@ -1123,6 +1155,8 @@ class Model:
 
         if (iface := self.ifaces.get(name)) is None:
             return
+
+        iface = self._prepFormIface(form, iface)
 
         for propname, typedef, propinfo in iface.get('props', ()):
             fullprop = f'{form.name}:{propname}'

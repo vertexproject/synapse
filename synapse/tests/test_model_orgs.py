@@ -701,6 +701,47 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:asset :owner -> ps:contact +:name=foo '))
             self.len(1, await core.nodes('ou:asset :operator -> ps:contact +:name=bar '))
 
+            visi = await core.auth.addUser('visi')
+
+            nodes = await core.nodes('''
+                [ ou:enacted=*
+                    :id=V-99
+                    :project={[ proj:project=* ]}
+                    :status=10
+                    :priority=highest
+                    :created=20241018
+                    :updated=20241018
+                    :due=20241018
+                    :completed=20241018
+                    :creator=root
+                    :assignee=visi
+                    :scope=(ou:team, *)
+                    :ext:creator={[ ps:contact=* :name=root ]}
+                    :ext:assignee={[ ps:contact=* :name=visi ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('V-99', nodes[0].get('id'))
+            self.eq(10, nodes[0].get('status'))
+            self.eq(50, nodes[0].get('priority'))
+
+            self.eq(1729209600000, nodes[0].get('due'))
+            self.eq(1729209600000, nodes[0].get('created'))
+            self.eq(1729209600000, nodes[0].get('updated'))
+            self.eq(1729209600000, nodes[0].get('completed'))
+
+            self.eq(visi.iden, nodes[0].get('assignee'))
+            self.eq(core.auth.rootuser.iden, nodes[0].get('creator'))
+
+            self.nn(nodes[0].get('scope'))
+            self.nn(nodes[0].get('ext:creator'))
+            self.nn(nodes[0].get('ext:assignee'))
+
+            self.len(1, await core.nodes('ou:enacted -> proj:project'))
+            self.len(1, await core.nodes('ou:enacted :scope -> ou:team'))
+            self.len(1, await core.nodes('ou:enacted :ext:creator -> ps:contact +:name=root'))
+            self.len(1, await core.nodes('ou:enacted :ext:assignee -> ps:contact +:name=visi'))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()
