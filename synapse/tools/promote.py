@@ -2,9 +2,12 @@ import sys
 import asyncio
 import argparse
 
+import synapse.exc as s_exc
+
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
+import synapse.lib.urlhelp as s_urlhelp
 
 descr = '''
 Promote a mirror to the leader.
@@ -29,7 +32,17 @@ async def main(argv, outp=s_output.stdout):
             graceful = not opts.failure
 
             outp.printf(f'Promoting to leader: {opts.svcurl}')
-            await cell.promote(graceful=graceful)
+            try:
+                await cell.promote(graceful=graceful)
+            except s_exc.BadState as e:
+                mesg = f'Failed to promote service to being a leader; {e.get("mesg")}'
+                outp.printf(mesg)
+                return 1
+            except s_exc.SynErr as e:
+                outp.printf(f'Failed to promote service {s_urlhelp.sanitizeUrl(opts.svcurl)}: {e}')
+                return 1
+
+    return 0
 
 if __name__ == '__main__':  # pragma: no cover
     sys.exit(asyncio.run(main(sys.argv[1:])))
