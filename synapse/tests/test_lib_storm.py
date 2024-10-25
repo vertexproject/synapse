@@ -629,6 +629,9 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('$foo = (foo,) background ${ $foo.append(bar) $lib.queue.get(bar).put($foo) }')
             self.eq((1, ['foo', 'bar']), await core.callStorm('return($lib.queue.get(bar).get(1))'))
 
+            await core.nodes('$foo = ([["foo"]]) background ${ $foo.0.append(bar) $lib.queue.get(bar).put($foo) }')
+            self.eq((2, [['foo', 'bar']]), await core.callStorm('return($lib.queue.get(bar).get(2))'))
+
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
 
