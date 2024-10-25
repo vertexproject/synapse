@@ -1778,8 +1778,10 @@ class StormDmon(s_base.Base):
 
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts', {})
-        vars = opts.setdefault('vars', {})
+
+        vars = await s_stormtypes.toprim(opts.get('vars', {}), use_list=True)
         vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
+        opts['vars'] = vars
 
         viewiden = opts.get('view')
 
@@ -5300,7 +5302,7 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
-        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars())
+        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
         opts = {
