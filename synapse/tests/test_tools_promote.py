@@ -63,4 +63,5 @@ class PromoteToolTest(s_t_utils.SynTest):
                     ret = await s_tools_promote.main(argv, outp=outp)
                     self.eq(1, ret)
                     outp.expect('Failed to promote service')
-                    outp.expect('ahaname=01.cell is not the current leader and cannot receive the promotion handoff')
+                    # Note: The following message may change when SYN-7659 is addressed
+                    outp.expect('ahaname=01.cell is not the current leader and cannot handoff leadership to aha://02.cell.synapse')

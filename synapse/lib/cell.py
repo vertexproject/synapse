@@ -2120,8 +2120,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
 
         if not self.isactive:
-            mesg = f'HANDOFF: {_dispname} is not the current leader and cannot receive the promotion handoff' \
-                   f' from {s_urlhelp.sanitizeUrl(turl)}.'
+            mesg = f'HANDOFF: {_dispname} is not the current leader and cannot handoff leadership to' \
+                   f' {s_urlhelp.sanitizeUrl(turl)}.'
             logger.error(mesg)
             raise s_exc.BadState(mesg=mesg, turl=turl, cursvc=_dispname)
 
