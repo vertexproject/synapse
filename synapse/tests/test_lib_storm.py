@@ -147,6 +147,20 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('return(({"foo": "bar", "baz": 10 , }))')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
 
+            q = '''
+            $foo = ({"bar": ${[inet:fqdn=foo.com]}})
+            for $n in $foo.bar { return($n.repr()) }
+            '''
+            retn = await core.callStorm(q)
+            self.eq(retn, 'foo.com')
+
+            q = '''
+            $foo = ([${[inet:fqdn=foo.com]}])
+            for $n in $foo.0 { return($n.repr()) }
+            '''
+            retn = await core.callStorm(q)
+            self.eq(retn, 'foo.com')
+
             with self.raises(s_exc.BadSyntax):
                 await core.callStorm('return((["foo" "foo"]))')
 
@@ -611,6 +625,9 @@ class StormTest(s_t_utils.SynTest):
             background ${ $lib.queue.get(bar).put(haha) }
             ''')
             self.eq((0, 'haha'), await core.callStorm('return($lib.queue.get(bar).get())'))
+
+            await core.nodes('$foo = (foo,) background ${ $foo.append(bar) $lib.queue.get(bar).put($foo) }')
+            self.eq((1, ['foo', 'bar']), await core.callStorm('return($lib.queue.get(bar).get(1))'))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
@@ -5155,3 +5172,15 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.none(await core.callStorm('return($lib.queue.gen(haha).get().1)'))
+
+            await core.nodes('''
+                $foo = (foo,)
+                $query = ${
+                    $foo.append(bar)
+                    $lib.queue.gen(hoho).put($foo)
+                    $lib.dmon.del($auto.iden)
+                }
+                $lib.dmon.add($query)
+            ''')
+
+            self.eq(['foo', 'bar'], await core.callStorm('return($lib.queue.gen(hoho).get().1)'))
