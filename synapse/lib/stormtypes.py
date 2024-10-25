@@ -4828,8 +4828,8 @@ class Dict(Prim):
         name = await toprim(name)
         return self.valu.get(name)
 
-    async def value(self, use_list=False):
-        return {await toprim(k): await toprim(v, use_list=use_list) for (k, v) in self.valu.items()}
+    async def value(self):
+        return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
 
     async def stormrepr(self):
         reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in list(self.valu.items())]
@@ -4865,9 +4865,9 @@ class CmdOpts(Dict):
         name = await tostr(name)
         return getattr(self.valu.opts, name, None)
 
-    async def value(self, use_list=False):
+    async def value(self):
         valu = vars(self.valu.opts)
-        return {await toprim(k): await toprim(v, use_list=use_list) for (k, v) in valu.items()}
+        return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
 
     async def iter(self):
         valu = vars(self.valu.opts)
@@ -5213,10 +5213,8 @@ class List(Prim):
         async for item in toiter(valu):
             self.valu.append(item)
 
-    async def value(self, use_list=False):
-        if use_list:
-            return [await toprim(v, use_list=use_list) for v in self.valu]
-        return tuple([await toprim(v, use_list=use_list) for v in self.valu])
+    async def value(self):
+        return tuple([await toprim(v) for v in self.valu])
 
     async def iter(self):
         for item in self.valu:
@@ -9524,7 +9522,7 @@ class CronJob(Prim):
         return job
 
 # These will go away once we have value objects in storm runtime
-async def toprim(valu, path=None, use_list=False):
+async def toprim(valu, path=None):
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
@@ -9533,28 +9531,22 @@ async def toprim(valu, path=None, use_list=False):
         retn = []
         for v in valu:
             try:
-                retn.append(await toprim(v, use_list=use_list))
+                retn.append(await toprim(v))
             except s_exc.NoSuchType:
                 pass
-
-        if not use_list:
-            return tuple(retn)
-        return retn
+        return tuple(retn)
 
     if isinstance(valu, dict):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await toprim(v, use_list=use_list)
+                retn[k] = await toprim(v)
             except s_exc.NoSuchType:
                 pass
         return retn
 
     if isinstance(valu, Number):
         return float(valu.value())
-
-    if isinstance(valu, (Dict, List)):
-        return await valu.value(use_list=use_list)
 
     if isinstance(valu, Prim):
         return await s_coro.ornot(valu.value)
