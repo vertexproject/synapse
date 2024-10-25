@@ -3426,7 +3426,7 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadLiftValu):
                 await core.nodes('yield $foo', opts={'vars': {'foo': 'asdf'}})
 
-            # Nodes do not pass through
+            # Nodes from other views do not lift
             view = await core.callStorm('return( $lib.view.get().iden )')
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
 
@@ -3437,7 +3437,8 @@ class StormTest(s_t_utils.SynTest):
                 yield $n
             }
             '''
-            self.len(0, await core.nodes(q, opts={'view': fork, 'vars': {'view': view}}))
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInErr('Node is not from the current view.', msgs)
 
             q = '''
             $nodes = $lib.list()
@@ -3446,19 +3447,19 @@ class StormTest(s_t_utils.SynTest):
                 yield $n
             }
             '''
-            self.len(0, await core.nodes(q, opts={'view': fork, 'vars': {'view': view}}))
-
-            # Heavy objects are toprim'ed on the way out
-            q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | $lib.print($x)'
             msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
-            self.stormIsInPrint('inet:ipv4=1.2.3.4', msgs)
+            self.stormIsInErr('Node is not from the current view.', msgs)
+
+            q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | yield $x'
+            msgs = await core.stormlist(q, opts={'view': fork, 'vars': {'view': view}})
+            self.stormIsInErr('Node is not from the current view.', msgs)
 
             # Nodes lifted from another view and referred to by iden() works
             q = '''
             $nodes = $lib.list()
-            view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node.iden()) } |
+            view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
-                yield $n
+                yield $n.iden()
             }
             '''
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
@@ -3466,11 +3467,15 @@ class StormTest(s_t_utils.SynTest):
 
             q = '''
             $nodes = $lib.list()
-            view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x.iden()) } } |
+            view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
-                yield $n
+                yield $n.iden()
             }
             '''
+            nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
+            self.len(1, nodes)
+
+            q = 'view.exec $view { $x=${inet:ipv4=1.2.3.4} } | for $n in $x { yield $n.iden() }'
             nodes = await core.nodes(q, opts={'view': fork, 'vars': {'view': view}})
             self.len(1, nodes)
 
@@ -3505,36 +3510,6 @@ class StormTest(s_t_utils.SynTest):
                 await core.callStorm('return(woot)', opts={'user': visi.iden, 'view': fork})
 
             self.eq('bar', await core.callStorm('return($lib.import(priv.exec).asroot())', opts=asvisi))
-
-            with self.raises(s_exc.NoSuchView):
-                await core.nodes('view.exec newp {}')
-
-            with self.raises(s_exc.NoSuchView):
-                await core.nodes('.created view.exec newp {}')
-
-            opts = {'vars': {'view': fork}}
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('$newp=$lib view.exec $view { $newp.log.warning(bar) }', opts=opts)
-
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('view.exec $view { $newp=$lib } $newp.log.warning(bar)', opts=opts)
-
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('[ inet:ipv4=1.2.3.4 ] $foo=$lib view.exec $view { $lib.print($foo) }', opts=opts)
-
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('view.exec $view { inet:ipv4=1.2.3.4 $foo=$lib } $lib.print($foo)', opts=opts)
-
-            msgs = await core.stormlist('$foo=(foo,) view.exec $view { $foo.append(bar)  } | $lib.print($foo)', opts=opts)
-            self.stormIsInPrint("['foo', 'bar']", msgs)
-
-            q = '''
-            [ inet:ipv4=1.2.3.4/31 ] $foo=($node.repr(),)
-            view.exec $view { $foo.append(bar)  } |
-            $lib.print($foo)'''
-            msgs = await core.stormlist(q, opts=opts)
-            self.stormIsInPrint("['1.2.3.4', 'bar']", msgs)
-            self.stormIsInPrint("['1.2.3.5', 'bar']", msgs)
 
     async def test_storm_argv_parser(self):
 
@@ -4692,13 +4667,12 @@ class StormTest(s_t_utils.SynTest):
             items = await alist(core.syncLayersEvents({}, wait=False))
             self.len(4, [item for item in items if item[-1]['user'] == visi.iden])
 
-            q = 'inet:fqdn $n=$node.iden() runas visi { yield $n [ +#atag ] }'
+            q = 'inet:fqdn $n=$node runas visi { yield $n [ +#atag ] }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q))
 
             await visi.addRule((True, ('node', 'tag', 'add')))
 
-            await core.nodes(q)
-            nodes = await core.nodes('inet:fqdn')
+            nodes = await core.nodes(q)
             for node in nodes:
                 self.nn(node.tags.get('atag'))
 
@@ -4746,29 +4720,6 @@ class StormTest(s_t_utils.SynTest):
             nodes = await core.nodes('asroot.yep | inet:fqdn=foo.com')
             for node in nodes:
                 self.none(node.tags.get('btag'))
-
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('$newp=$lib runas visi { $newp.log.warning(bar) }')
-
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('runas visi { $newp=$lib } $newp.log.warning(bar)')
-
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('[ inet:ipv4=1.2.3.4 ] $foo=$lib runas visi { $lib.print($foo) }')
-
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('runas visi { inet:ipv4=1.2.3.4 $foo=$lib } $lib.print($foo)')
-
-            msgs = await core.stormlist('$foo=(foo,) runas visi { $foo.append(bar)  } | $lib.print($foo)')
-            self.stormIsInPrint("['foo', 'bar']", msgs)
-
-            q = '''
-            [ inet:ipv4=1.2.3.4/31 ] $foo=($node.repr(),)
-            runas visi { $foo.append(bar)  } |
-            $lib.print($foo)'''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint("['1.2.3.4', 'bar']", msgs)
-            self.stormIsInPrint("['1.2.3.5', 'bar']", msgs)
 
     async def test_storm_batch(self):
         async with self.getTestCore() as core:

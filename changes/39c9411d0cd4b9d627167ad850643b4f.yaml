@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where variables containing heavy objects were passed in/out of
-  the ``runas`` and ``view.exec`` commands which could result in unexpected behavior.
-prs: []
-type: bug
-...
