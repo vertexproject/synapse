@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where list variables could be passed into the ``background`` command
+  or Storm Dmons in such a way that they could not be modified.
+prs: []
+type: bug
+...

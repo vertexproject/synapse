@@ -8,7 +8,6 @@ import signal
 import socket
 import asyncio
 import tarfile
-import warnings
 import collections
 import multiprocessing
 
@@ -751,6 +750,7 @@ class CellTest(s_t_utils.SynTest):
                 self.ge(cnfo.get('nexsindx'), 0)
                 self.true(cnfo.get('active'))
                 self.false(cnfo.get('uplink'))
+                self.none(cnfo.get('mirror', True))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
@@ -3152,3 +3152,46 @@ class CellTest(s_t_utils.SynTest):
             self.isin(cell.long_lived_slab.fini, cell._fini_funcs)
             slabs = [s for s in cell.tofini if isinstance(s, s_lmdbslab.Slab) and s.lenv.path() == cell.short_slab_path]
             self.len(0, slabs)
+
+    async def test_lib_cell_promote_schism_prevent(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    dirn00 = s_common.genpath(dirn, '00.cell')
+                    dirn01 = s_common.genpath(dirn, '01.cell')
+                    dirn02 = s_common.genpath(dirn, '02.cell')
+
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
+                                                                       provinfo={'mirror': 'cell'}))
+                    cell02 = await base.enter_context(self.addSvcToAha(aha, '02.cell', s_cell.Cell, dirn=dirn02,
+                                                                       provinfo={'mirror': 'cell'}))
+
+                    self.true(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.false(cell02.isactive)
+                    await cell02.sync()
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await cell01.handoff('some://url')
+                    self.isin('01.cell is not the current leader', cm.exception.get('mesg'))
+
+                    # Note: The following behavior may change when SYN-7659 is addressed and greater
+                    # control over the topology update is available during the promotion process.
+                    # Promote 02.cell -> Promote 01.cell -> Promote 00.cell -> BadState exception
+                    await cell02.promote(graceful=True)
+                    self.false(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.true(cell02.isactive)
+                    await cell02.sync()
+
+                    await cell01.promote(graceful=True)
+                    self.false(cell00.isactive)
+                    self.true(cell01.isactive)
+                    self.false(cell02.isactive)
+                    await cell02.sync()
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await cell00.promote(graceful=True)
+                    self.isin('02.cell is not the current leader', cm.exception.get('mesg'))

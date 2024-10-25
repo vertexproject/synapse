@@ -1235,7 +1235,6 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                 n2buid = s_common.uhex(iden)
 
                 nodeedits.setdefault(layriden, {})
-                # NOTE: nodeform is not the right form but the edit goes through anyway
                 nodeedits[layriden].setdefault(n2buid, (n2buid, n2form, []))
 
                 nodeedits[layriden][n2buid][2].append(
