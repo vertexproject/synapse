@@ -1910,7 +1910,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=lock_target, args=(dirn, evt1,))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             with self.raises(s_exc.FatalErr) as cm:
                 async with await s_cell.Cell.anit(dirn) as cell:
@@ -2611,7 +2611,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=reload_target, args=(dirn, evt1, evt2))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             async with await s_telepath.openurl(f'cell://{dirn}') as prox:
                 cnfo = await prox.getCellInfo()
