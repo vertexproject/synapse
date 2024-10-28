@@ -1559,12 +1559,6 @@ class Snap(s_base.Base):
         return await self.tagnorms.aget(tagname)
 
     async def _getTagNorm(self, tagname):
-
-        if not self.core.isTagValid(tagname):
-            mesg = f'The tag ({tagname}) does not meet the regex for the tree.'
-            await self._raiseOnStrict(s_exc.BadTag, mesg)
-            return None
-
         try:
             return self.core.model.type('syn:tag').norm(tagname)
         except s_exc.BadTypeValu as e:
