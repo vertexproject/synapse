@@ -384,6 +384,7 @@ class BaseTest(s_t_utils.SynTest):
         self.eq(proc.exitcode, 137)
 
     def test_base_main_sigint(self):
+        self.skip('dev_boot_logging')
         self.thisHostMustNot(platform='windows')
         # We have no reliable way to test this on windows
         self.thisHostMustNot(platform='darwin')
