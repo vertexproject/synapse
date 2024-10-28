@@ -1778,8 +1778,10 @@ class StormDmon(s_base.Base):
 
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts', {})
-        vars = opts.setdefault('vars', {})
+
+        vars = await s_stormtypes.toprim(opts.get('vars', {}), use_list=True)
         vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
+        opts['vars'] = vars
 
         viewiden = opts.get('view')
 
@@ -5180,8 +5182,8 @@ class ViewExecCmd(Cmd):
     '''
     Execute a storm query in a different view.
 
-    NOTE: Variables are passed through but nodes and heavy objects are not. The behavior of this command
-    may be non-intuitive in relation to the way storm normally operates. For further information on
+    NOTE: Variables are passed through but nodes are not. The behavior of this command may be
+    non-intuitive in relation to the way storm normally operates. For further information on
     behavior and limitations when using `view.exec`, reference the `view.exec` section of the
     Synapse User Guide: https://v.vtx.lk/view-exec.
 
@@ -5204,66 +5206,32 @@ class ViewExecCmd(Cmd):
 
         # nodes may not pass across views, but their path vars may
         node = None
-        user = self.runt.user
-
         async for node, path in genr:
 
-            iden = await s_stormtypes.tostr(self.opts.view)
+            view = await s_stormtypes.tostr(self.opts.view)
             text = await s_stormtypes.tostr(self.opts.storm)
 
-            runtprims = await s_stormtypes.toprim(runt.getScopeVars(), use_list=True)
-            runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
+            opts = {
+                'vars': path.vars,
+                'view': view,
+            }
 
-            pathprims = await s_stormtypes.toprim(path.vars, use_list=True)
-            pathvars = {k: v for (k, v) in pathprims.items() if s_msgpack.isok(v)}
-
-            opts = {'vars': runtvars | pathvars}
-
-            view = runt.snap.core.reqView(iden)
             query = await runt.getStormQuery(text)
-            async with await runt.snap.core.snap(user=user, view=view) as snap:
-                async with await Runtime.anit(query, snap, user=user, opts=opts) as subr:
-                    subr.debug = runt.debug
-                    subr.asroot = runt.asroot
-                    subr.readonly = runt.readonly
-
-                    async for item in subr.execute():
-                        await asyncio.sleep(0)
-
-                    runtprims = await s_stormtypes.toprim(subr.getScopeVars(), use_list=True)
-                    for name, valu in runtprims.items():
-                        if s_msgpack.isok(valu):
-                            await runt.setVar(name, valu)
-                            if name in path.vars:
-                                await path.setVar(name, valu)
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
 
             yield node, path
 
         if node is None and self.runtsafe:
-            iden = await s_stormtypes.tostr(self.opts.view)
+            view = await s_stormtypes.tostr(self.opts.view)
             text = await s_stormtypes.tostr(self.opts.storm)
             query = await runt.getStormQuery(text)
 
-            runtprims = await s_stormtypes.toprim(runt.getScopeVars(), use_list=True)
-            runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
-
-            opts = {'vars': runtvars}
-
-            view = runt.snap.core.reqView(iden)
-            query = await runt.getStormQuery(text)
-            async with await runt.snap.core.snap(user=user, view=view) as snap:
-                async with await Runtime.anit(query, snap, user=user, opts=opts) as subr:
-                    subr.debug = runt.debug
-                    subr.asroot = runt.asroot
-                    subr.readonly = runt.readonly
-
-                    async for item in subr.execute():
-                        await asyncio.sleep(0)
-
-                    runtprims = await s_stormtypes.toprim(subr.getScopeVars(), use_list=True)
-                    for name, valu in runtprims.items():
-                        if s_msgpack.isok(valu):
-                            await runt.setVar(name, valu)
+            opts = {'view': view}
+            async with runt.getSubRuntime(query, opts=opts) as subr:
+                async for item in subr.execute():
+                    await asyncio.sleep(0)
 
 class BackgroundCmd(Cmd):
     '''
@@ -5300,7 +5268,7 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
-        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars())
+        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
         opts = {
@@ -6011,8 +5979,6 @@ class RunAsCmd(Cmd):
 
     NOTE: This command requires admin privileges.
 
-    NOTE: Variables are passed through but nodes and heavy objects are not.
-
     Examples:
 
         // Create a node as another user.
@@ -6046,16 +6012,10 @@ class RunAsCmd(Cmd):
             user = await core.auth.reqUserByNameOrIden(user)
             query = await runt.getStormQuery(text)
 
-            runtprims = await s_stormtypes.toprim(runt.getScopeVars(), use_list=True)
-            runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
-
-            pathprims = await s_stormtypes.toprim(path.vars, use_list=True)
-            pathvars = {k: v for (k, v) in pathprims.items() if s_msgpack.isok(v)}
-
-            opts = {'vars': runtvars | pathvars}
+            opts = {'vars': path.vars}
 
             async with await core.snap(user=user, view=runt.snap.view) as snap:
-                async with await Runtime.anit(query, snap, user=user, opts=opts) as subr:
+                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
                     subr.readonly = runt.readonly
 
@@ -6064,13 +6024,6 @@ class RunAsCmd(Cmd):
 
                     async for item in subr.execute():
                         await asyncio.sleep(0)
-
-                    runtprims = await s_stormtypes.toprim(subr.getScopeVars(), use_list=True)
-                    for name, valu in runtprims.items():
-                        if s_msgpack.isok(valu):
-                            await runt.setVar(name, valu)
-                            if name in path.vars:
-                                await path.setVar(name, valu)
 
             yield node, path
 
@@ -6081,13 +6034,10 @@ class RunAsCmd(Cmd):
             query = await runt.getStormQuery(text)
             user = await core.auth.reqUserByNameOrIden(user)
 
-            runtprims = await s_stormtypes.toprim(runt.getScopeVars(), use_list=True)
-            runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
-
-            opts = {'user': user, 'vars': runtvars}
+            opts = {'user': user}
 
             async with await core.snap(user=user, view=runt.snap.view) as snap:
-                async with await Runtime.anit(query, snap, user=user, opts=opts) as subr:
+                async with await Runtime.anit(query, snap, user=user, opts=opts, root=runt) as subr:
                     subr.debug = runt.debug
                     subr.readonly = runt.readonly
 
@@ -6096,11 +6046,6 @@ class RunAsCmd(Cmd):
 
                     async for item in subr.execute():
                         await asyncio.sleep(0)
-
-                    runtprims = await s_stormtypes.toprim(subr.getScopeVars(), use_list=True)
-                    for name, valu in runtprims.items():
-                        if s_msgpack.isok(valu):
-                            await runt.setVar(name, valu)
 
 class IntersectCmd(Cmd):
     '''
