@@ -1102,6 +1102,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.cellparent = parent
         self.sessions = {}
+        self.paused = False
         self.isactive = False
         self.activebase = None
         self.inaugural = False
@@ -4461,6 +4462,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'run': await self.getCellRunId(),
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
+                'paused': self.paused,
                 'active': self.isactive,
                 'started': self.startms,
                 'ready': self.nexsroot.ready.is_set(),
@@ -4932,3 +4934,19 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def freeze(self, timeout=30):
+
+        if self.paused:
+            raise s_exc.Foo()
+
+        await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
+        self.paused = True
+
+        await self.slab.syncLoopOnce()
+
+    async def resume(self):
+        if not self.paused:
+            raise s_exc.Foo()
+
+        self.nexslock.release()
