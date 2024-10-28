@@ -948,27 +948,36 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model = s_datamodel.Model(core=self)
 
+        logger.debug('CORTEX: bumping cortex:extmodel')
+
         await self._bumpCellVers('cortex:extmodel', (
             (1, self._migrateTaxonomyIface),
         ), nexs=False)
 
+        logger.debug('CORTEX: bumping cortex:storage')
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (4, self._storCortexHiveMigration),
         ), nexs=False)
 
+        logger.debug('CORTEX: loading models')
         # Perform module loading
         await self._loadCoreMods()
         await self._loadExtModel()
         await self._initStormCmds()
 
         # Initialize our storage and views
+        logger.debug('CORTEX: init axon')
         await self._initCoreAxon()
+        logger.debug('CORTEX: init jsonstor')
         await self._initJsonStor()
 
+        logger.debug('CORTEX: init layers')
         await self._initCoreLayers()
+        logger.debug('CORTEX: init views')
         await self._initCoreViews()
         self.onfini(self._finiStor)
+        logger.debug('CORTEX: init queues')
         await self._initCoreQueues()
 
         self.addHealthFunc(self._cortexHealth)
@@ -978,10 +987,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormdmondefs = self.cortexdata.getSubKeyVal('storm:dmons:')
         self.stormdmons = await s_storm.DmonManager.anit(self)
         self.onfini(self.stormdmons)
-
+        logger.debug('CORTEX: init agenda')
         self.agenda = await s_agenda.Agenda.anit(self)
         self.onfini(self.agenda)
 
+        logger.debug('CORTEX: init graphs')
         await self._initStormGraphs()
 
         await self._initRuntFuncs()
@@ -991,10 +1001,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.pkgdefs = self.cortexdata.getSubKeyVal('storm:packages:')
         self.svcdefs = self.cortexdata.getSubKeyVal('storm:services:')
 
+        logger.debug('CORTEX: init deprlocks')
         await self._initDeprLocks()
         await self._warnDeprLocks()
 
         # Finalize coremodule loading & give svchive a shot to load
+        logger.debug('CORTEX: init purecmds')
         await self._initPureStormCmds()
 
         self.dynitems.update({
@@ -1021,7 +1033,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
             logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
-
+        logger.debug('CORTEX: init vaults')
         self._initVaults()
 
     async def _storCortexHiveMigration(self):
@@ -1526,14 +1538,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.isactive:
             await self._checkNexsIndx()
 
+        logger.debug('CORTEX: Init coremods')
         await self._initCoreMods()
 
         if self.isactive:
+            logger.debug('CORTEX: check layer models')
             await self._checkLayerModels()
 
+        logger.debug('CORTEX: starting agenda')
         self.addActiveCoro(self.agenda.runloop)
-
+        logger.debug('CORTEX: init dmons')
         await self._initStormDmons()
+        logger.debug('CORTEX: init svcs')
         await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
@@ -1541,7 +1557,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.dmon.share('cortex', self)
 
     async def initServiceActive(self):
-
+        logger.debug('CORTEX: initsvc passive, starting dmons')
         await self.stormdmons.start()
         await self.agenda.clearRunningStatus()
 

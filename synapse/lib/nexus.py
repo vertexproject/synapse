@@ -249,22 +249,29 @@ class NexsRoot(s_base.Base):
             The log can only have recorded 1 entry ahead of what is applied.  All log actions are idempotent, so
             replaying the last action that (might have) already happened is harmless.
         '''
+        logger.debug('NEXUS: In recover()')
         if not self.donexslog:  # pragma: no cover
+            logger.debug('NEXUS: log disabled, no work.')
             return
 
         indxitem = await self.nexslog.last()
         if indxitem is None:
+            logger.debug('NEXUS: new log, no item to replay.')
             # We have a brand new log
             return
 
         try:
+            logger.debug(f'NEXUS: Replaying: {s_common.trimText(repr(indxitem))[:1024]}')
             await self._apply(*indxitem)
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+            logger.exception('NEXUS: cancelled during recover!')
             raise
 
         except Exception:
             logger.exception(f'Exception while replaying log: {s_common.trimText(repr(indxitem))}')
+
+        logger.debug('NEXUS: recover done')
 
     async def addWriteHold(self, reason):
 

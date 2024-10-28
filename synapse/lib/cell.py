@@ -1127,11 +1127,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = f'Free space on {self.dirn} below minimum threshold (currently {free:.2f}%)'
                 raise s_exc.LowSpace(mesg=mesg, dirn=self.dirn)
 
+        logger.debug('CELL: Deleting temp files')
+
         self._delTmpFiles()
 
         if self.conf.get('onboot:optimize'):
             await self._onBootOptimize()
 
+        logger.debug('CELL: Initizliaing cell boot')
         await self._initCellBoot()
 
         # we need to know this pretty early...
@@ -1157,9 +1160,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 fd.write(guid)
 
         # read & lock our guid file
+
+        logger.debug('CELL: Getting guid file')
+
         self._cellguidfd = s_common.genfile(path)
         self.iden = self._cellguidfd.read().decode().strip()
         self._getCellLock()
+
+        logger.debug('CELL: Read and locked guid file.')
 
         backdirn = self.conf.get('backup:dir')
         if backdirn is not None:
@@ -1187,20 +1195,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.conf.get('mirror') and not self.conf.get('nexslog:en'):
             self.modCellConf({'nexslog:en': True})
 
+        logger.debug('CELL: Creating nexus pusher')
         await s_nexus.Pusher.__anit__(self, self.iden)
 
         self._initCertDir()
 
+        logger.debug('CELL: Loading telepath environment')
         await self.enter_context(s_telepath.loadTeleCell(self.dirn))
 
+        logger.debug('CELL: Initializing cell slab')
         await self._initCellSlab(readonly=readonly)
 
         # initialize network daemons (but do not listen yet)
         # to allow registration of callbacks and shared objects
+        logger.debug('CELL: init cellhttp')
         await self._initCellHttp()
+        logger.debug('CELL: init celldmon')
         await self._initCellDmon()
 
+        logger.debug('CELL: init service early')
         await self.initServiceEarly()
+
+        logger.debug('CELL: Initializing nexus root')
 
         nexsroot = await self._ctorNexsRoot()
 
@@ -1232,6 +1248,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.inaugural:
             self.cellinfo.set('nexus:version', NEXUS_VERSION)
 
+        logger.debug('CELL: performing version regression checks')
+
         # Check the cell version didn't regress
         if (lastver := self.cellinfo.get('cell:version')) is not None and self.VERSION < lastver:
             mesg = f'Cell version regression ({self.getCellType()}) is not allowed! Stored version: {lastver}, current version: {self.VERSION}.'
@@ -1246,6 +1264,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.error(mesg)
             raise s_exc.BadVersion(mesg=mesg, currver=s_version.version, lastver=lastver)
 
+        logger.debug('CELL: passed version regression checks')
+
         self.cellinfo.set('synapse:version', s_version.version)
 
         self.nexsvers = self.cellinfo.get('nexus:version', (0, 0))
@@ -1255,6 +1275,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             (2, self._storCellAuthMigration),
         ), nexs=False)
 
+        logger.debug('CELL: init cellauth')
         self.auth = await self._initCellAuth()
 
         auth_passwd = self.conf.get('auth:passwd')
@@ -1262,6 +1283,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             user = await self.auth.getUserByName('root')
 
             if not await user.tryPasswd(auth_passwd, nexs=False, enforce_policy=False):
+                logger.info('Forcing root passwd set')
                 await user.setPasswd(auth_passwd, nexs=False, enforce_policy=False)
 
         self.boss = await s_boss.Boss.anit()
@@ -1280,27 +1302,37 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.addHealthFunc(self._cellHealth)
 
         if self.conf.get('health:sysctl:checks'):
+            logger.debug('CELL: run sysctl loop')
             self.schedCoro(self._runSysctlLoop())
 
         # initialize network backend infrastructure
+        logger.debug('CELL: init aharegistry')
         await self._initAhaRegistry()
 
         # phase 2 - service storage
+        logger.debug('CELL: init cellstorage')
         await self.initCellStorage()
+        logger.debug('CELL: init servicestorage')
         await self.initServiceStorage()
 
         # phase 3 - nexus subsystem
+        logger.debug('CELL: init nexus subsystem')
         await self.initNexusSubsystem()
 
+        logger.debug('CELL: init nexs version')
         await self.configNexsVers()
 
         # We can now do nexus-safe operations
         await self._initInauguralConfig()
 
         # phase 4 - service logic
+        logger.debug('CELL: init serviceRuntime')
         await self.initServiceRuntime()
         # phase 5 - service networking
+        logger.debug('CELL: init service networking')
         await self.initServiceNetwork()
+
+        logger.debug('CELL: done booting cell')
 
     async def _storCellHiveMigration(self):
         logger.warning(f'migrating Cell ({self.getCellType()}) info out of hive')
@@ -3410,6 +3442,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _initInauguralConfig(self):
         if self.inaugural:
+            logger.debug('CELL: init inaugural config')
             icfg = self.conf.get('inaugural')
             if icfg is not None:
 
