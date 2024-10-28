@@ -13,7 +13,10 @@ logger = logging.getLogger(__name__)
 desc = '''
 Command line tool to freeze/resume service operations to allow
 system admins to generate a transactionally consistent volume
-snapshot using 3rd party tools.
+snapshot using 3rd party tools.'''
+
+# FIXME: how do i get this in the right spot?
+help = '''
 
 The use pattern should be::
 
