@@ -61,12 +61,16 @@ class Drive(s_base.Base):
 
         return [reqValidName(p.strip().lower()) for p in path]
 
-    def getItemInfo(self, iden, typename=None):
-        info = self._getItemInfo(s_common.uhex(iden))
-        if typename is not None and info.get('type') != typename:
-            infotype = info.get('type')
+    def _reqInfoType(self, info, typename):
+        infotype = info.get('type')
+        if infotype != typename:
             mesg = f'Drive item has the wrong type. Expected: {typename} got {infotype}.'
             raise s_exc.TypeMismatch(mesg=mesg)
+
+    def getItemInfo(self, iden, typename=None):
+        info = self._getItemInfo(s_common.uhex(iden))
+        if typename is not None:
+            self._reqInfoType(info, typename)
         return info
 
     def _getItemInfo(self, bidn):
@@ -83,8 +87,8 @@ class Drive(s_base.Base):
             mesg = f'No drive item with ID {s_common.ehex(bidn)}.'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        if typename is not None and info.get('type') != typename:
-            raise s_exc.SynErr(mesg='Drive item has the wrong type.')
+        if typename is not None:
+            self._reqInfoType(info, typename)
 
         return info
 
@@ -521,7 +525,7 @@ class Drive(s_base.Base):
                     return False
 
                 if vers < curv:
-                    mesg = 'Cannot downgrade drive schema version.'
+                    mesg = f'Cannot downgrade drive schema version for type {typename}.'
                     raise s_exc.BadVersion(mesg=mesg)
 
         vtor = s_config.getJsValidator(schema)
