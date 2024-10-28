@@ -208,7 +208,12 @@ class CellTest(s_t_utils.SynTest):
 
             # TODO how to handle iden match with additional property mismatch
 
-            await cell.drive.setTypeSchema('woot', testDataSchema_v0)
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=(0, 0, 0)))
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=(1, 0, 0)))
+            self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=(1, 0, 0)))
+
+            with self.raises(s_exc.BadVersion):
+                await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=(0, 0, 0))
 
             info = {'name': 'win32k.sys', 'type': 'woot'}
             info = await cell.addDriveItem(info, reldir=rootdir)
@@ -283,6 +288,12 @@ class CellTest(s_t_utils.SynTest):
 
             versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
             self.eq('woot', data.get('woot'))
+
+            with self.raises(s_exc.NoSuchIden):
+                await cell.reqDriveInfo('d7d6107b200e2c039540fc627bc5537d')
+
+            with self.raises(s_exc.TypeMismatch):
+                await cell.getDriveInfo(iden, typename='newp')
 
             self.nn(await cell.getDriveInfo(iden))
             self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])

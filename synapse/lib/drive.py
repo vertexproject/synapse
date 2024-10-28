@@ -64,7 +64,9 @@ class Drive(s_base.Base):
     def getItemInfo(self, iden, typename=None):
         info = self._getItemInfo(s_common.uhex(iden))
         if typename is not None and info.get('type') != typename:
-            raise s_exc.SynErr(mesg='Drive item has the wrong type.')
+            infotype = info.get('type')
+            mesg = f'Drive item has the wrong type. Expected: {typename} got {infotype}.'
+            raise s_exc.TypeMismatch(mesg=mesg)
         return info
 
     def _getItemInfo(self, bidn):
@@ -501,16 +503,26 @@ class Drive(s_base.Base):
         if byts is not None:
             return s_msgpack.un(byts)
 
+    def getTypeSchemaVersion(self, typename):
+        verskey = LKEY_TYPE_VERS + typename.encode()
+        byts = self.slab.get(verskey, db=self.dbname)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
     async def setTypeSchema(self, typename, schema, callback=None, vers=None):
 
         reqValidName(typename)
 
         if vers is not None:
-            verskey = LKEY_TYPE_VERS + typename.encode()
-            byts = self.slab.get(verskey, db=self.dbname)
-            if byts is not None:
-                if s_msgpack.un(byts) == vers:
-                    return
+            vers = (int(vers[0]), int(vers[1]), int(vers[2]))
+            curv = self.getTypeSchemaVersion(typename)
+            if curv is not None:
+                if vers == curv:
+                    return False
+
+                if vers < curv:
+                    mesg = 'Cannot downgrade drive schema version.'
+                    raise s_exc.BadVersion(mesg=mesg)
 
         vtor = s_config.getJsValidator(schema)
 
@@ -521,6 +533,7 @@ class Drive(s_base.Base):
         self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
 
         if vers is not None:
+            verskey = LKEY_TYPE_VERS + typename.encode()
             self.slab.put(verskey, s_msgpack.en(vers), db=self.dbname)
 
         if callback is not None:
@@ -533,6 +546,7 @@ class Drive(s_base.Base):
                     vtor(data)
                     self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
+        return True
 
     async def getItemsByType(self, typename):
         tkey = typename.encode() + b'\x00'
