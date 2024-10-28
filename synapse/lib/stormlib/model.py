@@ -1032,13 +1032,15 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                   'args': (
                       {'name': 'form', 'type': 'form', 'default': None,
                        'desc': 'Only show entries matching the specified form.'},
+                      {'name': 'source', 'type': 'str', 'default': None,
+                       'desc': 'Only show entries that were seen by the specified source.'},
                       {'name': 'offset', 'type': 'int', 'default': 0,
                        'desc': 'Skip this many entries.'},
                       {'name': 'size', 'type': 'int', 'default': None,
                        'desc': 'Only print up to this many entries.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
-                              'desc': 'A tuple of (offset, form, valu) values for the specified node.', }}},
+                              'desc': 'A tuple of (offset, form, valu, sources) values for the specified node.', }}},
         {'name': 'printNode', 'desc': 'Print detailed queued node information.',
          'type': {'type': 'function', '_funcname': '_methPrintNode',
                   'args': (
@@ -1064,8 +1066,9 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             'repairNode': self._methRepairNode,
         }
 
-    async def _methListNodes(self, form=None, offset=0, size=None):
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
         form = await s_stormtypes.tostr(form, noneok=True)
+        source = await s_stormtypes.tostr(source, noneok=True)
         offset = await s_stormtypes.toint(offset)
         size = await s_stormtypes.toint(size, noneok=True)
 
@@ -1073,7 +1076,11 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         async for offs, node in nodes:
             if form is not None and node['formname'] != form:
                 continue
-            yield (offs, node['formname'], node['formvalu'])
+
+            if source is not None and source not in node['sources']:
+                continue
+
+            yield (offs, node['formname'], node['formvalu'], node['sources'])
 
     async def _methPrintNode(self, offset):
         offset = await s_stormtypes.toint(offset)
@@ -1315,3 +1322,5 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         if ok and remove:
             await self.runt.printf(f'Removing queued node: {offset}.')
             await self._removeNode(offset)
+
+        return ok

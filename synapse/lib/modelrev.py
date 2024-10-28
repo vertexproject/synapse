@@ -1259,8 +1259,6 @@ class ModelMigration_0_2_31:
     # NOTE: For the edit* functions below, we only need precise state tracking for nodes and properties. Don't precisely
     # track the rest.
     async def editNodeAdd(self, layriden, buid, formname, formvalu, stortype):
-        # logger.debug(f'Adding node: {formname}={repr(formvalu)}, {layriden=}, {buid=}')
-
         if not self.nodes.has(buid):
 
             node = {
@@ -1280,7 +1278,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editPropSet(self, layriden, buid, formname, propname, newvalu, oldvalu, stortype):
-        # logger.debug(f'Setting prop: {formname}:{propname}={newvalu} (was {oldvalu})')
         assert self.nodes.has(buid)
         node = self.getNode(buid)
 
@@ -1303,7 +1300,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editTagSet(self, layriden, buid, formname, tagname, newvalu, oldvalu):
-        # logger.debug(f'Adding tag: {formname}#{tagname}={repr(newvalu)}, {layriden=}')
         await self._queueEdit(layriden,
             (buid, formname, (
                 (s_layer.EDIT_TAG_SET, (tagname, newvalu, oldvalu), ()),
@@ -1311,7 +1307,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editTagpropSet(self, layriden, buid, formname, tagname, propname, newvalu, oldvalu, stortype):
-        # logger.debug(f'Adding tagprop: {formname}#{tagname}:{propname}={repr(newvalu)}, {layriden=}')
         await self._queueEdit(layriden,
             (buid, formname, (
                 (s_layer.EDIT_TAGPROP_SET, (tagname, propname, newvalu, oldvalu, stortype), ()),
@@ -1319,7 +1314,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editNodedataSet(self, layriden, buid, formname, name, newvalu, oldvalu):
-        # logger.debug(f'Adding nodedata: {formname} {name}={newvalu}, {layriden=}')
         await self._queueEdit(layriden,
             (buid, formname, (
                 (s_layer.EDIT_NODEDATA_SET, (name, newvalu, oldvalu), ()),
@@ -1327,7 +1321,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editEdgeAdd(self, layriden, buid, formname, verb, iden):
-        # logger.debug(f'Adding edge: {s_common.ehex(buid)} -({verb})> {iden}, {layriden=}')
         await self._queueEdit(layriden,
             (buid, formname, (
                 (s_layer.EDIT_EDGE_ADD, (verb, iden), ()),
@@ -1335,7 +1328,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editNodeDel(self, layriden, buid, formname, formvalu):
-        # logger.debug(f'Deleting node: {formname}={repr(formvalu)}, {layriden=}, {buid=}')
         assert self.nodes.has(buid)
         node = self.nodes.pop(buid)
 
@@ -1347,7 +1339,6 @@ class ModelMigration_0_2_31:
             )
 
     async def editPropDel(self, layriden, buid, formname, propname, propvalu, stortype):
-        # logger.debug(f'Deleting prop: {formname}:{propname}={propvalu}')
         assert self.nodes.has(buid)
         node = self.getNode(buid)
 
@@ -1367,7 +1358,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editTagDel(self, layriden, buid, formname, tagname, tagvalu):
-        # logger.debug(f'Deleting tag: {formname}#{tagname}={repr(tagvalu)}, {layriden=}')
         await self._queueEdit(layriden,
             (buid, formname, (
                 (s_layer.EDIT_TAG_DEL, (tagname, tagvalu), ()),
@@ -1375,7 +1365,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editTagpropDel(self, layriden, buid, formname, tagname, propname, propvalu, stortype):
-        # logger.debug(f'Deleting tagprop: {formname}#{tagname}:{propname}={repr(propvalu)}, {layriden=}')
         await self._queueEdit(layriden,
             (buid, formname, (
                 (s_layer.EDIT_TAGPROP_DEL, (tagname, propname, propvalu, stortype), ()),
@@ -1383,7 +1372,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editNodedataDel(self, layriden, buid, formname, name, valu):
-        # logger.debug(f'Deleting nodedata: {formname} {name}={valu}, {layriden=}')
         await self._queueEdit(layriden,
             (buid, formname, (
                 (s_layer.EDIT_NODEDATA_DEL, (name, valu), ()),
@@ -1391,7 +1379,6 @@ class ModelMigration_0_2_31:
         )
 
     async def editEdgeDel(self, layriden, buid, formname, verb, iden):
-        # logger.debug(f'Deleting edge: -({verb})> {iden}, {layriden=}')
         await self._queueEdit(layriden,
             (buid, formname, (
                 (s_layer.EDIT_EDGE_DEL, (verb, iden), ()),
@@ -1406,6 +1393,7 @@ class ModelMigration_0_2_31:
             node.setdefault('layers', [])
             node.setdefault('n1edges', {})
             node.setdefault('n2edges', {})
+            node.setdefault('verdict', None)
             node.setdefault('nodedata', {})
         return node
 
@@ -1541,6 +1529,9 @@ class ModelMigration_0_2_31:
 
         # Collect sources, direct references, second-degree references, etc.
         while len(self.todos):
+            # Copy the list of todos and then clear the original list. This makes it so we will process all the todos
+            # but we can add new todos (that will iterate over all the layers) below to gather supporting data as
+            # needed.
             todotmp = await self.todos.copy()
             await self.todos.clear()
 

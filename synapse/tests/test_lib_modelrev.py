@@ -1478,8 +1478,10 @@ class ModelRevTest(s_tests.SynTest):
 
                     q = '''
                         $ret = ([])
-                        for ($offs, $form, $valu) in $lib.model.migration.s.model_0_2_31.listNodes() {
-                            $ret.append(($form, $valu))
+                        for ($offs, $form, $valu, $sources) in $lib.model.migration.s.model_0_2_31.listNodes() {
+                            $srcs = ([])
+                            for $src in $lib.sorted($sources) { $srcs.append($src) }
+                            $ret.append(($form, $valu, $srcs))
                         }
                         return($ret)
                     '''
@@ -1488,77 +1490,104 @@ class ModelRevTest(s_tests.SynTest):
                         ('meta:seen', (
                                 '008af0047a8350287cde7abe31a7c706',
                                 ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                         ('meta:seen', (
                                 'a7a4739e0a52674df0fa3a8226de0c3f',
                                 ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                         ('meta:seen', (
                                 '008af0047a8350287cde7abe31a7c706',
                                 ('it:sec:cpe', 'cpe:2.3:a:%40ianwalter:merge:*:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                         ('meta:seen', (
                                 'a7a4739e0a52674df0fa3a8226de0c3f',
                                 ('it:sec:cpe', 'cpe:2.3:a:%40ianwalter:merge:*:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                         ('meta:seen', (
                                 'a7a4739e0a52674df0fa3a8226de0c3f',
                                 ('it:sec:cpe', 'cpe:2.3:h:d\\-link:dir\\-850l:*:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                         ('meta:seen', (
                                 'a7a4739e0a52674df0fa3a8226de0c3f',
                                 ('it:sec:cpe', 'cpe:2.3:a:acurax:under_construction_%2f_maintenance_mode:-::~~~wordpress~~:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
-                        ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'),
+                        ('it:sec:cpe',
+                         'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*',
+                         tuple(sorted((source22, source23))),
+                        ),
                         ('meta:seen', (
                                 'a7a4739e0a52674df0fa3a8226de0c3f',
                                 ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                         ('meta:seen', (
                                 '008af0047a8350287cde7abe31a7c706',
                                 ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                         ('meta:seen', (
                                 'a7a4739e0a52674df0fa3a8226de0c3f',
                                 ('it:sec:cpe', 'cpe:2.3:a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                         ('meta:seen', (
                                 'a7a4739e0a52674df0fa3a8226de0c3f',
                                 ('it:sec:cpe', 'cpe:2.3:o:zyxel:nas326_firmware:5.21%28aazf.14%29c0:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         ),
                     ]
                     for item in expected:
                         self.isin(item, nodelist)
 
-                    cpeidx = nodelist.index(('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'))
+                    cpeidx = nodelist.index(
+                        ('it:sec:cpe',
+                         'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*',
+                         tuple(sorted((source22, source23)))
+                        )
+                    )
                     metaidx = nodelist.index(
                         ('meta:seen', (
                                 'a7a4739e0a52674df0fa3a8226de0c3f',
                                 ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*')
-                            )
+                            ),
+                         (),
                         )
                     )
 
                     q = '''
                         $ret = ([])
-                        for ($offs, $form, $valu) in $lib.model.migration.s.model_0_2_31.listNodes(form=it:sec:cpe) {
-                            $ret.append(($form, $valu))
+                        for ($offs, $form, $valu, $sources) in $lib.model.migration.s.model_0_2_31.listNodes(form=it:sec:cpe, source=$source22) {
+                            $srcs = ([])
+                            for $src in $lib.sorted($sources) { $srcs.append($src) }
+                            $ret.append(($form, $valu, $srcs))
                         }
                         return($ret)
                     '''
-                    nodelist = await core.callStorm(q)
+                    opts = {'vars': {'source22': source22}}
+                    nodelist = await core.callStorm(q, opts=opts)
                     self.len(1, nodelist)
-                    self.eq(nodelist[0], ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*'))
+                    self.eq(nodelist[0],
+                        ('it:sec:cpe',
+                         'cpe:2.3:a:openbsd:openssh:8.2p1 ubuntu-4ubuntu0.2:*:*:*:*:*:*:*',
+                         tuple(sorted((source22, source23))),
+                        ),
+                    )
 
                     msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.printNode((200))')
                     self.stormIsInWarn('Queued node with offset 200 not found.', msgs)
