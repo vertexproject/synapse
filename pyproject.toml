@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.184.0'
+version = '2.185.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -67,15 +67,10 @@ dev = [
     'coverage>=7.0.0,<8.0.0',
 ]
 docs = [
-    'nbconvert>=7.3.1,<8.0.0',
-    'jupyter-client<=8.2.0',
-    'jupyter>=1.0.0,<2.0.0',
-    'hide-code>=0.7.0,<0.8.0',
-    'nbstripout>=0.3.3,<1.0.0',
-    'sphinx>=6.2.0,<7.0.0',
-    'sphinx-rtd-theme>=1.0.0,<2.0.0',
-    'sphinx-notfound-page==0.8.3',
-    'jinja2<3.1.0',
+    'sphinx>=8.0.0,<9.0.0',
+    'sphinx-rtd-theme>=3.0.0,<4.0.0',
+    'sphinx-notfound-page>=1.0.4,<2.0.0',
+    'jinja2>=3.1.4,<4.0.0',
 ]
 
 [project.urls]
