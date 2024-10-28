@@ -206,6 +206,14 @@ class CellApi(s_base.Base):
     async def initCellApi(self):
         pass
 
+    @adminapi()
+    async def freeze(self, timeout=30):
+        return await self.cell.freeze(timeout=timeout)
+
+    @adminapi()
+    async def resume(self):
+        return await self.cell.resume()
+
     async def allowed(self, perm, default=None):
         '''
         Check if the user has the requested permission.
@@ -4938,7 +4946,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def freeze(self, timeout=30):
 
         if self.paused:
-            raise s_exc.Foo()
+            mesg = 'The service is already frozen.'
+            raise s_exc.BadState(mesg=mesg)
 
         await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
         self.paused = True
@@ -4946,8 +4955,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.slab.syncLoopOnce()
 
     async def resume(self):
+
         if not self.paused:
-            raise s_exc.Foo()
+            mesg = 'The service is not frozen.'
+            raise s_exc.BadState(mesg=mesg)
 
         self.paused = False
         self.nexslock.release()
