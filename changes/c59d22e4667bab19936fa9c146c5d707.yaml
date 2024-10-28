@@ -1,0 +1,5 @@
+---
+desc: Added ``risk:tool:software:id`` to model an ID for a tool.
+prs: []
+type: model
+...

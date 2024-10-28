@@ -2056,9 +2056,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     continue
 
                 if not regex.fullmatch(regx[i], parts[i]):
-                    return False
+                    mesg = f'Tag part ({parts[i]}) of tag ({tagname}) does not match the tag model regex: [{regx[i]}]'
+                    return (False, mesg)
 
-        return True
+        return (True, None)
 
     async def getTagPrune(self, tagname):
         return self.tagprune.get(tagname)
