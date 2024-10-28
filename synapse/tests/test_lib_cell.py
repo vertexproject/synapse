@@ -3027,7 +3027,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(users, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.users.list())'))))
                 self.eq(gates, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.gates.list())'))))
 
-                with self.raises(s_exc.BadTag):
+                with self.raises(s_exc.BadTypeValu):
                     await core.nodes('[ it:dev:str=foo +#test.newp ]')
 
         stream.seek(0)
