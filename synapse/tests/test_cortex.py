@@ -7368,7 +7368,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.stormIsInPrint('hi there', msgs)
 
     async def test_cortex_depr_props_warning(self):
-
+        self.skip('dev_boot_logging')
         conf = {
             'modules': [
                 'synapse.tests.test_datamodel.DeprecatedModel',

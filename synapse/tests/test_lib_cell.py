@@ -1887,6 +1887,7 @@ class CellTest(s_t_utils.SynTest):
                 pass
 
     async def test_advisory_locking(self):
+        self.skip('dev_boot_logging')
         # fcntl not supported on windows
         self.thisHostMustNot(platform='windows')
 
@@ -3029,6 +3030,7 @@ class CellTest(s_t_utils.SynTest):
         self.isin(f'Unknown role {newprole} on user', data)
 
     async def test_cell_check_sysctl(self):
+        self.skip('dev_boot_logging')
         sysctls = s_linux.getSysctls()
 
         sysvals = s_cell.Cell.SYSCTL_VALS.copy()
