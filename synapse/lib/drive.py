@@ -514,7 +514,7 @@ class Drive(s_base.Base):
         reqValidName(typename)
 
         if vers is not None:
-            vers = (int(vers[0]), int(vers[1]), int(vers[2]))
+            vers = int(vers)
             curv = self.getTypeSchemaVersion(typename)
             if curv is not None:
                 if vers == curv:

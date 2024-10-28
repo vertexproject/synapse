@@ -208,12 +208,12 @@ class CellTest(s_t_utils.SynTest):
 
             # TODO how to handle iden match with additional property mismatch
 
-            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=(0, 0, 0)))
-            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=(1, 0, 0)))
-            self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=(1, 0, 0)))
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0))
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+            self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
 
             with self.raises(s_exc.BadVersion):
-                await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=(0, 0, 0))
+                await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
 
             info = {'name': 'win32k.sys', 'type': 'woot'}
             info = await cell.addDriveItem(info, reldir=rootdir)
