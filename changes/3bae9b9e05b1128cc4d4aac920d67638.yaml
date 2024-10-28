@@ -1,6 +1,0 @@
----
-desc: Added ``storm.lib.stix.export.maxsize`` permission to allow STIX export configurations 
-  to set maxsize > 10,000.
-prs: []
-type: feat
-...
