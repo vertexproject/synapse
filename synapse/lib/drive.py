@@ -65,7 +65,7 @@ class Drive(s_base.Base):
         infotype = info.get('type')
         if infotype != typename:
             mesg = f'Drive item has the wrong type. Expected: {typename} got {infotype}.'
-            raise s_exc.TypeMismatch(mesg=mesg)
+            raise s_exc.TypeMismatch(mesg=mesg, expected=typename, got=infotype)
 
     def getItemInfo(self, iden, typename=None):
         info = self._getItemInfo(s_common.uhex(iden))
