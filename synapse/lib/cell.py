@@ -4949,4 +4949,5 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not self.paused:
             raise s_exc.Foo()
 
+        self.paused = False
         self.nexslock.release()
