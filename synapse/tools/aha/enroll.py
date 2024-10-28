@@ -21,7 +21,9 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='provision', description=descr)
+    pars = argparse.ArgumentParser(prog='provision', description=descr,
+                        formatter_class=argparse.RawDescriptionHelpFormatter)
+
     pars.add_argument('onceurl', help='The one-time use AHA user enrollment URL.')
     opts = pars.parse_args(argv)
 

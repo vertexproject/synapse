@@ -13,10 +13,7 @@ logger = logging.getLogger(__name__)
 desc = '''
 Command line tool to freeze/resume service operations to allow
 system admins to generate a transactionally consistent volume
-snapshot using 3rd party tools.'''
-
-# FIXME: how do i get this in the right spot?
-help = '''
+snapshot using 3rd party tools.
 
 The use pattern should be::
 
@@ -31,7 +28,10 @@ The tool will set the process exit code to 0 on success.
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser('synapse.tools.snapshot', description=desc)
+    pars = argparse.ArgumentParser('synapse.tools.snapshot',
+                        description=desc,
+                        formatter_class=argparse.RawDescriptionHelpFormatter)
+
     subs = pars.add_subparsers(required=True, title='commands', dest='cmd')
 
     freeze = subs.add_parser('freeze', help='Suspend edits and sync changes to disk.')
