@@ -208,6 +208,10 @@ class CellApi(s_base.Base):
         pass
 
     @adminapi(log=True)
+    async def sleep(self, n=0, friendly=True):
+        await self.cell.sleep(n=n, friendly=friendly)
+
+    @adminapi(log=True)
     async def freeze(self, timeout=30):
         return await self.cell.freeze(timeout=timeout)
 
@@ -1343,6 +1347,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.initServiceNetwork()
 
         logger.debug('CELL: done booting cell')
+
+    async def sleep(self, n=0, friendly=True):
+        logger.info(f'Sleeping {n=} {friendly=}')
+        if friendly:
+            await asyncio.sleep(n)
+        else:
+            time.sleep(n)
+        logger.info('Done sleeping.')
+        return True
 
     async def _storCellHiveMigration(self):
         logger.warning(f'migrating Cell ({self.getCellType()}) info out of hive')
