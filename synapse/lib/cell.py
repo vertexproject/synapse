@@ -4962,8 +4962,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.slab.syncLoopOnce()
 
             logger.warning('...flushing dirty buffers to disk.')
-
             await s_task.executor(os.sync)
+
             logger.warning('...done!')
 
         except Exception: # pragma: no cover
