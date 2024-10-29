@@ -4962,7 +4962,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         except asyncio.TimeoutError:
             logger.warning('...nexus lock acquire timed out!')
-            logger.warning('Aboring freeze and resuming normal operation.')
+            logger.warning('Aborting freeze and resuming normal operation.')
 
             mesg = 'Nexus lock aqcuire timed out.'
             raise s_exc.TimeOut(mesg=mesg)
