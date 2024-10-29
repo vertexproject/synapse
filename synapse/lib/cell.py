@@ -4966,7 +4966,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             logger.warning('...done!')
 
-        except Exception: # pragma: no cover
+        except Exception:
             self.paused = False
             self.nexslock.release()
             raise
