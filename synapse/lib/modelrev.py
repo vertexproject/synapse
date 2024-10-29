@@ -1226,11 +1226,8 @@ class ModelMigration_0_2_31:
         self.core.onfini(self.nodes)
         self.core.onfini(self.todos)
 
-        queues = await self.core.listCoreQueues()
-        queues = {k['name']: k for k in queues}
-
-        if queues.get('model_0_2_31:nodes') is None:
-            await self.core.addCoreQueue('model_0_2_31:nodes', {})
+        qnames = [k['name'] for k in await self.core.listCoreQueues()]
+        self.hasq = 'model_0_2_31:nodes' in qnames
 
         return self
 
@@ -1786,6 +1783,10 @@ class ModelMigration_0_2_31:
                 item['sodes'][layriden]['props'] = props
             else:
                 item['sodes'][layriden].pop('props')
+
+        if not self.hasq:
+            await self.core.addCoreQueue('model_0_2_31:nodes', {})
+            self.hasq = True
 
         await self.core.coreQueuePuts('model_0_2_31:nodes', (item,))
 

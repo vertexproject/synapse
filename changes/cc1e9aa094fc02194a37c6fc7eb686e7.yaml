@@ -1,5 +1,9 @@
 ---
-desc: Migrate invalid ``it:sec:cpe`` nodes if possible. Migration of these nodes
+desc: WARNING: It is strongly advised to perform a backup before upgrading to or
+  above this version. The ``it:sec:cpe`` migration described below WILL remove
+  invalid ``it:sec:cpe`` and some associated nodes from the Cortex.
+
+  Migrate invalid ``it:sec:cpe`` nodes if possible. Migration of these nodes
   will only be successful if one of the CPE 2.3 (primary property) or the CPE
   2.2 (``:v2_2``) strings are valid CPEs.  If both CPE strings are invalid, the
   node will be removed from the cortex and stored in a queue

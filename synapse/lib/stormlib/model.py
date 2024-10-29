@@ -1066,11 +1066,20 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             'repairNode': self._methRepairNode,
         }
 
+    async def _hasCoreQueue(self, name):
+        queues = await self.runt.snap.core.listCoreQueues()
+        queues = [k['name'] for k in queues]
+        return name in queues
+
     async def _methListNodes(self, form=None, source=None, offset=0, size=None):
         form = await s_stormtypes.tostr(form, noneok=True)
         source = await s_stormtypes.tostr(source, noneok=True)
         offset = await s_stormtypes.toint(offset)
         size = await s_stormtypes.toint(size, noneok=True)
+
+        if not await self._hasCoreQueue('model_0_2_31:nodes'):
+            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to list.')
+            return
 
         nodes = self.runt.snap.core.coreQueueGets('model_0_2_31:nodes', offs=offset, cull=False, size=size)
         async for offs, node in nodes:
@@ -1084,6 +1093,11 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
     async def _methPrintNode(self, offset):
         offset = await s_stormtypes.toint(offset)
+
+        if not await self._hasCoreQueue('model_0_2_31:nodes'):
+            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to print.')
+            return
+
         node = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes', offs=offset, cull=False)
         if not node:
             await self.runt.warn(f'Queued node with offset {offset} not found.')
@@ -1144,12 +1158,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
             for verb, iden, n2form in edges:
                 await self.runt.printf(f'    <({verb})- {iden}')
 
-    async def _removeNode(self, offset):
-        offset = await s_stormtypes.toint(offset)
-        await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
-
     async def _repairNode(self, offset, newvalu):
-
         item = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes', offset, cull=False)
         if item is None:
             await self.runt.warn(f'Queued node with offset {offset} not found.')
@@ -1313,6 +1322,10 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
     async def _methRepairNode(self, offset, newvalu, remove=False):
         ok = False
 
+        if not await self._hasCoreQueue('model_0_2_31:nodes'):
+            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to repair.')
+            return False
+
         try:
             ok = await self._repairNode(offset, newvalu)
         except s_exc.SynErr as exc: # pragma: no cover
@@ -1321,6 +1334,6 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
 
         if ok and remove:
             await self.runt.printf(f'Removing queued node: {offset}.')
-            await self._removeNode(offset)
+            await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
 
         return ok

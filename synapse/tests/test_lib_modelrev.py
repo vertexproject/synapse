@@ -704,6 +704,21 @@ class ModelRevTest(s_tests.SynTest):
             nodes = await core.nodes('it:sec:vuln:scan:result', opts=infork01)
             self.len(13, nodes)
 
+            # Do some error checking before the queue is created
+            q = '''
+                for $entry in $lib.model.migration.s.model_0_2_31.listNodes() {
+                    $lib.print(`ENTRY: {$entry}`)
+                }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('Queue model_0_2_31:nodes not found, no nodes to list.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.printNode((0))')
+            self.stormIsInPrint('Queue model_0_2_31:nodes not found, no nodes to print.', msgs)
+
+            msgs = await core.stormlist('$lib.model.migration.s.model_0_2_31.repairNode((0), newp)')
+            self.stormIsInPrint('Queue model_0_2_31:nodes not found, no nodes to repair.', msgs)
+
         async with self.getRegrCore('model-cpe-migration') as core:
 
             views = {view.info.get('name'): view for view in core.listViews()}
