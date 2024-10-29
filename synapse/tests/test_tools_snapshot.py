@@ -18,3 +18,7 @@ class PromoteToolTest(s_t_utils.SynTest):
             self.eq(0, await s_tools_snapshot.main(('resume', '--svcurl', lurl)))
             self.false(core.paused)
             self.eq(1, await s_tools_snapshot.main(('resume', '--svcurl', lurl)))
+
+            async with core.nexslock:
+                argv = ('freeze', '--svcurl', lurl, '--timeout', '1')
+                self.eq(1, await s_tools_snapshot.main(argv))
