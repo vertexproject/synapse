@@ -18,12 +18,15 @@ Example (being run from a Cortex mirror docker container):
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.promote',
-                        description=descr,
+    pars = argparse.ArgumentParser(prog='synapse.tools.promote', description=descr,
                         formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    pars.add_argument('--svcurl', default='cell:///vertex/storage', help='The telepath URL of the Synapse service.')
-    pars.add_argument('--failure', default=False, action='store_true', help='Promotion is due to leader being offline. Graceful handoff is not possible.')
+    pars.add_argument('--svcurl', default='cell:///vertex/storage',
+                      help='The telepath URL of the Synapse service.')
+
+    pars.add_argument('--failure', default=False, action='store_true',
+                      help='Promotion is due to leader being offline. Graceful handoff is not possible.')
+
     # TODO pars.add_argument('--timeout', type=float, default=30.0, help='The maximum timeout to wait for the mirror to catch up.')
 
     opts = pars.parse_args(argv)
