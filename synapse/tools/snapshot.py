@@ -37,6 +37,7 @@ async def main(argv, outp=s_output.stdout):
     freeze = subs.add_parser('freeze', help='Suspend edits and sync changes to disk.')
     freeze.add_argument('--timeout', type=int, default=120,
                         help='Maximum time to wait for the nexus lock.')
+
     freeze.add_argument('--svcurl', default='cell:///vertex/storage',
                         help='The telepath URL of the Synapse service.')
 
