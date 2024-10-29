@@ -1777,8 +1777,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
-    async def getDriveInfo(self, iden):
-        return self.drive.getItemInfo(iden)
+    async def getDriveInfo(self, iden, typename=None):
+        return self.drive.getItemInfo(iden, typename=typename)
+
+    def reqDriveInfo(self, iden, typename=None):
+        return self.drive.reqItemInfo(iden, typename=typename)
 
     async def getDrivePath(self, path, reldir=s_drive.rootdir):
         '''
