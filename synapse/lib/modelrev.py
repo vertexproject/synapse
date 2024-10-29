@@ -1596,6 +1596,7 @@ class ModelMigration_0_2_31:
 
         logger.info(f'Migrating/removing {invalid} invalid it:sec:cpe nodes')
 
+        count = 0
         removed = 0
         migrated = 0
         for buid, node in self.nodes.items():
