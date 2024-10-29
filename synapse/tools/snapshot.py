@@ -61,7 +61,8 @@ async def main(argv, outp=s_output.stdout):
                     return 0
 
     except s_exc.SynErr as e:
-        logger.error(f'ERROR: {repr(e)}')
+        mesg = e.errinfo.get('mesg')
+        outp.printf(f'ERROR {e.__class__.__name__}: {mesg}')
         return 1
 
 if __name__ == '__main__':  # pragma: no cover

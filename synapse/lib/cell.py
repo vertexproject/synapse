@@ -4960,7 +4960,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         try:
             await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
 
-        except asyncio.Timeout:
+        except asyncio.TimeoutError:
             logger.warning('...nexus lock acquire timed out!')
             logger.warning('Aboring freeze and resuming normal operation.')
 
