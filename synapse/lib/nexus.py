@@ -462,6 +462,7 @@ class NexsRoot(s_base.Base):
 
         mirurl = self.cell.conf.get('mirror')
 
+        logger.info('NEXUS: Setting nexus ready....')
         await self.setNexsReady(mirurl is None)
 
         if mirurl is not None:
@@ -595,15 +596,20 @@ class NexsRoot(s_base.Base):
 
     async def _tellAhaReady(self, status):
 
+        logger.info('NEXUS: _tellAhaReady')
         if self.cell.ahaclient is None:
             return
 
         try:
+            logger.info('NEXUS: waiting for cell client to be ready')
             await self.cell.ahaclient.waitready(timeout=5)
+            logger.info('NEXUS: waiting for aha client proxy')
             proxy = await self.cell.ahaclient.proxy(timeout=5)
+            logger.info('NEXUS: calling aha getCellInfo()')
             ahainfo = await proxy.getCellInfo()
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
+                logger.info('NEXUS: calling into aha getCellInfo for set the service as ready.')
                 await proxy.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
@@ -611,6 +617,8 @@ class NexsRoot(s_base.Base):
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error trying to set aha ready: {status}')
+
+        logger.info('NEXUS: Done with _tellAhaReady')
 
 class Pusher(s_base.Base, metaclass=RegMethType):
     '''

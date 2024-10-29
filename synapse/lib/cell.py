@@ -1903,10 +1903,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initNexusSubsystem(self):
         if self.cellparent is None:
             await self.nexsroot.recover()
+            logger.debug('CELL: Calling nexusstartup()')
             await self.nexsroot.startup()
+            logger.debug('CELL: Setting cell to active')
             await self.setCellActive(self.conf.get('mirror') is None)
 
             if self.minfree is not None:
+                logger.debug('CELL: running frespace loop')
                 self.schedCoro(self._runFreeSpaceLoop())
 
     async def _bindDmonListen(self):

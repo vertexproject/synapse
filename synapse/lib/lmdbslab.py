@@ -1125,6 +1125,8 @@ class Slab(s_base.Base):
             except Exception as e:
                 logger.exception(f'Error during slab resize callback - {str(e)}')
 
+        logger.info('lmdbslab %s completed map resize to: %d MiB', self.path, mapsize // s_const.mebibyte)
+
         return self.mapsize
 
     def _memorylockloop(self):
