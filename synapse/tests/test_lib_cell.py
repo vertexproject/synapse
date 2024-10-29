@@ -208,7 +208,12 @@ class CellTest(s_t_utils.SynTest):
 
             # TODO how to handle iden match with additional property mismatch
 
-            await cell.drive.setTypeSchema('woot', testDataSchema_v0)
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0))
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+            self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+
+            with self.raises(s_exc.BadVersion):
+                await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
 
             info = {'name': 'win32k.sys', 'type': 'woot'}
             info = await cell.addDriveItem(info, reldir=rootdir)
@@ -283,6 +288,12 @@ class CellTest(s_t_utils.SynTest):
 
             versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
             self.eq('woot', data.get('woot'))
+
+            with self.raises(s_exc.NoSuchIden):
+                await cell.reqDriveInfo('d7d6107b200e2c039540fc627bc5537d')
+
+            with self.raises(s_exc.TypeMismatch):
+                await cell.getDriveInfo(iden, typename='newp')
 
             self.nn(await cell.getDriveInfo(iden))
             self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
@@ -1900,7 +1911,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=lock_target, args=(dirn, evt1,))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             with self.raises(s_exc.FatalErr) as cm:
                 async with await s_cell.Cell.anit(dirn) as cell:
@@ -2601,7 +2612,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=reload_target, args=(dirn, evt1, evt2))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             async with await s_telepath.openurl(f'cell://{dirn}') as prox:
                 cnfo = await prox.getCellInfo()
@@ -3017,7 +3028,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(users, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.users.list())'))))
                 self.eq(gates, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.gates.list())'))))
 
-                with self.raises(s_exc.BadTag):
+                with self.raises(s_exc.BadTypeValu):
                     await core.nodes('[ it:dev:str=foo +#test.newp ]')
 
         stream.seek(0)

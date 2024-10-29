@@ -6,6 +6,30 @@
 Synapse Changelog
 *****************
 
+v2.186.0 - 2024-10-29
+=====================
+
+Model Changes
+-------------
+- Added ``risk:tool:software:id`` to model an ID for a tool.
+  (`#3970 <https://github.com/vertexproject/synapse/pull/3970>`_)
+- See :ref:`userguide_model_v2_186_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Update tag type normalization to verify the tag is valid for any configured
+  tag model specifications in the Cortex. Tags which fail validation will now
+  raise a ``BadTypeValu`` exception rather than a ``BadTag`` exception.
+  (`#3973 <https://github.com/vertexproject/synapse/pull/3973>`_)
+- Implemented ``synapse.tools.snapshot`` CLI tool which can be used to pause
+  edits and sync dirty buffers to disk to safely generate a volume snaphot.
+  (`#3977 <https://github.com/vertexproject/synapse/pull/3977>`_)
+
+Bugfixes
+--------
+- Fixed several CLI commands usage output formatting.
+  (`#3977 <https://github.com/vertexproject/synapse/pull/3977>`_)
+
 v2.185.0 - 2024-10-25
 =====================
                                               

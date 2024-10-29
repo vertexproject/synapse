@@ -7202,16 +7202,16 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.12345 ]')
 
-            with self.raises(s_exc.BadTag):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.foo ]')
 
-            with self.raises(s_exc.BadTag):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.hehe ]')
 
-            with self.raises(s_exc.BadTag):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.123456 ]')
 
-            with self.raises(s_exc.BadTag):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.12345 ]')
 
             nodes = await core.nodes('[ test:str=beep +?#cno.cve.12345 ]')
@@ -7229,8 +7229,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.hehe ]')
 
             await core.setTagModel('cno.cve', 'regex', (None, None, '[0-9]{4}', '[0-9]{5}'))
-            with self.raises(s_exc.BadTag):
+            with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:ipv4=1.2.3.4 +#cno.cve.2021.haha ]')
+
+            self.eq((False, None), await core.callStorm('return($lib.trycast(syn:tag, cno.cve.2021.haha))'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('return($lib.cast(syn:tag, cno.cve.2021.haha))')
 
             self.none(await core.callStorm('$lib.model.tags.del(cno.cve)'))
             self.none(await core.callStorm('return($lib.model.tags.get(cno.cve))'))
