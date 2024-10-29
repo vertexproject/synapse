@@ -4953,7 +4953,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.warning(f'Freezing service for volume snapshot.')
 
         logger.warning('...acquiring nexus lock to prevent edits.')
-        await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
+
+        try:
+            await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
+
+        except asyncio.Timeout:
+            logger.warning('...nexus lock acquire timed out!')
+            logger.warning('Aboring freeze and resuming normal operation.')
+
+            mesg = 'Nexus lock aqcuire timed out.'
+            raise s_exc.TimeOut(mesg=mesg)
+
         self.paused = True
 
         try:
