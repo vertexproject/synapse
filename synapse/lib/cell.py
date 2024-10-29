@@ -4982,6 +4982,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except Exception:
             self.paused = False
             self.nexslock.release()
+            logger.exception('Failed to freeze. Resuming normal operation.')
             raise
 
     async def resume(self):
