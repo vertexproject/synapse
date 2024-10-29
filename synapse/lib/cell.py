@@ -35,6 +35,7 @@ import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
+import synapse.lib.task as s_task
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.drive as s_drive
@@ -4953,6 +4954,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.paused = True
 
         await self.slab.syncLoopOnce()
+        await s_task.executor(os.sync)
 
     async def resume(self):
 
