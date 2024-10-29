@@ -1031,13 +1031,13 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methListNodes',
                   'args': (
                       {'name': 'form', 'type': 'form', 'default': None,
-                       'desc': 'Only show entries matching the specified form.'},
+                       'desc': 'Only yield entries matching the specified form.'},
                       {'name': 'source', 'type': 'str', 'default': None,
-                       'desc': 'Only show entries that were seen by the specified source.'},
+                       'desc': 'Only yield entries that were seen by the specified source.'},
                       {'name': 'offset', 'type': 'int', 'default': 0,
                        'desc': 'Skip this many entries.'},
                       {'name': 'size', 'type': 'int', 'default': None,
-                       'desc': 'Only print up to this many entries.'},
+                       'desc': 'Only yield up to this many entries.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'A tuple of (offset, form, valu, sources) values for the specified node.', }}},
@@ -1067,9 +1067,11 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
         }
 
     async def _hasCoreQueue(self, name):
-        queues = await self.runt.snap.core.listCoreQueues()
-        queues = [k['name'] for k in queues]
-        return name in queues
+        try:
+            await self.runt.snap.core.getCoreQueue(name)
+            return True
+        except s_exc.NoSuchName:
+            return False
 
     async def _methListNodes(self, form=None, source=None, offset=0, size=None):
         form = await s_stormtypes.tostr(form, noneok=True)

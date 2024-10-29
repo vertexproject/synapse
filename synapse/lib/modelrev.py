@@ -1226,8 +1226,11 @@ class ModelMigration_0_2_31:
         self.core.onfini(self.nodes)
         self.core.onfini(self.todos)
 
-        qnames = [k['name'] for k in await self.core.listCoreQueues()]
-        self.hasq = 'model_0_2_31:nodes' in qnames
+        try:
+            await self.core.getCoreQueue('model_0_2_31:nodes')
+            self.hasq = True
+        except s_exc.NoSuchName:
+            self.hasq = False
 
         return self
 
