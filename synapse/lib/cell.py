@@ -4964,7 +4964,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning('...nexus lock acquire timed out!')
             logger.warning('Aborting freeze and resuming normal operation.')
 
-            mesg = 'Nexus lock aqcuire timed out.'
+            mesg = 'Nexus lock acquire timed out.'
             raise s_exc.TimeOut(mesg=mesg)
 
         self.paused = True
