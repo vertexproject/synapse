@@ -1245,7 +1245,6 @@ class ModelMigration_0_2_31:
             await self._flushEdits()
 
     async def _flushEdits(self):
-        logger.debug(f'Saving {self.editcount} edits')
         for layriden, layredits in self.nodeedits.items():
             layer = self.core.getLayer(layriden)
             if layer is None: # pragma: no cover
@@ -1443,13 +1442,11 @@ class ModelMigration_0_2_31:
 
         form = self.core.model.form('it:sec:cpe')
 
-        logger.info('Collecting and classifying it:sec:cpe nodes')
-
-        invalid = 0
+        logger.info(f'Collecting and classifying it:sec:cpe nodes in {len(self.layers)} layers')
 
         # Pick up and classify all bad CPE nodes
         for idx, layer in enumerate(self.layers):
-            logger.debug(f'Processing layer {idx}')
+            logger.debug(f'Classifying nodes in layer {idx}')
 
             async for buid, sode in layer.getStorNodesByForm('it:sec:cpe'):
 
@@ -1486,15 +1483,14 @@ class ModelMigration_0_2_31:
 
                 await self.nodes.set(buid, node)
 
-                invalid += 1
-
         await self._flushEdits()
 
-        logger.info(f'Processing {invalid} invalid it:sec:cpe nodes')
+        invalid = len(self.nodes)
+        logger.info(f'Processing {invalid} invalid it:sec:cpe nodes in {len(self.layers)} layers')
 
         # Pick up all related CPE node info. The majority of the work happens in this loop
         for idx, layer in enumerate(self.layers):
-            logger.debug(f'Processing layer {idx}')
+            logger.debug(f'Processing nodes in layer {idx}')
 
             for buid, node in self.nodes.items():
                 await self._loadNode(layer, buid, node=node)
@@ -1525,7 +1521,7 @@ class ModelMigration_0_2_31:
 
                 await self.nodes.set(buid, node)
 
-        logger.info('Processing invalid it:sec:cpe node references')
+        logger.info('Processing invalid it:sec:cpe node references (this may happen multiple times)')
 
         # Collect sources, direct references, second-degree references, etc.
         while len(self.todos):
@@ -1536,7 +1532,7 @@ class ModelMigration_0_2_31:
             await self.todos.clear()
 
             for idx, layer in enumerate(self.layers):
-                logger.debug(f'Processing layer {idx}')
+                logger.debug(f'Processing references in layer {idx}')
 
                 async for entry in todotmp:
                     match entry:
@@ -1598,14 +1594,15 @@ class ModelMigration_0_2_31:
 
             await todotmp.fini()
 
-        logger.info('Migrating/removing invalid it:sec:cpe nodes')
+        logger.info(f'Migrating/removing {invalid} invalid it:sec:cpe nodes')
 
-        count = 0
+        removed = 0
+        migrated = 0
         for buid, node in self.nodes.items():
             action = node.get('verdict')
 
-            if action in ('migrate', 'remove'):
-                count += 1
+            if action is None:
+                continue
 
             if action == 'migrate':
                 propvalu = None
@@ -1617,6 +1614,8 @@ class ModelMigration_0_2_31:
 
                 newvalu, _ = form.type.norm(propvalu)
                 await self.moveNode(buid, newvalu)
+
+                migrated += 1
 
             elif action == 'remove':
                 newvalu = None
@@ -1633,15 +1632,21 @@ class ModelMigration_0_2_31:
 
                     # Oh yeah! Migrate the node instead of removing it
                     await self.moveNode(buid, newvalu)
+
+                    migrated += 1
                     break
 
                 else:
                     await self.removeNode(buid)
+                    removed += 1
 
+            count = migrated + removed
             if count % 1000 == 0: # pragma: no cover
                 logger.info(f'Processed {count} it:sec:cpe nodes')
 
         await self._flushEdits()
+
+        logger.info(f'Finished processing {count} it:sec:cpe nodes: {migrated} migrated, {removed} removed')
 
         await self.todos.fini()
         await self.nodes.fini()
