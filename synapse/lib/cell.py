@@ -207,11 +207,11 @@ class CellApi(s_base.Base):
     async def initCellApi(self):
         pass
 
-    @adminapi()
+    @adminapi(log=True)
     async def freeze(self, timeout=30):
         return await self.cell.freeze(timeout=timeout)
 
-    @adminapi()
+    @adminapi(log=True)
     async def resume(self):
         return await self.cell.resume()
 
