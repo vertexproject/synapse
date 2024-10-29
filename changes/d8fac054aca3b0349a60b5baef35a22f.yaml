@@ -1,6 +1,6 @@
 ---
-desc: Implemented synapse.tools.snapshot which can be used to pause edits and sync
-  dirty buffers to disk to safely generate a volume snaphot.
+desc: Implemented ``synapse.tools.snapshot`` CLI tool which can be used to pause edits
+  and sync dirty buffers to disk to safely generate a volume snaphot.
 prs: []
 type: feat
 ...

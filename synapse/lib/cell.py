@@ -4950,17 +4950,34 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'The service is already frozen.'
             raise s_exc.BadState(mesg=mesg)
 
+        logger.warning(f'Freezing service for volume snapshot.')
+
+        logger.warning('...acquiring nexus lock to prevent edits.')
         await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
         self.paused = True
 
-        await self.slab.syncLoopOnce()
-        await s_task.executor(os.sync)
+        try:
+
+            logger.warning('...committing pending transactions.')
+            await self.slab.syncLoopOnce()
+
+            logger.warning('...flushing dirty buffers to disk.')
+
+            await s_task.executor(os.sync)
+            logger.warning('...done!')
+
+        except Exception: # pragma: no cover
+            self.paused = False
+            self.nexslock.release()
+            raise
 
     async def resume(self):
 
         if not self.paused:
             mesg = 'The service is not frozen.'
             raise s_exc.BadState(mesg=mesg)
+
+        logger.warning('Resuming normal operations from a freeze.')
 
         self.paused = False
         self.nexslock.release()
