@@ -121,8 +121,7 @@ commands:
       - run:
           name: checkout regression repo
           command: |
-            # FIXME: REMOVE BRANCH BEFORE MERGE
-            git clone https://github.com/vertexproject/synapse-regression -b blackout/SYN-8002/cpe-migration ~/git/synapse-regression
+            git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
       - restore_cache:
           keys:
