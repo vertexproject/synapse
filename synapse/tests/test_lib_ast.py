@@ -845,6 +845,8 @@ class AstTest(s_test.SynTest):
             self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:http:request:server*ip'))
             self.len(4, await core.nodes('test:str=foo :cidr -> inet:http:request:server*ip'))
 
+            self.len(5, await core.nodes('inet:cidr=1.2.3.4/30', opts={'graph': {'refs': True}}))
+
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('it:host:activity +it:host:activity:host>5')
 

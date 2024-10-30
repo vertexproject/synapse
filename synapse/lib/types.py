@@ -167,7 +167,7 @@ class Type:
 
     def getVirtType(self, virts):
         name = virts[0]
-        if (virt := self.virts[name]) is None:
+        if (virt := self.virts.get(name)) is None:
             raise s_exc.NoSuchVirt.init(name, self)
 
         if len(virts) > 1:
