@@ -3,7 +3,7 @@ import synapse.tests.utils as s_test
 
 class ProjModelTest(s_test.SynTest):
 
-    async def test_model_proj(self):
+    async def test_model_proj2(self):
 
         async with self.getTestCore() as core:
 
@@ -334,7 +334,7 @@ class ProjModelTest(s_test.SynTest):
             self.true(await core.callStorm('return($lib.projects.del($proj))', opts=opts))
             self.false(await core.callStorm('return($lib.projects.del(newp))', opts=opts))
 
-            self.none(core.auth.getAuthGate(proj))
+            self.nn(core.auth.getAuthGate(proj))
 
             self.len(1, await core.nodes('yield $lib.projects.add(proj)'))
             self.len(1, await core.nodes('yield $lib.projects.get(proj).epics.add(epic)'))
@@ -344,6 +344,16 @@ class ProjModelTest(s_test.SynTest):
 
             name = await core.callStorm('$p=$lib.projects.get(proj) $p.name=newproj return ( $p.name )')
             self.eq(name, 'newproj')
+
+            viewiden = core.getView().iden
+            self.len(1, await core.nodes(f'[ proj:project={viewiden}]'))
+            gate = core.auth.getAuthGate(viewiden)
+            self.eq(gate.type, 'view')
+
+            await core.nodes(f'proj:project={viewiden} | delnode')
+            gate = core.auth.getAuthGate(viewiden)
+            self.nn(gate)
+            self.eq(gate.type, 'view')
 
     async def test_model_proj_attachment(self):
 
