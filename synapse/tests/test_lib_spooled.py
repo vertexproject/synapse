@@ -28,10 +28,33 @@ class SpooledTest(s_test.SynTest):
 
             await sset.add(10)
 
+            newset = await sset.copy()
+            self.len(1, newset)
+            self.true(10 in newset)
+            self.false(newset.fallback)
+
             # Trigger fallback
             await sset.add(20)
             await sset.add(30)
             await sset.add(None)
+
+            newset = await sset.copy()
+            self.true(10 in newset)
+            self.true(20 in newset)
+            self.true(30 in newset)
+            self.true(None in newset)
+            self.len(4, newset)
+
+            await newset.clear()
+            self.false(10 in newset)
+            self.false(20 in newset)
+            self.false(30 in newset)
+            self.false(None in newset)
+            self.len(0, newset)
+
+            self.true(os.path.isdir(newset.slab.path))
+            await newset.fini()
+            self.false(os.path.isdir(newset.slab.path))
 
             self.len(4, sset)
 
@@ -67,6 +90,17 @@ class SpooledTest(s_test.SynTest):
                 await sset.add(30)
                 self.true(os.path.isdir(sset.slab.path))
                 self.true(os.path.abspath(sset.slab.path).startswith(dirn))
+
+                newset = await sset.copy()
+                self.true(os.path.isdir(newset.slab.path))
+                self.true(os.path.abspath(newset.slab.path).startswith(dirn))
+
+            # Slabs should get removed on fini
+            self.false(os.path.isdir(sset.slab.path))
+
+            self.true(os.path.isdir(newset.slab.path))
+            await newset.fini()
+            self.false(os.path.isdir(newset.slab.path))
 
     async def test_spooled_dict(self):
 
