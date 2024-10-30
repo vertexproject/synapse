@@ -3,7 +3,7 @@ import synapse.tests.utils as s_test
 
 class ProjModelTest(s_test.SynTest):
 
-    async def test_model_proj2(self):
+    async def test_model_proj(self):
 
         async with self.getTestCore() as core:
 
