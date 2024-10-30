@@ -823,6 +823,28 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('it:host +inet:fqdn:zone'))
             self.len(1, await core.nodes('.created +inet:fqdn:zone=vertex.link'))
 
+            self.len(4, await core.nodes('[ inet:ip=1.2.3.4/30 ]'))
+
+            self.len(1, await core.nodes('[ it:network=* :net=1.2.3.4-1.2.3.7 ]'))
+
+            self.len(4, await core.nodes('it:network :net -> *'))
+            self.len(4, await core.nodes('it:network :net -> inet:ip'))
+
+            self.len(1, await core.nodes('[ test:str=foo :cidr=1.2.3.4/30 ]'))
+
+            self.len(5, await core.nodes('test:str=foo :cidr -> *'))
+            self.len(4, await core.nodes('test:str=foo :cidr -> inet:ip'))
+
+            # inet:cidr ends up pivoting to broadcast/network IPs twice
+            self.len(6, await core.nodes('inet:cidr=1.2.3.4/30 -> *'))
+            self.len(6, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:ip'))
+
+            q = 'inet:ip=1.2.3.4/30 $addr=$node.repr() [( inet:http:request=($addr,) :server=$addr )]'
+            self.len(8, await core.nodes(q))
+
+            self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:http:request:server*ip'))
+            self.len(4, await core.nodes('test:str=foo :cidr -> inet:http:request:server*ip'))
+
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('it:host:activity +it:host:activity:host>5')
 

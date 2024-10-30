@@ -60,6 +60,8 @@ class Type:
         self.virts = {}
         self.virtindx = {}
 
+        self.pivs = {}
+
         self.setCmprCtor('=', self._ctorCmprEq)
         self.setCmprCtor('!=', self._ctorCmprNe)
         self.setCmprCtor('~=', self._ctorCmprRe)
@@ -162,6 +164,15 @@ class Type:
             raise s_exc.NoSuchVirt.init(name, self)
 
         return indx
+
+    def getVirtType(self, virts):
+        name = virts[0]
+        if (virt := self.virts[name]) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
+
+        if len(virts) > 1:
+            return virt[0].getVirtType(virts[1:])
+        return virt[0]
 
     def getRuntPode(self):
 
@@ -469,6 +480,7 @@ class Array(Type):
             raise s_exc.BadTypeDef(mesg=mesg)
 
         self.arraytype = basetype.clone(typeopts)
+        self.arraytypehash = self.arraytype.typehash
 
         if isinstance(self.arraytype, Array):
             mesg = 'Array type of array values is not (yet) supported.'

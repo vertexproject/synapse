@@ -419,6 +419,12 @@ class SubGraph:
 
         if self.rules.get('refs'):
 
+            for formname, (cmpr, func) in node.form.type.pivs.items():
+                valu = func(node.ndef[1])
+                link = {'type': 'type'}
+                async for pivonode in node.view.nodesByPropValu(formname, cmpr, valu, norm=False):
+                    yield pivonode, path.fork(pivonode, link), link
+
             for propname, ndef in node.getNodeRefs():
                 pivonode = await node.view.getNodeByNdef(ndef)
                 if pivonode is None:  # pragma: no cover
@@ -2060,7 +2066,13 @@ class PivotOut(PivotOper):
 
             return
 
-        for name, prop in node.form.props.items():
+        for formname, (cmpr, func) in node.form.type.pivs.items():
+            valu = func(node.ndef[1])
+            link = {'type': 'type'}
+            async for pivo in runt.view.nodesByPropValu(formname, cmpr, valu, norm=False):
+                yield pivo, path.fork(pivo, link)
+
+        for name, prop in list(node.form.props.items()):
 
             valu = node.get(name)
             if valu is None:
@@ -2299,6 +2311,17 @@ class FormPivot(PivotOper):
                 # regular "-> form" pivot (ie inet:dns:a -> inet:fqdn)
 
                 found = False   # have we found a ref/pivot?
+
+                if (tpiv := node.form.type.pivs.get(destform.type.name)) is not None:
+
+                    found = True
+                    cmpr, func = tpiv
+                    valu = func(node.ndef[1])
+
+                    link = {'type': 'type'}
+                    async for pivo in runt.view.nodesByPropValu(destform.name, cmpr, valu, norm=False):
+                        yield pivo, link
+
                 refs = node.form.getRefsOut()
                 for refsname, refsform in refs.get('prop'):
 
@@ -2465,6 +2488,11 @@ class PropPivotOut(PivotOper):
                 continue
 
             link = {'type': 'prop', 'prop': srcname}
+            for typename, (cmpr, func) in srctype.pivs.items():
+                pivvalu = func(valu)
+                async for pivo in runt.view.nodesByPropValu(typename, cmpr, pivvalu, norm=False):
+                    yield pivo, path.fork(pivo, link)
+
             if srctype.isarray:
                 if isinstance(srctype.arraytype, s_types.Ndef):
                     for item in valu:
@@ -2524,6 +2552,18 @@ class PropPivot(PivotOper):
             if not prop.isform:
                 link['dest'] = prop.full
 
+            ptyp = prop.type
+            if virts is not None:
+                ptyp = ptyp.getVirtType(virts)
+
+            if (tpiv := srctype.pivs.get(ptyp.name)) is not None:
+                cmpr, func = tpiv
+                pivvalu = func(valu)
+                async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, pivvalu, norm=False, virts=virts):
+                    yield pivo, link
+
+                return
+
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srctype.isarray and not prop.type.isarray:
                 if isinstance(srctype.arraytype, s_types.Ndef) and prop.isform:
@@ -2535,7 +2575,7 @@ class PropPivot(PivotOper):
                             yield pivo, link
                     return
 
-                norm = srctype.arraytype.typehash is not prop.typehash
+                norm = srctype.arraytype.typehash is not ptyp.typehash
                 for arrayval in valu:
                     async for pivo in runt.view.nodesByPropValu(prop.full, '=', arrayval, norm=norm, virts=virts):
                         yield pivo, link
@@ -2555,10 +2595,10 @@ class PropPivot(PivotOper):
                 return
 
             if prop.type.isarray and not srctype.isarray:
-                norm = prop.arraytypehash is not srctype.typehash
+                norm = ptyp.arraytypehash is not srctype.typehash
                 genr = runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm, virts=virts)
             else:
-                norm = prop.typehash is not srctype.typehash
+                norm = ptyp.typehash is not srctype.typehash
                 genr = runt.view.nodesByPropValu(prop.full, '=', valu, norm=norm, virts=virts)
 
             async for pivo in genr:

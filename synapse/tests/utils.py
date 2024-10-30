@@ -453,6 +453,7 @@ testmodel = {
             ('tick', ('test:time', {}), {}),
             ('hehe', ('str', {}), {}),
             ('ndefs', ('array', {'type': 'ndef'}), {}),
+            ('cidr', ('inet:cidr', {}), {}),
         )),
 
         ('test:migr', {}, (
