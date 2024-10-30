@@ -2969,7 +2969,8 @@ the ``view.exec`` query. Also note the sub-query executed in the ``view.exec`` m
 different value back to ``$fqdn`` to be accessed by the source view (that doesn't happen in this
 example though).
 
-Inline functions are bound to the scope they are declared in. For ``view.exec``, this means that a
+Inline functions are bound to the scope they are declared in, and heavy objects (for example ``View`` or
+``Layer`` objects) are bound to the scope they are instantiated in. For ``view.exec``, this means that a
 function declared outside the ``view.exec`` command will still run in the original scope/view, not
 the view specified to ``view.exec``.
 
