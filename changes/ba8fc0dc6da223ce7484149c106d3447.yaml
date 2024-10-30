@@ -1,0 +1,6 @@
+---
+desc: Update storm ``queue.put()`` and ``queue.puts()`` methods to return the offset
+  of the queued item.
+prs: []
+type: feat
+...

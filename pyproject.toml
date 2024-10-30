@@ -84,7 +84,6 @@ include-package-data = true
 
 [tool.setuptools.package-data]
 'synapse' = [
-    'assets/**',
     'data/*.mpk',
     'data/certs/**',
     'data/attack-flow/**',
