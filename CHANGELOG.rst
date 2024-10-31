@@ -6,6 +6,42 @@
 Synapse Changelog
 *****************
 
+v2.187.0 - 2024-10-31
+=====================
+
+Automatic Migrations
+--------------------
+- WARNING - It is strongly advised to perform a backup before upgrading to or
+  above this version. The ``it:sec:cpe`` migration described below WILL remove
+  invalid ``it:sec:cpe`` and some associated nodes from the Cortex.
+
+  Migrate invalid ``it:sec:cpe`` nodes if possible. Migration of these nodes
+  will only be successful if one of the CPE 2.3 (primary property) or the CPE
+  2.2 (``:v2_2``) strings are valid CPEs.  If both CPE strings are invalid, the
+  node will be removed from the cortex and stored in a Cortex queue
+  (``model_0_2_31:nodes``).
+
+  The structure of items in this queue is opaque. The intent is for Power-Ups
+  to be able to process the queue in an attempt to fix the invalid nodes on a
+  per Power-Up basis (the idea being that Power-Up data vendors probably make
+  the same mistake consistently).
+
+  During migration or removal of invalid ``it:sec:cpe`` nodes, referencing
+  nodes with readonly properties will be removed and also stored in the queue.
+  We are unable to automatically migrate these nodes due to the dynamic nature
+  of their construction.
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Features and Enhancements
+-------------------------
+- Update storm ``queue.put()`` and ``queue.puts()`` methods to return the
+  offset of the queued item.
+- Add CPE migration helper functions. The following functions were added to
+  assist with invalid nodes that were queued as part of the CPE model
+  migration: ``$lib.model.migration.s.model_0_2_31.listNodes()``,
+  ``$lib.model.migration.s.model_0_2_31.printNode()``, and
+  ``$lib.model.migration.s.model_0_2_31.repairNode()``
+
 v2.186.0 - 2024-10-29
 =====================
 
