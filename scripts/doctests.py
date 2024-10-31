@@ -1,15 +1,29 @@
 #!/usr/bin/env python
 
-# Execute ipython notebooks under ../docs/ to ensure they all execute properly
+# Ensure rstorm execute properly.
+# Check the changelog files for valid yaml, no multiline scalars, schema validation
 
 import os
+import re
 import sys
 import traceback
 import subprocess
 
+import yaml
+
 basepath = os.path.split(__file__)[0]
+# Inject the synapse directory into sys.path
+sys.path.append(basepath + '/../')
 docspath = os.path.abspath(os.path.join(basepath, '../docs'))
 tmplpath = os.path.join(docspath, 'vertex')
+
+changlogpath = os.path.join(basepath, '../changes')
+
+try:
+    import synapse.lib.schemas as s_schemas
+except ImportError:
+    print('Failed to import synapse schemas module')
+    s_schemas = None
 
 def check_rstorm(dirn):
     env = {**os.environ, 'SYN_LOG_LEVEL': 'DEBUG'}
@@ -36,6 +50,24 @@ def check_rstorm(dirn):
                 else:
                     print(f'Ran {ofile} successfully.')
 
+def check_changelogs(dirn):
+    # Ensure all changelog files are valid yaml and do not contain multiline scalars
+    for fn in os.listdir(dirn):
+        if not fn.endswith('.yaml'):
+            continue
+        fp = os.path.abspath(os.path.join(dirn, fn))
+        print(f'Checking {fp}')
+        with open(fp, 'rb') as fd:
+            bytz = fd.read()
+        # Do we have multi-line scalers?
+        if re.findall('\:\s+\|', bytz.decode('utf8')):
+            raise ValueError(f'multiline scaler detected in {fp}')
+        # Just asserting we are valid yaml to start with.
+        data = yaml.load(bytz, yaml.CSafeLoader)
+        # And validate the schema.
+        if s_schemas is not None:
+            s_schemas._reqChanglogSchema(data)
+
 def main():
 
     try:
@@ -46,6 +78,12 @@ def main():
         print(f'Stderr:\n{e.stderr.decode()}')
         return 1
     except:
+        traceback.print_exc()
+        return 1
+
+    try:
+        check_changelogs(changlogpath)
+    except Exception:
         traceback.print_exc()
         return 1
 
