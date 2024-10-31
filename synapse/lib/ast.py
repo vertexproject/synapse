@@ -2073,17 +2073,18 @@ class PivotOut(PivotOper):
                 yield pivo, path.fork(pivo, link)
 
         refs = node.form.getRefsOut()
-        for name, prop in refs['prop']:
+        for name, form in refs['prop']:
             if (valu := node.get(name)) is None:
                 continue
 
+            prop = node.form.prop(name)
             if prop.isrunt:
                 link = {'type': 'prop', 'prop': name}
-                async for pivo in runt.view.nodesByPropValu(form.name, '=', valu):
+                async for pivo in runt.view.nodesByPropValu(form, '=', valu):
                     yield pivo, path.fork(pivo, link)
                 continue
 
-            pivo = await runt.view.getNodeByNdef((form.name, valu))
+            pivo = await runt.view.getNodeByNdef((form, valu))
             if pivo is None:  # pragma: no cover
                 continue
 
@@ -2102,7 +2103,7 @@ class PivotOut(PivotOper):
 
         for name in refs['ndef']:
             if (valu := node.get(name)) is not None:
-                if (pivo := await runt.view.getNodeByNdef(refsvalu)) is not None:
+                if (pivo := await runt.view.getNodeByNdef(valu)) is not None:
                     yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
 
         for name in refs['ndefarray']:
