@@ -147,6 +147,20 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('return(({"foo": "bar", "baz": 10 , }))')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
 
+            q = '''
+            $foo = ({"bar": ${[inet:fqdn=foo.com]}})
+            for $n in $foo.bar { return($n.repr()) }
+            '''
+            retn = await core.callStorm(q)
+            self.eq(retn, 'foo.com')
+
+            q = '''
+            $foo = ([${[inet:fqdn=foo.com]}])
+            for $n in $foo.0 { return($n.repr()) }
+            '''
+            retn = await core.callStorm(q)
+            self.eq(retn, 'foo.com')
+
             with self.raises(s_exc.BadSyntax):
                 await core.callStorm('return((["foo" "foo"]))')
 
@@ -611,6 +625,12 @@ class StormTest(s_t_utils.SynTest):
             background ${ $lib.queue.get(bar).put(haha) }
             ''')
             self.eq((0, 'haha'), await core.callStorm('return($lib.queue.get(bar).get())'))
+
+            await core.nodes('$foo = (foo,) background ${ $foo.append(bar) $lib.queue.get(bar).put($foo) }')
+            self.eq((1, ['foo', 'bar']), await core.callStorm('return($lib.queue.get(bar).get(1))'))
+
+            await core.nodes('$foo = ([["foo"]]) background ${ $foo.0.append(bar) $lib.queue.get(bar).put($foo) }')
+            self.eq((2, [['foo', 'bar']]), await core.callStorm('return($lib.queue.get(bar).get(2))'))
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
@@ -3599,7 +3619,7 @@ class StormTest(s_t_utils.SynTest):
             'quickly became his weapon of choice.'])
         pars.help()
         helptext = '\n'.join(pars.mesgs)
-        self.isin('default: \n[', helptext)
+        self.isin('default:\n                                [', helptext)
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?')
@@ -3783,6 +3803,27 @@ class StormTest(s_t_utils.SynTest):
 
         opts = pars.parse_args(['faz', '--cat', 'cam', 'cool'])
         self.nn(opts)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--baz', nargs=3, help='''
+             This is the top line, nothing special.
+             This is my second line with sublines that should have some leading spaces:
+                subline 1: this is a line which has three spaces.
+                  subline 2: this is another line with five leading spaces.
+               subline 3: yet another line with only two leading spaces.
+              subline 4: this line has one space and is long which should wrap around because it exceeds the default display width.
+             This is the final line with no leading spaces.''')
+        pars.add_argument('--taz', type='bool', default=True, help='Taz option')
+        pars.help()
+        self.eq('  --baz <baz>                 : This is the top line, nothing special.', pars.mesgs[5])
+        self.eq('                                This is my second line with sublines that should have some leading spaces:', pars.mesgs[6])
+        self.eq('                                   subline 1: this is a line which has three spaces.', pars.mesgs[7])
+        self.eq('                                     subline 2: this is another line with five leading spaces.', pars.mesgs[8])
+        self.eq('                                  subline 3: yet another line with only two leading spaces.', pars.mesgs[9])
+        self.eq('                                 subline 4: this line has one space and is long which should wrap around because it', pars.mesgs[10])
+        self.eq('                                 exceeds the default display width.', pars.mesgs[11])
+        self.eq('                                This is the final line with no leading spaces.', pars.mesgs[12])
+        self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[13])
 
     async def test_storm_cmd_help(self):
 
@@ -5090,3 +5131,15 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.none(await core.callStorm('return($lib.queue.gen(haha).get().1)'))
+
+            await core.nodes('''
+                $foo = (foo,)
+                $query = ${
+                    $foo.append(bar)
+                    $lib.queue.gen(hoho).put($foo)
+                    $lib.dmon.del($auto.iden)
+                }
+                $lib.dmon.add($query)
+            ''')
+
+            self.eq(['foo', 'bar'], await core.callStorm('return($lib.queue.gen(hoho).get().1)'))

@@ -34,6 +34,7 @@ import synapse.lib.base as s_base
 import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.task as s_task
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.drive as s_drive
@@ -204,6 +205,14 @@ class CellApi(s_base.Base):
 
     async def initCellApi(self):
         pass
+
+    @adminapi(log=True)
+    async def freeze(self, timeout=30):
+        return await self.cell.freeze(timeout=timeout)
+
+    @adminapi(log=True)
+    async def resume(self):
+        return await self.cell.resume()
 
     async def allowed(self, perm, default=None):
         '''
@@ -1028,6 +1037,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.cellparent = parent
         self.sessions = {}
+        self.paused = False
         self.isactive = False
         self.activebase = None
         self.inaugural = False
@@ -1562,8 +1572,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
-    async def getDriveInfo(self, iden):
-        return self.drive.getItemInfo(iden)
+    async def getDriveInfo(self, iden, typename=None):
+        return self.drive.getItemInfo(iden, typename=typename)
+
+    def reqDriveInfo(self, iden, typename=None):
+        return self.drive.reqItemInfo(iden, typename=typename)
 
     async def getDrivePath(self, path, reldir=s_drive.rootdir):
         '''
@@ -1913,6 +1926,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Hand off leadership to a mirror in a transactional fashion.
         '''
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
+
+        if not self.isactive:
+            mesg = f'HANDOFF: {_dispname} is not the current leader and cannot handoff leadership to' \
+                   f' {s_urlhelp.sanitizeUrl(turl)}.'
+            logger.error(mesg)
+            raise s_exc.BadState(mesg=mesg, turl=turl, cursvc=_dispname)
+
         logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
         async with await s_telepath.openurl(turl) as cell:
 
@@ -4151,6 +4171,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A Dictionary of metadata.
         '''
+
+        mirror = self.conf.get('mirror')
+        if mirror is not None:
+            mirror = s_urlhelp.sanitizeUrl(mirror)
+
         ret = {
             'synapse': {
                 'commit': s_version.commit,
@@ -4161,6 +4186,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'run': await self.getCellRunId(),
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
+                'paused': self.paused,
                 'active': self.isactive,
                 'started': self.startms,
                 'ready': self.nexsroot.ready.is_set(),
@@ -4170,6 +4196,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
+                'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),
@@ -4631,3 +4658,52 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def freeze(self, timeout=30):
+
+        if self.paused:
+            mesg = 'The service is already frozen.'
+            raise s_exc.BadState(mesg=mesg)
+
+        logger.warning(f'Freezing service for volume snapshot.')
+
+        logger.warning('...acquiring nexus lock to prevent edits.')
+
+        try:
+            await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
+
+        except asyncio.TimeoutError:
+            logger.warning('...nexus lock acquire timed out!')
+            logger.warning('Aborting freeze and resuming normal operation.')
+
+            mesg = 'Nexus lock acquire timed out.'
+            raise s_exc.TimeOut(mesg=mesg)
+
+        self.paused = True
+
+        try:
+
+            logger.warning('...committing pending transactions.')
+            await self.slab.syncLoopOnce()
+
+            logger.warning('...flushing dirty buffers to disk.')
+            await s_task.executor(os.sync)
+
+            logger.warning('...done!')
+
+        except Exception:
+            self.paused = False
+            self.nexslock.release()
+            logger.exception('Failed to freeze. Resuming normal operation.')
+            raise
+
+    async def resume(self):
+
+        if not self.paused:
+            mesg = 'The service is not frozen.'
+            raise s_exc.BadState(mesg=mesg)
+
+        logger.warning('Resuming normal operations from a freeze.')
+
+        self.paused = False
+        self.nexslock.release()

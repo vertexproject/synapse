@@ -2,14 +2,18 @@ import regex
 import logging
 
 import synapse.exc as s_exc
-import synapse.assets as s_assets
 import synapse.common as s_common
 
+import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
+import synapse.lib.msgpack as s_msgpack
+import synapse.lib.spooled as s_spooled
+
+import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 30)
+maxvers = (0, 2, 31)
 
 class ModelRev:
 

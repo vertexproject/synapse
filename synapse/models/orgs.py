@@ -255,13 +255,25 @@ class OuModule(s_module.CoreModule):
                     'doc': 'A hierarchical taxonomy of employment types.',
                 }),
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A title for a position within an org.',
-                }),
+                    'doc': 'A title for a position within an org.'}),
+
+                ('ou:enacted:status:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of enacted statuses.'}),
+
+                ('ou:enacted', ('guid', {}), {
+                    'interfaces': ('proj:task',),
+                    'template': {
+                        'task': 'adoption task'},
+                    'doc': 'An organization enacting a document.'}),
+
                 ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of requirement types.'}),
+
                 ('ou:requirement', ('guid', {}), {
                     'doc': 'A specific requirement.'}),
+
             ),
             'edges': (
                 (('ou:campaign', 'uses', 'ou:technique'), {
@@ -1249,8 +1261,19 @@ class OuModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The contest result website URL.',
                     }),
-                    # TODO duration ('duration'
                 )),
+                ('ou:enacted:status:taxonomy', {}, ()),
+                ('ou:enacted', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization which is enacting the document.'}),
+
+                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
+                        'doc': 'The document enacted by the organization.'}),
+
+                    ('scope', ('ndef', {}), {
+                        'doc': 'The scope of responsbility for the assignee to enact the document.'}),
+                )),
+
                 ('ou:requirement:type:taxonomy', {}, ()),
                 ('ou:requirement', {}, (
 
