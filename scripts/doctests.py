@@ -63,7 +63,7 @@ def check_changelogs(dirn):
         if re.findall(r'[a-z0-9]\:\s+\|\s*\n', bytz.decode('utf8'), flags=re.IGNORECASE):
             raise ValueError(f'multiline scaler detected in {fp}')
         # Just asserting we are valid yaml to start with.
-        data = yaml.load(bytz, yaml.CSafeLoader)
+        data = yaml.load(bytz, yaml.SafeLoader)
         # And validate the schema.
         if s_schemas is not None:
             s_schemas._reqChanglogSchema(data)
