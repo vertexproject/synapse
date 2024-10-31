@@ -2,7 +2,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.node as s_node
-import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes

@@ -6639,7 +6639,7 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
@@ -6656,7 +6656,7 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
@@ -6689,7 +6689,7 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getNodeData',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<name>, <valu>) tuples', }}},
@@ -7122,14 +7122,14 @@ class Layer(Prim):
             yield (n1buid, verb, n2buid)
 
     @stormfunc(readonly=True)
-    async def getEdgesByN1(self, nodeid):
-        nodeid = await tostr(nodeid)
+    async def getEdgesByN1(self, iden):
+        iden = await tostr(iden)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        n1nid = self.runt.view.core.getNidByBuid(s_common.uhex(nodeid))
+        n1nid = self.runt.view.core.getNidByBuid(s_common.uhex(iden))
         async for abrv, n2nid, tomb in layr.iterNodeEdgesN1(n1nid):
             if tomb:
                 continue
@@ -7138,14 +7138,14 @@ class Layer(Prim):
             yield (verb, s_common.ehex(self.runt.view.core.getBuidByNid(n2nid)))
 
     @stormfunc(readonly=True)
-    async def getEdgesByN2(self, nodeid):
-        nodeid = await tostr(nodeid)
+    async def getEdgesByN2(self, iden):
+        iden = await tostr(iden)
 
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        n2nid = self.runt.view.core.getNidByBuid(s_common.uhex(nodeid))
+        n2nid = self.runt.view.core.getNidByBuid(s_common.uhex(iden))
         async for abrv, n1nid, tomb in layr.iterNodeEdgesN2(n2nid):
             if tomb:
                 continue
@@ -7178,13 +7178,13 @@ class Layer(Prim):
             yield item
 
     @stormfunc(readonly=True)
-    async def getNodeData(self, nodeid):
-        nodeid = await tostr(nodeid)
+    async def getNodeData(self, iden):
+        iden = await tostr(iden)
         layriden = self.valu.get('iden')
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.view.core.getLayer(layriden)
 
-        nid = self.runt.view.core.getNidByBuid(s_common.uhex(nodeid))
+        nid = self.runt.view.core.getNidByBuid(s_common.uhex(iden))
         async for abrv, valu, tomb in layr.iterNodeData(nid):
             if tomb:
                 continue
