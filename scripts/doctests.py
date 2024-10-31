@@ -60,7 +60,7 @@ def check_changelogs(dirn):
         with open(fp, 'rb') as fd:
             bytz = fd.read()
         # Do we have multi-line scalers?
-        if re.findall('[a-z0-9]\:\s+\|\s*\n', bytz.decode('utf8'), flags=re.IGNORECASE):
+        if re.findall(r'[a-z0-9]\:\s+\|\s*\n', bytz.decode('utf8'), flags=re.IGNORECASE):
             raise ValueError(f'multiline scaler detected in {fp}')
         # Just asserting we are valid yaml to start with.
         data = yaml.load(bytz, yaml.CSafeLoader)
