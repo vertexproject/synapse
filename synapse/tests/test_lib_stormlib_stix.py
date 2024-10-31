@@ -55,6 +55,7 @@ class StormLibStixTest(s_test.SynTest):
     async def test_stormlib_libstix(self, conf=None):
 
         async with self.getTestCore(conf=conf) as core:
+            visi = await core.auth.addUser('visi')
             opts = {'vars': {
                 'ind': '6ba7d8500964902bf2e03126ed0f6cb1',
                 'news': '840b9b003a765020705ea8d203a7659c',
@@ -227,9 +228,9 @@ class StormLibStixTest(s_test.SynTest):
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
-            with self.raises(s_exc.BadConfValu):
+            with self.raises(s_exc.AuthDeny):
                 config = {'maxsize': 10000000}
-                opts = {'vars': {'config': config}}
+                opts = {'user': visi.iden, 'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
             with self.raises(s_exc.NoSuchForm):

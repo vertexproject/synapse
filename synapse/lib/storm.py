@@ -1759,8 +1759,10 @@ class StormDmon(s_base.Base):
 
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts', {})
-        vars = opts.setdefault('vars', {})
+
+        vars = await s_stormtypes.toprim(opts.get('vars', {}), use_list=True)
         vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
+        opts['vars'] = vars
 
         viewiden = opts.get('view')
 
@@ -2788,15 +2790,28 @@ class Parser:
         self.exited = True
         return False
 
+    def _wrap_text(self, text, width):
+        lines, curline, curlen = [], [], 0
+        for word in text.split():
+            if curlen + len(word) + bool(curline) > width:
+                lines.append(' '.join(curline))
+                curline, curlen = [word], len(word)
+            else:
+                curline.append(word)
+                curlen += len(word) + bool(curline)
+        if curline:
+            lines.append(' '.join(curline))
+        return lines
+
     def _print_optarg(self, names, argdef):
 
         dest = self._get_dest_str(argdef)
         oact = argdef.get('action', 'store')
 
         if oact in ('store_true', 'store_false'):
-            base = f'  {names[0]}'.ljust(30)
+            base = f'  {names[0]}'
         else:
-            base = f'  {names[0]} {dest}'.ljust(30)
+            base = f'  {names[0]} {dest}'
 
         defval = argdef.get('default', s_common.novalu)
         choices = argdef.get('choices')
@@ -2804,12 +2819,14 @@ class Parser:
 
         if defval is not s_common.novalu and oact not in ('store_true', 'store_false'):
             if isinstance(defval, (tuple, list, dict)):
-                defval = pprint.pformat(defval, indent=34, width=100)
-                if '\n' in defval:
-                    defval = '\n' + defval
+                defval_ls = pprint.pformat(defval, width=120).split('\n')
+                defval = '\n'.join(ln.strip() for ln in defval_ls)
 
             if choices is None:
-                helpstr = f'{helpstr} (default: {defval})'
+                if (lambda tst: '\n' in tst if isinstance(tst, str) else False)(defval):
+                    helpstr = f'{helpstr} (default: \n{defval})'
+                else:
+                    helpstr = f'{helpstr} (default: {defval})'
             else:
                 cstr = ', '.join(str(c) for c in choices)
                 helpstr = f'{helpstr} (default: {defval}, choices: {cstr})'
@@ -2818,7 +2835,26 @@ class Parser:
             cstr = ', '.join(str(c) for c in choices)
             helpstr = f'{helpstr} (choices: {cstr})'
 
-        self._printf(f'{base}: {helpstr}')
+        helplst = helpstr.split('\n')
+        if helplst and not helplst[0].strip():
+            helplst = helplst[1:]
+        min_space = min((len(ln) - len(ln.lstrip()) for ln in helplst if ln.strip()), default=0)
+
+        base_w = 32
+        wrap_w = 120 - base_w
+
+        first = helplst[0][min_space:]
+        wrap_first = self._wrap_text(first, wrap_w)
+        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+
+        for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
+        for ln in helplst[1:]:
+            lead_s = len(ln) - len(ln.lstrip())
+            rel_ind = lead_s - min_space
+            ind = ' ' * (base_w + rel_ind)
+            wrapped = self._wrap_text(ln.lstrip(), wrap_w - rel_ind)
+            for wl in wrapped:
+                self._printf(f'{ind}{wl}')
 
     def _print_posarg(self, name, argdef):
         dest = self._get_dest_str(argdef)
@@ -5716,7 +5752,7 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
-        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars())
+        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
         opts = {
@@ -6425,6 +6461,13 @@ class RunAsCmd(Cmd):
     Execute a storm query as a specified user.
 
     NOTE: This command requires admin privileges.
+
+    NOTE: Heavy objects (for example a View or Layer) are bound to the context which they
+          are instantiated in and methods on them will be run using the user in that
+          context. This means that executing a method on a variable containing a heavy
+          object which was instantiated outside of the runas command and then used
+          within the runas command will check the permissions of the outer user, not
+          the one specified by the runas command.
 
     Examples:
 
