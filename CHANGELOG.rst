@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.187.0 - 2024-10-31
+v2.187.0 - TBD
 =====================
 
 Automatic Migrations
