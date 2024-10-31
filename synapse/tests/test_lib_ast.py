@@ -835,9 +835,8 @@ class AstTest(s_test.SynTest):
             self.len(5, await core.nodes('test:str=foo :cidr -> *'))
             self.len(4, await core.nodes('test:str=foo :cidr -> inet:ip'))
 
-            # inet:cidr ends up pivoting to broadcast/network IPs twice
-            self.len(6, await core.nodes('inet:cidr=1.2.3.4/30 -> *'))
-            self.len(6, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:ip'))
+            self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> *'))
+            self.len(4, await core.nodes('inet:cidr=1.2.3.4/30 -> inet:ip'))
 
             q = 'inet:ip=1.2.3.4/30 $addr=$node.repr() [( inet:http:request=($addr,) :server=$addr )]'
             self.len(8, await core.nodes(q))

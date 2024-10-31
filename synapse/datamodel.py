@@ -352,6 +352,8 @@ class Form:
                     self.refsout['ndef'].append(name)
 
                 elif self.modl.forms.get(prop.type.name) is not None:
+                    if prop.type.name in self.type.pivs:
+                        continue
                     self.refsout['prop'].append((name, prop.type.name))
 
         return self.refsout

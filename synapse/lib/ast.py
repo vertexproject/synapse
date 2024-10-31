@@ -2072,40 +2072,13 @@ class PivotOut(PivotOper):
             async for pivo in runt.view.nodesByPropValu(formname, cmpr, valu, norm=False):
                 yield pivo, path.fork(pivo, link)
 
-        for name, prop in list(node.form.props.items()):
-
-            valu = node.get(name)
-            if valu is None:
-                continue
-
-            link = {'type': 'prop', 'prop': prop.name}
-            # if the outbound prop is an ndef...
-            if isinstance(prop.type, s_types.Ndef):
-                pivo = await runt.view.getNodeByNdef(valu)
-                if pivo is None:
-                    continue
-
-                yield pivo, path.fork(pivo, link)
-                continue
-
-            if isinstance(prop.type, s_types.Array):
-                if isinstance(prop.type.arraytype, s_types.Ndef):
-                    for item in valu:
-                        if (pivo := await runt.view.getNodeByNdef(item)) is not None:
-                            yield pivo, path.fork(pivo, link)
-                    continue
-
-                typename = prop.type.opts.get('type')
-                if runt.model.forms.get(typename) is not None:
-                    for item in valu:
-                        async for pivo in runt.view.nodesByPropValu(typename, '=', item, norm=False):
-                            yield pivo, path.fork(pivo, link)
-
-            form = runt.model.forms.get(prop.type.name)
-            if form is None:
+        refs = node.form.getRefsOut()
+        for name, prop in refs['prop']:
+            if (valu := node.get(name)) is None:
                 continue
 
             if prop.isrunt:
+                link = {'type': 'prop', 'prop': name}
                 async for pivo in runt.view.nodesByPropValu(form.name, '=', valu):
                     yield pivo, path.fork(pivo, link)
                 continue
@@ -2118,7 +2091,26 @@ class PivotOut(PivotOper):
             if pivo.nid == node.nid:
                 continue
 
-            yield pivo, path.fork(pivo, link)
+            yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
+
+        for name, form in refs['array']:
+            if (valu := node.get(name)) is not None:
+                link = {'type': 'prop', 'prop': name}
+                for aval in valu:
+                    async for pivo in runt.view.nodesByPropValu(form, '=', aval, norm=False):
+                        yield pivo, path.fork(pivo, link)
+
+        for name in refs['ndef']:
+            if (valu := node.get(name)) is not None:
+                if (pivo := await runt.view.getNodeByNdef(refsvalu)) is not None:
+                    yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
+
+        for name in refs['ndefarray']:
+            if (valu := node.get(name)) is not None:
+                link = {'type': 'prop', 'prop': name}
+                for aval in valu:
+                    if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
+                        yield pivo, path.fork(pivo, link)
 
 class N1WalkNPivo(PivotOut):
 
