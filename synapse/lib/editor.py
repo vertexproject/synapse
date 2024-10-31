@@ -18,13 +18,14 @@ class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a NodeEditor.
     '''
-    def __init__(self, editor, buid, form, valu, node):
+    def __init__(self, editor, buid, form, valu, node, norminfo):
         self.editor = editor
         self.model = editor.view.core.model
         self.form = form
         self.valu = valu
         self.buid = buid
         self.node = node
+        self.virts = norminfo.get('virts') if norminfo is not None else None
 
         self.tags = {}
         self.props = {}
@@ -113,11 +114,11 @@ class ProtoNode(s_node.NodeBase):
         edits = []
 
         if not self.node or not self.node.hasvalu():
-            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype)))
+            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
 
         for name, valu in self.props.items():
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], None, prop.type.stortype, valu[1])))
 
         for name in self.propdels:
             prop = self.form.props.get(name)
@@ -634,7 +635,7 @@ class ProtoNode(s_node.NodeBase):
 
         curv = self.props.get(name, s_common.novalu)
         if curv is not s_common.novalu:
-            return curv
+            return curv[0]
 
         if self.node is not None:
             return self.node.get(name, defv=defv)
@@ -649,7 +650,7 @@ class ProtoNode(s_node.NodeBase):
 
         curv = self.props.get(name, s_common.novalu)
         if curv is not s_common.novalu:
-            return curv, 0
+            return curv[0], 0
 
         if self.node is not None:
             return self.node.getWithLayer(name, defv=defv)
@@ -691,7 +692,7 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             await self.editor.view.core._callPropSetHook(self.node, prop, valu)
 
-        self.props[prop.name] = valu
+        self.props[prop.name] = (valu, norminfo.get('virts'))
         self.propdels.discard(prop.name)
         self.proptombs.discard(prop.name)
 
@@ -890,7 +891,7 @@ class NodeEditor:
         if node is not None:
             return ()
 
-        protonode = ProtoNode(self, buid, form, norm, node)
+        protonode = ProtoNode(self, buid, form, norm, node, norminfo)
 
         self.protonodes[ndef] = protonode
 
@@ -911,7 +912,8 @@ class NodeEditor:
     def loadNode(self, node):
         protonode = self.protonodes.get(node.ndef)
         if protonode is None:
-            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node)
+            norminfo = node.valuvirts()
+            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node, norminfo)
             self.protonodes[node.ndef] = protonode
         return protonode
 
@@ -926,7 +928,7 @@ class NodeEditor:
         buid = s_common.buid(ndef)
         node = await self.view.getNodeByBuid(buid, tombs=True)
 
-        protonode = ProtoNode(self, buid, form, norm, node)
+        protonode = ProtoNode(self, buid, form, norm, node, norminfo)
 
         self.protonodes[ndef] = protonode
 

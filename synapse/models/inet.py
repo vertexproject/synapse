@@ -363,17 +363,49 @@ class SockAddr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.iptype = self.modl.type('inet:ip')
+        self.porttype = self.modl.type('inet:port')
+
+        self.virtindx |= {
+            'ip': 'ip',
+            'port': 'port',
+        }
+
+        self.virts |= {
+            'ip': (self.iptype, self._getIP),
+            'port': (self.porttype, self._getPort),
+        }
+
+    def _getIP(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('ip')) is None:
+            return None
+
+        return valu[0]
+
     def _getPort(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('port')) is None:
+            return None
+
+        return valu[0]
+
+    def _normPort(self, valu):
         parts = valu.split(':', 1)
         if len(parts) == 2:
             valu, port = parts
-            port = self.modl.type('inet:port').norm(port)[0]
+            port = self.porttype.norm(port)[0]
             return valu, port, f':{port}'
         return valu, None, ''
 
     def _normPyStr(self, valu):
         orig = valu
         subs = {}
+        virts = {}
 
         # no protos use case sensitivity yet...
         valu = valu.lower()
@@ -393,7 +425,7 @@ class SockAddr(s_types.Str):
         # Treat as host if proto is host
         if proto == 'host':
 
-            valu, port, pstr = self._getPort(valu)
+            valu, port, pstr = self._normPort(valu)
             if port:
                 subs['port'] = port
 
@@ -402,51 +434,56 @@ class SockAddr(s_types.Str):
 
             return f'host://{host}{pstr}', {'subs': subs}
 
-        iptype = self.modl.type('inet:ip')
-
         # Treat as IPv6 if starts with [ or contains multiple :
         if valu.startswith('['):
             match = srv6re.match(valu)
             if match:
                 ipv6, port = match.groups()
 
-                ipv6 = iptype.norm(ipv6)[0]
-                host = iptype.repr(ipv6)
+                ipv6 = self.iptype.norm(ipv6)[0]
+                host = self.iptype.repr(ipv6)
                 subs['ip'] = ipv6
+                virts['ip'] = (ipv6, self.iptype.stortype)
 
                 portstr = ''
                 if port is not None:
-                    port = self.modl.type('inet:port').norm(port)[0]
+                    port = self.porttype.norm(port)[0]
                     subs['port'] = port
+                    virts['port'] = (port, self.porttype.stortype)
                     portstr = f':{port}'
 
-                return f'{proto}://[{host}]{portstr}', {'subs': subs}
+                return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
-            ipv6 = iptype.norm(valu)[0]
-            host = iptype.repr(ipv6)
+            ipv6 = self.iptype.norm(valu)[0]
+            host = self.iptype.repr(ipv6)
             subs['ip'] = ipv6
-            return f'{proto}://{host}', {'subs': subs}
+            virts['ip'] = (ipv6, self.iptype.stortype)
+            return f'{proto}://{host}', {'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
-        valu, port, pstr = self._getPort(valu)
+        valu, port, pstr = self._normPort(valu)
         if port:
             subs['port'] = port
+            virts['port'] = (port, self.porttype.stortype)
 
-        ipv4 = iptype.norm(valu)[0]
-        ipv4_repr = iptype.repr(ipv4)
+        ipv4 = self.iptype.norm(valu)[0]
+        ipv4_repr = self.iptype.repr(ipv4)
         subs['ip'] = ipv4
+        virts['ip'] = (ipv4, self.iptype.stortype)
 
-        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
+        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 
 class Cidr(s_types.Str):
 
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+
+        self.iptype = self.modl.type('inet:ip')
 
     def _normPyStr(self, valu):
 
@@ -457,9 +494,7 @@ class Cidr(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid/Missing CIDR Mask')
 
-        iptype = self.modl.type('inet:ip')
-
-        (vers, ip_int) = iptype.norm(ip_str)[0]
+        (vers, ip_int) = self.iptype.norm(ip_str)[0]
 
         if vers == 4:
             if mask_int > 32 or mask_int < 0:
@@ -469,7 +504,7 @@ class Cidr(s_types.Str):
             mask = cidrmasks[mask_int]
             network = ip_int & mask[0]
             broadcast = network + mask[1] - 1
-            network_str = iptype.repr((4, network))
+            network_str = self.iptype.repr((4, network))
 
             norm = f'{network_str}/{mask_int}'
             info = {
@@ -503,6 +538,9 @@ class Email(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.fqdntype = self.modl.type('inet:fqdn')
+        self.usertype = self.modl.type('inet:user')
+
     def _normPyStr(self, valu):
 
         try:
@@ -512,8 +550,8 @@ class Email(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
         try:
-            fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
-            usernorm, userinfo = self.modl.type('inet:user').norm(user)
+            fqdnnorm, fqdninfo = self.fqdntype.norm(fqdn)
+            usernorm, userinfo = self.usertype.norm(user)
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
@@ -719,6 +757,8 @@ class Rfc2822Addr(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.emailtype = self.modl.type('inet:email')
+
     def _normPyStr(self, valu):
 
         # remove quotes for normalized version
@@ -743,7 +783,7 @@ class Rfc2822Addr(s_types.Str):
             subs['name'] = name
 
         try:
-            data = self.modl.type('inet:email').norm(addr)
+            data = self.emailtype.norm(addr)
             if len(data) == 2:
                 mail = data[0]
 
@@ -762,6 +802,10 @@ class Url(s_types.Str):
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+
+        self.iptype = self.modl.type('inet:ip')
+        self.fqdntype = self.modl.type('inet:fqdn')
+        self.porttype = self.modl.type('inet:port')
 
     def _ctorCmprEq(self, text):
         if text == '':
@@ -876,8 +920,6 @@ class Url(s_types.Str):
         host = None
         port = None
 
-        iptype = self.modl.type('inet:ip')
-
         # Treat as IPv6 if starts with [ or contains multiple :
         if valu.startswith('[') or valu.count(':') >= 2:
             try:
@@ -885,8 +927,8 @@ class Url(s_types.Str):
                 if match:
                     valu, port = match.groups()
 
-                ipv6 = iptype.norm(valu)[0]
-                host = iptype.repr(ipv6)
+                ipv6 = self.iptype.norm(valu)[0]
+                host = self.iptype.repr(ipv6)
                 subs['ip'] = ipv6
 
                 if match:
@@ -905,8 +947,8 @@ class Url(s_types.Str):
             # IPv4
             try:
                 # Norm and repr to handle fangs
-                ipv4 = iptype.norm(part)[0]
-                host = iptype.repr(ipv4)
+                ipv4 = self.iptype.norm(part)[0]
+                host = self.iptype.repr(ipv4)
                 subs['ip'] = ipv4
             except Exception:
                 pass
@@ -914,7 +956,7 @@ class Url(s_types.Str):
             # FQDN
             if host is None:
                 try:
-                    host = self.modl.type('inet:fqdn').norm(part)[0]
+                    host = self.fqdntype.norm(part)[0]
                     subs['fqdn'] = host
                 except Exception:
                     pass
@@ -930,13 +972,13 @@ class Url(s_types.Str):
 
         # Optional Port
         if port is not None:
-            port = self.modl.type('inet:port').norm(port)[0]
+            port = self.porttype.norm(port)[0]
             subs['port'] = port
         else:
             # Look up default port for protocol, but don't add it back into the url
             defport = s_l_iana.services.get(proto)
             if defport:
-                subs['port'] = self.modl.type('inet:port').norm(defport)[0]
+                subs['port'] = self.porttype.norm(defport)[0]
 
         # Set up Normed URL
         if isUNC:

@@ -251,6 +251,14 @@ class NoSuchProp(SynErr):
             mesg = f'No property named {name}.'
         return NoSuchProp(mesg=mesg, name=name)
 
+class NoSuchVirt(SynErr):
+
+    @classmethod
+    def init(cls, name, ptyp, mesg=None):
+        if mesg is None:
+            mesg = f'No virtual prop named {name} on type {ptyp.name}.'
+        return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp.name)
+
 class NoSuchEdge(SynErr):
 
     @classmethod

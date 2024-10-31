@@ -1683,12 +1683,12 @@ class StormTypesTest(s_test.SynTest):
             opts = {'user': visi.iden, 'vars': {'iden': nodes[0].iden()}}
             sode = await core.callStorm('return($lib.layer.get().getStorNode($iden))', opts=opts)
             self.eq(sode['form'], 'inet:ip')
-            self.eq(sode['valu'], ((4, 0x01020304), 26))
+            self.eq(sode['valu'], ((4, 0x01020304), 26, None))
 
             opts = {'user': visi.iden, 'vars': {'nid': s_common.int64un(nodes[0].nid)}}
             sode = await core.callStorm('return($lib.layer.get().getStorNodeByNid($nid))', opts=opts)
             self.eq(sode['form'], 'inet:ip')
-            self.eq(sode['valu'], ((4, 0x01020304), 26))
+            self.eq(sode['valu'], ((4, 0x01020304), 26, None))
 
             # check auth deny...
             layriden = await core.callStorm('return($lib.view.get().fork().layers.0.iden)')
