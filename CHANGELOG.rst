@@ -34,6 +34,8 @@ Automatic Migrations
 
 Features and Enhancements
 -------------------------
+- Update the parsing of CPE 2.2 and CPE 2.3 strings to be strict according
+  to the CPE specification (NISTIR 7695).
 - Update storm ``queue.put()`` and ``queue.puts()`` methods to return the
   offset of the queued item.
 - Add CPE migration helper functions. The following functions were added to
