@@ -17,8 +17,8 @@ Automatic Migrations
 
   Migrate invalid ``it:sec:cpe`` nodes if possible. Migration of these nodes
   will only be successful if one of the CPE 2.3 (primary property) or the CPE
-  2.2 (``:v2_2``) strings are valid CPEs.  If both CPE strings are invalid, the
-  node will be removed from the cortex and stored in a Cortex queue
+  2.2 (``:v2_2``) strings are valid CPEs. If both CPE strings are invalid, the
+  node will be removed from the Cortex and stored in a Cortex queue
   (``model_0_2_31:nodes``).
 
   The structure of items in this queue is opaque. The intent is for Power-Ups
