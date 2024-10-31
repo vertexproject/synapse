@@ -30,19 +30,28 @@ Automatic Migrations
   nodes with readonly properties will be removed and also stored in the queue.
   We are unable to automatically migrate these nodes due to the dynamic nature
   of their construction.
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
 - See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update the parsing of CPE 2.2 and CPE 2.3 strings to be strict according
+  to the CPE specification (NISTIR 7695).
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
+- See :ref:`userguide_model_v2_187_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
-- Update the parsing of CPE 2.2 and CPE 2.3 strings to be strict according
-  to the CPE specification (NISTIR 7695).
+
 - Update storm ``queue.put()`` and ``queue.puts()`` methods to return the
   offset of the queued item.
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
 - Add CPE migration helper functions. The following functions were added to
   assist with invalid nodes that were queued as part of the CPE model
   migration: ``$lib.model.migration.s.model_0_2_31.listNodes()``,
   ``$lib.model.migration.s.model_0_2_31.printNode()``, and
   ``$lib.model.migration.s.model_0_2_31.repairNode()``
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
 
 v2.186.0 - 2024-10-29
 =====================
