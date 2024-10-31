@@ -634,7 +634,7 @@ class Model:
 
         exc = s_exc.NoSuchProp.init(name)
         if extra is not None:
-            exc = extra(exc)
+            raise extra(exc)
 
         raise exc
 
