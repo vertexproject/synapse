@@ -5979,6 +5979,13 @@ class RunAsCmd(Cmd):
 
     NOTE: This command requires admin privileges.
 
+    NOTE: Heavy objects (for example a View or Layer) are bound to the context which they
+          are instantiated in and methods on them will be run using the user in that
+          context. This means that executing a method on a variable containing a heavy
+          object which was instantiated outside of the runas command and then used
+          within the runas command will check the permissions of the outer user, not
+          the one specified by the runas command.
+
     Examples:
 
         // Create a node as another user.
