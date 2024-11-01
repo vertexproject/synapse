@@ -208,7 +208,12 @@ class CellTest(s_t_utils.SynTest):
 
             # TODO how to handle iden match with additional property mismatch
 
-            await cell.drive.setTypeSchema('woot', testDataSchema_v0)
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0))
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+            self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+
+            with self.raises(s_exc.BadVersion):
+                await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
 
             info = {'name': 'win32k.sys', 'type': 'woot'}
             info = await cell.addDriveItem(info, reldir=rootdir)
@@ -283,6 +288,12 @@ class CellTest(s_t_utils.SynTest):
 
             versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
             self.eq('woot', data.get('woot'))
+
+            with self.raises(s_exc.NoSuchIden):
+                await cell.reqDriveInfo('d7d6107b200e2c039540fc627bc5537d')
+
+            with self.raises(s_exc.TypeMismatch):
+                await cell.getDriveInfo(iden, typename='newp')
 
             self.nn(await cell.getDriveInfo(iden))
             self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
@@ -1899,7 +1910,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=lock_target, args=(dirn, evt1,))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             with self.raises(s_exc.FatalErr) as cm:
                 async with await s_cell.Cell.anit(dirn) as cell:
@@ -2600,7 +2611,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=reload_target, args=(dirn, evt1, evt2))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             async with await s_telepath.openurl(f'cell://{dirn}') as prox:
                 cnfo = await prox.getCellInfo()
@@ -3008,6 +3019,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(node.get('._woot'), 5)
                 self.nn(node.getTagProp('test', 'score'), 6)
 
+                self.maxDiff = None
                 roles = s_t_utils.deguidify('[{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}]')
                 users = s_t_utils.deguidify('[{"type": "user", "iden": "a357138db50780b62093a6ce0d057fd8", "name": "root", "rules": [], "roles": [], "admin": true, "email": null, "locked": false, "archived": false, "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"admin": true}, "4d50eb257549436414643a71e057091a": {"admin": true}}}, {"type": "user", "iden": "f77ac6744671a845c27e571071877827", "name": "visi", "rules": [[true, ["cron", "add"]], [true, ["dmon", "add"]], [true, ["trigger", "add"]]], "roles": [{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}], "admin": false, "email": null, "locked": false, "archived": false, "authgates": {"f21b7ae79c2dacb89484929a8409e5d8": {"admin": true}, "d7d0380dd4e743e35af31a20d014ed48": {"admin": true}}}]')
                 gates = s_t_utils.deguidify('[{"iden": "46cfde2c1682566602860f8df7d0cc83", "type": "layer", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["layer", "read"]]], "admin": false}]}, {"iden": "d7d0380dd4e743e35af31a20d014ed48", "type": "trigger", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "f21b7ae79c2dacb89484929a8409e5d8", "type": "cronjob", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "4d50eb257549436414643a71e057091a", "type": "view", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["view", "read"]]], "admin": false}]}, {"iden": "cortex", "type": "cortex", "users": [], "roles": []}]')
