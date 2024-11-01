@@ -7543,6 +7543,7 @@ class View(Prim):
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
         {'name': 'layers', 'desc': 'The ``layer`` objects associated with the ``view``.', 'type': 'list', },
         {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
+        {'name': 'children', 'desc': 'A list of idens of Views which are children of this View.', 'type': 'list'},
         {'name': 'triggers', 'desc': 'The ``trigger`` objects associated with the ``view``.',
          'type': 'list', },
         {'name': 'set', 'desc': '''
@@ -7816,6 +7817,7 @@ class View(Prim):
         self.locls.update({
             'iden': self.valu.get('iden'),
             'parent': self.valu.get('parent'),
+            'children': [view.iden for view in self._reqView().children()],
             'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })

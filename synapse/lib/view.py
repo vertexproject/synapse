@@ -1315,6 +1315,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 todo.append(child)
 
+    def children(self):
+        kids = []
+        for view in self.core.views.values():
+            if view.parent == self:
+                kids.append(view)
+
+        return kids
+
     async def insertParentFork(self, useriden, name=None):
         '''
         Insert a new View between a forked View and its parent.

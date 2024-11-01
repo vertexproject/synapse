@@ -905,3 +905,21 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().insertParentFork().iden)')
+
+    async def test_view_children(self):
+
+        async with self.getTestCore() as core:
+
+            view00 = core.getView()
+            view01 = core.getView((await view00.fork())['iden'])
+            view02 = core.getView((await view01.fork())['iden'])
+            view03 = core.getView((await view01.fork())['iden'])
+
+            opts = {'vars': {'view01': view01.iden, 'view02': view02.iden}}
+
+            self.eq([view01.iden], await core.callStorm('return($lib.view.get().children)', opts=opts))
+
+            children = await core.callStorm('return($lib.view.get($view01).children)', opts=opts)
+            self.eq([view02.iden, view03.iden], children)
+
+            self.eq([], await core.callStorm('return($lib.view.get($view02).children)', opts=opts))
