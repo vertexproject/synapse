@@ -305,6 +305,9 @@ class BaseModule(s_module.CoreModule):
                         'ex': 'casualties.civilian',
                         'doc': 'The type of items being counted in aggregate.'}),
 
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the count was computed.'}),
+
                     ('count', ('int', {}), {
                         'doc': 'The number of items counted in aggregate.'}),
                 )),

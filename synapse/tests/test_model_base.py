@@ -396,8 +396,9 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ meta:aggregate=* :count=99 :type=bottles ]')
+            nodes = await core.nodes('[ meta:aggregate=* :count=99 :type=bottles :time=20240202 ]')
             self.len(1, nodes)
             self.eq(99, nodes[0].get('count'))
             self.eq('bottles.', nodes[0].get('type'))
+            self.eq(1706832000000, nodes[0].get('time'))
             self.len(1, await core.nodes('meta:aggregate -> meta:aggregate:type:taxonomy'))
