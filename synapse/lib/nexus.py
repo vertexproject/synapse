@@ -379,6 +379,13 @@ class NexsRoot(s_base.Base):
     async def _eat(self, item, indx=None):
 
         if self.donexslog:
+            nexsiden, event = item[:2]
+            if (nexus := self._nexskids.get(nexsiden)) is None:
+                raise s_exc.NoSuchName(mesg=f'No Nexus Pusher with iden {nexsiden}.', name=nexsiden)
+
+            if event not in nexus._nexshands:
+                raise s_exc.NoSuchName(mesg=f'No Nexus handler for event {event}.', name=event)
+
             saveindx = await self.nexslog.add(item, indx=indx)
             [dist.update() for dist in tuple(self._mirrors)]
 
