@@ -895,6 +895,11 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchFunc):
                 await core.nodes('ou:campaign.created +:period*min@=({})')
 
+            self.eq(ival.getVirtType(['min']), model.types.get('time'))
+
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtType(['min', 'newp'])
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')

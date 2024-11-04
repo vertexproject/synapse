@@ -485,6 +485,10 @@ class Cidr(s_types.Str):
 
         self.iptype = self.modl.type('inet:ip')
 
+        self.pivs |= {
+            'inet:ip': ('range=', self.iptype.getCidrRange),
+        }
+
     def _normPyStr(self, valu):
 
         try:
@@ -722,6 +726,10 @@ class IPRange(s_types.Range):
         s_types.Range.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
         self.cidrtype = self.modl.type('inet:cidr')
+
+        self.pivs |= {
+            'inet:ip': ('range=', lambda valu: valu),
+        }
 
     def _normPyStr(self, valu):
         if '-' in valu:

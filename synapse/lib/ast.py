@@ -419,6 +419,12 @@ class SubGraph:
 
         if self.rules.get('refs'):
 
+            for formname, (cmpr, func) in node.form.type.pivs.items():
+                valu = func(node.ndef[1])
+                link = {'type': 'type'}
+                async for pivonode in node.view.nodesByPropValu(formname, cmpr, valu, norm=False):
+                    yield pivonode, path.fork(pivonode, link), link
+
             for propname, ndef in node.getNodeRefs():
                 pivonode = await node.view.getNodeByNdef(ndef)
                 if pivonode is None:  # pragma: no cover
@@ -2060,45 +2066,25 @@ class PivotOut(PivotOper):
 
             return
 
-        for name, prop in node.form.props.items():
-
-            valu = node.get(name)
-            if valu is None:
-                continue
-
-            link = {'type': 'prop', 'prop': prop.name}
-            # if the outbound prop is an ndef...
-            if isinstance(prop.type, s_types.Ndef):
-                pivo = await runt.view.getNodeByNdef(valu)
-                if pivo is None:
-                    continue
-
+        for formname, (cmpr, func) in node.form.type.pivs.items():
+            valu = func(node.ndef[1])
+            link = {'type': 'type'}
+            async for pivo in runt.view.nodesByPropValu(formname, cmpr, valu, norm=False):
                 yield pivo, path.fork(pivo, link)
+
+        refs = node.form.getRefsOut()
+        for name, form in refs['prop']:
+            if (valu := node.get(name)) is None:
                 continue
 
-            if isinstance(prop.type, s_types.Array):
-                if isinstance(prop.type.arraytype, s_types.Ndef):
-                    for item in valu:
-                        if (pivo := await runt.view.getNodeByNdef(item)) is not None:
-                            yield pivo, path.fork(pivo, link)
-                    continue
-
-                typename = prop.type.opts.get('type')
-                if runt.model.forms.get(typename) is not None:
-                    for item in valu:
-                        async for pivo in runt.view.nodesByPropValu(typename, '=', item, norm=False):
-                            yield pivo, path.fork(pivo, link)
-
-            form = runt.model.forms.get(prop.type.name)
-            if form is None:
-                continue
-
+            prop = node.form.prop(name)
             if prop.isrunt:
-                async for pivo in runt.view.nodesByPropValu(form.name, '=', valu):
+                link = {'type': 'prop', 'prop': name}
+                async for pivo in runt.view.nodesByPropValu(form, '=', valu):
                     yield pivo, path.fork(pivo, link)
                 continue
 
-            pivo = await runt.view.getNodeByNdef((form.name, valu))
+            pivo = await runt.view.getNodeByNdef((form, valu))
             if pivo is None:  # pragma: no cover
                 continue
 
@@ -2106,7 +2092,26 @@ class PivotOut(PivotOper):
             if pivo.nid == node.nid:
                 continue
 
-            yield pivo, path.fork(pivo, link)
+            yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
+
+        for name, form in refs['array']:
+            if (valu := node.get(name)) is not None:
+                link = {'type': 'prop', 'prop': name}
+                for aval in valu:
+                    async for pivo in runt.view.nodesByPropValu(form, '=', aval, norm=False):
+                        yield pivo, path.fork(pivo, link)
+
+        for name in refs['ndef']:
+            if (valu := node.get(name)) is not None:
+                if (pivo := await runt.view.getNodeByNdef(valu)) is not None:
+                    yield pivo, path.fork(pivo, {'type': 'prop', 'prop': name})
+
+        for name in refs['ndefarray']:
+            if (valu := node.get(name)) is not None:
+                link = {'type': 'prop', 'prop': name}
+                for aval in valu:
+                    if (pivo := await runt.view.getNodeByNdef(aval)) is not None:
+                        yield pivo, path.fork(pivo, link)
 
 class N1WalkNPivo(PivotOut):
 
@@ -2299,6 +2304,17 @@ class FormPivot(PivotOper):
                 # regular "-> form" pivot (ie inet:dns:a -> inet:fqdn)
 
                 found = False   # have we found a ref/pivot?
+
+                if (tpiv := node.form.type.pivs.get(destform.type.name)) is not None:
+
+                    found = True
+                    cmpr, func = tpiv
+                    valu = func(node.ndef[1])
+
+                    link = {'type': 'type'}
+                    async for pivo in runt.view.nodesByPropValu(destform.name, cmpr, valu, norm=False):
+                        yield pivo, link
+
                 refs = node.form.getRefsOut()
                 for refsname, refsform in refs.get('prop'):
 
@@ -2465,6 +2481,11 @@ class PropPivotOut(PivotOper):
                 continue
 
             link = {'type': 'prop', 'prop': srcname}
+            for typename, (cmpr, func) in srctype.pivs.items():
+                pivvalu = func(valu)
+                async for pivo in runt.view.nodesByPropValu(typename, cmpr, pivvalu, norm=False):
+                    yield pivo, path.fork(pivo, link)
+
             if srctype.isarray:
                 if isinstance(srctype.arraytype, s_types.Ndef):
                     for item in valu:
@@ -2524,6 +2545,18 @@ class PropPivot(PivotOper):
             if not prop.isform:
                 link['dest'] = prop.full
 
+            ptyp = prop.type
+            if virts is not None:
+                ptyp = ptyp.getVirtType(virts)
+
+            if (tpiv := srctype.pivs.get(ptyp.name)) is not None:
+                cmpr, func = tpiv
+                pivvalu = func(valu)
+                async for pivo in runt.view.nodesByPropValu(prop.full, cmpr, pivvalu, norm=False, virts=virts):
+                    yield pivo, link
+
+                return
+
             # pivoting from an array prop to a non-array prop needs an extra loop
             if srctype.isarray and not prop.type.isarray:
                 if isinstance(srctype.arraytype, s_types.Ndef) and prop.isform:
@@ -2535,7 +2568,7 @@ class PropPivot(PivotOper):
                             yield pivo, link
                     return
 
-                norm = srctype.arraytype.typehash is not prop.typehash
+                norm = srctype.arraytype.typehash is not ptyp.typehash
                 for arrayval in valu:
                     async for pivo in runt.view.nodesByPropValu(prop.full, '=', arrayval, norm=norm, virts=virts):
                         yield pivo, link
@@ -2555,10 +2588,10 @@ class PropPivot(PivotOper):
                 return
 
             if prop.type.isarray and not srctype.isarray:
-                norm = prop.arraytypehash is not srctype.typehash
+                norm = ptyp.arraytypehash is not srctype.typehash
                 genr = runt.view.nodesByPropArray(prop.full, '=', valu, norm=norm, virts=virts)
             else:
-                norm = prop.typehash is not srctype.typehash
+                norm = ptyp.typehash is not srctype.typehash
                 genr = runt.view.nodesByPropValu(prop.full, '=', valu, norm=norm, virts=virts)
 
             async for pivo in genr:
