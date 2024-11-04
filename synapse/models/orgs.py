@@ -385,8 +385,8 @@ class OuModule(s_module.CoreModule):
                     ('submitted', ('time', {}), {
                         'doc': 'The time the candidate was submitted for consideration.'}),
 
-                    ('note', ('str', {}), {
-                        'doc': 'A note or cover letter text submitted by the candidate.'}),
+                    ('greeting', ('str', {}), {
+                        'doc': 'A greeting or cover letter text submitted by the candidate.'}),
 
                     ('resume', ('file:bytes', {}), {
                         'doc': "The candidate's resume or CV."}),
@@ -400,6 +400,10 @@ class OuModule(s_module.CoreModule):
                     ('recruiter', ('ps:contact', {}), {
                         'doc': 'The contact information of a recruiter who works on behalf of the organization.'}),
 
+                    ('attachments', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of additional files submitted by the candidate.'}),
+
+                    # TODO: doc:questionare / responses
                     # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
                     # TODO: proj:task to track evaluation of the candidate?
 
