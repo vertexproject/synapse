@@ -163,11 +163,16 @@ class RiskModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'An outage cause taxonomy.'}),
 
+                ('risk:outage:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An outage type taxonomy.'}),
+
                 ('risk:outage', ('guid', {}), {
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
                             {'type': 'prop', 'opts': {'name': 'period'}},
+                            {'type': 'prop', 'opts': {'name': 'provider:name'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         ),
                     },
@@ -1048,6 +1053,7 @@ class RiskModule(s_module.CoreModule):
 
                 )),
 
+                ('risk:outage:type:taxonomy', {}, ()),
                 ('risk:outage:cause:taxonomy', {}, ()),
                 ('risk:outage', {}, (
 
@@ -1057,8 +1063,22 @@ class RiskModule(s_module.CoreModule):
                     ('period', ('ival', {}), {
                         'doc': 'The time period where the outage impacted availability.'}),
 
+                    ('type', ('risk:outage:type:taxonomy', {}), {
+                        'ex': 'service.power',
+                        'doc': 'The type of outage.'}),
+
                     ('cause', ('risk:outage:cause:taxonomy', {}), {
+                        'ex': 'nature.earthquake',
                         'doc': 'The outage cause type.'}),
+
+                    ('provider', ('ou:org', {}), {
+                        'doc': 'The organization which experienced the outage event.'}),
+
+                    ('provider:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization which experienced the outage event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the outage event.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the outage event.'}),

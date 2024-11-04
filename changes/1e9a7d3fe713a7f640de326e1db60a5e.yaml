@@ -1,0 +1,6 @@
+---
+desc: Added ``:reporter`` and ``:reporter:name`` to the ``ou:industry`` form to allow
+  reporter specific industries.
+prs: []
+type: model
+...
