@@ -883,9 +883,17 @@ async def format(opts: argparse.Namespace,
             text = text + f'\n{header}\n{"-" * len(header)}'
             dataz.sort(key=lambda x: x.get('prs'))
             for data in dataz:
-                desc = data.get('desc')
-                for line in textwrap.wrap(desc, initial_indent='- ', subsequent_indent='  ', width=opts.width):
-                    text = f'{text}\n{line}'
+                desc = data.get('desc')  # type: str
+                desc_lines = desc.splitlines()
+                for i, chunk in enumerate(desc_lines):
+                    if i == 0:
+                        for line in textwrap.wrap(chunk, initial_indent='- ', subsequent_indent='  ', width=opts.width):
+                            text = f'{text}\n{line}'
+                    else:
+                        text = text + '\n'
+                        for line in textwrap.wrap(chunk, initial_indent='  ', subsequent_indent='  ', width=opts.width):
+                            text = f'{text}\n{line}'
+
                 if not opts.hide_prs:
                     for pr in data.get('prs'):
                         text = f'{text}\n  (`#{pr} <https://github.com/vertexproject/synapse/pull/{pr}>`_)'

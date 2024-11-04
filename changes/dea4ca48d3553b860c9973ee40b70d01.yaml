@@ -1,5 +1,0 @@
----
-desc: Added ``doc:document`` interface to ensure consistent properties on document forms.
-prs: []
-type: model
-...

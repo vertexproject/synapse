@@ -577,6 +577,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :techniques=(*,)
                     :tag=cno.mal.cobaltstrike
                     :mitre:attack:software=S0001
+                    :id=" AAAbbb123  "
 
                     :sophistication=high
                     :availability=public
@@ -593,6 +594,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1643673600000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000, nodes[0].get('reporter:published'))
             self.eq('S0001', nodes[0].get('mitre:attack:software'))
+            self.eq('AAAbbb123', nodes[0].get('id'))
 
             self.eq('cobaltstrike', nodes[0].get('soft:name'))
             self.eq(('beacon',), nodes[0].get('soft:names'))

@@ -8,7 +8,6 @@ import signal
 import socket
 import asyncio
 import tarfile
-import warnings
 import collections
 import multiprocessing
 
@@ -209,7 +208,12 @@ class CellTest(s_t_utils.SynTest):
 
             # TODO how to handle iden match with additional property mismatch
 
-            await cell.drive.setTypeSchema('woot', testDataSchema_v0)
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0))
+            self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+            self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+
+            with self.raises(s_exc.BadVersion):
+                await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
 
             info = {'name': 'win32k.sys', 'type': 'woot'}
             info = await cell.addDriveItem(info, reldir=rootdir)
@@ -284,6 +288,12 @@ class CellTest(s_t_utils.SynTest):
 
             versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
             self.eq('woot', data.get('woot'))
+
+            with self.raises(s_exc.NoSuchIden):
+                await cell.reqDriveInfo('d7d6107b200e2c039540fc627bc5537d')
+
+            with self.raises(s_exc.TypeMismatch):
+                await cell.getDriveInfo(iden, typename='newp')
 
             self.nn(await cell.getDriveInfo(iden))
             self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
@@ -751,6 +761,7 @@ class CellTest(s_t_utils.SynTest):
                 self.ge(cnfo.get('nexsindx'), 0)
                 self.true(cnfo.get('active'))
                 self.false(cnfo.get('uplink'))
+                self.none(cnfo.get('mirror', True))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
@@ -1899,7 +1910,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=lock_target, args=(dirn, evt1,))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             with self.raises(s_exc.FatalErr) as cm:
                 async with await s_cell.Cell.anit(dirn) as cell:
@@ -2600,7 +2611,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=reload_target, args=(dirn, evt1, evt2))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             async with await s_telepath.openurl(f'cell://{dirn}') as prox:
                 cnfo = await prox.getCellInfo()
@@ -3008,6 +3019,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(node.get('._woot'), 5)
                 self.nn(node.getTagProp('test', 'score'), 6)
 
+                self.maxDiff = None
                 roles = s_t_utils.deguidify('[{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}]')
                 users = s_t_utils.deguidify('[{"type": "user", "iden": "a357138db50780b62093a6ce0d057fd8", "name": "root", "rules": [], "roles": [], "admin": true, "email": null, "locked": false, "archived": false, "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"admin": true}, "4d50eb257549436414643a71e057091a": {"admin": true}}}, {"type": "user", "iden": "f77ac6744671a845c27e571071877827", "name": "visi", "rules": [[true, ["cron", "add"]], [true, ["dmon", "add"]], [true, ["trigger", "add"]]], "roles": [{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}], "admin": false, "email": null, "locked": false, "archived": false, "authgates": {"f21b7ae79c2dacb89484929a8409e5d8": {"admin": true}, "d7d0380dd4e743e35af31a20d014ed48": {"admin": true}}}]')
                 gates = s_t_utils.deguidify('[{"iden": "46cfde2c1682566602860f8df7d0cc83", "type": "layer", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["layer", "read"]]], "admin": false}]}, {"iden": "d7d0380dd4e743e35af31a20d014ed48", "type": "trigger", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "f21b7ae79c2dacb89484929a8409e5d8", "type": "cronjob", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "4d50eb257549436414643a71e057091a", "type": "view", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["view", "read"]]], "admin": false}]}, {"iden": "cortex", "type": "cortex", "users": [], "roles": []}]')
@@ -3016,7 +3028,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(users, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.users.list())'))))
                 self.eq(gates, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.gates.list())'))))
 
-                with self.raises(s_exc.BadTag):
+                with self.raises(s_exc.BadTypeValu):
                     await core.nodes('[ it:dev:str=foo +#test.newp ]')
 
         stream.seek(0)
@@ -3151,3 +3163,46 @@ class CellTest(s_t_utils.SynTest):
             self.isin(cell.long_lived_slab.fini, cell._fini_funcs)
             slabs = [s for s in cell.tofini if isinstance(s, s_lmdbslab.Slab) and s.lenv.path() == cell.short_slab_path]
             self.len(0, slabs)
+
+    async def test_lib_cell_promote_schism_prevent(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    dirn00 = s_common.genpath(dirn, '00.cell')
+                    dirn01 = s_common.genpath(dirn, '01.cell')
+                    dirn02 = s_common.genpath(dirn, '02.cell')
+
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
+                                                                       provinfo={'mirror': 'cell'}))
+                    cell02 = await base.enter_context(self.addSvcToAha(aha, '02.cell', s_cell.Cell, dirn=dirn02,
+                                                                       provinfo={'mirror': 'cell'}))
+
+                    self.true(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.false(cell02.isactive)
+                    await cell02.sync()
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await cell01.handoff('some://url')
+                    self.isin('01.cell is not the current leader', cm.exception.get('mesg'))
+
+                    # Note: The following behavior may change when SYN-7659 is addressed and greater
+                    # control over the topology update is available during the promotion process.
+                    # Promote 02.cell -> Promote 01.cell -> Promote 00.cell -> BadState exception
+                    await cell02.promote(graceful=True)
+                    self.false(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.true(cell02.isactive)
+                    await cell02.sync()
+
+                    await cell01.promote(graceful=True)
+                    self.false(cell00.isactive)
+                    self.true(cell01.isactive)
+                    self.false(cell02.isactive)
+                    await cell02.sync()
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await cell00.promote(graceful=True)
+                    self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
