@@ -839,16 +839,21 @@ class OuModelTest(s_t_utils.SynTest):
                 :sic="1234,5678"
                 :isic=C1393
                 :desc="Moldy cheese"
+                :reporter={[ ou:org=* :name=vertex ]}
+                :reporter:name=vertex
             ] '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.nn(nodes[0].get('reporter'))
             self.eq('foo bar', nodes[0].get('name'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
             self.sorteq(('1234', '5678'), nodes[0].get('sic'))
             self.sorteq(('11111', '22222'), nodes[0].get('naics'))
             self.sorteq(('C1393', ), nodes[0].get('isic'))
             self.len(2, nodes[0].get('subs'))
             self.eq('Moldy cheese', nodes[0].get('desc'))
 
+            self.len(1, await core.nodes('ou:industry :reporter -> ou:org'))
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
             self.len(3, nodes)
             self.len(3, await core.nodes('ou:industryname=baz -> ou:industry -> ou:industryname'))

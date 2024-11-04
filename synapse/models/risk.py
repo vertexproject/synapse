@@ -164,6 +164,13 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An outage cause taxonomy.'}),
 
                 ('risk:outage', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'period'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        ),
+                    },
                     'doc': 'An outage event which affected resource availability.'}),
 
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {

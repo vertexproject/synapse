@@ -113,6 +113,12 @@ class BaseModule(s_module.CoreModule):
                     'doc': 'A type of item being counted in aggregate.'}),
 
                 ('meta:aggregate', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                            {'type': 'prop', 'opts': {'name': 'count'}},
+                        ),
+                    },
                     'doc': 'A node which represents an aggregate count of a specific type.'}),
             ),
             'interfaces': (
@@ -292,10 +298,10 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'An external identifier for the rule.'}),
                 )),
 
-                ('meta:aggregate:type:taxonomy', {}, (),
+                ('meta:aggregate:type:taxonomy', {}, ()),
                 ('meta:aggregate', {}, (
 
-                    ('type', ('meta:aggregate:type:taxonomy', {}),
+                    ('type', ('meta:aggregate:type:taxonomy', {}), {
                         'ex': 'casualties.civilian',
                         'doc': 'The type of items being counted in aggregate.'}),
 

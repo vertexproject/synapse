@@ -536,6 +536,25 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
 
+            nodes = await core.nodes('''
+                [ risk:outage=*
+                    :name="The Big One"
+                    :period=(2023, 2024)
+                    :cause=nature.earthquake
+                    :reporter={ ou:org:name=vertex }
+                    :reporter:name=vertex
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('reporter'))
+            self.eq('the big one', nodes[0].get('name'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq('nature.earthquake.', nodes[0].get('cause'))
+            self.eq((1672531200000, 1704067200000), nodes[0].get('period'))
+
+            self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))
+            self.len(1, await core.nodes('risk:outage :reporter -> ou:org +:name=vertex'))
+
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''[
