@@ -171,6 +171,8 @@ class RiskModule(s_module.CoreModule):
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                            {'type': 'prop', 'opts': {'name': 'cause'}},
                             {'type': 'prop', 'opts': {'name': 'period'}},
                             {'type': 'prop', 'opts': {'name': 'provider:name'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
