@@ -853,12 +853,16 @@ class Model:
         for _, mdef in mods:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
-                self.addForm(formname, forminfo, propdefs)
+                self.addForm(formname, forminfo, propdefs, checks=False)
 
         # now we can load edge definitions...
         for _, mdef in mods:
             for etype, einfo in mdef.get('edges', ()):
                 self.addEdge(etype, einfo)
+
+        # now we can check the forms display settings...
+        for form in self.forms.values():
+            self._checkFormDisplay(form)
 
     def addEdge(self, edgetype, edgeinfo):
 
@@ -915,7 +919,7 @@ class Model:
         self.types[typename] = newtype
         self._modeldef['types'].append(newtype.getTypeDef())
 
-    def addForm(self, formname, forminfo, propdefs):
+    def addForm(self, formname, forminfo, propdefs, checks=True):
 
         if not s_grammar.isFormName(formname):
             mesg = f'Invalid form name {formname}'
@@ -949,7 +953,8 @@ class Model:
         for ifname in form.type.info.get('interfaces', ()):
             self._addFormIface(form, ifname)
 
-        self._checkFormDisplay(form)
+        if checks:
+            self._checkFormDisplay(form)
 
         self.formprefixcache.clear()
 

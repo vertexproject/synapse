@@ -284,6 +284,16 @@ class FileModule(s_module.CoreModule):
                     'doc': 'A parent file that fully contains the specified child file.',
                 }),
 
+                ('file:attachment', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'file'}},
+                            {'type': 'prop', 'opts': {'name': 'text'}},
+                        ),
+                    },
+                    'doc': 'A file attachment.'}),
+
                 ('file:archive:entry', ('guid', {}), {
                     'doc': 'An archive entry representing a file and metadata within a parent archive file.'}),
 
@@ -599,6 +609,18 @@ class FileModule(s_module.CoreModule):
                         'ro': True,
                         'doc': 'The extension of the file name.',
                     }),
+                )),
+
+                ('file:attachment', {}, (
+
+                    ('name', ('file:path', {}), {
+                        'doc': 'The name of the attached file.'}),
+
+                    ('text', ('str', {}), {
+                        'doc': 'Any text associated with the file such as alt-text for images.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file which was attached.'}),
                 )),
 
                 ('file:archive:entry', {}, (
