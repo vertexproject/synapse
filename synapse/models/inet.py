@@ -2015,8 +2015,11 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The guid of the destination process.'
                         }),
                         ('dst:exe', ('file:bytes', {}), {
-                            'doc': 'The file (executable) that received the connection.'
-                        }),
+                            'doc': 'The file (executable) that received the connection.'}),
+
+                        ('dst:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files sent by the destination host.'}),
+
                         ('dst:txcount', ('int', {}), {
                             'doc': 'The number of packets sent by the destination host.'
                         }),
@@ -2049,8 +2052,11 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The guid of the source process.'
                         }),
                         ('src:exe', ('file:bytes', {}), {
-                            'doc': 'The file (executable) that created the connection.'
-                        }),
+                            'doc': 'The file (executable) that created the connection.'}),
+
+                        ('src:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files sent by the source host.'}),
+
                         ('src:txcount', ('int', {}), {
                             'doc': 'The number of packets sent by the source host.'
                         }),
