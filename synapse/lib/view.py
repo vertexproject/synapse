@@ -1315,13 +1315,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 todo.append(child)
 
-    def children(self):
-        kids = []
-        for view in self.core.views.values():
-            if view.parent == self:
-                kids.append(view)
+    async def children(self):
+        for view in list(self.core.views.values()):
+            if view.parent != self:
+                await asyncio.sleep(0)
+                continue
 
-        return kids
+            yield view
 
     async def insertParentFork(self, useriden, name=None):
         '''

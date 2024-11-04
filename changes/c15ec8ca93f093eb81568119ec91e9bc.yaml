@@ -1,5 +1,5 @@
 ---
-desc: Add ``children`` property on Storm ``view`` objects.
+desc: Add ``children()`` method on Storm ``view`` objects.
 prs: []
 type: feat
 ...

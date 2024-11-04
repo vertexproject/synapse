@@ -7974,7 +7974,7 @@ class View(Prim):
     @stormfunc(readonly=True)
     async def _methGetChildren(self):
         view = self._reqView()
-        for child in view.children():
+        async for child in view.children():
             yield View(self.runt, await child.pack(), path=self.path)
 
     @stormfunc(readonly=True)
