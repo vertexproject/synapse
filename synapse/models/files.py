@@ -612,7 +612,7 @@ class FileModule(s_module.CoreModule):
                         'doc': 'Any text associated with the file such as alt-text for images.'}),
 
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file which was attached to the message.'}),
+                        'doc': 'The file which was attached.'}),
                 )),
 
                 ('file:archive:entry', {}, (
