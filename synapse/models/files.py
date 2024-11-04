@@ -605,6 +605,7 @@ class FileModule(s_module.CoreModule):
                 )),
 
                 ('file:attachment', {}, (
+
                     ('name', ('file:path', {}), {
                         'doc': 'The name of the attached file.'}),
 

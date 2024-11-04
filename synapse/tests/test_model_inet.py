@@ -455,6 +455,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :src:rdp:hostname=SYNCODER
                 :src:rdp:keyboard:layout=AZERTY
                 :raw=((10), (20))
+                :src:txfiles={[ file:attachment=* :name=foo.exe ]}
+                :dst:txfiles={[ file:attachment=* :name=bar.exe ]}
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
@@ -501,6 +503,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
             self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
             self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
+            self.len(1, await core.nodes('inet:flow :src:txfiles -> file:attachment +:name=foo.exe'))
+            self.len(1, await core.nodes('inet:flow :dst:txfiles -> file:attachment +:name=bar.exe'))
 
     async def test_fqdn(self):
         formname = 'inet:fqdn'
