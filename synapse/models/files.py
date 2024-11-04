@@ -285,6 +285,13 @@ class FileModule(s_module.CoreModule):
                 }),
 
                 ('file:attachment', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'file'}},
+                            {'type': 'prop', 'opts': {'name': 'text'}},
+                        ),
+                    },
                     'doc': 'A file attachment.'}),
 
                 ('file:archive:entry', ('guid', {}), {
