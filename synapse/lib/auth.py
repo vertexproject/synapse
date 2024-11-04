@@ -493,6 +493,11 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchAuthGate(iden=iden, mesg=mesg)
         return gate
 
+    def reqNoAuthGate(self, iden):
+        if self.authgates.get(iden) is not None:
+            mesg = f'An auth gate already exists with iden: ({iden}).'
+            raise s_exc.DupIden(iden=iden, mesg=mesg)
+
     def checkUserLimit(self):
         '''
         Check if we're at the specified user limit.
@@ -570,6 +575,8 @@ class Auth(s_nexus.Pusher):
         if user is not None:
             return
 
+        self.reqNoAuthGate(iden)
+
         info = {
             'iden': iden,
             'name': name,
@@ -625,6 +632,8 @@ class Auth(s_nexus.Pusher):
         role = self.roleidenbynamecache.get(name)
         if role is not None:
             return
+
+        self.reqNoAuthGate(iden)
 
         info = {
             'iden': iden,

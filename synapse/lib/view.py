@@ -1614,9 +1614,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is not None:
             return self.triggers.get(tdef['iden']).pack()
 
-        gate = self.core.auth.getAuthGate(tdef['iden'])
-        if gate is not None:
-            raise s_exc.DupIden(mesg='An AuthGate with this iden already exists')
+        self.core.auth.reqNoAuthGate(tdef['iden'])
 
         user = self.core.auth.user(tdef['user'])
         await self.core.getStormQuery(tdef['storm'])
