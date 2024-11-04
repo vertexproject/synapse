@@ -7543,9 +7543,11 @@ class View(Prim):
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
         {'name': 'layers', 'desc': 'The ``layer`` objects associated with the ``view``.', 'type': 'list', },
         {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
-        {'name': 'children', 'desc': 'A list of idens of Views which are children of this View.', 'type': 'list'},
         {'name': 'triggers', 'desc': 'The ``trigger`` objects associated with the ``view``.',
          'type': 'list', },
+        {'name': 'children', 'desc': 'Yield Views which are children of this View.',
+         'type': {'type': 'function', '_funcname': '_methGetChildren',
+                  'returns': {'name': 'yields', 'type': 'view', 'desc': 'Child Views.', }}},
         {'name': 'set', 'desc': '''
             Set a view configuration option.
 
@@ -7817,7 +7819,6 @@ class View(Prim):
         self.locls.update({
             'iden': self.valu.get('iden'),
             'parent': self.valu.get('parent'),
-            'children': [view.iden for view in self._reqView().children()],
             'triggers': [Trigger(self.runt, tdef) for tdef in self.valu.get('triggers')],
             'layers': [Layer(self.runt, ldef, path=self.path) for ldef in self.valu.get('layers')],
         })
@@ -7834,6 +7835,7 @@ class View(Prim):
             'merge': self._methViewMerge,
             'detach': self.detach,
             'addNode': self.addNode,
+            'children': self._methGetChildren,
             'getEdges': self._methGetEdges,
             'wipeLayer': self._methWipeLayer,
             'swapLayer': self._methSwapLayer,
@@ -7968,6 +7970,12 @@ class View(Prim):
 
         async for valu in view.iterPropValues(propname):
             yield valu
+
+    @stormfunc(readonly=True)
+    async def _methGetChildren(self):
+        view = self._reqView()
+        for child in view.children():
+            yield View(self.runt, await child.pack(), path=self.path)
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):

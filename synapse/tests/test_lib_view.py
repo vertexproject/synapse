@@ -915,11 +915,17 @@ class ViewTest(s_t_utils.SynTest):
             view02 = core.getView((await view01.fork())['iden'])
             view03 = core.getView((await view01.fork())['iden'])
 
-            opts = {'vars': {'view01': view01.iden, 'view02': view02.iden}}
+            q = '''
+            $kids = ([])
+            for $child in $lib.view.get($iden).children() { $kids.append($child.iden) }
+            return($kids)
+            '''
 
-            self.eq([view01.iden], await core.callStorm('return($lib.view.get().children)', opts=opts))
+            opts = {'vars': {'iden': view00.iden}}
+            self.eq([view01.iden], await core.callStorm(q, opts=opts))
 
-            children = await core.callStorm('return($lib.view.get($view01).children)', opts=opts)
-            self.eq([view02.iden, view03.iden], children)
+            opts['vars']['iden'] = view01.iden
+            self.eq([view02.iden, view03.iden], await core.callStorm(q, opts=opts))
 
-            self.eq([], await core.callStorm('return($lib.view.get($view02).children)', opts=opts))
+            opts['vars']['iden'] = view02.iden
+            self.eq([], await core.callStorm(q, opts=opts))
