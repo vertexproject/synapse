@@ -1595,6 +1595,9 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('meta:taxonomy',),
                         'doc': 'A message type taxonomy.'}),
 
+                    ('inet:service:message:emote', ('guid', {}), {
+                        'doc': 'An emote or reaction to a message by an account.'}),
+
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
                         'doc': 'Represents a user access request to a service resource.'}),
@@ -3779,7 +3782,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The message the reaction is in response to.'}),
 
                         ('text', ('str', {'strip': True}), {
-                            'ex': ':partyparrot:'
+                            'ex': ':partyparrot:',
                             'doc': 'The unicode or emote text of the reaction.'}),
                     )),
 

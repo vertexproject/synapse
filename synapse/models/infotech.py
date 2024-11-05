@@ -816,9 +816,9 @@ class ItModule(s_module.CoreModule):
                     'interfaces': ('inet:service:object',),
                     'doc': 'A comment on a diff in a repository.'}),
 
-                ('it:dev:repo:reaction', ('guid', {}), {
+                ('it:dev:repo:emote', ('guid', {}), {
                     'interfaces': ('inet:service:action',),
-                    'doc': 'An account reaction to a repository.'}),
+                    'doc': 'An emote or reaction to a repository by an account.'}),
 
                 ('it:dev:repo:follow', ('guid', {}), {
                     'interfaces': ('inet:service:action',),
