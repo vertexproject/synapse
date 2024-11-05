@@ -316,7 +316,7 @@ class NexusTest(s_t_utils.SynTest):
                 # the leader does not yet have handlers for
                 async with await s_cell.Cell.anit(dirn=path) as cell01:
                     cell01.nexsiden = 'newp'
-                    with self.raises(s_exc.NoSuchName) as cm:
+                    with self.raises(s_exc.NoSuchIden) as cm:
                         await cell01.sync()
                     self.eq(cm.exception.get('mesg'), 'No Nexus Pusher with iden newp.')
 

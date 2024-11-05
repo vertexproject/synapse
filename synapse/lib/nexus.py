@@ -342,7 +342,7 @@ class NexsRoot(s_base.Base):
             meta = {}
 
         if (nexus := self._nexskids.get(nexsiden)) is None:
-            raise s_exc.NoSuchName(mesg=f'No Nexus Pusher with iden {nexsiden}.', name=nexsiden)
+            raise s_exc.NoSuchIden(mesg=f'No Nexus Pusher with iden {nexsiden}.', iden=nexsiden)
 
         if event not in nexus._nexshands:
             raise s_exc.NoSuchName(mesg=f'No Nexus handler for event {event}.', name=event)
