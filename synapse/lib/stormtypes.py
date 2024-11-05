@@ -277,6 +277,7 @@ class StormTypesRegistry:
                 'desc': getDoc(slib, sname),
                 'locals': locs,
                 'path': ('lib',) + slib._storm_lib_path,
+                'deprecated': slib._storm_lib_deprecation,
             }
             for info in sorted(slib._storm_locals, key=lambda x: x.get('name')):
                 info = s_msgpack.deepcopy(info)
@@ -509,6 +510,7 @@ class Lib(StormType):
     _storm_query = None
     _storm_typename = 'lib'
     _storm_lib_perms = ()
+    _storm_lib_deprecation = None
 
     def __init__(self, runt, name=()):
         StormType.__init__(self)
@@ -1326,6 +1328,22 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list of (<bool>, <prim>) for status and normalized value.', }}},
+        {'name': 'repr', 'desc': '''
+            Attempt to convert a system mode value to a display mode string.
+
+            Examples:
+                Print the Synapse user name for an iden::
+
+                    $lib.print($lib.repr(syn:user, $iden))
+
+         ''',
+         'type': {'type': 'function', '_funcname': '_repr',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The name of the model type.'},
+                      {'name': 'valu', 'type': 'any', 'desc': 'The value to convert.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'A display mode representation of the value.'}}},
+
         {'name': 'debug', 'desc': '''
             True if the current runtime has debugging enabled.
 
@@ -1337,7 +1355,7 @@ class LibBase(Lib):
                 Check if the runtime is in debug and print a message::
 
                     if $lib.debug {
-                        $lib.print('Doing stuff!")
+                        $lib.print('Doing stuff!')
                     }
 
                 Update the current runtime to enable debugging::
@@ -1398,6 +1416,7 @@ class LibBase(Lib):
             'false': False,
             'text': self._text,
             'cast': self._cast,
+            'repr': self._repr,
             'warn': self._warn,
             'print': self._print,
             'raise': self._raise,
@@ -1487,22 +1506,26 @@ class LibBase(Lib):
             mesg = 'Nested type does not support being copied!'
             raise s_exc.BadArg(mesg=mesg) from None
 
+    def _reqTypeByName(self, name):
+        typeitem = self.runt.snap.core.model.type(name)
+        if typeitem is not None:
+            return typeitem
+
+        # If a type cannot be found for the form, see if name is a property
+        # that has a type we can use
+        propitem = self.runt.snap.core.model.prop(name)
+        if propitem is not None:
+            return propitem.type
+
+        mesg = f'No type or prop found for name {name}.'
+        raise s_exc.NoSuchType(mesg=mesg)
+
     @stormfunc(readonly=True)
     async def _cast(self, name, valu):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        typeitem = self.runt.snap.core.model.type(name)
-        if typeitem is None:
-            # If a type cannot be found for the form, see if name is a property
-            # that has a type we can use
-            propitem = self.runt.snap.core.model.prop(name)
-            if propitem is None:
-                mesg = f'No type or prop found for name {name}.'
-                raise s_exc.NoSuchType(mesg=mesg)
-
-            typeitem = propitem.type
-
+        typeitem = self._reqTypeByName(name)
         # TODO an eventual mapping between model types and storm prims
 
         norm, info = typeitem.norm(valu)
@@ -1513,22 +1536,20 @@ class LibBase(Lib):
         name = await toprim(name)
         valu = await toprim(valu)
 
-        typeitem = self.runt.snap.core.model.type(name)
-        if typeitem is None:
-            # If a type cannot be found for the form, see if name is a property
-            # that has a type we can use
-            propitem = self.runt.snap.core.model.prop(name)
-            if propitem is None:
-                mesg = f'No type or prop found for name {name}.'
-                raise s_exc.NoSuchType(mesg=mesg)
-
-            typeitem = propitem.type
+        typeitem = self._reqTypeByName(name)
 
         try:
             norm, info = typeitem.norm(valu)
             return (True, fromprim(norm, basetypes=False))
         except s_exc.BadTypeValu:
             return (False, None)
+
+    @stormfunc(readonly=True)
+    async def _repr(self, name, valu):
+        name = await toprim(name)
+        valu = await toprim(valu)
+
+        return self._reqTypeByName(name).repr(valu)
 
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
@@ -1718,7 +1739,7 @@ class LibDict(Lib):
          'type': {'type': 'function', '_funcname': '_has',
                   'args': (
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary being checked.'},
-                      {'name': 'name', 'type': 'str', 'desc': 'The key name to check.'},
+                      {'name': 'key', 'type': 'any', 'desc': 'The key to check.'},
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the key is present, false if the key is not present.'}}},
         {'name': 'keys', 'desc': 'Retrieve a list of keys in the specified dictionary.',
@@ -1731,7 +1752,7 @@ class LibDict(Lib):
          'type': {'type': 'function', '_funcname': '_pop',
                   'args': (
                       {'name': 'valu', 'type': 'dict', 'desc': 'The dictionary to operate on.'},
-                      {'name': 'key', 'type': 'str', 'desc': 'The key name of the value to pop.'},
+                      {'name': 'key', 'type': 'any', 'desc': 'The key to pop.'},
                       {'name': 'default', 'type': 'any', 'default': '$lib.undef',
                        'desc': 'Optional default value to return if the key does not exist in the dictionary.'},
                   ),
@@ -1774,10 +1795,11 @@ class LibDict(Lib):
         raise s_exc.BadArg(mesg=mesg)
 
     @stormfunc(readonly=True)
-    async def _has(self, valu, name):
+    async def _has(self, valu, key):
         await self._check_type(valu)
+        key = await toprim(key)
         valu = await toprim(valu)
-        return name in valu
+        return key in valu
 
     @stormfunc(readonly=True)
     async def _keys(self, valu):
@@ -1789,8 +1811,8 @@ class LibDict(Lib):
     async def _pop(self, valu, key, default=undef):
         await self._check_type(valu)
 
+        key = await toprim(key)
         real = await toprim(valu)
-        key = await tostr(key)
 
         if key not in real:
             if default == undef:
@@ -1996,7 +2018,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2019,7 +2041,7 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['bool', 'null', 'str'],
+                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
                        'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
@@ -2659,6 +2681,7 @@ class LibBytes(Lib):
                   'returns': {'type': 'list', 'desc': 'A tuple of the file size and sha256 value.', }}},
     )
     _storm_lib_path = ('bytes',)
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0', 'mesg': 'Use the corresponding ``$lib.axon`` function.'}
 
     def getObjLocals(self):
         return {
@@ -3793,13 +3816,13 @@ class Queue(StormType):
                   'args': (
                       {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'int', 'desc': 'The queue offset of the item.'}}},
         {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePuts',
                   'args': (
                       {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'int', 'desc': 'The queue offset of the first item.'}}},
         {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
          'type': {'type': 'function', '_funcname': '_methQueueGets',
                   'args': (
@@ -4805,8 +4828,8 @@ class Dict(Prim):
         name = await toprim(name)
         return self.valu.get(name)
 
-    async def value(self):
-        return {await toprim(k): await toprim(v) for (k, v) in self.valu.items()}
+    async def value(self, use_list=False):
+        return {await toprim(k): await toprim(v, use_list=use_list) for (k, v) in self.valu.items()}
 
     async def stormrepr(self):
         reprs = ["{}: {}".format(await torepr(k), await torepr(v)) for (k, v) in list(self.valu.items())]
@@ -4842,9 +4865,9 @@ class CmdOpts(Dict):
         name = await tostr(name)
         return getattr(self.valu.opts, name, None)
 
-    async def value(self):
+    async def value(self, use_list=False):
         valu = vars(self.valu.opts)
-        return {await toprim(k): await toprim(v) for (k, v) in valu.items()}
+        return {await toprim(k): await toprim(v, use_list=use_list) for (k, v) in valu.items()}
 
     async def iter(self):
         valu = vars(self.valu.opts)
@@ -4994,7 +5017,7 @@ class List(Prim):
         {'name': 'sort', 'desc': 'Sort the list in place.',
          'type': {'type': 'function', '_funcname': '_methListSort',
                   'args': (
-                      {'name': 'reverse', 'type': 'bool', 'desc': 'Sort the list in reverse order.',
+                      {'name': 'reverse', 'type': 'boolean', 'desc': 'Sort the list in reverse order.',
                        'default': False},
                   ),
                   'returns': {'type': 'null', }}},
@@ -5005,6 +5028,7 @@ class List(Prim):
                   ),
                   'returns': {'type': 'any', 'desc': 'The item present in the list at the index position.', }}},
         {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methListLength',
                   'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'append', 'desc': 'Append a value to the list.',
@@ -5061,6 +5085,14 @@ class List(Prim):
         {'name': 'unique', 'desc': 'Get a copy of the list containing unique items.',
          'type': {'type': 'function', '_funcname': '_methListUnique',
                   'returns': {'type': 'list'}}},
+        {'name': 'rem', 'desc': 'Remove a specific item from anywhere in the list.',
+         'type': {'type': 'function', '_funcname': '_methListRemove',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': 'An item in the list.'},
+                      {'name': 'all', 'type': 'boolean', 'default': False,
+                       'desc': 'Remove all instances of item from the list.'},
+                  ),
+                  'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the item was removed from the list.'}}},
     )
     _storm_typename = 'list'
     _ismutable = True
@@ -5082,6 +5114,7 @@ class List(Prim):
             'slice': self._methListSlice,
             'extend': self._methListExtend,
             'unique': self._methListUnique,
+            'rem': self._methListRemove,
         }
 
     @stormfunc(readonly=True)
@@ -5176,13 +5209,14 @@ class List(Prim):
         end = await toint(end)
         return self.valu[start:end]
 
-    @stormfunc(readonly=True)
     async def _methListExtend(self, valu):
         async for item in toiter(valu):
             self.valu.append(item)
 
-    async def value(self):
-        return tuple([await toprim(v) for v in self.valu])
+    async def value(self, use_list=False):
+        if use_list:
+            return [await toprim(v, use_list=use_list) for v in self.valu]
+        return tuple([await toprim(v, use_list=use_list) for v in self.valu])
 
     async def iter(self):
         for item in self.valu:
@@ -5203,6 +5237,21 @@ class List(Prim):
             checkret.append(_cval)
             ret.append(val)
         return ret
+
+    async def _methListRemove(self, item, all=False):
+        item = await toprim(item)
+        all = await tobool(all)
+
+        if item not in self.valu:
+            return False
+
+        while item in self.valu:
+            self.valu.remove(item)
+
+            if not all:
+                break
+
+        return True
 
     async def stormrepr(self):
         reprs = [await torepr(k) for k in self.valu]
@@ -5277,7 +5326,7 @@ class Number(Prim):
     def __init__(self, valu, path=None):
         try:
             valu = s_common.hugenum(valu)
-        except decimal.DecimalException as e:
+        except (TypeError, decimal.DecimalException) as e:
             mesg = f'Failed to make number from {valu!r}'
             raise s_exc.BadCast(mesg=mesg) from e
 
@@ -6061,7 +6110,7 @@ class Node(Prim):
                       {'name': 'glob', 'type': 'str', 'default': None,
                        'desc': 'A tag glob expression. If this is provided, only tags which match the expression '
                                'are returned.'},
-                      {'name': 'leaf', 'type': 'bool', 'default': False,
+                      {'name': 'leaf', 'type': 'boolean', 'default': False,
                        'desc': 'If true, only leaf tags are included in the returned tags.'},
                   ),
                   'returns': {'type': 'list',
@@ -6081,14 +6130,14 @@ class Node(Prim):
          'type': {'type': 'function', '_funcname': '_methNodeAddEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to add.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden of the destination node.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delEdge', 'desc': 'Remove a light-weight edge.',
          'type': {'type': 'function', '_funcname': '_methNodeDelEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to remove.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node to remove.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden of the destination node to remove.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
@@ -6721,6 +6770,13 @@ class Layer(Prim):
          'type': {'type': 'function', '_funcname': '_methGetFormcount',
                   'returns': {'type': 'dict',
                               'desc': 'Dictionary containing form names and the count of the nodes in the Layer.', }}},
+        {'name': 'getPropValues',
+         'desc': 'Yield unique property values in the layer for the given form or property name.',
+         'type': {'type': 'function', '_funcname': '_methGetPropValues',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
         {'name': 'getStorNodes', 'desc': '''
             Get buid, sode tuples representing the data stored in the layer.
 
@@ -6771,11 +6827,11 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
         {'name': 'getStorNode', 'desc': '''
-            Retrieve the raw storage node for the specified node id.
+            Retrieve the raw storage node for the specified node iden.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNode',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
         {'name': 'liftByProp', 'desc': '''
@@ -6841,7 +6897,7 @@ class Layer(Prim):
                               'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN1', 'desc': '''
-            Yield (verb, n2iden) tuples for any light edges in the layer for the source node id.
+            Yield (verb, n2iden) tuples for any light edges in the layer for the source node iden.
 
             Example:
                 Iterate the N1 edges for ``$node``::
@@ -6853,13 +6909,13 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN2', 'desc': '''
-            Yield (verb, n1iden) tuples for any light edges in the layer for the target node id.
+            Yield (verb, n1iden) tuples for any light edges in the layer for the target node iden.
 
             Example:
                 Iterate the N2 edges for ``$node``::
@@ -6870,10 +6926,26 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
+        {'name': 'getNodeData', 'desc': '''
+            Yield (name, valu) tuples for any node data in the layer for the target node iden.
+
+            Example:
+                Iterate the node data for ``$node``::
+
+                    for ($name, $valu) in $layer.getNodeData($node.iden()) {
+                        $lib.print(`{$name} = {$valu}`)
+                    }
+            ''',
+         'type': {'type': 'function', '_funcname': 'getNodeData',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<name>, <valu>) tuples', }}},
     )
     _storm_typename = 'layer'
     _ismutable = False
@@ -6921,6 +6993,7 @@ class Layer(Prim):
             'liftByProp': self.liftByProp,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
+            'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
             'getFormCounts': self._methGetFormcount,
@@ -6929,6 +7002,7 @@ class Layer(Prim):
             'getStorNodesByForm': self.getStorNodesByForm,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
+            'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
         }
 
@@ -7191,6 +7265,29 @@ class Layer(Prim):
         return layr.getTagPropValuCount(form, tag, prop.name, prop.type.stortype, norm)
 
     @stormfunc(readonly=True)
+    async def _methGetPropValues(self, propname):
+        propname = await tostr(propname)
+
+        prop = self.runt.snap.core.model.reqProp(propname)
+
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        async for indx, valu in layr.iterPropValues(formname, propname, prop.type.stortype):
+            yield valu
+
+    @stormfunc(readonly=True)
     async def _methLayerEdits(self, offs=0, wait=True, size=None, reverse=False):
         offs = await toint(offs)
         wait = await tobool(wait)
@@ -7273,6 +7370,15 @@ class Layer(Prim):
         await self.runt.reqUserCanReadLayer(layriden)
         layr = self.runt.snap.core.getLayer(layriden)
         async for item in layr.iterNodeEdgesN2(s_common.uhex(nodeid)):
+            yield item
+
+    @stormfunc(readonly=True)
+    async def getNodeData(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.iterNodeData(s_common.uhex(nodeid)):
             yield item
 
     @stormfunc(readonly=True)
@@ -7367,7 +7473,7 @@ class LibView(Lib):
         {'name': 'list', 'desc': 'List the Views in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methViewList',
                   'args': (
-                      {'name': 'deporder', 'type': 'bool', 'default': False,
+                      {'name': 'deporder', 'type': 'boolean', 'default': False,
                         'desc': 'Return the lists in bottom-up dependency order.', },
                   ),
                   'returns': {'type': 'list', 'desc': 'List of ``view`` objects.', }}},
@@ -7622,6 +7728,14 @@ class View(Prim):
                   ),
                   'returns': {'type': 'int', 'desc': 'The count of nodes.', }}},
 
+        {'name': 'getPropValues',
+         'desc': 'Yield unique property values in the view for the given form or property name.',
+         'type': {'type': 'function', '_funcname': '_methGetPropValues',
+                  'args': (
+                      {'name': 'propname', 'type': 'str', 'desc': 'The property or form name to look up.', },
+                  ),
+                  'returns': {'name': 'yields', 'type': 'any', 'desc': 'Unique property values.', }}},
+
         {'name': 'detach', 'desc': 'Detach the view from its parent. WARNING: This cannot be reversed.',
          'type': {'type': 'function', '_funcname': 'detach',
                   'args': (),
@@ -7725,6 +7839,7 @@ class View(Prim):
             'getEdgeVerbs': self._methGetEdgeVerbs,
             'getFormCounts': self._methGetFormcount,
             'getPropCount': self._methGetPropCount,
+            'getPropValues': self._methGetPropValues,
             'getTagPropCount': self._methGetTagPropCount,
             'getPropArrayCount': self._methGetPropArrayCount,
 
@@ -7840,6 +7955,17 @@ class View(Prim):
         view = self.runt.snap.core.getView(viewiden)
 
         return await view.getPropArrayCount(propname, valu=valu)
+
+    @stormfunc(readonly=True)
+    async def _methGetPropValues(self, propname):
+        propname = await tostr(propname)
+
+        viewiden = self.valu.get('iden')
+        self.runt.confirm(('view', 'read'), gateiden=viewiden)
+        view = self.runt.snap.core.getView(viewiden)
+
+        async for valu in view.iterPropValues(propname):
+            yield valu
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
@@ -9398,7 +9524,7 @@ class CronJob(Prim):
         return job
 
 # These will go away once we have value objects in storm runtime
-async def toprim(valu, path=None):
+async def toprim(valu, path=None, use_list=False):
 
     if isinstance(valu, (str, int, bool, float, bytes, types.AsyncGeneratorType, types.GeneratorType)) or valu is None:
         return valu
@@ -9407,22 +9533,28 @@ async def toprim(valu, path=None):
         retn = []
         for v in valu:
             try:
-                retn.append(await toprim(v))
+                retn.append(await toprim(v, use_list=use_list))
             except s_exc.NoSuchType:
                 pass
-        return tuple(retn)
+
+        if not use_list:
+            return tuple(retn)
+        return retn
 
     if isinstance(valu, dict):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await toprim(v)
+                retn[k] = await toprim(v, use_list=use_list)
             except s_exc.NoSuchType:
                 pass
         return retn
 
     if isinstance(valu, Number):
         return float(valu.value())
+
+    if isinstance(valu, (Dict, List)):
+        return await valu.value(use_list=use_list)
 
     if isinstance(valu, Prim):
         return await s_coro.ornot(valu.value)

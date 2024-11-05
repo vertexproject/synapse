@@ -55,6 +55,7 @@ class StormLibStixTest(s_test.SynTest):
     async def test_stormlib_libstix(self, conf=None):
 
         async with self.getTestCore(conf=conf) as core:
+            visi = await core.auth.addUser('visi')
             opts = {'vars': {
                 'ind': '6ba7d8500964902bf2e03126ed0f6cb1',
                 'news': '840b9b003a765020705ea8d203a7659c',
@@ -228,9 +229,9 @@ class StormLibStixTest(s_test.SynTest):
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
-            with self.raises(s_exc.BadConfValu):
+            with self.raises(s_exc.AuthDeny):
                 config = {'maxsize': 10000000}
-                opts = {'vars': {'config': config}}
+                opts = {'user': visi.iden, 'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
             with self.raises(s_exc.NoSuchForm):
@@ -409,6 +410,21 @@ class StormLibStixTest(s_test.SynTest):
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.len(1, [n for n in nodes if n[0][0] == 'it:cmd'])
             self.stormIsInWarn("STIX bundle ingest has no relationship definition for: ('threat-actor', 'gronks', 'threat-actor')", msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), newp)')
+            self.stormIsInErr('config must be a dictionary', msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), ({"relationships": 5}))')
+            self.stormIsInErr('Error processing relationships', msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), ({"bundle": 3}))')
+            self.stormIsInErr('bundle value must be a dictionary', msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({}), ({"bundle": {"storm": 3}}))')
+            self.stormIsInErr('storm query must be a string', msgs)
+
+            msgs = await core.stormlist('yield $lib.stix.import.ingest(({"objects": 3}), ({}))')
+            self.stormIsInErr('data.objects must be array', msgs)
 
     async def test_stix_export_custom(self):
 

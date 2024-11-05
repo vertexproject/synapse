@@ -57,12 +57,24 @@ class StormtypesModelextTest(s_test.SynTest):
             model_defs = await core.callStorm('return ( $lib.model.ext.getExtModel() )')
             self.isinstance(model_defs, dict)
 
+            self.len(1, await core.nodes('_visi:int:tick'))
+            await core._delAllFormProp('_visi:int', 'tick', {})
+            self.len(0, await core.nodes('_visi:int:tick'))
+
+            self.len(1, await core.nodes('._woot'))
+            await core._delAllUnivProp('_woot', {})
+            self.len(0, await core.nodes('._woot'))
+
+            self.len(1, await core.nodes('#lol:score'))
+            await core._delAllTagProp('score', {})
+            self.len(0, await core.nodes('#lol:score'))
+
             await core.callStorm('_visi:int=10 test:int=1234 | delnode')
             await core.callStorm('''
-                $lib.model.ext.delTagProp(score)
-                $lib.model.ext.delUnivProp(_woot)
+                $lib.model.ext.delTagProp(score, force=(true))
+                $lib.model.ext.delUnivProp(_woot, force=(true))
                 $lib.model.ext.delFormProp(_visi:int, tick)
-                $lib.model.ext.delFormProp(test:int, _tick)
+                $lib.model.ext.delFormProp(test:int, _tick, force=(true))
                 $lib.model.ext.delForm(_visi:int)
                 $lib.model.ext.delEdge(inet:user, _copies, *)
             ''')
@@ -276,6 +288,46 @@ class StormtypesModelextTest(s_test.SynTest):
 
             self.nn(core.model.edge(('inet:user', '_copies', None)))
 
+        # Property values left behind in layers are cleanly removed
+        async with self.getTestCore() as core:
+            await core.callStorm('''
+                $typeinfo = ({})
+                $docinfo = ({"doc": "NEWP"})
+                $lib.model.ext.addUnivProp(_woot, (int, ({})), $docinfo)
+                $lib.model.ext.addTagProp(score, (int, ({})), $docinfo)
+                $lib.model.ext.addFormProp(test:int, _tick, (time, ({})), $docinfo)
+            ''')
+            fork = await core.callStorm('return ( $lib.view.get().fork().iden ) ')
+            nodes = await core.nodes('[test:int=1234 :_tick=2024 ._woot=1 +#hehe:score=10]')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('._woot'), 1)
+
+            nodes = await core.nodes('test:int=1234 [:_tick=2023 ._woot=2 +#hehe:score=9]',
+                                     opts={'view': fork})
+            self.len(1, nodes)
+            self.eq(nodes[0].get('._woot'), 2)
+
+            self.len(0, await core.nodes('test:int | delnode'))
+
+            with self.raises(s_exc.CantDelUniv):
+                await core.callStorm('$lib.model.ext.delUnivProp(_woot)')
+            with self.raises(s_exc.CantDelProp):
+                await core.callStorm('$lib.model.ext.delFormProp(test:int, _tick)')
+            with self.raises(s_exc.CantDelProp):
+                await core.callStorm('$lib.model.ext.delTagProp(score)')
+
+            await core.callStorm('$lib.model.ext.delUnivProp(_woot, force=(true))')
+            await core.callStorm('$lib.model.ext.delFormProp(test:int, _tick, force=(true))')
+            await core.callStorm('$lib.model.ext.delTagProp(score, force=(true))')
+
+            nodes = await core.nodes('[test:int=1234]')
+            self.len(1, nodes)
+            self.none(nodes[0].get('._woot'))
+            self.none(nodes[0].get('_tick'))
+            nodes = await core.nodes('test:int=1234', opts={'view': fork})
+            self.none(nodes[0].get('._woot'))
+            self.none(nodes[0].get('_tick'))
+
     async def test_lib_stormlib_behold_modelext(self):
         self.skipIfNexusReplay()
         async with self.getTestCore() as core:
@@ -458,3 +510,55 @@ class StormtypesModelextTest(s_test.SynTest):
                 with self.raises(s_exc.BadArg) as exc:
                     await core.callStorm(query)
                 self.eq(err, exc.exception.get('mesg'))
+
+    async def test_lib_stormlib_modelext_interfaces(self):
+        async with self.getTestCore() as core:
+
+            await core.callStorm('''
+                $forminfo = ({"interfaces": ["test:interface"]})
+                $lib.model.ext.addForm(_test:iface, str, ({}), $forminfo)
+                $lib.model.ext.addFormProp(_test:iface, tick, (time, ({})), ({}))
+            ''')
+
+            self.nn(core.model.form('_test:iface'))
+            self.nn(core.model.prop('_test:iface:flow'))
+            self.nn(core.model.prop('_test:iface:proc'))
+            self.nn(core.model.prop('_test:iface:tick'))
+            self.isin('_test:iface', core.model.formsbyiface['test:interface'])
+            self.isin('_test:iface', core.model.formsbyiface['inet:proto:request'])
+            self.isin('_test:iface', core.model.formsbyiface['it:host:activity'])
+            self.isin('_test:iface:flow', core.model.ifaceprops['inet:proto:request:flow'])
+            self.isin('_test:iface:proc', core.model.ifaceprops['test:interface:proc'])
+            self.isin('_test:iface:proc', core.model.ifaceprops['inet:proto:request:proc'])
+            self.isin('_test:iface:proc', core.model.ifaceprops['it:host:activity:proc'])
+
+            q = '$lib.model.ext.delForm(_test:iface)'
+            with self.raises(s_exc.CantDelForm) as exc:
+                await core.callStorm(q)
+            self.eq('Form has extended properties: tick', exc.exception.get('mesg'))
+
+            await core.callStorm('''
+                $lib.model.ext.delFormProp(_test:iface, tick)
+                $lib.model.ext.delForm(_test:iface)
+            ''')
+
+            self.none(core.model.form('_test:iface'))
+            self.none(core.model.prop('_test:iface:flow'))
+            self.none(core.model.prop('_test:iface:proc'))
+            self.none(core.model.prop('_test:iface:tick'))
+            self.notin('_test:iface', core.model.formsbyiface['test:interface'])
+            self.notin('_test:iface', core.model.formsbyiface['inet:proto:request'])
+            self.notin('_test:iface', core.model.formsbyiface['it:host:activity'])
+            self.notin('_test:iface:flow', core.model.ifaceprops['inet:proto:request:flow'])
+            self.notin('_test:iface:proc', core.model.ifaceprops['test:interface:proc'])
+            self.notin('_test:iface:proc', core.model.ifaceprops['inet:proto:request:proc'])
+            self.notin('_test:iface:proc', core.model.ifaceprops['it:host:activity:proc'])
+
+            await core.stormlist('''
+                $forminfo = ({"interfaces": ["newp"]})
+                $lib.model.ext.addForm(_test:iface, str, ({}), $forminfo)
+            ''')
+            self.nn(core.model.form('_test:iface'))
+
+            await core.callStorm('$lib.model.ext.delForm(_test:iface)')
+            self.none(core.model.form('_test:iface'))

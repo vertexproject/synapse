@@ -2,11 +2,13 @@
 Module which implements the synapse module API/convention.
 '''
 coremods = (
+    'synapse.models.doc.DocModule',
     'synapse.models.dns.DnsModule',
     'synapse.models.orgs.OuModule',
     'synapse.models.syn.SynModule',
     'synapse.models.auth.AuthModule',
     'synapse.models.base.BaseModule',
+    'synapse.models.math.MathModule',
     'synapse.models.risk.RiskModule',
     'synapse.models.person.PsModule',
     'synapse.models.files.FileModule',

@@ -442,7 +442,8 @@ class GeoModule(s_module.CoreModule):
 
                 'edges': (
                     ((None, 'seenat', 'geo:telem'), {
-                        'doc': 'The source node was seen at the geo:telem node place and time.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ``geo:telem:node``.'}),
                     (('geo:place', 'contains', 'geo:place'), {
                         'doc': 'The source place completely contains the target place.'}),
                 ),
@@ -486,6 +487,8 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The place which includes the latlong value.'}),
                         ('place:name', ('geo:name', {}), {
                             'doc': 'The purported place name. Used for entity resolution.'}),
+                        ('node', ('ndef', {}), {
+                            'doc': 'The node that was observed at the associated time and place.'}),
                     )),
 
                     ('geo:place:taxonomy', {}, ()),

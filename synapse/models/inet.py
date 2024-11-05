@@ -2,8 +2,6 @@ import socket
 import asyncio
 import hashlib
 import logging
-import ipaddress
-import email.utils
 import urllib.parse
 
 import idna
@@ -20,7 +18,12 @@ import synapse.lib.scrape as s_scrape
 import synapse.lib.module as s_module
 import synapse.lookup.iana as s_l_iana
 
+import synapse.vendor.cpython.lib.email.utils as s_v_email_utils
+
 logger = logging.getLogger(__name__)
+
+ipaddress = s_common.ipaddress
+
 drivre = regex.compile(r'^\w[:|]')
 fqdnre = regex.compile(r'^[\w._-]+$', regex.U)
 srv6re = regex.compile(r'^\[([a-f0-9\.:]+)\](?::(\d+))?$', regex.IGNORECASE)
@@ -811,12 +814,16 @@ class Rfc2822Addr(s_types.Str):
         valu = ' '.join(valu.split())
 
         try:
-            name, addr = email.utils.parseaddr(valu)
+            name, addr = s_v_email_utils.parseaddr(valu, strict=True)
         except Exception as e:  # pragma: no cover
             # not sure we can ever really trigger this with a string as input
             mesg = f'email.utils.parsaddr failed: {str(e)}'
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg=mesg) from None
+
+        if not name and not addr:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'No name or email parsed from {valu}')
 
         subs = {}
         if name:
@@ -1363,6 +1370,7 @@ class InetModule(s_module.CoreModule):
                     }),
 
                     ('inet:search:query', ('guid', {}), {
+                        'interfaces': ('inet:service:action',),
                         'doc': 'An instance of a search query issued to a search engine.',
                     }),
 
@@ -1575,6 +1583,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:message:attachment', ('guid', {}), {
                         'doc': 'A file attachment included within a message.'}),
+
+                    ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A message type taxonomy.'}),
 
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
@@ -2003,8 +2015,11 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The guid of the destination process.'
                         }),
                         ('dst:exe', ('file:bytes', {}), {
-                            'doc': 'The file (executable) that received the connection.'
-                        }),
+                            'doc': 'The file (executable) that received the connection.'}),
+
+                        ('dst:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files sent by the destination host.'}),
+
                         ('dst:txcount', ('int', {}), {
                             'doc': 'The number of packets sent by the destination host.'
                         }),
@@ -2037,8 +2052,11 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The guid of the source process.'
                         }),
                         ('src:exe', ('file:bytes', {}), {
-                            'doc': 'The file (executable) that created the connection.'
-                        }),
+                            'doc': 'The file (executable) that created the connection.'}),
+
+                        ('src:txfiles', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files sent by the source host.'}),
+
                         ('src:txcount', ('int', {}), {
                             'doc': 'The number of packets sent by the source host.'
                         }),
@@ -3645,6 +3663,7 @@ class InetModule(s_module.CoreModule):
                         # TODO ndef based auth proto details
                     )),
 
+                    ('inet:service:message:type:taxonomy', {}, ()),
                     ('inet:service:message', {}, (
 
                         ('account', ('inet:service:account', {}), {
@@ -3704,6 +3723,9 @@ class InetModule(s_module.CoreModule):
 
                         ('file', ('file:bytes', {}), {
                             'doc': 'The raw file that the message was extracted from.'}),
+
+                        ('type', ('inet:service:message:type:taxonomy', {}), {
+                            'doc': 'The type of message.'}),
                     )),
 
                     ('inet:service:message:link', {}, (

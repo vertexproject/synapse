@@ -1,6 +1,0 @@
----
-desc: Restrict the maximum version of aiohttp to less than ``v3.10.0`` until a compatibility
-  issue is resolved.
-prs: []
-type: feat
-...

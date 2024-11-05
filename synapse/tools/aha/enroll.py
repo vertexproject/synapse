@@ -21,7 +21,9 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='provision', description=descr)
+    pars = argparse.ArgumentParser(prog='synapse.tools.aha.enroll', description=descr,
+                        formatter_class=argparse.RawDescriptionHelpFormatter)
+
     pars.add_argument('onceurl', help='The one-time use AHA user enrollment URL.')
     opts = pars.parse_args(argv)
 
@@ -76,7 +78,8 @@ async def main(argv, outp=s_output.stdout):
                 if isinstance(ahaurls, str):
                     ahaurls = (ahaurls,)
 
-                ahaurls = set(s_telepath.modurl(ahaurls, user=ahauser))
+                certname = f'{ahauser}@{ahanetw}'
+                ahaurls = set(s_telepath.modurl(ahaurls, certname=certname))
                 servers = teleyaml.get('aha:servers')
 
                 # repack the servers so lists are tuplized like values

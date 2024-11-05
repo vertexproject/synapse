@@ -432,6 +432,19 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.eq(2, appt.startcount)
 
+                # Can't use an existing authgate iden
+                viewiden = core.getView().iden
+                cdef = {'creator': core.auth.rootuser.iden,
+                        'storm': '[test:str=bar]',
+                        'reqs': {'hour': 10},
+                        'incunit': 'dayofweek',
+                        'incvals': (2, 4),
+                        'iden': viewiden}
+                await self.asyncraises(s_exc.DupIden, core.addCronJob(cdef))
+                await core.delCronJob(viewiden)
+
+                self.nn(core.getAuthGate(viewiden))
+
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
 
@@ -857,7 +870,7 @@ class AgendaTest(s_t_utils.SynTest):
 
     async def test_cron_kill_pool(self):
 
-        async with self.getTestAhaProv() as aha:
+        async with self.getTestAha() as aha:
 
             import synapse.cortex as s_cortex
             import synapse.lib.base as s_base
@@ -879,11 +892,11 @@ class AgendaTest(s_t_utils.SynTest):
 
                     msgs = await core00.stormlist('aha.pool.add pool00...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('Created AHA service pool: pool00.loop.vertex.link', msgs)
+                    self.stormIsInPrint('Created AHA service pool: pool00.synapse', msgs)
 
                     msgs = await core00.stormlist('aha.pool.svc.add pool00... 01.core...')
                     self.stormHasNoWarnErr(msgs)
-                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.loop.vertex.link)', msgs)
+                    self.stormIsInPrint('AHA service (01.core...) added to service pool (pool00.synapse)', msgs)
 
                     msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
                     self.stormHasNoWarnErr(msgs)

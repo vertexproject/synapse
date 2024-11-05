@@ -239,6 +239,8 @@ environment to help identify any tweaks that may be necessary due to the updated
 
     Please ensure you have a tested backup available before applying these updates.
 
+.. _devops-task-low-downtime-updates:
+
 Low Downtime Updates
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -462,6 +464,39 @@ writing to the /proc/sys file system.
     This setting is particularly important for systems with lots of writing (e.g. making new nodes), lots of RAM, and
     relatively slow storage.
 
+.. _devops-task-onboot-optimize:
+
+Optimize Databases
+------------------
+
+As noted in :ref:`devops-task-backup`, restoring a service from a backup will result in
+the service having a defragmented / optimized copy of its databases. An alternative method
+for optimizing the databases in place is by using the ``onboot:optimize`` configuration
+option. Setting ``onboot:optimize`` to ``true`` will delay startup to optimize LMDB 
+databases during boot to recover free space and increase performance. Depending on
+the amount of activity since the last time the databases were optimized, this process
+may take a significant amount of time. To reduce downtime during this process,
+deployments with mirrors are encouraged to use a strategy like that described in
+:ref:`devops-task-low-downtime-updates` to first optimize a mirror, then promote that mirror
+to being the leader and optimizing the old service leader.
+
+After the optimization process is completed, the ``onboot:optimize`` option can be set
+back to ``false``. It is not necessary to optimize the databases on every boot of a
+service, but regularly scheduling an optimization pass based on the write activity of
+the service will help ensure optimal performance.
+
+.. note::
+
+    During the optimization process, the service will make an optimized copy of each
+    LMDB database used by the service which will then be atomically swapped into place
+    of the existing database. As a result, an amount of free space equal to the size of
+    the largest database will be required during the optimization.
+
+.. note::
+
+    Though not encouraged, it is safe to shutdown a service during the optimization
+    process. Progress on the LMDB database being optimized at the time of shutdown will be lost.
+
 .. _devops-task-users:
 
 Managing Users and Roles
@@ -506,7 +541,7 @@ Managing Password Policies
 
 Services can be configured with password policies. These can be used to define the complexity of a password, the number
 of allowed login attempts, and the number of previous passwords to check against. This is configured by setting the
-``auth:password:policy`` configuration value for the service, with the desired policy settings. The policy object
+``auth:passwd:policy`` configuration value for the service, with the desired policy settings. The policy object
 accepts the following keys:
 
 ``attempts``
@@ -946,6 +981,126 @@ this to add a user named ``foouser`` with the uid 1234::
     Successfully built 21a12f395462
     Successfully tagged vertexproject/synapse-aha:v2.113.0-foouser
 
+Configure Custom CA Certificates for HTTP Requests
+--------------------------------------------------
+
+The Cortex and Axon can be configured to use additional CA certificates when making HTTP requests via Storm. To do this,
+you need to provide the certificates (in PEM format only) to the Cortex in a directory on disk, and then configure the
+Cortex to look up that directory via the ``tls:ca:dir`` configuration option.
+
+The following Compose file shows an example using this option with the Cortex.
+
+::
+
+    services:
+      00.cortex:
+        user: "999"
+        image: vertexproject/synapse-cortex:v2.x.x
+        network_mode: host
+        restart: unless-stopped
+        volumes:
+            - ./storage:/vertex/storage
+            - ./tls-ca-certs:/vertex/tls-ca-certs
+        environment:
+            SYN_CORTEX_TLS_CA_DIR: /vertex/tls-ca-certs
+
+.. note::
+
+   CA certificates provided via the ``tls:ca:dir`` configuration option MUST include the full chain of certificates all
+   the way up to the root. Providing only partial CA chains may result in verification failures.
+
+   This chain should start with the specific certificate for the principal who “is” the client or server, and then the
+   certificate for the issuer of that certificate, and then the certificate for the issuer of that certificate, and so
+   on up the chain until you get to a certificate which is self-signed, that is, a certificate which has the same subject
+   and issuer, sometimes called a root certificate.
+
+Configure Custom CA Certificates with Kubernetes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+To configure custom CA certificates with kubernetes, do the following:
+
+#. Create a config map from your CA certificate files.
+
+    The example has a pre-created root CA and an intermediate CA certificate in PEM format::
+
+        $ ls -l ./cas
+        total 8
+        -rw-rw-r-- 1 user user 1708 Feb 14 19:19 intermediate.crt
+        -rw-rw-r-- 1 user user 1696 Feb 14 19:19 root.crt
+
+        $ kubectl create configmap tls-ca-certs --from-file ./cas
+        configmap/tls-ca-certs created
+
+        $ kubectl describe configmap tls-ca-certs
+        Name:         tls-ca-certs
+        Namespace:    default
+        Labels:       <none>
+        Annotations:  <none>
+
+    Example Data::
+
+        intermediate.crt:
+
+        -----BEGIN CERTIFICATE-----
+        MIIEwTCCAqmgAwIBAgIRALMB8pwt2Ivp29Ij5DqnPfYwDQYJKoZIhvcNAQELBQAw
+        <snip certificate body ...>
+        5haPeH+7M+DxEhwanIcfBXNY/7Xn
+        -----END CERTIFICATE-----
+
+        root.crt:
+
+        -----BEGIN CERTIFICATE-----
+        MIIEuDCCAqCgAwIBAgIQY7KrFPXtwpWTYfCA2pktSjANBgkqhkiG9w0BAQsFADAP
+        <snip certificate body ...>
+        i03ynl21g6erwz0c
+        -----END CERTIFICATE-----
+
+#. Add the ``volume``, ``volumeMount``, and ``environment`` variables to the
+   Cortex. You may need to specify permissions on your certificates as needed,
+   as long as they are readable by your Cortex user, that is fine.
+
+    Example volume::
+
+        - name: tls-ca-certs
+          configMap:
+            name: tls-ca-certs
+
+    Example volumeMount::
+
+        - mountPath: /vertex/tls-ca-certs
+          name: tls-ca-certs
+
+    Example environment variable::
+
+        - name: SYN_CORTEX_TLS_CA_DIR
+          value: "/vertex/tls-ca-dir-certs/"
+
+#. Verify the TLS certificates were loaded by making an HTTPS request in Storm.
+
+    ::
+
+        $lib.print($lib.inet.http.get(<URL TO SERVER WITH CUSTOM CERTIFICATES>))
+
+    On success, you should see an ``inet:http:resp`` with code 200 and reason OK::
+
+        inet:http:resp: {'code': 200, 'reason': 'OK', 'headers': ... }
+
+    If the TLS CA certificates are not being loaded properly, a response similar to
+    the following will be seen::
+
+        inet:http:resp: {'code': -1, 'reason': "Exception occurred during request: ClientConnectorCertificateError ...", ...}
+
+In this example, the volume with the configmap contains symlinks which are
+treated as directories. When the SSLContext is created with those additional
+files, Synapse attempts to load the directory, will fail and then log an
+exception. This does not stop the SSLContext from being created with the
+additonal CA files.
+
+.. note::
+
+    For the Axon, the wget and wput API functionality can also be configured to
+    use a TLS directory for loading additional certificates. The configuration
+    is similar to the Cortex, but uses the ``SYN_AXON_TLS_CA_DIR`` environment
+    variable.
 
 Synapse Services
 ================

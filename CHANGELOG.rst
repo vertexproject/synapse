@@ -6,6 +6,564 @@
 Synapse Changelog
 *****************
 
+v2.187.0 - 2024-11-01
+=====================
+
+Automatic Migrations
+--------------------
+- WARNING - It is strongly advised to perform a backup before upgrading to or
+  above this version. The ``it:sec:cpe`` migration described below WILL remove
+  invalid ``it:sec:cpe`` and some associated nodes from the Cortex.
+
+  Migrate invalid ``it:sec:cpe`` nodes if possible. Migration of these nodes
+  will only be successful if one of the CPE 2.3 (primary property) or the CPE
+  2.2 (``:v2_2``) strings are valid CPEs. If both CPE strings are invalid, the
+  node will be removed from the Cortex and stored in a Cortex queue
+  (``model_0_2_31:nodes``).
+
+  The structure of items in this queue is opaque. The intent is for Power-Ups
+  to be able to process the queue in an attempt to fix the invalid nodes on a
+  per Power-Up basis (the idea being that Power-Up data vendors probably make
+  the same mistake consistently).
+
+  During migration or removal of invalid ``it:sec:cpe`` nodes, referencing
+  nodes with readonly properties will be removed and also stored in the queue.
+  We are unable to automatically migrate these nodes due to the dynamic nature
+  of their construction.
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Update the parsing of CPE 2.2 and CPE 2.3 strings to be strict according
+  to the CPE specification (NISTIR 7695).
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
+- See :ref:`userguide_model_v2_187_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+
+- Update storm ``queue.put()`` and ``queue.puts()`` methods to return the
+  offset of the queued item.
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
+- Add CPE migration helper functions. The following functions were added to
+  assist with invalid nodes that were queued as part of the CPE model
+  migration: ``$lib.model.migration.s.model_0_2_31.listNodes()``,
+  ``$lib.model.migration.s.model_0_2_31.printNode()``, and
+  ``$lib.model.migration.s.model_0_2_31.repairNode()``
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
+
+v2.186.0 - 2024-10-29
+=====================
+
+Model Changes
+-------------
+- Added ``risk:tool:software:id`` to model an ID for a tool.
+  (`#3970 <https://github.com/vertexproject/synapse/pull/3970>`_)
+- See :ref:`userguide_model_v2_186_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Update tag type normalization to verify the tag is valid for any configured
+  tag model specifications in the Cortex. Tags which fail validation will now
+  raise a ``BadTypeValu`` exception rather than a ``BadTag`` exception.
+  (`#3973 <https://github.com/vertexproject/synapse/pull/3973>`_)
+- Implemented ``synapse.tools.snapshot`` CLI tool which can be used to pause
+  edits and sync dirty buffers to disk to safely generate a volume snaphot.
+  (`#3977 <https://github.com/vertexproject/synapse/pull/3977>`_)
+
+Bugfixes
+--------
+- Fixed several CLI commands usage output formatting.
+  (`#3977 <https://github.com/vertexproject/synapse/pull/3977>`_)
+
+v2.185.0 - 2024-10-25
+=====================
+                                              
+Model Changes                                                                               
+-------------                                                                               
+- Added ``proj:task`` interface to ensure consistent properties on task-like
+  forms.                                                                                    
+  (`#3962 <https://github.com/vertexproject/synapse/pull/3962>`_)           
+- Added ``doc:document`` interface to ensure consistent properties on document
+  forms.                                                                                    
+  (`#3962 <https://github.com/vertexproject/synapse/pull/3962>`_)      
+- Added ``ou:enacted`` to track an organization enacting policies and
+  standards.                                                                                
+  (`#3962 <https://github.com/vertexproject/synapse/pull/3962>`_)              
+- Added ``doc:policy`` and ``doc:standard`` forms to model policies and
+  standards.                                                                                
+  (`#3962 <https://github.com/vertexproject/synapse/pull/3962>`_)            
+- See :ref:`userguide_model_v2_185_0` for more detailed model changes. 
+
+Features and Enhancements
+-------------------------
+- Added support for ``syn:user`` and ``syn:role`` types to be converted to/from
+  names.
+  (`#3959 <https://github.com/vertexproject/synapse/pull/3959>`_)
+- Added ``$lib.repr()`` to convert a system mode value to a display mode
+  string.
+  (`#3959 <https://github.com/vertexproject/synapse/pull/3959>`_)
+- Added support for templates in interface doc strings.
+  (`#3962 <https://github.com/vertexproject/synapse/pull/3962>`_)
+- Added ``storm.lib.stix.export.maxsize`` permission to allow STIX export
+  configurations to set maxsize > 10,000.
+  (`#3963 <https://github.com/vertexproject/synapse/pull/3963>`_)
+- Added syntax for lifting nodes by embedded property values.
+  (`#3964 <https://github.com/vertexproject/synapse/pull/3964>`_)
+- Add the ``mirror`` URL to the output of the ``getCellInfo()`` APIs to
+  indicate which service is being followed for change events. This URL has
+  password information sanitized from it.
+  (`#3966 <https://github.com/vertexproject/synapse/pull/3966>`_)
+- Improve text alignment with multiline command argument help descriptions.
+  (`#3967 <https://github.com/vertexproject/synapse/pull/3967>`_)
+- Update Storm grammar to allow embed queries in JSON expressions.
+  (`#3972 <https://github.com/vertexproject/synapse/pull/3972>`_)
+
+Bugfixes
+--------
+- Fixed issue where interfaces took precedence over properties declared on a
+  form.
+  (`#3962 <https://github.com/vertexproject/synapse/pull/3962>`_)
+- Fixed incorrect coercion behavior in ``$lib.dict.pop()`` and docs for
+  ``$lib.dict.has()``.
+  (`#3965 <https://github.com/vertexproject/synapse/pull/3965>`_)
+- Update ``synapse.tools.promote`` to prevent a graceful promotion of a service
+  where a detectable leadership schism would occur.
+  (`#3966 <https://github.com/vertexproject/synapse/pull/3966>`_)
+- Fixed an issue where list variables could be passed into the ``background``
+  command or Storm Dmons in such a way that they could not be modified.
+  (`#3971 <https://github.com/vertexproject/synapse/pull/3971>`_)
+  (`#3976 <https://github.com/vertexproject/synapse/pull/3976>`_)
+
+v2.184.0 - 2024-10-18
+=====================
+
+Model Changes
+-------------
+- Added ``ou:requirement:type`` taxonomy property to track requirement types.
+  (`#3954 <https://github.com/vertexproject/synapse/pull/3954>`_)
+- Added ``it:app:snort:hit:dropped`` property to track when hits result in the
+  traffic being dropped.
+  (`#3954 <https://github.com/vertexproject/synapse/pull/3954>`_)
+- Added ``ou:vitals:budget`` property to track budget allocations.
+  (`#3954 <https://github.com/vertexproject/synapse/pull/3954>`_)
+- Added ``risk:mitigation:type`` as a ``taxonomy`` to track mitigation types.
+  (`#3957 <https://github.com/vertexproject/synapse/pull/3957>`_)
+- Added ``ou:asset`` form and associated properties to model organizational
+  asset tracking.
+  (`#3957 <https://github.com/vertexproject/synapse/pull/3957>`_)
+- See :ref:`userguide_model_v2_184_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Add ``$lib.graph.revoke()`` API for revoking user/role permissions on a graph
+  projection.
+  (`#3950 <https://github.com/vertexproject/synapse/pull/3950>`_)
+- Mark all functions in a deprecated Storm library as deprecated.
+  (`#3952 <https://github.com/vertexproject/synapse/pull/3952>`_)
+
+Bugfixes
+--------
+- Fix a Storm bug where a runtsafe list unpacking operation which was executed
+  per-node would be executed one additional time after all nodes had finished
+  moving through the pipeline.
+  (`#3949 <https://github.com/vertexproject/synapse/pull/3949>`_)
+- Fix an issue where the default permission level specified when adding a graph
+  projection was overwritten.
+  (`#3950 <https://github.com/vertexproject/synapse/pull/3950>`_)
+- Fixed an issue where extended model forms which implemented interfaces could
+  not be removed due to inherited props.
+  (`#3958 <https://github.com/vertexproject/synapse/pull/3958>`_)
+
+Deprecations
+------------
+- Deprecate ``$lib.inet.whois.guid``.
+  (`#3951 <https://github.com/vertexproject/synapse/pull/3951>`_)
+
+v2.183.0 - 2024-10-09
+=====================
+
+Model Changes
+-------------
+- Fix an issue where the ``:path:base``, ``:path:dir``, and ``:path:ext``
+  secondary properties were marked readonly on the ``it:fs:file``,
+  ``it:exec:file:add``, ``it:exec:file:del``, ``it:exec:file:read``, and
+  ``it:exec:file:write`` forms.
+  (`#3942 <https://github.com/vertexproject/synapse/pull/3942>`_)
+- See :ref:`userguide_model_v2_183_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Expose Stormlib deprecation status from the Python API.
+  (`#3929 <https://github.com/vertexproject/synapse/pull/3929>`_)
+- Add ``$lib.random.generator()`` to get a random number generator in Storm.
+  (`#3945 <https://github.com/vertexproject/synapse/pull/3945>`_)
+
+Bugfixes
+--------
+- Tag add operations with the try syntax ( ``+?#`` ) now catch BadTag
+  exceptions raised by tags which are not valid for a defined tag model.
+  (`#3941 <https://github.com/vertexproject/synapse/pull/3941>`_)
+- Added ``task.get`` and ``task.del`` permissions declarations so they get
+  included in the output of the ``auth.perms.list`` command.
+  (`#3944 <https://github.com/vertexproject/synapse/pull/3944>`_)
+
+Improved documentation
+----------------------
+- Clarify parts of the Storm automation guide.
+  (`#3938 <https://github.com/vertexproject/synapse/pull/3938>`_)
+- Clarify Storm type specific documentation for ``guid`` types.
+  (`#3939 <https://github.com/vertexproject/synapse/pull/3939>`_)
+
+v2.182.0 - 2024-09-27
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the allowed version of the ``packaging`` and ``xxhash`` libraries.
+  (`#3931 <https://github.com/vertexproject/synapse/pull/3931>`_)
+- Allow a user to specify a role iden when creating a role with the
+  ``$lib.auth.role.add()`` Storm API.
+  (`#3932 <https://github.com/vertexproject/synapse/pull/3932>`_)
+
+Bugfixes
+--------
+- Fix an issue in the ``merge`` command where errors in establishing the node
+  in the parent view could result in an exception. These errors are now
+  surfaced as warnings in the runtime, and the node will be skipped.
+  (`#3925 <https://github.com/vertexproject/synapse/pull/3925>`_)
+- Fix an issue where the Cell would log that the free space write hold was
+  removed irrespective of the write hold reason.
+  (`#3934 <https://github.com/vertexproject/synapse/pull/3934>`_)
+
+v2.181.0 - 2024-09-25
+=====================
+
+Automatic Migrations
+--------------------
+- Update ``inet:ipv4`` and ``inet:ipv6`` sub properties for values affected by
+  IANA Special Purpose Registry updates.
+  (`#3902 <https://github.com/vertexproject/synapse/pull/3902>`_)
+- A small migration to populate ``ou:industry:type:taxonomy`` nodes from
+  existing ``ou:industry:type`` values.
+  (`#3912 <https://github.com/vertexproject/synapse/pull/3912>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- The ``inet:rfc2822:addr`` type now rejects malformed inputs which could cause
+  incorrect email addresses to be recorded.
+  (`#3902 <https://github.com/vertexproject/synapse/pull/3902>`_)
+- The ``inet:ipv4:type`` and ``inet:ipv6:type`` secondary properties now
+  reflect updated behaviors from the IANA Special Purposes registries.
+  (`#3902 <https://github.com/vertexproject/synapse/pull/3902>`_)
+- Added ``math:algorithm`` form to model algorithms and link to generated
+  output.
+  (`#3906 <https://github.com/vertexproject/synapse/pull/3906>`_)
+- Added ``:mitigated=<bool>`` and ``:mitigations=[<risk:mitigation>]``
+  properties to the ``risk:vulnerable`` form to track mitigations used to
+  address vulnerable nodes.
+  (`#3910 <https://github.com/vertexproject/synapse/pull/3910>`_)
+  (`#3911 <https://github.com/vertexproject/synapse/pull/3911>`_)
+- Added ``ou:org:motto`` and ``ou:campaign:slogan`` properties and the
+  ``lang:phrase`` form.
+  (`#3915 <https://github.com/vertexproject/synapse/pull/3915>`_)
+- See :ref:`userguide_model_v2_181_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Storm lists now have a ``remove`` method that can be used to remove a single
+  item from the list without having to iterate through the list.
+  (`#3815 <https://github.com/vertexproject/synapse/pull/3815>`_)
+- Added ``opts`` field to ``model:type`` Storm type. This field contains the
+  property type options as defined in the data model.
+  (`#3815 <https://github.com/vertexproject/synapse/pull/3815>`_)
+- Updated Storm coverage tracker to support ``pragma: no cover`` for ignoring
+  single lines of code and ``pragma: no cover start``/``pragma: no cover stop``
+  for ignoring multi-line blocks of Storm code.
+  (`#3815 <https://github.com/vertexproject/synapse/pull/3815>`_)
+- Make the ``Slab.putmulti()`` API an async function.
+  (`#3896 <https://github.com/vertexproject/synapse/pull/3896>`_)
+- Expose the response URL on the Storm ``http:resp`` object.
+  (`#3898 <https://github.com/vertexproject/synapse/pull/3898>`_)
+- Expose the HTTP request headers on the Storm ``http:resp`` object.
+  (`#3899 <https://github.com/vertexproject/synapse/pull/3899>`_)
+- Add request history on the Storm ``inet:http:resp`` object.
+  (`#3900 <https://github.com/vertexproject/synapse/pull/3900>`_)
+- Add a ``getPropValues()`` API to Storm View and Layer objects for yielding
+  distinct values of a property.
+  (`#3903 <https://github.com/vertexproject/synapse/pull/3903>`_)
+- Update Storm language to add support for matching multiple switch case values
+  to a single Storm query.
+  (`#3904 <https://github.com/vertexproject/synapse/pull/3904>`_)
+- Provide additional handling for Storm pool members who are online but
+  unresponsive to new Telepath calls.
+  (`#3914 <https://github.com/vertexproject/synapse/pull/3914>`_)
+- Add the ability to provide an iden when creating a new HTTP Extended API.
+  (`#3920 <https://github.com/vertexproject/synapse/pull/3920>`_)
+- Added initial dictionary validator and deconfliction for guid based node
+  constructor logic to Storm.
+  (`#3917 <https://github.com/vertexproject/synapse/pull/3917>`_)
+
+Bugfixes
+--------
+- Fix an issue where user defined Storm functions could be greedy with the IO
+  loop.
+  (`#3894 <https://github.com/vertexproject/synapse/pull/3894>`_)
+- Fixed bug where nodedata may not be properly removed when it's in a
+  view/layer above the actual node.
+  (`#3923 <https://github.com/vertexproject/synapse/pull/3923>`_)
+
+Improved documentation
+----------------------
+- Added documentation about ``tls:ca:dir`` configuration option for specifying
+  custom TLS CA certificates.
+  (`#3895 <https://github.com/vertexproject/synapse/pull/3895>`_)
+- Added an example of using ``scrape`` on the primary property to the command
+  usage statement.
+  (`#3907 <https://github.com/vertexproject/synapse/pull/3907>`_)
+
+Deprecations
+------------
+- Remove deprecated ``synapse.lib.jupyter`` module.
+  (`#3897 <https://github.com/vertexproject/synapse/pull/3897>`_)
+
+v2.180.1 - 2024-09-04
+=====================
+
+Features and Enhancements
+-------------------------
+- Update the ``cryptography`` library to require its latest version.
+  (`#3890 <https://github.com/vertexproject/synapse/pull/3890>`_)
+
+Improved documentation
+----------------------
+- Fixed a typo in the ``trigger.enable`` docs which mistakenly referred to the
+  ``trigger-enable`` command.
+  (`#3889 <https://github.com/vertexproject/synapse/pull/3889>`_)
+
+v2.180.0 - 2024-08-30
+=====================
+
+Automatic Migrations
+--------------------
+- A small migration to normalize ``it:dev:repo:commit:id`` to remove leading
+  and trailing whitespace.
+  (`#3884 <https://github.com/vertexproject/synapse/pull/3884>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``pol:candidate:id`` to track election authority issued candidate IDs.
+  (`#3878 <https://github.com/vertexproject/synapse/pull/3878>`_)
+- Updated ``it:dev:repo`` elements to inherit ``inet:service:object``.
+  (`#3879 <https://github.com/vertexproject/synapse/pull/3879>`_)
+- Add ``inet:service:account`` properties to forms with ``inet:web:acct``
+  properties.
+  (`#3880 <https://github.com/vertexproject/synapse/pull/3880>`_)
+- See :ref:`userguide_model_v2_180_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Include detailed link traversal information from the Storm runtime when the
+  ``link`` option is set.
+  (`#3862 <https://github.com/vertexproject/synapse/pull/3862>`_)
+- Add support for disabling readahead on layer slabs by setting the
+  ``SYNDEV_CORTEX_LAYER_READAHEAD`` environment variable.
+  (`#3877 <https://github.com/vertexproject/synapse/pull/3877>`_)
+
+Improved documentation
+----------------------
+- Add Devops task for using ``onboot:optimize`` to optimize LMDB databases in
+  services.
+  (`#3876 <https://github.com/vertexproject/synapse/pull/3876>`_)
+- Clarify documentation on taxonomy types.
+  (`#3883 <https://github.com/vertexproject/synapse/pull/3883>`_)
+
+v2.179.0 - 2024-08-23
+=====================
+
+Model Changes
+-------------
+- Update ``pe:langid`` to include all language IDs and tags from MS-LCID.
+  (`#3851 <https://github.com/vertexproject/synapse/pull/3851>`_)
+- Add additional fields to ``it:sec:stix:indicator``.
+  (`#3858 <https://github.com/vertexproject/synapse/pull/3858>`_)
+- Add ``geo:telem:node`` property to more directly track where a node has been.
+  (`#3864 <https://github.com/vertexproject/synapse/pull/3864>`_)
+- Add DNS reply code enumeration values to ``inet:dns:request:reply:code``.
+  (`#3868 <https://github.com/vertexproject/synapse/pull/3868>`_)
+- See :ref:`userguide_model_v2_179_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Add support for a ``ca_cert`` key to ``$ssl_opts`` on Storm APIs. This can be
+  used to provide a CA chain for a specific HTTP API call.
+  (`#3849 <https://github.com/vertexproject/synapse/pull/3849>`_)
+- Optimize pivot behavior in Storm to avoid unnecessarily re-normalizing
+  values.
+  (`#3853 <https://github.com/vertexproject/synapse/pull/3853>`_)
+- Added ``force`` option to extended property delete APIs to automatically
+  remove data.
+  (`#3863 <https://github.com/vertexproject/synapse/pull/3863>`_)
+
+Bugfixes
+--------
+- Fix a bug where trigger name and doc updates set via ``syn:trigger`` nodes
+  did not persist.
+  (`#3848 <https://github.com/vertexproject/synapse/pull/3848>`_)
+- Fix an issue that prevented removing permissions from vaults.
+  (`#3865 <https://github.com/vertexproject/synapse/pull/3865>`_)
+- Fix an issue that prevented the old name reference from being removed when a
+  vault is renamed.
+  (`#3865 <https://github.com/vertexproject/synapse/pull/3865>`_)
+- When generating the AHA provisioning URL, the AHA service now binds to
+  0.0.0.0 instead of the ``dns:name`` configuration value.
+  (`#3866 <https://github.com/vertexproject/synapse/pull/3866>`_)
+- Catch additional Python exceptions which could be raised by malformed input
+  to ``$lib.stix.import.ingest()`` and raise ``BadArg`` instead.
+  (`#3867 <https://github.com/vertexproject/synapse/pull/3867>`_)
+- Catch Python ``TypeError`` exceptions in ``$lib.math.number()`` and raise
+  ``BadCast`` exceptions.
+  (`#3871 <https://github.com/vertexproject/synapse/pull/3871>`_)
+
+Deprecations
+------------
+- Deprecate the ``$tag`` variable in triggers in favor of ``$auto.opts.tag``
+  (`#3854 <https://github.com/vertexproject/synapse/pull/3854>`_)
+
+v2.178.0 - 2024-08-09
+=====================
+
+Features and Enhancements
+-------------------------
+- Setting the ``aha:network`` value on the AHA service, as demonstrated in the
+  deployment guide, is now mandatory.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Added ``synapse.tools.aha.clone`` command to make it easy to bootstrap AHA
+  mirrors.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Added support for dynamically registered AHA mirrors.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Updated service base class to retrieve updated AHA servers on startup.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Update ``$lib.inet.imap`` and ``$lib.inet.smtp`` APIs to use certificates
+  present in the Cortex ``tls:ca:dir`` directory. Add ``ssl_verify`` options to
+  the ``$lib.inet.imap.connect()`` and ``inet:smtp:message.send()`` APIs to
+  disable TLS verification.
+  (`#3842 <https://github.com/vertexproject/synapse/pull/3842>`_)
+- Update the ``aioimaplib`` library constraints to ``>=1.1.0,<1.2.0``.
+  (`#3842 <https://github.com/vertexproject/synapse/pull/3842>`_)
+- Log the path of the LMDB file that was backed up in
+  ``synapse.tools.backup.backup_lmdb``.
+  (`#3843 <https://github.com/vertexproject/synapse/pull/3843>`_)
+
+Bugfixes
+--------
+- Remove a potential race condition in onfini handler registration.
+  (`#3840 <https://github.com/vertexproject/synapse/pull/3840>`_)
+- Cause service startup to fail with a clear error message when attempting to
+  bootstrap a service with a ``mirror`` configuration and the ``aha:provision``
+  configuration option is missing, or the service storage has been manipulated
+  into a invalid state.
+  (`#3844 <https://github.com/vertexproject/synapse/pull/3844>`_)
+
+Improved documentation
+----------------------
+- Update deployment guide to include optional steps to deploy AHA mirrors.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Update deployment guide to clarify ``aha:network`` selection vs ``dns:name``
+  selection.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+- Move data model update information for the ``v2.133.0`` release and above
+  from the changelog and into their own section of the User Guide.
+  (`#3839 <https://github.com/vertexproject/synapse/pull/3839>`_)
+- Update Synapse tool examples to use ``aha://`` URLs.
+  (`#3839 <https://github.com/vertexproject/synapse/pull/3839>`_)
+
+Deprecations
+------------
+- Deprecate the ``Cell.conf.reqConfValu()`` API. This has been replaced with
+  ``Cell.conf.req()``.
+  (`#3783 <https://github.com/vertexproject/synapse/pull/3783>`_)
+
+
+v2.177.0 - 2024-08-01
+=====================
+
+Automatic Migrations
+--------------------
+- Migrate Axon metrics from hive to hotcounts. Migrate Cryotank names storage
+  from hive to SafeKeyVal storage. Migrate Cortex configuration data from hive
+  to SafeKeyVal storage. Migrate Cell info and auth configuration from hive to
+  SafeKeyVal storage.
+  (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
+  (`#3825 <https://github.com/vertexproject/synapse/pull/3825>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Add model elements to represent the DriveSerialNumber and MachineID
+  properties of an LNK file.
+  (`#3817 <https://github.com/vertexproject/synapse/pull/3817>`_)
+- Add ``biz:deal:id`` property to track deal identifiers.
+  (`#3832 <https://github.com/vertexproject/synapse/pull/3832>`_)
+- Add ``inet:service:message:type`` property to capture message types.
+  (`#3832 <https://github.com/vertexproject/synapse/pull/3832>`_)
+- Added ``meta:rule:type`` taxonomy.
+  (`#3834 <https://github.com/vertexproject/synapse/pull/3834>`_)
+- See :ref:`userguide_model_v2_177_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Add a new Cell configuration option, ``auth:password:policy``. This can be
+  used to configure password policy options for authentication.
+  (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
+- Add ``$lib.gen.cryptoX509CertBySha256()`` helper function to create
+  ``crypto:x509:cert`` nodes from a SHA256.
+  (`#3801 <https://github.com/vertexproject/synapse/pull/3801>`_)
+- Add ``$lib.gen.fileBytesBySha256()`` helper function to create ``file:bytes``
+  nodes from a SHA256.
+  (`#3801 <https://github.com/vertexproject/synapse/pull/3801>`_)
+- Add ``$lib.model.migration.s.inetSslCertToTlsServercert()`` migration helper
+  to migrate ``inet:ssl:cert`` nodes to ``inet:tls:servercert`` nodes.
+  (`#3801 <https://github.com/vertexproject/synapse/pull/3801>`_)
+- Add ``$lib.gen.inetTlsServerCertByServerAndSha256()`` helper function to
+  create ``inet:tls:servercert`` nodes from a server (or URI) and SHA256.
+  (`#3801 <https://github.com/vertexproject/synapse/pull/3801>`_)
+- Added Storm library for creating printable tables: ``$lib.tabular``.
+  (`#3818 <https://github.com/vertexproject/synapse/pull/3818>`_)
+- Add ``$lib.model.ext.addEdge()`` and ``$lib.model.ext.delEdge()`` APIs for
+  managing extended model edge definitions.
+  (`#3824 <https://github.com/vertexproject/synapse/pull/3824>`_)
+- Added ``--wipe`` option to the ``merge`` command which replaces the top layer
+  of the view once the merge is complete. Using ``--wipe`` makes incremental
+  merges more performant.
+  (`#3828 <https://github.com/vertexproject/synapse/pull/3828>`_)
+- Updated ``view.merge`` command to use ``$view.swapLayer()`` for improved
+  performance.
+  (`#3828 <https://github.com/vertexproject/synapse/pull/3828>`_)
+- Added ``$view.swapLayer()`` API to allow users to start fresh with an
+  existing view.
+  (`#3828 <https://github.com/vertexproject/synapse/pull/3828>`_)
+- Update the ``aiohttp`` library constraints to ``>=3.10.0,<4.0``. Update the
+  ``aiohttp-socks`` library constraints to ``>=0.10.0,<0.11.0``.
+  (`#3830 <https://github.com/vertexproject/synapse/pull/3830>`_)
+- Tightened up ``aha.svc.list`` Storm command output when using ``--nexus``.
+  (`#3835 <https://github.com/vertexproject/synapse/pull/3835>`_)
+
+Bugfixes
+--------
+- Prevent the root user for a Synapse service from being locked, archived, or
+  having its admin status removed.
+  (`#3698 <https://github.com/vertexproject/synapse/pull/3698>`_)
+- Catch Python ``TypeError`` exceptions that could be raised by
+  ``$lib.base64.decode()`` and now raise ``StormRuntimeError`` detailing the
+  problem.
+  (`#3827 <https://github.com/vertexproject/synapse/pull/3827>`_)
+- Fix ``Bad file descriptor`` errors that could happen during link teardown.
+  (`#3831 <https://github.com/vertexproject/synapse/pull/3831>`_)
 
 v2.176.0 - 2024-07-18
 =====================
@@ -15,27 +573,7 @@ Model Changes
 - Updates to the ``inet`` model.
   (`#3811 <https://github.com/vertexproject/synapse/pull/3811>`_)
   (`#3814 <https://github.com/vertexproject/synapse/pull/3814>`_)
-
-  **New Forms**
-
-  ``inet:service:thread``
-    A message thread.
-
-  **New Properties**
-
-  ``inet:service:message``
-    The form had the following properties added to it:
-
-    ``thread``
-      The thread which contains the message.
-
-    ``title``
-      The message title.
-
-  **Updated Forms**
-
-  ``inet:service:account``
-    The form now inherits from the ``inet:service:object`` interface.
+- See :ref:`userguide_model_v2_176_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -124,78 +662,7 @@ Model Changes
 - Updates to the ``crypto``, ``econ``, ``files``, ``ou``, and ``pol`` models.
   (`#3790 <https://github.com/vertexproject/synapse/pull/3790>`_)
   (`#3781 <https://github.com/vertexproject/synapse/pull/3781>`_)
-
-  **New Forms**
-
-  ``econ:currency``
-    The name of a system of money in general use.
-
-  ``entity:name``
-    A name used to refer to an entity.
-
-  **New Properties**
-
-  ``crypto:key``
-    The form had the following properties added to it:
-
-    ``private:text``
-      Set only if the ``:private`` property decodes to ASCII.
-
-    ``public:text``
-      Set only if the ``:public`` property decodes to ASCII.
-
-  ``econ:acct:payment``
-    The form had the following properties added to it:
-
-    ``from:cash``
-      Set to true if the payment input was in cash.
-
-    ``to:cash``
-      Set to true if the payment output was in cash.
-
-    ``place``
-      The place where the payment occurred.
-
-    ``place:address``
-      The address of the place where the payment occurred.
-
-    ``place:latlong``
-      The latlong where the payment occurred.
-
-    ``place:loc``
-      The loc of the place where the payment occurred.
-
-    ``place:name``
-      The name of the place where the payment occurred.
-
-  ``pol:country``
-    The form had the following property added to it:
-
-    ``currencies``
-      The official currencies used in the country.
-
-  **Updated Properties**
-
-  ``ou:position``
-    The form had the following property updated on it:
-
-    ``title``
-      This property is now an ``entity:name`` type.
-
-  ``ou:conference``
-    The form had the following properties updated on it:
-
-    ``name``
-      This property is now an ``entity:name`` type.
-
-    ``names``
-      This property is now an array of ``entity:name`` type.
-
-  **Light Edges**
-
-  ``refs``
-    When used with a ``files:bytes`` and an ``it:dev:str`` node, the edge
-    indicates the source file contains the target string..
+- See :ref:`userguide_model_v2_174_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -244,26 +711,7 @@ Model Changes
 - Updates to the ``ou``, ``plan``, and ``ps`` models.
   (`#3772 <https://github.com/vertexproject/synapse/pull/3772>`_)
   (`#3773 <https://github.com/vertexproject/synapse/pull/3773>`_)
-
-  **New Properties**
-
-  ``ou:conference``
-    The form had the following property added to it:
-
-    ``names``
-      An array of alternate names for the conference.
-
-  ``ps:contact``
-    The form had the following property added to it:
-
-    ``titles``
-      An array of alternate titles for the contact.
-
-  **Light Edges**
-
-  ``uses``
-    When used with a ``plan:procedure:step`` node, the edge indicates the
-    step in the procedure makes use of the target node.
+- See :ref:`userguide_model_v2_173_1` for more detailed model changes.
 
 Bugfixes
 --------
@@ -283,218 +731,10 @@ v2.172.0 - 2024-06-24
 Model Changes
 -------------
 - Updates to the ``biz``, ``econ``, ``inet``, ``meta``, ``ou`` ``risk``,
- and ``transit`` models.
+  and ``transit`` models.
   (`#3561 <https://github.com/vertexproject/synapse/pull/3561>`_)
   (`#3756 <https://github.com/vertexproject/synapse/pull/3756>`_)
-
-  **New Interfaces**
-
-  ``inet:service:base``
-    Properties common to most forms within a service platform.
-
-  ``inet:service:object``
-    Properties common to objects within a service platform. This inherits
-    from the ``inet:service:base`` interface.
-
-  **New Forms**
-
-  ``inet:service:access``
-    Represents a user access request to a service resource.
-
-  ``inet:service:account``
-    An account within a service platform. Accounts may be instance specific.
-
-  ``inet:service:bucket``
-    A file/blob storage object within a service architecture.
-
-  ``inet:service:bucket:item``
-    An individual file stored within a bucket.
-
-  ``inet:service:channel``
-    A channel used to distribute messages.
-
-  ``inet:service:channel:member``
-    Represents a service account being a member of a channel.
-
-  ``inet:service:group``
-    A group or role which contains member accounts.
-
-  ``inet:service:group:member``
-    Represents a service account being a member of a group.
-
-  ``inet:service:instance``
-    An instance of the platform such as Slack or Discord instances.
-
-  ``inet:service:login``
-    A login event for a service account.
-
-  ``inet:service:message``
-    A message or post created by an account.
-
-  ``inet:service:message:link``
-    A URL link included within a message.
-
-  ``inet:service:message:attachment``
-    A file attachment included within a message.
-
-  ``inet:service:login:method:taxonomy``
-    A taxonomy of inet service login methods.
-
-  ``inet:service:object:status``
-    An object status enumeration.
-
-  ``inet:service:permission``
-    A permission which may be granted to a service account or role.
-
-  ``inet:service:permission:type:taxonomy``
-    A permission type taxonomy.
-
-  ``inet:service:platform``
-    A network platform which provides services.
-
-  ``inet:service:resource``
-    A generic resource provided by the service architecture.
-
-  ``inet:service:resource:type:taxonomy``
-    A taxonomy of inet service resource types.
-
-  ``inet:service:rule``
-    A rule which grants or denies a permission to a service account or role.
-
-  ``inet:service:session``
-    An authenticated session.
-
-  ``it:cmd:history``
-    A single command executed within a session.
-
-  ``it:cmd:session``
-    A command line session with multiple commands run over time.
-
-  ``it:host:tenancy``
-    A time window where a host was a tenant run by another host.
-
-  ``it:network:type:taxonomy``
-    A taxonomy of network types.
-
-  ``it:software:image:type:taxonomy``
-    A taxonomy of software image types.
-
-  ``it:software:image``
-    The base image used to create a container or OS.
-
-  ``it:storage:mount``
-    A storage volume that has been attached to an image.
-
-  ``it:storage:volume``
-    A physical or logical storage volume that can be attached to a
-    physical/virtual machine or container.
-
-  ``it:storage:volume:type:taxonomy``
-    A taxonomy of storage volume types.
-
-  **New Properties**
-
-  ``biz:listing``
-    The form had the following properties added to it:
-
-    ``count:remaining``
-      The current remaining number of instances for sale.
-
-    ``count:total``
-      The number of instances for sale.
-
-  ``econ:purchase``
-    The form had the following property added to it:
-
-    ``listing``
-      The purchase was made based on the given listing.
-
-  ``it:exec:proc``
-    The form had the following property added to it:
-
-    ``cmd:history``
-      The command history entry which caused this process to be run.
-
-  ``it:exec:query``
-    The form had the following property added to it:
-
-    ``synuser``
-      The synapse user who executed the query.
-
-  ``it:host``
-    The form had the following property added to it:
-
-    ``image``
-      The container image or OS image running on the host.
-
-  ``it:network``
-    The form had the following property added to it:
-
-    ``type``
-      The type of network.
-
-  ``meta:note``
-    The form had the following property added to it:
-
-    ``replyto``
-      The note is a reply to the specified note.
-
-  ``ou:campaign``
-    The form had the following property added to it:
-
-    ``ext:id``
-      An external identifier for the campaign.
-
-  ``ou:org``
-    The form had the following property added to it:
-
-    ``ext:id``
-      An external identifier for the organization.
-
-  ``ou:technique``
-    The form had the following property added to it:
-
-    ``ext:id``
-      An external identifier for the technique.
-
-  ``risk:extortion``
-    The form had the following properties added to it:
-
-    ``paid:price``
-      The total price paid by the target of the extortion.
-
-    ``payments``
-      Payments made from the target to the attacker.
-
-  ``risk:leak``
-    The form had the following properties added to it:
-
-    ``size:count``
-      The number of files included in the leaked data.
-
-    ``size:percent``
-      The total percent of the data leaked.
-
-  ``risk:threat``
-    The form had the following property added to it:
-
-    ``ext:id``
-      An external identifier for the threat.
-
-  **Updated Types**
-
-  ``inet:web:hashtag``
-    Update the regex to allow the middle dot (U+00B7) character to be part of
-    the hashtag after the first unicode word character.
-
-  ``transport:air:flightnum``
-    Loosen the regex for flight number validation.
-
-  **Updated Forms**
-
-  ``it:host``
-    The form now inherits from the ``inet:service:object`` interface.
-
+- See :ref:`userguide_model_v2_172_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -590,41 +830,7 @@ Model Changes
   (`#3702 <https://github.com/vertexproject/synapse/pull/3702>`_)
   (`#3725 <https://github.com/vertexproject/synapse/pull/3725>`_)
   (`#3732 <https://github.com/vertexproject/synapse/pull/3732>`_)
-
-  **New Forms**
-
-  ``file:mime:lnk``
-    Metadata pulled from a Windows shortcut or LNK file.
-
-  ``it:mitre:attack:datasource``
-    A MITRE ATT&CK Datasource ID.
-
-  ``it:mitre:attack:data:component``
-    A MITRE ATT&CK data component.
-
-  **New Properties**
-
-  ``it:mitre:attack:technique``
-    The form had the following property added to it:
-
-    ``data:components``
-      An array of MITRE ATT&CK data components that detect the ATT&CK technique.
-
-  ``it:prod:hardware``
-    The form had the following properties added to it:
-
-    ``manufacturer``
-      The organization that manufactures this hardware.
-
-    ``manufacturer:name``
-      The name of the organization that manufactures this hardware.
-
-  **Deprecated Properties**
-
-  ``it:prod:hardware``
-    The ``it:prod:hardware`` form had the following property marked as deprecated:
-
-    * ``make``
+- See :ref:`userguide_model_v2_170_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -724,31 +930,7 @@ Model Changes
 -------------
 - Add a new model, ``plan``, for modeling elements of plannings systems.
   (`#3697 <https://github.com/vertexproject/synapse/pull/3697>`_)
-
-  **New Forms**
-
-  ``plan:system``
-    A planning or behavioral analysis system that defines phases and
-    procedures.
-
-  ``plan:phase``
-    A phase within a planning system which may be used to group steps
-    within a procedure.
-
-  ``plan:procedure``
-    A procedure consisting of steps.
-
-  ``plan:procedure:type:taxonomy``
-    A taxonomy of procedure types.
-
-  ``plan:procedure:variable``
-    A variable used by a procedure.
-
-  ``plan:procedure:step``
-    A step within a procedure.
-
-  ``plan:procedure:link``
-    A link between steps in a procedure.
+- See :ref:`userguide_model_v2_168_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -804,32 +986,7 @@ Model Changes
 - Updates to the ``base`` and ``file`` models.
   (`#3674 <https://github.com/vertexproject/synapse/pull/3674>`_)
   (`#3688 <https://github.com/vertexproject/synapse/pull/3688>`_)
-
-  **Updated Types**
-
-  ``file:path``
-    Normalizing paths such as ``../.././..`` previously failed. This now
-    produces an empty path.
-
-  **Deprecated Types**
-
-  The following types have been marked as deprecated:
-
-  * ``edge``
-  * ``timeedge``
-
-  **Deprecated Forms**
-
-  The following forms have been marked as deprecated:
-
-  * ``graph:cluster``
-  * ``graph:node``
-  * ``graph:event``
-  * ``edge:refs``
-  * ``edge:has``
-  * ``edge:wentto``
-  * ``graph:edge``
-  * ``graph:timeedge``
+- See :ref:`userguide_model_v2_167_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -909,77 +1066,7 @@ Model Changes
   (`#3649 <https://github.com/vertexproject/synapse/pull/3649>`_)
   (`#3653 <https://github.com/vertexproject/synapse/pull/3653>`_)
   (`#3657 <https://github.com/vertexproject/synapse/pull/3657>`_)
-
-  **New Forms**
-
-  ``inet:tls:handshake``
-    An instance of a TLS handshake between a server and client.
-
-  ``inet:tls:ja3:sample``
-    A JA3 sample taken from a client.
-
-  ``inet:tls:ja3s:sample``
-    A JA3 sample taken from a server.
-
-  ``inet:tls:servercert``
-    An x509 certificate sent by a server for TLS.
-
-  ``inet:tls:clientcert``
-    An x509 certificate sent by a client for TLS.
-
-  **New Properties**
-
-  ``risk:extortion``
-    The form had the following property added to it:
-
-    ``deadline``
-      The time that the demand must be met.
-
-  ``risk:leak``
-    The form had the following properties added on it:
-
-    ``extortion``
-      The extortion event which used the threat of the leak as leverage.
-
-    ``size:bytes``
-      The approximate uncompressed size of the total data leaked.
-
-  ``it:mitre:attack:technique``
-    The form had the following properties updated on it:
-
-    ``name``
-      This property is now lower-cased and single spaced.
-
-  **Deprecated Forms**
-
-  The following forms have been marked as deprecated:
-
-  ``inet:ssl:cert``
-    Please use ``inet:tls:clientcert`` or ``inet:tls:servercert``.
-
-  **Column Display Hints**
-
-  The following forms had column display hints added to them:
-
-    ``ou:campaign``
-    ``ou:conference``
-    ``ou:goal``
-    ``ou:org``
-    ``ou:team``
-    ``ou:technique``
-    ``ps:contact``
-    ``ps:skill``
-    ``ps:proficiency``
-    ``risk:threat``
-    ``risk:compromise``
-    ``risk:mitigation``
-    ``risk:tool:software``
-
-  **Light Edges**
-
-  ``uses``
-    When used with a ``risk:extortion`` and an ``ou:technique`` node, the edge
-    indicates the attacker used the technique to extort the victim.
+- See :ref:`userguide_model_v2_166_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -1095,172 +1182,7 @@ Model Changes
   (`#3606 <https://github.com/vertexproject/synapse/pull/3606>`_)
   (`#3622 <https://github.com/vertexproject/synapse/pull/3622>`_)
   (`#3635 <https://github.com/vertexproject/synapse/pull/3635>`_)
-
-  **New Forms**
-
-  ``econ:acct:receipt``
-    A receipt issued as proof of payment.
-
-  ``econ:acct:invoice``
-    An invoice issued requesting payment.
-
-  ``econ:bank:account:type:taxonomy``
-    A bank account type taxonomy.
-
-  ``econ:bank:account``
-    A bank account.
-
-  ``econ:bank:balance``
-    A balance contained by a bank account at a point in time.
-
-  ``econ:bank:statement``
-    A statement of bank account payment activity over a period of time.
-
-  ``econ:bank:aba:rtn``
-    An American Bank Association (ABA) routing transit number (RTN).
-
-  ``econ:bank:iban``
-    An International Bank Account Number.
-
-  ``econ:bank:swift:bic``
-    A Society for Worldwide Interbank Financial Telecommunication (SWIFT)
-    Business Identifier Code (BIC).
-
-  ``risk:vulnerable``
-    Indicates that a node is susceptible to a vulnerability.
-
-  ``sci:hypothesis:type:taxonomy``
-    A taxonomy of hypothesis types.
-
-  ``sci:hypothesis``
-    A hypothesis or theory.
-
-  ``sci:experiment:type:taxonomy``
-    A taxonomy of experiment types.
-
-  ``sci:experiment``
-    An instance of running an experiment.
-
-  ``sci:observation``
-    An observation which may have resulted from an experiment.
-
-  ``sci:evidence``
-    An assessment of how an observation supports or refutes a hypothesis.
-
-  **Updated Properties**
-
-  ``risk:mitigation``
-    The form had the following properties updated on it:
-
-    ``name``
-      This property is now lower-cased and single spaced.
-
-  ``it:mitre:attack:technique``
-    The form had the following properties updated on it:
-
-    ``name``
-      This property is now lower-cased and single spaced.
-
-  ``it:mitre:attack:mitigation``
-    The form had the following properties updated on it:
-
-    ``name``
-      This property is now lower-cased and single spaced.
-
-  **New Properties**
-
-  ``econ:acct:payment``
-    The form had the following properties added to it:
-
-    ``from:account``
-      The bank account which made the payment.
-
-    ``to:account``
-      The bank account which received the payment.
-
-    ``invoice``
-      The invoice that the payment applies to.
-
-    ``receipt``
-      The receipt that was issued for the payment.
-
-  ``file:mime:image``
-    The interface had the following property added to it:
-
-    ``text``
-      The text contained within the image.
-
-  ``inet:email:message``
-    The form had the following property added to it:
-
-    ``flow``
-      The inet:flow which delivered the message.
-
-  ``ou:id:number``
-    The form had the following property added to it:
-
-    ``issuer``
-      The contact information of the office which issued the ID number.
-
-  ``risk:threat``
-    The form had the following property added to it:
-
-    ``mitre:attack:group``
-      A mapping to a MITRE ATT&CK group if applicable.
-
-  ``risk:tool:software``
-    The form had the following property added to it:
-
-    ``mitre:attack:software``
-      A mapping to a MITRE ATT&CK software if applicable.
-
-  ``risk:mitigation``
-    The form had the following property added to it:
-
-    ``mitre:attack:mitigation``
-      A mapping to a MITRE ATT&CK mitigation if applicable.
-
-  **Deprecated Forms**
-
-  The following forms have been marked as deprecated:
-
-  ``risk:hasvuln``
-    Please use ``risk:vulnerable``.
-
-  **Light Edges**
-
-  ``has``
-    When used with an ``econ:bank:statement`` and an ``econ:acct:payment``, the
-    edge indicates the bank statement includes the payment.
-
-    When used with an ``ou:org`` node, the edge indicates the organization is
-    or was in possession of the target node.
-
-    When used with a ``ps:contact`` node, the edge indicates the contact is or
-    was in possession of the target node.
-
-    When used with a ``ps:person`` node, the edge indicates the person is or
-    was in possession of the target node.
-
-    When used with a ``sci:observation`` node, the edge indicates the
-    observations are summarized from the target nodes.
-
-    When used with an ``sci:evidence`` node, the edge indicates the evidence
-    includes observations from the target nodes.
-
-  ``owns``
-    When used with an ``ou:org`` node, the edge indicates the organization owns
-    or owned the target node.
-
-    When used with a ``ps:contact`` node, the edge indicates the contact owns
-    or owned the target node.
-
-    When used with a ``ps:person`` node, the edge indicates the person owns or
-    owned the target node.
-
-  ``uses``
-    When used with a ``sci:experiment`` node, the edge indicates the
-    experiment used the target nodes when it was run.
+- See :ref:`userguide_model_v2_165_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -1445,94 +1367,13 @@ Model Changes
   (`#3549 <https://github.com/vertexproject/synapse/pull/3549>`_)
   (`#3551 <https://github.com/vertexproject/synapse/pull/3551>`_)
   (`#3564 <https://github.com/vertexproject/synapse/pull/3564>`_)
-
-  **New Properties**
-
-  ``inet:email:message``
-    The form had the following properties added to it:
-
-    ``received:from:ipv4``
-      The sending SMTP server IPv4, potentially from the Received: header.
-
-    ``received:from:ipv6``
-      The sending SMTP server IPv6, potentially from the Received: header.
-
-    ``received:from:fqdn``
-      The sending server FQDN, potentially from the Received: header.
-
-  ``ou:oid:type``
-    The form had the following property added to it:
-
-      ``url``
-        The official URL of the issuer.
-
-  ``proj:project``
-    The form had the following property added to it:
-
-      ``type``
-        The project type.
-
-  ``risk:alert``
-    The form had the following properties added to it:
-
-    ``status``
-      The status of the alert.
-
-    ``assignee``
-      The Synapse user who is assigned to investigate the alert.
-
-    ``ext:assignee``
-      The alert assignee contact information from an external system.
-
-  ``risk:mitigation``
-    The form had the following properties added to it:
-
-    ``reporter``
-      The organization reporting on the mitigation.
-
-    ``reporter:name``
-      The name of the organization reporting on the mitigation.
-
-    ``tag``
-      The tag used to annotate nodes which have the mitigation in place.
-
-  **New Forms**
-
-  ``proj:project:type:taxonomy``
-    A type taxonomy for projects.
-
-  **Deprecated Properties**
-
-  ``it:mitre:attack:group``
-    The ``it:mitre:attack:group`` form had the following property marked as deprecated:
-
-    * ``tag``
-
-  ``it:mitre:attack:tactic``
-    The ``it:mitre:attack:tactic`` form had the following property marked as deprecated:
-
-    * ``tag``
-
-  ``it:mitre:attack:technique``
-    The ``it:mitre:attack:technique`` form had the following property marked as deprecated:
-
-    * ``tag``
-
-  ``it:mitre:attack:software``
-    The ``it:mitre:attack:software`` form had the following property marked as deprecated:
-
-    * ``tag``
-
-  ``it:mitre:attack:campaign``
-    The ``it:mitre:attack:campaign`` form had the following property marked as deprecated:
-
-    * ``tag``
+- See :ref:`userguide_model_v2_162_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
 - Add Storm API methods for inspecting and manipulating dictionary objects
   in Storm. These are ``$lib.dict.has()``, ``$lib.dict.keys()``,
-  ``$lib.dict.pop()``, ``$lib.dict.update()``, and ``$lib.dict.values()`
+  ``$lib.dict.pop()``, ``$lib.dict.update()``, and ``$lib.dict.values()``.
   (`#3548 <https://github.com/vertexproject/synapse/pull/3548>`_)
 - Add a ``json()`` method to the ``str`` type in Storm to deserialize a string
   as JSON data.
@@ -1666,73 +1507,7 @@ Model Changes
   (`#3501 <https://github.com/vertexproject/synapse/pull/3501>`_)
   (`#3504 <https://github.com/vertexproject/synapse/pull/3504>`_)
   (`#3498 <https://github.com/vertexproject/synapse/pull/3498>`_)
-
-  **New Properties**
-
-  ``risk:vuln``
-    The form had the following properties added to it:
-
-    ``severity``
-      The severity of the vulnerability.
-
-    ``priority``
-      The priority of the vulnerability.
-
-  ``inet:ipv6``
-    The form had the following properties added to it:
-
-    ``type``
-      The type of IP address (e.g., private, multicast, etc.).
-
-    ``scope``
-      The IPv6 scope of the address (e.g., global, link-local, etc.).
-
-  **Updated Types**
-
-  ``it:exec:proc``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:thread``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:loadlib``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:mmap``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:mutex``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:pipe``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:url``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:bind``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:file:add``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:file:read``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:file:write``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:file:del``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:reg:get``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:reg:set``
-    This now inherits the ``it:host:activity`` interface.
-
-  ``it:exec:reg:del``
-    This now inherits the ``it:host:activity`` interface.
+- See :ref:`userguide_model_v2_160_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -1912,44 +1687,7 @@ Model Changes
   (`#3438 <https://github.com/vertexproject/synapse/pull/3438>`_)
   (`#3446 <https://github.com/vertexproject/synapse/pull/3447>`_)
   (`#3447 <https://github.com/vertexproject/synapse/pull/3447>`_)
-
-  **New Properties**
-
-  ``it:av:scan:result``
-    The form had the following properties added to it:
-
-      ``target:ipv4``
-        The IPv4 address that was scanned to produce the result.
-
-      ``target:ipv6``
-        The IPv6 address that was scanned to produce the result.
-
-  ``ou:campaign``
-    The form had the following property added to it:
-
-    ``mitre:attack:campaign``
-      A mapping to a Mitre ATT&CK campaign if applicable.
-
-  ``risk:vuln``
-    The form had the following property added to it:
-
-    ``id``
-      An identifier for the vulnerability.
-
-  **New Forms**
-
-  ``it:mitre:attack:campaign``
-    A Mitre ATT&CK Campaign ID.
-
-  ``risk:technique:masquerade``
-    Represents the assessment that a node is designed to resemble another
-    in order to mislead.
-
-  **Updated Types**
-
-  ``it:os:windows:sid``
-    The regular expression used to validate the SID has been updated
-    to allow modeling well-known SID values.
+- See :ref:`userguide_model_v2_156_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2037,67 +1775,7 @@ Model Changes
 -------------
 - Updates to the ``infotech``, ``proj``,  and ``risk`` models.
   (`#3422 <https://github.com/vertexproject/synapse/pull/3422>`_)
-
-  **New Properties**
-
-  ``proj:ticket``
-    The form had the following property added to it:
-
-    ``ext:assignee``
-      Ticket assignee contact information from an external system.
-
-  ``risk:alert``
-    The form had the following property added to it:
-
-    ``severity``
-      A severity rank for the alert.
-
-  ``it:exec:query``
-    The form had the following property added to it:
-
-    ``offset``
-      The offset of the last record consumed from the query.
-
-  **New Forms**
-
-  ``it:av:scan:result``
-    The result of running an antivirus scanner.
-
-  **Updated Properties**
-
-  ``risk:alert``
-    The form had the following properties updated on it:
-
-    ``priority``
-      The type of this property has been changed from an ``int`` to
-      ``meta:priority``.
-
-  ``risk:attack``
-    The form had the following properties updated on it:
-
-    ``severity``
-      The type of this property has been changed from an ``int`` to
-      ``meta:severity``.
-
-  ``risk:compromise``
-    The form had the following properties updated on it:
-
-    ``severity``
-      The type of this property has been changed from an ``int`` to
-      ``meta:severity``.
-
-  **Deprecated Forms**
-
-  The following forms have been marked as deprecated:
-
-  ``it:av:sig``
-    Please use ``it:av:scan:result``.
-
-  ``it:av:filehit``
-    Please use ``it:av:scan:result``.
-
-  ``it:av:prochit``
-    Please use ``it:av:scan:result``.
+- See :ref:`userguide_model_v2_155_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2163,71 +1841,7 @@ Model Changes
   (`#3407 <https://github.com/vertexproject/synapse/pull/3407>`_)
   (`#3410 <https://github.com/vertexproject/synapse/pull/3410>`_)
   (`#3416 <https://github.com/vertexproject/synapse/pull/3416>`_)
-
-  **Updated Types**
-
-  ``inet:ipv4``
-    RFC6598 addresses now have a ``:type`` property value of ``shared``.
-
-  ``inet:url``
-    Accept Microsoft URLPrefix strings with a strong wildcard host value.
-
-    Add a check to prevent creating ``inet:url`` nodes with an empty host
-    and path part, such as ``inet:url=file://''``.
-
-  **New Properties**
-
-  ``ou:org``
-    The form had the following property added to it:
-
-    ``tag``
-      A base tag used to encode assessments made by the organization.
-
-  ``risk:compromise``
-    The form had the following properties added to it:
-
-    ``ext:id``
-      An external unique ID for the compromise.
-
-    ``url``
-      A URL which documents the compromise.
-
-  ``risk:alert``
-    The form had the following property added to it:
-
-    ``host``
-      The host which generated the alert.
-
-  **New Forms**
-
-  ``ou:requirement``
-    A specific requirement.
-
-  ``risk:leak``
-    An event where information was disclosed without permission.
-
-  ``risk:leak:type:taxonomy``
-    A taxonomy of leak event types
-
-  ``risk:extortion``
-    An event where an attacker attempted to extort a victim.
-
-  ``risk:extortion:type:taxonomy``
-    A taxonomy of extortion event types.
-
-  **Light Edges**
-
-  ``leaked``
-    When used with a ``risk:leak`` node, the edge indicates the leak included
-    the disclosure of the target node.
-
-  ``leveraged``
-    When used with a ``risk:extortion`` node, the edge indicates the extortion
-    event was based on attacker access to the target node.
-
-  ``meets``
-    When used with a ``ou:requirement`` node, the edge indicates the
-    requirement was met by the source node.
+- See :ref:`userguide_model_v2_154_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2267,27 +1881,9 @@ v2.153.0 - 2023-10-27
 Model Changes
 -------------
 - Update to the ``inet`` and ``ou`` models.
-
   (`#3393 <https://github.com/vertexproject/synapse/pull/3393>`_)
   (`#3396 <https://github.com/vertexproject/synapse/pull/3396>`_)
-
-  **Deprecated Properties**
-
-  ``inet:web:acct``
-    The ``inet:web:acct`` form had the following properties marked as deprecated:
-
-    * ``name:en``
-    * ``realname:en``
-
-  ``inet:web:group``
-    The ``inet:web:group`` form had the following property marked as deprecated:
-
-    * ``name:en``
-
-  ``ou:industry``
-    The ``ou:industry`` form had the following property marked as deprecated:
-
-    * ``subs``
+- See :ref:`userguide_model_v2_153_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2336,62 +1932,11 @@ Model Changes
 -------------
 - Update to the  ``biz``, ``crypto``, ``geo``, ``it``, ``mat``, ``media``,
   and ``risk`` models.
-
   (`#3341 <https://github.com/vertexproject/synapse/pull/3341>`_)
   (`#3377 <https://github.com/vertexproject/synapse/pull/3377>`_)
   (`#3376 <https://github.com/vertexproject/synapse/pull/3376>`_)
   (`#3381 <https://github.com/vertexproject/synapse/pull/3381>`_)
-
-  **Updated Interfaces**
-
-  ``crypto:smart:effect``
-   Add a ``doc`` value to the interface.
-
-  ``it:host:activity``
-   Add a ``doc`` value to the interface.
-
-  ``taxonomy``
-   Add a ``doc`` value to the interface.
-
-  **Updated Types**
-
-  ``time``
-    The ``time`` type now recognizes RFC822 formatted time strings.
-
-  ``biz:service:type:taxonomy``
-    The ``taxonomy`` interface has been added to the type.
-
-  ``geo:place:taxonomy``
-    The ``taxonomy`` interface has been added to the type.
-
-  ``it:log:event:type:taxonomy``
-    The ``taxonomy`` interface has been added to the type.
-
-  ``it:prod:soft:taxonomy``
-    The ``taxonomy`` interface has been added to the type.
-
-  ``mat:type``
-    The ``taxonomy`` interface has been added to the type.
-
-  ``media:news:taxonomy``
-    The ``taxonomy`` interface has been added to the type.
-
-  ``risk:alert:taxonomy``
-    The ``taxonomy`` interface has been added to the type.
-
-  ``risk:alert:verdict:taxonomy``
-    The ``taxonomy`` interface has been added to the type.
-
-  ``risk:threat:type:taxonomy``
-    The ``taxonomy`` interface has been added to the type.
-
-  **New Forms**
-
-  ``it:dev:repo:label``
-    A developer selected label.
-
-  ``it:dev:repo:issue:label``
-    A label applied to a repository issue.
+- See :ref:`userguide_model_v2_152_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2428,11 +1973,7 @@ Model Changes
 -------------
 - Update to the ``it`` model.
   (`#3361 <https://github.com/vertexproject/synapse/pull/3361>`_)
-
-  **New Forms**
-
-  ``it:mitre:attack:flow``
-    A MITRE ATT&CK Flow diagram.
+- See :ref:`userguide_model_v2_151_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2499,12 +2040,7 @@ Model Changes
 -------------
 - Updates to the ``inet`` model.
   (`#3347 <https://github.com/vertexproject/synapse/pull/3347>`_)
-
-  **Updated Types**
-
-  ``inet:url``
-    The ``inet:url`` type now recognizes UNC network paths and converts
-    them into ``smb://`` URLs.
+- See :ref:`userguide_model_v2_150_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2553,39 +2089,7 @@ Model Changes
 -------------
 - Updates to the ``it``, ``meta``, and ``ou`` models.
   (`#3338 <https://github.com/vertexproject/synapse/pull/3338>`_)
-
-  **New Properties**
-
-  ``taxonomy``
-    The interface had the following property added to it:
-
-    ``description``
-      A definition of the taxonomy entry.
-
-  ``inet:email:message``
-    The form had the following property added to it:
-
-    ``cc``
-      Email addresses parsed from the "cc" header.
-
-  ``meta:source``
-    The form had the following property added to it:
-
-    ``url``
-      A URL which documents the meta source.
-
-  ``ou:campaign``
-    The form had the following property added to it:
-
-    ``timeline``
-      A timeline of significant events related to the campaign.
-
-  **Deprecated Properties**
-
-  ``taxonomy``
-    The ``taxonomy`` interface had the following property marked as deprecated:
-
-    * ``summary``
+- See :ref:`userguide_model_v2_149_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2717,78 +2221,7 @@ Model Changes
   (`#3298 <https://github.com/vertexproject/synapse/pull/3298>`_)
   (`#3301 <https://github.com/vertexproject/synapse/pull/3301>`_)
   (`#3310 <https://github.com/vertexproject/synapse/pull/3310>`_)
-
-  **New Types**
-
-  ``it:sec:tlp``
-    The US CISA Traffic-Light-Protocol used to designate information sharing
-    boundaries.
-
-  ``meta:priority``
-    A generic priority enumeration.
-
-  ``meta:severity``
-    A generic severity enumeration.
-
-
-  **New Forms**
-
-  ``it:sec:metrics``
-    A node used to track metrics of an organization's infosec program.
-
-  ``it:sec:vuln:scan``
-    An instance of running a vulnerability scan.
-
-  ``it:sec:vuln:scan:result``
-    A vulnerability scan result for an asset.``
-
-  **New Properties**
-
-  ``it:dev:repo:issue``
-    The form had the following properties added to it:
-
-    ``updated``
-      The time the issue was updated.
-
-    ``id``
-      The ID of the issue in the repository system.
-
-  ``it:dev:repo:issue:comment``
-    The form had the following properties added to it:
-
-    ``created``
-      The time the comment was created.
-
-    ``updated``
-      The time the comment was updated.
-
-  ``it:dev:repo:diff:comment``
-    The form had the following properties added to it:
-
-    ``created``
-      The time the comment was created.
-
-    ``updated``
-      The time the comment was updated.
-
-  ``meta:note``
-    The form had the following properties added to it:
-
-    ``updated``
-      The time the note was updated.
-
-  **Deprecated Properties**
-
-  ``it:exec:proc``
-    The ``it:exec:proc`` form had the following property marked as deprecated:
-
-    * ``src:exe``
-
-  ``inet:whois:iprec``
-    The ``inet:whois:iprec`` form had the following property marked as deprecated:
-
-    * ``registrant``
-
+- See :ref:`userguide_model_v2_145_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2868,43 +2301,7 @@ Model Changes
 - Updates to the ``inet:dns`` and ``it`` model.
   (`#3257 <https://github.com/vertexproject/synapse/pull/3257>`_)
   (`#3276 <https://github.com/vertexproject/synapse/pull/3276>`_)
-
-  **New Forms**
-
-  ``it:dev:repo:type:taxonomy``
-    A version control system type taxonomy.
-
-  ``it:dev:repo``
-    A version control system instance.
-
-  ``it:dev:repo:remote``
-    A remote repo that is tracked for changes/branches/etc.
-
-  ``it:dev:repo:branch``
-    A branch in a version control system instance.
-
-  ``it:dev:repo:commit``
-    A commit to a repository.
-
-  ``it:dev:repo:diff``
-    A diff of a file being applied in a single commit.
-
-  ``it:dev:repo:issue``
-    An issue raised in a repository.
-
-  ``it:dev:repo:issue:comment``
-    A comment on an issue in a repository.
-
-  ``it:dev:repo:diff:comment``
-    A comment on a diff in a repository.
-
-  **New Properties**
-
-  ``inet:dns:answer``
-    The form had the following properties added to it:
-
-    ``time``
-      The time that the DNS response was transmitted.
+- See :ref:`userguide_model_v2_144_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -2936,22 +2333,7 @@ Model Changes
 -------------
 - Update to the ``crypto`` model.
   (`#3256 <https://github.com/vertexproject/synapse/pull/3256>`_)
-
-  **Updated Types**
-
-  ``hex``
-    The ``zeropad`` option has been changed from a ``bool`` to an ``int``.
-    It may now be used to specify the zero extended length of the hex string.
-
-  **Updated Properties**
-
-  ``crypto:x509:cert``
-    The form had the following properties updated on it:
-
-    ``serial``
-      The ``size`` value has been changed to ``zeropad`` to zeropad values
-      with less than 40 octets, and to allow storing large serial numbers from
-      malformed certificates.
+- See :ref:`userguide_model_v2_143_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -3061,46 +2443,7 @@ Model Changes
   (`#3224 <https://github.com/vertexproject/synapse/pull/3224>`_)
   (`#3227 <https://github.com/vertexproject/synapse/pull/3227>`_)
   (`#3237 <https://github.com/vertexproject/synapse/pull/3237>`_)
-
-  **New Forms**
-
-  ``risk:vulnname``
-    Add a form to capture vulnerability name such as log4j or rowhammer.
-
-  **Updated Types**
-
-  ``hex``
-    The ``hex`` base type now accepts a ``zeropad`` option that can be used
-    to zero-extend a hex string during normalization.
-
-  ``cvss:v2``
-    The type now accepts and normalizes unordered CVSS vectors.
-
-  ``cvss:v3``
-    The type now accepts and normalizes unordered CVSS vectors.
-
-  **New Properties**
-
-  ``it:sec:c2:config``
-    The form had the following properties added to it:
-
-    ``decoys``
-      An array of URLs used as decoy connections to obfuscate the C2 servers.
-
-  ``ou:technique``
-    The form had the following properties added to it:
-
-    ``reporter``
-      The organization reporting on the technique.
-
-    ``reporter:name``
-      The name of the organization reporting on the technique.
-
-  ``risk:vuln``
-    The form had the following properties added to it:
-
-    ``names``
-      An array of alternate names for the vulnerability.
+- See :ref:`userguide_model_v2_142_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -3167,23 +2510,7 @@ Model Changes
 -------------
 - Update to the ``it`` and ``lang`` models.
   (`#3219 <https://github.com/vertexproject/synapse/pull/3219>`_)
-
-  **New Properties**
-
-  ``it:host``
-    The form had the following properties added to it:
-
-    ``keyboard:language``
-      The primary keyboard input language configured on the host.
-
-    ``keyboard:layout``
-      The primary keyboard layout configured on the host.
-
-  ``lang:language``
-    The form had the following property added to it:
-
-    ``code``
-      The language code for this language.
+- See :ref:`userguide_model_v2_141_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -3242,29 +2569,7 @@ Model Changes
   (`#3192 <https://github.com/vertexproject/synapse/pull/3192>`_)
   (`#3202 <https://github.com/vertexproject/synapse/pull/3202>`_)
   (`#3207 <https://github.com/vertexproject/synapse/pull/3207>`_)
-
-  **New Types**
-
-  ``file:archive:entry``
-    Add a type to capture an archive entry representing a file and metadata
-    from within a parent archive file.
-
-  **Updated Types**
-
-  ``time``
-    Time values with precision beyond milliseconds are now truncated to
-    millsecond values.
-
-  ``hex``
-    Hex types now have whitespace and colon ( ``:`` ) characters stripped
-    from them when lifting and normalizing them.
-
-  ``inet:ipv6``
-    Add comparators for ``>=``, ``>``, ``<=``, ``<`` operations when lifting
-    and filtering IPV6 values.
-
-  ``ou:naics``
-    Update the type to allow recording NIACS sector and subsector prefixes.
+- See :ref:`userguide_model_v2_140_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -3399,135 +2704,7 @@ Model Changes
 - Updates to the ``geospace``, ``inet``, ``infotech``, ``ou``, ``risk``,
   and ``transport`` models.
   (`#3169 <https://github.com/vertexproject/synapse/pull/3169>`_)
-
-  **New Types**
-
-  ``it:mitre:attack:matrix``
-    Add a type to capture the enumeration of MITRE ATT&CK matrix values.
-
-  **New Forms**
-
-  ``inet:egress``
-    Add a form to capture a host using a specific network egress client
-    address.
-
-  ``it:prod:softreg``
-    Add a form to capture a registry entry is created by a specific software
-    version.
-
-  ``transport:land:vehicle``
-    Add a form to capture an individual vehicle.
-
-  ``transport:land:registration``
-    Add a form to capture the registration issued to a contact for a land
-    vehicle.
-
-  ``transport:land:license``
-    Add a form to capture the license to operate a land vehicle issued to a
-    contact.
-
-  **New Properties**
-
-  ``inet:http:request``
-    The form had the following property added to it:
-
-    ``referer``
-      The referer URL parsed from the "Referer:" header in the request.
-
-  ``inet:search:query``
-    The form had the following property added to it:
-
-    ``request``
-      The HTTP request used to issue the query.
-
-  ``it:mitre:attack:tactic``
-    The form had the following property added to it:
-
-    ``matrix``
-      The ATT&CK matrix which defines the tactic.
-
-  ``it:mitre:attack:technique``
-    The form had the following property added to it:
-
-    ``matrix``
-      The ATT&CK matrix which defines the technique.
-
-  ``it:mitre:attack:mitigation``
-    The form had the following property added to it:
-
-    ``matrix``
-      The ATT&CK matrix which defines the mitigation.
-
-  ``it:app:snort:rule``
-    The form had the following property added to it:
-
-    ``engine``
-      The snort engine ID which can parse and evaluate the rule text.
-
-  ``it:app:yara:rule``
-    The form had the following properties added to it:
-
-    ``ext:id``
-      The YARA rule ID from an external system.
-
-    ``url``
-      A URL which documents the YARA rule.
-
-  ``ou:campaign``
-    The form had the following property added to it:
-
-    ``tag``
-      The tag used to annotate nodes that are associated with the campaign.
-
-  ``ou:org``
-    The form had the following properties added to it:
-
-      ``country``
-        The organization's country of origin.
-
-      ``country:code``
-        The 2 digit ISO 3166 country code for the organization's country of
-        origin.
-
-  ``risk:threat``
-    The form had the following properties added to it:
-
-      ``country``
-        The reporting organization's assessed country of origin of the threat
-        cluster.
-
-      ``country:code``
-        The 2 digit ISO 3166 country code for the threat cluster's assessed
-        country of origin.
-
-  ``risk:compromise``
-    The form had the following property added to it:
-
-    ``vector``
-      The attack assessed to be the initial compromise vector.
-
-  **Light Edges**
-
-  ``detects``
-    When used with a ``meta:rule`` node, the edge indicates the rule was
-    designed to detect instances of the target node.
-
-    When used with an ``it:app:snort:rule`` node, the edge indicates the rule
-    was designed to detect instances of the target node.
-
-    When used with an ``it:app:yara:rule`` node, the edge indicates the rule
-    was designed to detect instances of the target node.
-
-  ``contains``
-    When used between two ``geo:place`` nodes, the edge indicates the source
-    place completely contains the target place.
-
-  **Deprecated Properties**
-
-  ``geo:place``
-    The form had the following property marked as deprecated:
-
-    * ``parent``
+- See :ref:`userguide_model_v2_137_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -3660,12 +2837,7 @@ Model Changes
 -------------
 - Updates to the ``risk`` model.
   (`#3137 <https://github.com/vertexproject/synapse/pull/3137>`_)
-
-  **Light Edges**
-
-  ``addresses``
-    When used with a ``risk:mitigation`` and a ``ou:technique`` node, the
-    edge indicates the mitigation addresses the technique.
+- See :ref:`userguide_model_v2_134_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------
@@ -3724,71 +2896,7 @@ Model Changes
 -------------
 - Updates to the ``risk`` model.
   (`#3123 <https://github.com/vertexproject/synapse/pull/3123>`_)
-
-  **New Properties**
-
-  ``risk:vuln``
-    The ``risk:vuln`` form had the following properties added to it:
-
-    ``cvss:v2``
-        The CVSS v2 vector for the vulnerability.
-    ``cvss:v2_0:score``
-        The CVSS v2.0 overall score for the vulnerability.
-    ``cvss:v2_0:score:base``
-        The CVSS v2.0 base score for the vulnerability.
-    ``cvss:v2_0:score:temporal``
-        The CVSS v2.0 temporal score for the vulnerability.
-    ``cvss:v2_0:score:environmental``
-        The CVSS v2.0 environmental score for the vulnerability.
-    ``cvss:v3``
-        The CVSS v3 vector for the vulnerability.
-    ``cvss:v3_0:score``
-        The CVSS v3.0 overall score for the vulnerability.
-    ``cvss:v3_0:score:base``
-        The CVSS v3.0 base score for the vulnerability.
-    ``cvss:v3_0:scare:temporal``
-        The CVSS v3.0 temporal score for the vulnerability.
-    ``cvss:v3_0:score:environmental``
-        The CVSS v3.0 environmental score for the vulnerability.
-    ``cvss:v3_1:score``
-        The CVSS v3.1 overall score for the vulnerability.
-    ``cvss:v3_1:score:base``
-        The CVSS v3.1 base score for the vulnerability.
-    ``cvss:v3_1:scare:temporal``
-        The CVSS v3.1 temporal score for the vulnerability.
-    ``cvss:v3_1:score:environmental``
-        The CVSS v3.1 environmental score for the vulnerability.
-
-  **Deprecated Properties**
-
-  ``risk:vuln``
-    The ``risk:vuln`` form had the following properties marked as deprecated:
-
-    * ``cvss:av``
-    * ``cvss:ac``
-    * ``cvss:pr``
-    * ``cvss:ui``
-    * ``cvss:s``
-    * ``cvss:c``
-    * ``cvss:i``
-    * ``cvss:a``
-    * ``cvss:e``
-    * ``cvss:rl``
-    * ``cvss:rc``
-    * ``cvss:mav``
-    * ``cvss:mac``
-    * ``cvss:mpr``
-    * ``cvss:mui``
-    * ``cvss:ms``
-    * ``cvss:mc``
-    * ``cvss:mi``
-    * ``cvss:ma``
-    * ``cvss:cr``
-    * ``cvss:ir``
-    * ``cvss:ar``
-    * ``cvss:score``
-    * ``cvss:score:temporal``
-    * ``cvss:score:environmental``
+- See :ref:`userguide_model_v2_133_0` for more detailed model changes.
 
 Features and Enhancements
 -------------------------

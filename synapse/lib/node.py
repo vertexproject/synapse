@@ -173,10 +173,12 @@ class Node:
             if prop is None:
                 return None
 
-            if prop.modl.form(prop.type.name) is None:
+            if prop.modl.form(prop.type.name) is not None:
+                buid = s_common.buid((prop.type.name, valu))
+            elif prop.type.name == 'ndef':
+                buid = s_common.buid(valu)
+            else:
                 return None
-
-            buid = s_common.buid((prop.type.name, valu))
 
             step = cache.get(buid, s_common.novalu)
             if step is s_common.novalu:
@@ -664,6 +666,11 @@ class Node:
         for name in self.props.keys():
             edits.extend(await self._getPropDelEdits(name, init=True))
 
+        # Only remove nodedata if we're in a layer that doesn't have the full node
+        if self.snap.wlyr.iden != self.bylayer['ndef']:
+            async for name in self.iterDataKeys():
+                edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
+
         edits.append(
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),
         )
@@ -708,10 +715,15 @@ class Path:
     '''
     A path context tracked through the storm runtime.
     '''
-    def __init__(self, vars, nodes):
+    def __init__(self, vars, nodes, links=None):
 
         self.node = None
         self.nodes = nodes
+
+        if links is not None:
+            self.links = links
+        else:
+            self.links = []
 
         if len(nodes):
             self.node = nodes[-1]
@@ -765,19 +777,24 @@ class Path:
         info = await s_stormtypes.toprim(dict(self.metadata))
         if path:
             info['nodes'] = [node.iden() for node in self.nodes]
+
         return info
 
-    def fork(self, node):
+    def fork(self, node, link):
+
+        links = list(self.links)
+        if self.node is not None and link is not None:
+            links.append((self.node.iden(), link))
 
         nodes = list(self.nodes)
         nodes.append(node)
 
-        path = Path(self.vars.copy(), nodes)
+        path = Path(self.vars.copy(), nodes, links=links)
 
         return path
 
     def clone(self):
-        path = Path(copy.copy(self.vars), copy.copy(self.nodes))
+        path = Path(copy.copy(self.vars), copy.copy(self.nodes), copy.copy(self.links))
         path.frames = [v.copy() for v in self.frames]
         return path
 

@@ -37,7 +37,7 @@ class Testsvc(s_cell.Cell):
 
     async def __anit__(self, dirn, conf):
         await s_cell.Cell.__anit__(self, dirn, conf=conf)
-        self.secret = self.conf.reqConfValu('secret')
+        self.secret = self.conf.req('secret')
 
     async def test(self):
         return self.secret

@@ -7,7 +7,6 @@ import collections
 
 import idna
 import regex
-import ipaddress
 import unicodedata
 
 import synapse.exc as s_exc
@@ -21,6 +20,7 @@ import synapse.lib.msgpack as s_msgpack
 
 import synapse.lib.crypto.coin as s_coin
 
+ipaddress = s_common.ipaddress
 
 logger = logging.getLogger(__name__)
 

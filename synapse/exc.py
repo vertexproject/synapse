@@ -77,6 +77,7 @@ class BackupAlreadyRunning(SynErr):
 class StormPkgRequires(SynErr): pass
 class StormPkgConflicts(SynErr): pass
 
+class BadName(SynErr): pass
 class BadPkgDef(SynErr): pass
 class BadCmdName(SynErr): pass
 class BadCmprValu(SynErr): pass
@@ -139,6 +140,8 @@ class BadSyntax(SynErr): pass
 class BadTag(SynErr): pass
 class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
+
+class TypeMismatch(SynErr): pass
 
 class CantDelCmd(SynErr): pass
 class CantDelNode(SynErr): pass
