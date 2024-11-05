@@ -814,8 +814,16 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:diff:comment', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
-                    'doc': 'A comment on a diff in a repository.',
-                }),
+                    'doc': 'A comment on a diff in a repository.'}),
+
+                ('it:dev:repo:reaction', ('guid', {}), {
+                    'interfaces': ('inet:service:action',),
+                    'doc': 'An account reaction to a repository.'}),
+
+                ('it:dev:repo:follow', ('guid', {}), {
+                    'interfaces': ('inet:service:action',),
+                    'doc': 'An account reaction to a repository.'}),
+
                 ('it:prod:soft', ('guid', {}), {
                     'doc': 'A software product.',
                 }),
@@ -2045,6 +2053,20 @@ class ItModule(s_module.CoreModule):
                     ('updated', ('time', {}), {
                         'doc': 'The time the comment was updated.'}),
 
+                )),
+                ('it:dev:repo:emote', {}, (
+
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repository being reacted to by the account.'}),
+
+                    ('text', ('str', {'strip': True}), {
+                        'doc': 'The emoji or emote text.'}),
+                )),
+
+                ('it:dev:repo:follow', {}, (
+
+                    ('repo', ('it:dev:repo', {}), {
+                        'doc': 'The repository being followed by the account.'}),
                 )),
 
                 ('it:prod:hardwaretype', {}, ()),

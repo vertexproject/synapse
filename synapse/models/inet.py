@@ -1530,6 +1530,13 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('inet:service:object',),
                         'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
+                    ('inet:service:follower:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A follower type taxonomy.'}),
+
+                    ('inet:service:follower', ('guid', {}), {
+                        'doc': 'A relationship between two service accounts.'}),
+
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
                         'doc': 'A permission type taxonomy.'}),
@@ -3592,6 +3599,23 @@ class InetModule(s_module.CoreModule):
                             'doc': 'Current profile details associated with the account.'}),
                     )),
 
+                    ('inet:service:follower:type:taxonomy', {}, ()),
+                    ('inet:service:follower', {}, (
+
+                        ('account', ('inet:service:account', {}), {
+                            'doc': 'The account which initiated the relationship.'}),
+
+                        ('target', ('inet:service:account', {}), {
+                            'doc': 'The target account.'}),
+
+                        ('period', ('ival', {}), {
+                            'doc': 'The period when the accounts are related.'}),
+
+                        ('type', ('inet:service:follower:type:taxonomy', {}), {
+                            'ex': 'follows',
+                            'doc': 'The type of relationship between the account and the target.'}),
+                    )),
+
                     ('inet:service:group', {}, ( # inet:service:object
 
                         ('id', ('str', {'strip': True}), {
@@ -3747,6 +3771,16 @@ class InetModule(s_module.CoreModule):
 
                         ('file', ('file:bytes', {}), {
                             'doc': 'The file which was attached to the message.'}),
+                    )),
+
+                    ('inet:service:message:emote', {}, (
+
+                        ('message', ('inet:service:message', {}), {
+                            'doc': 'The message the reaction is in response to.'}),
+
+                        ('text', ('str', {'strip': True}), {
+                            'ex': ':partyparrot:'
+                            'doc': 'The unicode or emote text of the reaction.'}),
                     )),
 
                     ('inet:service:channel', {}, (
