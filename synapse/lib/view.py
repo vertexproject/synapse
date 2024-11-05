@@ -824,6 +824,53 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return count
 
+    async def iterPropValues(self, propname):
+        prop = self.core.model.reqProp(propname)
+
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        async def wrapgenr(lidx, genr):
+            async for indx, valu in genr:
+                yield indx, valu, lidx
+
+        genrs = []
+        for lidx, layr in enumerate(self.layers):
+            genr = layr.iterPropValues(formname, propname, prop.type.stortype)
+            genrs.append(wrapgenr(lidx, genr))
+
+        lastvalu = None
+        async for indx, valu, lidx in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            if lidx == 0 or propname is None:
+                lastvalu = valu
+                yield valu
+            else:
+                valid = False
+                async for buid in self.layers[lidx].iterPropIndxBuids(formname, propname, indx):
+                    for layr in self.layers[0:lidx]:
+                        if (sode := layr._getStorNode(buid)) is None:
+                            continue
+
+                        if sode['props'].get(propname) is not None:
+                            break
+                    else:
+                        valid = True
+
+                    if valid:
+                        lastvalu = valu
+                        yield valu
+                        break
+
     async def getEdgeVerbs(self):
 
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
@@ -1567,9 +1614,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is not None:
             return self.triggers.get(tdef['iden']).pack()
 
-        gate = self.core.auth.getAuthGate(tdef['iden'])
-        if gate is not None:
-            raise s_exc.DupIden(mesg='An AuthGate with this iden already exists')
+        self.core.auth.reqNoAuthGate(tdef['iden'])
 
         user = self.core.auth.user(tdef['user'])
         await self.core.getStormQuery(tdef['storm'])

@@ -264,6 +264,14 @@ class TrigTest(s_t_utils.SynTest):
                 await view.addTrigger(tdef)
             self.eq(pdef0.get('storm'), (await view.getTrigger(iden)).tdef.get('storm'))
 
+            with self.raises(s_exc.DupIden):
+                tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': view.iden}
+                await view.addTrigger(tdef)
+
+            with self.raises(s_exc.NoSuchIden):
+                await view.delTrigger(view.iden)
+            self.nn(core.auth.getAuthGate(view.iden))
+
             # Bad trigger parms
             with self.raises(s_exc.SchemaViolation):
                 await view.addTrigger({'cond': 'nocond', 'storm': 'test:int=4', 'form': 'test:str'})

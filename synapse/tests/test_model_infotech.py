@@ -1547,6 +1547,45 @@ class InfotechModelTest(s_t_utils.SynTest):
                 self.nn(node.get('reg'))
                 self.eq(node.get('sandbox:file'), sandfile)
 
+        async with self.getTestCore() as core:
+            forms = [
+                'it:fs:file',
+                'it:exec:file:add',
+                'it:exec:file:del',
+                'it:exec:file:read',
+                'it:exec:file:write',
+            ]
+
+            for form in forms:
+                opts = {'vars': {'form': form}}
+                nodes = await core.nodes('[ *$form=($form, calc) :path="c:/windows/system32/calc.exe" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/windows/system32/calc.exe')
+                self.eq(nodes[0].get('path:base'), 'calc.exe')
+                self.eq(nodes[0].get('path:dir'), 'c:/windows/system32')
+                self.eq(nodes[0].get('path:ext'), 'exe')
+
+                nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/blackout/script.ps1" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/blackout/script.ps1')
+                self.eq(nodes[0].get('path:base'), 'script.ps1')
+                self.eq(nodes[0].get('path:dir'), 'c:/users/blackout')
+                self.eq(nodes[0].get('path:ext'), 'ps1')
+
+                nodes = await core.nodes('*$form=($form, calc) [ -:path:base -:path:dir -:path:ext ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/blackout/script.ps1')
+                self.none(nodes[0].get('path:base'))
+                self.none(nodes[0].get('path:dir'))
+                self.none(nodes[0].get('path:ext'))
+
+                nodes = await core.nodes('*$form=($form, calc) [ :path="c:/users/admin/superscript.bat" ]', opts=opts)
+                self.len(1, nodes)
+                self.eq(nodes[0].get('path'), 'c:/users/admin/superscript.bat')
+                self.eq(nodes[0].get('path:base'), 'superscript.bat')
+                self.eq(nodes[0].get('path:dir'), 'c:/users/admin')
+                self.eq(nodes[0].get('path:ext'), 'bat')
+
     async def test_it_app_yara(self):
 
         async with self.getTestCore() as core:
@@ -1636,8 +1675,12 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1640995200000, nodes[0].get('updated'))
             self.nn(nodes[0].get('author'))
 
-            nodes = await core.nodes('[ it:app:snort:hit=$hit :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0" :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host :version=1.2.3 ]', opts=opts)
+            nodes = await core.nodes('''[ it:app:snort:hit=$hit
+                :rule=$rule :flow=$flow :src="tcp://[::ffff:0102:0304]:0"
+                :dst="tcp://[::ffff:0505:0505]:80" :time=2015 :sensor=$host
+                :version=1.2.3 :dropped=true ]''', opts=opts)
             self.len(1, nodes)
+            self.true(nodes[0].get('dropped'))
             self.eq(rule, nodes[0].get('rule'))
             self.eq(flow, nodes[0].get('flow'))
             self.eq(host, nodes[0].get('sensor'))
@@ -1735,8 +1778,17 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 nodes = await core.nodes('[it:sec:cpe=cpe:2.3:1:2:3:4:5:6:7:8:9:10:11:12]')
 
-            nodes = await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:vertex:synapse:*:*:*:*:*:*:*:*'))
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ it:sec:cpe=cpe:2.3:a:vertex:synapse ]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm(r'$lib.cast(it:sec:cpe, "cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*")')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm(r'$lib.cast(it:sec:cpe:v2_2, "cpe:/a:01generator:pireospay\r\n:-::~~~prestashop~~")')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.callStorm('$lib.cast(it:sec:cpe:v2_2, "cpe:2.3:*")')
 
             nodes = await core.nodes('''[
                 it:sec:cpe=cpe:2.3:a:microsoft:internet_explorer:8.0.6001:beta:*:*:*:*:*:*
@@ -1749,14 +1801,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('version'), '8.0.6001')
             self.eq(nodes[0].get('update'), 'beta')
 
-            nodes = await core.nodes("[ it:sec:cpe='cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*' ]")
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('it:sec:cpe', 'cpe:2.3:a:openbsd:openssh:7.4:*:*:*:*:*:*:*'))
-            self.eq(nodes[0].get('part'), 'a')
-            self.eq(nodes[0].get('product'), 'openssh')
-            self.eq(nodes[0].get('vendor'), 'openbsd')
-            self.eq(nodes[0].get('version'), '7.4')
-            self.eq(nodes[0].get('v2_2'), 'cpe:/a:openbsd:openssh:7.4')
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes("[ it:sec:cpe='cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*' ]")
 
             nodes = await core.nodes(r'[ it:sec:cpe="cpe:2.3:o:cisco:ios:12.1\(22\)ea1a:*:*:*:*:*:*:*" ]')
             self.len(1, nodes)
@@ -1880,7 +1926,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes(q, opts={'vars': {'valu': valu}})
                 self.len(1, nodes)
                 node = nodes[0]
-                self.eq(node.ndef[1], valu.lower())
+                self.eq(node.ndef[1], valu.lower(), msg=valu.lower())
 
     async def test_infotech_c2config(self):
         async with self.getTestCore() as core:

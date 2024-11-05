@@ -1,14 +1,5 @@
 import synapse.lib.module as s_module
 
-prioenums = (
-    (0, 'none'),
-    (10, 'lowest'),
-    (20, 'low'),
-    (30, 'medium'),
-    (40, 'high'),
-    (50, 'highest'),
-)
-
 statusenums = (
     (0, 'new'),
     (10, 'in validation'),
@@ -25,10 +16,9 @@ class ProjectModule(s_module.CoreModule):
 
     async def initCoreModule(self):
         self.model.form('proj:project').onAdd(self._onAddProj)
-        self.model.form('proj:project').onDel(self._onDelProj)
 
     async def _onAddProj(self, node):
-        # ref counts on authgates?
+        # TODO: remove all storm:project authgates in 3.x migration
         gateiden = node.ndef[1]
 
         await self.core.auth.addAuthGate(node.ndef[1], 'storm:project')
@@ -38,20 +28,68 @@ class ProjectModule(s_module.CoreModule):
         rule = (True, ('project', 'admin'))
         await node.snap.user.addRule(rule, gateiden=gateiden)
 
-    async def _onDelProj(self, node):
-        gateiden = node.ndef[1]
-        await self.core.auth.delAuthGate(gateiden)
-
     def getModelDefs(self):
         return (
 
             ('proj', {
 
+                'interfaces': (
+                    ('proj:task', {
+
+                        'doc': 'A common interface for tasks.',
+
+                        'template': {
+                            'task': 'task'},
+
+                        'props': (
+
+                            ('id', ('str', {'strip': True}), {
+                                'doc': 'The ID of the {task}.'}),
+
+                            ('project', ('proj:project', {}), {
+                                'doc': 'The project containing the {task}.'}),
+
+                            ('status', ('int', {}), {
+                                # TODO: make runtime setable int enum typeopts
+                                'doc': 'The status of the {task}.'}),
+
+                            ('priority', ('meta:priority', {}), {
+                                'doc': 'The priority of the {task}.'}),
+
+                            ('created', ('time', {}), {
+                                'doc': 'The time the {task} was created.'}),
+
+                            ('updated', ('time', {}), {
+                                'doc': 'The time the {task} was last updated.'}),
+
+                            ('due', ('time', {}), {
+                                'doc': 'The time the {task} must be complete.'}),
+
+                            ('completed', ('time', {}), {
+                                'doc': 'The time the {task} was completed.'}),
+
+                            ('creator', ('syn:user', {}), {
+                                'doc': 'The user which created the {task}.'}),
+
+                            ('assignee', ('syn:user', {}), {
+                                'doc': 'The user assigned to complete the {task}.'}),
+
+                            ('ext:creator', ('ps:contact', {}), {
+                                'doc': 'The contact information of the creator from an external system.'}),
+
+                            ('ext:assignee', ('ps:contact', {}), {
+                                'doc': 'The contact information of the assignee from an external system.'}),
+                        ),
+                    }),
+                ),
                 'types': (
                     ('proj:epic', ('guid', {}), {
-                        'doc': 'A collection of tickets related to a topic.',
-                    }),
+                        'doc': 'A collection of tickets related to a topic.'}),
+
                     ('proj:ticket', ('guid', {}), {
+                        'interfaces': ('proj:task',),
+                        'template': {
+                            'task': 'ticket'},
                         'doc': 'A ticket in a ticketing system.'}),
 
                     ('proj:project:type:taxonomy', ('taxonomy', {}), {
@@ -180,29 +218,15 @@ class ProjectModule(s_module.CoreModule):
 
                     ('proj:ticket', {}, (
 
-                        ('project', ('proj:project', {}), {
-                            'doc': 'The project containing the ticket.'}),
-
                         ('ext:id', ('str', {'strip': True}), {
-                            'doc': 'A ticket ID from an external system.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :id.'}),
 
                         ('ext:url', ('inet:url', {}), {
                             'doc': 'A URL to the ticket in an external system.'}),
 
-                        ('ext:creator', ('ps:contact', {}), {
-                            'doc': 'Ticket creator contact information from an external system.'}),
-
-                        ('ext:assignee', ('ps:contact', {}), {
-                            'doc': 'Ticket assignee contact information from an external system.'}),
-
                         ('epic', ('proj:epic', {}), {
                             'doc': 'The epic that includes the ticket.'}),
-
-                        ('created', ('time', {}), {
-                            'doc': 'The time the ticket was created.'}),
-
-                        ('updated', ('time', {'ismax': True}), {
-                            'doc': 'The last time the ticket was updated.'}),
 
                         ('name', ('str', {'onespace': True}), {
                             'doc': 'The name of the ticket.'}),
@@ -219,17 +243,8 @@ class ProjectModule(s_module.CoreModule):
                         ('sprint', ('proj:sprint', {}), {
                             'doc': 'The sprint that contains the ticket.'}),
 
-                        ('priority', ('int', {'enums': prioenums}), {
-                            'doc': 'The priority of the ticket.'}),
-
                         ('type', ('str', {'lower': True, 'strip': True}), {
                             'doc': 'The type of ticket. (eg story / bug)'}),
-
-                        ('creator', ('syn:user', {}), {
-                            'doc': 'The synapse user who created the ticket.'}),
-
-                        ('assignee', ('syn:user', {}), {
-                            'doc': 'The synapse user who the ticket is assigned to.'}),
                     )),
                 ),
             }),

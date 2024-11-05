@@ -115,6 +115,8 @@ SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
 SYNC_LAYR_ADD = 3   # A layer was added
 SYNC_LAYR_DEL = 4   # A layer was deleted
 
+MAX_NEXUS_DELTA = 3_600
+
 reqValidTagModel = s_config.getJsValidator({
     'type': 'object',
     'properties': {
@@ -944,7 +946,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._exthttpapicache = s_cache.FixedCache(self._getHttpExtApiByPath, size=1000)
         self._initCortexExtHttpApi()
 
-        self.model = s_datamodel.Model()
+        self.model = s_datamodel.Model(core=self)
 
         await self._bumpCellVers('cortex:extmodel', (
             (1, self._migrateTaxonomyIface),
@@ -1451,6 +1453,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('storm', 'macro', 'edit'), 'gate': 'cortex',
              'desc': 'Controls access to edit a storm macro.'},
 
+            {'perm': ('task', 'get'), 'gate': 'cortex',
+             'desc': 'Controls access to view other users tasks.'},
+            {'perm': ('task', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to terminate other users tasks.'},
+
             {'perm': ('view',), 'gate': 'cortex',
              'desc': 'Controls all view permissions.'},
             {'perm': ('view', 'add'), 'gate': 'cortex',
@@ -1931,12 +1938,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
     async def coreQueuePuts(self, name, items):
-        await self._push('queue:puts', name, items)
+        return await self._push('queue:puts', name, items)
 
     @s_nexus.Pusher.onPush('queue:puts', passitem=True)
     async def _coreQueuePuts(self, name, items, nexsitem):
         nexsoff, nexsmesg = nexsitem
-        await self.multiqueue.puts(name, items, reqid=nexsoff)
+        return await self.multiqueue.puts(name, items, reqid=nexsoff)
 
     @s_nexus.Pusher.onPushAuto('queue:cull')
     async def coreQueueCull(self, name, offs):
@@ -2049,9 +2056,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     continue
 
                 if not regex.fullmatch(regx[i], parts[i]):
-                    return False
+                    mesg = f'Tag part ({parts[i]}) of tag ({tagname}) does not match the tag model regex: [{regx[i]}]'
+                    return (False, mesg)
 
-        return True
+        return (True, None)
 
     async def getTagPrune(self, tagname):
         return self.tagprune.get(tagname)
@@ -4391,7 +4399,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         except Exception as e:
             mesg = f'Invalid path for Extended HTTP API - cannot compile regular expression for [{path}] : {e}'
             raise s_exc.BadArg(mesg=mesg) from None
-        adef['iden'] = s_common.guid()
+
+        if adef.get('iden') is None:
+            adef['iden'] = s_common.guid()
+
+        iden = adef['iden']
+        if self._exthttpapis.get(iden) is not None:
+            raise s_exc.DupIden(mesg=f'Duplicate iden specified for Extended HTTP API: {iden}', iden=iden)
+
         adef['created'] = s_common.now()
         adef['updated'] = adef['created']
         adef = s_schemas.reqValidHttpExtAPIConf(adef)
@@ -5704,7 +5719,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.stormpool is not None and opts.get('mirror', True):
             extra = await self.getLogExtra(text=text)
-            proxy = await self._getMirrorProxy()
+            proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
                 logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
@@ -5731,13 +5746,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return i
 
     async def _getMirrorOpts(self, opts):
+        assert 'nexsoffs' in opts
         mirropts = s_msgpack.deepcopy(opts)
         mirropts['mirror'] = False
-        mirropts['nexsoffs'] = (await self.getNexsIndx() - 1)
         mirropts['nexstimeout'] = self.stormpoolopts.get('timeout:sync')
         return mirropts
 
-    async def _getMirrorProxy(self):
+    async def _getMirrorProxy(self, opts):
 
         if self.stormpool is None:  # pragma: no cover
             return None
@@ -5745,6 +5760,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.stormpool.size() == 0:
             logger.warning('Storm query mirror pool is empty, running query locally.')
             return None
+
+        proxy = None
 
         try:
             timeout = self.stormpoolopts.get('timeout:connection')
@@ -5754,10 +5771,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 # we are part of the pool and were selected. Convert to local use.
                 return None
 
+            curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
+            miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
+            if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
+                mesg = (f'Pool mirror [{proxyname}] Nexus offset delta too large '
+                        f'({delta} > {MAX_NEXUS_DELTA}), running query locally.')
+                logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
+                return None
+
             return proxy
 
         except (TimeoutError, s_exc.IsFini):
-            logger.warning('Timeout waiting for pool mirror, running query locally.')
+            if proxy is None:
+                logger.warning('Timeout waiting for pool mirror, running query locally.')
+            else:
+                mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset, running query locally.'
+                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                await proxy.fini()
             return None
 
     async def storm(self, text, opts=None):
@@ -5766,7 +5796,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.stormpool is not None and opts.get('mirror', True):
             extra = await self.getLogExtra(text=text)
-            proxy = await self._getMirrorProxy()
+            proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
                 logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
@@ -5796,7 +5826,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.stormpool is not None and opts.get('mirror', True):
             extra = await self.getLogExtra(text=text)
-            proxy = await self._getMirrorProxy()
+            proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
                 logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
@@ -5821,7 +5851,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.stormpool is not None and opts.get('mirror', True):
             extra = await self.getLogExtra(text=text)
-            proxy = await self._getMirrorProxy()
+            proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
                 logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
@@ -6380,6 +6410,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = self.agenda.appts.get(iden)
         if appt is not None:
             return appt.pack()
+
+        self.auth.reqNoAuthGate(iden)
 
         user = await self.auth.reqUser(cdef['creator'])
 
