@@ -1,0 +1,5 @@
+---
+desc: Convert cron.list to use a tabular printer for table generation.
+prs: []
+type: feat
+...
