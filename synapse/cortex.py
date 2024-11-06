@@ -1350,6 +1350,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls access to deleting specific extended model forms.',
              'ex': 'model.form.del._foo:bar'},
 
+            {'perm': ('model', 'type', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model types.'},
+            {'perm': ('model', 'type', 'add', '<type>'), 'gate': 'cortex',
+             'desc': 'Controls access to adding specific extended model types.',
+             'ex': 'model.type.add._foo:bar'},
+            {'perm': ('model', 'type', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model types.'},
+            {'perm': ('model', 'type', 'del', '<type>'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting specific extended model types.',
+             'ex': 'model.type.del._foo:bar'},
+
             {'perm': ('model', 'prop', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model properties.'},
             {'perm': ('model', 'prop', 'add', '<form>'), 'gate': 'cortex',
@@ -3183,11 +3194,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _loadExtModel(self):
 
+        self.exttypes = self.cortexdata.getSubKeyVal('model:types:')
         self.extforms = self.cortexdata.getSubKeyVal('model:forms:')
         self.extprops = self.cortexdata.getSubKeyVal('model:props:')
         self.extunivs = self.cortexdata.getSubKeyVal('model:univs:')
         self.extedges = self.cortexdata.getSubKeyVal('model:edges:')
         self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
+
+        for typename, basetype, typeopts, typeinfo in self.exttypes.values():
+            try:
+                self.model.addType(typename, basetype, typeopts, typeinfo)
+            except Exception as e:
+                logger.warning(f'Extended type ({typename}) error: {e}')
 
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
             try:
@@ -3238,6 +3256,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             dict: A dictionary containing forms, form properties, universal properties and tag properties.
         '''
         ret = collections.defaultdict(list)
+        for typename, basetype, typeopts, typeinfo in self.exttypes.values():
+            ret['types'].append((typename, basetype, typeopts, typeinfo))
+
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
             ret['forms'].append((formname, basetype, typeopts, typeinfo))
 
@@ -3277,17 +3298,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         emodl = await self.getExtModel()
         amodl = collections.defaultdict(list)
 
+        types = {info[0]: info for info in model.get('types', ())}
         forms = {info[0]: info for info in model.get('forms', ())}
         props = {(info[0], info[1]): info for info in model.get('props', ())}
         tagprops = {info[0]: info for info in model.get('tagprops', ())}
         univs = {info[0]: info for info in model.get('univs', ())}
         edges = {info[0]: info for info in model.get('edges', ())}
 
+        etyps = {info[0]: info for info in emodl.get('types', ())}
         efrms = {info[0]: info for info in emodl.get('forms', ())}
         eprops = {(info[0], info[1]): info for info in emodl.get('props', ())}
         etagprops = {info[0]: info for info in emodl.get('tagprops', ())}
         eunivs = {info[0]: info for info in emodl.get('univs', ())}
         eedges = {info[0]: info for info in emodl.get('edges', ())}
+
+        for (name, info) in types.items():
+            enfo = etyps.get(name)
+            if enfo is None:
+                amodl['types'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended type definition differs from existing definition for {name}.'
+            raise s_exc.BadTypeDef(mesg=mesg, name=name)
 
         for (name, info) in forms.items():
             enfo = efrms.get(name)
@@ -3340,6 +3373,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (n1form, verb, n2form) = info[0]
             mesg = f'Extended edge definition differs from existing definition for {info[0]}'
             raise s_exc.BadEdgeDef(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
+
+        for typename, basetype, typeopts, typeinfo in amodl['types']:
+            await self.addType(typename, basetype, typeopts, typeinfo)
 
         for formname, basetype, typeopts, typeinfo in amodl['forms']:
             await self.addForm(formname, basetype, typeopts, typeinfo)
@@ -3405,9 +3441,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not formname.startswith('_'):
             mesg = 'Extended form must begin with "_"'
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
+
         if self.model.form(formname) is not None:
             mesg = f'Form name already exists: {formname}'
             raise s_exc.DupFormName(mesg=mesg)
+
+        if self.model.type(formname) is not None:
+            mesg = f'Type already exists: {formname}'
+            raise s_exc.DupTypeName.init(formname)
+
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
     @s_nexus.Pusher.onPush('model:form:add')
@@ -3461,6 +3503,68 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
+
+    async def addType(self, typename, basetype, typeopts, typeinfo):
+        if not isinstance(typeopts, dict):
+            mesg = 'Type options should be a dict.'
+            raise s_exc.BadArg(type=typename, mesg=mesg)
+
+        if not isinstance(typeinfo, dict):
+            mesg = 'Type info should be a dict.'
+            raise s_exc.BadArg(type=typename, mesg=mesg)
+
+        if not typename.startswith('_'):
+            mesg = 'Extended type must begin with "_"'
+            raise s_exc.BadTypeDef(type=typename, mesg=mesg)
+
+        if self.model.type(typename) is not None:
+            raise s_exc.DupTypeName.init(typename)
+
+        return await self._push('model:type:add', typename, basetype, typeopts, typeinfo)
+
+    @s_nexus.Pusher.onPush('model:type:add')
+    async def _addType(self, typename, basetype, typeopts, typeinfo):
+        if self.model.type(typename) is not None:
+            return
+
+        ifaces = typeinfo.get('interfaces')
+
+        if ifaces and 'taxonomy' in ifaces:
+            logger.warning(f'{typename} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
+
+            ifaces = set(ifaces)
+            ifaces.remove('taxonomy')
+            ifaces.add('meta:taxonomy')
+            typeinfo['interfaces'] = tuple(ifaces)
+
+        self.model.addType(typename, basetype, typeopts, typeinfo)
+
+        self.exttypes.set(typename, (typename, basetype, typeopts, typeinfo))
+        await self.fire('core:extmodel:change', name=typename, act='add', type='type')
+
+        if (_type := self.model.type(typename)) is not None:
+            await self.feedBeholder('model:type:add', {'type': _type.pack()})
+
+    async def delType(self, typename):
+        if not typename.startswith('_'):
+            mesg = 'Extended type must begin with "_"'
+            raise s_exc.BadTypeDef(type=typename, mesg=mesg)
+
+        if self.model.type(typename) is None:
+            raise s_exc.NoSuchType.init(typename)
+
+        return await self._push('model:type:del', typename)
+
+    @s_nexus.Pusher.onPush('model:type:del')
+    async def _delType(self, typename):
+        if self.model.type(typename) is None:
+            return
+
+        self.model.delType(typename)
+
+        self.exttypes.pop(typename, None)
+        await self.fire('core:extmodel:change', name=typename, act='del', type='type')
+        await self.feedBeholder('model:type:del', {'type': typename})
 
     async def addFormProp(self, form, prop, tdef, info):
         if not isinstance(tdef, tuple):

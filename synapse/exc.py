@@ -193,6 +193,13 @@ class DupTagPropName(SynErr): pass
 class DupUserName(SynErr): pass
 class DupStormSvc(SynErr): pass
 
+class DupTypeName(SynErr):
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'Type already exists: {name}.'
+        return DupTypeName(mesg=mesg, name=name)
+
 class DupEdgeType(SynErr):
 
     @classmethod
