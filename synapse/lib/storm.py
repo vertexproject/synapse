@@ -5280,6 +5280,13 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
+
+        # make sure the subquery *could* have run
+        async with runt.getSubRuntime(query) as subr:
+            query.validate(subr)
+
         runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
@@ -5288,12 +5295,6 @@ class BackgroundCmd(Cmd):
             'view': runt.snap.view.iden,
             'vars': runtvars,
         }
-
-        _query = await s_stormtypes.tostr(self.opts.query)
-        query = await runt.getStormQuery(_query)
-
-        # make sure the subquery *could* have run with existing vars
-        query.validate(runt)
 
         coro = self.execStormTask(query, opts)
         runt.snap.core.schedCoro(coro)
@@ -5351,9 +5352,12 @@ class ParallelCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         size = await s_stormtypes.toint(self.opts.size)
-        query = await runt.getStormQuery(self.opts.query)
 
-        query.validate(runt)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
+
+        async with runt.getSubRuntime(query) as subr:
+            query.validate(subr)
 
         async with await s_base.Base.anit() as base:
 
