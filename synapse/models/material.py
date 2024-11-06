@@ -46,25 +46,26 @@ class MatModule(s_module.CoreModule):
             ),
 
             'interfaces': (
-                ('mat:physical', {
+
+                ('phys:object', {
                     'doc': 'Properties common to all physical objects.',
-                    'template': {'phys:item': 'physical object'},
+                    'template': {'phys:object': 'object'},
                     'props': (
-                        # TODO created / unmade / period?
-                        ('mass', ('mass', {}), {
-                            'doc': 'The mass of the {phys:item}.'}),
 
-                        ('volume', ('geo:dist', {}), {
-                            'doc': 'The cubed volume of the {phys:item}.'}),
+                        ('phys:mass', ('mass', {}), {
+                            'doc': 'The mass of the {phys:object}.'}),
 
-                        ('dimensions:length', ('geo:dist', {}), {
-                            'doc': 'The length of the {phys:item}'}),
+                        ('phys:volume', ('geo:dist', {}), {
+                            'doc': 'The cubed volume of the {phys:object}.'}),
 
-                        ('dimensions:width', ('geo:dist', {}), {
-                            'doc': 'The width of the {phys:item}'}),
+                        ('phys:length', ('geo:dist', {}), {
+                            'doc': 'The length of the {phys:object}'}),
 
-                        ('dimensions:height', ('geo:dist', {}), {
-                            'doc': 'The height of the {phys:item}'}),
+                        ('phys:width', ('geo:dist', {}), {
+                            'doc': 'The width of the {phys:object}'}),
+
+                        ('phys:height', ('geo:dist', {}), {
+                            'doc': 'The height of the {phys:object}'}),
                     ),
                 ),
             ),
