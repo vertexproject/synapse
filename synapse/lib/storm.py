@@ -1388,7 +1388,7 @@ stormcmds = (
                 for $cron in $crons {
                     $job = $cron.pprint()
                     $row = (
-                        $job.user, $job.viewshort, $job.idenshort, $job.enabled,
+                        $job.user, $job.idenshort, $job.viewshort, $job.enabled,
                         $job.isrecur, $job.isrunning, $job.iserr, `{$job.startcount}`,
                         $job.laststart, $job.lastend, $job.query
                     )
