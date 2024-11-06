@@ -3787,7 +3787,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:emote', {}, (
 
-                        ('about', ('ndef', {'forms': ('inet:service:message', 'it:dev:repo')}), {
+                        ('about', ('inet:service:object', {}), {
                             'doc': 'The node that the emote is about.'}),
 
                         ('text', ('str', {'strip': True}), {
