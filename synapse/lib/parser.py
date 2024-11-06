@@ -46,6 +46,7 @@ terminalEnglishMap = {
     'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
+    'EMBEDPROPS': 'absolute property name with embed properties',
     'EQNOSPACE': '=',
     'EQSPACE': '=',
     'EQUAL': '=',
@@ -69,6 +70,7 @@ terminalEnglishMap = {
     'LISTTOKN': 'unquoted list value',
     'LPAR': '(',
     'LSQB': '[',
+    'MCASEBARE': 'case multi-value',
     'MODSET': '+= or -=',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
@@ -427,29 +429,35 @@ class AstConverter(lark.Transformer):
         return s_ast.VarDeref(astinfo, kids=(kids[0], newkid))
 
     @lark.v_args(meta=True)
+    def caseentry(self, meta, kids):
+        assert kids and len(kids) >= 2
+        astinfo = self.metaToAstInfo(meta)
+        newkids = self._convert_children(kids)
+
+        defcase = False
+
+        if len(kids) == 2 and kids[0].type == 'DEFAULTCASE':
+            defcase = True
+            # Strip off the "Const: *" node
+            newkids = [newkids[1]]
+
+        return s_ast.CaseEntry(astinfo, kids=newkids, defcase=defcase)
+
+    @lark.v_args(meta=True)
     def switchcase(self, meta, kids):
+        kids = self._convert_children(kids)
 
         astinfo = self.metaToAstInfo(meta)
 
-        newkids = []
+        # Check that we only have one default case
+        defcase = [k for k in kids[1:] if k.defcase]
 
-        it = iter(kids)
+        deflen = len(defcase)
+        if deflen > 1:
+            mesg = f'Switch statements cannot have more than one default case. Found {deflen}.'
+            raise self.raiseBadSyntax(mesg, astinfo)
 
-        varvalu = next(it)
-        newkids.append(varvalu)
-
-        for casekid, sqkid in zip(it, it):
-            subquery = self._convert_child(sqkid)
-            if casekid.type == 'DEFAULTCASE':
-                caseinfo = self.metaToAstInfo(casekid)
-                caseentry = s_ast.CaseEntry(caseinfo, kids=[subquery])
-            else:
-                casekid = self._convert_child(casekid)
-                caseentry = s_ast.CaseEntry(casekid.astinfo, kids=[casekid, subquery])
-
-            newkids.append(caseentry)
-
-        return s_ast.SwitchCase(astinfo, newkids)
+        return s_ast.SwitchCase(astinfo, kids)
 
     @lark.v_args(meta=True)
     def liftreverse(self, meta, kids):

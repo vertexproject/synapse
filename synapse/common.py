@@ -2,6 +2,7 @@ import io
 import os
 import ssl
 import sys
+import enum
 import json
 import http
 import stat
@@ -36,7 +37,7 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
-import enum
+import synapse.vendor.cpython.lib.ipaddress as ipaddress
 
 try:
     from yaml import CSafeLoader as Loader

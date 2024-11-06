@@ -35,6 +35,7 @@ import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
+import synapse.lib.task as s_task
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.drive as s_drive
@@ -205,6 +206,14 @@ class CellApi(s_base.Base):
 
     async def initCellApi(self):
         pass
+
+    @adminapi(log=True)
+    async def freeze(self, timeout=30):
+        return await self.cell.freeze(timeout=timeout)
+
+    @adminapi(log=True)
+    async def resume(self):
+        return await self.cell.resume()
 
     async def allowed(self, perm, default=None):
         '''
@@ -462,8 +471,8 @@ class CellApi(s_base.Base):
         return await self.cell.delUser(iden)
 
     @adminapi(log=True)
-    async def addRole(self, name):
-        return await self.cell.addRole(name)
+    async def addRole(self, name, iden=None):
+        return await self.cell.addRole(name, iden=iden)
 
     @adminapi(log=True)
     async def delRole(self, iden):
@@ -1121,6 +1130,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.cellparent = parent
         self.sessions = {}
+        self.paused = False
         self.isactive = False
         self.activebase = None
         self.inaugural = False
@@ -1660,12 +1670,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
                 logger.error(mesg)
 
-            elif nexsroot.readonly:
-
-                await nexsroot.delWriteHold(diskspace)
+            elif nexsroot.readonly and await nexsroot.delWriteHold(diskspace):
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
-                       f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
+                       f'{disk.free / disk.total * 100:.2f}%), removing free space write hold.'
                 logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
@@ -1792,8 +1800,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
-    async def getDriveInfo(self, iden):
-        return self.drive.getItemInfo(iden)
+    async def getDriveInfo(self, iden, typename=None):
+        return self.drive.getItemInfo(iden, typename=typename)
+
+    def reqDriveInfo(self, iden, typename=None):
+        return self.drive.reqItemInfo(iden, typename=typename)
 
     async def getDrivePath(self, path, reldir=s_drive.rootdir):
         '''
@@ -1874,7 +1885,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     @s_nexus.Pusher.onPushAuto('drive:data:set')
     async def setDriveData(self, iden, versinfo, data):
-        return self.drive.setItemData(iden, versinfo, data)
+        return await self.drive.setItemData(iden, versinfo, data)
 
     async def delDriveData(self, iden, vers=None):
         if vers is None:
@@ -2143,6 +2154,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Hand off leadership to a mirror in a transactional fashion.
         '''
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
+
+        if not self.isactive:
+            mesg = f'HANDOFF: {_dispname} is not the current leader and cannot handoff leadership to' \
+                   f' {s_urlhelp.sanitizeUrl(turl)}.'
+            logger.error(mesg)
+            raise s_exc.BadState(mesg=mesg, turl=turl, cursvc=_dispname)
+
         logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
         async with await s_telepath.openurl(turl) as cell:
 
@@ -2906,8 +2924,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Deleted user={name}',
                    extra=await self.getLogExtra(target_user=iden, target_username=name, status='DELETE'))
 
-    async def addRole(self, name):
-        role = await self.auth.addRole(name)
+    async def addRole(self, name, iden=None):
+        role = await self.auth.addRole(name, iden=iden)
         logger.info(f'Added role={name}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name, status='CREATE'))
         return role.pack()
@@ -3585,7 +3603,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})
-        item['permissions']['default'] = default
+        item['permissions'].setdefault('default', default)
 
     async def getTeleApi(self, link, mesg, path):
 
@@ -4564,6 +4582,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A Dictionary of metadata.
         '''
+
+        mirror = self.conf.get('mirror')
+        if mirror is not None:
+            mirror = s_urlhelp.sanitizeUrl(mirror)
+
         ret = {
             'synapse': {
                 'commit': s_version.commit,
@@ -4574,6 +4597,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'run': await self.getCellRunId(),
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
+                'paused': self.paused,
                 'active': self.isactive,
                 'started': self.startms,
                 'ready': self.nexsroot.ready.is_set(),
@@ -4583,6 +4607,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
+                'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),
@@ -5044,3 +5069,52 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def freeze(self, timeout=30):
+
+        if self.paused:
+            mesg = 'The service is already frozen.'
+            raise s_exc.BadState(mesg=mesg)
+
+        logger.warning(f'Freezing service for volume snapshot.')
+
+        logger.warning('...acquiring nexus lock to prevent edits.')
+
+        try:
+            await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
+
+        except asyncio.TimeoutError:
+            logger.warning('...nexus lock acquire timed out!')
+            logger.warning('Aborting freeze and resuming normal operation.')
+
+            mesg = 'Nexus lock acquire timed out.'
+            raise s_exc.TimeOut(mesg=mesg)
+
+        self.paused = True
+
+        try:
+
+            logger.warning('...committing pending transactions.')
+            await self.slab.syncLoopOnce()
+
+            logger.warning('...flushing dirty buffers to disk.')
+            await s_task.executor(os.sync)
+
+            logger.warning('...done!')
+
+        except Exception:
+            self.paused = False
+            self.nexslock.release()
+            logger.exception('Failed to freeze. Resuming normal operation.')
+            raise
+
+    async def resume(self):
+
+        if not self.paused:
+            mesg = 'The service is not frozen.'
+            raise s_exc.BadState(mesg=mesg)
+
+        logger.warning('Resuming normal operations from a freeze.')
+
+        self.paused = False
+        self.nexslock.release()

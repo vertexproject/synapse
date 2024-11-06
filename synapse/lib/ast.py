@@ -1302,8 +1302,9 @@ class VarListSetOper(Oper):
         names = self.kids[0].value()
         vkid = self.kids[1]
 
+        anynodes = False
         async for node, path in genr:
-
+            anynodes = True
             item = await vkid.compute(runt, path)
             item = [i async for i in s_stormtypes.toiter(item)]
 
@@ -1318,7 +1319,7 @@ class VarListSetOper(Oper):
 
             yield node, path
 
-        if vkid.isRuntSafe(runt):
+        if not anynodes and vkid.isRuntSafe(runt):
 
             item = await vkid.compute(runt, None)
             item = [i async for i in s_stormtypes.toiter(item)]
@@ -1369,14 +1370,14 @@ class SwitchCase(Oper):
         self.defcase = None
 
         for cent in self.kids[1:]:
+            *vals, subq = cent.kids
 
-            # if they only have one kid, it's a default case.
-            if len(cent.kids) == 1:
-                self.defcase = cent.kids[0]
+            if cent.defcase:
+                self.defcase = subq
                 continue
 
-            valu = cent.kids[0].value()
-            self.cases[valu] = cent.kids[1]
+            for valu in vals:
+                self.cases[valu.value()] = subq
 
     async def run(self, runt, genr):
         count = 0
@@ -1410,9 +1411,10 @@ class SwitchCase(Oper):
             async for item in subq.inline(runt, s_common.agen()):
                 yield item
 
-
 class CaseEntry(AstNode):
-    pass
+    def __init__(self, astinfo, kids=(), defcase=False):
+        AstNode.__init__(self, astinfo, kids=kids)
+        self.defcase = defcase
 
 class LiftOper(Oper):
 
@@ -1423,6 +1425,32 @@ class LiftOper(Oper):
     def reverseLift(self, astinfo):
         self.astinfo = astinfo
         self.reverse = True
+
+    def getPivNames(self, runt, prop, pivs):
+        pivnames = []
+        typename = prop.type.name
+        for piv in pivs:
+            pivprop = runt.model.reqProp(f'{typename}:{piv}', extra=self.kids[0].addExcInfo)
+            pivnames.append(pivprop.full)
+            typename = pivprop.type.name
+
+        return pivnames
+
+    async def pivlift(self, runt, props, pivnames, genr):
+
+        async def pivvals(prop, pivgenr):
+            async for node in pivgenr:
+                async for pivo in runt.snap.nodesByPropValu(prop, '=', node.ndef[1], reverse=self.reverse):
+                    yield pivo
+
+        for pivname in pivnames[-2::-1]:
+            genr = pivvals(pivname, genr)
+
+        async for node in genr:
+            valu = node.ndef[1]
+            for prop in props:
+                async for node in runt.snap.nodesByPropValu(prop.full, '=', valu, reverse=self.reverse):
+                    yield node
 
     async def run(self, runt, genr):
 
@@ -1582,30 +1610,52 @@ class LiftByArray(LiftOper):
         cmpr = await self.kids[1].compute(runt, path)
         valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-        prop = runt.model.props.get(name)
-        if prop is not None:
-            async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
+        pivs = None
+        if name.find('::') != -1:
+            parts = name.split('::')
+            name, pivs = parts[0], parts[1:]
+
+        if (prop := runt.model.props.get(name)) is not None:
+            props = (prop,)
+        else:
+            proplist = runt.model.ifaceprops.get(name)
+            if proplist is None:
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+
+            props = []
+            for propname in proplist:
+                props.append(runt.model.props.get(propname))
+
+        try:
+            if pivs is not None:
+                pivnames = self.getPivNames(runt, props[0], pivs)
+
+                genr = runt.snap.nodesByPropArray(pivnames[-1], cmpr, valu, reverse=self.reverse)
+                async for node in self.pivlift(runt, props, pivnames, genr):
+                    yield node
+                return
+
+            if len(props) == 1:
+                async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
+                    yield node
+                return
+
+            relname = props[0].name
+            def cmprkey(node):
+                return node.props.get(relname)
+
+            genrs = []
+            for prop in props:
+                genrs.append(runt.snap.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
+
+            async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
                 yield node
-            return
 
-        proplist = runt.model.ifaceprops.get(name)
-        if proplist is None:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        except s_exc.BadTypeValu as e:
+            raise self.kids[2].addExcInfo(e)
 
-        props = []
-        for propname in proplist:
-            props.append(runt.model.props.get(propname))
-
-        relname = props[0].name
-        def cmprkey(node):
-            return node.props.get(relname)
-
-        genrs = []
-        for prop in props:
-            genrs.append(runt.snap.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
-
-        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
-            yield node
+        except s_exc.SynErr as e:
+            raise self.addExcInfo(e)
 
 class LiftTagProp(LiftOper):
     '''
@@ -1837,6 +1887,11 @@ class LiftPropBy(LiftOper):
         if not isinstance(valu, s_node.Node):
             valu = await s_stormtypes.tostor(valu)
 
+        pivs = None
+        if name.find('::') != -1:
+            parts = name.split('::')
+            name, pivs = parts[0], parts[1:]
+
         prop = runt.model.props.get(name)
         if prop is not None:
             props = (prop,)
@@ -1850,6 +1905,14 @@ class LiftPropBy(LiftOper):
                 props.append(runt.model.props.get(propname))
 
         try:
+            if pivs is not None:
+                pivnames = self.getPivNames(runt, props[0], pivs)
+
+                genr = runt.snap.nodesByPropValu(pivnames[-1], cmpr, valu, reverse=self.reverse)
+                async for node in self.pivlift(runt, props, pivnames, genr):
+                    yield node
+                return
+
             if len(props) == 1:
                 prop = props[0]
                 async for node in runt.snap.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse):
@@ -3792,7 +3855,7 @@ class ExprDict(Value):
 
     def prepare(self):
         self.const = None
-        if all(isinstance(k, Const) for k in self.kids):
+        if all(isinstance(k, Const) and not isinstance(k, EmbedQuery) for k in self.kids):
             valu = {}
             for i in range(0, len(self.kids), 2):
                 valu[self.kids[i].value()] = self.kids[i + 1].value()
@@ -3822,7 +3885,7 @@ class ExprList(Value):
 
     def prepare(self):
         self.const = None
-        if all(isinstance(k, Const) for k in self.kids):
+        if all(isinstance(k, Const) and not isinstance(k, EmbedQuery) for k in self.kids):
             self.const = s_msgpack.en([k.value() for k in self.kids])
 
     async def compute(self, runt, path):
@@ -4899,6 +4962,7 @@ class Function(AstNode):
                 subr.funcscope = True
 
                 try:
+                    await asyncio.sleep(0)
                     async for item in subr.execute():
                         await asyncio.sleep(0)
 
@@ -4913,10 +4977,13 @@ class Function(AstNode):
                 subr.funcscope = True
                 try:
                     if self.hasemit:
+                        await asyncio.sleep(0)
                         async with contextlib.aclosing(await subr.emitter()) as agen:
                             async for item in agen:
                                 yield item
+                                await asyncio.sleep(0)
                     else:
+                        await asyncio.sleep(0)
                         async with contextlib.aclosing(subr.execute()) as agen:
                             async for node, path in agen:
                                 yield node, path

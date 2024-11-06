@@ -264,6 +264,19 @@ class Auth(s_nexus.Pusher):
     def _getRoleIden(self, name):
         return self.roleidenbyname.get(name)
 
+    # TODO convert getUserByName() and getRoleByName()
+    # back from async? These were plumbed to avoid infecting
+    # type norm/repr functions with async...
+    def _getRoleByName(self, name):
+        roleiden = self.roleidenbynamecache.get(name)
+        if roleiden is not None:
+            return self.role(roleiden)
+
+    def _getUserByName(self, name):
+        useriden = self.useridenbynamecache.get(name)
+        if useriden is not None:
+            return self.user(useriden)
+
     @s_nexus.Pusher.onPushAuto('user:profile:set')
     async def setUserProfileValu(self, iden, name, valu):
         user = await self.reqUser(iden)
@@ -480,6 +493,11 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchAuthGate(iden=iden, mesg=mesg)
         return gate
 
+    def reqNoAuthGate(self, iden):
+        if self.authgates.get(iden) is not None:
+            mesg = f'An auth gate already exists with iden: ({iden}).'
+            raise s_exc.DupIden(iden=iden, mesg=mesg)
+
     def checkUserLimit(self):
         '''
         Check if we're at the specified user limit.
@@ -557,6 +575,8 @@ class Auth(s_nexus.Pusher):
         if user is not None:
             return
 
+        self.reqNoAuthGate(iden)
+
         info = {
             'iden': iden,
             'name': name,
@@ -579,11 +599,28 @@ class Auth(s_nexus.Pusher):
         await self.feedBeholder('user:add', user.pack())
 
     async def addRole(self, name, iden=None):
+        '''
+        Add a Role to the Auth system.
+
+        Args:
+            name (str): The name of the role.
+            iden (str): A optional iden to use as the role iden.
+
+        Returns:
+            Role: A Role.
+        '''
         if self.roleidenbynamecache.get(name) is not None:
             raise s_exc.DupRoleName(mesg=f'Duplicate role name, {name=} already exists.', name=name)
 
         if iden is None:
             iden = s_common.guid()
+        else:
+            if not s_common.isguid(iden):
+                raise s_exc.BadArg(name='iden', arg=iden, mesg=f'Argument {iden} it not a valid iden.')
+
+            if self.rolebyidencache.get(iden) is not None:
+                raise s_exc.DupIden(name=name, iden=iden,
+                                    mesg=f'Role already exists for {iden=}.')
 
         await self._push('role:add', iden, name)
 
@@ -595,6 +632,8 @@ class Auth(s_nexus.Pusher):
         role = self.roleidenbynamecache.get(name)
         if role is not None:
             return
+
+        self.reqNoAuthGate(iden)
 
         info = {
             'iden': iden,

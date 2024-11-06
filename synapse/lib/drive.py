@@ -22,6 +22,7 @@ LKEY_INFO = b'\x02' # <bidn> = <info>
 LKEY_DATA = b'\x03' # <bidn> <vers> = <data>
 LKEY_VERS = b'\x04' # <bidn> <vers> = <versinfo>
 LKEY_INFO_BYTYPE = b'\x05' # <type> 00 <bidn> = 01
+LKEY_TYPE_VERS = b'\x06' # <type> = <uint64>
 
 rootdir = '00000000000000000000000000000000'
 
@@ -60,24 +61,36 @@ class Drive(s_base.Base):
 
         return [reqValidName(p.strip().lower()) for p in path]
 
-    def getItemInfo(self, iden):
-        return self._getItemInfo(s_common.uhex(iden))
+    def _reqInfoType(self, info, typename):
+        infotype = info.get('type')
+        if infotype != typename:
+            mesg = f'Drive item has the wrong type. Expected: {typename} got {infotype}.'
+            raise s_exc.TypeMismatch(mesg=mesg, expected=typename, got=infotype)
+
+    def getItemInfo(self, iden, typename=None):
+        info = self._getItemInfo(s_common.uhex(iden))
+        if typename is not None:
+            self._reqInfoType(info, typename)
+        return info
 
     def _getItemInfo(self, bidn):
         byts = self.slab.get(LKEY_INFO + bidn, db=self.dbname)
         if byts is not None:
             return s_msgpack.un(byts)
 
-    def reqItemInfo(self, iden):
-        return self._reqItemInfo(s_common.uhex(iden))
+    def reqItemInfo(self, iden, typename=None):
+        return self._reqItemInfo(s_common.uhex(iden), typename=typename)
 
-    def _reqItemInfo(self, bidn):
+    def _reqItemInfo(self, bidn, typename=None):
         info = self._getItemInfo(bidn)
-        if info is not None:
-            return info
+        if info is None:
+            mesg = f'No drive item with ID {s_common.ehex(bidn)}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
 
-        mesg = f'No drive item with ID {s_common.ehex(bidn)}.'
-        raise s_exc.NoSuchIden(mesg=mesg)
+        if typename is not None:
+            self._reqInfoType(info, typename)
+
+        return info
 
     async def setItemPath(self, iden, path):
         '''
@@ -147,7 +160,7 @@ class Drive(s_base.Base):
             rows.append((LKEY_INFO + oldb, s_msgpack.en(oldpinfo)))
 
         self.slab.delete(LKEY_DIRN + oldb + oldname.encode(), db=self.dbname)
-        self.slab.putmulti(rows, db=self.dbname)
+        await self.slab.putmulti(rows, db=self.dbname)
 
         pathinfo.append(info)
         return pathinfo
@@ -167,7 +180,7 @@ class Drive(s_base.Base):
         if byts is not None:
             return s_msgpack.un(byts)
 
-    def _addStepInfo(self, parbidn, parinfo, info):
+    async def _addStepInfo(self, parbidn, parinfo, info):
 
         newbidn = s_common.uhex(info.get('iden'))
 
@@ -190,7 +203,7 @@ class Drive(s_base.Base):
             typekey = LKEY_INFO_BYTYPE + typename.encode() + b'\x00' + newbidn
             rows.append((typekey, b'\x01'))
 
-        self.slab.putmulti(rows, db=self.dbname)
+        await self.slab.putmulti(rows, db=self.dbname)
 
     def setItemPerm(self, iden, perm):
         return self._setItemPerm(s_common.uhex(iden), perm)
@@ -290,7 +303,7 @@ class Drive(s_base.Base):
             mesg = f'A drive entry with ID {iden} already exists.'
             raise s_exc.DupIden(mesg=mesg)
 
-        self._addStepInfo(parbidn, parinfo, info)
+        await self._addStepInfo(parbidn, parinfo, info)
 
         pathinfo.append(info)
         return pathinfo
@@ -384,10 +397,10 @@ class Drive(s_base.Base):
 
             yield info
 
-    def setItemData(self, iden, versinfo, data):
-        return self._setItemData(s_common.uhex(iden), versinfo, data)
+    async def setItemData(self, iden, versinfo, data):
+        return await self._setItemData(s_common.uhex(iden), versinfo, data)
 
-    def _setItemData(self, bidn, versinfo, data):
+    async def _setItemData(self, bidn, versinfo, data):
 
         info = self._reqItemInfo(bidn)
 
@@ -419,7 +432,7 @@ class Drive(s_base.Base):
             info.update(versinfo)
             rows.append((LKEY_INFO + bidn, s_msgpack.en(info)))
 
-        self.slab.putmulti(rows, db=self.dbname)
+        await self.slab.putmulti(rows, db=self.dbname)
 
         return info, versinfo
 
@@ -494,9 +507,26 @@ class Drive(s_base.Base):
         if byts is not None:
             return s_msgpack.un(byts)
 
-    async def setTypeSchema(self, typename, schema, callback=None):
+    def getTypeSchemaVersion(self, typename):
+        verskey = LKEY_TYPE_VERS + typename.encode()
+        byts = self.slab.get(verskey, db=self.dbname)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    async def setTypeSchema(self, typename, schema, callback=None, vers=None):
 
         reqValidName(typename)
+
+        if vers is not None:
+            vers = int(vers)
+            curv = self.getTypeSchemaVersion(typename)
+            if curv is not None:
+                if vers == curv:
+                    return False
+
+                if vers < curv:
+                    mesg = f'Cannot downgrade drive schema version for type {typename}.'
+                    raise s_exc.BadVersion(mesg=mesg)
 
         vtor = s_config.getJsValidator(schema)
 
@@ -505,6 +535,10 @@ class Drive(s_base.Base):
         lkey = LKEY_TYPE + typename.encode()
 
         self.slab.put(lkey, s_msgpack.en(schema), db=self.dbname)
+
+        if vers is not None:
+            verskey = LKEY_TYPE_VERS + typename.encode()
+            self.slab.put(verskey, s_msgpack.en(vers), db=self.dbname)
 
         if callback is not None:
             async for info in self.getItemsByType(typename):
@@ -516,6 +550,7 @@ class Drive(s_base.Base):
                     vtor(data)
                     self.slab.put(LKEY_DATA + bidn + versindx, s_msgpack.en(data), db=self.dbname)
                     await asyncio.sleep(0)
+        return True
 
     async def getItemsByType(self, typename):
         tkey = typename.encode() + b'\x00'

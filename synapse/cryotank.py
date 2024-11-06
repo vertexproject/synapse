@@ -81,7 +81,7 @@ class CryoTank(s_base.Base):
         size = 0
 
         for chunk in s_common.chunks(items, 1000):
-            metrics = self._items.save(chunk)
+            metrics = await self._items.save(chunk)
             self._metrics.add(metrics)
             await self.fire('cryotank:puts', numrecords=len(chunk))
             size += len(chunk)

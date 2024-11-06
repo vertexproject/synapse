@@ -342,6 +342,7 @@ reqValidPkgdef = s_config.getJsValidator({
             'properties': {
                 'name': {'type': 'string'},
                 'desc': {'type': 'string'},
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
                 'type': {
                     'type': 'object',
                     'properties': {
@@ -394,6 +395,28 @@ reqValidPkgdef = s_config.getJsValidator({
             },
             'additionalProperties': False,
             'required': ['name', 'desc', 'type']
+        },
+        'deprecatedItem': {
+            'type': 'object',
+            'properties': {
+                'eolvers': {'type': 'string', 'minLength': 1,
+                            'description': "The version which will not longer support the item."},
+                'eoldate': {'type': 'string', 'minLength': 1,
+                            'description': 'Optional string indicating Synapse releases after this date may no longer support the item.'},
+                'mesg': {'type': ['string', 'null'], 'default': None,
+                         'description': 'Optional message to include in the warning text.'}
+            },
+            'oneOf': [
+                {
+                    'required': ['eolvers'],
+                    'not': {'required': ['eoldate']}
+                },
+                {
+                    'required': ['eoldate'],
+                    'not': {'required': ['eolvers']}
+                }
+            ],
+            'additionalProperties': False,
         },
         'apitype': {
             'type': 'string',
@@ -1334,30 +1357,42 @@ stormcmds = (
         'descr': "List existing cron jobs in the cortex.",
         'cmdargs': (),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "user", "width": 24},
+                        {"name": "iden", "width": 10},
+                        {"name": "view", "width": 10},
+                        {"name": "en?", "width": 3},
+                        {"name": "rpt?", "width": 4},
+                        {"name": "now?", "width": 4},
+                        {"name": "err?", "width": 4},
+                        {"name": "# start", "width": 7},
+                        {"name": "last start", "width": 16},
+                        {"name": "last end", "width": 16},
+                        {"name": "query", "newlines": "split"},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                        },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
             $crons = $lib.cron.list()
-
             if $crons {
-                $lib.print("user       iden       view       en? rpt? now? err? # start last start       last end         query")
-
+                $lib.print($printer.header())
                 for $cron in $crons {
-
                     $job = $cron.pprint()
-
-                    $user = $job.user.ljust(10)
-                    $view = $job.viewshort.ljust(10)
-                    $iden = $job.idenshort.ljust(10)
-                    $enabled = $job.enabled.ljust(3)
-                    $isrecur = $job.isrecur.ljust(4)
-                    $isrunning = $job.isrunning.ljust(4)
-                    $iserr = $job.iserr.ljust(4)
-                    $startcount = $lib.str.format("{startcount}", startcount=$job.startcount).ljust(7)
-                    $laststart = $job.laststart.ljust(16)
-                    $lastend = $job.lastend.ljust(16)
-
-       $lib.print("{user} {iden} {view} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
-                               user=$user, iden=$iden, view=$view, enabled=$enabled, isrecur=$isrecur,
-                               isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
-                               laststart=$laststart, lastend=$lastend, query=$job.query)
+                    $row = (
+                        $job.user, $job.idenshort, $job.viewshort, $job.enabled,
+                        $job.isrecur, $job.isrunning, $job.iserr, `{$job.startcount}`,
+                        $job.laststart, $job.lastend, $job.query
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print("No cron jobs found")
@@ -1755,8 +1790,10 @@ class StormDmon(s_base.Base):
 
         text = self.ddef.get('storm')
         opts = self.ddef.get('stormopts', {})
-        vars = opts.setdefault('vars', {})
+
+        vars = await s_stormtypes.toprim(opts.get('vars', {}), use_list=True)
         vars.setdefault('auto', {'iden': self.iden, 'type': 'dmon'})
+        opts['vars'] = vars
 
         viewiden = opts.get('view')
 
@@ -2709,15 +2746,28 @@ class Parser:
         self.exited = True
         return False
 
+    def _wrap_text(self, text, width):
+        lines, curline, curlen = [], [], 0
+        for word in text.split():
+            if curlen + len(word) + bool(curline) > width:
+                lines.append(' '.join(curline))
+                curline, curlen = [word], len(word)
+            else:
+                curline.append(word)
+                curlen += len(word) + bool(curline)
+        if curline:
+            lines.append(' '.join(curline))
+        return lines
+
     def _print_optarg(self, names, argdef):
 
         dest = self._get_dest_str(argdef)
         oact = argdef.get('action', 'store')
 
         if oact in ('store_true', 'store_false'):
-            base = f'  {names[0]}'.ljust(30)
+            base = f'  {names[0]}'
         else:
-            base = f'  {names[0]} {dest}'.ljust(30)
+            base = f'  {names[0]} {dest}'
 
         defval = argdef.get('default', s_common.novalu)
         choices = argdef.get('choices')
@@ -2725,12 +2775,14 @@ class Parser:
 
         if defval is not s_common.novalu and oact not in ('store_true', 'store_false'):
             if isinstance(defval, (tuple, list, dict)):
-                defval = pprint.pformat(defval, indent=34, width=100)
-                if '\n' in defval:
-                    defval = '\n' + defval
+                defval_ls = pprint.pformat(defval, width=120).split('\n')
+                defval = '\n'.join(ln.strip() for ln in defval_ls)
 
             if choices is None:
-                helpstr = f'{helpstr} (default: {defval})'
+                if (lambda tst: '\n' in tst if isinstance(tst, str) else False)(defval):
+                    helpstr = f'{helpstr} (default: \n{defval})'
+                else:
+                    helpstr = f'{helpstr} (default: {defval})'
             else:
                 cstr = ', '.join(str(c) for c in choices)
                 helpstr = f'{helpstr} (default: {defval}, choices: {cstr})'
@@ -2739,7 +2791,26 @@ class Parser:
             cstr = ', '.join(str(c) for c in choices)
             helpstr = f'{helpstr} (choices: {cstr})'
 
-        self._printf(f'{base}: {helpstr}')
+        helplst = helpstr.split('\n')
+        if helplst and not helplst[0].strip():
+            helplst = helplst[1:]
+        min_space = min((len(ln) - len(ln.lstrip()) for ln in helplst if ln.strip()), default=0)
+
+        base_w = 32
+        wrap_w = 120 - base_w
+
+        first = helplst[0][min_space:]
+        wrap_first = self._wrap_text(first, wrap_w)
+        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+
+        for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
+        for ln in helplst[1:]:
+            lead_s = len(ln) - len(ln.lstrip())
+            rel_ind = lead_s - min_space
+            ind = ' ' * (base_w + rel_ind)
+            wrapped = self._wrap_text(ln.lstrip(), wrap_w - rel_ind)
+            for wl in wrapped:
+                self._printf(f'{ind}{wl}')
 
     def _print_posarg(self, name, argdef):
         dest = self._get_dest_str(argdef)
@@ -3691,6 +3762,12 @@ class MergeCmd(Cmd):
           expressions for specifying tags. For more information on tag glob
           expressions, check the Synapse documentation for $node.globtags().
 
+    NOTE: If --wipe is specified, and there are nodes that cannot be merged,
+          they will be skipped (with a warning printed) and removed when
+          the top layer is replaced. This should occur infrequently, for example,
+          when a form is locked due to deprecation, a form no longer exists,
+          or the data at rest fails normalization.
+
     Examples:
 
         // Having tagged a new #cno.mal.redtree subgraph in a forked view...
@@ -3923,6 +4000,8 @@ class MergeCmd(Cmd):
         async with await runt.snap.view.parent.snap(user=runt.user.iden) as snap:
             snap.strict = False
 
+            snap.on('warn', runt.snap.dist)
+
             async for node, path in genr:
 
                 # the timestamp for the adds/subs of each node merge will match
@@ -3971,10 +4050,14 @@ class MergeCmd(Cmd):
                             await runt.printf(f'{nodeiden} {form} = {valurepr}')
                         else:
                             delnode = True
-                            protonode = await editor.addNode(form, valu[0])
+                            if (protonode := await editor.addNode(form, valu[0])) is None:
+                                await asyncio.sleep(0)
+                                continue
 
                     elif doapply:
-                        protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                        if (protonode := await editor.addNode(form, node.ndef[1], norminfo={})) is None:
+                            await asyncio.sleep(0)
+                            continue
 
                     for name, (valu, stortype) in sode.get('props', {}).items():
 
@@ -4020,7 +4103,9 @@ class MergeCmd(Cmd):
                                 subs.append((s_layer.EDIT_PROP_DEL, (name, valu, stortype), ()))
 
                 if doapply and protonode is None:
-                    protonode = await editor.addNode(form, node.ndef[1], norminfo={})
+                    if (protonode := await editor.addNode(form, node.ndef[1], norminfo={})) is None:
+                        await asyncio.sleep(0)
+                        continue
 
                 if not notags:
                     for tag, valu in sode.get('tags', {}).items():
@@ -5195,7 +5280,7 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
-        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars())
+        runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
         opts = {
@@ -5504,6 +5589,9 @@ class ScrapeCmd(Cmd):
 
         # Scrape only the :engine and :text props from the inbound nodes.
         inet:search:query | scrape :text :engine
+
+        # Scrape the primary property from the inbound nodes.
+        it:dev:str | scrape $node.repr()
 
         # Scrape properties inbound nodes and yield newly scraped nodes.
         inet:search:query | scrape --yield
@@ -5902,6 +5990,13 @@ class RunAsCmd(Cmd):
     Execute a storm query as a specified user.
 
     NOTE: This command requires admin privileges.
+
+    NOTE: Heavy objects (for example a View or Layer) are bound to the context which they
+          are instantiated in and methods on them will be run using the user in that
+          context. This means that executing a method on a variable containing a heavy
+          object which was instantiated outside of the runas command and then used
+          within the runas command will check the permissions of the outer user, not
+          the one specified by the runas command.
 
     Examples:
 

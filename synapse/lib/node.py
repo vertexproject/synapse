@@ -173,10 +173,12 @@ class Node:
             if prop is None:
                 return None
 
-            if prop.modl.form(prop.type.name) is None:
+            if prop.modl.form(prop.type.name) is not None:
+                buid = s_common.buid((prop.type.name, valu))
+            elif prop.type.name == 'ndef':
+                buid = s_common.buid(valu)
+            else:
                 return None
-
-            buid = s_common.buid((prop.type.name, valu))
 
             step = cache.get(buid, s_common.novalu)
             if step is s_common.novalu:
@@ -663,6 +665,11 @@ class Node:
 
         for name in self.props.keys():
             edits.extend(await self._getPropDelEdits(name, init=True))
+
+        # Only remove nodedata if we're in a layer that doesn't have the full node
+        if self.snap.wlyr.iden != self.bylayer['ndef']:
+            async for name in self.iterDataKeys():
+                edits.append((s_layer.EDIT_NODEDATA_DEL, (name, None), ()))
 
         edits.append(
             (s_layer.EDIT_NODE_DEL, (formvalu, self.form.type.stortype), ()),

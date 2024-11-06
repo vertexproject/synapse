@@ -1,0 +1,5 @@
+---
+desc: Update the ``cron.list`` command to use a tabular printer for table generation.
+prs: []
+type: feat
+...
