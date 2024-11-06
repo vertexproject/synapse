@@ -252,6 +252,13 @@ class NoSuchForm(SynErr):
             mesg = f'No form named {name}.'
         return NoSuchForm(mesg=mesg, name=name)
 
+class NoSuchType(SynErr):
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No type named {name}.'
+        return NoSuchType(mesg=mesg, name=name)
+
 class NoSuchProp(SynErr):
 
     @classmethod
@@ -296,7 +303,6 @@ class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
-class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass

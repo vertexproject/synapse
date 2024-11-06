@@ -54,6 +54,10 @@ class StormtypesModelextTest(s_test.SynTest):
                 q = '$lib.model.ext.addType(_test:type, str, ({}), ({}))'
                 await core.callStorm(q)
 
+            with self.raises(s_exc.DupTypeName):
+                q = '$lib.model.ext.addForm(_test:type, str, ({}), ({}))'
+                await core.callStorm(q)
+
             with self.raises(s_exc.DupPropName):
                 q = '''$lib.model.ext.addFormProp(_visi:int, tick, (time, ({})), ({}))'''
                 await core.callStorm(q)
@@ -257,6 +261,10 @@ class StormtypesModelextTest(s_test.SynTest):
         # Add props which conflict with what was previously dumped
         async with self.getTestCore() as core:
             await core.callStorm('''
+                $typeopts = ({"lower": true})
+                $typeinfo = ({"doc": "A test type doc."})
+                $lib.model.ext.addType(_test:type, str, $typeopts, $typeinfo)
+
                 $typeinfo = ({})
                 $forminfo = ({"doc": "NEWP"})
                 $lib.model.ext.addForm(_visi:int, int, $typeinfo, $forminfo)
@@ -276,6 +284,11 @@ class StormtypesModelextTest(s_test.SynTest):
                 $edgeinfo = ({"doc": "NEWP"})
                 $lib.model.ext.addEdge(inet:user, _copies, *, $edgeinfo)
             ''')
+
+            q = '''return ($lib.model.ext.addExtModel($model_defs))'''
+            with self.raises(s_exc.BadTypeDef) as cm:
+                opts = {'vars': {'model_defs': {'types': model_defs['types']}}}
+                await core.callStorm(q, opts)
 
             q = '''return ($lib.model.ext.addExtModel($model_defs))'''
             with self.raises(s_exc.BadFormDef) as cm:

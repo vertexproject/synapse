@@ -905,9 +905,6 @@ class Model:
         return form
 
     def addType(self, typename, basename, typeopts, typeinfo):
-        if typename in self.types:
-            raise s_exc.DupTypeName.init(typename)
-
         base = self.types.get(basename)
         if base is None:
             raise s_exc.NoSuchType(name=basename)

@@ -3514,7 +3514,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             raise s_exc.BadArg(type=typename, mesg=mesg)
 
         if not typename.startswith('_'):
-            mesg = 'Extended type must begin with "_"'
+            mesg = 'Extended type must begin with "_".'
             raise s_exc.BadTypeDef(type=typename, mesg=mesg)
 
         if self.model.type(typename) is not None:
@@ -3547,7 +3547,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def delType(self, typename):
         if not typename.startswith('_'):
-            mesg = 'Extended type must begin with "_"'
+            mesg = 'Extended type must begin with "_".'
             raise s_exc.BadTypeDef(type=typename, mesg=mesg)
 
         if self.model.type(typename) is None:
