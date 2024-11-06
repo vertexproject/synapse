@@ -227,6 +227,7 @@ class LibModelExt(s_stormtypes.Lib):
         return await self.runt.snap.core.getExtModel()
 
     async def addExtModel(self, model):
+        self.runt.reqAdmin()
         model = await s_stormtypes.toprim(model)
         return await self.runt.snap.core.addExtModel(model)
 

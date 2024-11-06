@@ -6195,6 +6195,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(['meta:taxonomy'], core.model.type('_test:type').info.get('interfaces'))
 
                 # manually edit in borked entries
+                core.exttypes.set('_type:bork', ('_type:bork', None, None, None))
                 core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
                 core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
