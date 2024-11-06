@@ -1357,30 +1357,42 @@ stormcmds = (
         'descr': "List existing cron jobs in the cortex.",
         'cmdargs': (),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "user", "width": 24},
+                        {"name": "iden", "width": 10},
+                        {"name": "view", "width": 10},
+                        {"name": "en?", "width": 3},
+                        {"name": "rpt?", "width": 4},
+                        {"name": "now?", "width": 4},
+                        {"name": "err?", "width": 4},
+                        {"name": "# start", "width": 7},
+                        {"name": "last start", "width": 16},
+                        {"name": "last end", "width": 16},
+                        {"name": "query", "newlines": "split"},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                        },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
             $crons = $lib.cron.list()
-
             if $crons {
-                $lib.print("user       iden       view       en? rpt? now? err? # start last start       last end         query")
-
+                $lib.print($printer.header())
                 for $cron in $crons {
-
                     $job = $cron.pprint()
-
-                    $user = $job.user.ljust(10)
-                    $view = $job.viewshort.ljust(10)
-                    $iden = $job.idenshort.ljust(10)
-                    $enabled = $job.enabled.ljust(3)
-                    $isrecur = $job.isrecur.ljust(4)
-                    $isrunning = $job.isrunning.ljust(4)
-                    $iserr = $job.iserr.ljust(4)
-                    $startcount = $lib.str.format("{startcount}", startcount=$job.startcount).ljust(7)
-                    $laststart = $job.laststart.ljust(16)
-                    $lastend = $job.lastend.ljust(16)
-
-       $lib.print("{user} {iden} {view} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
-                               user=$user, iden=$iden, view=$view, enabled=$enabled, isrecur=$isrecur,
-                               isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
-                               laststart=$laststart, lastend=$lastend, query=$job.query)
+                    $row = (
+                        $job.user, $job.idenshort, $job.viewshort, $job.enabled,
+                        $job.isrecur, $job.isrunning, $job.iserr, `{$job.startcount}`,
+                        $job.laststart, $job.lastend, $job.query
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print("No cron jobs found")
