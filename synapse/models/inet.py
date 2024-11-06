@@ -1369,6 +1369,9 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A username string.'
                     }),
 
+                    ('inet:service:object', ('ndef', {'interface': 'inet:service:object'}), {
+                        'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
+
                     ('inet:search:query', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
                         'doc': 'An instance of a search query issued to a search engine.',
@@ -1530,11 +1533,19 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('inet:service:object',),
                         'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
-                    ('inet:service:follower:type:taxonomy', ('taxonomy', {}), {
+                    ('inet:service:relationship:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A follower type taxonomy.'}),
+                        'doc': 'A service object relationship type taxonomy.'}),
 
-                    ('inet:service:follower', ('guid', {}), {
+                    ('inet:service:relationship', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'display': {
+                            'columns': (
+                                {'type': 'prop', 'opts': {'name': 'source::name'}},
+                                {'type': 'prop', 'opts': {'name': 'type'}},
+                                {'type': 'prop', 'opts': {'name': 'target::name'}},
+                            ),
+                        },
                         'doc': 'A relationship between two service accounts.'}),
 
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
@@ -1595,8 +1606,9 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('meta:taxonomy',),
                         'doc': 'A message type taxonomy.'}),
 
-                    ('inet:service:message:emote', ('guid', {}), {
-                        'doc': 'An emote or reaction to a message by an account.'}),
+                    ('inet:service:emote', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'doc': 'An emote or reaction by an account.'}),
 
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
@@ -3602,21 +3614,18 @@ class InetModule(s_module.CoreModule):
                             'doc': 'Current profile details associated with the account.'}),
                     )),
 
-                    ('inet:service:follower:type:taxonomy', {}, ()),
-                    ('inet:service:follower', {}, (
+                    ('inet:service:relationship:type:taxonomy', {}, ()),
+                    ('inet:service:relationship', {}, (
 
-                        ('account', ('inet:service:account', {}), {
-                            'doc': 'The account which initiated the relationship.'}),
+                        ('source', ('inet:service:object', {}), {
+                            'doc': 'The source object.'}),
 
                         ('target', ('inet:service:account', {}), {
-                            'doc': 'The target account.'}),
+                            'doc': 'The target object.'}),
 
-                        ('period', ('ival', {}), {
-                            'doc': 'The period when the accounts are related.'}),
-
-                        ('type', ('inet:service:follower:type:taxonomy', {}), {
+                        ('type', ('inet:service:relationship:type:taxonomy', {}), {
                             'ex': 'follows',
-                            'doc': 'The type of relationship between the account and the target.'}),
+                            'doc': 'The type of relationship between the source and the target.'}),
                     )),
 
                     ('inet:service:group', {}, ( # inet:service:object
@@ -3776,10 +3785,10 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The file which was attached to the message.'}),
                     )),
 
-                    ('inet:service:message:emote', {}, (
+                    ('inet:service:emote', {}, (
 
-                        ('message', ('inet:service:message', {}), {
-                            'doc': 'The message the reaction is in response to.'}),
+                        ('about', ('ndef', {'forms': ('inet:service:message', 'it:dev:repo')}), {
+                            'doc': 'The node that the emote is about.'}),
 
                         ('text', ('str', {'strip': True}), {
                             'ex': ':partyparrot:',
