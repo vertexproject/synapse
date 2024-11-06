@@ -2046,6 +2046,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time the comment was updated.'}),
 
                 )),
+
                 ('it:prod:hardwaretype', {}, ()),
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
