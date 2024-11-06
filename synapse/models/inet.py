@@ -1546,7 +1546,7 @@ class InetModule(s_module.CoreModule):
                                 {'type': 'prop', 'opts': {'name': 'target::name'}},
                             ),
                         },
-                        'doc': 'A relationship between two service accounts.'}),
+                        'doc': 'A relationship between two service objects.'}),
 
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
@@ -3620,7 +3620,7 @@ class InetModule(s_module.CoreModule):
                         ('source', ('inet:service:object', {}), {
                             'doc': 'The source object.'}),
 
-                        ('target', ('inet:service:account', {}), {
+                        ('target', ('inet:service:object', {}), {
                             'doc': 'The target object.'}),
 
                         ('type', ('inet:service:relationship:type:taxonomy', {}), {
