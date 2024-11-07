@@ -5819,6 +5819,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if appt is not None:
             return appt.pack()
 
+        self.auth.reqNoAuthGate(iden)
+
         user = await self.auth.reqUser(cdef['creator'])
 
         cdef = await self.agenda.add(cdef)

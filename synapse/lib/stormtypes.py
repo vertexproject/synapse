@@ -7355,6 +7355,9 @@ class View(Prim):
         {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``trigger`` objects associated with the ``view``.',
          'type': 'list', },
+        {'name': 'children', 'desc': 'Yield Views which are children of this View.',
+         'type': {'type': 'function', '_funcname': '_methGetChildren',
+                  'returns': {'name': 'yields', 'type': 'view', 'desc': 'Child Views.', }}},
         {'name': 'set', 'desc': '''
             Set a view configuration option.
 
@@ -7642,6 +7645,7 @@ class View(Prim):
             'merge': self._methViewMerge,
             'detach': self.detach,
             'addNode': self.addNode,
+            'children': self._methGetChildren,
             'getEdges': self._methGetEdges,
             'wipeLayer': self._methWipeLayer,
             'swapLayer': self._methSwapLayer,
@@ -7779,6 +7783,12 @@ class View(Prim):
 
         async for valu in view.iterPropValues(propname):
             yield valu
+
+    @stormfunc(readonly=True)
+    async def _methGetChildren(self):
+        view = self._reqView()
+        async for child in view.children():
+            yield View(self.runt, await child.pack(), path=self.path)
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
@@ -9427,7 +9437,7 @@ def fromprim(valu, path=None, basetypes=True):
 
     return valu
 
-async def tostor(valu):
+async def tostor(valu, isndef=False):
 
     if isinstance(valu, Number):
         return str(valu.value())
@@ -9449,6 +9459,9 @@ async def tostor(valu):
             except s_exc.NoSuchType:
                 pass
         return retn
+
+    if isndef and isinstance(valu, s_node.Node):
+        return valu.ndef
 
     return await toprim(valu)
 
@@ -9492,6 +9505,9 @@ async def tostr(valu, noneok=False):
     try:
         if isinstance(valu, bytes):
             return valu.decode('utf8', 'surrogatepass')
+
+        if isinstance(valu, s_node.Node):
+            return valu.repr()
 
         return str(valu)
     except Exception as e:

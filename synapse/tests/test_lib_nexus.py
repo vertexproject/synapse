@@ -261,6 +261,32 @@ class NexusTest(s_t_utils.SynTest):
                         await cell01.sync()
                     self.isin(s_nexus.leaderversion, cell01.nexsroot.writeholds)
 
+                cell00.getCellInfo = getCellInfo
+
+                # test case where a mirror which is updated first may push events
+                # the leader does not yet have handlers for
+                async with await s_cell.Cell.anit(dirn=path) as cell01:
+                    cell01.nexsiden = 'newp'
+                    with self.raises(s_exc.NoSuchIden) as cm:
+                        await cell01.sync()
+                    self.eq(cm.exception.get('mesg'), 'No Nexus Pusher with iden newp.')
+
+                    self.none(await cell00.nexsroot.nexslog.last())
+                    self.none(await cell01.nexsroot.nexslog.last())
+
+                    cell01.nexsiden = cell00.nexsiden
+                    await cell01.sync()
+
+                    self.eq(0, (await cell00.nexsroot.nexslog.last())[0])
+                    self.eq(0, (await cell01.nexsroot.nexslog.last())[0])
+
+                    with self.raises(s_exc.NoSuchName) as cm:
+                        await cell01._push('newp')
+                    self.eq(cm.exception.get('mesg'), 'No Nexus handler for event newp.')
+
+                    self.eq(0, (await cell00.nexsroot.nexslog.last())[0])
+                    self.eq(0, (await cell01.nexsroot.nexslog.last())[0])
+
     async def test_mirror_nexus_loop_failure(self):
         with self.getTestDir() as dirn:
 

@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where creating a cron job with a stable iden could overlap with
+  existing authgates.
+prs: []
+type: bug
+...

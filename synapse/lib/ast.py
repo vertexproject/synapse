@@ -711,7 +711,7 @@ class SubQuery(Oper):
         async with runt.getSubRuntime(self.kids[0]) as runt:
             async for valunode, valupath in runt.execute():
 
-                retn.append(valunode.ndef[1])
+                retn.append(valunode)
 
                 if len(retn) > limit:
                     query = self.kids[0].text
@@ -1367,7 +1367,7 @@ class SwitchCase(Oper):
             varv = await self.kids[0].compute(runt, path)
 
             # TODO:  when we have var type system, do type-aware comparison
-            subq = self.cases.get(str(varv))
+            subq = self.cases.get(await s_stormtypes.tostr(varv))
             if subq is None and self.defcase is not None:
                 subq = self.defcase
 
@@ -1381,7 +1381,7 @@ class SwitchCase(Oper):
             # no nodes and a runt safe value should execute
             varv = await self.kids[0].compute(runt, None)
 
-            subq = self.cases.get(str(varv))
+            subq = self.cases.get(await s_stormtypes.tostr(varv))
             if subq is None and self.defcase is not None:
                 subq = self.defcase
 
@@ -4339,9 +4339,11 @@ class EditPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.confirmPropSet(prop)
 
+            isndef = isinstance(prop.type, s_types.Ndef)
             isarray = isinstance(prop.type, s_types.Array)
 
             try:
+
                 if isarray and isinstance(rval, SubQuery):
                     valu = await rval.compute_array(runt, path)
                     expand = False
@@ -4349,7 +4351,7 @@ class EditPropSet(Edit):
                 else:
                     valu = await rval.compute(runt, path)
 
-                valu = await s_stormtypes.tostor(valu)
+                valu = await s_stormtypes.tostor(valu, isndef=isndef)
 
                 if isadd or issub:
 

@@ -638,6 +638,8 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('background { $lib.print($foo) }')
 
+            await core.nodes('background ${ $foo=test $lib.print($foo) }')
+
             await core.nodes('background { $lib.time.sleep(4) }')
             task = await core.callStorm('for $t in $lib.ps.list() { if $t.info.background { return($t) } }')
             self.nn(task)
@@ -666,6 +668,9 @@ class StormTest(s_t_utils.SynTest):
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            nodes = await core.nodes('ou:org | parallel ${ $foo=bar [ :name=$foo ]}')
+            self.true(all([n.get('name') == 'bar' for n in nodes]))
 
             # test $lib.exit() and the StormExit handlers
             msgs = [m async for m in core.view.storm('$lib.exit()')]
@@ -2139,6 +2144,49 @@ class StormTest(s_t_utils.SynTest):
 
             self.nn(bot.get('country::flag::md5'))
             self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
+
+            await core.nodes('''
+                [( risk:vulnerable=*
+                    :mitigated=true
+                    :node={ [ it:prod:hardware=* :name=foohw ] return($node.ndef()) }
+                    :vuln={[ risk:vuln=* :name=barvuln ]}
+                    +#test
+                )]
+                [( inet:service:rule=*
+                    :object={ risk:vulnerable#test return($node.ndef()) }
+                    :grantee={ [ inet:service:account=* :id=foocon ] return($node.ndef()) }
+                    +#test
+                )]
+            ''')
+
+            opts = {
+                'embeds': {
+                    'risk:vulnerable': {
+                        'vuln': ['name'],
+                        'node': ['name'],
+                    },
+                    'inet:service:rule': {
+                        'object': ['mitigated', 'newp'],
+                        'object::node': ['name', 'newp'],
+                        'grantee': ['id', 'newp'],
+                    }
+                }
+            }
+            msgs = await core.stormlist('inet:service:rule#test :object -+> risk:vulnerable', opts=opts)
+            nodes = sorted([m[1] for m in msgs if m[0] == 'node'], key=lambda p: p[0][0])
+            self.eq(['inet:service:rule', 'risk:vulnerable'], [n[0][0] for n in nodes])
+
+            embeds = nodes[0][1]['embeds']
+            self.eq(1, embeds['object']['mitigated'])
+            self.eq(None, embeds['object']['newp'])
+            self.eq('foohw', embeds['object::node']['name'])
+            self.eq(None, embeds['object::node']['newp'])
+            self.eq('foocon', embeds['grantee']['id'])
+            self.eq(None, embeds['grantee']['newp'])
+
+            embeds = nodes[1][1]['embeds']
+            self.eq('barvuln', embeds['vuln']['name'])
+            self.eq('foohw', embeds['node']['name'])
 
     async def test_storm_wget(self):
 

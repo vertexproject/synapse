@@ -1865,6 +1865,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 todo.append(child)
 
+    async def children(self):
+        for view in list(self.core.views.values()):
+            if view.parent != self:
+                await asyncio.sleep(0)
+                continue
+
+            yield view
+
     async def insertParentFork(self, useriden, name=None):
         '''
         Insert a new View between a forked View and its parent.
@@ -2246,9 +2254,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is not None:
             return self.triggers.get(tdef['iden']).pack()
 
-        gate = self.core.auth.getAuthGate(tdef['iden'])
-        if gate is not None:
-            raise s_exc.DupIden(mesg='An AuthGate with this iden already exists')
+        self.core.auth.reqNoAuthGate(tdef['iden'])
 
         user = self.core.auth.user(tdef['user'])
         await self.core.getStormQuery(tdef['storm'])

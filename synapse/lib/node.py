@@ -290,10 +290,12 @@ class Node(NodeBase):
             if prop is None:
                 return None
 
-            if prop.modl.form(prop.type.name) is None:
+            if prop.modl.form(prop.type.name) is not None:
+                buid = s_common.buid((prop.type.name, valu))
+            elif prop.type.name == 'ndef':
+                buid = s_common.buid(valu)
+            else:
                 return None
-
-            buid = s_common.buid((prop.type.name, valu))
 
             step = cache.get(buid, s_common.novalu)
             if step is s_common.novalu:

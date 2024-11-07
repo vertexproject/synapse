@@ -30,6 +30,21 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.DupRoleName):
                 await auth.addRole('ninjas')
 
+            viewiden = core.getView().iden
+            with self.raises(s_exc.DupIden):
+                await auth.addUser('view', iden=viewiden)
+
+            with self.raises(s_exc.NoSuchUser):
+                await auth.delUser(viewiden)
+            self.nn(core.auth.getAuthGate(viewiden))
+
+            with self.raises(s_exc.DupIden):
+                await auth.addRole('view', iden=viewiden)
+
+            with self.raises(s_exc.NoSuchRole):
+                await auth.delRole(viewiden)
+            self.nn(core.auth.getAuthGate(viewiden))
+
             self.none(await auth._addUser(user.iden, 'visi@vertex.link'))
             self.none(await auth._addRole(user.iden, 'ninjas'))
 

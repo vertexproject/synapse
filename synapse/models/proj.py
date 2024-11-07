@@ -17,10 +17,9 @@ class ProjectModule(s_module.CoreModule):
 
     async def initCoreModule(self):
         self.model.form('proj:project').onAdd(self._onAddProj)
-        self.model.form('proj:project').onDel(self._onDelProj)
 
     async def _onAddProj(self, node):
-        # ref counts on authgates?
+        # TODO: remove all storm:project authgates in 3.x migration
         gateiden = node.ndef[1]
 
         await self.core.auth.addAuthGate(node.ndef[1], 'storm:project')
@@ -28,10 +27,6 @@ class ProjectModule(s_module.CoreModule):
         if (user := s_scope.get('user')) is not None:
             rule = (True, ('project', 'admin'))
             await user.addRule(rule, gateiden=gateiden)
-
-    async def _onDelProj(self, node):
-        gateiden = node.ndef[1]
-        await self.core.auth.delAuthGate(gateiden)
 
     def getModelDefs(self):
         return (

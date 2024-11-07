@@ -78,6 +78,19 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:sophistication', ('int', {'enums': sophenums}), {
                     'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
+
+                ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A type of item being counted in aggregate.'}),
+
+                ('meta:aggregate', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                            {'type': 'prop', 'opts': {'name': 'count'}},
+                        ),
+                    },
+                    'doc': 'A node which represents an aggregate count of a specific type.'}),
             ),
             'interfaces': (
                 ('meta:taxonomy', {
@@ -254,6 +267,20 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'A URL which documents the rule.'}),
                     ('ext:id', ('str', {}), {
                         'doc': 'An external identifier for the rule.'}),
+                )),
+
+                ('meta:aggregate:type:taxonomy', {}, ()),
+                ('meta:aggregate', {}, (
+
+                    ('type', ('meta:aggregate:type:taxonomy', {}), {
+                        'ex': 'casualties.civilian',
+                        'doc': 'The type of items being counted in aggregate.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time that the count was computed.'}),
+
+                    ('count', ('int', {}), {
+                        'doc': 'The number of items counted in aggregate.'}),
                 )),
 
             ),

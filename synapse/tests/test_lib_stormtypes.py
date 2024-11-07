@@ -2346,7 +2346,7 @@ class StormTypesTest(s_test.SynTest):
                 path = pode[1]['path']
                 self.len(1, path)
                 key = list(path.keys())[0]
-                self.true(key.startswith("Node{(('inet:fqdn', 'vertex.link'), {'iden':"))
+                self.true(key.startswith('vertex.link'))
                 self.eq(('foo', 'bar'), path[key])
 
                 q = '''
