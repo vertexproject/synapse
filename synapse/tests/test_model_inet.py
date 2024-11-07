@@ -3378,3 +3378,29 @@ class InetModelTest(s_t_utils.SynTest):
                 :channel -> inet:service:channel
                 +:name="/r/synapse"
             '''))
+
+            nodes = await core.nodes('''
+                [ inet:service:relationship=*
+                    :source={ inet:service:account:user=visi }
+                    :target={ inet:service:account:user=visi }
+                    :type=follows
+                ]
+            ''')
+            self.nn(nodes[0].get('source'))
+            self.nn(nodes[0].get('target'))
+            self.eq('follows.', nodes[0].get('type'))
+            self.len(1, await core.nodes('inet:service:relationship :source -> inet:service:account +:user=visi'))
+            self.len(1, await core.nodes('inet:service:relationship :target -> inet:service:account +:user=visi'))
+
+            nodes = await core.nodes('''
+                [ inet:service:emote=*
+                    :creator={ inet:service:account:user=visi }
+                    :about={[ it:dev:repo=* :name=vertex ]}
+                    :text=":gothparrot:"
+                ]
+            ''')
+            self.nn(nodes[0].get('about'))
+            self.nn(nodes[0].get('creator'))
+            self.eq(':gothparrot:', nodes[0].get('text'))
+            self.len(1, await core.nodes('inet:service:emote :about -> it:dev:repo +:name=vertex'))
+            self.len(1, await core.nodes('inet:service:emote :creator -> inet:service:account +:user=visi'))
