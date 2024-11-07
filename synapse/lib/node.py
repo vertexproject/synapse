@@ -60,6 +60,9 @@ class Node:
         '''
         return s_msgpack.deepcopy(self.bylayer)
 
+    def __str__(self):
+        return str(self.ndef[1])
+
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
