@@ -441,7 +441,7 @@ class CoreApi(s_cell.CellApi):
             s_exc.NoSuchProp: If the prop does not exist.
             s_exc.BadTypeValu: If the value fails to normalize.
         '''
-        return await self.cell.getPropNorm(prop, valu)
+        return await self.cell.getPropNorm(prop, valu, typeopts=typeopts)
 
     async def getTypeNorm(self, name, valu, typeopts=None):
         '''

@@ -5805,7 +5805,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), {'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
             self.eq(norm, ('pass', 'the', 'time'))
 
-            norm, info = await core.getPropNorm('test:comp', "1234:comedy", {'sepr': ':'})
+            norm, info = await prox.getPropNorm('test:comp', "1234:comedy", {'sepr': ':'})
             self.eq(norm, (1234, "comedy"))
 
             # getTypeNorm can norm types which aren't defined as forms/props
