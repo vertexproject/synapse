@@ -6194,6 +6194,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addType('_test:type', 'str', {}, {'interfaces': ['taxonomy']})
                 self.eq(['meta:taxonomy'], core.model.type('_test:type').info.get('interfaces'))
 
+                with self.raises(s_exc.NoSuchType):
+                    await core.addType('_test:newp', 'newp', {}, {})
+
+                with self.raises(s_exc.BadTypeDef):
+                    await core.addType('_test:newp', 'array', {'type': 'newp'}, {})
+
                 # manually edit in borked entries
                 core.exttypes.set('_type:bork', ('_type:bork', None, None, None))
                 core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))

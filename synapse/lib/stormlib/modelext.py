@@ -114,7 +114,7 @@ class LibModelExt(s_stormtypes.Lib):
                       {'name': 'typeinfo', 'type': 'dict', 'desc': 'A Synapse type info dictionary.'},
                   ),
                   'returns': {'type': 'null'}}},
-        {'name': 'delForm', 'desc': 'Remove an extended type definition from the model.',
+        {'name': 'delType', 'desc': 'Remove an extended type definition from the model.',
          'type': {'type': 'function', '_funcname': 'delType',
                   'args': (
                       {'name': 'typename', 'type': 'str', 'desc': 'The extended type to remove.'},

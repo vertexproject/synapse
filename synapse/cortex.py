@@ -3520,6 +3520,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.model.type(typename) is not None:
             raise s_exc.DupTypeName.init(typename)
 
+        if (base := self.model.type(basetype)) is None:
+            mesg = f'Specified base type {basetype} does not exist.'
+            raise s_exc.NoSuchType(mesg=mesg, name=basetype)
+
+        base.clone(typeopts)
+
         return await self._push('model:type:add', typename, basetype, typeopts, typeinfo)
 
     @s_nexus.Pusher.onPush('model:type:add')
