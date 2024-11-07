@@ -1539,13 +1539,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:relationship', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
-                        'display': {
-                            'columns': (
-                                {'type': 'prop', 'opts': {'name': 'source::name'}},
-                                {'type': 'prop', 'opts': {'name': 'type'}},
-                                {'type': 'prop', 'opts': {'name': 'target::name'}},
-                            ),
-                        },
                         'doc': 'A relationship between two service objects.'}),
 
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
