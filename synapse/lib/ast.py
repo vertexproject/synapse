@@ -1385,10 +1385,9 @@ class SwitchCase(Oper):
             count += 1
 
             varv = await self.kids[0].compute(runt, path)
-            varv = await s_stormtypes.tostr(varv)
 
             # TODO:  when we have var type system, do type-aware comparison
-            subq = self.cases.get(varv)
+            subq = self.cases.get(await s_stormtypes.tostr(varv))
             if subq is None and self.defcase is not None:
                 subq = self.defcase
 
@@ -1401,9 +1400,8 @@ class SwitchCase(Oper):
         if count == 0 and self.kids[0].isRuntSafe(runt):
             # no nodes and a runt safe value should execute
             varv = await self.kids[0].compute(runt, None)
-            varv = await s_stormtypes.tostr(varv)
 
-            subq = self.cases.get(varv)
+            subq = self.cases.get(await s_stormtypes.tostr(varv))
             if subq is None and self.defcase is not None:
                 subq = self.defcase
 
