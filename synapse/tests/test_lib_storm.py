@@ -3350,7 +3350,7 @@ class StormTest(s_t_utils.SynTest):
                 f'{{ [ inet:asn=$foo ] }}'
             )
             msgs = await core.stormlist(q)
-            self.stormIsInPrint("made asn node: Node{(('inet:asn', 4)", msgs)
+            self.stormIsInPrint("made asn node: 4", msgs)
             podes = [m[1] for m in msgs if m[0] == 'node']
             self.eq({('inet:asn', 3), ('inet:asn', 4), ('inet:asn', 5)},
                     {p[0] for p in podes})
