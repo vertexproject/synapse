@@ -243,7 +243,7 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:opening', ('guid', {}), {
                     'doc': 'A job/work opening within an org.'}),
-              
+
                 ('ou:job:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
                     'interfaces': ('meta:taxonomy',),
@@ -269,7 +269,7 @@ class OuModule(s_module.CoreModule):
                     'ex': 'fulltime.salary',
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of employment types.'}),
-              
+
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.'}),
 

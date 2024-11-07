@@ -1,5 +1,0 @@
----
-desc: Added ``:src:txfiles`` and ``:dst:txfiles`` to ``inet:flow`` to capture transferred files.
-prs: []
-type: model
-...

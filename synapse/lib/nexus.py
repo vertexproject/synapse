@@ -331,12 +331,7 @@ class NexsRoot(s_base.Base):
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
-            try:
-                await client.issue(nexsiden, event, args, kwargs, meta)
-            except Exception:
-                # If there is an exception, we should wait for our local one
-                pass
-
+            await client.issue(nexsiden, event, args, kwargs, meta)
             return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def getIssueProxy(self):
@@ -360,13 +355,13 @@ class NexsRoot(s_base.Base):
         '''
         if meta is None:
             meta = {}
-            
+
         if (nexus := self._nexskids.get(nexsiden)) is None:
             raise s_exc.NoSuchIden(mesg=f'No Nexus Pusher with iden {nexsiden}.', iden=nexsiden)
 
         if event not in nexus._nexshands:
             raise s_exc.NoSuchName(mesg=f'No Nexus handler for event {event}.', name=event)
-            
+
         if lock:
             async with self.cell.nexslock:
                 self.reqNotReadOnly()
