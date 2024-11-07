@@ -1,0 +1,6 @@
+---
+desc: Fix an issue where the Storm ``background`` and ``parallel`` commands could incorrectly
+  throw NoSuchVar exceptions when validating query arguments.
+prs: []
+type: bug
+...

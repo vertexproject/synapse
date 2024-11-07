@@ -1079,9 +1079,6 @@ class RiskModule(s_module.CoreModule):
                     ('provider:name', ('ou:name', {}), {
                         'doc': 'The name of the organization which experienced the outage event.'}),
 
-                    ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization reporting on the outage event.'}),
-
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the outage event.'}),
 

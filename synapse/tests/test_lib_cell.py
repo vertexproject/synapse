@@ -2993,7 +2993,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('barprof', valu)
 
                 msgs = await core.stormlist('cron.list')
-                self.stormIsInPrint('visi       8437c35a', msgs)
+                self.stormIsInPrint(' visi                      8437c35a.. ', msgs)
                 self.stormIsInPrint('[tel:mob:telem=*]', msgs)
 
                 msgs = await core.stormlist('dmon.list')
