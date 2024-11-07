@@ -9689,6 +9689,9 @@ async def tostr(valu, noneok=False):
         if isinstance(valu, bytes):
             return valu.decode('utf8', 'surrogatepass')
 
+        if isinstance(valu, s_node.Node):
+            return valu.repr()
+
         return str(valu)
     except Exception as e:
         mesg = f'Failed to make a string from {valu!r}.'
