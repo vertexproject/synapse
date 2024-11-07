@@ -3381,8 +3381,8 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ inet:service:relationship=*
-                    :source={ inet:serivce:account:user=visi }
-                    :target={ inet:serivce:account:user=visi }
+                    :source={ inet:service:account:user=visi }
+                    :target={ inet:service:account:user=visi }
                     :type=follows
                 ]
             ''')
@@ -3394,7 +3394,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ inet:service:emote=*
-                    :creator={ inet:serivce:account:user=visi }
+                    :creator={ inet:service:account:user=visi }
                     :about={[ it:dev:repo=* :name=vertex ]}
                     :text=":gothparrot:"
                 ]
@@ -3402,5 +3402,5 @@ class InetModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('about'))
             self.nn(nodes[0].get('creator'))
             self.eq(':gothparrot:', nodes[0].get('text'))
-            self.len(1, await core.nodes('inet:service:emote :created -> inet:service:account +:name=visi'))
             self.len(1, await core.nodes('inet:service:emote :about -> it:dev:repo +:name=vertex'))
+            self.len(1, await core.nodes('inet:service:emote :creator -> inet:service:account +:user=visi'))
