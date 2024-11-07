@@ -889,14 +889,12 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
 
     async def test_scrape_async(self):
+        ndefs = await s_t_utils.alist(s_scrape.scrapeAsync('log4j vuln CVE-2021-44228 is pervasive'))
+        self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
 
-        with mock.patch('synapse.lib.scrape.SCRAPE_SPAWN_LENGTH', 0):
-            ndefs = await s_t_utils.alist(s_scrape.scrapeAsync('log4j vuln CVE-2021-44228 is pervasive'))
-            self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
-
-            text = 'endashs are a vulnerability  CVE\u20132022\u20131138 '
-            infos = await s_t_utils.alist(s_scrape.contextScrapeAsync(text))
-            self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
+        text = 'endashs are a vulnerability  CVE\u20132022\u20131138 '
+        infos = await s_t_utils.alist(s_scrape.contextScrapeAsync(text))
+        self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)

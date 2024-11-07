@@ -1,0 +1,5 @@
+---
+desc: Update scrape APIs to use the forked process pool rather than spawned processes.
+prs: []
+type: feat
+...
