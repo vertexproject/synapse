@@ -425,13 +425,14 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
-    async def getPropNorm(self, prop, valu):
+    async def getPropNorm(self, prop, valu, typeopts=None):
         '''
         Get the normalized property value based on the Cortex data model.
 
         Args:
             prop (str): The property to normalize.
             valu: The value to normalize.
+            typeopts: A Synapse type opts dictionary used to further normalize the value.
 
         Returns:
             (tuple): A two item tuple, containing the normed value and the info dictionary.
@@ -442,13 +443,14 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getPropNorm(prop, valu)
 
-    async def getTypeNorm(self, name, valu):
+    async def getTypeNorm(self, name, valu, typeopts=None):
         '''
         Get the normalized type value based on the Cortex data model.
 
         Args:
             name (str): The type to normalize.
             valu: The value to normalize.
+            typeopts: A Synapse type opts dictionary used to further normalize the value.
 
         Returns:
             (tuple): A two item tuple, containing the normed value and the info dictionary.
@@ -457,7 +459,7 @@ class CoreApi(s_cell.CellApi):
             s_exc.NoSuchType: If the type does not exist.
             s_exc.BadTypeValu: If the value fails to normalize.
         '''
-        return await self.cell.getTypeNorm(name, valu)
+        return await self.cell.getTypeNorm(name, valu, typeopts=typeopts)
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         '''
@@ -6282,13 +6284,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.exception('mod load fail: %s' % (ctor,))
             return None
 
-    async def getPropNorm(self, prop, valu):
+    async def getPropNorm(self, prop, valu, typeopts=None):
         '''
         Get the normalized property value based on the Cortex data model.
 
         Args:
             prop (str): The property to normalize.
             valu: The value to normalize.
+            typeopts: A Synapse type opts dictionary used to further normalize the value.
 
         Returns:
             (tuple): A two item tuple, containing the normed value and the info dictionary.
@@ -6301,16 +6304,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pobj is None:
             raise s_exc.NoSuchProp(mesg=f'The property {prop} does not exist.',
                                    prop=prop)
-        norm, info = pobj.type.norm(valu)
+
+        tobj = pobj.type
+        if typeopts:
+            tobj = tobj.clone(typeopts)
+
+        norm, info = tobj.norm(valu)
         return norm, info
 
-    async def getTypeNorm(self, name, valu):
+    async def getTypeNorm(self, name, valu, typeopts=None):
         '''
         Get the normalized type value based on the Cortex data model.
 
         Args:
             name (str): The type to normalize.
             valu: The value to normalize.
+            typeopts: A Synapse type opts dictionary used to further normalize the value.
 
         Returns:
             (tuple): A two item tuple, containing the normed value and the info dictionary.
@@ -6323,6 +6332,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if tobj is None:
             raise s_exc.NoSuchType(mesg=f'The type {name} does not exist.',
                                    name=name)
+        if typeopts:
+            tobj = tobj.clone(typeopts)
+
         norm, info = tobj.norm(valu)
         return norm, info
 
