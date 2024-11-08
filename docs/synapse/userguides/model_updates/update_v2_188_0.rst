@@ -13,7 +13,7 @@ New Types
 *********
 
 ``inet:service:object``
-  An ndef type including all forms which implement the inet:service:object
+  An ndef type including all forms which implement the ``inet:service:object``
   interface.
 
 
