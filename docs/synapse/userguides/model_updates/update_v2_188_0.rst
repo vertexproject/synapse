@@ -102,10 +102,10 @@ Light Edges
 
 ``caused``
     When used with a ``risk:attack`` and an ``risk:outage`` node, the edge
-    indicates The attack caused the outage.
+    indicates the attack caused the outage.
 
     When used with a ``meta:event`` and an ``risk:outage`` node, the edge
-    indicates The event caused the outage.
+    indicates the event caused the outage.
 
 
 ``impacted``
@@ -113,10 +113,10 @@ Light Edges
     impacted the availability of the target node.
 
     When used with a ``risk:vuln`` and an ``ou:technique`` node, the edge
-    indicates The vulnerability uses the technique.
+    indicates the vulnerability uses the technique.
 
 
 ``uses``
     When used with a ``ou:technique`` and an ``risk:vuln`` node, the edge
-    indicates The technique uses the vulnerability.
+    indicates the technique uses the vulnerability.
 
