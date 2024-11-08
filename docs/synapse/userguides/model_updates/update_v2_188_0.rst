@@ -109,7 +109,7 @@ Light Edges
 
 
 ``impacted``
-    When used with a ``risk:outage`` node, the edge indicates The outage event
+    When used with a ``risk:outage`` node, the edge indicates the outage event
     impacted the availability of the target node.
 
     When used with a ``risk:vuln`` and an ``ou:technique`` node, the edge
