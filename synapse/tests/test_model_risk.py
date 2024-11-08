@@ -643,3 +643,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('version:min'))
             self.nn(nodes[0].get('version:max'))
             self.len(2, await core.nodes('risk:vuln:name=woot -> risk:vuln:soft:range -> it:prod:softver'))
+
+    async def test_model_risk_vuln_technique(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ risk:vuln=* :name=foo <(uses)+ { [ ou:technique=* :name=bar ] } ]
+            ''')
+            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- ou:technique:name=bar'))
