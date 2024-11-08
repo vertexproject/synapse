@@ -5801,6 +5801,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             # but getTypeNorm won't handle that
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
 
+            # specify typeopts to getTypeNorm/getPropNorm
+            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), {'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
+            self.eq(norm, ('pass', 'the', 'time'))
+
+            norm, info = await prox.getPropNorm('test:comp', "1234:comedy", {'sepr': ':'})
+            self.eq(norm, (1234, "comedy"))
+
             # getTypeNorm can norm types which aren't defined as forms/props
             norm, info = await core.getTypeNorm('test:lower', 'ASDF')
             self.eq(norm, 'asdf')
