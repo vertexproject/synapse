@@ -1103,7 +1103,7 @@ class Model:
                 if item == '$self':
                     return form.name
 
-                return item.format(**template)
+                return s_common.format(item, **template)
 
             if isinstance(item, dict):
                 return {convert(k): convert(v) for (k, v) in item.items()}

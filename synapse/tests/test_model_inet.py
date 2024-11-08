@@ -3068,14 +3068,17 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:service:session=*
                 :creator=$blckiden
                 :period=(202405160900, 202405161055)
+                :http:session=*
             ]
             '''
             opts = {'vars': {'blckiden': blckacct.ndef[1]}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
+            self.nn(nodes[0].get('http:session'))
             self.eq(nodes[0].get('creator'), blckacct.ndef[1])
             self.eq(nodes[0].get('period'), (1715850000000, 1715856900000))
             blcksess = nodes[0]
+            self.len(1, await core.nodes('inet:service:session -> inet:http:session'))
 
             q = '''
             [ inet:service:login=*

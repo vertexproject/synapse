@@ -1530,7 +1530,12 @@ class InetModule(s_module.CoreModule):
                         'doc': 'An object status enumeration.'}),
 
                     ('inet:service:account', ('guid', {}), {
-                        'interfaces': ('inet:service:object',),
+                        'interfaces': ('inet:service:subscriber',),
+                        'template': {
+                            'service:base': 'account',
+                            'service:object': 'account',
+                            'service:subscriber': 'account',
+                        },
                         'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
                     ('inet:service:relationship:type:taxonomy', ('taxonomy', {}), {
@@ -1539,6 +1544,10 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:relationship', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'relationship',
+                            'service:object': 'relationship',
+                        },
                         'doc': 'A relationship between two service objects.'}),
 
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
@@ -1547,10 +1556,18 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:permission', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'permission',
+                            'service:object': 'permission',
+                        },
                         'doc': 'A permission which may be granted to a service account or role.'}),
 
                     ('inet:service:rule', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'rule',
+                            'service:object': 'rule',
+                        },
                         'doc': 'A rule which grants or denies a permission to a service account or role.'}),
 
                     ('inet:service:login', ('guid', {}), {
@@ -1563,26 +1580,50 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:session', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'session',
+                            'service:object': 'session',
+                        },
                         'doc': 'An authenticated session.'}),
 
                     ('inet:service:group', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'group',
+                            'service:object': 'group',
+                        },
                         'doc': 'A group or role which contains member accounts.'}),
 
                     ('inet:service:group:member', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'group membership',
+                            'service:object': 'group membership',
+                        },
                         'doc': 'Represents a service account being a member of a group.'}),
 
                     ('inet:service:channel', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'channel',
+                            'service:object': 'channel',
+                        },
                         'doc': 'A channel used to distribute messages.'}),
 
                     ('inet:service:thread', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'thread',
+                            'service:object': 'thread',
+                        },
                         'doc': 'A message thread.'}),
 
                     ('inet:service:channel:member', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'channel membership',
+                            'service:object': 'channel membership',
+                        },
                         'doc': 'Represents a service account being a member of a channel.'}),
 
                     ('inet:service:message', ('guid', {}), {
@@ -1601,11 +1642,35 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:emote', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'emote',
+                            'service:object': 'emote',
+                        },
                         'doc': 'An emote or reaction by an account.'}),
 
                     ('inet:service:access', ('guid', {}), {
                         'interfaces': ('inet:service:action',),
                         'doc': 'Represents a user access request to a service resource.'}),
+
+                    ('inet:service:tenant', ('guid', {}), {
+                        'interfaces': ('inet:service:subscriber',),
+                        'template': {
+                            'service:base': 'tenant',
+                            'service:object': 'tenant',
+                            'service:subscriber': 'tenant',
+                        },
+                        'doc': 'A tenant which groups accounts and instances.'}),
+
+                    ('inet:service:subscription', ('guid', {}), {
+                        'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'subscription',
+                            'service:object': 'subscription',
+                        },
+                        'doc': 'A subscription to a service platform or instance.'}),
+
+                    ('inet:service:subscriber', ('ndef', {'interface': 'inet:service:subscriber'}), {
+                        'doc': 'A node which may subscribe to a service subscription.'}),
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
@@ -1613,14 +1678,26 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:resource', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'resource',
+                            'service:object': 'resource',
+                        },
                         'doc': 'A generic resource provided by the service architecture.'}),
 
                     ('inet:service:bucket', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'bucket',
+                            'service:object': 'bucket',
+                        },
                         'doc': 'A file/blob storage object within a service architecture.'}),
 
                     ('inet:service:bucket:item', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'bucket item',
+                            'service:object': 'bucket item',
+                        },
                         'doc': 'An individual file stored within a bucket.'}),
 
                     ('inet:tls:handshake', ('guid', {}), {
@@ -1676,16 +1753,19 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:base', {
                         'doc': 'Properties common to most forms within a service platform.',
+                        'template': {
+                            'servive:base': 'node',
+                        },
                         'props': (
 
                             ('id', ('str', {'strip': True}), {
-                                'doc': 'A platform specific ID.'}),
+                                'doc': 'A platform specific ID which identifies the {service:base}.'}),
 
                             ('platform', ('inet:service:platform', {}), {
-                                'doc': 'The platform which defines the node.'}),
+                                'doc': 'The platform which defines the {service:base}.'}),
 
                             ('instance', ('inet:service:instance', {}), {
-                                'doc': 'The platform instance which defines the node.'}),
+                                'doc': 'The platform instance which defines the {service:base}.'}),
                         ),
                     }),
 
@@ -1693,20 +1773,37 @@ class InetModule(s_module.CoreModule):
 
                         'doc': 'Properties common to objects within a service platform.',
                         'interfaces': ('inet:service:base',),
+                        'template': {
+                            'service:object': 'object',
+                        },
                         'props': (
 
                             ('status', ('inet:service:object:status', {}), {
-                                'doc': 'The status of this object.'}),
+                                'doc': 'The status of the {service:object}.'}),
 
                             ('period', ('ival', {}), {
-                                'doc': 'The period when the object existed.'}),
+                                'doc': 'The period when the {service:object} existed.'}),
 
                             ('creator', ('inet:service:account', {}), {
-                                'doc': 'The service account which created the object.'}),
+                                'doc': 'The service account which created the {service:object}.'}),
 
                             ('remover', ('inet:service:account', {}), {
-                                'doc': 'The service account which removed or decommissioned the object.'}),
+                                'doc': 'The service account which removed or decommissioned the {service:object}.'}),
 
+                        ),
+                    }),
+
+                    ('inet:service:subscriber', {
+                        'doc': 'Properties common to the nodes which subscribe to services.',
+                        'interfaces': ('inet:service:object',),
+                        'template': {
+                            'service:base': 'subscriber',
+                            'service:object': 'subscriber',
+                            'service:subscriber': 'subscriber',
+                        },
+                        'props': (
+                            ('profile', ('ps:contact', {}), {
+                                'doc': 'The primary contact information for the {service:subscriber}.'}),
                         ),
                     }),
 
@@ -3590,12 +3687,12 @@ class InetModule(s_module.CoreModule):
 
                         ('owner', ('inet:service:account', {}), {
                             'doc': 'The service account which owns the instance.'}),
+
+                        ('tenant', ('inet:service:tenant', {}), {
+                            'doc': 'The tenant which contains the instance.'}),
                     )),
 
                     ('inet:service:account', {}, (
-
-                        ('id', ('str', {'strip': True}), {
-                            'doc': 'A platform specific ID used to identify the account.'}),
 
                         ('user', ('inet:user', {}), {
                             'doc': 'The current user name of the account.'}),
@@ -3603,8 +3700,8 @@ class InetModule(s_module.CoreModule):
                         ('email', ('inet:email', {}), {
                             'doc': 'The current email address associated with the account.'}),
 
-                        ('profile', ('ps:contact', {}), {
-                            'doc': 'Current profile details associated with the account.'}),
+                        ('tenant', ('inet:service:tenant', {}), {
+                            'doc': 'The tenant which contains the account.'}),
                     )),
 
                     ('inet:service:relationship:type:taxonomy', {}, ()),
@@ -3621,10 +3718,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The type of relationship between the source and the target.'}),
                     )),
 
-                    ('inet:service:group', {}, ( # inet:service:object
-
-                        ('id', ('str', {'strip': True}), {
-                            'doc': 'A platform specific ID used to identify the group.'}),
+                    ('inet:service:group', {}, (
 
                         ('name', ('inet:group', {}), {
                             'doc': 'The name of the group on this platform.'}),
@@ -3682,6 +3776,9 @@ class InetModule(s_module.CoreModule):
 
                         ('period', ('ival', {}), {
                             'doc': 'The period where the session was valid.'}),
+
+                        ('http:session', ('inet:http:session', {}), {
+                            'doc': 'The HTTP session associated with the service session.'}),
                     )),
 
                     ('inet:service:login', {}, (
@@ -3863,6 +3960,15 @@ class InetModule(s_module.CoreModule):
 
                         ('type', ('int', {'enums': svcaccesstypes}), {
                             'doc': 'The type of access requested.'}),
+                    )),
+                    ('inet:service:tenant', {}, ()),
+                    ('inet:service:subscription', {}, (
+
+                        ('pay:instrument', ('econ:pay:instrument', {}), {
+                            'doc': 'The primary payment instrument used to pay for the subscription.'}),
+
+                        ('subscriber', ('inet:service:subscriber', {}), {
+                            'doc': 'The subscriber who owns the subscription.'}),
                     )),
                 ),
             }),
