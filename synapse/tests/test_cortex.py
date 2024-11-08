@@ -6198,7 +6198,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DupEdgeType):
                     await core.addEdge(('test:int', '_goes', None), {})
 
+                await core.addType('_test:type', 'str', {}, {'interfaces': ['taxonomy']})
+                self.eq(['meta:taxonomy'], core.model.type('_test:type').info.get('interfaces'))
+
+                with self.raises(s_exc.NoSuchType):
+                    await core.addType('_test:newp', 'newp', {}, {})
+
+                with self.raises(s_exc.BadTypeDef):
+                    await core.addType('_test:newp', 'array', {'type': 'newp'}, {})
+
                 # manually edit in borked entries
+                core.exttypes.set('_type:bork', ('_type:bork', None, None, None))
                 core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
                 core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
@@ -6226,6 +6236,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('._woot [ -._woot ]')
 
+                self.nn(core.model.type('_test:type'))
                 self.nn(core.model.prop('._woot'))
                 self.nn(core.model.prop('inet:ipv4._woot'))
                 self.nn(core.model.form('inet:ipv4').prop('._woot'))
@@ -6262,6 +6273,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchEdge):
                     await core.delEdge(('newp', 'newp', 'newp'))
+
+                with self.raises(s_exc.NoSuchType):
+                    await core.delType('_newp')
 
                 await core._delEdge(('newp', 'newp', 'newp'))
 
