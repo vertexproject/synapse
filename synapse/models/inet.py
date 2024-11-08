@@ -1798,18 +1798,17 @@ class InetModule(s_module.CoreModule):
                         ('net', ('inet:net', {}), {
                             'ro': True,
                             'doc': 'The IP address range assigned to the ASN.',
-                            'prevnames': ('net4', 'net6')
-                        }),
+                            'prevnames': ('net4', 'net6')}),
+
                         ('net:min', ('inet:ip', {}), {
                             'ro': True,
                             'doc': 'The first IP in the range assigned to the ASN.',
-                            'prevnames': ('net4:min', 'net6:min')
-                        }),
+                            'prevnames': ('net4:min', 'net6:min')}),
+
                         ('net:max', ('inet:ip', {}), {
                             'ro': True,
                             'doc': 'The last IP in the range assigned to the ASN.',
-                            'prevnames': ('net4:max', 'net6:max')
-                        }),
+                            'prevnames': ('net4:max', 'net6:max')}),
                     )),
 
                     ('inet:cidr', {
@@ -1837,8 +1836,8 @@ class InetModule(s_module.CoreModule):
                         ('ip', ('inet:ip', {}), {
                             'ro': True,
                             'doc': 'The IP of the client.',
-                            'prevnames': ('ipv4', 'ipv6')
-                        }),
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('host', ('it:host', {}), {
                             'ro': True,
                             'doc': 'The it:host node for the client.'
@@ -2230,8 +2229,8 @@ class InetModule(s_module.CoreModule):
                         ('ip', ('inet:ip', {}), {
                             'ro': True,
                             'doc': 'The IP of the server.',
-                            'prevnames': ('ipv4', 'ipv6')
-                        }),
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('host', ('it:host', {}), {
                             'ro': True,
                             'doc': 'The it:host node for the server.'

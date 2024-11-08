@@ -179,6 +179,7 @@ class DnsModule(s_module.CoreModule):
                     ('ip', ('inet:ip', {}), {'ro': True,
                         'doc': 'The IP address queried for its DNS PTR record.',
                         'prevnames': ('ipv4', 'ipv6')}),
+
                     ('fqdn', ('inet:fqdn', {}), {'ro': True,
                          'doc': 'The domain returned in the PTR record.'}),
                 )),
