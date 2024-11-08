@@ -1,0 +1,5 @@
+---
+desc: Add a ``uses`` light edge between ``ou:technique`` and ``risk:vuln`` forms.
+prs: []
+type: model
+...
