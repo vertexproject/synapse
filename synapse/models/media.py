@@ -83,6 +83,7 @@ class MediaModule(s_module.CoreModule):
             ('media:news:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
                 'doc': 'A hierarchical taxonomy of news types.',
+                'prevnames': ('media:news:taxonomy',)
             }),
 
             ('media:topic', ('str', {'lower': True, 'onespace': True}), {

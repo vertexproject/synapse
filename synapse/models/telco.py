@@ -361,7 +361,8 @@ class TelcoModule(s_module.CoreModule):
 
                     # inet protocol addresses
                     ('mac', ('inet:mac', {}), {}),
-                    ('ip', ('inet:ip', {}), {}),
+                    ('ip', ('inet:ip', {}), {
+                        'prevnames': ('ipv4', 'ipv6')}),
 
                     ('wifi', ('inet:wifi:ap', {}), {}),
                     ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
