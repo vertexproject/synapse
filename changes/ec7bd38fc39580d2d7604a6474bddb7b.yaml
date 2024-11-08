@@ -1,6 +1,0 @@
----
-desc: Fix an issue where extended model types could be deleted while still in use
-  by other extended model types.
-prs: []
-type: bug
-...

@@ -1,6 +1,0 @@
----
-desc: 'Fixed an issue where Nexus events from updated mirrors pushed to a leader on
-  an older version which did not yet support those events were not handled correctly.'
-prs: []
-type: bug
-...
