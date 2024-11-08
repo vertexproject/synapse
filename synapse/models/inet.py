@@ -1739,7 +1739,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'An array of email headers from the message.'}),
 
                         ('received:from:ip', ('inet:ip', {}), {
-                            'doc': 'The sending SMTP server IP, potentially from the Received: header.'}),
+                            'doc': 'The sending SMTP server IP, potentially from the Received: header.',
+                            'prevnames': ('received:from:ipv4', 'received:from:ipv6')}),
 
                         ('received:from:fqdn', ('inet:fqdn', {}), {
                             'doc': 'The sending server FQDN, potentially from the Received: header.'}),
@@ -1787,26 +1788,33 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:asnet', {}, (
+                    ('inet:asnet', {
+                        'prevnames': ('inet:asnet4', 'inet:asnet6')}, (
+
                         ('asn', ('inet:asn', {}), {
                             'ro': True,
                             'doc': 'The Autonomous System Number (ASN) of the netblock.'
                         }),
                         ('net', ('inet:net', {}), {
                             'ro': True,
-                            'doc': 'The IP address range assigned to the ASN.'
+                            'doc': 'The IP address range assigned to the ASN.',
+                            'prevnames': ('net4', 'net6')
                         }),
                         ('net:min', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The first IP in the range assigned to the ASN.'
+                            'doc': 'The first IP in the range assigned to the ASN.',
+                            'prevnames': ('net4:min', 'net6:min')
                         }),
                         ('net:max', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The last IP in the range assigned to the ASN.'
+                            'doc': 'The last IP in the range assigned to the ASN.',
+                            'prevnames': ('net4:max', 'net6:max')
                         }),
                     )),
 
-                    ('inet:cidr', {}, (
+                    ('inet:cidr', {
+                        'prevnames': ('inet:cidr4', 'inet:cidr6')}, (
+
                         ('broadcast', ('inet:ip', {}), {
                             'ro': True,
                             'doc': 'The broadcast IP address from the CIDR notation.'
@@ -1828,7 +1836,8 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('ip', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The IP of the client.'
+                            'doc': 'The IP of the client.',
+                            'prevnames': ('ipv4', 'ipv6')
                         }),
                         ('host', ('it:host', {}), {
                             'ro': True,
@@ -2129,8 +2138,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The ethernet (MAC) address of the interface.'
                         }),
                         ('ip', ('inet:ip', {}), {
-                            'doc': 'The IP address of the interface.'
-                        }),
+                            'doc': 'The IP address of the interface.',
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('phone', ('tel:phone', {}), {
                             'doc': 'The telephone number of the interface.'
                         }),
@@ -2151,7 +2161,8 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:ip', {}, (
+                    ('inet:ip', {
+                        'prevnames': ('inet:ipv4', 'inet:ipv6')}, (
 
                         ('asn', ('inet:asn', {}), {
                             'doc': 'The ASN to which the IP address is currently assigned.'}),
@@ -2218,7 +2229,8 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('ip', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The IP of the server.'
+                            'doc': 'The IP of the server.',
+                            'prevnames': ('ipv4', 'ipv6')
                         }),
                         ('host', ('it:host', {}), {
                             'ro': True,
@@ -2273,8 +2285,9 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('ip', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The IP address used in the URL (e.g., http://1.2.3.4/page.html).'
-                        }),
+                            'doc': 'The IP address used in the URL (e.g., http://1.2.3.4/page.html).',
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('passwd', ('inet:passwd', {}), {
                             'ro': True,
                             'doc': 'The optional password used to access the URL.'
@@ -3035,8 +3048,9 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'
                         }),
                         ('ip', ('inet:ip', {}), {
-                            'doc': 'The IP address queried.'
-                        }),
+                            'doc': 'The IP address queried.',
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('success', ('bool', {}), {
                             'doc': 'Whether the host returned a valid response for the query.'
                         }),
@@ -3047,14 +3061,17 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:whois:iprec', {}, (
                         ('net', ('inet:net', {}), {
-                            'doc': 'The IP address range assigned.'
-                        }),
+                            'doc': 'The IP address range assigned.',
+                            'prevnames': ('net4', 'net6')}),
+
                         ('net:min', ('inet:ip', {}), {
-                            'doc': 'The first IP in the range assigned.'
-                        }),
+                            'doc': 'The first IP in the range assigned.',
+                            'prevnames': ('net4:min', 'net6:min')}),
+
                         ('net:max', ('inet:ip', {}), {
-                            'doc': 'The last IP in the range assigned.'
-                        }),
+                            'doc': 'The last IP in the range assigned.',
+                            'prevnames': ('net4:max', 'net6:max')}),
+
                         ('asof', ('time', {}), {
                             'doc': 'The date of the record.'
                         }),

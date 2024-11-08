@@ -47,11 +47,17 @@ class BizModule(s_module.CoreModule):
                 }),
             ),
             'forms': (
-                ('biz:deal:type:taxonomy', {}, ()),
-                ('biz:product:type:taxonomy', {}, ()),
+                ('biz:deal:type:taxonomy', {
+                    'prevnames': ('biz:dealtype',)}, ()),
+
+                ('biz:product:type:taxonomy', {
+                    'prevnames': ('biz:prodtype',)}, ()),
+
+                ('biz:deal:status:taxonomy', {
+                    'prevnames': ('biz:dealstatus',)}, ()),
+
                 ('biz:service:type:taxonomy', {}, ()),
-                ('biz:deal:type:taxonomy', {}, ()),
-                ('biz:deal:status:taxonomy', {}, ()),
+
                 ('biz:rfp', {}, (
                     ('ext:id', ('str', {}), {
                         'doc': 'An externally specified identifier for the RFP.',

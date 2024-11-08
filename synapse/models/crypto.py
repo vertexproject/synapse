@@ -548,6 +548,7 @@ class CryptoModule(s_module.CoreModule):
 
                     ('identities:ips', ('array', {'type': 'inet:ip', 'uniq': True, 'sorted': True}), {
                         'doc': 'The fused list of IP addresses identified by the cert CN and SANs.',
+                        'prevnames': ['identities:ipv4s', 'identities:ipv6s'],
                     }),
 
                     ('identities:urls', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
