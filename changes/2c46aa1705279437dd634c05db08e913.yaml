@@ -1,6 +1,0 @@
----
-desc: Allow optionally specifying typeopts to the ``Cortex.getPropNorm`` and ``Cortex.getTypeNorm``
-  APIs.
-prs: []
-type: feat
-...

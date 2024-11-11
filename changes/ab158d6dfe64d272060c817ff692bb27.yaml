@@ -1,6 +1,0 @@
----
-desc: Add ``$lib.model.ext.addType()`` and ``$lib.model.ext.delType()`` Storm APIs for managing
-  extended model types.
-prs: []
-type: feat
-...

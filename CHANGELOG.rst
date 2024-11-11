@@ -6,6 +6,68 @@
 Synapse Changelog
 *****************
 
+v2.188.0 - 2024-11-08
+=====================
+
+Model Changes
+-------------
+- Added ``meta:aggregate`` to represent aggregate counts.
+  (`#3968 <https://github.com/vertexproject/synapse/pull/3968>`_)
+- Added ``risk:outage`` to represent outage events.
+  (`#3968 <https://github.com/vertexproject/synapse/pull/3968>`_)
+- Added ``:reporter`` and ``:reporter:name`` to the ``ou:industry`` form to
+  allow reporter specific industries.
+  (`#3968 <https://github.com/vertexproject/synapse/pull/3968>`_)
+- Added ``file:attachment`` to unify file attachment types.
+  (`#3969 <https://github.com/vertexproject/synapse/pull/3969>`_)
+- Added ``ou:candidate`` to track job applications and candidates.
+  (`#3969 <https://github.com/vertexproject/synapse/pull/3969>`_)
+- Added ``:src:txfiles`` and ``:dst:txfiles`` to ``inet:flow`` to capture
+  transferred files.
+  (`#3969 <https://github.com/vertexproject/synapse/pull/3969>`_)
+- Added ``inet:service:emote`` to track account emotes.
+  (`#3988 <https://github.com/vertexproject/synapse/pull/3988>`_)
+- Added ``inet:service:relationship`` to track service object relationships.
+  (`#3988 <https://github.com/vertexproject/synapse/pull/3988>`_)
+- Add a ``uses`` light edge between ``ou:technique`` and ``risk:vuln`` forms.
+  (`#3994 <https://github.com/vertexproject/synapse/pull/3994>`_)
+- See :ref:`userguide_model_v2_188_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Add support for `ndef` types in embed property definitions.
+  (`#3979 <https://github.com/vertexproject/synapse/pull/3979>`_)
+- Add ``children()`` method on Storm ``view`` objects.
+  (`#3984 <https://github.com/vertexproject/synapse/pull/3984>`_)
+- Update the ``cron.list`` command to use a tabular printer for table
+  generation.
+  (`#3986 <https://github.com/vertexproject/synapse/pull/3986>`_)
+- Add ``$lib.model.ext.addType()`` and ``$lib.model.ext.delType()`` Storm APIs
+  for managing extended model types.
+  (`#3989 <https://github.com/vertexproject/synapse/pull/3989>`_)
+- Allow optionally specifying typeopts to the ``Cortex.getPropNorm`` and
+  ``Cortex.getTypeNorm`` APIs.
+  (`#3992 <https://github.com/vertexproject/synapse/pull/3992>`_)
+- Update async scrape APIs to use the forked process pool rather than spawned
+  processes.
+  (`#3993 <https://github.com/vertexproject/synapse/pull/3993>`_)
+
+Bugfixes
+--------
+- Fixed an issue where creating a cron job with a stable iden could overlap
+  with existing authgates.
+  (`#3981 <https://github.com/vertexproject/synapse/pull/3981>`_)
+- Fixed an issue where Nexus events from updated mirrors pushed to a leader on
+  an older version which did not yet support those events were not handled
+  correctly.
+  (`#3985 <https://github.com/vertexproject/synapse/pull/3985>`_)
+- Fix an issue where extended model types could be deleted while still in use
+  by other extended model types.
+  (`#3989 <https://github.com/vertexproject/synapse/pull/3989>`_)
+- Fix an issue where the Storm ``background`` and ``parallel`` commands could
+  incorrectly throw NoSuchVar exceptions when validating query arguments.
+  (`#3991 <https://github.com/vertexproject/synapse/pull/3991>`_)
+
 v2.187.0 - 2024-11-01
 =====================
 

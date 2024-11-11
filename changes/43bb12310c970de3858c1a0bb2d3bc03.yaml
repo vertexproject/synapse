@@ -1,5 +1,0 @@
----
-desc: Added ``inet:service:relationship`` to track service object relationships.
-prs: []
-type: model
-...
