@@ -122,8 +122,6 @@ class PsModelTest(s_t_utils.SynTest):
                 'place:name': 'The Shire',
                 'orgname': 'Stark Industries, INC',
                 'user': 'ironman',
-                'web:acct': ('twitter.com', 'ironman'),
-                'web:group': ('twitter.com', 'avengers'),
                 'dob': '1976-12-17',
                 'dod': '20501217',
                 'birth:place': '*',
@@ -153,7 +151,6 @@ class PsModelTest(s_t_utils.SynTest):
                     :place=$p.place :place:name=$p."place:name" :name=$p.name
                     :title=$p.title :orgname=$p.orgname :user=$p.user
                     :titles=('hehe', 'hehe', 'haha')
-                    :web:acct=$p."web:acct" :web:group=$p."web:group"
                     :dob=$p.dob :dod=$p.dod :url=$p.url
                     :email=$p.email :email:work=$p."email:work"
                     :phone=$p.phone :phone:fax=$p."phone:fax" :phone:work=$p."phone:work"
@@ -181,8 +178,6 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('titles'), ('haha', 'hehe'))
             self.eq(node.get('orgname'), 'stark industries, inc')
             self.eq(node.get('user'), 'ironman')
-            self.eq(node.get('web:acct'), ('twitter.com', 'ironman'))
-            self.eq(node.get('web:group'), ('twitter.com', 'avengers'))
             self.eq(node.get('dob'), 219628800000)
             self.eq(node.get('dod'), 2554848000000)
             self.eq(node.get('url'), 'https://starkindustries.com/')
@@ -275,13 +270,11 @@ class PsModelTest(s_t_utils.SynTest):
                     :contacts=(*,*)
                     :source:host=*
                     :source:file=*
-                    :source:acct=(twitter.com, invisig0th)
             ]''')
             self.len(1, nodes)
             self.len(1, await core.nodes('ps:contactlist -> it:host'))
             self.len(1, await core.nodes('ps:contactlist -> file:bytes'))
             self.len(2, await core.nodes('ps:contactlist -> ps:contact'))
-            self.len(1, await core.nodes('ps:contactlist -> inet:web:acct'))
 
             nodes = await core.nodes('''[
                 ps:workhist = *
