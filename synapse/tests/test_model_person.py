@@ -143,7 +143,6 @@ class PsModelTest(s_t_utils.SynTest):
                 'names': ('vi', 'si'),
                 'orgnames': ('vertex', 'project'),
                 'emails': ('visi@vertex.link', 'v@vtx.lk'),
-                'web:accts': (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')),
                 'id:numbers': (('*', 'asdf'), ('*', 'qwer')),
                 'users': ('visi', 'invisigoth'),
                 'crypto:address': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
@@ -159,7 +158,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :email=$p.email :email:work=$p."email:work"
                     :phone=$p.phone :phone:fax=$p."phone:fax" :phone:work=$p."phone:work"
                     :address=$p.address :imid=$p.imid :names=$p.names :orgnames=$p.orgnames
-                    :emails=$p.emails :web:accts=$p."web:accts" :users=$p.users
+                    :emails=$p.emails :users=$p.users
                     :crypto:address=$p."crypto:address" :id:numbers=$p."id:numbers"
                     :birth:place=$p."birth:place" :birth:place:loc=$p."birth:place:loc"
                     :birth:place:name=$p."birth:place:name"
@@ -199,7 +198,6 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('names'), ('si', 'vi'))
             self.eq(node.get('orgnames'), ('project', 'vertex'))
             self.eq(node.get('emails'), ('v@vtx.lk', 'visi@vertex.link'))
-            self.eq(node.get('web:accts'), (('twitter.com', 'invisig0th'), ('twitter.com', 'vtxproject')))
             self.eq(node.get('users'), ('invisigoth', 'visi'))
             self.eq(node.get('crypto:address'), ('btc', '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.len(2, node.get('id:numbers'))

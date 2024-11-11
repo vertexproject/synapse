@@ -2749,14 +2749,14 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:ip.created +:asn::name'))
 
-            await core.nodes('[ ps:contact=* :web:acct=vertex.link/pivuser ]')
-            nodes = await core.nodes('ps:contact +:web:acct::site::iszone=1')
+            await core.nodes('[ ps:contact=* :org={[ou:org=* :url=http://vertex.link]} ]')
+            nodes = await core.nodes('ps:contact +:org::url::fqdn::iszone=1')
             self.len(1, nodes)
 
-            nodes = await core.nodes('ps:contact +:web:acct::site::iszone')
+            nodes = await core.nodes('ps:contact +:org::url::fqdn::iszone')
             self.len(1, nodes)
 
-            nodes = await core.nodes('ps:contact +:web:acct::site::notaprop')
+            nodes = await core.nodes('ps:contact +:org::url::fqdn::notaprop')
             self.len(0, nodes)
 
             # test pivprop with an extmodel prop
@@ -2817,19 +2817,19 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 nodes = await core.nodes('ou:org:hq::email::newp=a')
 
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, cool) :signup:client=tcp://1.2.3.4]} ]}]')
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, super) :signup:client=tcp://5.6.7.8]} ]}]')
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :web:acct={[inet:web:acct=(foo.com, newp) :signup:client=tcp://1.2.3.5]} ]}]')
+            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :src=tcp://1.2.3.4]} ]}]')
+            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :src=tcp://5.6.7.8]} ]}]')
+            await core.nodes('[it:exec:url=* :http:request={[inet:http:request=* :flow={[inet:flow=* :src=tcp://1.2.3.5]} ]}]')
 
-            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client*ip*in=(1.2.3.4, 5.6.7.8)'))
-            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client::ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:url:http:request::flow::src*ip*in=(1.2.3.4, 5.6.7.8)'))
+            self.len(2, await core.nodes('it:exec:url:http:request::flow::src::ip*in=(1.2.3.4, 5.6.7.8)'))
 
             await core.nodes('inet:ip=1.2.3.4 [:asn=5]')
             await core.nodes('inet:ip=1.2.3.5 [:asn=6]')
             await core.nodes('inet:ip=5.6.7.8 [:asn=7]')
 
-            self.len(1, await core.nodes('ou:org:hq::web:acct::signup:client::ip::asn>6'))
-            self.len(2, await core.nodes('ou:org:hq::web:acct::signup:client::ip::asn*in=(5,6)'))
+            self.len(1, await core.nodes('it:exec:url:http:request::flow::src::ip::asn>6'))
+            self.len(2, await core.nodes('it:exec:url:http:request::flow::src::ip::asn*in=(5,6)'))
 
             await core.nodes('[ ou:award=* :org={[ ou:org=* :name=foo ]}]')
             await core.nodes('[ ou:award=* :org={[ ou:org=* :names=(foo, bar) ]}]')

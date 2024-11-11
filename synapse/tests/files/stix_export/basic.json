@@ -132,23 +132,19 @@
       "account_created": "2010-01-01T00:00:00.000Z",
       "account_first_login": "2021-01-01T00:00:00.000Z",
       "account_last_login": "2010-01-01T00:00:00.000Z",
-      "account_login": "invisig0th",
+      "account_login": "visi stark",
       "account_type": "twitter",
       "credential": "secret",
-      "display_name": "visi stark",
       "extensions": {
         "extension-definition--bdb6d88f-8c26-4d0b-b218-58925aaa5be0": {
           "extension_type": "property-extension",
           "synapse_ndef": [
-            "inet:web:acct",
-            [
-              "twitter.com",
-              "invisig0th"
-            ]
+            "inet:service:account",
+            "1a72816a63072589e6f22a1939fc0210"
           ]
         }
       },
-      "id": "user-account--5aee248b-8b9d-5ef3-ab46-fc82de4785d0",
+      "id": "user-account--fa2c6c5d-a425-5f98-bd31-0e556e5198d4",
       "spec_version": "2.1",
       "type": "user-account",
       "user_id": "invisig0th"
