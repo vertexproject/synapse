@@ -1754,7 +1754,7 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:base', {
                         'doc': 'Properties common to most forms within a service platform.',
                         'template': {
-                            'servive:base': 'node',
+                            'service:base': 'node',
                         },
                         'props': (
 
