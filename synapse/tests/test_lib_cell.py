@@ -385,7 +385,7 @@ class CellTest(s_t_utils.SynTest):
                 data = {'type': 'woot', 'size': 20, 'stuff': 12, 'woot': 'woot'}
                 # explicitly clear out the cache JsValidators, otherwise we get the cached, pre-msgpack
                 # version of the validator, which will be correct and skip the point of this test.
-                s_config._JsValidators = {}
+                s_config._JsValidators.clear()
                 cell.drive.reqValidData('woot', data)
 
     async def test_cell_auth(self):
