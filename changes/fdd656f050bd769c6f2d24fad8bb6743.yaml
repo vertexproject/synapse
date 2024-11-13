@@ -1,0 +1,6 @@
+---
+desc: Fix an issue in the type schema enforcement of a Cell's Drive where a list of
+  types for a field would cause schema checking to always fail after a Cell reboot.
+prs: []
+type: bug
+...
