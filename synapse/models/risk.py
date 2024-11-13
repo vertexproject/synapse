@@ -206,6 +206,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster uses the vulnerability.'}),
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
+                (('ou:technique', 'uses', 'risk:vuln'), {
+                    'doc': 'The technique uses the vulnerability.'}),
 
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),

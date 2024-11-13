@@ -3407,3 +3407,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(':gothparrot:', nodes[0].get('text'))
             self.len(1, await core.nodes('inet:service:emote :about -> it:dev:repo +:name=vertex'))
             self.len(1, await core.nodes('inet:service:emote :creator -> inet:service:account +:user=visi'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:service:relationship=* :source={[it:dev:str=foo]} ]')

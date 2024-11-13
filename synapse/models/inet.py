@@ -1369,7 +1369,7 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A username string.'
                     }),
 
-                    ('inet:service:object', ('ndef', {'interface': 'inet:service:object'}), {
+                    ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
                         'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
 
                     ('inet:search:query', ('guid', {}), {

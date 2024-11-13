@@ -5801,6 +5801,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             # but getTypeNorm won't handle that
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
 
+            # specify typeopts to getTypeNorm/getPropNorm
+            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), {'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
+            self.eq(norm, ('pass', 'the', 'time'))
+
+            norm, info = await prox.getPropNorm('test:comp', "1234:comedy", {'sepr': ':'})
+            self.eq(norm, (1234, "comedy"))
+
             # getTypeNorm can norm types which aren't defined as forms/props
             norm, info = await core.getTypeNorm('test:lower', 'ASDF')
             self.eq(norm, 'asdf')
@@ -6191,7 +6198,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DupEdgeType):
                     await core.addEdge(('test:int', '_goes', None), {})
 
+                await core.addType('_test:type', 'str', {}, {'interfaces': ['taxonomy']})
+                self.eq(['meta:taxonomy'], core.model.type('_test:type').info.get('interfaces'))
+
+                with self.raises(s_exc.NoSuchType):
+                    await core.addType('_test:newp', 'newp', {}, {})
+
+                with self.raises(s_exc.BadTypeDef):
+                    await core.addType('_test:newp', 'array', {'type': 'newp'}, {})
+
                 # manually edit in borked entries
+                core.exttypes.set('_type:bork', ('_type:bork', None, None, None))
                 core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
                 core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
@@ -6219,6 +6236,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('._woot [ -._woot ]')
 
+                self.nn(core.model.type('_test:type'))
                 self.nn(core.model.prop('._woot'))
                 self.nn(core.model.prop('inet:ipv4._woot'))
                 self.nn(core.model.form('inet:ipv4').prop('._woot'))
@@ -6255,6 +6273,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchEdge):
                     await core.delEdge(('newp', 'newp', 'newp'))
+
+                with self.raises(s_exc.NoSuchType):
+                    await core.delType('_newp')
 
                 await core._delEdge(('newp', 'newp', 'newp'))
 
