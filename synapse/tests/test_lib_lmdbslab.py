@@ -33,6 +33,76 @@ class LmdbSlabTest(s_t_utils.SynTest):
         self._nowtime = 1000
         s_t_utils.SynTest.__init__(self, *args, **kwargs)
 
+    async def test_lmdbslab_optimize(self):
+
+        # A simple pass to test the Slab.optimize() function
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                testdb = slab.initdb('woot')
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                slab.put(b'foo', b'bar', db=testdb)
+                slab.put(b'baz', b'faz', db=testdb)
+
+                slab.put(b'hehe', b'haha', db=dupsdb)
+                slab.put(b'hehe', b'hoho', db=dupsdb)
+
+                # hold open scanners across the optimize
+                testscan = slab.scanByFull(db=testdb)
+                dupsscan = slab.scanByFull(db=dupsdb)
+
+                self.eq((b'baz', b'faz'), next(testscan))
+                self.eq((b'hehe', b'haha'), next(dupsscan))
+
+                async with slab.optimizer() as optimizer:
+                    await optimizer.optimize()
+
+                self.eq((b'foo', b'bar'), next(testscan))
+                self.eq((b'hehe', b'hoho'), next(dupsscan))
+
+        # Another pass where we break the optimize() down into
+        # parts so we can test incremental commits and such...
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+            async with await s_lmdbslab.Slab.anit(path) as slab:
+
+                testdb = slab.initdb('test')
+                dupsdb = slab.initdb('dups', dupsort=True)
+
+                slab.put(b'foo', b'bar', db=testdb)
+                slab.put(b'baz', b'faz', db=testdb)
+
+                slab.put(b'hehe', b'haha', db=dupsdb)
+                slab.put(b'hehe', b'hoho', db=dupsdb)
+
+                # hold open scanners across the optimize
+                testscan = slab.scanByFull(db=testdb)
+                dupsscan = slab.scanByFull(db=dupsdb)
+
+                self.eq((b'baz', b'faz'), next(testscan))
+                self.eq((b'hehe', b'haha'), next(dupsscan))
+
+                async with slab.optimizer() as optimizer:
+
+                    await optimizer._backup()
+
+                    # force a write to the WAL
+                    slab.put(b'zap', b'zop', db=testdb)
+                    await slab.sync()
+
+                    # and force a dirty slab
+                    slab.put(b'zip', b'zop', db=testdb)
+
+                    await optimizer._catchup()
+                    await optimizer._switchup()
+
+                self.eq((b'foo', b'bar'), next(testscan))
+                self.eq((b'hehe', b'hoho'), next(dupsscan))
+
     async def test_lmdbslab_scankeys(self):
 
         with self.getTestDir() as dirn:

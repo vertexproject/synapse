@@ -263,3 +263,8 @@ def getvars(varz):
             continue
         items.append(item)
     return dict(items)
+
+def unpacker(**kwargs):
+    opts = dict(unpacker_kwargs)
+    opts.update(kwargs)
+    return msgpack.Unpacker(**opts)
