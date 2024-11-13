@@ -837,6 +837,9 @@ class AgendaTest(s_t_utils.SynTest):
             async with self.getTestCore(conf=conf00) as core00:
                 self.false(core00.conf.get('mirror'))
 
+                msgs = await core00.stormlist('[it:dev:str=foo]')
+                self.stormHasNoWarnErr(msgs)
+
                 await core00.callStorm('cron.add --minute +1 { $lib.time.sleep(90) }')
 
                 prov01 = {'mirror': '00.cortex'}
@@ -845,6 +848,10 @@ class AgendaTest(s_t_utils.SynTest):
                 }
 
                 async with self.getTestCore(conf=conf01) as core01:
+                    msgs = await core01.stormlist('[it:dev:str=bar]')
+                    self.stormHasNoWarnErr(msgs)
+
+                    # Advance the ticks so the cronjob starts sooner
                     core00.agenda._addTickOff(55)
 
                     mesgs = []
@@ -857,11 +864,13 @@ class AgendaTest(s_t_utils.SynTest):
                     # Inspect crons and tasks
                     crons00 = await core00.callStorm('return($lib.cron.list())')
                     self.len(1, crons00)
+                    # isrunning is synced via nexus so it should be true for both cortexes
                     self.true(crons00[0].get('isrunning'))
 
                     crons01 = await core01.callStorm('return($lib.cron.list())')
                     self.len(1, crons01)
-                    self.false(crons01[0].get('isrunning'))
+                    # isrunning is synced via nexus so it should be true for both cortexes
+                    self.true(crons01[0].get('isrunning'))
 
                     tasks00 = await core00.callStorm('return($lib.ps.list())')
                     # Two tasks: one for the cronjob and one for the cronjob instance
@@ -875,6 +884,17 @@ class AgendaTest(s_t_utils.SynTest):
                     self.false(core00.isactive)
                     self.true(core01.isactive)
 
+                    # Sync the (now) follower so the isrunning status gets updated to false on both cortexes
+                    await core00.sync()
+
+                    crons00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, crons00)
+                    self.false(crons00[0].get('isrunning'))
+
+                    crons01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(1, crons01)
+                    self.false(crons01[0].get('isrunning'))
+
                     # Bump the ticks on core01 so the cron job starts
                     core01.agenda._addTickOff(55)
 
@@ -885,12 +905,17 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.eq(mesgs[0]['event'], 'cron:start')
 
+                    # Sync the follower to get the latest isrunning status
+                    await core00.sync()
+
                     crons00 = await core00.callStorm('return($lib.cron.list())')
                     self.len(1, crons00)
-                    self.false(crons00[0].get('isrunning'))
+                    # Cronjob is running so false on both cortexes
+                    self.true(crons00[0].get('isrunning'))
 
                     crons01 = await core01.callStorm('return($lib.cron.list())')
                     self.len(1, crons01)
+                    # Cronjob is running so false on both cortexes
                     self.true(crons01[0].get('isrunning'))
 
                     tasks00 = await core00.callStorm('return($lib.ps.list())')
