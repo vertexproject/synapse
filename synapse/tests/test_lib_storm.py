@@ -638,6 +638,8 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('background { $lib.print($foo) }')
 
+            await core.nodes('background ${ $foo=test $lib.print($foo) }')
+
             await core.nodes('background { $lib.time.sleep(4) }')
             task = await core.callStorm('for $t in $lib.ps.list() { if $t.info.background { return($t) } }')
             self.nn(task)
@@ -666,6 +668,9 @@ class StormTest(s_t_utils.SynTest):
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            nodes = await core.nodes('ou:org | parallel ${ $foo=bar [ :name=$foo ]}')
+            self.true(all([n.get('name') == 'bar' for n in nodes]))
 
             # test $lib.exit() and the StormExit handlers
             msgs = [m async for m in core.view.storm('$lib.exit()')]

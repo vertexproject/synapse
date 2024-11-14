@@ -1056,13 +1056,14 @@ class ModelNormV1(Handler):
 
         propname = body.get('prop')
         propvalu = body.get('value')
+        typeopts = body.get('typeopts')
 
         if propname is None:
             self.sendRestErr('MissingField', 'The property normalization API requires a prop name.')
             return
 
         try:
-            valu, info = await self.cell.getPropNorm(propname, propvalu)
+            valu, info = await self.cell.getPropNorm(propname, propvalu, typeopts=typeopts)
         except s_exc.NoSuchProp:
             return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
         except Exception as e:

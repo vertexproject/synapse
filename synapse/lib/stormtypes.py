@@ -9626,7 +9626,7 @@ def fromprim(valu, path=None, basetypes=True):
 
     return valu
 
-async def tostor(valu):
+async def tostor(valu, isndef=False):
 
     if isinstance(valu, Number):
         return str(valu.value())
@@ -9648,6 +9648,9 @@ async def tostor(valu):
             except s_exc.NoSuchType:
                 pass
         return retn
+
+    if isndef and isinstance(valu, s_node.Node):
+        return valu.ndef
 
     return await toprim(valu)
 
@@ -9691,6 +9694,9 @@ async def tostr(valu, noneok=False):
     try:
         if isinstance(valu, bytes):
             return valu.decode('utf8', 'surrogatepass')
+
+        if isinstance(valu, s_node.Node):
+            return valu.repr()
 
         return str(valu)
     except Exception as e:

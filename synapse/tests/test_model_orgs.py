@@ -1020,3 +1020,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:contribution -> econ:acct:payment'))
             self.len(1, await core.nodes('ou:contribution -> mat:spec'))
             self.len(1, await core.nodes('ou:contribution -> ou:jobtitle +ou:jobtitle=analysts'))
+
+    async def test_ou_technique(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ ou:technique=* :name=foo +(uses)> { [ risk:vuln=* :name=bar ] } ]
+            ''')
+            self.len(1, await core.nodes('ou:technique:name=foo -(uses)> risk:vuln:name=bar'))

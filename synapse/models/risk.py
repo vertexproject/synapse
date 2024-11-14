@@ -206,6 +206,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster uses the vulnerability.'}),
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
+                (('ou:technique', 'uses', 'risk:vuln'), {
+                    'doc': 'The technique uses the vulnerability.'}),
 
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
@@ -1078,9 +1080,6 @@ class RiskModule(s_module.CoreModule):
 
                     ('provider:name', ('ou:name', {}), {
                         'doc': 'The name of the organization which experienced the outage event.'}),
-
-                    ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization reporting on the outage event.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the outage event.'}),
