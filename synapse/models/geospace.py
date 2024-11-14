@@ -491,7 +491,9 @@ class GeoModule(s_module.CoreModule):
                             'doc': 'The node that was observed at the associated time and place.'}),
                     )),
 
-                    ('geo:place:type:taxonomy', {}, ()),
+                    ('geo:place:type:taxonomy', {
+                        'prevnames': ('geo:place:taxonomy',)}, ()),
+
                     ('geo:place', {}, (
 
                         ('name', ('geo:name', {}), {

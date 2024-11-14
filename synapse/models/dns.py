@@ -165,17 +165,21 @@ class DnsModule(s_module.CoreModule):
                     ('fqdn', ('inet:fqdn', {}), {'ro': True,
                         'doc': 'The domain queried for its DNS A record.'}),
                     ('ip', ('inet:ip', {}), {'ro': True,
-                        'doc': 'The IPv4 address returned in the A record.'}),
+                        'doc': 'The IPv4 address returned in the A record.',
+                        'prevnames': ('ipv4',)}),
                 )),
                 ('inet:dns:aaaa', {}, (
                     ('fqdn', ('inet:fqdn', {}), {'ro': True,
-                         'doc': 'The domain queried for its DNS AAAA record.'}),
+                        'doc': 'The domain queried for its DNS AAAA record.'}),
                     ('ip', ('inet:ip', {}), {'ro': True,
-                         'doc': 'The IPv6 address returned in the AAAA record.'}),
+                        'doc': 'The IPv6 address returned in the AAAA record.',
+                        'prevnames': ('ipv6',)}),
                 )),
-                ('inet:dns:rev', {}, (
+                ('inet:dns:rev', {'prevnames': ('inet:dns:rev6',)}, (
                     ('ip', ('inet:ip', {}), {'ro': True,
-                         'doc': 'The IP address queried for its DNS PTR record.'}),
+                        'doc': 'The IP address queried for its DNS PTR record.',
+                        'prevnames': ('ipv4', 'ipv6')}),
+
                     ('fqdn', ('inet:fqdn', {}), {'ro': True,
                          'doc': 'The domain returned in the PTR record.'}),
                 )),
@@ -217,7 +221,9 @@ class DnsModule(s_module.CoreModule):
                 ('inet:dns:query', {}, (
                     ('client', ('inet:client', {}), {'ro': True, }),
                     ('name', ('inet:dns:name', {}), {'ro': True, }),
-                    ('name:ip', ('inet:ip', {}), {}),
+                    ('name:ip', ('inet:ip', {}), {
+                        'prevnames': ('name:ipv4', 'name:ipv6')}),
+
                     ('name:fqdn', ('inet:fqdn', {}), {}),
                     ('type', ('int', {}), {'ro': True, }),
                 )),
@@ -228,7 +234,9 @@ class DnsModule(s_module.CoreModule):
 
                     ('query', ('inet:dns:query', {}), {}),
                     ('query:name', ('inet:dns:name', {}), {}),
-                    ('query:name:ip', ('inet:ip', {}), {}),
+                    ('query:name:ip', ('inet:ip', {}), {
+                        'prevnames': ('query:name:ipv4', 'query:name:ipv6')}),
+
                     ('query:name:fqdn', ('inet:fqdn', {}), {}),
                     ('query:type', ('int', {}), {}),
 
@@ -291,14 +299,16 @@ class DnsModule(s_module.CoreModule):
                     ('fqdn', ('inet:fqdn', {}), {'ro': True,
                         'doc': 'The domain containing a wild card record.'}),
                     ('ip', ('inet:ip', {}), {'ro': True,
-                        'doc': 'The IPv4 address returned by wild card resolutions.'}),
+                        'doc': 'The IPv4 address returned by wild card resolutions.',
+                        'prevnames': ('ipv4',)}),
                 )),
 
                 ('inet:dns:wild:aaaa', {}, (
                     ('fqdn', ('inet:fqdn', {}), {'ro': True,
                         'doc': 'The domain containing a wild card record.'}),
                     ('ip', ('inet:ip', {}), {'ro': True,
-                        'doc': 'The IPv6 address returned by wild card resolutions.'}),
+                        'doc': 'The IPv6 address returned by wild card resolutions.',
+                        'prevnames': ('ipv6',)}),
                 )),
 
                 ('inet:dns:dynreg', {}, (
