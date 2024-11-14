@@ -2194,9 +2194,6 @@ class InetModule(s_module.CoreModule):
                         ('host', ('it:host', {}), {
                             'doc': 'The host that used the network egress.'}),
 
-                        ('host:iface', ('inet:iface', {}), {
-                            'doc': 'The interface used by the host to connect to the egress.'})
-
                         ('account', ('inet:service:account', {}), {
                             'doc': 'The service account which used the client address to egress.'}),
 
@@ -2208,12 +2205,6 @@ class InetModule(s_module.CoreModule):
 
                         ('client:ipv6', ('inet:ipv6', {}), {
                             'doc': 'The client IPv6 address the host used as a network egress.'}),
-
-                        ('gateway', ('it:host', {}), {
-                            'doc': 'The host used as a gateway to egress the network.'})
-
-                        ('gateway:iface', ('inet:iface', {}), {
-                            'doc': 'The interface used by the gateway host when allowing egress.'})
                     )),
 
                     ('inet:fqdn', {}, (
