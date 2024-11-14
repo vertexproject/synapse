@@ -113,10 +113,12 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('job:type', ('ou:job:type:taxonomy', {}), {
                         'doc': 'The type of job.',
-                    }),
+                        'prevnames': ('jobtype',)}),
+
                     ('employment:type', ('ou:employment:type:taxonomy', {}), {
                         'doc': 'The type of employment.',
-                    }),
+                        'prevnames': ('employment',)}),
+
                     ('jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'The job title.',
                     }),

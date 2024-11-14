@@ -435,6 +435,10 @@ class Form:
 
         full = f'{self.name}:{name}'
         mesg = f'No property named {full}.'
+
+        if (prevname := self.modl.propprevnames.get(full)) is not None:
+            mesg += f' Did you mean {prevname}?'
+
         raise s_exc.NoSuchProp(mesg=mesg, name=full)
 
     def pack(self):
@@ -476,6 +480,9 @@ class Model:
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
+
+        self.formprevnames = {}
+        self.propprevnames = {}
 
         self.univs = {}
         self.allunivs = collections.defaultdict(list)
@@ -634,7 +641,11 @@ class Model:
         if prop is not None:
             return prop
 
-        exc = s_exc.NoSuchProp.init(name)
+        mesg = None
+        if (prevname := self.propprevnames.get(name)) is not None:
+            mesg = f'No property named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
         if extra is not None:
             raise extra(exc)
         raise exc
@@ -676,7 +687,11 @@ class Model:
         if name.endswith('*'):
             return self.reqFormsByPrefix(name[:-1], extra=extra)
 
-        exc = s_exc.NoSuchForm.init(name)
+        mesg = None
+        if (prevname := self.formprevnames.get(name)) is not None:
+            mesg = f'No form named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchForm.init(name, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
 
@@ -692,7 +707,11 @@ class Model:
         if name.endswith('*'):
             return self.reqFormsByPrefix(name[:-1], extra=extra)
 
-        exc = s_exc.NoSuchProp.init(name)
+        mesg = None
+        if (prevname := self.propprevnames.get(name)) is not None:
+            mesg = f'No property named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
 
@@ -920,6 +939,10 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
+        if (prevnames := forminfo.get('prevnames')) is not None:
+            for prevname in prevnames:
+                self.formprevnames[prevname] = formname
+
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name][form.name] = form
 
@@ -1075,6 +1098,12 @@ class Model:
             self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
 
         self.props[prop.full] = prop
+
+        if (prevnames := info.get('prevnames')) is not None:
+            for prevname in prevnames:
+                prevfull = f'{form.name}:{prevname}'
+                self.propprevnames[prevfull] = prop.full
+
         return prop
 
     def _prepFormIface(self, form, iface):
@@ -1252,6 +1281,9 @@ class Model:
             return form
 
         mesg = f'No form named {name}.'
+        if (prevname := self.formprevnames.get(name)) is not None:
+            mesg += f' Did you mean {prevname}?'
+
         raise s_exc.NoSuchForm(mesg=mesg, name=name)
 
     def univ(self, name):

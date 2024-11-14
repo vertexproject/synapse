@@ -69,6 +69,31 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 core.model.reqForm('inet:asn').reqProp('newp')
 
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqForm('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqForm('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqFormsByLook('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                core.model.reqProp('inet:dns:query:name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                core.model.reqPropsByLook('inet:dns:query:name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
+            form = core.model.reqForm('inet:dns:query')
+            with self.raises(s_exc.NoSuchProp) as cm:
+                form.reqProp('name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
