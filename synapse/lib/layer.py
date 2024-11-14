@@ -2232,9 +2232,9 @@ class Layer(s_nexus.Pusher):
             async for abrv, n2nid, tomb in self.iterNodeEdgesN1(nid):
                 verb = self.core.getAbrvIndx(abrv)[0]
                 if tomb:
-                    edits.append((EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
+                    edits.append((EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
                 else:
-                    edits.append((EDIT_EDGE_DEL, (verb, n2nid)))
+                    edits.append((EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
 
             async for abrv, valu, tomb in self.iterNodeData(nid):
                 prop = self.core.getAbrvIndx(abrv)[0]
@@ -2273,7 +2273,7 @@ class Layer(s_nexus.Pusher):
                 ndef = self.core.getNidNdef(nid)
                 form = ndef[0]
 
-            yield (nid, form, edits)
+            yield (s_common.int64un(nid), form, edits)
 
     async def clone(self, newdirn):
         '''
@@ -2914,6 +2914,8 @@ class Layer(s_nexus.Pusher):
                 # Generate NID without a nexus event, mirrors will populate
                 # the mapping from the node add edit
                 nid = await self.core._genNdefNid((form, edits[0][1][0]))
+            else:
+                nid = s_common.int64en(nid)
 
             newsode = False
 
@@ -2944,7 +2946,7 @@ class Layer(s_nexus.Pusher):
                     if oldv != ctime:
                         changes.append((EDIT_PROP_SET, ('.created', ctime, oldv, STOR_TYPE_MINTIME, None)))
 
-                realedits.append((nid, form, changes))
+                realedits.append((s_common.int64un(nid), form, changes))
 
         await asyncio.sleep(0)
         return realedits
@@ -2963,6 +2965,7 @@ class Layer(s_nexus.Pusher):
         kvpairs = []
         for (nid, form, edits) in nodeedits:
 
+            nid = s_common.int64en(nid)
             sode = self._genStorNode(nid)
 
             for edit in edits:
@@ -3369,7 +3372,7 @@ class Layer(s_nexus.Pusher):
                 (EDIT_EDGE_ADD, (verb, n2nid)),
             )
 
-        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv, db=self.indxdb):
+        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_NORM, vabrv, db=self.indxdb):
             return
 
         return (
@@ -3388,7 +3391,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        if not self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_NORM, vabrv, db=self.indxdb):
+        if not self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_NORM, vabrv, db=self.indxdb):
             return
 
         return (
@@ -3404,7 +3407,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb):
+        if sode is not None and self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_TOMB, vabrv, db=self.indxdb):
             return
 
         return (
@@ -3420,7 +3423,7 @@ class Layer(s_nexus.Pusher):
         except s_exc.NoSuchAbrv:
             return
 
-        if sode is None or not self.layrslab.hasdup(self.edgen1n2abrv + nid + n2nid + FLAG_TOMB, vabrv, db=self.indxdb):
+        if sode is None or not self.layrslab.hasdup(self.edgen1n2abrv + nid + s_common.int64en(n2nid) + FLAG_TOMB, vabrv, db=self.indxdb):
             return
 
         return (
@@ -4317,6 +4320,7 @@ class Layer(s_nexus.Pusher):
     async def _editNodeEdgeAdd(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
+        n2nid = s_common.int64en(n2nid)
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
@@ -4370,6 +4374,7 @@ class Layer(s_nexus.Pusher):
     async def _editNodeEdgeDel(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
+        n2nid = s_common.int64en(n2nid)
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
@@ -4416,6 +4421,7 @@ class Layer(s_nexus.Pusher):
     async def _editNodeEdgeTomb(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
+        n2nid = s_common.int64en(n2nid)
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
@@ -4453,6 +4459,7 @@ class Layer(s_nexus.Pusher):
     async def _editNodeEdgeTombDel(self, nid, form, edit, sode, meta):
 
         verb, n2nid = edit[1]
+        n2nid = s_common.int64en(n2nid)
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
@@ -5122,7 +5129,7 @@ class Layer(s_nexus.Pusher):
             form = ndef[0]
 
             edits = []
-            nodeedit = (nid, form, edits)
+            nodeedit = (s_common.int64un(nid), form, edits)
 
             valt = sode.get('valu')
             if valt is not None:
@@ -5162,11 +5169,10 @@ class Layer(s_nexus.Pusher):
 
             async for abrv, n2nid, tomb in self.iterNodeEdgesN1(nid):
                 verb = self.core.getAbrvIndx(abrv)[0]
-                n2iden = s_common.ehex(self.core.getBuidByNid(n2nid))
                 if tomb:
-                    edits.append((EDIT_EDGE_TOMB, (verb, n2nid)))
+                    edits.append((EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
                 else:
-                    edits.append((EDIT_EDGE_ADD, (verb, n2nid)))
+                    edits.append((EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
 
             yield nodeedit
 

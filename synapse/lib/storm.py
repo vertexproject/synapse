@@ -2163,6 +2163,14 @@ class Runtime(s_base.Base):
             if node is not None:
                 yield node, self.initPath(node)
 
+        for nid in self.opts.get('nids', ()):
+            if not isinstance(nid, int):
+                raise s_exc.BadTypeValu(mesg=f'Node IDs must be integers, got: {type(nid)}', valu=nid)
+
+            node = await self.view.getNodeByNid(s_common.int64en(nid))
+            if node is not None:
+                yield node, self.initPath(node)
+
     def layerConfirm(self, perms):
         if self.asroot:
             return
@@ -4149,7 +4157,7 @@ class MergeCmd(Cmd):
                             await runt.view.parent.storNodeEdits(addedits, meta=meta)
 
                         if not self.opts.wipe:
-                            subedits = [(node.nid, node.form.name, [(s_layer.EDIT_NODE_TOMB_DEL, ())])]
+                            subedits = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_TOMB_DEL, ())])]
                             await runt.view.saveNodeEdits(subedits, meta=meta)
 
                     continue
@@ -4323,7 +4331,7 @@ class MergeCmd(Cmd):
                         else:
                             await protonode.delEdge(verb, n2nid)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
+                                subs.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
                     else:
                         if not doapply:
                             dest = s_common.ehex(core.getBuidByNid(n2nid))
@@ -4331,7 +4339,7 @@ class MergeCmd(Cmd):
                         else:
                             await protonode.addEdge(verb, n2nid)
                             if not self.opts.wipe:
-                                subs.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
+                                subs.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
 
             if delnode and not self.opts.wipe:
                 subs.append((s_layer.EDIT_NODE_DEL, valu))
@@ -4342,7 +4350,7 @@ class MergeCmd(Cmd):
                     await runt.view.parent.saveNodeEdits(addedits, meta=meta)
 
                 if subs:
-                    subedits = [(node.nid, node.form.name, subs)]
+                    subedits = [(s_common.int64un(node.nid), node.form.name, subs)]
                     await runt.view.saveNodeEdits(subedits, meta=meta)
 
             if node.hasvalu():
@@ -4591,7 +4599,7 @@ class MoveNodesCmd(Cmd):
             await self._moveEdges(node, meta, delnode)
 
             for layr, valu in delnodes:
-                edit = [(node.nid, node.form.name, [(s_layer.EDIT_NODE_DEL, valu)])]
+                edit = [(s_common.int64un(node.nid), node.form.name, [(s_layer.EDIT_NODE_DEL, valu)])]
                 await self.lyrs[layr].saveNodeEdits(edit, meta=meta)
 
             if delnode and destsode.get('antivalu') is None:
@@ -4638,14 +4646,16 @@ class MoveNodesCmd(Cmd):
         if not self.opts.apply:
             return
 
+        intnid = s_common.int64un(node.nid)
+
         if self.adds:
-            addedits = [(node.nid, node.form.name, self.adds)]
+            addedits = [(intnid, node.form.name, self.adds)]
             await self.lyrs[self.destlayr].saveNodeEdits(addedits, meta=meta)
             self.adds.clear()
 
         for srclayr, edits in self.subs.items():
             if edits:
-                subedits = [(node.nid, node.form.name, edits)]
+                subedits = [(intnid, node.form.name, edits)]
                 await self.lyrs[srclayr].saveNodeEdits(subedits, meta=meta)
                 edits.clear()
 
@@ -4971,9 +4981,9 @@ class MoveNodesCmd(Cmd):
                         await self.runt.printf(f'{layr} delete {nodeiden} {form} -({verb})> {dest}')
                 else:
                     if tomb:
-                        self.subs[layr].append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
+                        self.subs[layr].append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
                     else:
-                        self.subs[layr].append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
+                        self.subs[layr].append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
                     ecnt += 1
 
             edge = (abrv, n2nid)
@@ -4989,7 +4999,7 @@ class MoveNodesCmd(Cmd):
                             dest = s_common.ehex(self.core.getBuidByNid(n2nid))
                             await self.runt.printf(f'{self.destlayr} delete {nodeiden} {form} -({verb})> {dest}')
                         else:
-                            self.adds.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
+                            self.adds.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
                             ecnt += 1
 
                     if self.opts.preserve_tombstones:
@@ -4997,7 +5007,7 @@ class MoveNodesCmd(Cmd):
                             dest = s_common.ehex(self.core.getBuidByNid(n2nid))
                             await self.runt.printf(f'{self.destlayr} tombstone {nodeiden} {form} -({verb})> {dest}')
                         else:
-                            self.adds.append((s_layer.EDIT_EDGE_TOMB, (verb, n2nid)))
+                            self.adds.append((s_layer.EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
                             ecnt += 1
 
                 else:
@@ -5005,7 +5015,7 @@ class MoveNodesCmd(Cmd):
                         dest = s_common.ehex(self.core.getBuidByNid(n2nid))
                         await self.runt.printf(f'{self.destlayr} add {nodeiden} {form} -({verb})> {dest}')
                     else:
-                        self.adds.append((s_layer.EDIT_EDGE_ADD, (verb, n2nid)))
+                        self.adds.append((s_layer.EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
                         ecnt += 1
 
             if ecnt >= 1000:

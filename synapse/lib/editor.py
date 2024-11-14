@@ -104,7 +104,10 @@ class ProtoNode(s_node.NodeBase):
                     for name in props.keys():
                         edits.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, name)))
 
-        return (self.nid, self.form.name, edits)
+        if (nid := self.nid) is not None:
+            nid = s_common.int64un(nid)
+
+        return (nid, self.form.name, edits)
 
     def getNodeEdit(self):
 
@@ -137,16 +140,16 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_TAG_TOMB, (name,)))
 
         for verb, n2nid in self.edges:
-            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2nid)))
+            edits.append((s_layer.EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
 
         for verb, n2nid in self.edgedels:
-            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
+            edits.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
 
         for verb, n2nid in self.edgetombs:
-            edits.append((s_layer.EDIT_EDGE_TOMB, (verb, n2nid)))
+            edits.append((s_layer.EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
 
         for verb, n2nid in self.edgetombdels:
-            edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
+            edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.model.getTagProp(name)
@@ -171,7 +174,10 @@ class ProtoNode(s_node.NodeBase):
         if not edits:
             return None
 
-        return (self.nid, self.form.name, edits)
+        if (nid := self.nid) is not None:
+            nid = s_common.int64un(nid)
+
+        return (nid, self.form.name, edits)
 
     async def addEdge(self, verb, n2nid, n2form=None):
 
@@ -280,7 +286,7 @@ class ProtoNode(s_node.NodeBase):
         Delete edge data from the NodeEditor's write layer where this is the dest node.
         '''
         dels = []
-        nid = self.nid
+        intnid = s_common.int64un(self.nid)
 
         if meta is None:
             meta = self.editor.getEditorMeta()
@@ -290,11 +296,11 @@ class ProtoNode(s_node.NodeBase):
             n1ndef = self.editor.view.core.getNidNdef(n1nid)
 
             if tomb:
-                edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, nid))]
+                edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, intnid))]
             else:
-                edit = [((s_layer.EDIT_EDGE_DEL), (verb, nid))]
+                edit = [((s_layer.EDIT_EDGE_DEL), (verb, intnid))]
 
-            dels.append((n1nid, n1ndef[0], edit))
+            dels.append((s_common.int64un(n1nid), n1ndef[0], edit))
 
             if len(dels) >= 1000:
                 await self.editor.view.saveNodeEdits(dels, meta=meta)

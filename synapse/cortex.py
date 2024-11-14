@@ -3066,7 +3066,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for rows in s_coro.chunks(genr):
                 nodeedits = []
                 for nid, valu in rows:
-                    nodeedits.append((nid, prop.form.name, (
+                    nodeedits.append((s_common.int64un(nid), prop.form.name, (
                         (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
                     )))
 
@@ -3094,7 +3094,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 nodeedits = []
                 for nid, valu in rows:
                     sode = layr._getStorNode(nid)
-                    nodeedits.append((nid, sode.get('form'), (
+                    nodeedits.append((s_common.int64un(nid), sode.get('form'), (
                         (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
                     )))
 
@@ -3125,7 +3125,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 async for rows in s_coro.chunks(genr):
                     nodeedits = []
                     for nid, valu in rows:
-                        nodeedits.append((nid, form, (
+                        nodeedits.append((s_common.int64un(nid), form, (
                             (s_layer.EDIT_TAGPROP_DEL, (tag, prop.name, None, prop.type.stortype), ()),
                         )))
 
@@ -4784,14 +4784,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def localToRemoteEdits(self, lnodeedits):
         rnodeedits = []
         for nid, form, ledits in lnodeedits:
-            if (ndef := self.getNidNdef(nid)) is None:
+            if (ndef := self.getNidNdef(s_common.int64en(nid))) is None:
                 continue
 
             redits = []
             for edit in ledits:
                 if edit[0] in (10, 11):
                     verb, n2nid = edit[1]
-                    if (n2ndef := self.getNidNdef(n2nid)) is None:
+                    if (n2ndef := self.getNidNdef(s_common.int64en(n2nid))) is None:
                         continue
 
                     redits.append((edit[0], (verb, n2ndef)))
@@ -4809,19 +4809,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for form, valu, redits in rnodeedits:
 
             buid = s_common.buid((form, valu))
-            nid = self.getNidByBuid(buid)
-            if nid is None and redits[0][0] != 0:
-                # If we don't know this buid and the first edit isn't
-                # a node add, this is an edit to a node we won't have
-                # and we need to use a nexus event to generate the NID
-                nid = await self.genNdefNid((form, valu))
+            if (nid := self.getNidByBuid(buid)) is None:
+                if redits[0][0] != 0:
+                    # If we don't know this buid and the first edit isn't
+                    # a node add, this is an edit to a node we won't have
+                    # and we need to use a nexus event to generate the NID
+                    nid = s_common.int64un(await self.genNdefNid((form, valu)))
+            else:
+                nid = s_common.int64un(nid)
 
             ledits = []
             for edit in redits:
                 if edit[0] in (10, 11):
                     verb, n2ndef = edit[1]
                     n2nid = await self.genNdefNid(n2ndef)
-                    ledits.append((edit[0], (verb, n2nid)))
+                    ledits.append((edit[0], (verb, s_common.int64un(n2nid))))
                     continue
 
                 ledits.append(edit)

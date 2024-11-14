@@ -6590,7 +6590,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
-            expectedits = ((node.nid, 'test:str',
+            expectedits = ((s_common.int64un(node.nid), 'test:str',
                             ((s_layer.EDIT_NODE_ADD, ('foo', 1, None)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
                                                       s_layer.STOR_TYPE_MINTIME, None)))),)
@@ -6648,7 +6648,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             item4 = items[0]
 
             expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
-            expectedits = ((node.nid, 'test:str',
+            expectedits = ((s_common.int64un(node.nid), 'test:str',
                             [(s_layer.EDIT_NODE_ADD, ('bar', 1, None)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
                                                       s_layer.STOR_TYPE_MINTIME, None))]),)
@@ -6680,7 +6680,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expectadd = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)))
+                         (s_common.int64un(node.nid), 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)))
             self.eq(expectadd[1:], item0[1:])
 
             layr = await core.addLayer()
@@ -6711,7 +6711,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item4 = await genr.__anext__()
             expectadd = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8, None)))
+                         (s_common.int64un(node.nid), 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8, None)))
             self.eq(expectadd[1:], item4[1:])
 
             # Make sure progress every 1000 layer log entries works
@@ -6802,14 +6802,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('[ test:str=foo ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(nodes[0].nid, item[1][0][0])
+                self.eq(s_common.int64un(nodes[0].nid), item[1][0][0])
 
                 # we should now be in live sync
                 # and the empty layer will be pulling from the window
 
                 nodes = await core.nodes('[ test:str=bar ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(nodes[0].nid, item[1][0][0])
+                self.eq(s_common.int64un(nodes[0].nid), item[1][0][0])
 
                 # add more nodes than the window size without consuming from the genr
 
@@ -6817,7 +6817,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
                 items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
                 self.sorteq(
-                    [n.nid for n in nodes],
+                    [s_common.int64un(n.nid) for n in nodes],
                     [item[1][0][0] for item in items],
                 )
 

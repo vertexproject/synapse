@@ -965,29 +965,6 @@ def reqjsonsafe(item):
     except TypeError as e:
         raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
 
-def jsonsafe_nodeedits(nodeedits):
-    '''
-    Hexlify the buid of each node:edits
-    '''
-    retn = []
-    for nodeedit in nodeedits:
-        newedit = (ehex(nodeedit[0]), *nodeedit[1:])
-        retn.append(newedit)
-
-    return retn
-
-def unjsonsafe_nodeedits(nodeedits):
-    retn = []
-    for nodeedit in nodeedits:
-        buid = nodeedit[0]
-        if isinstance(buid, str):
-            newedit = (uhex(buid), *nodeedit[1:])
-        else:
-            newedit = nodeedit
-        retn.append(newedit)
-
-    return retn
-
 def reprauthrule(rule):
     text = '.'.join(rule[1])
     if not rule[0]:

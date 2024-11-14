@@ -263,6 +263,7 @@ class Node(NodeBase):
         '''
 
         pode = (self.ndef, {
+            'nid': s_common.int64un(self.nid),
             'iden': self.iden(),
             'tags': self._getTagsDict(),
             'props': self.getProps(),

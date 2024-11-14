@@ -163,7 +163,7 @@ class View(s_nexus.Pusher):  # type: ignore
         wlyr = self.layers[0]
 
         # hold a reference to  all the nodes about to be edited...
-        nodes = {e[0]: await self.getNodeByNid(e[0]) for e in edits if e[0] is not None}
+        nodes = {e[0]: await self.getNodeByNid(s_common.int64en(e[0])) for e in edits if e[0] is not None}
 
         saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
@@ -173,10 +173,11 @@ class View(s_nexus.Pusher):  # type: ignore
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
 
-        for nid, form, edits in nodeedits:
+        for intnid, form, edits in nodeedits:
 
-            node = nodes.get(nid)
-            if node is None:
+            nid = s_common.int64en(intnid)
+
+            if (node := nodes.get(intnid)) is None:
                 node = await self.getNodeByNid(nid)
 
                 if node is None:  # pragma: no cover
@@ -298,10 +299,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_EDGE_ADD or etyp == s_layer.EDIT_EDGE_TOMB_DEL:
                     verb, n2nid = parms
+                    n2nid = s_common.int64en(n2nid)
                     callbacks.append((self.runEdgeAdd, (node, verb, n2nid), {}))
 
                 if etyp == s_layer.EDIT_EDGE_DEL or etyp == s_layer.EDIT_EDGE_TOMB:
                     verb, n2nid = parms
+                    n2nid = s_common.int64en(n2nid)
                     callbacks.append((self.runEdgeDel, (node, verb, n2nid), {}))
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
@@ -662,7 +665,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 nodeedits = []
                 editor = s_editor.NodeEditor(self.parent, merge.get('creator'))
 
-                async for (nid, form, edits) in self.wlyr.iterLayerNodeEdits():
+                async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
+                    nid = s_common.int64en(intnid)
 
                     if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
                         protonode = await editor.getNodeByNid(nid)
@@ -722,13 +726,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
                                 (verb, n2nid) = parms
 
-                                await protonode.delEdge(verb, n2nid)
+                                await protonode.delEdge(verb, s_common.int64en(n2nid))
                                 continue
 
                             realedits.append(edit)
 
                         if protonode is None:
-                            nodeedits.append((nid, form, realedits))
+                            nodeedits.append((intnid, form, realedits))
                         else:
                             deledits = editor.getNodeEdits()
                             editor.protonodes.clear()
@@ -736,7 +740,7 @@ class View(s_nexus.Pusher):  # type: ignore
                                 deledits[0][2].extend(realedits)
                                 nodeedits.extend(deledits)
                             else:
-                                nodeedits.append((nid, form, realedits))
+                                nodeedits.append((intnid, form, realedits))
 
                     if len(nodeedits) >= 10:
                         yield nodeedits
@@ -1633,11 +1637,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if kind == 'node:edits':
 
                 if editformat == 'nodeedits':
-
-                    nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
-                    mesg[1]['edits'] = nodeedits
                     yield mesg
-
                     continue
 
                 if editformat == 'none':
@@ -2011,7 +2011,8 @@ class View(s_nexus.Pusher):  # type: ignore
 
         editor = s_editor.NodeEditor(self.parent, user)
 
-        async for (nid, form, edits) in self.wlyr.iterLayerNodeEdits():
+        async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
+            nid = s_common.int64en(intnid)
 
             if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
                 protonode = await editor.getNodeByNid(nid)
@@ -2074,13 +2075,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     (verb, n2nid) = parms
 
-                    await protonode.delEdge(verb, n2nid)
+                    await protonode.delEdge(verb, s_common.int64en(n2nid))
                     continue
 
                 realedits.append(edit)
 
             if protonode is None:
-                await self.parent.storNodeEdits([(nid, form, realedits)], meta)
+                await self.parent.storNodeEdits([(intnid, form, realedits)], meta)
                 continue
 
             deledits = editor.getNodeEdits()
@@ -2090,7 +2091,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 deledits[0][2].extend(realedits)
                 await self.parent.storNodeEdits(deledits, meta)
             else:
-                await self.parent.storNodeEdits([(nid, form, realedits)], meta)
+                await self.parent.storNodeEdits([(intnid, form, realedits)], meta)
 
     async def swapLayer(self):
         oldlayr = self.layers[0]
@@ -2790,7 +2791,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         elif tombtype == s_layer.INDX_EDGE_VERB:
             (verb, n2nid) = tombinfo
-            edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, n2nid))]
+            edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, s_common.int64un(n2nid)))]
 
         if edit is not None:
 
@@ -2799,14 +2800,14 @@ class View(s_nexus.Pusher):  # type: ignore
                     'user': runt.user.iden,
                     'time': s_common.now()
                 }
-                await self.saveNodeEdits([(nid, ndef[0], edit)], meta, bus=runt.bus)
+                await self.saveNodeEdits([(s_common.int64un(nid), ndef[0], edit)], meta, bus=runt.bus)
                 return
 
             meta = {
                 'user': self.core.auth.rootuser,
                 'time': s_common.now()
             }
-            await self.saveNodeEdits([(nid, ndef[0], edit)], meta)
+            await self.saveNodeEdits([(s_common.int64un(nid), ndef[0], edit)], meta)
 
     async def scrapeIface(self, text, unique=False, refang=True):
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
