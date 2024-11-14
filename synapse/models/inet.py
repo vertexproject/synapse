@@ -1623,6 +1623,10 @@ class InetModule(s_module.CoreModule):
                         'template': {'service:base': 'tenant'},
                         'doc': 'A tenant which groups accounts and instances.'}),
 
+                    ('inet:service:subscription:level:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A taxonomy of platform specific subscription levels.'}),
+
                     ('inet:service:subscription', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
                         'template': {'service:base': 'subscription'},
@@ -3912,8 +3916,15 @@ class InetModule(s_module.CoreModule):
                         ('type', ('int', {'enums': svcaccesstypes}), {
                             'doc': 'The type of access requested.'}),
                     )),
+
                     ('inet:service:tenant', {}, ()),
+
+                    ('inet:service:subscription:level:taxonomy', {}),
+
                     ('inet:service:subscription', {}, (
+
+                        ('level', ('inet:service:subscription:level:taxonomy', {}), {
+                            'doc': 'A platform specific subscription level.'}),
 
                         ('pay:instrument', ('econ:pay:instrument', {}), {
                             'doc': 'The primary payment instrument used to pay for the subscription.'}),
