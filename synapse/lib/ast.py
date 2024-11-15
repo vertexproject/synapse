@@ -362,7 +362,7 @@ class SubGraph:
 
         Nodes which were original seeds have path.meta('graph:seed').
 
-        All nodes have path.meta('edges') which is a list of (iden, info) tuples.
+        All nodes have path.meta('edges') which is a list of (nid, info) tuples.
 
     '''
 
@@ -434,9 +434,8 @@ class SubGraph:
                 link = {'type': 'prop', 'prop': propname}
                 yield (pivonode, path.fork(pivonode, link), link)
 
-            for iden in existing:
-                buid = s_common.uhex(iden)
-                othr = await node.view.getNodeByBuid(buid)
+            for nid in existing:
+                othr = await node.view.getNodeByNid(s_common.int64en(nid))
                 for propname, ndef in othr.getNodeRefs():
                     if ndef == node.ndef:
                         yield (othr, path, {'type': 'prop', 'prop': propname, 'reverse': True})
@@ -463,19 +462,19 @@ class SubGraph:
                 yield (n, p, {'type': 'rules', 'scope': scope, 'index': indx})
                 indx += 1
 
-    async def _edgefallback(self, runt, results, resultidens, node):
-        async for nid01 in results:
+    async def _edgefallback(self, runt, results, node):
+        async for nid1 in results:
             await asyncio.sleep(0)
-            iden01 = resultidens.get(nid01)
+            intnid1 = s_common.int64un(nid1)
 
-            async for verb in node.iterEdgeVerbs(nid01):
+            async for verb in node.iterEdgeVerbs(nid1):
                 await asyncio.sleep(0)
-                yield (iden01, {'type': 'edge', 'verb': verb})
+                yield (intnid1, {'type': 'edge', 'verb': verb})
 
             # for existing nodes, we need to add n2 -> n1 edges in reverse
-            async for verb in runt.view.iterEdgeVerbs(nid01, node.nid):
+            async for verb in runt.view.iterEdgeVerbs(nid1, node.nid):
                 await asyncio.sleep(0)
-                yield (iden01, {'type': 'edge', 'verb': verb, 'reverse': True})
+                yield (intnid1, {'type': 'edge', 'verb': verb, 'reverse': True})
 
     async def run(self, runt, genr):
 
@@ -499,20 +498,15 @@ class SubGraph:
             done = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             intodo = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
             results = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
-            resultsidens = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
             revpivs = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
 
             revedge = await stack.enter_async_context(await s_spooled.Dict.anit(dirn=core.dirn, cell=core))
             n1delayed = await stack.enter_async_context(await s_spooled.Set.anit(dirn=core.dirn, cell=core))
 
             # load the existing graph as already done
-            for iden in existing:
-                nid = runt.view.core.getNidByBuid(s_common.uhex(iden))
-                if nid is None:
-                    continue
-
+            for nid in existing:
+                nid = s_common.int64en(nid)
                 await results.add(nid)
-                await resultsidens.set(nid, iden)
 
                 if doedges:
                     if runt.view.getEdgeCount(nid) > edgelimit:
@@ -534,10 +528,6 @@ class SubGraph:
                             re[nid].append(verb)
 
                         await revedge.set(n2nid, re)
-
-                        if not resultsidens.get(n2nid):
-                            n2iden = s_common.ehex(runt.view.core.getBuidByNid(n2nid))
-                            await resultsidens.set(n2nid, n2iden)
 
             async def todogenr():
 
@@ -576,18 +566,18 @@ class SubGraph:
                 # we must traverse the pivots for the node *regardless* of degrees
                 # due to needing to tie any leaf nodes to nodes that were already yielded
 
-                nodeiden = node.iden()
+                intnid = s_common.int64un(node.nid)
                 edges = list(revpivs.get(nid, defv=()))
                 async for pivn, pivp, pinfo in self.pivots(runt, node, path, existing):
 
                     await asyncio.sleep(0)
 
                     if results.has(pivn.nid):
-                        edges.append((pivn.iden(), pinfo))
+                        edges.append((s_common.int64un(pivn.nid), pinfo))
                     else:
                         pinfo['reverse'] = True
                         pivedges = revpivs.get(pivn.nid, defv=())
-                        await revpivs.set(pivn.nid, pivedges + ((nodeiden, pinfo),))
+                        await revpivs.set(pivn.nid, pivedges + ((intnid, pinfo),))
 
                     # we dont pivot from omitted nodes
                     if omitted:
@@ -602,7 +592,7 @@ class SubGraph:
                         continue
 
                     # no need to pivot to existing nodes
-                    if pivn.iden() in existing:
+                    if s_common.int64un(pivn.nid) in existing:
                         continue
 
                     # do we have room to go another degree out?
@@ -612,13 +602,12 @@ class SubGraph:
 
                 if doedges:
                     await results.add(nid)
-                    await resultsidens.set(nid, nodeiden)
 
                     if runt.view.getEdgeCount(nid) > edgelimit:
                         # The current node in the pipeline has too many edges from it, so it's
                         # less prohibitive to just check against the graph
                         await n1delayed.add(nid)
-                        async for e in self._edgefallback(runt, results, resultsidens, node):
+                        async for e in self._edgefallback(runt, results, node):
                             edges.append(e)
 
                     else:
@@ -636,28 +625,23 @@ class SubGraph:
 
                             await revedge.set(n2nid, re)
 
-                            if not resultsidens.get(n2nid):
-                                n2iden = s_common.ehex(runt.view.core.getBuidByNid(n2nid))
-                                await resultsidens.set(n2nid, n2iden)
-
                             if n2nid in results:
-                                n2iden = resultsidens.get(n2nid)
-                                edges.append((n2iden, {'type': 'edge', 'verb': verb}))
+                                edges.append((s_common.int64un(n2nid), {'type': 'edge', 'verb': verb}))
 
                         if revedge.has(nid):
                             for n2nid, verbs in revedge.get(nid).items():
-                                n2iden = resultsidens.get(n2nid)
+                                n2intnid = s_common.int64un(n2nid)
 
                                 for verb in verbs:
                                     await asyncio.sleep(0)
-                                    edges.append((n2iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+                                    edges.append((n2intnid, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                         async for n1nid in n1delayed:
-                            n1iden = resultsidens.get(n1nid)
+                            n1intnid = s_common.int64un(n1nid)
 
                             async for verb in runt.view.iterEdgeVerbs(n1nid, nid):
                                 await asyncio.sleep(0)
-                                edges.append((n1iden, {'type': 'edge', 'verb': verb, 'reverse': True}))
+                                edges.append((n1intnid, {'type': 'edge', 'verb': verb, 'reverse': True}))
 
                 path.metadata['edges'] = edges
                 yield node, path

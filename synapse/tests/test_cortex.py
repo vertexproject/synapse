@@ -2967,11 +2967,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(0, node[1]['path']['edges'])
                 elif node[0][0] == 'inet:ip':
                     self.eq(node[1]['path']['edges'], (
-                        ('3732000e26dc7b6c0ad44dbb13e28d9401d4f8280f091461f6f6dd9a63c53124', {'type': 'prop', 'prop': 'ip', 'reverse': True}),
+                        (1, {'type': 'prop', 'prop': 'ip', 'reverse': True}),
                     ))
                 elif node[0] == ('inet:fqdn', 'woot.com'):
                     self.eq(node[1]['path']['edges'], (
-                        ('3732000e26dc7b6c0ad44dbb13e28d9401d4f8280f091461f6f6dd9a63c53124', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                        (1, {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
                     ))
 
     async def test_onadd(self):

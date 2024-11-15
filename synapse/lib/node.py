@@ -320,7 +320,7 @@ class Node(NodeBase):
             embdnode = retn.get(nodepath)
             if embdnode is None:
                 embdnode = retn[nodepath] = {}
-                embdnode['*'] = s_common.ehex(node.buid)
+                embdnode['*'] = s_common.int64un(node.nid)
 
             for relp in relprops:
                 embdnode[relp] = node.get(relp)

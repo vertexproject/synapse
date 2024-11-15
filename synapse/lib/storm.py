@@ -2311,12 +2311,10 @@ class Runtime(s_base.Base):
     async def _joinEmbedStor(self, storage, embeds):
         for nodePath, relProps in embeds.items():
             await asyncio.sleep(0)
-            iden = relProps.get('*')
-            if not iden:
+            if (nid := relProps.get('*')) is None:
                 continue
 
-            if (nid := self.view.core.getNidByBuid(s_common.uhex(iden))) is None:
-                continue
+            nid = s_common.int64en(nid)
 
             stor = await self.view.getStorNodes(nid)
             for relProp in relProps.keys():
