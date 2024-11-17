@@ -251,6 +251,9 @@ class Node(NodeBase):
     def iden(self):
         return s_common.ehex(self.buid)
 
+    def intnid(self):
+        return s_common.int64un(self.nid)
+
     def pack(self, dorepr=False):
         '''
         Return the serializable/packed version of the node.
@@ -992,6 +995,9 @@ class RuntNode(NodeBase):
 
     def iden(self):
         return s_common.ehex(s_common.buid(self.ndef))
+
+    def intnid(self):
+        return None
 
     def pack(self, dorepr=False):
         pode = s_msgpack.deepcopy(self.pode)

@@ -2164,10 +2164,10 @@ class Runtime(s_base.Base):
                 yield node, self.initPath(node)
 
         for nid in self.opts.get('nids', ()):
-            if not isinstance(nid, int):
-                raise s_exc.BadTypeValu(mesg=f'Node IDs must be integers, got: {type(nid)}', valu=nid)
+            if (intnid := s_common.intify(nid)) is None:
+                raise s_exc.BadTypeValu(mesg=f'Node IDs must be integers, got: {nid}', valu=nid)
 
-            node = await self.view.getNodeByNid(s_common.int64en(nid))
+            node = await self.view.getNodeByNid(s_common.int64en(intnid))
             if node is not None:
                 yield node, self.initPath(node)
 
