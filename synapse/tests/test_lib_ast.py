@@ -4280,7 +4280,7 @@ class AstTest(s_test.SynTest):
                 links = nodes[nidx][1].get('links')
                 self.nn(links)
                 self.lt(eidx, len(links))
-                self.eq(links[eidx], (src.iden(), edge))
+                self.eq(links[eidx], (src.intnid(), edge))
 
             opts = {'links': True}
 

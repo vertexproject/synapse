@@ -1126,7 +1126,7 @@ class Path:
 
         links = list(self.links)
         if self.node is not None and link is not None:
-            links.append((self.node.iden(), link))
+            links.append((self.node.intnid(), link))
 
         nodes = list(self.nodes)
         nodes.append(node)
