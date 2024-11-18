@@ -709,6 +709,9 @@ class RiskModule(s_module.CoreModule):
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
 
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The technique that the node is susceptible to.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
 
