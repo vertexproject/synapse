@@ -777,6 +777,12 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('MissingField', retn.get('code'))
 
+                body = {'prop': 'test:comp', 'value': '3^foobar', 'typeopts': {'sepr': '^'}}
+                async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq([3, 'foobar'], retn['result']['norm'])
+
                 # Norm via POST
                 body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
                 async with sess.post(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:

@@ -1357,30 +1357,42 @@ stormcmds = (
         'descr': "List existing cron jobs in the cortex.",
         'cmdargs': (),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "user", "width": 24},
+                        {"name": "iden", "width": 10},
+                        {"name": "view", "width": 10},
+                        {"name": "en?", "width": 3},
+                        {"name": "rpt?", "width": 4},
+                        {"name": "now?", "width": 4},
+                        {"name": "err?", "width": 4},
+                        {"name": "# start", "width": 7},
+                        {"name": "last start", "width": 16},
+                        {"name": "last end", "width": 16},
+                        {"name": "query", "newlines": "split"},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                        },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
             $crons = $lib.cron.list()
-
             if $crons {
-                $lib.print("user       iden       view       en? rpt? now? err? # start last start       last end         query")
-
+                $lib.print($printer.header())
                 for $cron in $crons {
-
                     $job = $cron.pprint()
-
-                    $user = $job.user.ljust(10)
-                    $view = $job.viewshort.ljust(10)
-                    $iden = $job.idenshort.ljust(10)
-                    $enabled = $job.enabled.ljust(3)
-                    $isrecur = $job.isrecur.ljust(4)
-                    $isrunning = $job.isrunning.ljust(4)
-                    $iserr = $job.iserr.ljust(4)
-                    $startcount = $lib.str.format("{startcount}", startcount=$job.startcount).ljust(7)
-                    $laststart = $job.laststart.ljust(16)
-                    $lastend = $job.lastend.ljust(16)
-
-       $lib.print("{user} {iden} {view} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
-                               user=$user, iden=$iden, view=$view, enabled=$enabled, isrecur=$isrecur,
-                               isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
-                               laststart=$laststart, lastend=$lastend, query=$job.query)
+                    $row = (
+                        $job.user, $job.idenshort, $job.viewshort, $job.enabled,
+                        $job.isrecur, $job.isrunning, $job.iserr, `{$job.startcount}`,
+                        $job.laststart, $job.lastend, $job.query
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print("No cron jobs found")
@@ -5268,6 +5280,13 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
+
+        # make sure the subquery *could* have run
+        async with runt.getSubRuntime(query) as subr:
+            query.validate(subr)
+
         runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
@@ -5276,12 +5295,6 @@ class BackgroundCmd(Cmd):
             'view': runt.snap.view.iden,
             'vars': runtvars,
         }
-
-        _query = await s_stormtypes.tostr(self.opts.query)
-        query = await runt.getStormQuery(_query)
-
-        # make sure the subquery *could* have run with existing vars
-        query.validate(runt)
 
         coro = self.execStormTask(query, opts)
         runt.snap.core.schedCoro(coro)
@@ -5339,9 +5352,12 @@ class ParallelCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         size = await s_stormtypes.toint(self.opts.size)
-        query = await runt.getStormQuery(self.opts.query)
 
-        query.validate(runt)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
+
+        async with runt.getSubRuntime(query) as subr:
+            query.validate(subr)
 
         async with await s_base.Base.anit() as base:
 
@@ -5978,6 +5994,13 @@ class RunAsCmd(Cmd):
     Execute a storm query as a specified user.
 
     NOTE: This command requires admin privileges.
+
+    NOTE: Heavy objects (for example a View or Layer) are bound to the context which they
+          are instantiated in and methods on them will be run using the user in that
+          context. This means that executing a method on a variable containing a heavy
+          object which was instantiated outside of the runas command and then used
+          within the runas command will check the permissions of the outer user, not
+          the one specified by the runas command.
 
     Examples:
 

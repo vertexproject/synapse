@@ -742,6 +742,32 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:enacted :ext:creator -> ps:contact +:name=root'))
             self.len(1, await core.nodes('ou:enacted :ext:assignee -> ps:contact +:name=visi'))
 
+            nodes = await core.nodes('''
+                [ ou:candidate=*
+                    :org={ ou:org:name=vertex | limit 1 }
+                    :contact={ ps:contact:name=visi | limit 1 }
+                    :intro="    Hi there!"
+                    :submitted=20241104
+                    :method=referral.employee
+                    :resume=*
+                    :opening=*
+                    :agent={[ ps:contact=* :name=agent ]}
+                    :recruiter={[ ps:contact=* :name=recruiter ]}
+                    :attachments={[ file:attachment=* :name=questions.pdf ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('Hi there!', nodes[0].get('intro'))
+            self.eq(1730678400000, nodes[0].get('submitted'))
+            self.eq('referral.employee.', nodes[0].get('method'))
+            self.len(1, await core.nodes('ou:candidate :org -> ou:org +:name=vertex'))
+            self.len(1, await core.nodes('ou:candidate :agent -> ps:contact +:name=agent'))
+            self.len(1, await core.nodes('ou:candidate :contact -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('ou:candidate :recruiter -> ps:contact +:name=recruiter'))
+
+            self.len(1, await core.nodes('ou:candidate :method -> ou:candidate:method:taxonomy'))
+            self.len(1, await core.nodes('ou:candidate :attachments -> file:attachment'))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()
@@ -839,16 +865,21 @@ class OuModelTest(s_t_utils.SynTest):
                 :sic="1234,5678"
                 :isic=C1393
                 :desc="Moldy cheese"
+                :reporter={[ ou:org=* :name=vertex ]}
+                :reporter:name=vertex
             ] '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.nn(nodes[0].get('reporter'))
             self.eq('foo bar', nodes[0].get('name'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
             self.sorteq(('1234', '5678'), nodes[0].get('sic'))
             self.sorteq(('11111', '22222'), nodes[0].get('naics'))
             self.sorteq(('C1393', ), nodes[0].get('isic'))
             self.len(2, nodes[0].get('subs'))
             self.eq('Moldy cheese', nodes[0].get('desc'))
 
+            self.len(1, await core.nodes('ou:industry :reporter -> ou:org'))
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
             self.len(3, nodes)
             self.len(3, await core.nodes('ou:industryname=baz -> ou:industry -> ou:industryname'))
@@ -989,3 +1020,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:contribution -> econ:acct:payment'))
             self.len(1, await core.nodes('ou:contribution -> mat:spec'))
             self.len(1, await core.nodes('ou:contribution -> ou:jobtitle +ou:jobtitle=analysts'))
+
+    async def test_ou_technique(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ ou:technique=* :name=foo +(uses)> { [ risk:vuln=* :name=bar ] } ]
+            ''')
+            self.len(1, await core.nodes('ou:technique:name=foo -(uses)> risk:vuln:name=bar'))

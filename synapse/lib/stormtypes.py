@@ -3816,13 +3816,13 @@ class Queue(StormType):
                   'args': (
                       {'name': 'item', 'type': 'prim', 'desc': 'The item being put into the queue.', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'int', 'desc': 'The queue offset of the item.'}}},
         {'name': 'puts', 'desc': 'Put multiple items into the Queue.',
          'type': {'type': 'function', '_funcname': '_methQueuePuts',
                   'args': (
                       {'name': 'items', 'type': 'list', 'desc': 'The items to put into the Queue.', },
                   ),
-                  'returns': {'type': 'null', }}},
+                  'returns': {'type': 'int', 'desc': 'The queue offset of the first item.'}}},
         {'name': 'gets', 'desc': 'Get multiple items from the Queue as a iterator.',
          'type': {'type': 'function', '_funcname': '_methQueueGets',
                   'args': (
@@ -6130,14 +6130,14 @@ class Node(Prim):
          'type': {'type': 'function', '_funcname': '_methNodeAddEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to add.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden of the destination node.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'delEdge', 'desc': 'Remove a light-weight edge.',
          'type': {'type': 'function', '_funcname': '_methNodeDelEdge',
                   'args': (
                       {'name': 'verb', 'type': 'str', 'desc': 'The edge verb to remove.'},
-                      {'name': 'iden', 'type': 'str', 'desc': 'The node id of the destination node to remove.'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The node iden of the destination node to remove.'},
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'globtags', 'desc': 'Get a list of the tag components from a Node which match a tag glob expression.',
@@ -6827,11 +6827,11 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields messages describing any index inconsistencies.', }}},
         {'name': 'getStorNode', 'desc': '''
-            Retrieve the raw storage node for the specified node id.
+            Retrieve the raw storage node for the specified node iden.
             ''',
          'type': {'type': 'function', '_funcname': 'getStorNode',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'The storage node dictionary.', }}},
         {'name': 'liftByProp', 'desc': '''
@@ -6897,7 +6897,7 @@ class Layer(Prim):
                               'desc': 'Yields (<n1iden>, <verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN1', 'desc': '''
-            Yield (verb, n2iden) tuples for any light edges in the layer for the source node id.
+            Yield (verb, n2iden) tuples for any light edges in the layer for the source node iden.
 
             Example:
                 Iterate the N1 edges for ``$node``::
@@ -6909,13 +6909,13 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN1',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n2iden>) tuples', }}},
 
         {'name': 'getEdgesByN2', 'desc': '''
-            Yield (verb, n1iden) tuples for any light edges in the layer for the target node id.
+            Yield (verb, n1iden) tuples for any light edges in the layer for the target node iden.
 
             Example:
                 Iterate the N2 edges for ``$node``::
@@ -6926,10 +6926,26 @@ class Layer(Prim):
             ''',
          'type': {'type': 'function', '_funcname': 'getEdgesByN2',
                   'args': (
-                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node id.'},
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
                   ),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'Yields (<verb>, <n1iden>) tuples', }}},
+        {'name': 'getNodeData', 'desc': '''
+            Yield (name, valu) tuples for any node data in the layer for the target node iden.
+
+            Example:
+                Iterate the node data for ``$node``::
+
+                    for ($name, $valu) in $layer.getNodeData($node.iden()) {
+                        $lib.print(`{$name} = {$valu}`)
+                    }
+            ''',
+         'type': {'type': 'function', '_funcname': 'getNodeData',
+                  'args': (
+                      {'name': 'nodeid', 'type': 'str', 'desc': 'The hex string of the node iden.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'Yields (<name>, <valu>) tuples', }}},
     )
     _storm_typename = 'layer'
     _ismutable = False
@@ -6986,6 +7002,7 @@ class Layer(Prim):
             'getStorNodesByForm': self.getStorNodesByForm,
             'getEdgesByN1': self.getEdgesByN1,
             'getEdgesByN2': self.getEdgesByN2,
+            'getNodeData': self.getNodeData,
             'getMirrorStatus': self.getMirrorStatus,
         }
 
@@ -7356,6 +7373,15 @@ class Layer(Prim):
             yield item
 
     @stormfunc(readonly=True)
+    async def getNodeData(self, nodeid):
+        nodeid = await tostr(nodeid)
+        layriden = self.valu.get('iden')
+        await self.runt.reqUserCanReadLayer(layriden)
+        layr = self.runt.snap.core.getLayer(layriden)
+        async for item in layr.iterNodeData(s_common.uhex(nodeid)):
+            yield item
+
+    @stormfunc(readonly=True)
     async def _methLayerGet(self, name, defv=None):
         return self.valu.get(name, defv)
 
@@ -7519,6 +7545,9 @@ class View(Prim):
         {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``trigger`` objects associated with the ``view``.',
          'type': 'list', },
+        {'name': 'children', 'desc': 'Yield Views which are children of this View.',
+         'type': {'type': 'function', '_funcname': '_methGetChildren',
+                  'returns': {'name': 'yields', 'type': 'view', 'desc': 'Child Views.', }}},
         {'name': 'set', 'desc': '''
             Set a view configuration option.
 
@@ -7806,6 +7835,7 @@ class View(Prim):
             'merge': self._methViewMerge,
             'detach': self.detach,
             'addNode': self.addNode,
+            'children': self._methGetChildren,
             'getEdges': self._methGetEdges,
             'wipeLayer': self._methWipeLayer,
             'swapLayer': self._methSwapLayer,
@@ -7940,6 +7970,12 @@ class View(Prim):
 
         async for valu in view.iterPropValues(propname):
             yield valu
+
+    @stormfunc(readonly=True)
+    async def _methGetChildren(self):
+        view = self._reqView()
+        async for child in view.children():
+            yield View(self.runt, await child.pack(), path=self.path)
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
@@ -9584,7 +9620,7 @@ def fromprim(valu, path=None, basetypes=True):
 
     return valu
 
-async def tostor(valu):
+async def tostor(valu, isndef=False):
 
     if isinstance(valu, Number):
         return str(valu.value())
@@ -9606,6 +9642,9 @@ async def tostor(valu):
             except s_exc.NoSuchType:
                 pass
         return retn
+
+    if isndef and isinstance(valu, s_node.Node):
+        return valu.ndef
 
     return await toprim(valu)
 
@@ -9649,6 +9688,9 @@ async def tostr(valu, noneok=False):
     try:
         if isinstance(valu, bytes):
             return valu.decode('utf8', 'surrogatepass')
+
+        if isinstance(valu, s_node.Node):
+            return valu.repr()
 
         return str(valu)
     except Exception as e:
