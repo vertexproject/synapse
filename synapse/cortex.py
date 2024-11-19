@@ -5830,13 +5830,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):
-            extra = await self.getLogExtra(text=text)
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
-                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+                proxname = proxy._ahainfo.get('name')
+                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
+
+                mirropts.setdefault('_loginfo', {})
+                mirropts['_loginfo']['pool:to'] = proxname
+                mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
                     return await proxy.count(text, opts=mirropts)
@@ -5911,9 +5916,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
-                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+                proxname = proxy._ahainfo.get('name')
+                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
+
+                mirropts.setdefault('_loginfo', {})
+                mirropts['_loginfo']['pool:to'] = proxname
+                mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
                     async for mesg in proxy.storm(text, opts=mirropts):
@@ -5941,9 +5952,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
-                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+                proxname = proxy._ahainfo.get('name')
+                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
+
+                mirropts.setdefault('_loginfo', {})
+                mirropts['_loginfo']['pool:to'] = proxname
+                mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
                     return await proxy.callStorm(text, opts=mirropts)
@@ -5966,9 +5983,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
-                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+                proxname = proxy._ahainfo.get('name')
+                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
+
+                mirropts.setdefault('_loginfo', {})
+                mirropts['_loginfo']['pool:to'] = proxname
+                mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
                     async for mesg in proxy.exportStorm(text, opts=mirropts):
@@ -6152,6 +6175,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             info['text'] = text
             info['username'] = user.name
             info['user'] = user.iden
+            info['hash'] = s_storm.queryhash(text)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra={'synapse': info})
 

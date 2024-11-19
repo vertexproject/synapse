@@ -5,7 +5,6 @@ import time
 import asyncio
 import hashlib
 import logging
-import textwrap
 
 import regex
 
@@ -16,13 +15,13 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
-import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
@@ -36,6 +35,10 @@ import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 logger = logging.getLogger(__name__)
+
+def jsonlines(text):
+    lines = [k for k in text.split('\n') if k]
+    return [json.loads(line) for line in lines]
 
 class CortexTest(s_t_utils.SynTest):
     '''
@@ -8072,6 +8075,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestAha() as aha:
 
+            ahanet = aha.conf.req('aha:network')
+
             async with await s_base.Base.anit() as base:
 
                 with self.getTestDir() as dirn:
@@ -8107,43 +8112,93 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormIsInPrint('Storm pool configuration set.', msgs)
 
                     await core00.fini()
+                    await core01.fini()
 
                     core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
+                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01, conf={'storm:log': True}))
 
                     await core00.stormpool.waitready(timeout=12)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core00.storm('inet:asn=0'))
+                    # storm()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        msgs = await alist(core00.storm(q))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = jsonlines(data)
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:to'), f'01.core.{ahanet}')
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # callStorm()
+                    q = 'inet:asn=0 return($lib.true)'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm(q))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = jsonlines(data)
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:to'), f'01.core.{ahanet}')
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # exportStorm()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm(q)))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = jsonlines(data)
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.eq(1, await core00.count('inet:asn=0'))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:to'), f'01.core.{ahanet}')
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # count()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count(q))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = jsonlines(data)
+                    self.len(2, msgs)
+
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:to'), f'01.core.{ahanet}')
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
                     with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 

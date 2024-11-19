@@ -1,6 +1,7 @@
 import types
 import pprint
 import asyncio
+import hashlib
 import logging
 import argparse
 import contextlib
@@ -1648,6 +1649,9 @@ stormcmds = (
         ''',
     },
 )
+
+def queryhash(text):
+    return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
 class DmonManager(s_base.Base):
     '''
