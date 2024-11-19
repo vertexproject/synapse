@@ -871,6 +871,16 @@ class StormTest(s_t_utils.SynTest):
             self.none(await core.callStorm('return($lib.pkg.get(haha))'))
             self.false(await core.callStorm('return($lib.pkg.has(haha))'))
 
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.isin('not available', msgs[3][1]['mesg'])
+            self.isin('not available', msgs[4][1]['mesg'])
+
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            await core.addStormPkg(pkg2)
+            self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.isin('2024-11-19 12:00:00', msgs[4][1]['mesg'])
+
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
             # and again to test *not* creating it...

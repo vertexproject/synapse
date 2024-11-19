@@ -859,7 +859,11 @@ stormcmds = (
                         $pkg.name, $pkg.version,
                     )
                     if $cmdopts.verbose {
-                        $row.append($lib.time.format($pkg.build.time, '%Y-%m-%d %H:%M:%S'))
+                        try {
+                            $row.append($lib.time.format($pkg.build.time, '%Y-%m-%d %H:%M:%S'))
+                        } catch StormRuntimeError as _ {
+                            $row.append('not available')
+                        }
                     }
                     $lib.print($printer.row($row))
                 }
