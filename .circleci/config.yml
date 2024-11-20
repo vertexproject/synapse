@@ -59,18 +59,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
-
-  check_runner_has_work:
-    description: Check that this runner has work to do
-    steps:
-      - run:
-          name: Check workload
-          command: |
-            mkdir -p ./tmp && \
-            >./tmp/tests.txt && \
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | circleci tests run --split-by=timings --command ">./tmp/tests.txt xargs echo"
-            [ -s tmp/tests.txt ] || circleci-agent step halt #if there are no tests, terminate execution after this step
+            python3 -m pytest -n auto -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}
 
   test_steps_doc:
     description: "Documentation test steps"
@@ -115,8 +104,6 @@ commands:
     description: "Python test steps"
     steps:
       - checkout
-
-      - check_runner_has_work
 
       - run:
           name: checkout regression repo
@@ -424,7 +411,7 @@ commands:
 jobs:
 
   python311:
-    parallelism: 8
+    resource_class: xlarge
     docker:
       - image: cimg/python:3.11
         environment:
@@ -441,7 +428,7 @@ jobs:
       - test_steps_python
 
   python311_replay:
-    parallelism: 6
+    resource_class: xlarge
     docker:
       - image: cimg/python:3.11
         environment:
@@ -458,7 +445,6 @@ jobs:
       - test_steps_python
 
   doctests:
-    parallelism: 1
     docker:
       - image: cimg/python:3.11
         environment:
