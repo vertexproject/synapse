@@ -1351,7 +1351,7 @@ class AstTest(s_test.SynTest):
                     {n.ndef for n in nodes})
 
             msgs = await core.stormlist('pkg.list')
-            self.stormIsInPrint(' foo                                       0.0.1', msgs, whitespace=False)
+            self.stormIsInPrint('foo 0.0.1', msgs, whitespace=False)
 
             msgs = await core.stormlist('pkg.del asdf')
             self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
