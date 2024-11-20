@@ -6004,8 +6004,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterPropRows(self, layriden, form, prop, stortype=None, startvalu=None):
         '''
@@ -6025,8 +6025,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
         '''
@@ -6045,8 +6045,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
         '''
@@ -6065,8 +6065,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterTagRows(tag, form=form, starttupl=starttupl):
-            yield item
+        if starttupl is not None:
+            starttupl = (s_common.int64en(starttupl[0]), starttupl[1])
+
+        async for nid, valu in layr.iterTagRows(tag, form=form, starttupl=starttupl):
+            yield s_common.int64un(nid), valu
 
     async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
         '''
@@ -6087,8 +6090,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     def _initVaults(self):
         self.vaultsdb = self.slab.initdb('vaults')

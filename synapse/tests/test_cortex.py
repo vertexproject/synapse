@@ -7065,15 +7065,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[(inet:ip=([4, 1]) :asn=10 .seen=(2016, 2017) +#foo=(2020,2021) +#foo:score=42)]')
             self.len(1, nodes)
-            nid1 = nodes[0].nid
+            nid1 = nodes[0].intnid()
 
             nodes = await core.nodes('[(inet:ip=([4, 2]) :asn=20 .seen=(2015, 2016) +#foo=(2019,2020) +#foo:score=41)]')
             self.len(1, nodes)
-            nid2 = nodes[0].nid
+            nid2 = nodes[0].intnid()
 
             nodes = await core.nodes('[(inet:ip=([4, 3]) :asn=30 .seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99)]')
             self.len(1, nodes)
-            nid3 = nodes[0].nid
+            nid3 = nodes[0].intnid()
 
             self.len(1, await core.nodes('[test:str=yolo]'))
             self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}}))
