@@ -832,7 +832,7 @@ stormcmds = (
             init {
                 $conf = ({
                     "columns": [
-                        {"name": "name", "width": 32},
+                        {"name": "name", "width": 40},
                         {"name": "vers", "width": 10},
                     ],
                     "separators": {
