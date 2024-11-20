@@ -1,0 +1,6 @@
+---
+desc: Added ``:technique`` to the ``risk:vulnerable`` form to represent a node being
+  susceptible to a technique.
+prs: []
+type: model
+...
