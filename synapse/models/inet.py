@@ -3910,7 +3910,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:tenant', {}, ()),
 
-                    ('inet:service:subscription:level:taxonomy', {}),
+                    ('inet:service:subscription:level:taxonomy', {}, ()),
 
                     ('inet:service:subscription', {}, (
 

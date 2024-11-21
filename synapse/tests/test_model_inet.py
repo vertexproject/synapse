@@ -2958,10 +2958,12 @@ class InetModelTest(s_t_utils.SynTest):
                 :platform={ inet:service:platform=(slack,) }
                 :url="https://v.vtx.lk/slack"
                 :name="Synapse users slack"
+                :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
             ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.nn(nodes[0].get('tenant'))
             self.eq(nodes[0].ndef, ('inet:service:instance', s_common.guid(('vertex', 'slack'))))
             self.eq(nodes[0].get('id'), 'T2XK1223Y')
             self.eq(nodes[0].get('platform'), platform.ndef[1])
@@ -2976,6 +2978,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :user=blackout
                     :email=blackout@vertex.link
                     :profile={ gen.ps.contact.email vertex.employee blackout@vertex.link }
+                    :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
                 )
 
                 (inet:service:account=(visi, account, vertex, slack)
@@ -2988,6 +2991,8 @@ class InetModelTest(s_t_utils.SynTest):
             '''
             accounts = await core.nodes(q)
             self.len(2, accounts)
+
+            self.nn(accounts[0].get('tenant'))
 
             profiles = await core.nodes('ps:contact')
             self.len(2, profiles)
@@ -3410,3 +3415,18 @@ class InetModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:service:relationship=* :source={[it:dev:str=foo]} ]')
+
+            nodes = await core.nodes('''
+                [ inet:service:subscription=*
+                    :level=vertex.synapse.enterprise
+                    :pay:instrument={[ econ:bank:account=* :contact=({"name": "visi"}) ]}
+                    :subscriber={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('vertex.synapse.enterprise.', nodes[0].get('level'))
+            self.eq('econ:bank:account', nodes[0].get('pay:instrument')[0])
+            self.eq('inet:service:tenant', nodes[0].get('subscriber')[0])
+            self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
+            self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
+            self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
