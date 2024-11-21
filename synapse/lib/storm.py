@@ -626,7 +626,7 @@ stormcmds = (
     {
         'name': 'feed.list',
         'descr': 'List the feed functions available in the Cortex',
-        'cmdrargs': (),
+        'cmdargs': (),
         'storm': '''
             $lib.print('Storm feed list:')
             for $flinfo in $lib.feed.list() {
@@ -824,19 +824,51 @@ stormcmds = (
     {
         'name': 'pkg.list',
         'descr': 'List the storm packages loaded in the cortex.',
-        'cmdrargs': (),
+        'cmdargs': (
+            ('--verbose', {'default': False, 'action': 'store_true',
+                'help': 'Display build time for each package.'}),
+        ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "name", "width": 40},
+                        {"name": "vers", "width": 10},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                if $cmdopts.verbose {
+                    $conf.columns.append(({"name": "time", "width": 20}))
+                }
+                $printer = $lib.tabular.printer($conf)
+            }
+
             $pkgs = $lib.pkg.list()
 
-            if $($pkgs.size() = 0) {
-
-                $lib.print('No storm packages installed.')
-
-            } else {
+            if $($pkgs.size() > 0) {
                 $lib.print('Loaded storm packages:')
+                $lib.print($printer.header())
                 for $pkg in $pkgs {
-                    $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                    $row = (
+                        $pkg.name, $pkg.version,
+                    )
+                    if $cmdopts.verbose {
+                        try {
+                            $row.append($lib.time.format($pkg.build.time, '%Y-%m-%d %H:%M:%S'))
+                        } catch StormRuntimeError as _ {
+                            $row.append('not available')
+                        }
+                    }
+                    $lib.print($printer.row($row))
                 }
+            } else {
+                $lib.print('No storm packages installed.')
             }
         '''
     },
@@ -5280,6 +5312,13 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
+
+        # make sure the subquery *could* have run
+        async with runt.getSubRuntime(query) as subr:
+            query.validate(subr)
+
         runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
@@ -5288,12 +5327,6 @@ class BackgroundCmd(Cmd):
             'view': runt.snap.view.iden,
             'vars': runtvars,
         }
-
-        _query = await s_stormtypes.tostr(self.opts.query)
-        query = await runt.getStormQuery(_query)
-
-        # make sure the subquery *could* have run with existing vars
-        query.validate(runt)
 
         coro = self.execStormTask(query, opts)
         runt.snap.core.schedCoro(coro)
@@ -5351,9 +5384,12 @@ class ParallelCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         size = await s_stormtypes.toint(self.opts.size)
-        query = await runt.getStormQuery(self.opts.query)
 
-        query.validate(runt)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
+
+        async with runt.getSubRuntime(query) as subr:
+            query.validate(subr)
 
         async with await s_base.Base.anit() as base:
 
