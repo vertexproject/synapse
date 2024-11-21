@@ -5840,7 +5840,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mirropts = await self._getMirrorOpts(opts)
 
                 mirropts.setdefault('_loginfo', {})
-                mirropts['_loginfo']['pool:to'] = proxname
                 mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
@@ -5923,7 +5922,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mirropts = await self._getMirrorOpts(opts)
 
                 mirropts.setdefault('_loginfo', {})
-                mirropts['_loginfo']['pool:to'] = proxname
                 mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
@@ -5959,7 +5957,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mirropts = await self._getMirrorOpts(opts)
 
                 mirropts.setdefault('_loginfo', {})
-                mirropts['_loginfo']['pool:to'] = proxname
                 mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
@@ -5990,7 +5987,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 mirropts = await self._getMirrorOpts(opts)
 
                 mirropts.setdefault('_loginfo', {})
-                mirropts['_loginfo']['pool:to'] = proxname
                 mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:

@@ -8137,7 +8137,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
                     self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:to'), f'01.core.{ahanet}')
                     self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
                     # callStorm()
@@ -8157,7 +8156,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
                     self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:to'), f'01.core.{ahanet}')
                     self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
                     # exportStorm()
@@ -8177,7 +8175,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
                     self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:to'), f'01.core.{ahanet}')
                     self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
                     # count()
@@ -8197,7 +8194,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
                     self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:to'), f'01.core.{ahanet}')
                     self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
                     with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
