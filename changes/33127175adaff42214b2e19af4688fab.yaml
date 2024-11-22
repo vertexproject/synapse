@@ -1,6 +1,0 @@
----
-desc: Fix an issue where the default permission level specified when adding a graph
-  projection was overwritten.
-prs: []
-type: bug
-...

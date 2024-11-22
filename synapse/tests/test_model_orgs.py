@@ -669,6 +669,105 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 :assignee -> ps:contact +:orgname=ledos'))
             self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:requirement:type:taxonomy'))
 
+            nodes = await core.nodes('''
+                [ ou:asset=*
+                    :id=V-31337
+                    :name="visi laptop"
+                    :type=host.laptop
+                    :priority=highest
+                    :priority:confidentiality=highest
+                    :priority:integrity=highest
+                    :priority:availability=highest
+                    :node = (it:host, *)
+                    :period=(2016, ?)
+                    :status=deployed
+                    :org={[ ou:org=* :name=vertex ]}
+                    :owner={[ ps:contact=* :name=foo ]}
+                    :operator={[ ps:contact=* :name=bar ]}
+                ]''')
+            self.len(1, nodes)
+            self.eq((1451606400000, 9223372036854775807), nodes[0].get('period'))
+            self.eq('visi laptop', nodes[0].get('name'))
+            self.eq('host.laptop.', nodes[0].get('type'))
+            self.eq('deployed.', nodes[0].get('status'))
+            self.eq(50, nodes[0].get('priority'))
+            self.eq(50, nodes[0].get('priority:confidentiality'))
+            self.eq(50, nodes[0].get('priority:integrity'))
+            self.eq(50, nodes[0].get('priority:availability'))
+
+            self.len(1, await core.nodes('ou:asset -> ou:asset:type:taxonomy'))
+            self.len(1, await core.nodes('ou:asset :node -> it:host'))
+            self.len(1, await core.nodes('ou:asset :org -> ou:org +:name=vertex'))
+            self.len(1, await core.nodes('ou:asset :owner -> ps:contact +:name=foo '))
+            self.len(1, await core.nodes('ou:asset :operator -> ps:contact +:name=bar '))
+
+            visi = await core.auth.addUser('visi')
+
+            nodes = await core.nodes('''
+                [ ou:enacted=*
+                    :id=V-99
+                    :project={[ proj:project=* ]}
+                    :status=10
+                    :priority=highest
+                    :created=20241018
+                    :updated=20241018
+                    :due=20241018
+                    :completed=20241018
+                    :creator=root
+                    :assignee=visi
+                    :scope=(ou:team, *)
+                    :ext:creator={[ ps:contact=* :name=root ]}
+                    :ext:assignee={[ ps:contact=* :name=visi ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('V-99', nodes[0].get('id'))
+            self.eq(10, nodes[0].get('status'))
+            self.eq(50, nodes[0].get('priority'))
+
+            self.eq(1729209600000, nodes[0].get('due'))
+            self.eq(1729209600000, nodes[0].get('created'))
+            self.eq(1729209600000, nodes[0].get('updated'))
+            self.eq(1729209600000, nodes[0].get('completed'))
+
+            self.eq(visi.iden, nodes[0].get('assignee'))
+            self.eq(core.auth.rootuser.iden, nodes[0].get('creator'))
+
+            self.nn(nodes[0].get('scope'))
+            self.nn(nodes[0].get('ext:creator'))
+            self.nn(nodes[0].get('ext:assignee'))
+
+            self.len(1, await core.nodes('ou:enacted -> proj:project'))
+            self.len(1, await core.nodes('ou:enacted :scope -> ou:team'))
+            self.len(1, await core.nodes('ou:enacted :ext:creator -> ps:contact +:name=root'))
+            self.len(1, await core.nodes('ou:enacted :ext:assignee -> ps:contact +:name=visi'))
+
+            nodes = await core.nodes('''
+                [ ou:candidate=*
+                    :org={ ou:org:name=vertex | limit 1 }
+                    :contact={ ps:contact:name=visi | limit 1 }
+                    :intro="    Hi there!"
+                    :submitted=20241104
+                    :method=referral.employee
+                    :resume=*
+                    :opening=*
+                    :agent={[ ps:contact=* :name=agent ]}
+                    :recruiter={[ ps:contact=* :name=recruiter ]}
+                    :attachments={[ file:attachment=* :name=questions.pdf ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('Hi there!', nodes[0].get('intro'))
+            self.eq(1730678400000, nodes[0].get('submitted'))
+            self.eq('referral.employee.', nodes[0].get('method'))
+            self.len(1, await core.nodes('ou:candidate :org -> ou:org +:name=vertex'))
+            self.len(1, await core.nodes('ou:candidate :agent -> ps:contact +:name=agent'))
+            self.len(1, await core.nodes('ou:candidate :contact -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('ou:candidate :recruiter -> ps:contact +:name=recruiter'))
+
+            self.len(1, await core.nodes('ou:candidate :method -> ou:candidate:method:taxonomy'))
+            self.len(1, await core.nodes('ou:candidate :attachments -> file:attachment'))
+
     async def test_ou_code_prefixes(self):
         guid0 = s_common.guid()
         guid1 = s_common.guid()
@@ -766,16 +865,21 @@ class OuModelTest(s_t_utils.SynTest):
                 :sic="1234,5678"
                 :isic=C1393
                 :desc="Moldy cheese"
+                :reporter={[ ou:org=* :name=vertex ]}
+                :reporter:name=vertex
             ] '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.nn(nodes[0].get('reporter'))
             self.eq('foo bar', nodes[0].get('name'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
             self.sorteq(('1234', '5678'), nodes[0].get('sic'))
             self.sorteq(('11111', '22222'), nodes[0].get('naics'))
             self.sorteq(('C1393', ), nodes[0].get('isic'))
             self.len(2, nodes[0].get('subs'))
             self.eq('Moldy cheese', nodes[0].get('desc'))
 
+            self.len(1, await core.nodes('ou:industry :reporter -> ou:org'))
             nodes = await core.nodes('ou:industry:name="foo bar" | tree { :subs -> ou:industry } | uniq')
             self.len(3, nodes)
             self.len(3, await core.nodes('ou:industryname=baz -> ou:industry -> ou:industryname'))
@@ -916,3 +1020,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:contribution -> econ:acct:payment'))
             self.len(1, await core.nodes('ou:contribution -> mat:spec'))
             self.len(1, await core.nodes('ou:contribution -> ou:jobtitle +ou:jobtitle=analysts'))
+
+    async def test_ou_technique(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ ou:technique=* :name=foo +(uses)> { [ risk:vuln=* :name=bar ] } ]
+            ''')
+            self.len(1, await core.nodes('ou:technique:name=foo -(uses)> risk:vuln:name=bar'))

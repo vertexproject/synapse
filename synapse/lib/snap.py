@@ -1559,12 +1559,6 @@ class Snap(s_base.Base):
         return await self.tagnorms.aget(tagname)
 
     async def _getTagNorm(self, tagname):
-
-        if not self.core.isTagValid(tagname):
-            mesg = f'The tag ({tagname}) does not meet the regex for the tree.'
-            await self._raiseOnStrict(s_exc.BadTag, mesg)
-            return None
-
         try:
             return self.core.model.type('syn:tag').norm(tagname)
         except s_exc.BadTypeValu as e:
@@ -1692,6 +1686,7 @@ class Snap(s_base.Base):
 
         todo = s_common.todo('runRuntLift', full, valu, cmpr, self.view.iden)
         async for sode in self.core.dyniter('cortex', todo):
+            await asyncio.sleep(0)
 
             node = s_node.Node(self, sode)
             node.isrunt = True

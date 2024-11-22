@@ -147,6 +147,20 @@ class StormTest(s_t_utils.SynTest):
             retn = await core.callStorm('return(({"foo": "bar", "baz": 10 , }))')
             self.eq(retn, {'foo': 'bar', 'baz': 10})
 
+            q = '''
+            $foo = ({"bar": ${[inet:fqdn=foo.com]}})
+            for $n in $foo.bar { return($n.repr()) }
+            '''
+            retn = await core.callStorm(q)
+            self.eq(retn, 'foo.com')
+
+            q = '''
+            $foo = ([${[inet:fqdn=foo.com]}])
+            for $n in $foo.0 { return($n.repr()) }
+            '''
+            retn = await core.callStorm(q)
+            self.eq(retn, 'foo.com')
+
             with self.raises(s_exc.BadSyntax):
                 await core.callStorm('return((["foo" "foo"]))')
 
@@ -612,11 +626,19 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.eq((0, 'haha'), await core.callStorm('return($lib.queue.get(bar).get())'))
 
+            await core.nodes('$foo = (foo,) background ${ $foo.append(bar) $lib.queue.get(bar).put($foo) }')
+            self.eq((1, ['foo', 'bar']), await core.callStorm('return($lib.queue.get(bar).get(1))'))
+
+            await core.nodes('$foo = ([["foo"]]) background ${ $foo.0.append(bar) $lib.queue.get(bar).put($foo) }')
+            self.eq((2, [['foo', 'bar']]), await core.callStorm('return($lib.queue.get(bar).get(2))'))
+
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes('[ ou:org=*] $text = $node.repr() | background $text')
 
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('background { $lib.print($foo) }')
+
+            await core.nodes('background ${ $foo=test $lib.print($foo) }')
 
             await core.nodes('background { $lib.time.sleep(4) }')
             task = await core.callStorm('for $t in $lib.ps.list() { if $t.info.background { return($t) } }')
@@ -646,6 +668,9 @@ class StormTest(s_t_utils.SynTest):
             # Runtsafety test
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            nodes = await core.nodes('ou:org | parallel ${ $foo=bar [ :name=$foo ]}')
+            self.true(all([n.get('name') == 'bar' for n in nodes]))
 
             # test $lib.exit() and the StormExit handlers
             msgs = [m async for m in core.view.storm('$lib.exit()')]
@@ -837,14 +862,23 @@ class StormTest(s_t_utils.SynTest):
             pkg1 = {'name': 'haha', 'version': '1.2.3'}
             await core.addStormPkg(pkg1)
             msgs = await core.stormlist('pkg.list')
-            self.isin('haha', msgs[2][1]['mesg'])
-            self.isin('hehe', msgs[3][1]['mesg'])
+            self.stormIsInPrint('haha', msgs)
+            self.stormIsInPrint('hehe', msgs)
 
             self.true(await core.callStorm('return($lib.pkg.has(haha))'))
 
             await core.delStormPkg('haha')
             self.none(await core.callStorm('return($lib.pkg.get(haha))'))
             self.false(await core.callStorm('return($lib.pkg.has(haha))'))
+
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('not available', msgs)
+
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            await core.addStormPkg(pkg2)
+            self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('2024-11-19 12:00:00', msgs)
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -2116,6 +2150,49 @@ class StormTest(s_t_utils.SynTest):
 
             self.nn(bot.get('country::flag::md5'))
             self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
+
+            await core.nodes('''
+                [( risk:vulnerable=*
+                    :mitigated=true
+                    :node={ [ it:prod:hardware=* :name=foohw ] return($node.ndef()) }
+                    :vuln={[ risk:vuln=* :name=barvuln ]}
+                    +#test
+                )]
+                [( inet:service:rule=*
+                    :object={ risk:vulnerable#test return($node.ndef()) }
+                    :grantee={ [ inet:service:account=* :id=foocon ] return($node.ndef()) }
+                    +#test
+                )]
+            ''')
+
+            opts = {
+                'embeds': {
+                    'risk:vulnerable': {
+                        'vuln': ['name'],
+                        'node': ['name'],
+                    },
+                    'inet:service:rule': {
+                        'object': ['mitigated', 'newp'],
+                        'object::node': ['name', 'newp'],
+                        'grantee': ['id', 'newp'],
+                    }
+                }
+            }
+            msgs = await core.stormlist('inet:service:rule#test :object -+> risk:vulnerable', opts=opts)
+            nodes = sorted([m[1] for m in msgs if m[0] == 'node'], key=lambda p: p[0][0])
+            self.eq(['inet:service:rule', 'risk:vulnerable'], [n[0][0] for n in nodes])
+
+            embeds = nodes[0][1]['embeds']
+            self.eq(1, embeds['object']['mitigated'])
+            self.eq(None, embeds['object']['newp'])
+            self.eq('foohw', embeds['object::node']['name'])
+            self.eq(None, embeds['object::node']['newp'])
+            self.eq('foocon', embeds['grantee']['id'])
+            self.eq(None, embeds['grantee']['newp'])
+
+            embeds = nodes[1][1]['embeds']
+            self.eq('barvuln', embeds['vuln']['name'])
+            self.eq('foohw', embeds['node']['name'])
 
     async def test_storm_wget(self):
 
@@ -3586,7 +3663,7 @@ class StormTest(s_t_utils.SynTest):
             'quickly became his weapon of choice.'])
         pars.help()
         helptext = '\n'.join(pars.mesgs)
-        self.isin('default: \n[', helptext)
+        self.isin('default:\n                                [', helptext)
 
         pars = s_storm.Parser()
         pars.add_argument('--ques', nargs='?')
@@ -3770,6 +3847,27 @@ class StormTest(s_t_utils.SynTest):
 
         opts = pars.parse_args(['faz', '--cat', 'cam', 'cool'])
         self.nn(opts)
+
+        pars = s_storm.Parser()
+        pars.add_argument('--baz', nargs=3, help='''
+             This is the top line, nothing special.
+             This is my second line with sublines that should have some leading spaces:
+                subline 1: this is a line which has three spaces.
+                  subline 2: this is another line with five leading spaces.
+               subline 3: yet another line with only two leading spaces.
+              subline 4: this line has one space and is long which should wrap around because it exceeds the default display width.
+             This is the final line with no leading spaces.''')
+        pars.add_argument('--taz', type='bool', default=True, help='Taz option')
+        pars.help()
+        self.eq('  --baz <baz>                 : This is the top line, nothing special.', pars.mesgs[5])
+        self.eq('                                This is my second line with sublines that should have some leading spaces:', pars.mesgs[6])
+        self.eq('                                   subline 1: this is a line which has three spaces.', pars.mesgs[7])
+        self.eq('                                     subline 2: this is another line with five leading spaces.', pars.mesgs[8])
+        self.eq('                                  subline 3: yet another line with only two leading spaces.', pars.mesgs[9])
+        self.eq('                                 subline 4: this line has one space and is long which should wrap around because it', pars.mesgs[10])
+        self.eq('                                 exceeds the default display width.', pars.mesgs[11])
+        self.eq('                                This is the final line with no leading spaces.', pars.mesgs[12])
+        self.eq('  --taz <taz>                 : Taz option (default: True)', pars.mesgs[13])
 
     async def test_storm_cmd_help(self):
 
@@ -5085,3 +5183,15 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.none(await core.callStorm('return($lib.queue.gen(haha).get().1)'))
+
+            await core.nodes('''
+                $foo = (foo,)
+                $query = ${
+                    $foo.append(bar)
+                    $lib.queue.gen(hoho).put($foo)
+                    $lib.dmon.del($auto.iden)
+                }
+                $lib.dmon.add($query)
+            ''')
+
+            self.eq(['foo', 'bar'], await core.callStorm('return($lib.queue.gen(hoho).get().1)'))

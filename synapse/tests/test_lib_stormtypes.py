@@ -907,6 +907,17 @@ class StormTypesTest(s_test.SynTest):
                        'refs',
                        '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
 
+            data = await core.callStorm('''
+                $data = ({})
+                inet:user=visi
+                for ($name, $valu) in $lib.layer.get().getNodeData($node.iden()) { $data.$name = $valu }
+                return($data)
+            ''')
+            foo = data.get('foo')
+            self.nn(foo)
+            self.nn(foo.get('asof'))
+            self.eq('bar', foo.get('data'))
+
             msgs = await core.stormlist('$lib.print($lib.null)')
             self.stormIsInPrint('$lib.null', msgs)
             self.stormNotInPrint('None', msgs)
@@ -2331,7 +2342,7 @@ class StormTypesTest(s_test.SynTest):
                 path = pode[1]['path']
                 self.len(1, path)
                 key = list(path.keys())[0]
-                self.true(key.startswith("Node{(('inet:fqdn', 'vertex.link'), {'iden':"))
+                self.true(key.startswith('vertex.link'))
                 self.eq(('foo', 'bar'), path[key])
 
                 q = '''

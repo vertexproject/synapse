@@ -455,6 +455,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :src:rdp:hostname=SYNCODER
                 :src:rdp:keyboard:layout=AZERTY
                 :raw=((10), (20))
+                :src:txfiles={[ file:attachment=* :name=foo.exe ]}
+                :dst:txfiles={[ file:attachment=* :name=bar.exe ]}
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
@@ -501,6 +503,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
             self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
             self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
+            self.len(1, await core.nodes('inet:flow :src:txfiles -> file:attachment +:name=foo.exe'))
+            self.len(1, await core.nodes('inet:flow :dst:txfiles -> file:attachment +:name=bar.exe'))
 
     async def test_fqdn(self):
         formname = 'inet:fqdn'
@@ -3374,3 +3378,32 @@ class InetModelTest(s_t_utils.SynTest):
                 :channel -> inet:service:channel
                 +:name="/r/synapse"
             '''))
+
+            nodes = await core.nodes('''
+                [ inet:service:relationship=*
+                    :source={ inet:service:account:user=visi }
+                    :target={ inet:service:account:user=visi }
+                    :type=follows
+                ]
+            ''')
+            self.nn(nodes[0].get('source'))
+            self.nn(nodes[0].get('target'))
+            self.eq('follows.', nodes[0].get('type'))
+            self.len(1, await core.nodes('inet:service:relationship :source -> inet:service:account +:user=visi'))
+            self.len(1, await core.nodes('inet:service:relationship :target -> inet:service:account +:user=visi'))
+
+            nodes = await core.nodes('''
+                [ inet:service:emote=*
+                    :creator={ inet:service:account:user=visi }
+                    :about={[ it:dev:repo=* :name=vertex ]}
+                    :text=":gothparrot:"
+                ]
+            ''')
+            self.nn(nodes[0].get('about'))
+            self.nn(nodes[0].get('creator'))
+            self.eq(':gothparrot:', nodes[0].get('text'))
+            self.len(1, await core.nodes('inet:service:emote :about -> it:dev:repo +:name=vertex'))
+            self.len(1, await core.nodes('inet:service:emote :creator -> inet:service:account +:user=visi'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:service:relationship=* :source={[it:dev:str=foo]} ]')
