@@ -723,6 +723,8 @@ Queries = [
     '$pvar=stuff test:arrayprop +:$pvar*[=neato]',
     '$pvar=ints test:arrayprop +:$pvar*[=$othervar]',
     '$foo = ({"foo": ${ inet:fqdn }})',
+    '[ .seen?=($foo.bar*1000) ]',
+    '[ .seen?=(:foo*virt*1000) ]'
 ]
 
 # Generated with print_parse_list below
@@ -1346,6 +1348,8 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: pvar, Const: stuff], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Cmpr: =, Const: neato]]]',
     'Query: [SetVarOper: [Const: pvar, Const: ints], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Cmpr: =, VarValue: [Const: othervar]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: foo, EmbedQuery: inet:fqdn]]]]',
+    'Query: [EditPropSet: [UnivProp: [Const: .seen], Const: ?=, DollarExpr: [ExprNode: [VarDeref: [VarValue: [Const: foo], Const: bar], Const: *, Const: 1000]]]]',
+    'Query: [EditPropSet: [UnivProp: [Const: .seen], Const: ?=, DollarExpr: [ExprNode: [RelPropValue: [RelProp: [Const: foo], VirtProp: [Const: virt]], Const: *, Const: 1000]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
