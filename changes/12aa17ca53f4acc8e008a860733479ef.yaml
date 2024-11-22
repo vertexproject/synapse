@@ -1,6 +1,0 @@
----
-desc: Updated the ``pkg.list`` command to use a tabular printer and added a ``--verbose``
-  option to view build time.
-prs: []
-type: feat
-...

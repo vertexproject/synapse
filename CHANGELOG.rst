@@ -6,6 +6,22 @@
 Synapse Changelog
 *****************
 
+v2.189.0 - 2024-11-21
+=====================
+
+Model Changes
+-------------
+- Added ``:technique`` to the ``risk:vulnerable`` form to represent a node
+  being susceptible to a technique.
+  (`#4006 <https://github.com/vertexproject/synapse/pull/4006>`_)
+- See :ref:`userguide_model_v2_189_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated the ``pkg.list`` command to use a tabular printer and added a
+  ``--verbose`` option to view build time.
+  (`#4007 <https://github.com/vertexproject/synapse/pull/4007>`_)
+
 v2.188.1 - 2024-11-13
 =====================
 
