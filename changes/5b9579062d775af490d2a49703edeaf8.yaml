@@ -1,0 +1,7 @@
+---
+desc: Fix an issue in Storm HTTP request libraries where HTTP request parameter dictionaries
+  with a list of values for a key name were stringified rather than sent as multiple
+  values for the same key.
+prs: []
+type: bug
+...
