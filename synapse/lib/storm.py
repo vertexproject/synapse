@@ -19,7 +19,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.snap as s_snap
-import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
@@ -1650,6 +1649,7 @@ stormcmds = (
     },
 )
 
+@s_cache.memoize(size=1024)
 def queryhash(text):
     return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
