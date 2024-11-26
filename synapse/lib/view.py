@@ -1,20 +1,17 @@
 import shutil
 import asyncio
-import hashlib
 import logging
-import itertools
 import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.scope as s_scope
-import synapse.lib.config as s_config
+import synapse.lib.storm as s_storm
 import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
@@ -1004,7 +1001,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'count', 'none'):
             raise s_exc.BadConfValu(mesg=f'invalid edit format, got {editformat}', name='editformat', valu=editformat)
 
-        texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+        texthash = s_storm.queryhash(text)
 
         async def runStorm():
             cancelled = False
