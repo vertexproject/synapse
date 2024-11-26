@@ -5166,14 +5166,8 @@ class List(Prim):
     async def _methListPop(self, index):
         try:
             return self.valu.pop(index)
-        except IndexError as err:
-            err_msg = str(err)
-            if 'empty list' in err_msg:
-                mesg = 'The list is empty.  Nothing to pop.'
-            elif 'out of range' in err_msg:
-                mesg = 'The specified index is out of range.  Nothing to pop.'
-            else:
-                mesg = err_msg
+        except IndexError as e:
+            mesg = f'index error: {str(e)}'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
     @stormfunc(readonly=True)
