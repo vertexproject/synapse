@@ -138,13 +138,13 @@ class AhaApi(s_cell.CellApi):
         return ahaurls
 
     @s_cell.adminapi()
-    async def runGatherCall(self, iden, todo, timeout=None, skiprun=None):
-        async for item in self.cell.runGatherCall(iden, todo, timeout=timeout, skiprun=skiprun):
+    async def callAhaPeerApi(self, iden, todo, timeout=None, skiprun=None):
+        async for item in self.cell.callAhaPeerApi(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
     @s_cell.adminapi()
-    async def runGatherGenr(self, iden, todo, timeout=None, skiprun=None):
-        async for item in self.cell.runGatherGenr(iden, todo, timeout=timeout, skiprun=skiprun):
+    async def callAhaPeerGenr(self, iden, todo, timeout=None, skiprun=None):
+        async for item in self.cell.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
     async def addNexsTracker(self, name, iden, network=None):
@@ -395,11 +395,6 @@ class AhaApi(s_cell.CellApi):
         Remove all unused AHA clone provisioning values.
         '''
         return await self.cell.clearAhaClones()
-
-    @s_cell.adminapi()
-    async def getSvcPeerTasks(self, iden, timeout=None, skiprun=None):
-        async for task in self.cell.getSvcPeerTasks(iden, timeout=timeout, skiprun=skiprun):
-            yield task
 
 class ProvDmon(s_daemon.Daemon):
 
@@ -743,11 +738,6 @@ class AhaCell(s_cell.Cell):
             # in case proxy construction fails
             yield (False, s_common.excinfo(e))
 
-    async def getSvcPeerTasks(self, iden, timeout=None, skiprun=None):
-        todo = s_common.todo('getTasks')
-        async for item in self.runGatherGenr(iden, todo, timeout=timeout, skiprun=skiprun):
-            yield item
-
     async def getAhaSvcsByIden(self, iden, online=True, skiprun=None):
 
         runs = set()
@@ -778,11 +768,11 @@ class AhaCell(s_cell.Cell):
         port = svcdef['svcinfo']['urlinfo']['port']
         return f'ssl://{host}:{port}?hostname={svcfull}&certname={user}@{svcnetw}'
 
-    async def runGatherCall(self, iden, todo, timeout=None, skiprun=None):
+    async def callAhaPeerApi(self, iden, todo, timeout=None, skiprun=None):
 
         if not self.isactive:
             proxy = await self.nexsroot.client.proxy(timeout=timeout)
-            async for item in proxy.runGatherCall(iden, todo, timeout=timeout, skiprun=skiprun):
+            async for item in proxy.callAhaPeerApi(iden, todo, timeout=timeout, skiprun=skiprun):
                 yield item
 
         queue = asyncio.Queue()
@@ -800,11 +790,11 @@ class AhaCell(s_cell.Cell):
             for i in range(count):
                 yield await queue.get()
 
-    async def runGatherGenr(self, iden, todo, timeout=None, skiprun=None):
+    async def callAhaPeerGenr(self, iden, todo, timeout=None, skiprun=None):
 
         if not self.isactive:
             proxy = await self.nexsroot.client.proxy(timeout=timeout)
-            async for item in proxy.runGatherGenr(iden, todo, timeout=timeout, skiprun=skiprun):
+            async for item in proxy.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
                 yield item
 
         queue = asyncio.Queue()

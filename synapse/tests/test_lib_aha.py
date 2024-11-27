@@ -1329,21 +1329,21 @@ class AhaTest(s_test.SynTest):
 
             # test the call endpoint
             todo = s_common.todo('getCellInfo')
-            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            items = dict([item async for item in aha.callAhaPeerApi(cell00.iden, todo, timeout=3)])
             self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
             self.true(all(item[0] for item in items.values()))
             self.eq(cell00.runid, items['00.cell.synapse'][1]['cell']['run'])
             self.eq(cell01.runid, items['01.cell.synapse'][1]['cell']['run'])
 
             todo = s_common.todo('newp')
-            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            items = dict([item async for item in aha.callAhaPeerApi(cell00.iden, todo, timeout=3)])
             self.false(any(item[0] for item in items.values()))
             self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
 
             # test the genr endpoint
             reals = [item async for item in cell00.getNexusChanges(0, wait=False)]
             todo = s_common.todo('getNexusChanges', 0, wait=False)
-            items = [item async for item in aha.runGatherGenr(cell00.iden, todo, timeout=3) if item[1]]
+            items = [item async for item in aha.callAhaPeerGenr(cell00.iden, todo, timeout=3) if item[1]]
             self.len(nexsindx * 2, items)
 
             # ensure we handle down services correctly
@@ -1352,14 +1352,14 @@ class AhaTest(s_test.SynTest):
 
             # test the call endpoint
             todo = s_common.todo('getCellInfo')
-            items = dict([item async for item in aha.runGatherCall(cell00.iden, todo, timeout=3)])
+            items = dict([item async for item in aha.callAhaPeerApi(cell00.iden, todo, timeout=3)])
             self.sorteq(items.keys(), ('00.cell.synapse',))
             self.true(all(item[0] for item in items.values()))
             self.eq(cell00.runid, items['00.cell.synapse'][1]['cell']['run'])
 
             # test the genr endpoint
             todo = s_common.todo('getNexusChanges', 0, wait=False)
-            items = [item async for item in aha.runGatherGenr(cell00.iden, todo, timeout=3) if item[1]]
+            items = [item async for item in aha.callAhaPeerGenr(cell00.iden, todo, timeout=3) if item[1]]
             self.len(nexsindx, items)
             self.true(all(item[1][0] for item in items))
 
@@ -1382,28 +1382,13 @@ class AhaTest(s_test.SynTest):
                 task01 = cell01.schedCoro(sleep99(cell01))
 
             proxy = await aha.enter_context(aha.getLocalProxy())
-            tasks = [task async for task in proxy.getAhaSvcPeerTasks(cell00.iden, timeout=3)]
-            tasks.sort()
+            tasks = [task async for task in cell00.getTasks(timeout=3)]
             self.len(2, tasks)
-            self.eq(tasks[0][0], '0.cell.synapse')
-            self.true(tasks[0][1][0])
-            self.eq(tasks[1][0], '1.cell.synapse')
-            self.true(tasks[1][1][0])
+            self.eq(tasks[0]['aha:service'], '0.cell.synapse')
+            self.eq(tasks[1]['aha:service'], '1.cell.synapse')
 
-            tasks = [task async for task in proxy.getAhaSvcPeerTasks(cell00.iden, timeout=3, skiprun=cell00.runid)]
-            tasks.sort()
-            self.len(1, tasks)
-            self.eq(tasks[0][0], '1.cell.synapse')
+            self.eq(tasks[0], await cell00.getTask(tasks[0].get('iden')))
+            self.eq(tasks[1], await cell00.getTask(tasks[1].get('iden')))
 
-            tasks = [task async for task in cell00.getPeerTasks(timeout=3)]
-            self.len(2, tasks)
-
-            self.eq(tasks[0], await cell00.getPeerTask(tasks[0].get('iden')))
-            self.eq(tasks[1], await cell00.getPeerTask(tasks[1].get('iden')))
-
-            retn00 = await cell00.killPeerTask(tasks[0].get('iden'))
-            retn01 = await cell00.killPeerTask(tasks[1].get('iden'))
-
-            self.eq((True, tasks[0]['aha:name']), retn00)
-            self.eq((True, tasks[1]['aha:name']), retn01)
-            self.eq((False, None), await cell00.killPeerTask('newp'))
+            self.true(await cell00.killTask(tasks[0].get('iden')))
+            self.true(await cell00.killTask(tasks[1].get('iden')))

@@ -4473,22 +4473,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Yield responses from our peers via the AHA gather call API.
         '''
-        proxy = await self.getAhaProxy(timeout=timeout, methname='runGatherCall')
+        proxy = await self.getAhaProxy(timeout=timeout, methname='callAhaPeerApi')
         if proxy is None:
             return
 
-        async for item in proxy.runGatherCall(self.iden, todo, timeout=timeout, skiprun=self.runid):
+        async for item in proxy.callAhaPeerApi(self.iden, todo, timeout=timeout, skiprun=self.runid):
             yield item
 
     async def callPeerGenr(self, todo, timeout=None):
         '''
         Yield responses from invoking a generator via the AHA gather API.
         '''
-        proxy = await self.getAhaProxy(timeout=timeout, methname='runGatherGenr')
+        proxy = await self.getAhaProxy(timeout=timeout, methname='callAhaPeerGenr')
         if proxy is None:
             return
 
-        async for item in proxy.runGatherGenr(self.iden, todo, timeout=timeout, skiprun=self.runid):
+        async for item in proxy.callAhaPeerGenr(self.iden, todo, timeout=timeout, skiprun=self.runid):
             yield item
 
     async def getTasks(self, peers=True, timeout=None):
@@ -4519,10 +4519,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not peers:
             return
 
-        todo = s_common.todo('getTask', peers=False, timeout=timeout)
-        async for ahasvc, retn in self.callPeerApi(todo, timeout=timeout)
-            if retn is not None:
+        todo = s_common.todo('getTask', iden, peers=False, timeout=timeout)
+        async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
+
+            if ok:
                 return retn
+
+            logger.warning(f'getTask() on {ahasvc} failed: {retn}')
 
     async def killTask(self, iden, peers=True, timeout=None):
 
