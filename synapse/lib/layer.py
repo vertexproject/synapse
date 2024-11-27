@@ -2887,6 +2887,10 @@ class Layer(s_nexus.Pusher):
         '''
         self._reqNotReadOnly()
 
+        if self.isdeleted:
+            mesg = f'Layer {self.iden} has been deleted!'
+            raise s_exc.NoSuchLayer(mesg=mesg)
+
         if not self.core.isactive:
             proxy = await self.core.nexsroot.getIssueProxy()
             indx, changes = await proxy.saveLayerNodeEdits(self.iden, edits, meta)
