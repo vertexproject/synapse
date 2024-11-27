@@ -436,6 +436,16 @@ class CellApi(s_base.Base):
         return await self.cell.kill(self.user, iden)
 
     @adminapi()
+    async def callPeerApi(self, todo, timeout=None):
+        async for item in self.cell.callPeerApi(todo, timeout=timeout):
+            yield item
+
+    @adminapi()
+    async def callPeerGenr(self, todo, timeout=None):
+        async for item in self.cell.callPeerGenr(todo, timeout=timeout):
+            yield item
+
+    @adminapi()
     async def getTasks(self, peers=True, timeout=None):
         async for task in self.cell.getTasks(peers=peers, timeout=timeout):
             yield task
