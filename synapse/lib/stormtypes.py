@@ -60,6 +60,19 @@ def confirmEasyPerm(item, perm, mesg=None):
 def allowedEasyPerm(item, perm):
     return s_scope.get('runt').allowedEasyPerm(item, perm)
 
+def strifyHttpArg(item, multi=False):
+    if isinstance(item, (list, tuple)):
+        return [(str(k), str(v)) for (k, v) in item]
+    elif isinstance(item, dict):
+        retn = {}
+        for name, valu in item.items():
+            if isinstance(valu, (list, tuple)) and multi:
+                retn[str(name)] = [str(v) for v in valu]
+            else:
+                retn[str(name)] = str(valu)
+        return retn
+    return item
+
 class StormTypesRegistry:
     # The following types are currently undefined.
     base_undefined_types = (
@@ -2343,13 +2356,6 @@ class LibAxon(Lib):
             'hashset': self.hashset,
         }
 
-    def strify(self, item):
-        if isinstance(item, (list, tuple)):
-            return [(str(k), str(v)) for (k, v) in item]
-        elif isinstance(item, dict):
-            return {str(k): str(v) for k, v in item.items()}
-        return item
-
     @stormfunc(readonly=True)
     async def readlines(self, sha256, errors='ignore'):
         if not self.runt.allowed(('axon', 'get')):
@@ -2421,8 +2427,8 @@ class LibAxon(Lib):
         if proxy is not None:
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
 
-        params = self.strify(params)
-        headers = self.strify(headers)
+        params = strifyHttpArg(params, multi=True)
+        headers = strifyHttpArg(headers)
 
         await self.runt.snap.core.getAxon()
 
@@ -2460,8 +2466,8 @@ class LibAxon(Lib):
         timeout = await toprim(timeout)
         ssl_opts = await toprim(ssl_opts)
 
-        params = self.strify(params)
-        headers = self.strify(headers)
+        params = strifyHttpArg(params, multi=True)
+        headers = strifyHttpArg(headers)
 
         if proxy is not None:
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
@@ -5045,9 +5051,12 @@ class List(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to check.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the item is in the list, false otherwise.', }}},
-        {'name': 'pop', 'desc': 'Pop and return the last entry in the list.',
+        {'name': 'pop', 'desc': 'Pop and return the entry at the specified index in the list. If no index is specified, pop the last entry.',
          'type': {'type': 'function', '_funcname': '_methListPop',
-                  'returns': {'type': 'any', 'desc': 'The last item from the list.', }}},
+                  'args': (
+                      {'name': 'index', 'type': 'int', 'desc': 'Index of entry to pop.', 'default': -1},
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The entry at the specified index in the list.', }}},
         {'name': 'size', 'desc': 'Return the length of the list.',
          'type': {'type': 'function', '_funcname': '_methListSize',
                   'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
@@ -5190,11 +5199,12 @@ class List(Prim):
         return prim in self.valu
 
     @stormfunc(readonly=True)
-    async def _methListPop(self):
+    async def _methListPop(self, index=-1):
+        index = await toint(index)
         try:
-            return self.valu.pop()
-        except IndexError:
-            mesg = 'The list is empty.  Nothing to pop.'
+            return self.valu.pop(index)
+        except IndexError as exc:
+            mesg = str(exc)
             raise s_exc.StormRuntimeError(mesg=mesg)
 
     @stormfunc(readonly=True)
