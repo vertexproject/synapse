@@ -397,8 +397,8 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.clearAhaClones()
 
     @s_cell.adminapi()
-    async def getAhaSvcPeerTasks(self, iden, timeout=None, skiprun=None):
-        async for task in self.cell.getAhaSvcPeerTasks(iden, timeout=timeout, skiprun=skiprun):
+    async def getSvcPeerTasks(self, iden, timeout=None, skiprun=None):
+        async for task in self.cell.getSvcPeerTasks(iden, timeout=timeout, skiprun=skiprun):
             yield task
 
 class ProvDmon(s_daemon.Daemon):
@@ -743,7 +743,7 @@ class AhaCell(s_cell.Cell):
             # in case proxy construction fails
             yield (False, s_common.excinfo(e))
 
-    async def getAhaSvcPeerTasks(self, iden, timeout=None, skiprun=None):
+    async def getSvcPeerTasks(self, iden, timeout=None, skiprun=None):
         todo = s_common.todo('getTasks')
         async for item in self.runGatherGenr(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item

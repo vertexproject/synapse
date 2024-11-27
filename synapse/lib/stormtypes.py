@@ -1850,6 +1850,43 @@ class LibDict(Lib):
         await self.runt.snap.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
         return Dict(kwargs)
 
+Task
+@registry.registerType
+class Task(StormType):
+    '''
+    A Storm Pipe provides fast ephemeral queues.
+    '''
+    _storm_locals = (
+        {'name': 'put', 'desc': 'Add a single item to the Pipe.',
+         'type': {'type': 'function', '_funcname': '_methPipePut',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': 'An object to add to the Pipe.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'svcname', 'desc': 'The AHA service name of the service running the task.'
+         'type': 'str'},
+    )
+    def __init__(self, task):
+        self.
+
+@registry.registerLib
+class LibTask(Lib):
+    '''
+    A Storm library for interacting with running tasks.
+    '''
+    _storm_locals = (
+        {'name': 'get', 'desc': 'Retrieve a specific task by iden.',
+         'type': {'type': 'function', '_funcname': '_methPipePut',
+                  'args': (
+                      {'name': 'item', 'type': 'any', 'desc': 'An object to add to the Pipe.', },
+                  ),
+                  'returns': {'type': 'null', }}},
+        {'name': 'svcname', 'desc': 'The AHA service name of the service running the task.'
+         'type': 'str'},
+    )
+    def get():
+    def list():
+
 @registry.registerLib
 class LibPs(Lib):
     '''

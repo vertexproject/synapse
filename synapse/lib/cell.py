@@ -436,17 +436,17 @@ class CellApi(s_base.Base):
         return await self.cell.kill(self.user, iden)
 
     @adminapi()
-    async def getTasks(self):
-        async for task in self.cell.getTasks():
+    async def getTasks(self, peers=True, timeout=None):
+        async for task in self.cell.getTasks(peers=peers, timeout=timeout):
             yield task
 
     @adminapi()
-    async def getTask(self, iden):
-        return await self.cell.getTask(iden)
+    async def getTask(self, iden, peers=True, timeout=None):
+        return await self.cell.getTask(iden, peers=peers, timeout=timeout)
 
     @adminapi()
-    async def killTask(self, iden):
-        return await self.cell.killTask(iden)
+    async def killTask(self, iden, peers=True, timeout=None):
+        return await self.cell.killTask(iden, peers=peers, timeout=timeout)
 
     async def getFeatures(self):
         return await self.cell.getFeatures()
@@ -4460,7 +4460,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return proxy
 
     async def callPeerApi(self, todo, timeout=None):
-
+        '''
+        Yield responses from our peers via the AHA gather call API.
+        '''
         proxy = await self.getAhaProxy(timeout=timeout, methname='runGatherCall')
         if proxy is None:
             return
@@ -4469,7 +4471,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             yield item
 
     async def callPeerGenr(self, todo, timeout=None):
-
+        '''
+        Yield responses from invoking a generator via the AHA gather API.
+        '''
         proxy = await self.getAhaProxy(timeout=timeout, methname='runGatherGenr')
         if proxy is None:
             return
@@ -4477,71 +4481,55 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         async for item in proxy.runGatherGenr(self.iden, todo, timeout=timeout, skiprun=self.runid):
             yield item
 
-    async def getTasks(self):
-        for task in self.boss.ps():
-            yield task.pack()
+    async def getTasks(self, peers=True, timeout=None):
 
-    async def getTask(self, iden):
+        for task in self.boss.ps():
+
+            item = task.pack()
+            item['aha:service'] = self.ahasvcname
+
+            yield item
+
+        if not peers:
+            return
+
+        todo = s_common.todo('getTasks', peers=False)
+        # we can ignore the yielded aha names because we embed it in the task
+        async for (svcname, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
+            yield retn
+
+    async def getTask(self, iden, peers=True, timeout=None):
+
         task = self.boss.get(iden)
         if task is not None:
-            return task.pack()
+            item = task.pack()
+            item['aha:service'] = self.ahasvcname
+            return item
 
-    async def killTask(self, iden):
+        if not peers:
+            return
+
+        todo = s_common.todo('getTask', peers=False, timeout=timeout)
+        async for ahasvc, retn in self.callPeerApi(todo, timeout=timeout)
+            if retn is not None:
+                return retn
+
+    async def killTask(self, iden, peers=True, timeout=None):
+
         task = self.boss.get(iden)
-        if task is None:
+        if task is not None:
+            await task.kill()
+            return True
+
+        if not peers:
             return False
 
-        await task.kill()
-        return True
+        todo = s_common.todo('killTask', peers=False, timeout=timeout)
+        async for ahasvc, retn in self.callPeerApi(todo, timeout=timeout):
+            if retn:
+                return True
 
-    async def getPeerTask(self, iden, timeout=None):
-        # return a task which may be running on a peer
-        task = await self.getTask(iden)
-        if task is not None:
-            task['aha:name'] = self.ahasvcname
-            return task
-
-        todo = s_common.todo('getTask', iden)
-        async for (name, (ok, task)) in self.callPeerApi(todo, timeout=timeout):
-            if ok and task is not None:
-                task['aha:name'] = name
-                return task
-
-    async def getPeerTasks(self, timeout=None):
-
-        for task in self.boss.ps():
-            info = task.pack()
-            if self.ahasvcname is not None:
-                info['aha:name'] = self.ahasvcname
-            yield info
-
-        todo = s_common.todo('getTasks')
-        async for (name, (ok, task)) in self.callPeerGenr(todo, timeout=timeout):
-
-            if not ok:
-                logger.warning(f'getPeerTasks() error from peer {name}: {retn}')
-                continue
-
-            task['aha:name'] = name
-            yield task
-
-    async def killPeerTask(self, iden, timeout=None):
-
-        # kill a task which may be running on a peer
-        if await self.killTask(iden):
-            return (True, self.ahasvcname)
-
-        todo = s_common.todo('killTask', iden)
-        async for (name, (ok, done)) in self.callPeerApi(todo, timeout=timeout):
-
-            if not ok:
-                logger.warning(f'killPeerTask() error from peer {name}: {retn}')
-                continue
-
-            if ok and done:
-                return (True, name)
-
-        return (False, None)
+        return False
 
     async def kill(self, user, iden):
         perm = ('task', 'del')
