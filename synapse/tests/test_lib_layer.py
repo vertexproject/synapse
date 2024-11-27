@@ -2717,7 +2717,6 @@ class LayerTest(s_t_utils.SynTest):
                             $lib.layer.del($lib.layer.get().iden)
                             [ .seen=2020 ]''', opts=opts2)
 
-                    # get the nexus index
                     await core01.sync()
 
                     evnts = [n[1][1] for n in await alist(core00.nexsroot.nexslog.iter(indx))]
