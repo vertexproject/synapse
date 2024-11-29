@@ -1,5 +1,0 @@
----
-desc: Restricted the upper version of the ``pyopenssl`` dependency to ``<24.3.0``.
-prs: []
-type: feat
-...

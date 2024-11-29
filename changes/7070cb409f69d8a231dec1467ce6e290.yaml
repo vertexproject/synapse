@@ -1,6 +1,0 @@
----
-desc: Updated Storm pool query logging to not log the query being executed and added
-  additional context in the structured log data.
-prs: []
-type: feat
-...
