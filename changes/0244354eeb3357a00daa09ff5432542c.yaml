@@ -1,6 +1,6 @@
 ---
 desc: 'Fixed a bug that would happen if one of the following objects was added while
-  iterating over the existing objects: command, cron job, form, type, tagprop, or
+  iterating over their respective runt nodes: command, cron job, form, type, tagprop, or
   trigger.'
 prs: []
 type: bug
