@@ -475,6 +475,7 @@ class CellTest(s_t_utils.SynTest):
                     # @adminApi methods are not allowed
                     with self.raises(s_exc.AuthDeny) as cm:
                         await proxy.adminOnly()
+                    self.eq(cm.exception.get('mesg'), 'User is not an admin [visi]')
                     self.eq(cm.exception.get('user'), visi.iden)
                     self.eq(cm.exception.get('username'), visi.name)
                     with self.raises(s_exc.AuthDeny) as cm:
