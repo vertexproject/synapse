@@ -21,6 +21,7 @@ import io
 import os
 import sys
 import copy
+import json
 import math
 import types
 import shutil
@@ -96,6 +97,10 @@ def norm(z):
 
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
+
+def jsonlines(text):
+    lines = [k for k in text.split('\n') if k]
+    return [json.loads(line) for line in lines]
 
 async def waitForBehold(core, events):
     async for mesg in core.behold():

@@ -36,10 +36,6 @@ from synapse.tests.utils import alist
 
 logger = logging.getLogger(__name__)
 
-def jsonlines(text):
-    lines = [k for k in text.split('\n') if k]
-    return [json.loads(line) for line in lines]
-
 class CortexTest(s_t_utils.SynTest):
     '''
     The tests that should be run with different types of layers
@@ -8128,7 +8124,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
-                    msgs = jsonlines(data)
+                    msgs = s_t_utils.jsonlines(data)
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
@@ -8147,7 +8143,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
-                    msgs = jsonlines(data)
+                    msgs = s_t_utils.jsonlines(data)
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
@@ -8166,7 +8162,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
-                    msgs = jsonlines(data)
+                    msgs = s_t_utils.jsonlines(data)
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
@@ -8185,7 +8181,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
-                    msgs = jsonlines(data)
+                    msgs = s_t_utils.jsonlines(data)
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
