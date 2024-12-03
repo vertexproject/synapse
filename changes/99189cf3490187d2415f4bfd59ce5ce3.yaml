@@ -1,6 +1,0 @@
----
-desc: Updated Storm list ``.pop()`` method to accept an optional index to pop from
-  instead of always popping the last entry.
-prs: []
-type: feat
-...

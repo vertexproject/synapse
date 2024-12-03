@@ -1722,10 +1722,8 @@ class HttpApiTest(s_tests.SynTest):
 
     async def test_request_logging(self):
 
-        def get_mesg(stream):
-            data = stream.getvalue()
-            raw_mesgs = [m for m in data.split('\n') if m]
-            msgs = [json.loads(m) for m in raw_mesgs]
+        def get_mesg(stream: s_tests.AsyncStreamEvent) -> dict:
+            msgs = stream.jsonlines()
             self.len(1, msgs)
             return msgs[0]
 
