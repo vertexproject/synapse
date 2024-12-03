@@ -1,7 +1,5 @@
 ---
-desc: 'Fixed a bug that could happen if one of the following objects was modified while
-  iterating over their respective runt nodes: Storm commands, cron jobs, model elements, or
-  triggers.'
+desc: Fixed a bug which causes an error when the contents change while lifting runtime nodes such as syn:cron et. al.
 prs: []
 type: bug
 ...
