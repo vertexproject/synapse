@@ -391,6 +391,7 @@ class SynModelTest(s_t_utils.SynTest):
 
                 forms = await core.callStorm(q)
                 self.len(numforms, forms)
+                self.len(numforms + 1, core.model.forms)
 
                 numtypes = len(core.model.types)
                 q = '''
@@ -418,6 +419,7 @@ class SynModelTest(s_t_utils.SynTest):
 
                 types = await core.callStorm(q)
                 self.len(numtypes, types)
+                self.len(numtypes + 1, core.model.types)
 
                 q = '''
                 init {
@@ -445,6 +447,7 @@ class SynModelTest(s_t_utils.SynTest):
 
                 tagprops = await core.callStorm(q)
                 self.len(3, tagprops)
+                self.len(4, core.model.tagprops)
 
     async def test_syn_trigger_runts(self):
         async with self.getTestCore() as core:
@@ -583,6 +586,7 @@ class SynModelTest(s_t_utils.SynTest):
                 opts = {'vars': {'tdef': tdef}}
                 triggers = await core.callStorm(q, opts=opts)
                 self.len(2, triggers)
+                self.len(3, core.view.triggers.triggers)
 
     async def test_syn_cmd_runts(self):
 
@@ -714,6 +718,7 @@ class SynModelTest(s_t_utils.SynTest):
                 opts = {'vars': {'pkgdef': stormpkg}}
                 cmds = await core.callStorm(q, opts=opts)
                 self.len(numcmds, cmds)
+                self.len(numcmds + 1, core.stormcmds)
 
     async def test_syn_cron_runts(self):
 
@@ -774,3 +779,4 @@ class SynModelTest(s_t_utils.SynTest):
 
                 appts = await core.callStorm(q)
                 self.len(3, appts)
+                self.len(4, core.agenda.appts)
