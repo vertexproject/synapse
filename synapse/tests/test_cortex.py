@@ -1,6 +1,5 @@
 import os
 import copy
-import json
 import time
 import asyncio
 import hashlib
@@ -35,10 +34,6 @@ import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 logger = logging.getLogger(__name__)
-
-def jsonlines(text):
-    lines = [k for k in text.split('\n') if k]
-    return [json.loads(line) for line in lines]
 
 class CortexTest(s_t_utils.SynTest):
     '''
@@ -1117,8 +1112,7 @@ class CortexTest(s_t_utils.SynTest):
                 ''')
                 self.true(await stream.wait(6))
 
-            buf = stream.getvalue()
-            mesg = json.loads(buf.split('\n')[0])
+            mesg = stream.jsonlines()[0]
             self.eq(mesg.get('message'), f'Running dmon {iden}')
             self.eq(mesg.get('iden'), iden)
 
@@ -3368,8 +3362,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
                 self.true(await stream.wait(4))
 
-            buf = stream.getvalue()
-            mesg = json.loads(buf.split('\n')[0])
+            mesg = stream.jsonlines()[0]
             self.eq(mesg.get('view'), view)
 
     async def test_strict(self):
@@ -7904,8 +7897,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq('admin', whoami)
                     self.eq('lowuser', udef.get('name'))
 
-                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
                 self.eq('Added user=lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
@@ -7919,8 +7911,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         msgs.append(mesg)
                     self.stormHasNoWarnErr(msgs)
 
-                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
                 self.isin('Set admin=True for lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
@@ -8128,7 +8119,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
-                    msgs = jsonlines(data)
+                    msgs = stream.jsonlines()
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
@@ -8147,7 +8138,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
-                    msgs = jsonlines(data)
+                    msgs = stream.jsonlines()
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
@@ -8166,7 +8157,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
-                    msgs = jsonlines(data)
+                    msgs = stream.jsonlines()
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
@@ -8185,7 +8176,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     data = stream.getvalue()
                     self.notin('Timeout', data)
-                    msgs = jsonlines(data)
+                    msgs = stream.jsonlines()
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')

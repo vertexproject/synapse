@@ -4920,8 +4920,7 @@ class StormTypesTest(s_test.SynTest):
                         unixtime += 7 * MINSECS
                         self.eq('m3', await getNextFoo())
                         self.true(await stream.wait(6))
-                    buf = stream.getvalue()
-                    mesg = json.loads(buf.split('\n')[0])
+                    mesg = stream.jsonlines()[0]
                     self.eq(mesg['message'], f'm3 cron {guid}')
                     self.eq(mesg['iden'], guid)
 
