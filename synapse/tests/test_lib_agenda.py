@@ -1,4 +1,3 @@
-import json
 import asyncio
 import hashlib
 import datetime
@@ -9,8 +8,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-import synapse.lib.hive as s_hive
-import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.tools.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
@@ -401,9 +398,7 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
                 core.stormlog = False
 
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 msgs = [m for m in msgs if m['text'] == '$lib.queue.gen(visi).put(bar)']
                 self.gt(len(msgs), 0)
                 for m in msgs:

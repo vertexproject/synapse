@@ -121,7 +121,7 @@ class EchoAuthApi(s_cell.CellApi):
 
     @s_cell.adminapi(log=True)
     async def adminOnlyLog(self, arg1, arg2, **kwargs):
-        return (arg1, arg2, kwargs)
+        return arg1, arg2, kwargs
 
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
@@ -442,7 +442,7 @@ class CellTest(s_t_utils.SynTest):
                     with self.getStructuredAsyncLoggerStream('synapse.lib.cell', mesg) as stream:
                         self.eq(await proxy.adminOnlyLog(1, 2, three=4), (1, 2, {'three': 4}))
                         self.true(await stream.wait(timeout=10))
-                    msgs = s_t_utils.jsonlines(stream.getvalue())
+                    msgs = stream.jsonlines()
                     self.len(1, msgs)
                     self.eq('EchoAuthApi.adminOnlyLog', msgs[0].get('wrapped_func'))
 
@@ -3091,10 +3091,7 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCore(conf={'health:sysctl:checks': True}):
                     pass
 
-        stream.seek(0)
-        data = stream.getvalue()
-        raw_mesgs = [m for m in data.split('\n') if m]
-        msgs = [json.loads(m) for m in raw_mesgs]
+        msgs = stream.jsonlines()
 
         self.len(1, msgs)
 
