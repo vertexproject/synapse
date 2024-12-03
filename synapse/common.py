@@ -1238,30 +1238,6 @@ async def wait_for(fut, timeout):
     async with _timeout(timeout):
         return await fut
 
-async def waitretn(futu, timeout):
-    try:
-        valu = await wait_for(futu, timeout)
-        return (True, valu)
-    except Exception as e:
-        return (False, excinfo(e))
-
-async def waitgenr(genr, timeout):
-
-    genr = genr.__aiter__()
-    try:
-        while True:
-            retn = await waitretn(genr.__anext__(), timeout)
-
-            if not retn[0] and retn[1]['err'] == 'StopAsyncIteration':
-                return
-
-            yield retn
-
-            if not retn[0]:
-                return
-    finally:
-        await genr.aclose()
-
 def _release_waiter(waiter, *args):
     if not waiter.done():
         waiter.set_result(None)
@@ -1392,3 +1368,28 @@ def _timeout(delay):
     """
     loop = asyncio.get_running_loop()
     return _Timeout(loop.time() + delay if delay is not None else None)
+# End - Vendored Code from Python 3.12+
+
+async def waitretn(futu, timeout):
+    try:
+        valu = await wait_for(futu, timeout)
+        return (True, valu)
+    except Exception as e:
+        return (False, excinfo(e))
+
+async def waitgenr(genr, timeout):
+
+    genr = genr.__aiter__()
+    try:
+        while True:
+            retn = await waitretn(genr.__anext__(), timeout)
+
+            if not retn[0] and retn[1]['err'] == 'StopAsyncIteration':
+                return
+
+            yield retn
+
+            if not retn[0]:
+                return
+    finally:
+        await genr.aclose()
