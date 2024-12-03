@@ -138,11 +138,20 @@ class TestUtils(s_t_utils.SynTest):
         os.environ['foo'] = '1'
         os.environ['bar'] = '2'
 
-        with self.setTstEnvars(foo=1, bar='joke', baz=1234) as cm:
+        with self.setTstEnvars(foo=1, bar='joke', baz=1234, FOO_THING=1, BAR_THING=0) as cm:
             self.none(cm)
             self.eq(os.environ.get('foo'), '1')
             self.eq(os.environ.get('bar'), 'joke')
             self.eq(os.environ.get('baz'), '1234')
+
+            self.thisEnvMust('FOO_THING', 'baz')
+            self.thisEnvMustNot('BAR_THING', 'NEWP_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMust('MEWP_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMust('BAR_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMustNot('FOO_THING')
 
         self.eq(os.environ.get('foo'), '1')
         self.eq(os.environ.get('bar'), '2')

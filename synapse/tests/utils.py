@@ -1140,6 +1140,16 @@ class SynTest(unittest.TestCase):
         '''
         return TstOutPut()
 
+    def thisEnvMust(self, *envvars):
+        for envar in envvars:
+            if not s_common.envbool(envar):
+                self.skip(f'Envar {envar} is not set to a truthy value.')
+
+    def thisEnvMustNot(self, *envvars):
+        for envar in envvars:
+            if s_common.envbool(envar):
+                self.skip(f'Envar {envar} is set to a truthy value.')
+
     def thisHostMust(self, **props):  # pragma: no cover
         '''
         Requires a host having a specific property.
