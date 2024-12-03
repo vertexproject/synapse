@@ -103,7 +103,6 @@ class TelcoModelTest(s_t_utils.SynTest):
                      'idfa': 'someotherstr',
                      'name': 'Robert Grey',
                      'email': 'clown@vertex.link',
-                     'acct': ('vertex.link', 'clown'),
                      'app': softguid,
                      'data': {'some key': 'some valu',
                               'BEEP': 1}
@@ -111,7 +110,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             q = '''[(tel:mob:telem=$valu :time=$p.time :latlong=$p.latlong :place=$p.place :host=$p.host
              :loc=$p.loc :accuracy=$p.accuracy :cell=$p.cell :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
              :mac=$p.mac :ip=$p.ip :wifi=$p.wifi :adid=$p.adid :aaid=$p.aaid :idfa=$p.idfa
-             :name=$p.name :email=$p.email :acct=$p.acct :app=$p.app :data=$p.data :account=*)]'''
+             :name=$p.name :email=$p.email :app=$p.app :data=$p.data :account=*)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -137,7 +136,6 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('idfa'), 'someotherstr')
             self.eq(node.get('name'), 'robert grey')
             self.eq(node.get('email'), 'clown@vertex.link')
-            self.eq(node.get('acct'), ('vertex.link', 'clown'))
             self.eq(node.get('app'), softguid)
             self.eq(node.get('data'), {'some key': 'some valu', 'BEEP': 1})
             self.len(1, await core.nodes('tel:mob:telem :account -> inet:service:account'))

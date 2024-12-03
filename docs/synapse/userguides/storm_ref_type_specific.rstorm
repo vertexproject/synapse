@@ -1421,10 +1421,10 @@ Lift all organizations whose name starts with the word "Acme ":
 
 .. storm-cli:: ou:org:name^='acme '
 
-Filter a set of Internet accounts to those with usernames starting with 'matrix':
+Filter a set of service accounts to those with usernames starting with 'matrix':
 
-.. storm-pre:: [ inet:web:acct=(twitter.com,matrixmaster) inet:web:acct=(twitter.com,matrixneo) ]
-.. storm-cli:: inet:web:acct:site=twitter.com +:user^=matrix
+.. storm-pre:: [ (inet:service:account=* :user=matrixmaster) (inet:service:account=* :user=matrixneo) ]
+.. storm-cli:: inet:service:account +:user^=matrix
 
 
 Strings and string-derived types can also be lifted or filtered using the regular expression extended comparator

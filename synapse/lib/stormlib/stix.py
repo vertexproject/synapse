@@ -211,26 +211,25 @@ _DefaultConfig = {
                     'props': {
                         'value': 'return($node.repr())',
                         'display_name': '-> ps:contact +:name return(:name)',
-                        'belongs_to_ref': '-> inet:web:acct return($bundle.add($node))',
+                        'belongs_to_ref': '-> inet:service:account return($bundle.add($node))',
                     },
                 }
             },
         },
 
-        'inet:web:acct': {
+        'inet:service:account': {
             'default': 'user-account',
             'stix': {
                 'user-account': {
                     'props': {
-                        'user_id': 'return(:user)',
+                        'user_id': 'return(:id)',
                         'account_login': 'return(:user)',
-                        'account_type': '''
-                            {+:site=twitter.com return(twitter)}
-                            {+:site=facebook.com return(facebook)}
+                        'account_type': '''-> inet:service:platform
+                            {+:name=twitter return(twitter)}
+                            {+:name=facebook return(facebook)}
                         ''',
-                        'credential': '+:passwd return(:passwd)',
-                        'display_name': '+:realname return(:realname)',
-                        'account_created': '+:signup return($lib.stix.export.timestamp(:signup))',
+                        'credential': '-> auth:creds return(:passwd)',
+                        'account_created': '+:period return($lib.stix.export.timestamp((:period).0))',
                         'account_last_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.0))',
                         'account_first_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.1))',
                     },

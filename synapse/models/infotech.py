@@ -2103,23 +2103,6 @@ class ItModule(s_module.CoreModule):
                     ('author', ('ps:contact', {}), {
                         'doc': 'The contact information of the org or person who authored the software.',
                     }),
-                    ('author:org', ('ou:org', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
-                    }),
-                    ('author:acct', ('inet:web:acct', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
-                    }),
-                    ('author:email', ('inet:email', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
-                    }),
-
-                    ('author:person', ('ps:person', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :author to link to a ps:contact.',
-                    }),
                     ('url', ('inet:url', {}), {
                         'doc': 'URL relevant for the software.',
                     }),
@@ -2129,10 +2112,6 @@ class ItModule(s_module.CoreModule):
 
                     ('islib', ('bool', {}), {
                         'doc': 'Set to True if the software is a library.'}),
-
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
 
                 ('it:prod:softname', {}, ()),
