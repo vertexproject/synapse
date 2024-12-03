@@ -1384,8 +1384,8 @@ class AhaTest(s_test.SynTest):
             proxy = await aha.enter_context(aha.getLocalProxy())
             tasks = [task async for task in cell00.getTasks(timeout=3)]
             self.len(2, tasks)
-            self.eq(tasks[0]['aha:service'], '0.cell.synapse')
-            self.eq(tasks[1]['aha:service'], '1.cell.synapse')
+            self.eq(tasks[0]['service'], '0.cell.synapse')
+            self.eq(tasks[1]['service'], '1.cell.synapse')
 
             self.eq(tasks[0], await cell00.getTask(tasks[0].get('iden')))
             self.eq(tasks[1], await cell00.getTask(tasks[1].get('iden')))

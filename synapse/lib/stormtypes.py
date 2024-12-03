@@ -1892,6 +1892,9 @@ class LibPs(Lib):
     async def _kill(self, prefix):
         idens = []
 
+        s_common.deprecated('$lib.ps.kill()')
+        self.runt.snap.warnonce('$lib.ps.kill() is deprecated. Please use $lib.task.get().kill()')
+
         todo = s_common.todo('ps', self.runt.user)
         tasks = await self.dyncall('cell', todo)
         for task in tasks:
@@ -1912,6 +1915,8 @@ class LibPs(Lib):
 
     @stormfunc(readonly=True)
     async def _list(self):
+        s_common.deprecated('$lib.ps.list()')
+        self.runt.snap.warnonce('$lib.ps.list() is deprecated. Please use $lib.task.list()')
         todo = s_common.todo('ps', self.runt.user)
         return await self.dyncall('cell', todo)
 
