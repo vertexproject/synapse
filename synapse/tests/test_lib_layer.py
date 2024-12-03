@@ -2675,3 +2675,74 @@ class LayerTest(s_t_utils.SynTest):
             self.true(sodes[0][1].get('antivalu'))
 
             self.len(0, await alist(layr00.iterNodeData(nid)))
+
+    async def test_layer_deleted_fork_edits(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                vdef2 = await core00.view.fork()
+                opts2 = {'view': vdef2.get('iden')}
+
+                await core00.nodes('[ it:dev:str=foo ]', opts=opts2)
+
+                vdef3 = await core00.view.fork()
+                opts3 = {'view': vdef3.get('iden')}
+
+                await core00.nodes('[ it:dev:str=bar ]', opts=opts3)
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                url = core00.getLocalUrl()
+
+                core01conf = {'mirror': url}
+
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                    await core01.sync()
+
+                    indx = await core00.getNexsIndx()
+
+                    # attempt to edit a node in a deleted layer from the leader
+                    with self.raises(s_exc.NoSuchLayer):
+                        await core00.nodes('''
+                            it:dev:str=foo
+                            $lib.view.del($lib.view.get().iden)
+                            $lib.layer.del($lib.layer.get().iden)
+                            [ .seen=2020 ]''', opts=opts2)
+
+                    await core01.sync()
+
+                    evnts = [n[1][1] for n in await alist(core00.nexsroot.nexslog.iter(indx))]
+                    self.eq(['view:del', 'layer:del', 'sync'], evnts)
+
+                await core00.nodes('''
+                    $lib.view.del($lib.view.get().iden)
+                    $lib.layer.del($lib.layer.get().iden)
+                    ''', opts=opts3)
+
+            async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                indx = await core01.getNexsIndx()
+
+                # attempt to edit a node on the mirror in a layer that has been deleted on the leader
+                async def doEdit():
+                    with self.raises(s_exc.NoSuchLayer):
+                        await core01.nodes('it:dev:str=bar [ .seen=2020 ]', opts=opts3)
+
+                task = core01.schedCoro(doEdit())
+
+                async with self.getTestCore(dirn=path00) as core00:
+
+                    await asyncio.wait_for(task, timeout=6)
+
+                    await core01.sync()
+
+                    evnts = [n[1][1] for n in await alist(core01.nexsroot.nexslog.iter(indx))]
+                    self.eq(['view:del', 'layer:del', 'sync'], evnts)
