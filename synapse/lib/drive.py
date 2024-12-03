@@ -505,7 +505,7 @@ class Drive(s_base.Base):
     def getTypeSchema(self, typename):
         byts = self.slab.get(LKEY_TYPE + typename.encode(), db=self.dbname)
         if byts is not None:
-            return s_msgpack.un(byts)
+            return s_msgpack.un(byts, use_list=True)
 
     def getTypeSchemaVersion(self, typename):
         verskey = LKEY_TYPE_VERS + typename.encode()

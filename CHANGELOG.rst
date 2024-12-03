@@ -6,6 +6,53 @@
 Synapse Changelog
 *****************
 
+v2.190.0 - 2024-11-29
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Storm pool query logging to not log the query being executed and
+  added additional context in the structured log data.
+  (`#4008 <https://github.com/vertexproject/synapse/pull/4008>`_)
+- Updated Storm list ``.pop()`` method to accept an optional index to pop from
+  instead of always popping the last entry.
+  (`#4013 <https://github.com/vertexproject/synapse/pull/4013>`_)
+- Restricted the upper version of the ``pyopenssl`` dependency to ``<24.3.0``.
+  (`#4015 <https://github.com/vertexproject/synapse/pull/4015>`_)
+
+Bugfixes
+--------
+- Fix an issue in Storm HTTP request libraries where HTTP request parameter
+  dictionaries with a list of values for a key name were stringified rather
+  than sent as multiple values for the same key.
+  (`#3990 <https://github.com/vertexproject/synapse/pull/3990>`_)
+
+v2.189.0 - 2024-11-21
+=====================
+
+Model Changes
+-------------
+- Added ``:technique`` to the ``risk:vulnerable`` form to represent a node
+  being susceptible to a technique.
+  (`#4006 <https://github.com/vertexproject/synapse/pull/4006>`_)
+- See :ref:`userguide_model_v2_189_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated the ``pkg.list`` command to use a tabular printer and added a
+  ``--verbose`` option to view build time.
+  (`#4007 <https://github.com/vertexproject/synapse/pull/4007>`_)
+
+v2.188.1 - 2024-11-13
+=====================
+
+Bugfixes
+--------
+- Fix an issue in the type schema enforcement of a Cell's Drive where a list of
+  types for a field would cause schema checking to always fail after a Cell
+  reboot.
+  (`#4002 <https://github.com/vertexproject/synapse/pull/4002>`_)
+
 v2.188.0 - 2024-11-08
 =====================
 

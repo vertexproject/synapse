@@ -1,0 +1,5 @@
+---
+desc: Fixed a bug which causes an error when the contents change while lifting runtime nodes such as syn:cron et. al.
+prs: []
+type: bug
+...
