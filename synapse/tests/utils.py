@@ -1141,11 +1141,23 @@ class SynTest(unittest.TestCase):
         return TstOutPut()
 
     def thisEnvMust(self, *envvars):
+        '''
+        Requires a host must have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being present.
+        '''
         for envar in envvars:
             if not s_common.envbool(envar):
                 self.skip(f'Envar {envar} is not set to a truthy value.')
 
     def thisEnvMustNot(self, *envvars):
+        '''
+        Requires a host must not have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being absent or set to falsey values.
+        '''
         for envar in envvars:
             if s_common.envbool(envar):
                 self.skip(f'Envar {envar} is set to a truthy value.')
