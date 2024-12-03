@@ -139,11 +139,35 @@ class AhaApi(s_cell.CellApi):
 
     @s_cell.adminapi()
     async def callAhaPeerApi(self, iden, todo, timeout=None, skiprun=None):
+        """
+        Call a remote AHA peer API method.
+
+        Args:
+            iden (str): The identifier of the AHA peer.
+            todo (tuple): A tuple containing the method name and arguments to call on the peer.
+            timeout (float, optional): The maximum time to wait for a response. Defaults to None.
+            skiprun (str, optional): An optional run identifier to skip. Defaults to None.
+
+        Returns:
+            item: The result of the API call from the peer.
+        """
         async for item in self.cell.callAhaPeerApi(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
     @s_cell.adminapi()
     async def callAhaPeerGenr(self, iden, todo, timeout=None, skiprun=None):
+        """
+        Call a remote AHA peer generator method.
+
+        Args:
+            iden (str): The identifier of the AHA peer.
+            todo (tuple): A tuple containing the method name and arguments to call on the peer.
+            timeout (float, optional): The maximum time to wait for a response. Defaults to None.
+            skiprun (str, optional): An optional run identifier to skip. Defaults to None.
+
+        Returns:
+            item: The result of the generator method call from the peer.
+        """
         async for item in self.cell.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 

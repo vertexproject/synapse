@@ -754,6 +754,23 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def getNexusChanges(self, offs, tellready=False, wait=True):
+        '''
+        Yield nexus changes starting from the specified offset.
+
+        Args:
+            offs (int): The offset to start yielding changes from.
+            tellready (bool): If True, yields None to signal readiness of new entries.
+            wait (bool): If True, wait for new changes after reaching the latest offset.
+
+        Returns:
+            tuple: Individual nexus change entries.
+
+        Note:
+            This method is used by mirrors to synchronize with their leader cell.
+            When tellready=True, and after yielding all current log entries, the method
+            yields None which acts as a marker indicating the iterator is now in a
+            real-time mode of operation.
+        '''
         async for item in self.cell.getNexusChanges(offs, tellready=tellready, wait=wait):
             yield item
 
