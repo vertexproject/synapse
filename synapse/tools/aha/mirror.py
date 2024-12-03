@@ -43,7 +43,7 @@ async def main(argv, outp=s_output.stdout):
                     return 1
                 classes = prox._getClasses()
                 if 'synapse.lib.aha.AhaApi' not in classes:
-                    outp.printf(f'Service at {argv[0]} is not an Aha server')
+                    outp.printf(f'Service at {opts.url} is not an Aha server')
                     return 1
 
                 mirror_idens = set()

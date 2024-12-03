@@ -828,6 +828,34 @@ class AhaTest(s_test.SynTest):
                         async with await s_telepath.openurl(url) as prox:
                             self.fail(f'Connected to an expired clone URL {url}')  # pragma: no cover
 
+    async def test_lib_aha_mirrors(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    user = 'synuser'
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex, dirn=dirn00,
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(core00.conf.get('aha:user'), user)
+
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.cortex', s_cortex.Cortex, dirn=dirn01,
+                                                                       conf={'axon': 'aha://cortex...'},
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(core01.conf.get('aha:user'), user)
+
+                    async with aha.getLocalProxy() as ahaproxy:
+                        self.eq(None, await ahaproxy.getAhaSvcMirrors('99.bogus'))
+                        self.len(1, await ahaproxy.getAhaSvcMirrors('00.cortex.synapse'))
+                        self.len(1, await ahaproxy.getAhaSvcMirrors(None, iden=core00.iden))
+                        self.nn(await ahaproxy.getAhaServer(host=aha._getDnsName(), port=aha.sockaddr[1]))
+
+                        todo = s_common.todo('getCellInfo')
+                        res = await asyncio.wait_for(await aha.callAhaSvcApi('00.cortex.synapse', todo, timeout=3), 3)
+                        self.nn(res)
+
     async def test_aha_httpapi(self):
 
         async with self.getTestAha() as aha:
@@ -905,6 +933,10 @@ class AhaTest(s_test.SynTest):
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
+                async with sess.post(url, json={'name': 'doom' * 16}) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'err')
+                    self.eq(info.get('code'), 'BadArg')
 
             # Not an admin
             await aha.addUser('lowuser', passwd='lowuser')
@@ -1092,6 +1124,35 @@ class AhaTest(s_test.SynTest):
                     msgs = await core00.stormlist('aha.pool.del pool00...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Removed AHA service pool: pool00.synapse', msgs)
+
+    async def test_aha_svc_api_exception(self):
+
+        async with self.getTestAha() as aha:
+
+            async def mockGetAhaSvcProxy(*args, **kwargs):
+                raise s_exc.SynErr(mesg='proxy error')
+
+            aha.getAhaSvcProxy = mockGetAhaSvcProxy
+            name = '00.cortex.synapse'
+            todo = ('bogus', (), {})
+            retn = await asyncio.wait_for(await aha.callAhaSvcApi(name, todo), 3)
+
+            self.false(retn[0])
+            self.eq('SynErr', retn[1].get('err'))
+            self.eq('proxy error', retn[1].get('errinfo').get('mesg'))
+
+            bad_info = {
+                'urlinfo': {
+                    'host': 'nonexistent.host',
+                    'port': 12345,
+                    'scheme': 'ssl'
+                }
+            }
+
+            await aha.addAhaSvc(name, bad_info)
+            async for ok, info in aha.callAhaSvcGenr(name, ('nonexistent.method', (), {})):
+                self.false(ok)
+                self.true('err' in info)
 
     async def test_aha_reprovision(self):
 

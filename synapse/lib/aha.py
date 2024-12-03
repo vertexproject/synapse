@@ -133,8 +133,6 @@ class AhaApi(s_cell.CellApi):
 
     async def getAhaUrls(self, user='root'):
         ahaurls = await self.cell.getAhaUrls(user=user)
-        if ahaurls is None:
-            return ()
         return ahaurls
 
     @s_cell.adminapi()
@@ -737,6 +735,8 @@ class AhaCell(s_cell.Cell):
     async def callAhaSvcGenr(self, name, todo, timeout=None):
         name = self._getAhaName(name)
         svcdef = await self._getAhaSvc(name)
+        async for item in self._callAhaSvcGenr(svcdef, todo, timeout=timeout):
+            yield item
 
     async def _callAhaSvcGenr(self, svcdef, todo, timeout=None):
         try:
