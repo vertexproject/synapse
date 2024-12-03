@@ -96,16 +96,16 @@ def adminapi(log=False):
     def decrfunc(func):
 
         @functools.wraps(func)
-        def wrapped(*args, **kwargs):
+        def wrapped(self, *args, **kwargs):
 
-            if args[0].user is not None and not args[0].user.isAdmin():
-                raise s_exc.AuthDeny(mesg=f'User is not an admin [{args[0].user.name}]',
-                                     user=args[0].user.iden, username=args[0].user.name)
+            if self.user is not None and not self.user.isAdmin():
+                raise s_exc.AuthDeny(mesg=f'User is not an admin [{self.user.name}]',
+                                     user=self.user.iden, username=self.user.name)
             if log:
-                logger.info(f'Executing [{func.__qualname__}] as [{args[0].user.name}] with args [{args[1:]}[{kwargs}]',
+                logger.info(f'Executing [{func.__qualname__}] as [{self.user.name}] with args [{args}[{kwargs}]',
                             extra={'synapse': {'wrapped_func': func.__qualname__}})
 
-            return func(*args, **kwargs)
+            return func(self, *args, **kwargs)
 
         wrapped.__syn_wrapped__ = 'adminapi'
 

@@ -134,7 +134,6 @@ class TestUtils(s_t_utils.SynTest):
         self.len(1, msgs)
         self.eq(msgs[0], {'mesg': 'Test Message'})
 
-
     def test_syntest_envars(self):
         os.environ['foo'] = '1'
         os.environ['bar'] = '2'
