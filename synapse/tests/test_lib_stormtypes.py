@@ -2398,43 +2398,40 @@ class StormTypesTest(s_test.SynTest):
 
                     # Basic tests as root for $lib.globals
 
-                    q = '''$lib.globals.set(adminkey, sekrit)
-                    $lib.globals.set(userkey, lessThanSekrit)
-                    $lib.globals.set(throwaway, beep)
-                    $valu=$lib.globals.get(adminkey)
+                    q = '''$lib.globals.adminkey = sekrit
+                    $lib.globals.userkey = lessThanSekrit
+                    $lib.globals.throwaway = beep
+                    $valu=$lib.globals.adminkey
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(prox.storm(q))
                     self.stormIsInPrint('sekrit', mesgs)
 
-                    popq = '''$valu = $lib.globals.pop(throwaway)
+                    popq = '''$valu = $lib.globals.throwaway
+                    $lib.globals.throwaway = $lib.undef
                     $lib.print("pop valu is {valu}", valu=$valu)
                     '''
                     mesgs = await s_test.alist(prox.storm(popq))
                     self.stormIsInPrint('pop valu is beep', mesgs)
 
                     q = '''$x=({"foo": "1"})
-                    $lib.globals.set(bar, $x)
-                    $y=$lib.globals.get(bar)
+                    $lib.globals.bar = $x
+                    $y=$lib.globals.bar
                     $lib.print("valu={v}", v=$y.foo)
                     '''
                     mesgs = await s_test.alist(prox.storm(q))
                     self.stormIsInPrint('valu=1', mesgs)
 
                     # get and pop take a secondary default value which may be returned
-                    q = '''$valu = $lib.globals.get(throwaway, $(0))
+                    q = '''$valu = $lib.globals.throwaway
+                    if ($valu = null) { $valu = (0) }
+                    $lib.globals.throwaway = $lib.undef
                     $lib.print("get valu is {valu}", valu=$valu)
                     '''
                     mesgs = await s_test.alist(prox.storm(q))
                     self.stormIsInPrint('get valu is 0', mesgs)
 
-                    q = '''$valu = $lib.globals.pop(throwaway, $(0))
-                    $lib.print("pop valu is {valu}", valu=$valu)
-                    '''
-                    mesgs = await s_test.alist(prox.storm(q))
-                    self.stormIsInPrint('pop valu is 0', mesgs)
-
-                    listq = '''for ($key, $valu) in $lib.globals.list() {
+                    listq = '''for ($key, $valu) in $lib.globals {
                     $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
                     $lib.print($string)
                     }
@@ -2449,17 +2446,11 @@ class StormTypesTest(s_test.SynTest):
                     data = await prox.callStorm(q)
                     self.eq(data, 'test')
 
-                    # Sad path - names must be strings.
-                    q = '$lib.globals.set((my, nested, valu), haha)'
-                    mesgs = await prox.storm(q).list()
-                    err = 'The name of a persistent variable must be a string.'
-                    self.stormIsInErr(err, mesgs)
+                    # Prims get tostr()'d
+                    await prox.callStorm('$foo = (my, nested, valu) $lib.globals.$foo = haha')
 
-                    # Sad path - names must be strings.
-                    q = '$lib.globals.set((my, nested, valu), haha)'
-                    mesgs = await prox.storm(q).list()
-                    err = 'The name of a persistent variable must be a string.'
-                    self.stormIsInErr(err, mesgs)
+                    mesgs = await s_test.alist(prox.storm(listq))
+                    self.stormIsInPrint("['my', 'nested', 'valu'] is haha", mesgs)
 
                 async with core.getLocalProxy() as uprox:
                     self.true(await uprox.setCellUser(iden1))
@@ -2496,7 +2487,7 @@ class StormTypesTest(s_test.SynTest):
 
                     # the user can access the specific core.vars key
                     # that they have access to but not the admin key
-                    q = '''$valu=$lib.globals.get(userkey)
+                    q = '''$valu=$lib.globals.userkey
                         $lib.print($valu)
                         '''
                     mesgs = await s_test.alist(uprox.storm(q))
@@ -2504,18 +2495,14 @@ class StormTypesTest(s_test.SynTest):
 
                     # While the user has get perm, they do not have set or pop
                     # permission
-                    q = '''$valu=$lib.globals.pop(userkey)
-                    $lib.print($valu)
-                    '''
+                    q = '''$lib.globals.userkey = $lib.undef'''
                     mesgs = await s_test.alist(uprox.storm(q))
                     self.len(0, [m for m in mesgs if m[0] == 'print'])
                     errs = [m for m in mesgs if m[0] == 'err']
                     self.len(1, errs)
                     self.eq(errs[0][1][0], 'AuthDeny')
 
-                    q = '''$valu=$lib.globals.set(userkey, newSekritValu)
-                    $lib.print($valu)
-                    '''
+                    q = '''$lib.globals.userkey = newSekritValu'''
                     mesgs = await s_test.alist(uprox.storm(q))
                     self.len(0, [m for m in mesgs if m[0] == 'print'])
                     errs = [m for m in mesgs if m[0] == 'err']
@@ -2523,7 +2510,7 @@ class StormTypesTest(s_test.SynTest):
                     self.eq(errs[0][1][0], 'AuthDeny')
 
                     # Attempting to access the adminkey fails
-                    q = '''$valu=$lib.globals.get(adminkey)
+                    q = '''$valu=$lib.globals.adminkey
                     $lib.print($valu)
                     '''
                     mesgs = await s_test.alist(uprox.storm(q))
@@ -2535,7 +2522,7 @@ class StormTypesTest(s_test.SynTest):
                     # if the user attempts to list the values in
                     # core.vars, they only get the values they can read.
                     corelistq = '''
-                    for ($key, $valu) in $lib.globals.list() {
+                    for ($key, $valu) in $lib.globals {
                         $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
                         $lib.print($string)
                     }
@@ -2554,7 +2541,7 @@ class StormTypesTest(s_test.SynTest):
                     self.len(1, [m for m in mesgs if m[0] == 'print'])
                     self.stormIsInPrint('somekey is hehe', mesgs)
 
-                    q = '''$valu=$lib.globals.get(userkey)
+                    q = '''$valu=$lib.globals.userkey
                     $lib.print($valu)
                     '''
                     mesgs = await uprox.storm(q).list()

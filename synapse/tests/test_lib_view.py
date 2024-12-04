@@ -579,7 +579,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('trigger.add node:del --query { $lib.globals.set(trig, $lib.true) } --form test:str')
+            await core.nodes('trigger.add node:del --query { $lib.globals.trig = $lib.true } --form test:str')
 
             await core.nodes('[ test:str=foo :hehe=hifoo +#test ]')
             await core.nodes('[ test:arrayprop=$arrayguid :strs=(faz, baz) ]', opts=opts)
@@ -622,7 +622,7 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('.created'))
 
-            self.true(await core.callStorm('return($lib.globals.get(trig))'))
+            self.true(await core.callStorm('return($lib.globals.trig)'))
 
             self.eq({}, await layr.getFormCounts())
 
