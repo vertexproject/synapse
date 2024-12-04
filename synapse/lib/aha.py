@@ -581,6 +581,8 @@ class AhaCell(s_cell.Cell):
 
     async def initServiceStorage(self):
 
+        self.features['callpeers'] = 1
+
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
         slab = await s_lmdbslab.Slab.anit(dirn)

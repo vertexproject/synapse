@@ -1325,6 +1325,9 @@ class AhaTest(s_test.SynTest):
 
             await cell01.sync()
 
+            async with cell01.getLocalProxy() as proxy:
+                self.true(proxy._hasTeleFeat('dynmirror'))
+
             nexsindx = await cell00.getNexsIndx()
 
             # test the call endpoint

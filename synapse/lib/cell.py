@@ -83,6 +83,8 @@ permnames = {
     PERM_ADMIN: 'admin',
 }
 
+feat_aha_callpeers_v1 = ('callpeers', 1)
+
 diskspace = "Insufficient free space on disk."
 
 def adminapi(log=False):
@@ -457,12 +459,6 @@ class CellApi(s_base.Base):
     @adminapi()
     async def killTask(self, iden, peers=True, timeout=None):
         return await self.cell.killTask(iden, peers=peers, timeout=timeout)
-
-    async def getFeatures(self):
-        return await self.cell.getFeatures()
-
-    async def hasFeature(self, name):
-        return self.cell.hasFeature(name)
 
     @adminapi(log=True)
     async def behold(self):
@@ -1156,8 +1152,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.conf = self._initCellConf(conf)
         self.features = {
-            'tellready': True,
-            'dynmirror': True,
+            'tellready': 1,
+            'dynmirror': 1,
+            'tasks': 1,
         }
 
         self.minfree = self.conf.get('limit:disk:free')
@@ -4453,7 +4450,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return retn
 
-    async def getAhaProxy(self, timeout=None, methname=None):
+    async def getAhaProxy(self, timeout=None, feats=None):
 
         if self.ahaclient is None:
             return
@@ -4463,9 +4460,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.warning('AHA client connection failed.')
             return
 
-        if methname is not None and not proxy._hasTeleMeth(methname):
-            logger.warning(f'AHA server does not implement {methname}.')
-            return
+        if feats is not None:
+            for name, vers in feats:
+                if not proxy._hasTeleFeat(name, vers):
+                    logger.warning(f'AHA server does not support feature: {name} >= {vers}')
+                    return None
 
         return proxy
 
@@ -4473,7 +4472,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Yield responses from our peers via the AHA gather call API.
         '''
-        proxy = await self.getAhaProxy(timeout=timeout, methname='callAhaPeerApi')
+        proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
         if proxy is None:
             return
 
@@ -4484,7 +4483,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         Yield responses from invoking a generator via the AHA gather API.
         '''
-        proxy = await self.getAhaProxy(timeout=timeout, methname='callAhaPeerGenr')
+        proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
         if proxy is None:
             return
 

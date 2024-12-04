@@ -639,17 +639,8 @@ class Proxy(s_base.Base):
         self.onfini(fini)
         self.link.onfini(self.fini)
 
-    def _hasTeleMeth(self, name):
-        return self.methinfo.get(name) is not None
-
-    def _hasTeleGenr(self, name):
-        info = self.methinfo.get(name)
-        if info is None:
-            return False
-        return info.get('genr', False)
-
-    def _hasTeleFeat(self, name):
-        return self.features.get(name, False)
+    def _hasTeleFeat(self, name, vers=1):
+        return self.features.get(name, 0) >= vers
 
     def _getSynVers(self):
         '''
