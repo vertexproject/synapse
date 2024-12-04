@@ -640,7 +640,7 @@ class Proxy(s_base.Base):
         self.link.onfini(self.fini)
 
     def _hasTeleFeat(self, name, vers=1):
-        return self.features.get(name, 0) >= vers
+        return self._features.get(name, 0) >= vers
 
     def _getSynVers(self):
         '''
@@ -914,7 +914,7 @@ class Proxy(s_base.Base):
 
         self.sess = self.synack[1].get('sess')
         self._ahainfo = self.synack[1].get('ahainfo', {})
-        self.features = self.synack[1].get('features', {})
+        self._features = self.synack[1].get('features', {})
         self.sharinfo = self.synack[1].get('sharinfo', {})
         self.methinfo = self.sharinfo.get('meths', {})
 
