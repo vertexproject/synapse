@@ -296,6 +296,8 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The campaign used the technique.'}),
                 (('ou:org', 'uses', 'ou:technique'), {
                     'doc': 'The org uses the technique.'}),
+                (('risk:vuln', 'uses', 'ou:technique'), {
+                    'doc': 'The vulnerability uses the technique.'}),
 
                 (('ou:org', 'uses', None), {
                     'doc': 'The ou:org makes use of the target node.'}),

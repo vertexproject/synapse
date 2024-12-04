@@ -464,6 +464,15 @@ class StormHttpTest(s_test.SynTest):
             self.isin('mesg', errinfo)
             self.eq('', errinfo.get('mesg'))  # timeouterror has no mesg
 
+            q = '''
+            $params=({"foo": ["bar", "baz"], "key": [["valu"]]})
+            $resp = $lib.inet.http.request(GET, $url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'foo': ['bar', 'baz'], 'key': ["('valu',)"]})
+
     async def test_storm_http_post(self):
 
         async with self.getTestCore() as core:

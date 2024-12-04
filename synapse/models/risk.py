@@ -207,6 +207,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster uses the vulnerability.'}),
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
+                (('ou:technique', 'uses', 'risk:vuln'), {
+                    'doc': 'The technique uses the vulnerability.'}),
 
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
@@ -709,6 +711,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
+
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The technique that the node is susceptible to.'}),
 
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),

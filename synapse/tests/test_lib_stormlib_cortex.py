@@ -304,9 +304,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     resp = await sess.get(url)
                     self.eq(resp.status, 200)
                     self.true(await stream.wait(timeout=12))
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 self.eq(msgs[0].get('httpapi'), echoiden)
                 core.stormlog = False
 

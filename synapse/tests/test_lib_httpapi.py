@@ -777,6 +777,12 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('MissingField', retn.get('code'))
 
+                body = {'prop': 'test:comp', 'value': '3^foobar', 'typeopts': {'sepr': '^'}}
+                async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq([3, 'foobar'], retn['result']['norm'])
+
                 # Norm via POST
                 body = {'prop': 'inet:ip', 'value': '1.2.3.4'}
                 async with sess.post(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
@@ -1704,10 +1710,8 @@ class HttpApiTest(s_tests.SynTest):
 
     async def test_request_logging(self):
 
-        def get_mesg(stream):
-            data = stream.getvalue()
-            raw_mesgs = [m for m in data.split('\n') if m]
-            msgs = [json.loads(m) for m in raw_mesgs]
+        def get_mesg(stream: s_tests.AsyncStreamEvent) -> dict:
+            msgs = stream.jsonlines()
             self.len(1, msgs)
             return msgs[0]
 

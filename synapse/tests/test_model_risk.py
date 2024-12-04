@@ -519,6 +519,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :period=(2022, ?)
                     :node=(inet:fqdn, vertex.link)
                     :vuln={[ risk:vuln=* :name=redtree ]}
+                    :technique={[ ou:technique=* :name=foo ]}
                     :mitigated=true
                     :mitigations={[ risk:mitigation=* :name=patchstuff ]}
                 ]
@@ -531,6 +532,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
+            self.len(1, await core.nodes('risk:vulnerable -> ou:technique'))
 
             nodes = await core.nodes('''
                 [ risk:outage=*
@@ -640,3 +642,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('version:min'))
             self.nn(nodes[0].get('version:max'))
             self.len(2, await core.nodes('risk:vuln:name=woot -> risk:vuln:soft:range -> it:prod:softver'))
+
+    async def test_model_risk_vuln_technique(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ risk:vuln=* :name=foo <(uses)+ { [ ou:technique=* :name=bar ] } ]
+            ''')
+            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- ou:technique:name=bar'))

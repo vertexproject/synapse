@@ -292,13 +292,6 @@ class LibHttp(s_stormtypes.Lib):
             'codereason': self.codereason,
         }
 
-    def strify(self, item):
-        if isinstance(item, (list, tuple)):
-            return [(str(k), str(v)) for (k, v) in item]
-        elif isinstance(item, dict):
-            return {str(k): str(v) for k, v in item.items()}
-        return item
-
     @s_stormtypes.stormfunc(readonly=True)
     async def urlencode(self, text):
         text = await s_stormtypes.tostr(text)
@@ -341,7 +334,7 @@ class LibHttp(s_stormtypes.Lib):
         ssl_verify = await s_stormtypes.tobool(ssl_verify, noneok=True)
         ssl_opts = await s_stormtypes.toprim(ssl_opts)
 
-        headers = self.strify(headers)
+        headers = s_stormtypes.strifyHttpArg(headers)
 
         sock = await WebSocket.anit()
 
@@ -410,9 +403,9 @@ class LibHttp(s_stormtypes.Lib):
 
         kwargs = {'allow_redirects': allow_redirects}
         if params:
-            kwargs['params'] = self.strify(params)
+            kwargs['params'] = s_stormtypes.strifyHttpArg(params, multi=True)
 
-        headers = self.strify(headers)
+        headers = s_stormtypes.strifyHttpArg(headers)
 
         if proxy is not None:
             self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
