@@ -35,6 +35,8 @@ ipv4max = 2 ** 32 - 1
 
 rfc6598 = ipaddress.IPv4Network('100.64.0.0/10')
 
+urlfangs = regex.compile('^(hxxp|hxxps)$')
+
 def getAddrType(ip):
 
     if ip.is_multicast:
@@ -102,23 +104,308 @@ def getAddrScope(ipv6):
 
     return 'global'
 
-class Addr(s_types.Str):
+class IPAddr(s_types.Type):
+
+    stortype = s_layer.STOR_TYPE_IPADDR
+
+    def postTypeInit(self):
+
+        self.setCmprCtor('>=', self._ctorCmprGe)
+        self.setCmprCtor('<=', self._ctorCmprLe)
+        self.setCmprCtor('>', self._ctorCmprGt)
+        self.setCmprCtor('<', self._ctorCmprLt)
+
+        self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
+
+        self.storlifts.update({
+            '=': self._storLiftEq,
+            '<': self._storLiftNorm,
+            '>': self._storLiftNorm,
+            '<=': self._storLiftNorm,
+            '>=': self._storLiftNorm,
+        })
+
+        self.reqvers = self.opts.get('version')
+
+    def _ctorCmprEq(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+
+                def cmpr(norm):
+                    return norm >= minv and norm <= maxv
+                return cmpr
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+
+                def cmpr(norm):
+                    return norm >= minv and norm <= maxv
+                return cmpr
+
+        return s_types.Type._ctorCmprEq(self, valu)
+
+    def getTypeVals(self, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+
+                minv, maxv = self.getCidrRange(valu)
+                while minv <= maxv:
+                    yield minv
+                    minv = (minv[0], minv[1] + 1)
+
+                return
+
+            if valu.find('-') != -1:
+
+                minv, maxv = self.getNetRange(valu)
+                while minv <= maxv:
+                    yield minv
+                    minv = (minv[0], minv[1] + 1)
+
+                return
+
+        yield valu
+
+    def _normPyTuple(self, valu):
+
+        if any((len(valu) != 2,
+                type(valu[0]) is not int,
+                type(valu[1]) is not int)):
+
+            mesg = f'Invalid IP address tuple: {valu}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        vers = valu[0]
+
+        if self.reqvers is not None and vers != self.reqvers:
+            mesg = f'Invalid IP address version: got {vers} expected {self.reqvers}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        subs = {'version': vers}
+
+        if vers == 4:
+            try:
+                ipaddr = ipaddress.IPv4Address(valu[1])
+            except ValueError as e:
+                mesg = f'Invalid IP address tuple: {valu}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+        elif vers == 6:
+            try:
+                ipaddr = ipaddress.IPv6Address(valu[1])
+                subs['scope'] = getAddrScope(ipaddr)
+            except ValueError as e:
+                mesg = f'Invalid IP address tuple: {valu}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+        else:
+            mesg = f'Invalid IP address tuple: {valu}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        subs['type'] = getAddrType(ipaddr)
+
+        return valu, {'subs': subs}
+
+    def _normPyStr(self, text):
+
+        valu = text.replace('[.]', '.')
+        valu = valu.replace('(.)', '.')
+
+        valu = s_chop.printables(valu)
+
+        subs = {}
+
+        if valu.find(':') != -1:
+            if self.reqvers is not None and self.reqvers != 6:
+                mesg = f'Invalid IP address version, expected an IPv4, got: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            try:
+                byts = socket.inet_pton(socket.AF_INET6, valu)
+                addr = (6, int.from_bytes(byts, 'big'))
+                ipaddr = ipaddress.IPv6Address(addr[1])
+                subs |= {'version': 6, 'scope': getAddrScope(ipaddr)}
+                # v4 = v6.ipv4_mapped
+            except OSError as e:
+                mesg = f'Invalid IP address: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg) from None
+        else:
+            if self.reqvers is not None and self.reqvers != 4:
+                mesg = f'Invalid IP address version, expected an IPv6, got: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            try:
+                byts = socket.inet_pton(socket.AF_INET, valu)
+                addr = (4, int.from_bytes(byts, 'big'))
+                ipaddr = ipaddress.IPv4Address(addr[1])
+                subs['version'] = 4
+            except OSError as e:
+                mesg = f'Invalid IP address: {text}'
+                raise s_exc.BadTypeValu(mesg=mesg) from None
+
+        subs['type'] = getAddrType(ipaddr)
+
+        return addr, {'subs': subs}
+
+    def repr(self, norm):
+
+        vers, addr = norm
+
+        if vers == 4:
+            byts = addr.to_bytes(4, 'big')
+            return socket.inet_ntop(socket.AF_INET, byts)
+
+        if vers == 6:
+            byts = addr.to_bytes(16, 'big')
+            return socket.inet_ntop(socket.AF_INET6, byts)
+
+        mesg = 'IP proto version {vers} is not supported!'
+        raise s_exc.BadTypeValu(mesg=mesg)
+
+    def getNetRange(self, text):
+        minstr, maxstr = text.split('-', 1)
+        minv, info = self.norm(minstr)
+        maxv, info = self.norm(maxstr)
+
+        if minv[0] != maxv[0]:
+            raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                    mesg=f'IP address version mismatch in range "{text}"')
+
+        return minv, maxv
+
+    def getCidrRange(self, text):
+        addr, mask_str = text.split('/', 1)
+        (vers, addr), info = self.norm(addr)
+
+        if vers == 4:
+            try:
+                mask_int = int(mask_str)
+            except ValueError:
+                raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                        mesg=f'Invalid CIDR Mask "{text}"')
+
+            if mask_int > 32 or mask_int < 0:
+                raise s_exc.BadTypeValu(valu=text, name=self.name,
+                                        mesg=f'Invalid CIDR Mask "{text}"')
+
+            mask = cidrmasks[mask_int]
+
+            minv = addr & mask[0]
+            return (vers, minv), (vers, minv + mask[1] - 1)
+
+        else:
+            try:
+                netw = ipaddress.IPv6Network(text, strict=False)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
+
+            minv = int(netw[0])
+            maxv = int(netw[-1])
+            return (6, minv), (6, maxv)
+
+    def _storLiftEq(self, cmpr, valu):
+
+        if isinstance(valu, str):
+
+            if valu.find('/') != -1:
+                minv, maxv = self.getCidrRange(valu)
+                maxv = (maxv[0], maxv[1])
+                return (
+                    ('range=', (minv, maxv), self.stortype),
+                )
+
+            if valu.find('-') != -1:
+                minv, maxv = self.getNetRange(valu)
+                return (
+                    ('range=', (minv, maxv), self.stortype),
+                )
+
+        return self._storLiftNorm(cmpr, valu)
+
+    def _ctorCmprGe(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu >= norm
+        return cmpr
+
+    def _ctorCmprLe(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu <= norm
+        return cmpr
+
+    def _ctorCmprGt(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu > norm
+        return cmpr
+
+    def _ctorCmprLt(self, text):
+        norm, info = self.norm(text)
+
+        def cmpr(valu):
+            return valu < norm
+        return cmpr
+
+class SockAddr(s_types.Str):
 
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.iptype = self.modl.type('inet:ip')
+        self.porttype = self.modl.type('inet:port')
+
+        self.virtindx |= {
+            'ip': 'ip',
+            'port': 'port',
+        }
+
+        self.virts |= {
+            'ip': (self.iptype, self._getIP),
+            'port': (self.porttype, self._getPort),
+        }
+
+    def _getIP(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('ip')) is None:
+            return None
+
+        return valu[0]
+
     def _getPort(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('port')) is None:
+            return None
+
+        return valu[0]
+
+    def _normPort(self, valu):
         parts = valu.split(':', 1)
         if len(parts) == 2:
             valu, port = parts
-            port = self.modl.type('inet:port').norm(port)[0]
+            port = self.porttype.norm(port)[0]
             return valu, port, f':{port}'
         return valu, None, ''
 
     def _normPyStr(self, valu):
         orig = valu
         subs = {}
+        virts = {}
 
         # no protos use case sensitivity yet...
         valu = valu.lower()
@@ -130,7 +417,7 @@ class Addr(s_types.Str):
 
         if proto not in ('tcp', 'udp', 'icmp', 'host'):
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
-                                    mesg='inet:addr protocol must be in: tcp, udp, icmp, host')
+                                    mesg='inet:sockaddr protocol must be in: tcp, udp, icmp, host')
         subs['proto'] = proto
 
         valu = valu.strip().strip('/')
@@ -138,7 +425,7 @@ class Addr(s_types.Str):
         # Treat as host if proto is host
         if proto == 'host':
 
-            valu, port, pstr = self._getPort(valu)
+            valu, port, pstr = self._normPort(valu)
             if port:
                 subs['port'] = port
 
@@ -153,48 +440,54 @@ class Addr(s_types.Str):
             if match:
                 ipv6, port = match.groups()
 
-                ipv6, v6info = self.modl.type('inet:ipv6').norm(ipv6)
-
-                v6subs = v6info.get('subs')
-                if v6subs is not None:
-                    v6v4addr = v6subs.get('ipv4')
-                    if v6v4addr is not None:
-                        subs['ipv4'] = v6v4addr
-
-                subs['ipv6'] = ipv6
+                ipv6 = self.iptype.norm(ipv6)[0]
+                host = self.iptype.repr(ipv6)
+                subs['ip'] = ipv6
+                virts['ip'] = (ipv6, self.iptype.stortype)
 
                 portstr = ''
                 if port is not None:
-                    port = self.modl.type('inet:port').norm(port)[0]
+                    port = self.porttype.norm(port)[0]
                     subs['port'] = port
+                    virts['port'] = (port, self.porttype.stortype)
                     portstr = f':{port}'
 
-                return f'{proto}://[{ipv6}]{portstr}', {'subs': subs}
+                return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
             raise s_exc.BadTypeValu(valu=orig, name=self.name, mesg=mesg)
 
         elif valu.count(':') >= 2:
-            ipv6 = self.modl.type('inet:ipv6').norm(valu)[0]
-            subs['ipv6'] = ipv6
-            return f'{proto}://{ipv6}', {'subs': subs}
+            ipv6 = self.iptype.norm(valu)[0]
+            host = self.iptype.repr(ipv6)
+            subs['ip'] = ipv6
+            virts['ip'] = (ipv6, self.iptype.stortype)
+            return f'{proto}://{host}', {'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
-        valu, port, pstr = self._getPort(valu)
+        valu, port, pstr = self._normPort(valu)
         if port:
             subs['port'] = port
+            virts['port'] = (port, self.porttype.stortype)
 
-        ipv4 = self.modl.type('inet:ipv4').norm(valu)[0]
-        ipv4_repr = self.modl.type('inet:ipv4').repr(ipv4)
-        subs['ipv4'] = ipv4
+        ipv4 = self.iptype.norm(valu)[0]
+        ipv4_repr = self.iptype.repr(ipv4)
+        subs['ip'] = ipv4
+        virts['ip'] = (ipv4, self.iptype.stortype)
 
-        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs}
+        return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
 
-class Cidr4(s_types.Str):
+class Cidr(s_types.Str):
 
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+
+        self.iptype = self.modl.type('inet:ip')
+
+        self.pivs |= {
+            'inet:ip': ('range=', self.iptype.getCidrRange),
+        }
 
     def _normPyStr(self, valu):
 
@@ -205,47 +498,42 @@ class Cidr4(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='Invalid/Missing CIDR Mask')
 
-        if mask_int > 32 or mask_int < 0:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name,
-                                    mesg='Invalid CIDR Mask')
+        (vers, ip_int) = self.iptype.norm(ip_str)[0]
 
-        ip_int = self.modl.type('inet:ipv4').norm(ip_str)[0]
+        if vers == 4:
+            if mask_int > 32 or mask_int < 0:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                        mesg='Invalid CIDR Mask')
 
-        mask = cidrmasks[mask_int]
-        network = ip_int & mask[0]
-        broadcast = network + mask[1] - 1
-        network_str = self.modl.type('inet:ipv4').repr(network)
+            mask = cidrmasks[mask_int]
+            network = ip_int & mask[0]
+            broadcast = network + mask[1] - 1
+            network_str = self.iptype.repr((4, network))
 
-        norm = f'{network_str}/{mask_int}'
-        info = {
-            'subs': {
-                'broadcast': broadcast,
-                'mask': mask_int,
-                'network': network,
+            norm = f'{network_str}/{mask_int}'
+            info = {
+                'subs': {
+                    'broadcast': (4, broadcast),
+                    'mask': mask_int,
+                    'network': (4, network),
+                }
             }
-        }
-        return norm, info
 
-class Cidr6(s_types.Str):
+        else:
+            try:
+                netw = ipaddress.IPv6Network(valu)
+            except Exception as e:
+                raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
-    def postTypeInit(self):
-        s_types.Str.postTypeInit(self)
-        self.setNormFunc(str, self._normPyStr)
-
-    def _normPyStr(self, valu):
-        try:
-            network = ipaddress.IPv6Network(valu)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
-
-        norm = str(network)
-        info = {
-            'subs': {
-                'broadcast': str(network.broadcast_address),
-                'mask': network.prefixlen,
-                'network': str(network.network_address),
+            norm = str(netw)
+            info = {
+                'subs': {
+                    'broadcast': (6, int(netw.broadcast_address)),
+                    'mask': netw.prefixlen,
+                    'network': (6, int(netw.network_address)),
+                }
             }
-        }
+
         return norm, info
 
 class Email(s_types.Str):
@@ -253,6 +541,9 @@ class Email(s_types.Str):
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+
+        self.fqdntype = self.modl.type('inet:fqdn')
+        self.usertype = self.modl.type('inet:user')
 
     def _normPyStr(self, valu):
 
@@ -263,8 +554,8 @@ class Email(s_types.Str):
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=mesg) from None
 
         try:
-            fqdnnorm, fqdninfo = self.modl.type('inet:fqdn').norm(fqdn)
-            usernorm, userinfo = self.modl.type('inet:user').norm(user)
+            fqdnnorm, fqdninfo = self.fqdntype.norm(fqdn)
+            usernorm, userinfo = self.usertype.norm(user)
         except Exception as e:
             raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
 
@@ -428,353 +719,17 @@ class HttpCookie(s_types.Str):
 
         yield valu
 
-class IPv4(s_types.Type):
-    '''
-    The base type for an IPv4 address.
-    '''
-    stortype = s_layer.STOR_TYPE_U32
+class IPRange(s_types.Range):
 
     def postTypeInit(self):
-        self.setCmprCtor('>=', self._ctorCmprGe)
-        self.setCmprCtor('<=', self._ctorCmprLe)
-        self.setCmprCtor('>', self._ctorCmprGt)
-        self.setCmprCtor('<', self._ctorCmprLt)
-
-        self.setNormFunc(str, self._normPyStr)
-        self.setNormFunc(int, self._normPyInt)
-
-        self.storlifts.update({
-            '=': self._storLiftEq,
-            '<': self._storLiftNorm,
-            '>': self._storLiftNorm,
-            '<=': self._storLiftNorm,
-            '>=': self._storLiftNorm,
-        })
-
-    def _ctorCmprEq(self, valu):
-
-        if isinstance(valu, str):
-
-            if valu.find('/') != -1:
-                minv, maxv = self.getCidrRange(valu)
-
-                def cmpr(norm):
-                    return norm >= minv and norm < maxv
-                return cmpr
-
-            if valu.find('-') != -1:
-                minv, maxv = self.getNetRange(valu)
-
-                def cmpr(norm):
-                    return norm >= minv and norm <= maxv
-                return cmpr
-
-        return s_types.Type._ctorCmprEq(self, valu)
-
-    def getTypeVals(self, valu):
-
-        if isinstance(valu, str):
-
-            if valu.find('/') != -1:
-
-                minv, maxv = self.getCidrRange(valu)
-                while minv < maxv:
-                    yield minv
-                    minv += 1
-
-                return
-
-            if valu.find('-') != -1:
-
-                minv, maxv = self.getNetRange(valu)
-
-                while minv <= maxv:
-                    yield minv
-                    minv += 1
-
-                return
-
-        yield valu
-
-    def _normPyInt(self, valu):
-
-        if valu < 0 or valu > ipv4max:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg='Value outside of IPv4 range')
-
-        addr = ipaddress.IPv4Address(valu)
-        subs = {'type': getAddrType(addr)}
-        return valu, {'subs': subs}
-
-    def _normPyStr(self, valu):
-
-        valu = valu.replace('[.]', '.')
-        valu = valu.replace('(.)', '.')
-
-        valu = s_chop.printables(valu)
-
-        try:
-            byts = socket.inet_aton(valu)
-        except OSError as e:
-            raise s_exc.BadTypeValu(name=self.name, valu=valu,
-                                    mesg=str(e)) from None
-
-        norm = int.from_bytes(byts, 'big')
-        return self._normPyInt(norm)
-
-    def repr(self, norm):
-        byts = norm.to_bytes(4, 'big')
-        return socket.inet_ntoa(byts)
-
-    def getNetRange(self, text):
-        minstr, maxstr = text.split('-', 1)
-        minv, info = self.norm(minstr)
-        maxv, info = self.norm(maxstr)
-        return minv, maxv
-
-    def getCidrRange(self, text):
-        addr, mask_str = text.split('/', 1)
-        norm, info = self.norm(addr)
-
-        try:
-            mask_int = int(mask_str)
-        except ValueError:
-            raise s_exc.BadTypeValu(valu=text, name=self.name,
-                                    mesg=f'Invalid CIDR Mask "{text}"')
-
-        if mask_int > 32 or mask_int < 0:
-            raise s_exc.BadTypeValu(valu=text, name=self.name,
-                                    mesg=f'Invalid CIDR Mask "{text}"')
-
-        mask = cidrmasks[mask_int]
-
-        minv = norm & mask[0]
-        return minv, minv + mask[1]
-
-    def _storLiftEq(self, cmpr, valu):
-
-        if isinstance(valu, str):
-
-            if valu.find('/') != -1:
-                minv, maxv = self.getCidrRange(valu)
-                maxv -= 1
-                return (
-                    ('range=', (minv, maxv), self.stortype),
-                )
-
-            if valu.find('-') != -1:
-                minv, maxv = self.getNetRange(valu)
-                return (
-                    ('range=', (minv, maxv), self.stortype),
-                )
-
-        return self._storLiftNorm(cmpr, valu)
-
-    def _ctorCmprGe(self, text):
-        norm, info = self.norm(text)
-
-        def cmpr(valu):
-            return valu >= norm
-        return cmpr
-
-    def _ctorCmprLe(self, text):
-        norm, info = self.norm(text)
-
-        def cmpr(valu):
-            return valu <= norm
-        return cmpr
-
-    def _ctorCmprGt(self, text):
-        norm, info = self.norm(text)
-
-        def cmpr(valu):
-            return valu > norm
-        return cmpr
-
-    def _ctorCmprLt(self, text):
-        norm, info = self.norm(text)
-
-        def cmpr(valu):
-            return valu < norm
-        return cmpr
-
-class IPv6(s_types.Type):
-
-    stortype = s_layer.STOR_TYPE_IPV6
-
-    def postTypeInit(self):
-        self.setNormFunc(int, self._normPyStr)
-        self.setNormFunc(str, self._normPyStr)
-
-        self.setCmprCtor('>=', self._ctorCmprGe)
-        self.setCmprCtor('<=', self._ctorCmprLe)
-        self.setCmprCtor('>', self._ctorCmprGt)
-        self.setCmprCtor('<', self._ctorCmprLt)
-
-        self.storlifts.update({
-            '=': self._storLiftEq,
-            '>': self._storLiftNorm,
-            '<': self._storLiftNorm,
-            '>=': self._storLiftNorm,
-            '<=': self._storLiftNorm,
-        })
-
-    def _normPyStr(self, valu):
-
-        try:
-
-            if isinstance(valu, str):
-                valu = s_chop.printables(valu)
-                if valu.find(':') == -1:
-                    valu = '::ffff:' + valu
-
-            v6 = ipaddress.IPv6Address(valu)
-            v4 = v6.ipv4_mapped
-
-            subs = {
-                'type': getAddrType(v6),
-                'scope': getAddrScope(v6),
-            }
-
-            if v4 is not None:
-                v4_int = self.modl.type('inet:ipv4').norm(v4.compressed)[0]
-                v4_str = self.modl.type('inet:ipv4').repr(v4_int)
-                subs['ipv4'] = v4_int
-                return f'::ffff:{v4_str}', {'subs': subs}
-
-            return v6.compressed, {'subs': subs}
-
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu=valu, name=self.name, mesg=str(e)) from None
-
-    def getTypeVals(self, valu):
-
-        if isinstance(valu, str):
-
-            if valu.find('/') != -1:
-
-                minv, maxv = self.getCidrRange(valu)
-                while minv <= maxv:
-                    yield minv.compressed
-                    minv += 1
-
-                return
-
-            if valu.find('-') != -1:
-
-                minv, maxv = self.getNetRange(valu)
-                while minv <= maxv:
-                    yield minv.compressed
-                    minv += 1
-
-                return
-
-        yield valu
-
-    def getCidrRange(self, text):
-        try:
-            netw = ipaddress.IPv6Network(text, strict=False)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
-        minv = netw[0]
-        maxv = netw[-1]
-        return minv, maxv
-
-    def getNetRange(self, text):
-        minv, maxv = text.split('-', 1)
-        try:
-            minv = ipaddress.IPv6Address(minv)
-            maxv = ipaddress.IPv6Address(maxv)
-        except Exception as e:
-            raise s_exc.BadTypeValu(valu=text, name=self.name, mesg=str(e)) from None
-        return minv, maxv
-
-    def _ctorCmprEq(self, valu):
-
-        if isinstance(valu, str):
-
-            if valu.find('/') != -1:
-                minv, maxv = self.getCidrRange(valu)
-
-                def cmpr(norm):
-                    norm = ipaddress.IPv6Address(norm)
-                    return norm >= minv and norm <= maxv
-                return cmpr
-
-            if valu.find('-') != -1:
-                minv, maxv = self.getNetRange(valu)
-
-                def cmpr(norm):
-                    norm = ipaddress.IPv6Address(norm)
-                    return norm >= minv and norm <= maxv
-                return cmpr
-
-        return s_types.Type._ctorCmprEq(self, valu)
-
-    def _storLiftEq(self, cmpr, valu):
-
-        if isinstance(valu, str):
-
-            if valu.find('/') != -1:
-                minv, maxv = self.getCidrRange(valu)
-                return (
-                    ('range=', (minv.compressed, maxv.compressed), self.stortype),
-                )
-
-            if valu.find('-') != -1:
-                minv, maxv = self.getNetRange(valu)
-                return (
-                    ('range=', (minv.compressed, maxv.compressed), self.stortype),
-                )
-
-        return self._storLiftNorm(cmpr, valu)
-
-    def _ctorCmprGe(self, text):
-        addr = ipaddress.IPv6Address(text)
-        def cmpr(valu):
-            return ipaddress.IPv6Address(valu).packed >= addr.packed
-        return cmpr
-
-    def _ctorCmprLe(self, text):
-        addr = ipaddress.IPv6Address(text)
-        def cmpr(valu):
-            return ipaddress.IPv6Address(valu).packed <= addr.packed
-        return cmpr
-
-    def _ctorCmprGt(self, text):
-        addr = ipaddress.IPv6Address(text)
-        def cmpr(valu):
-            return ipaddress.IPv6Address(valu).packed > addr.packed
-        return cmpr
-
-    def _ctorCmprLt(self, text):
-        addr = ipaddress.IPv6Address(text)
-        def cmpr(valu):
-            return ipaddress.IPv6Address(valu).packed < addr.packed
-        return cmpr
-
-class IPv4Range(s_types.Range):
-
-    def postTypeInit(self):
-        self.opts['type'] = ('inet:ipv4', {})
+        self.opts['type'] = ('inet:ip', {})
         s_types.Range.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
-        self.cidrtype = self.modl.type('inet:cidr4')
+        self.cidrtype = self.modl.type('inet:cidr')
 
-    def _normPyStr(self, valu):
-        if '-' in valu:
-            return super()._normPyStr(valu)
-        cidrnorm = self.cidrtype._normPyStr(valu)
-        tupl = cidrnorm[1]['subs']['network'], cidrnorm[1]['subs']['broadcast']
-        return self._normPyTuple(tupl)
-
-class IPv6Range(s_types.Range):
-
-    def postTypeInit(self):
-        self.opts['type'] = ('inet:ipv6', {})
-        s_types.Range.postTypeInit(self)
-        self.setNormFunc(str, self._normPyStr)
-        self.cidrtype = self.modl.type('inet:cidr6')
+        self.pivs |= {
+            'inet:ip': ('range=', lambda valu: valu),
+        }
 
     def _normPyStr(self, valu):
         if '-' in valu:
@@ -791,7 +746,11 @@ class IPv6Range(s_types.Range):
         minv = self.subtype.norm(valu[0])[0]
         maxv = self.subtype.norm(valu[1])[0]
 
-        if ipaddress.ip_address(minv) > ipaddress.ip_address(maxv):
+        if minv[0] != maxv[0]:
+            raise s_exc.BadTypeValu(valu=valu, name=self.name,
+                                    mesg=f'IP address version mismatch in range "{valu}"')
+
+        if ipaddress.ip_address(minv[1]) > ipaddress.ip_address(maxv[1]):
             raise s_exc.BadTypeValu(valu=valu, name=self.name,
                                     mesg='minval cannot be greater than maxval')
 
@@ -805,6 +764,8 @@ class Rfc2822Addr(s_types.Str):
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+
+        self.emailtype = self.modl.type('inet:email')
 
     def _normPyStr(self, valu):
 
@@ -830,7 +791,7 @@ class Rfc2822Addr(s_types.Str):
             subs['name'] = name
 
         try:
-            data = self.modl.type('inet:email').norm(addr)
+            data = self.emailtype.norm(addr)
             if len(data) == 2:
                 mail = data[0]
 
@@ -850,6 +811,10 @@ class Url(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.iptype = self.modl.type('inet:ip')
+        self.fqdntype = self.modl.type('inet:fqdn')
+        self.porttype = self.modl.type('inet:port')
+
     def _ctorCmprEq(self, text):
         if text == '':
             # Asking if a +inet:url='' is a odd filter, but
@@ -866,6 +831,7 @@ class Url(s_types.Str):
         return cmpr
 
     def _normPyStr(self, valu):
+        valu = valu.strip()
         orig = valu
         subs = {}
         proto = ''
@@ -911,6 +877,8 @@ class Url(s_types.Str):
         if not proto or not valu:
             raise s_exc.BadTypeValu(valu=orig, name=self.name,
                                     mesg='Invalid/Missing protocol') from None
+
+        proto = urlfangs.sub(lambda match: 'http' + match.group(0)[4:], proto)
 
         subs['proto'] = proto
         # Query params first
@@ -967,8 +935,9 @@ class Url(s_types.Str):
                 if match:
                     valu, port = match.groups()
 
-                host, ipv6_subs = self.modl.type('inet:ipv6').norm(valu)
-                subs['ipv6'] = host
+                ipv6 = self.iptype.norm(valu)[0]
+                host = self.iptype.repr(ipv6)
+                subs['ip'] = ipv6
 
                 if match:
                     host = f'[{host}]'
@@ -986,16 +955,16 @@ class Url(s_types.Str):
             # IPv4
             try:
                 # Norm and repr to handle fangs
-                ipv4 = self.modl.type('inet:ipv4').norm(part)[0]
-                host = self.modl.type('inet:ipv4').repr(ipv4)
-                subs['ipv4'] = ipv4
+                ipv4 = self.iptype.norm(part)[0]
+                host = self.iptype.repr(ipv4)
+                subs['ip'] = ipv4
             except Exception:
                 pass
 
             # FQDN
             if host is None:
                 try:
-                    host = self.modl.type('inet:fqdn').norm(part)[0]
+                    host = self.fqdntype.norm(part)[0]
                     subs['fqdn'] = host
                 except Exception:
                     pass
@@ -1011,13 +980,13 @@ class Url(s_types.Str):
 
         # Optional Port
         if port is not None:
-            port = self.modl.type('inet:port').norm(port)[0]
+            port = self.porttype.norm(port)[0]
             subs['port'] = port
         else:
             # Look up default port for protocol, but don't add it back into the url
             defport = s_l_iana.services.get(proto)
             if defport:
-                subs['port'] = self.modl.type('inet:port').norm(defport)[0]
+                subs['port'] = self.porttype.norm(defport)[0]
 
         # Set up Normed URL
         if isUNC:
@@ -1064,7 +1033,7 @@ class InetModule(s_module.CoreModule):
 
             if form == 'inet:email':
 
-                whomail = await node.snap.addNode('inet:whois:email', (fqdn, valu))
+                whomail = await node.view.addNode('inet:whois:email', (fqdn, valu))
                 await whomail.set('.seen', asof)
 
     async def _onAddPasswd(self, node):
@@ -1079,7 +1048,7 @@ class InetModule(s_module.CoreModule):
         fqdn = node.ndef[1]
         domain = node.get('domain')
 
-        async with node.snap.getEditor() as editor:
+        async with node.view.getEditor() as editor:
             protonode = editor.loadNode(node)
             if domain is None:
                 await protonode.set('iszone', False)
@@ -1089,7 +1058,7 @@ class InetModule(s_module.CoreModule):
             if protonode.get('issuffix') is None:
                 await protonode.set('issuffix', False)
 
-            parent = await node.snap.getNodeByNdef(('inet:fqdn', domain))
+            parent = await node.view.getNodeByNdef(('inet:fqdn', domain))
             if parent is None:
                 parent = await editor.addNode('inet:fqdn', domain)
 
@@ -1114,8 +1083,8 @@ class InetModule(s_module.CoreModule):
 
         issuffix = node.get('issuffix')
 
-        async with node.snap.getEditor() as editor:
-            async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+        async with node.view.getEditor() as editor:
+            async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                 await asyncio.sleep(0)
 
                 if child.get('iszone') == issuffix:
@@ -1140,7 +1109,7 @@ class InetModule(s_module.CoreModule):
             await node.pop('zone')
             return
 
-        parent = await node.snap.addNode('inet:fqdn', domain)
+        parent = await node.view.addNode('inet:fqdn', domain)
 
         zone = parent.get('zone')
         if zone is None:
@@ -1154,10 +1123,10 @@ class InetModule(s_module.CoreModule):
         todo = collections.deque([node.ndef[1]])
         zone = node.get('zone')
 
-        async with node.snap.getEditor() as editor:
+        async with node.view.getEditor() as editor:
             while todo:
                 fqdn = todo.pop()
-                async for child in node.snap.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
+                async for child in node.view.nodesByPropValu('inet:fqdn:domain', '=', fqdn):
                     await asyncio.sleep(0)
 
                     # if they are their own zone level, skip
@@ -1177,19 +1146,24 @@ class InetModule(s_module.CoreModule):
 
                 'ctors': (
 
-                    ('inet:addr', 'synapse.models.inet.Addr', {}, {
+                    ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
+                        'doc': 'An IPv4 or IPv6 address.',
+                        'ex': '1.2.3.4'
+                    }),
+
+                    ('inet:iprange', 'synapse.models.inet.IPRange', {}, {
+                        'doc': 'An IPv4 or IPv6 address range.',
+                        'ex': '1.2.3.4-1.2.3.8'
+                    }),
+
+                    ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
                         'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
                         'ex': 'tcp://1.2.3.4:80'
                     }),
 
-                    ('inet:cidr4', 'synapse.models.inet.Cidr4', {}, {
-                        'doc': 'An IPv4 address block in Classless Inter-Domain Routing (CIDR) notation.',
+                    ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
+                        'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.',
                         'ex': '1.2.3.0/24'
-                    }),
-
-                    ('inet:cidr6', 'synapse.models.inet.Cidr6', {}, {
-                        'doc': 'An IPv6 address block in Classless Inter-Domain Routing (CIDR) notation.',
-                        'ex': '2001:db8::/101'
                     }),
 
                     ('inet:email', 'synapse.models.inet.Email', {}, {
@@ -1198,26 +1172,6 @@ class InetModule(s_module.CoreModule):
                     ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
                         'doc': 'A Fully Qualified Domain Name (FQDN).',
                         'ex': 'vertex.link'}),
-
-                    ('inet:ipv4', 'synapse.models.inet.IPv4', {}, {
-                        'doc': 'An IPv4 address.',
-                        'ex': '1.2.3.4'
-                    }),
-
-                    ('inet:ipv4range', 'synapse.models.inet.IPv4Range', {}, {
-                        'doc': 'An IPv4 address range.',
-                        'ex': '1.2.3.4-1.2.3.8'
-                    }),
-
-                    ('inet:ipv6', 'synapse.models.inet.IPv6', {}, {
-                        'doc': 'An IPv6 address.',
-                        'ex': '2607:f8b0:4004:809::200e'
-                    }),
-
-                    ('inet:ipv6range', 'synapse.models.inet.IPv6Range', {}, {
-                        'doc': 'An IPv6 address range.',
-                        'ex': '(2607:f8b0:4004:809::200e, 2607:f8b0:4004:809::2011)'
-                    }),
 
                     ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
                         'doc': 'An RFC 2822 Address field.',
@@ -1237,13 +1191,17 @@ class InetModule(s_module.CoreModule):
                 ),
 
                 'edges': (
-                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv4'), {
-                        'doc': 'The source IP whois record describes the target IPv4 address.'}),
-                    (('inet:whois:iprec', 'ipwhois', 'inet:ipv6'), {
-                        'doc': 'The source IP whois record describes the target IPv6 address.'}),
+                    (('inet:whois:iprec', 'ipwhois', 'inet:ip'), {
+                        'doc': 'The source IP whois record describes the target IP address.'}),
                 ),
 
                 'types': (
+
+                    ('inet:ipv4', ('inet:ip', {'version': 4}), {
+                        'doc': 'An IPv4 address.'}),
+
+                    ('inet:ipv6', ('inet:ip', {'version': 6}), {
+                        'doc': 'An IPv4 address.'}),
 
                     ('inet:asn', ('int', {}), {
                         'doc': 'An Autonomous System Number (ASN).'}),
@@ -1251,17 +1209,12 @@ class InetModule(s_module.CoreModule):
                     ('inet:proto', ('str', {'lower': True, 'regex': '^[a-z0-9+-]+$'}), {
                         'doc': 'A network protocol name.'}),
 
-                    ('inet:asnet4', ('comp', {'fields': (('asn', 'inet:asn'), ('net4', 'inet:net4'))}), {
-                        'doc': 'An Autonomous System Number (ASN) and its associated IPv4 address range.',
+                    ('inet:asnet', ('comp', {'fields': (('asn', 'inet:asn'), ('net', 'inet:net'))}), {
+                        'doc': 'An Autonomous System Number (ASN) and its associated IP address range.',
                         'ex': '(54959, (1.2.3.4, 1.2.3.20))',
                     }),
 
-                    ('inet:asnet6', ('comp', {'fields': (('asn', 'inet:asn'), ('net6', 'inet:net6'))}), {
-                        'doc': 'An Autonomous System Number (ASN) and its associated IPv6 address range.',
-                        'ex': '(54959, (ff::00, ff::02))',
-                    }),
-
-                    ('inet:client', ('inet:addr', {}), {
+                    ('inet:client', ('inet:sockaddr', {}), {
                         'doc': 'A network client address.'
                     }),
 
@@ -1274,7 +1227,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of network tunnel types.'}),
+                        'doc': 'A hierarchical taxonomy of tunnel types.'}),
 
                     ('inet:tunnel', ('guid', {}), {
                         'doc': 'A specific sequence of hosts forwarding connections such as a VPN or proxy.'}),
@@ -1316,14 +1269,9 @@ class InetModule(s_module.CoreModule):
                         'ex': 'aa:bb:cc:dd:ee:ff'
                     }),
 
-                    ('inet:net4', ('inet:ipv4range', {}), {
-                        'doc': 'An IPv4 address range.',
+                    ('inet:net', ('inet:iprange', {}), {
+                        'doc': 'An IP address range.',
                         'ex': '(1.2.3.4, 1.2.3.20)'
-                    }),
-
-                    ('inet:net6', ('inet:ipv6range', {}), {
-                        'doc': 'An IPv6 address range.',
-                        'ex': "('ff::00', 'ff::30')"
                     }),
 
                     ('inet:passwd', ('str', {}), {
@@ -1340,7 +1288,7 @@ class InetModule(s_module.CoreModule):
                         'ex': '80'
                     }),
 
-                    ('inet:server', ('inet:addr', {}), {
+                    ('inet:server', ('inet:sockaddr', {}), {
                         'doc': 'A network server address.'
                     }),
 
@@ -1508,10 +1456,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:email:header', ('comp', {'fields': (('name', 'inet:email:header:name'), ('value', 'str'))}), {
                         'doc': 'A unique email message header.'}),
 
-                    ('inet:email:message:attachment', ('comp', {'fields': (('message', 'inet:email:message'), ('file', 'file:bytes'))}), {
+                    ('inet:email:message:attachment', ('guid', {}), {
                         'doc': 'A file which was attached to an email message.'}),
 
-                    ('inet:email:message:link', ('comp', {'fields': (('message', 'inet:email:message'), ('url', 'inet:url'))}), {
+                    ('inet:email:message:link', ('guid', {}), {
                         'doc': 'A url/link embedded in an email message.'}),
 
                     ('inet:ssl:jarmhash', ('str', {'lower': True, 'strip': True, 'regex': '^(?<ciphers>[0-9a-f]{30})(?<extensions>[0-9a-f]{32})$'}), {
@@ -1543,7 +1491,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A permission type taxonomy.'}),
+                        'doc': 'A hierarchical taxonomy of service permission types.'}),
 
                     ('inet:service:permission', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1559,7 +1507,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of inet service login methods.'}),
+                        'doc': 'A hierarchical taxonomy of service login methods.'}),
 
                     ('inet:service:session', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1597,7 +1545,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A message type taxonomy.'}),
+                        'doc': 'A hierarchical taxonomy of message types.'}),
 
                     ('inet:service:emote', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1609,7 +1557,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of inet service resource types.'}),
+                        'doc': 'A hierarchical taxonomy of service resource types.'}),
 
                     ('inet:service:resource', ('guid', {}), {
                         'interfaces': ('inet:service:object',),
@@ -1653,22 +1601,16 @@ class InetModule(s_module.CoreModule):
                         'props': (
                             ('flow', ('inet:flow', {}), {
                                 'doc': 'The raw inet:flow containing the request.'}),
+
                             ('client', ('inet:client', {}), {
-                                'doc': 'The inet:addr of the client.'}),
-                            ('client:ipv4', ('inet:ipv4', {}), {
-                                'doc': 'The server IPv4 address that the request was sent from.'}),
-                            ('client:ipv6', ('inet:ipv6', {}), {
-                                'doc': 'The server IPv6 address that the request was sent from.'}),
+                                'doc': 'The socket address of the client.'}),
+
                             ('client:host', ('it:host', {}), {
                                 'doc': 'The host that the request was sent from.'}),
+
                             ('server', ('inet:server', {}), {
-                                'doc': 'The inet:addr of the server.'}),
-                            ('server:ipv4', ('inet:ipv4', {}), {
-                                'doc': 'The server IPv4 address that the request was sent to.'}),
-                            ('server:ipv6', ('inet:ipv6', {}), {
-                                'doc': 'The server IPv6 address that the request was sent to.'}),
-                            ('server:port', ('inet:port', {}), {
-                                'doc': 'The server port that the request was sent to.'}),
+                                'doc': 'The socket address of the server.'}),
+
                             ('server:host', ('it:host', {}), {
                                 'doc': 'The host that the request was sent to.'}),
                         ),
@@ -1796,17 +1738,21 @@ class InetModule(s_module.CoreModule):
                         ('headers', ('array', {'type': 'inet:email:header'}), {
                             'doc': 'An array of email headers from the message.'}),
 
-                        ('received:from:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The sending SMTP server IPv4, potentially from the Received: header.'}),
-
-                        ('received:from:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The sending SMTP server IPv6, potentially from the Received: header.'}),
+                        ('received:from:ip', ('inet:ip', {}), {
+                            'doc': 'The sending SMTP server IP, potentially from the Received: header.',
+                            'prevnames': ('received:from:ipv4', 'received:from:ipv6')}),
 
                         ('received:from:fqdn', ('inet:fqdn', {}), {
                             'doc': 'The sending server FQDN, potentially from the Received: header.'}),
 
                         ('flow', ('inet:flow', {}), {
                             'doc': 'The inet:flow which delivered the message.'}),
+
+                        ('links', ('array', {'type': 'inet:email:message:link', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of links embedded in the email message.'}),
+
+                        ('attachments', ('array', {'type': 'inet:email:message:attachment', 'sorted': True, 'uniq': True}), {
+                            'doc': 'An array of files attached to the email message.'}),
 
                     )),
 
@@ -1820,25 +1766,17 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:email:message:attachment', {}, (
-                        ('message', ('inet:email:message', {}), {
-                            'ro': True,
-                            'doc': 'The message containing the attached file.'}),
                         ('file', ('file:bytes', {}), {
-                            'ro': True,
                             'doc': 'The attached file.'}),
-                        ('name', ('file:base', {}), {
+                        ('name', ('file:path', {}), {
                             'doc': 'The name of the attached file.'}),
                     )),
 
                     ('inet:email:message:link', {}, (
-                        ('message', ('inet:email:message', {}), {
-                            'ro': True,
-                            'doc': 'The message containing the embedded link.'}),
                         ('url', ('inet:url', {}), {
-                            'ro': True,
                             'doc': 'The url contained within the email message.'}),
                         ('text', ('str', {}), {
-                            'doc': 'The displayed hyperlink text if it was not the raw URL.'}),
+                            'doc': 'The displayed hyperlink text if it was not the URL.'}),
                     )),
 
                     ('inet:asn', {}, (
@@ -1850,46 +1788,33 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:asnet4', {}, (
+                    ('inet:asnet', {
+                        'prevnames': ('inet:asnet4', 'inet:asnet6')}, (
+
                         ('asn', ('inet:asn', {}), {
                             'ro': True,
                             'doc': 'The Autonomous System Number (ASN) of the netblock.'
                         }),
-                        ('net4', ('inet:net4', {}), {
+                        ('net', ('inet:net', {}), {
                             'ro': True,
-                            'doc': 'The IPv4 address range assigned to the ASN.'
-                        }),
-                        ('net4:min', ('inet:ipv4', {}), {
+                            'doc': 'The IP address range assigned to the ASN.',
+                            'prevnames': ('net4', 'net6')}),
+
+                        ('net:min', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The first IPv4 in the range assigned to the ASN.'
-                        }),
-                        ('net4:max', ('inet:ipv4', {}), {
+                            'doc': 'The first IP in the range assigned to the ASN.',
+                            'prevnames': ('net4:min', 'net6:min')}),
+
+                        ('net:max', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The last IPv4 in the range assigned to the ASN.'
-                        }),
+                            'doc': 'The last IP in the range assigned to the ASN.',
+                            'prevnames': ('net4:max', 'net6:max')}),
                     )),
 
-                    ('inet:asnet6', {}, (
-                        ('asn', ('inet:asn', {}), {
-                            'ro': True,
-                            'doc': 'The Autonomous System Number (ASN) of the netblock.'
-                        }),
-                        ('net6', ('inet:net6', {}), {
-                            'ro': True,
-                            'doc': 'The IPv6 address range assigned to the ASN.'
-                        }),
-                        ('net6:min', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The first IPv6 in the range assigned to the ASN.'
-                        }),
-                        ('net6:max', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The last IPv6 in the range assigned to the ASN.'
-                        }),
-                    )),
+                    ('inet:cidr', {
+                        'prevnames': ('inet:cidr4', 'inet:cidr6')}, (
 
-                    ('inet:cidr4', {}, (
-                        ('broadcast', ('inet:ipv4', {}), {
+                        ('broadcast', ('inet:ip', {}), {
                             'ro': True,
                             'doc': 'The broadcast IP address from the CIDR notation.'
                         }),
@@ -1897,41 +1822,22 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The mask from the CIDR notation.'
                         }),
-                        ('network', ('inet:ipv4', {}), {
+                        ('network', ('inet:ip', {}), {
                             'ro': True,
                             'doc': 'The network IP address from the CIDR notation.'
                         }),
                     )),
-
-                    ('inet:cidr6', {}, (
-                        ('broadcast', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The broadcast IP address from the CIDR notation.'
-                        }),
-                        ('mask', ('int', {}), {
-                            'ro': True,
-                            'doc': 'The mask from the CIDR notation.'
-                        }),
-                        ('network', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The network IP address from the CIDR notation.'
-                        }),
-                    )),
-
 
                     ('inet:client', {}, (
                         ('proto', ('str', {'lower': True}), {
                             'ro': True,
                             'doc': 'The network protocol of the client.'
                         }),
-                        ('ipv4', ('inet:ipv4', {}), {
+                        ('ip', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The IPv4 of the client.'
-                        }),
-                        ('ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The IPv6 of the client.'
-                        }),
+                            'doc': 'The IP of the client.',
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('host', ('it:host', {}), {
                             'ro': True,
                             'doc': 'The it:host node for the client.'
@@ -1952,40 +1858,16 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The file that was downloaded.'
                         }),
                         ('server', ('inet:server', {}), {
-                            'doc': 'The inet:addr of the server.'
+                            'doc': 'The socket address of the server.'
                         }),
                         ('server:host', ('it:host', {}), {
                             'doc': 'The it:host node for the server.'
                         }),
-                        ('server:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The IPv4 of the server.'
-                        }),
-                        ('server:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The IPv6 of the server.'
-                        }),
-                        ('server:port', ('inet:port', {}), {
-                            'doc': 'The server tcp/udp port.'
-                        }),
-                        ('server:proto', ('str', {'lower': True}), {
-                            'doc': 'The server network layer protocol.'
-                        }),
                         ('client', ('inet:client', {}), {
-                            'doc': 'The inet:addr of the client.'
+                            'doc': 'The socket address of the client.'
                         }),
                         ('client:host', ('it:host', {}), {
                             'doc': 'The it:host node for the client.'
-                        }),
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The IPv4 of the client.'
-                        }),
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The IPv6 of the client.'
-                        }),
-                        ('client:port', ('inet:port', {}), {
-                            'doc': 'The client tcp/udp port.'
-                        }),
-                        ('client:proto', ('str', {'lower': True}), {
-                            'doc': 'The client network layer protocol.'
                         }),
                     )),
 
@@ -2011,18 +1893,6 @@ class InetModule(s_module.CoreModule):
                         ('dst', ('inet:server', {}), {
                             'doc': 'The destination address / port for a connection.'
                         }),
-                        ('dst:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The destination IPv4 address.'
-                        }),
-                        ('dst:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The destination IPv6 address.'
-                        }),
-                        ('dst:port', ('inet:port', {}), {
-                            'doc': 'The destination port.'
-                        }),
-                        ('dst:proto', ('str', {'lower': True}), {
-                            'doc': 'The destination protocol.'
-                        }),
                         ('dst:host', ('it:host', {}), {
                             'doc': 'The guid of the destination host.'
                         }),
@@ -2047,18 +1917,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('src', ('inet:client', {}), {
                             'doc': 'The source address / port for a connection.'
-                        }),
-                        ('src:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address.'
-                        }),
-                        ('src:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address.'
-                        }),
-                        ('src:port', ('inet:port', {}), {
-                            'doc': 'The source port.'
-                        }),
-                        ('src:proto', ('str', {'lower': True}), {
-                            'doc': 'The source protocol.'
                         }),
                         ('src:host', ('it:host', {}), {
                             'doc': 'The guid of the source host.'
@@ -2156,12 +2014,6 @@ class InetModule(s_module.CoreModule):
 
                         ('client', ('inet:client', {}), {
                             'doc': 'The client address the host used as a network egress.'}),
-
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The client IPv4 address the host used as a network egress.'}),
-
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The client IPv6 address the host used as a network egress.'}),
                     )),
 
                     ('inet:fqdn', {}, (
@@ -2284,12 +2136,10 @@ class InetModule(s_module.CoreModule):
                         ('mac', ('inet:mac', {}), {
                             'doc': 'The ethernet (MAC) address of the interface.'
                         }),
-                        ('ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The IPv4 address of the interface.'
-                        }),
-                        ('ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The IPv6 address of the interface.'
-                        }),
+                        ('ip', ('inet:ip', {}), {
+                            'doc': 'The IP address of the interface.',
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('phone', ('tel:phone', {}), {
                             'doc': 'The telephone number of the interface.'
                         }),
@@ -2310,16 +2160,17 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:ipv4', {}, (
+                    ('inet:ip', {
+                        'prevnames': ('inet:ipv4', 'inet:ipv6')}, (
 
                         ('asn', ('inet:asn', {}), {
-                            'doc': 'The ASN to which the IPv4 address is currently assigned.'}),
+                            'doc': 'The ASN to which the IP address is currently assigned.'}),
 
                         ('latlong', ('geo:latlong', {}), {
                             'doc': 'The best known latitude/longitude for the node.'}),
 
                         ('loc', ('loc', {}), {
-                            'doc': 'The geo-political location string for the IPv4.'}),
+                            'doc': 'The geo-political location string for the IP.'}),
 
                         ('place', ('geo:place', {}), {
                             'doc': 'The geo:place associated with the latlong property.'}),
@@ -2328,36 +2179,15 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
 
                         ('dns:rev', ('inet:fqdn', {}), {
-                            'doc': 'The most current DNS reverse lookup for the IPv4.'}),
-                    )),
-
-                    ('inet:ipv6', {}, (
-
-                        ('asn', ('inet:asn', {}), {
-                            'doc': 'The ASN to which the IPv6 address is currently assigned.'}),
-
-                        ('ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The mapped ipv4.'}),
-
-                        ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The last known latitude/longitude for the node.'}),
-
-                        ('place', ('geo:place', {}), {
-                            'doc': 'The geo:place associated with the latlong property.'}),
-
-                        ('dns:rev', ('inet:fqdn', {}), {
-                            'doc': 'The most current DNS reverse lookup for the IPv6.'}),
-
-                        ('loc', ('loc', {}), {
-                            'doc': 'The geo-political location string for the IPv6.'}),
-
-                        ('type', ('str', {}), {
-                            'doc': 'The type of IP address (e.g., private, multicast, etc.).'}),
+                            'doc': 'The most current DNS reverse lookup for the IP.'}),
 
                         ('scope', ('str', {'enums': scopes_enum}), {
                             'doc': 'The IPv6 scope of the address (e.g., global, link-local, etc.).'}),
 
+                        ('version', ('int', {'enums': ((4, '4'), (6, '6'))}), {
+                            'doc': 'The IP version of the address.'}),
                     )),
+
 
                     ('inet:mac', {}, (
                         ('vendor', ('str', {}), {
@@ -2396,14 +2226,11 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The network protocol of the server.'
                         }),
-                        ('ipv4', ('inet:ipv4', {}), {
+                        ('ip', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The IPv4 of the server.'
-                        }),
-                        ('ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The IPv6 of the server.'
-                        }),
+                            'doc': 'The IP of the server.',
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('host', ('it:host', {}), {
                             'ro': True,
                             'doc': 'The it:host node for the server.'
@@ -2418,15 +2245,6 @@ class InetModule(s_module.CoreModule):
                         ('server', ('inet:server', {}), {'ro': True,
                             'doc': 'The server which presented the banner string.'}),
 
-                        ('server:ipv4', ('inet:ipv4', {}), {'ro': True,
-                            'doc': 'The IPv4 address of the server.'}),
-
-                        ('server:ipv6', ('inet:ipv6', {}), {'ro': True,
-                            'doc': 'The IPv6 address of the server.'}),
-
-                        ('server:port', ('inet:port', {}), {'ro': True,
-                            'doc': 'The network port.'}),
-
                         ('text', ('it:dev:str', {}), {'ro': True,
                             'doc': 'The banner text.',
                             'disp': {'hint': 'text'},
@@ -2440,26 +2258,11 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('server', ('inet:server', {}), {
                             'ro': True,
-                            'doc': 'The inet:addr of the server.'
-                        }),
-                        ('server:proto', ('str', {'lower': True}), {
-                            'ro': True,
-                            'doc': 'The network protocol of the server.'
-                        }),
-                        ('server:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
-                            'doc': 'The IPv4 of the server.'
-                        }),
-                        ('server:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The IPv6 of the server.'
+                            'doc': 'The listening socket address of the server.'
                         }),
                         ('server:host', ('it:host', {}), {
                             'ro': True,
                             'doc': 'The it:host node for the server.'
-                        }),
-                        ('server:port', ('inet:port', {}), {
-                            'doc': 'The server tcp/udp port.'
                         }),
                     )),
 
@@ -2472,18 +2275,6 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The server that presented the SSL certificate.'
                         }),
-                        ('server:ipv4', ('inet:ipv4', {}), {
-                            'ro': True,
-                            'doc': 'The SSL server IPv4 address.'
-                        }),
-                        ('server:ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The SSL server IPv6 address.'
-                        }),
-                        ('server:port', ('inet:port', {}), {
-                            'ro': True,
-                            'doc': 'The SSL server listening port.'
-                        }),
                     )),
 
                     ('inet:url', {}, (
@@ -2491,14 +2282,11 @@ class InetModule(s_module.CoreModule):
                             'ro': True,
                             'doc': 'The fqdn used in the URL (e.g., http://www.woot.com/page.html).'
                         }),
-                        ('ipv4', ('inet:ipv4', {}), {
+                        ('ip', ('inet:ip', {}), {
                             'ro': True,
-                            'doc': 'The IPv4 address used in the URL (e.g., http://1.2.3.4/page.html).'
-                        }),
-                        ('ipv6', ('inet:ipv6', {}), {
-                            'ro': True,
-                            'doc': 'The IPv6 address used in the URL.'
-                        }),
+                            'doc': 'The IP address used in the URL (e.g., http://1.2.3.4/page.html).',
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('passwd', ('inet:passwd', {}), {
                             'ro': True,
                             'doc': 'The optional password used to access the URL.'
@@ -2674,12 +2462,6 @@ class InetModule(s_module.CoreModule):
                         ('signup:client', ('inet:client', {}), {
                             'doc': 'The client address used to sign up for the account.'
                         }),
-                        ('signup:client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The IPv4 address used to sign up for the account.'
-                        }),
-                        ('signup:client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The IPv6 address used to sign up for the account.'
-                        }),
                         ('site', ('inet:fqdn', {}), {
                             'ro': True,
                             'doc': 'The site or service associated with the account.'
@@ -2723,12 +2505,6 @@ class InetModule(s_module.CoreModule):
                         ('client', ('inet:client', {}), {
                             'doc': 'The source client address of the action.'
                         }),
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address of the action.'
-                        }),
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address of the action.'
-                        }),
                         ('loc', ('loc', {}), {
                             'doc': 'The location of the user executing the web action.',
                         }),
@@ -2752,12 +2528,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('client', ('inet:client', {}), {
                             'doc': 'The source address used to make the account change.'
-                        }),
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address used to make the account change.'
-                        }),
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address used to make the account change.'
                         }),
                         ('time', ('time', {}), {
                             'doc': 'The date and time when the account change occurred.'
@@ -2799,13 +2569,6 @@ class InetModule(s_module.CoreModule):
                             'deprecated': True,
                             'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
 
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
-
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Instance data belongs on inet:web:attachment.'}),
                     )),
 
                     ('inet:web:attachment', {}, (
@@ -2837,12 +2600,6 @@ class InetModule(s_module.CoreModule):
 
                         ('client', ('inet:client', {}), {
                             'doc': 'The client address which initiated the upload.'}),
-
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The IPv4 address of the client that initiated the upload.'}),
-
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The IPv6 address of the client that initiated the upload.'}),
 
                         ('place', ('geo:place', {}), {
                             'doc': 'The place the file was sent from.'}),
@@ -2914,12 +2671,6 @@ class InetModule(s_module.CoreModule):
                         ('signup:client', ('inet:client', {}), {
                             'doc': 'The client address used to create the group.'
                         }),
-                        ('signup:client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The IPv4 address used to create the group.'
-                        }),
-                        ('signup:client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The IPv6 address used to create the group.'
-                        }),
                     )),
 
                     ('inet:web:logon', {}, (
@@ -2937,12 +2688,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('client', ('inet:client', {}), {
                             'doc': 'The source address of the logon.'
-                        }),
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address of the logon.'
-                        }),
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address of the logon.'
                         }),
                         ('logout', ('time', {}), {
                             'doc': 'The date and time the account logged out of the service.'
@@ -3003,12 +2748,6 @@ class InetModule(s_module.CoreModule):
                         ('client', ('inet:client', {}), {
                             'doc': 'The source address of the message.'
                         }),
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address of the message.'
-                        }),
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address of the message.'
-                        }),
                         ('time', ('time', {}), {
                             'ro': True,
                             'doc': 'The date and time at which the message was sent.'
@@ -3046,12 +2785,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('client', ('inet:client', {}), {
                             'doc': 'The source address of the post.'
-                        }),
-                        ('client:ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The source IPv4 address of the post.'
-                        }),
-                        ('client:ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The source IPv6 address of the post.'
                         }),
                         ('acct:user', ('inet:user', {}), {
                             'doc': 'The unique identifier for the account.'
@@ -3313,12 +3046,10 @@ class InetModule(s_module.CoreModule):
                         ('fqdn', ('inet:fqdn', {}), {
                             'doc': 'The FQDN of the host server when using the legacy WHOIS Protocol.'
                         }),
-                        ('ipv4', ('inet:ipv4', {}), {
-                            'doc': 'The IPv4 address queried.'
-                        }),
-                        ('ipv6', ('inet:ipv6', {}), {
-                            'doc': 'The IPv6 address queried.'
-                        }),
+                        ('ip', ('inet:ip', {}), {
+                            'doc': 'The IP address queried.',
+                            'prevnames': ('ipv4', 'ipv6')}),
+
                         ('success', ('bool', {}), {
                             'doc': 'Whether the host returned a valid response for the query.'
                         }),
@@ -3328,24 +3059,18 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:whois:iprec', {}, (
-                        ('net4', ('inet:net4', {}), {
-                            'doc': 'The IPv4 address range assigned.'
-                        }),
-                        ('net4:min', ('inet:ipv4', {}), {
-                            'doc': 'The first IPv4 in the range assigned.'
-                        }),
-                        ('net4:max', ('inet:ipv4', {}), {
-                            'doc': 'The last IPv4 in the range assigned.'
-                        }),
-                        ('net6', ('inet:net6', {}), {
-                            'doc': 'The IPv6 address range assigned.'
-                        }),
-                        ('net6:min', ('inet:ipv6', {}), {
-                            'doc': 'The first IPv6 in the range assigned.'
-                        }),
-                        ('net6:max', ('inet:ipv6', {}), {
-                            'doc': 'The last IPv6 in the range assigned.'
-                        }),
+                        ('net', ('inet:net', {}), {
+                            'doc': 'The IP address range assigned.',
+                            'prevnames': ('net4', 'net6')}),
+
+                        ('net:min', ('inet:ip', {}), {
+                            'doc': 'The first IP in the range assigned.',
+                            'prevnames': ('net4:min', 'net6:min')}),
+
+                        ('net:max', ('inet:ip', {}), {
+                            'doc': 'The last IP in the range assigned.',
+                            'prevnames': ('net4:max', 'net6:max')}),
+
                         ('asof', ('time', {}), {
                             'doc': 'The date of the record.'
                         }),
@@ -3684,6 +3409,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The period where the session was valid.'}),
                     )),
 
+                    ('inet:service:login:method:taxonomy', {}, ()),
                     ('inet:service:login', {}, (
 
                         ('method', ('inet:service:login:method:taxonomy', {}), {
@@ -3760,10 +3486,10 @@ class InetModule(s_module.CoreModule):
                     ('inet:service:message:link', {}, (
 
                         ('title', ('str', {'strip': True}), {
-                            'doc': 'The title text for the link.'}),
+                            'doc': 'The displayed hyperlink text if it was not the URL.'}),
 
                         ('url', ('inet:url', {}), {
-                            'doc': 'The URL which was attached to the message.'}),
+                            'doc': 'The URL contained within the message.'}),
                     )),
 
                     ('inet:service:message:attachment', {}, (

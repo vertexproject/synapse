@@ -1,5 +1,0 @@
----
-desc: Updated the allowed versions of the ``msgpack`` and ``pycryptodome`` libraries. Updated the pinned version of the ``lark`` library to ``1.2.2``.
-prs: []
-type: feat
-...
