@@ -278,12 +278,14 @@ class PsModelTest(s_t_utils.SynTest):
                     :source:host=*
                     :source:file=*
                     :source:acct=(twitter.com, invisig0th)
+                    :source:account=(twitter.com, invisig0th)
             ]''')
             self.len(1, nodes)
             self.len(1, await core.nodes('ps:contactlist -> it:host'))
             self.len(1, await core.nodes('ps:contactlist -> file:bytes'))
             self.len(2, await core.nodes('ps:contactlist -> ps:contact'))
             self.len(1, await core.nodes('ps:contactlist -> inet:web:acct'))
+            self.len(1, await core.nodes('ps:contactlist -> inet:service:account'))
 
             nodes = await core.nodes('''[
                 ps:workhist = *

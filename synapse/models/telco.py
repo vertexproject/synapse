@@ -376,7 +376,8 @@ class TelcoModule(s_module.CoreModule):
                     # User related data
                     ('name', ('ps:name', {}), {}),
                     ('email', ('inet:email', {}), {}),
-                    ('acct', ('inet:web:acct', {}), {}),
+                    ('acct', ('inet:web:acct', {}), {
+                        'deprecated': True}),
 
                     ('account', ('inet:service:account', {}), {
                         'doc': 'The service account which is associated with the tracked device.'}),
