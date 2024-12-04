@@ -3419,7 +3419,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ inet:service:subscription=*
                     :level=vertex.synapse.enterprise
-                    :pay:instrument={[ econ:bank:account=* :contact=({"name": "visi"}) ]}
+                    :pay:instrument={[ econ:bank:account=* :contact={[ ps:contact=* :name=visi]} ]}
                     :subscriber={[ inet:service:tenant=({"id": "VS-31337"}) ]}
                 ]
             ''')
