@@ -862,14 +862,23 @@ class StormTest(s_t_utils.SynTest):
             pkg1 = {'name': 'haha', 'version': '1.2.3'}
             await core.addStormPkg(pkg1)
             msgs = await core.stormlist('pkg.list')
-            self.isin('haha', msgs[2][1]['mesg'])
-            self.isin('hehe', msgs[3][1]['mesg'])
+            self.stormIsInPrint('haha', msgs)
+            self.stormIsInPrint('hehe', msgs)
 
             self.true(await core.callStorm('return($lib.pkg.has(haha))'))
 
             await core.delStormPkg('haha')
             self.none(await core.callStorm('return($lib.pkg.get(haha))'))
             self.false(await core.callStorm('return($lib.pkg.has(haha))'))
+
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('not available', msgs)
+
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            await core.addStormPkg(pkg2)
+            self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('2024-11-19 12:00:00', msgs)
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))

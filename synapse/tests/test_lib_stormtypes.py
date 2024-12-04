@@ -1664,8 +1664,23 @@ class StormTypesTest(s_test.SynTest):
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.1)'))
             self.eq('foo', await core.callStorm('$foo = (foo, bar) return($foo."-2")'))
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.pop())'))
-            with self.raises(s_exc.StormRuntimeError):
+
+            self.eq(3, await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(2))'))
+            self.eq(2, await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(-3))'))
+            self.eq(4, await core.callStorm('$list = ([1, 2, 3, 4]) $list.pop(2) return($list.pop(2))'))
+            self.eq([1, 3, 4], await core.callStorm('$list = ([1, 2, 3, 4]) $list.pop(1) return($list)'))
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
                 await core.callStorm('$lib.list().pop()')
+            self.eq(exc.exception.get('mesg'), 'pop from empty list')
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
+                await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(13))')
+            self.eq(exc.exception.get('mesg'), 'pop index out of range')
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
+                await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(-5))')
+            self.eq(exc.exception.get('mesg'), 'pop index out of range')
 
             somelist = ["foo", "bar", "baz", "bar"]
             q = '''
@@ -4780,8 +4795,7 @@ class StormTypesTest(s_test.SynTest):
                         unixtime += 7 * MINSECS
                         self.eq('m3', await getNextFoo())
                         self.true(await stream.wait(6))
-                    buf = stream.getvalue()
-                    mesg = json.loads(buf.split('\n')[0])
+                    mesg = stream.jsonlines()[0]
                     self.eq(mesg['message'], f'm3 cron {guid}')
                     self.eq(mesg['iden'], guid)
 

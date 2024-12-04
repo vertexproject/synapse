@@ -1043,10 +1043,21 @@ class Model:
             return
 
         if self.propsbytype.get(typename):
-            raise s_exc.CantDelType(name=typename)
+            mesg = f'Cannot delete type {typename} as it is still in use by properties.'
+            raise s_exc.CantDelType(mesg=mesg, name=typename)
+
+        for _type in self.types.values():
+            if typename in _type.info['bases']:
+                mesg = f'Cannot delete type {typename} as it is still in use by other types.'
+                raise s_exc.CantDelType(mesg=mesg, name=typename)
+
+            if _type.isarray and _type.arraytype.name == typename:
+                mesg = f'Cannot delete type {typename} as it is still in use by array types.'
+                raise s_exc.CantDelType(mesg=mesg, name=typename)
 
         self.types.pop(typename, None)
         self.propsbytype.pop(typename, None)
+        self.arraysbytype.pop(typename, None)
 
     def _addFormUniv(self, form, name, tdef, info):
 

@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import logging
 import unittest
 
@@ -109,13 +110,13 @@ class TestUtils(s_t_utils.SynTest):
     def test_syntest_logstream_event(self):
 
         @s_common.firethread
-        def logathing():
+        def logathing(mesg):
             time.sleep(0.01)
-            logger.error('StreamEvent Test Message')
+            logger.error(mesg)
 
         logger.error('notthere')
         with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
-            thr = logathing()
+            thr = logathing('StreamEvent Test Message')
             self.true(stream.wait(10))
             thr.join()
 
@@ -124,15 +125,33 @@ class TestUtils(s_t_utils.SynTest):
         self.isin('StreamEvent Test Message', mesgs)
         self.notin('notthere', mesgs)
 
+        with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
+            thr = logathing(json.dumps({'mesg': 'Test Message'}))
+            self.true(stream.wait(10))
+            thr.join()
+
+        msgs = stream.jsonlines()
+        self.len(1, msgs)
+        self.eq(msgs[0], {'mesg': 'Test Message'})
+
     def test_syntest_envars(self):
         os.environ['foo'] = '1'
         os.environ['bar'] = '2'
 
-        with self.setTstEnvars(foo=1, bar='joke', baz=1234) as cm:
+        with self.setTstEnvars(foo=1, bar='joke', baz=1234, FOO_THING=1, BAR_THING=0) as cm:
             self.none(cm)
             self.eq(os.environ.get('foo'), '1')
             self.eq(os.environ.get('bar'), 'joke')
             self.eq(os.environ.get('baz'), '1234')
+
+            self.thisEnvMust('FOO_THING', 'baz')
+            self.thisEnvMustNot('BAR_THING', 'NEWP_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMust('MEWP_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMust('BAR_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMustNot('FOO_THING')
 
         self.eq(os.environ.get('foo'), '1')
         self.eq(os.environ.get('bar'), '2')

@@ -356,6 +356,93 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:tagprop')
                 self.len(0, nodes)
 
+        async with self.getTestCore() as core:
+                # Check we can iterate runt nodes while changing the underlying dictionary
+
+                numforms = len(core.model.forms)
+
+                q = '''
+                init {
+                    $forms = ()
+                    $count = (0)
+                }
+
+                syn:form
+
+                $forms.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $info = ({"doc": "test taxonomy", "interfaces": ["meta:taxonomy"]})
+                    $lib.model.ext.addForm(_test:taxonomy, taxonomy, ({}), $info)
+                }
+
+                spin |
+
+                fini { return($forms) }
+                '''
+
+                forms = await core.callStorm(q)
+                self.len(numforms, forms)
+                self.len(numforms + 1, core.model.forms)
+
+                numtypes = len(core.model.types)
+                q = '''
+                init {
+                    $types = ()
+                    $count = (0)
+                }
+
+                syn:type
+
+                $types.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $typeopts = ({"lower": true, "onespace": true})
+                    $typeinfo = ({"doc": "A test type doc."})
+                    $lib.model.ext.addType(_test:type, str, $typeopts, $typeinfo)
+                }
+
+                spin |
+
+                fini { return($types) }
+                '''
+
+                types = await core.callStorm(q)
+                self.len(numtypes, types)
+                self.len(numtypes + 1, core.model.types)
+
+                q = '''
+                init {
+                    $tagprops = ()
+                    $count = (0)
+                    $lib.model.ext.addTagProp(cypher, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(trinity, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(morpheus, (str, ({})), ({}))
+                }
+
+                syn:tagprop
+
+                $tagprops.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $lib.model.ext.addTagProp(neo, (str, ({})), ({}))
+                }
+
+                spin |
+
+                fini { return($tagprops) }
+                '''
+
+                tagprops = await core.callStorm(q)
+                self.len(3, tagprops)
+                self.len(4, core.model.tagprops)
+
     async def test_syn_cmd_runts(self):
 
         async with self.getTestDmon() as dmon:
@@ -444,3 +531,46 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('input'), ('test:str', 'inet:ip'))
                 self.eq(nodes[0].get('output'), ('inet:fqdn',))
                 self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ip'), ('bar', 'inet:fqdn')))
+
+        async with self.getTestCore() as core:
+                # Check we can iterate runt nodes while changing the underlying dictionary
+
+                numcmds = len(core.stormcmds)
+
+                stormpkg = {
+                    'name': 'stormpkg',
+                    'version': '1.2.3',
+                    'synapse_version': '>=3.0.0,<4.0.0',
+                    'commands': (
+                        {
+                         'name': 'pkgcmd.old',
+                         'storm': '$lib.print(hi)',
+                        },
+                    ),
+                }
+
+                q = '''
+                init {
+                    $cmds = ()
+                    $count = (0)
+                }
+
+                syn:cmd
+
+                $cmds.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $lib.pkg.add($pkgdef)
+                }
+
+                spin |
+
+                fini { return($cmds) }
+                '''
+
+                opts = {'vars': {'pkgdef': stormpkg}}
+                cmds = await core.callStorm(q, opts=opts)
+                self.len(numcmds, cmds)
+                self.len(numcmds + 1, core.stormcmds)

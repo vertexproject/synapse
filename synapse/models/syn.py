@@ -74,14 +74,15 @@ class SynModule(s_module.CoreModule):
         self.core.addRuntLift('syn:tagprop', self._liftRuntSynTagProp)
 
     async def _liftRuntSynCmd(self, view, prop, cmprvalu=None):
+
         if prop.isform and cmprvalu is not None and cmprvalu[0] == '=':
             item = self.core.stormcmds.get(cmprvalu[1])
             if item is not None:
                 yield item.getRuntPode()
             return
 
-        for scmd in self.core.stormcmds.values():
-            yield scmd.getRuntPode()
+        for item in self.core.getStormCmds():
+            yield item[1].getRuntPode()
 
     async def _liftRuntSynForm(self, view, prop, cmprvalu=None):
 
@@ -91,7 +92,7 @@ class SynModule(s_module.CoreModule):
                 yield item.getRuntPode()
             return
 
-        for item in self.model.forms.values():
+        for item in list(self.model.forms.values()):
             yield item.getRuntPode()
 
     async def _liftRuntSynProp(self, view, prop, cmprvalu=None):
@@ -119,7 +120,7 @@ class SynModule(s_module.CoreModule):
                 yield item.getRuntPode()
             return
 
-        for item in self.model.types.values():
+        for item in list(self.model.types.values()):
             yield item.getRuntPode()
 
     async def _liftRuntSynTagProp(self, view, prop, cmprvalu=None):
@@ -130,7 +131,7 @@ class SynModule(s_module.CoreModule):
                 yield item.getRuntPode()
             return
 
-        for item in self.model.tagprops.values():
+        for item in list(self.model.tagprops.values()):
             yield item.getRuntPode()
 
     def getModelDefs(self):
