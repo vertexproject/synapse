@@ -115,6 +115,14 @@ class EchoAuthApi(s_cell.CellApi):
         await self._reqUserAllowed(path)
         return True
 
+    @s_cell.adminapi()
+    async def adminOnly(self):
+        return True
+
+    @s_cell.adminapi(log=True)
+    async def adminOnlyLog(self, arg1, arg2, **kwargs):
+        return arg1, arg2, kwargs
+
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
 
@@ -428,6 +436,16 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(info.get('user').get('name'), 'root')
                     self.eq(info.get('user').get('iden'), root.iden)
 
+                    # @adminApi methods are allowed
+                    self.true(await proxy.adminOnly())
+                    mesg = "Executing [EchoAuthApi.adminOnlyLog] as [root] with args [(1, 2)[{'three': 4}]"
+                    with self.getStructuredAsyncLoggerStream('synapse.lib.cell', mesg) as stream:
+                        self.eq(await proxy.adminOnlyLog(1, 2, three=4), (1, 2, {'three': 4}))
+                        self.true(await stream.wait(timeout=10))
+                    msgs = stream.jsonlines()
+                    self.len(1, msgs)
+                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0].get('wrapped_func'))
+
                 visi = await echo.auth.addUser('visi')
                 await visi.setPasswd('foo')
                 await visi.addRule((True, ('foo', 'bar')))
@@ -453,6 +471,15 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.getUserInfo('newp')
+
+                    # @adminApi methods are not allowed
+                    with self.raises(s_exc.AuthDeny) as cm:
+                        await proxy.adminOnly()
+                    self.eq(cm.exception.get('mesg'), 'User is not an admin [visi]')
+                    self.eq(cm.exception.get('user'), visi.iden)
+                    self.eq(cm.exception.get('username'), visi.name)
+                    with self.raises(s_exc.AuthDeny) as cm:
+                        await proxy.adminOnlyLog(1, 2, three=4)
 
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
@@ -3064,10 +3091,7 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCore(conf={'health:sysctl:checks': True}):
                     pass
 
-        stream.seek(0)
-        data = stream.getvalue()
-        raw_mesgs = [m for m in data.split('\n') if m]
-        msgs = [json.loads(m) for m in raw_mesgs]
+        msgs = stream.jsonlines()
 
         self.len(1, msgs)
 

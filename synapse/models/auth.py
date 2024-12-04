@@ -43,7 +43,8 @@ class AuthModule(s_module.CoreModule):
                         'doc': 'The WiFi SSID that the credentials allow access to.',
                     }),
                     ('web:acct', ('inet:web:acct', {}), {
-                        'doc': 'The web account that the credentials allow access to.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Use :service:account.',
                     }),
                     ('service:account', ('inet:service:account', {}), {
                         'doc': 'The service account that the credentials allow access to.'}),

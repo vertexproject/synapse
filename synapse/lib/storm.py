@@ -1,6 +1,7 @@
 import types
 import pprint
 import asyncio
+import hashlib
 import logging
 import argparse
 import contextlib
@@ -18,7 +19,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.snap as s_snap
-import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
@@ -626,7 +626,7 @@ stormcmds = (
     {
         'name': 'feed.list',
         'descr': 'List the feed functions available in the Cortex',
-        'cmdrargs': (),
+        'cmdargs': (),
         'storm': '''
             $lib.print('Storm feed list:')
             for $flinfo in $lib.feed.list() {
@@ -824,19 +824,51 @@ stormcmds = (
     {
         'name': 'pkg.list',
         'descr': 'List the storm packages loaded in the cortex.',
-        'cmdrargs': (),
+        'cmdargs': (
+            ('--verbose', {'default': False, 'action': 'store_true',
+                'help': 'Display build time for each package.'}),
+        ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "name", "width": 40},
+                        {"name": "vers", "width": 10},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                if $cmdopts.verbose {
+                    $conf.columns.append(({"name": "time", "width": 20}))
+                }
+                $printer = $lib.tabular.printer($conf)
+            }
+
             $pkgs = $lib.pkg.list()
 
-            if $($pkgs.size() = 0) {
-
-                $lib.print('No storm packages installed.')
-
-            } else {
+            if $($pkgs.size() > 0) {
                 $lib.print('Loaded storm packages:')
+                $lib.print($printer.header())
                 for $pkg in $pkgs {
-                    $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                    $row = (
+                        $pkg.name, $pkg.version,
+                    )
+                    if $cmdopts.verbose {
+                        try {
+                            $row.append($lib.time.format($pkg.build.time, '%Y-%m-%d %H:%M:%S'))
+                        } catch StormRuntimeError as _ {
+                            $row.append('not available')
+                        }
+                    }
+                    $lib.print($printer.row($row))
                 }
+            } else {
+                $lib.print('No storm packages installed.')
             }
         '''
     },
@@ -1648,6 +1680,10 @@ stormcmds = (
         ''',
     },
 )
+
+@s_cache.memoize(size=1024)
+def queryhash(text):
+    return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
 class DmonManager(s_base.Base):
     '''
