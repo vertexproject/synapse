@@ -916,6 +916,21 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Do not copy nodedata to the inet:tls:servercert node.'},
                  ),
                  'returns': {'type': 'node', 'desc': 'The newly created inet:tls:servercert node.'}}},
+        {'name': 'inetServiceMessageClientAddress', 'desc': '''
+            Migrate the :client:address property to :client on inet:service:message nodes.
+
+            Edits will be made to the inet:service:message node in the current write layer.
+
+            If the :client:address property is set and the :client property is not set,
+            the :client property will be set with the :client:address value. If both
+            properties are set, the value will be moved into nodedata under the key
+            'migration:inet:service:message:address'.
+        ''',
+        'type': {'type': 'function', '_funcname': '_storm_query',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The inet:sevice:message node to migrate.'},
+                 ),
+                 'returns': {'type': 'null'}}},
 
     )
     _storm_lib_path = ('model', 'migration', 's')
@@ -955,6 +970,28 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
             }
 
             return($node)
+        }
+
+        function inetServiceMessageClientAddress(n) {
+            $form = $n.form()
+            if ($form != 'inet:service:message') {
+                $mesg = `$lib.model.migration.s.inetServiceMessageClientAddress() only accepts inet:service:message nodes, not {$form}`
+                $lib.raise(BadArg, $mesg)
+            }
+
+            if (not $n.props.'client:address') { return() }
+
+            yield $n
+
+            if :client {
+                $node.data.set(migration:inet:service:message:client:address, :client:address)
+            } else {
+                [ :client = :client:address ]
+            }
+
+            [ -:client:address ]
+
+            return()
         }
     '''
 
