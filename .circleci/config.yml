@@ -85,7 +85,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v6-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: setup venv
@@ -103,7 +103,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v6-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
 
       - run:
           name: executing docs jupyter notebooks
