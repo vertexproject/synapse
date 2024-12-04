@@ -1063,7 +1063,7 @@ class AhaCell(s_cell.Cell):
         if proxy is not None:
             return proxy
 
-        mesg = f'The service is not ready {svcfull}.'
+        mesg = f'The service is not ready {svcdef.get("name")}.'
         raise s_exc.NotReady(mesg=mesg)
 
     async def getAhaSvcProxy(self, svcdef, timeout=None):
@@ -1071,6 +1071,11 @@ class AhaCell(s_cell.Cell):
         assert self.isactive
         client = await self.getAhaSvcClient(svcdef)
         if client is None:
+            return None
+
+        try:
+            await asyncio.wait_for(client.ready.wait(), timeout=5.0)
+        except asyncio.TimeoutError:
             return None
 
         return await client.proxy(timeout=timeout)
@@ -1085,6 +1090,7 @@ class AhaCell(s_cell.Cell):
         if client is not None:
             return client
 
+        # TODO: add svcurl validation here
         svcurl = self.getAhaSvcUrl(svcdef)
 
         client = self.clients[svcfull] = await s_telepath.ClientV2.anit(svcurl)

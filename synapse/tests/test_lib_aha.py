@@ -1456,3 +1456,23 @@ class AhaTest(s_test.SynTest):
 
             self.true(await cell00.killTask(tasks[0].get('iden')))
             self.true(await cell00.killTask(tasks[1].get('iden')))
+
+    async def test_aha_req_proxy(self):
+
+        async with self.getTestAha() as aha:
+
+            info = {
+                'urlinfo': {
+                    'host': 'localhost',
+                    'port': 12345,
+                    'scheme': 'ssl',
+                    'user': 'root',
+                },
+                'online': 'fakesession',
+                'ready': True,
+            }
+
+            await aha.addAhaSvc('testsvc.aha', info)
+            svcdef = await aha.getAhaSvc('testsvc.aha')
+            with self.raises(s_exc.NotReady):
+                await aha.reqAhaSvcProxy(svcdef)
