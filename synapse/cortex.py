@@ -5488,6 +5488,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 query = await self.getStormQuery(text, mode=opts.get('mode', 'storm'))
                 async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
+
+                    info = opts.get('_loginfo', {})
+                    info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                    self._logStormQuery(text, user, info=info)
+
                     async for node, path in runt.execute():
                         await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
 
