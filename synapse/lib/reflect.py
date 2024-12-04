@@ -87,17 +87,16 @@ def getShareInfo(item):
         if not callable(attr):
             continue
 
+        meths[name] = meth = {}
+
         # We know we can cleanly unwrap these functions
         # for asyncgenerator inspection.
         wrapped = getattr(attr, '__syn_wrapped__', None)
         if wrapped in unwraps:
-            real = inspect.unwrap(attr)
-            if inspect.isasyncgenfunction(real):
-                meths[name] = {'genr': True}
-                continue
+            attr = inspect.unwrap(attr)
 
         if inspect.isasyncgenfunction(attr):
-            meths[name] = {'genr': True}
+            meth['genr'] = True
 
     try:
         setattr(item, key, info)

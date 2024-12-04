@@ -1327,6 +1327,7 @@ class AhaTest(s_test.SynTest):
 
             async with cell01.getLocalProxy() as proxy:
                 self.true(proxy._hasTeleFeat('dynmirror'))
+                self.true(proxy._hasTeleMeth('getNexsIndx'))
 
             nexsindx = await cell00.getNexsIndx()
 
