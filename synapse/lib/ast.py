@@ -4972,6 +4972,11 @@ class Function(AstNode):
 
                 except s_stormctrl.StormReturn as e:
                     return e.item
+                except s_stormctrl.StormCtrlFlow as e:
+                    if isinstance(e, s_stormctrl.StormLoopCtrl):
+                        mesg = f'{self.name} - Functions are not allowed to use unhandled loop control flow statements.'
+                        raise s_exc.StormRuntimeError(mesg=mesg) from e
+                    raise
 
         async def genr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
@@ -4991,5 +4996,10 @@ class Function(AstNode):
                                 yield node, path
                 except s_stormctrl.StormStop:
                     return
+                except s_stormctrl.StormCtrlFlow as e:
+                    if isinstance(e, s_stormctrl.StormLoopCtrl):
+                        mesg = f'{self.name} - Functions are not allowed to use unhandled loop control flow statements.'
+                        raise s_exc.StormRuntimeError(mesg=mesg) from e
+                    raise
 
         return genr()
