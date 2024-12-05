@@ -3241,3 +3241,14 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadState) as cm:
                         await cell00.promote(graceful=True)
                     self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
+
+    async def test_lib_cell_sadaha(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
+
+            # coverage for failure of aha client to connect
+            with self.raises(TimeoutError):
+                self.none(await cell.getAhaProxy(timeout=0.1))

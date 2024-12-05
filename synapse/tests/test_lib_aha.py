@@ -1393,6 +1393,16 @@ class AhaTest(s_test.SynTest):
 
             self.eq(tasks[0], await cell00.getTask(tasks[0].get('iden')))
             self.eq(tasks[1], await cell00.getTask(tasks[1].get('iden')))
+            self.none(await cell00.getTask(tasks[1].get('iden'), peers=False))
 
             self.true(await cell00.killTask(tasks[0].get('iden')))
-            self.true(await cell00.killTask(tasks[1].get('iden')))
+
+            task01 = tasks[1].get('iden')
+            self.false(await cell00.killTask(task01, peers=False))
+
+            self.true(await cell00.killTask(task01))
+
+            self.none(await cell00.getTask(task01))
+            self.false(await cell00.killTask(task01))
+
+            self.none(await cell00.getAhaProxy(feats=(('newp', 9),)))

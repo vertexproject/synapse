@@ -438,16 +438,6 @@ class CellApi(s_base.Base):
         return await self.cell.kill(self.user, iden)
 
     @adminapi()
-    async def callPeerApi(self, todo, timeout=None):
-        async for item in self.cell.callPeerApi(todo, timeout=timeout):
-            yield item
-
-    @adminapi()
-    async def callPeerGenr(self, todo, timeout=None):
-        async for item in self.cell.callPeerGenr(todo, timeout=timeout):
-            yield item
-
-    @adminapi()
     async def getTasks(self, peers=True, timeout=None):
         async for task in self.cell.getTasks(peers=peers, timeout=timeout):
             yield task
@@ -4536,9 +4526,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not peers:
             return False
 
-        todo = s_common.todo('killTask', peers=False, timeout=timeout)
-        async for ahasvc, retn in self.callPeerApi(todo, timeout=timeout):
-            if retn:
+        todo = s_common.todo('killTask', iden, peers=False, timeout=timeout)
+        async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
+            if ok and retn:
                 return True
 
         return False
