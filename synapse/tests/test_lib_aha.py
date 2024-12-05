@@ -1476,3 +1476,45 @@ class AhaTest(s_test.SynTest):
             svcdef = await aha.getAhaSvc('testsvc.aha')
             with self.raises(s_exc.NotReady):
                 await aha.reqAhaSvcProxy(svcdef)
+
+    async def test_lib_aha_peer_api(self):
+
+        async with self.getTestAha() as aha:
+
+            purl00 = await aha.addAhaSvcProv('0.cell')
+            purl01 = await aha.addAhaSvcProv('1.cell', provinfo={'mirror': '0.cell'})
+
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+
+            await cell01.sync()
+
+            async with cell00.getLocalProxy() as proxy:
+                todo = s_common.todo('getCellInfo')
+                items = [item async for item in proxy.callPeerApi(todo)]
+                self.len(1, items)
+
+    async def test_lib_aha_peer_genr(self):
+
+        async with self.getTestAha() as aha:
+
+            purl00 = await aha.addAhaSvcProv('0.cell')
+            purl01 = await aha.addAhaSvcProv('1.cell', provinfo={'mirror': '0.cell'})
+
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+
+            await cell01.sync()
+
+            async with cell00.getLocalProxy() as proxy:
+                todo = s_common.todo('getNexusChanges', 0, wait=False)
+                items = [item async for item in proxy.callPeerGenr(todo)]
+                self.len(2, items)
+
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = [item async for item in cell00.callPeerGenr(todo)]
+            self.len(2, items)
+
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = [item async for item in cell00.callPeerGenr(todo, timeout=2)]
+            self.len(2, items)
