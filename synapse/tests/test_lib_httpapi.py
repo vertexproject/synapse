@@ -1774,7 +1774,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 mesg = get_mesg(stream)
                 self.eq(mesg.get('uri'), '/api/v1/active')
-                self.none(mesg.get('user_agent'))
+                self.notin('user_agent', mesg)
                 self.notin('username', mesg)
                 self.notin('user', mesg)
                 self.isin('remoteip', mesg)
