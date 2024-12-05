@@ -1393,3 +1393,12 @@ async def waitgenr(genr, timeout):
                 return
     finally:
         await genr.aclose()
+
+def format(text, **kwargs):
+    '''
+    Similar to python str.format() but treats tokens as opaque.
+    '''
+    for name, valu in kwargs.items():
+        tokn = '{' + name + '}'
+        text = text.replace(tokn, valu)
+    return text

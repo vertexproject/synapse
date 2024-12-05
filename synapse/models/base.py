@@ -56,6 +56,10 @@ class BaseModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of event types for meta:event nodes.'}),
 
+                ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy for meta:ruleset types.'}),
+
                 ('meta:ruleset', ('guid', {}), {
                     'doc': 'A set of rules linked with -(has)> edges.'}),
 
@@ -99,6 +103,9 @@ class BaseModule(s_module.CoreModule):
                     'deprecated': True,
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
 
+                ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
+                    'doc': 'A generic activity level enumeration.'}),
+
                 ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
                     'doc': 'A generic priority enumeration.'}),
 
@@ -120,6 +127,9 @@ class BaseModule(s_module.CoreModule):
                         ),
                     },
                     'doc': 'A node which represents an aggregate count of a specific type.'}),
+
+                ('markdown', ('str', {}), {
+                    'doc': 'A markdown string.'}),
             ),
             'interfaces': (
                 ('meta:taxonomy', {
@@ -182,6 +192,12 @@ class BaseModule(s_module.CoreModule):
 
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the meta source.'}),
+
+                    ('ingest:latest', ('time', {}), {
+                        'doc': 'Used by ingest logic to capture the last time a feed ingest ran.'}),
+
+                    ('ingest:offset', ('int', {}), {
+                        'doc': 'Used by ingest logic to capture the current ingest offset within a feed.'}),
                 )),
 
                 ('meta:seen', {}, (
@@ -263,6 +279,10 @@ class BaseModule(s_module.CoreModule):
                 ('meta:ruleset', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the ruleset.'}),
+
+                    ('type', ('meta:ruleset:type:taxonomy', {}), {
+                        'doc': 'The ruleset type.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the ruleset.'}),
