@@ -103,6 +103,9 @@ class BaseModule(s_module.CoreModule):
                     'deprecated': True,
                     'doc': 'A generic digraph time edge to show relationships outside the model.'}),
 
+                ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
+                    'doc': 'A generic activity level enumeration.'}),
+
                 ('meta:priority', ('int', {'enums': prioenums, 'enums:strict': False}), {
                     'doc': 'A generic priority enumeration.'}),
 
@@ -189,6 +192,12 @@ class BaseModule(s_module.CoreModule):
 
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the meta source.'}),
+
+                    ('ingest:latest', ('time', {}), {
+                        'doc': 'Used by ingest logic to capture the last time a feed ingest ran.'}),
+
+                    ('ingest:offset', ('int', {}), {
+                        'doc': 'Used by ingest logic to capture the current ingest offset within a feed.'}),
                 )),
 
                 ('meta:seen', {}, (
