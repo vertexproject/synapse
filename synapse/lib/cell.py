@@ -3248,6 +3248,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'remoteip': remote_ip,
                 }
 
+        if (useragnt := handler.request.headers.get('User-Agent')) is not None:
+            enfo['user_agent'] = useragnt
+
         extra = {'synapse': enfo}
 
         # It is possible that a Cell implementor may register handlers which
