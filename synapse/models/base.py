@@ -56,6 +56,10 @@ class BaseModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of event types for meta:event nodes.'}),
 
+                ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy for meta:ruleset types.'}),
+
                 ('meta:ruleset', ('guid', {}), {
                     'doc': 'A set of rules linked with -(has)> edges.'}),
 
@@ -123,6 +127,9 @@ class BaseModule(s_module.CoreModule):
                         ),
                     },
                     'doc': 'A node which represents an aggregate count of a specific type.'}),
+
+                ('markdown', ('str', {}), {
+                    'doc': 'A markdown string.'}),
             ),
             'interfaces': (
                 ('meta:taxonomy', {
@@ -272,6 +279,10 @@ class BaseModule(s_module.CoreModule):
                 ('meta:ruleset', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the ruleset.'}),
+
+                    ('type', ('meta:ruleset:type:taxonomy', {}), {
+                        'doc': 'The ruleset type.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the ruleset.'}),
