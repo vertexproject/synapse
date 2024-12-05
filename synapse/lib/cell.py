@@ -4553,9 +4553,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if not peers:
             return False
 
-        todo = s_common.todo('killTask', peers=False, timeout=timeout)
-        async for ahasvc, retn in self.callPeerApi(todo, timeout=timeout):
-            if retn:
+        todo = s_common.todo('killTask', iden, peers=False, timeout=timeout)
+        async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
+            if ok and retn:
                 return True
 
         return False
