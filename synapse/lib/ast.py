@@ -4974,7 +4974,7 @@ class Function(AstNode):
                     return e.item
                 except s_stormctrl.StormCtrlFlow as e:
                     if isinstance(e, s_stormctrl.StormLoopCtrl):
-                        mesg = f'{self.name} - Functions are not allowed to use unhandled loop control flow statements.'
+                        mesg = f'{self.name} - Functions are not allowed to use unhandled loop control flow statements - {e._statement}'
                         raise s_exc.StormRuntimeError(mesg=mesg) from e
                     raise
 
@@ -4998,7 +4998,7 @@ class Function(AstNode):
                     return
                 except s_stormctrl.StormCtrlFlow as e:
                     if isinstance(e, s_stormctrl.StormLoopCtrl):
-                        mesg = f'{self.name} - Functions are not allowed to use unhandled loop control flow statements.'
+                        mesg = f'{self.name} - Functions are not allowed to use unhandled loop control flow statements - {e._statement}'
                         raise s_exc.StormRuntimeError(mesg=mesg) from e
                     raise
 
