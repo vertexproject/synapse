@@ -1518,3 +1518,49 @@ class AhaTest(s_test.SynTest):
             todo = s_common.todo('getNexusChanges', 0, wait=False)
             items = [item async for item in cell00.callPeerGenr(todo, timeout=2)]
             self.len(2, items)
+
+    async def test_lib_aha_call_aha_peer_api_isactive(self):
+
+        async with self.getTestAha() as aha0:
+
+            async with aha0.waiter(3, 'aha:svcadd', timeout=10):
+
+                conf = {'aha:provision': await aha0.addAhaSvcProv('00.cell')}
+                cell00 = await aha0.enter_context(self.getTestCell(conf=conf))
+
+                conf = {'aha:provision': await aha0.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
+                cell01 = await aha0.enter_context(self.getTestCell(conf=conf))
+
+            await cell01.sync()
+
+            # test active AHA peer
+            todo = s_common.todo('getCellInfo')
+            items = dict([item async for item in aha0.callAhaPeerApi(cell00.iden, todo, timeout=3)])
+            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = dict([item async for item in aha0.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
+            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+
+            async with aha0.getLocalProxy() as proxy0:
+                purl = await proxy0.addAhaClone('01.aha.loop.vertex.link')
+
+            conf1 = {'clone': purl}
+            async with self.getTestAha(conf=conf1) as aha1:
+
+                await aha1.sync()
+
+                self.eq(aha0.iden, aha1.iden)
+                self.nn(aha1.conf.get('mirror'))
+
+                self.true(aha0.isactive)
+                self.false(aha1.isactive)
+
+                # test non-active AHA peer
+                todo = s_common.todo('getCellInfo')
+                items = dict([item async for item in aha1.callAhaPeerApi(cell00.iden, todo, timeout=3)])
+                self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+
+                todo = s_common.todo('getNexusChanges', 0, wait=False)
+                items = dict([item async for item in aha1.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
+                self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
