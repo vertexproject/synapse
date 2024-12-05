@@ -3714,9 +3714,6 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:service:session', {}, (
 
-                        ('id', ('str', {'strip': True}), {
-                            'doc': 'The service specific session id.'}),
-
                         ('creator', ('inet:service:account', {}), {
                             'doc': 'The account which authenticated to create the session.'}),
 

@@ -163,9 +163,6 @@ class EconModule(s_module.CoreModule):
 
                     ('account', ('econ:bank:account', {}), {
                         'doc': 'A bank account associated with the payment card.'}),
-
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact information associated with the payment card.'}),
                 )),
 
                 ('econ:purchase', {}, (
