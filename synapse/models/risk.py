@@ -149,6 +149,13 @@ class RiskModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of threat types.'}),
 
+                ('risk:theft', ('guid', {}), {
+                    'doc': 'An event where items were stolen.'}),
+
+                ('risk:theft:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of theft event types.'}),
+
                 ('risk:leak', ('guid', {}), {
                     'doc': 'An event where information was disclosed without permission.'}),
 
@@ -224,8 +231,15 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The attack used the target node to facilitate the attack.'}),
                 (('risk:tool:software', 'uses', None), {
                     'doc': 'The tool uses the target node.'}),
+
                 (('risk:compromise', 'stole', None), {
-                    'doc': 'The target node was stolen or copied as a result of the compromise.'}),
+                    'doc': 'Deprecated. Please use risk:theft -(stole)> *.'}),
+
+                (('risk:theft', 'stole', None), {
+                    'doc': 'The target node was stolen during the theft event.'}),
+
+                (('risk:theft', 'source', None), {
+                    'doc': 'The stolen items were contained by the target node when they were taken.'}),
 
                 (('risk:mitigation', 'addresses', 'ou:technique'), {
                     'doc': 'The mitigation addresses the technique.'}),
@@ -866,7 +880,6 @@ class RiskModule(s_module.CoreModule):
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of assessed attacker goals for the compromise.'}),
 
-                    # -(stole)> file:bytes ps:contact file:bytes
                     # -(compromised)> geo:place it:account it:host
 
                     ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
@@ -1004,6 +1017,41 @@ class RiskModule(s_module.CoreModule):
                     ('ext:id', ('str', {}), {
                         'doc': 'An external unique ID for the attack.'}),
 
+                )),
+
+                ('risk:theft:type:taxonomy', {}, ()),
+                ('risk:theft', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A simple name for the theft event.'}),
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the theft event.'}),
+
+                    ('type', ('risk:theft:type:taxonomy', {}), {
+                        'doc': 'The type of theft event.'}),
+
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The estimated value of the stolen items.'}),
+
+                    ('currency', ('econ:currency', {}), {
+                        'doc': 'The currency used to estimate the value of the stolen items.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time when the theft occurred.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The physical place where the theft took place. Do not use for digital/information theft.'}),
+
+                    ('compromise', ('risk:compromise', {}), {
+                        'doc': 'The compromise which faciliated the theft.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the theft event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the theft event.'}),
                 )),
 
                 ('risk:leak:type:taxonomy', {}, ()),
