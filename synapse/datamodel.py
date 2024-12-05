@@ -1118,7 +1118,7 @@ class Model:
 
                 # warn but do not blow up. there may be extended model elements
                 # with {}s which are not used for templates...
-                if item.find('{') != -1:
+                if item.find('{') != -1: # pragma: no cover
                     logger.warning(f'Missing template specifier in: {item}')
 
                 return item
