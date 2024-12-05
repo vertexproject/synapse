@@ -1,0 +1,6 @@
+---
+desc: Added the user-agent string to the extra info captured and logged by the HTTP
+  API system.
+prs: []
+type: feat
+...
