@@ -3226,6 +3226,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         sslctx.load_cert_chain(certpath, keypath)
         return sslctx
 
+    def _log_web_headers(self):
+        # Return a list of header names that should be logged for each web request
+        return ['user-agent']
+
     def _log_web_request(self, handler: s_httpapi.Handler) -> None:
         # Derived from https://github.com/tornadoweb/tornado/blob/v6.2.0/tornado/web.py#L2253
         status = handler.get_status()
@@ -3248,8 +3252,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'remoteip': remote_ip,
                 }
 
-        if (useragnt := handler.request.headers.get('User-Agent')) is not None:
-            enfo['user_agent'] = useragnt
+        headers = {}
+
+        for header in set([k.lower() for k in self._log_web_headers()]):
+            if (valu := handler.request.headers.get(header)) is not None:
+                headers[header.lower()] = valu
+
+        if headers:
+            enfo['headers'] = headers
 
         extra = {'synapse': enfo}
 

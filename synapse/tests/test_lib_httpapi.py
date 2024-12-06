@@ -1760,7 +1760,8 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
                 self.eq(mesg.get('username'), 'root')
                 self.eq(mesg.get('user'), core.auth.rootuser.iden)
-                self.eq(mesg.get('user_agent'), 'test_request_logging')
+                self.isin('headers', mesg)
+                self.eq(mesg['headers'].get('user-agent'), 'test_request_logging')
                 self.isin('remoteip', mesg)
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
@@ -1774,7 +1775,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 mesg = get_mesg(stream)
                 self.eq(mesg.get('uri'), '/api/v1/active')
-                self.notin('user_agent', mesg)
+                self.notin('headers', mesg)
                 self.notin('username', mesg)
                 self.notin('user', mesg)
                 self.isin('remoteip', mesg)
