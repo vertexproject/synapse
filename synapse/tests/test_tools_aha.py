@@ -11,6 +11,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.tools.aha.list as s_a_list
 import synapse.tools.aha.clone as s_a_clone
 import synapse.tools.aha.enroll as s_a_enroll
+import synapse.tools.aha.mirror as s_a_mirror
 import synapse.tools.aha.easycert as s_a_easycert
 import synapse.tools.aha.provision.user as s_a_provision_user
 
@@ -170,3 +171,42 @@ class AhaToolsTest(s_t_utils.SynTest):
 
                 teleyaml = s_common.yamlload(syndir, 'telepath.yaml')
                 self.eq(teleyaml.get('version'), 1)
+
+    async def test_aha_mirrors(self):
+
+        async with self.getTestAha() as aha:
+
+            waiter = aha.waiter(2, 'aha:svcadd')
+
+            conf0 = {'aha:provision': await aha.addAhaSvcProv('mirror0')}
+            conf1 = {'aha:provision': await aha.addAhaSvcProv('mirror1')}
+
+            ahaurl = aha.getLocalUrl()
+
+            async with self.getTestCell(s_cell.Cell, conf=conf0) as cell0:
+
+                async with self.getTestCell(s_cell.Cell, conf=conf1) as cell1:
+
+                    self.true(await waiter.wait(timeout=6))
+
+                    argv = ['--url', ahaurl]
+                    retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                    self.eq(retn, 0)
+                    outp.expect('Mirror: mirror1')
+                    outp.expect('  Status: ready')
+
+                    argv = ['--url', ahaurl, '--timeout', '30']
+                    retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                    self.eq(retn, 0)
+
+                    argv = ['--url', 'tcp://newp:1234/']
+                    retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                    self.eq(retn, 1)
+                    outp.expect('ERROR:')
+
+            async with self.getTestCore() as core:
+                curl = core.getLocalUrl()
+                argv = ['--url', curl]
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(1, retn)
+                outp.expect(f'Service at {curl} is not an Aha server')
