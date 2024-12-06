@@ -4969,17 +4969,16 @@ class Function(AstNode):
                         await asyncio.sleep(0)
 
                     return None
-
                 except s_stormctrl.StormReturn as e:
                     return e.item
-                except s_stormctrl.StormCtrlFlow as e:
-                    if isinstance(e, s_stormctrl.StormLoopCtrl):
-                        mesg = f'{self.name} - Loop control statement used outside of a loop - {e._statement}'
-                        raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg)) from e
-                    elif isinstance(s_stormctrl.StormGenrCtrl):
-                        mesg = f'{self.name} - Generator control statement used outside of a loop - {e._statement}'
-                        raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg)) from e
-                    raise
+                except s_stormctrl.StormLoopCtrl as e:
+                    mesg = f'function {self.name} - Loop control statement "{e._statement}" used outside of a loop.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e._statement)) from e
+                except s_stormctrl.StormGenrCtrl as e:
+                    mesg = f'function {self.name} - Generator control statement "{e._statement}" used outside of a generator function.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e._statement)) from e
 
         async def genr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
@@ -4999,10 +4998,9 @@ class Function(AstNode):
                                 yield node, path
                 except s_stormctrl.StormStop:
                     return
-                except s_stormctrl.StormCtrlFlow as e:
-                    if isinstance(e, s_stormctrl.StormLoopCtrl):
-                        mesg = f'{self.name} - Loop control statement used outside of a loop - {e._statement}'
-                        raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg)) from e
-                    raise
+                except s_stormctrl.StormLoopCtrl as e:
+                    mesg = f'function {self.name} - Loop control statement "{e._statement}" used outside of a loop.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e._statement)) from e
 
         return genr()

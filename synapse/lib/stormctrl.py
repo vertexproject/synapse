@@ -2,11 +2,11 @@ class StormCtrlFlow(Exception):
     def __init__(self, item=None):
         self.item = item
 
-class StormLoopCtrl:
+class StormLoopCtrl(Exception):
     # Control flow statements for WHILE and FOR loop control
     _statement = ''
 
-class StormGenrCtrl:
+class StormGenrCtrl(Exception):
     # Control flow statements for GENERATOR control
     _statement = ''
 
