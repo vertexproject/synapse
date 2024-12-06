@@ -4974,8 +4974,11 @@ class Function(AstNode):
                     return e.item
                 except s_stormctrl.StormCtrlFlow as e:
                     if isinstance(e, s_stormctrl.StormLoopCtrl):
-                        mesg = f'{self.name} - Functions are not allowed to use unhandled loop control flow statements - {e._statement}'
-                        raise s_exc.StormRuntimeError(mesg=mesg) from e
+                        mesg = f'{self.name} - Loop control statement used outside of a loop - {e._statement}'
+                        raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg)) from e
+                    elif isinstance(s_stormctrl.StormGenrCtrl):
+                        mesg = f'{self.name} - Generator control statement used outside of a loop - {e._statement}'
+                        raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg)) from e
                     raise
 
         async def genr():
@@ -4998,8 +5001,8 @@ class Function(AstNode):
                     return
                 except s_stormctrl.StormCtrlFlow as e:
                     if isinstance(e, s_stormctrl.StormLoopCtrl):
-                        mesg = f'{self.name} - Functions are not allowed to use unhandled loop control flow statements - {e._statement}'
-                        raise s_exc.StormRuntimeError(mesg=mesg) from e
+                        mesg = f'{self.name} - Loop control statement used outside of a loop - {e._statement}'
+                        raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg)) from e
                     raise
 
         return genr()

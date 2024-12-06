@@ -3,11 +3,15 @@ class StormCtrlFlow(Exception):
         self.item = item
 
 class StormLoopCtrl:
-    # Control flow statements for WHILE and FOR loop control and GENERATOR controls
+    # Control flow statements for WHILE and FOR loop control
+    _statement = ''
+
+class StormGenrCtrl:
+    # Control flow statements for GENERATOR control
     _statement = ''
 
 class StormExit(StormCtrlFlow): pass
-class StormStop(StormCtrlFlow, StormLoopCtrl):
+class StormStop(StormCtrlFlow, StormGenrCtrl):
     _statement = 'stop'
 class StormBreak(StormCtrlFlow, StormLoopCtrl):
     _statement = 'break'
