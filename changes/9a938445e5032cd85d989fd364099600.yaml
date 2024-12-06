@@ -1,5 +1,0 @@
----
-desc: Deprecated ``inet:service:message:client:address``.
-prs: []
-type: deprecation
-...
