@@ -268,8 +268,7 @@ class StormLibAuthTest(s_test.SynTest):
             self.nn(defs[0].get('desc'))
             # make sure lib perms are getting added
             perms = [d['perm'] for d in defs]
-            # TODO: how do we doc setitem/deref perms?
-#            self.isin(('globals', 'get'), perms)
+            self.isin(('globals', 'get'), perms)
 
             msgs = await core.stormlist('auth.user.mod visi --name cool --locked $lib.true')
             self.stormIsInPrint('User (visi) renamed to cool.', msgs)
