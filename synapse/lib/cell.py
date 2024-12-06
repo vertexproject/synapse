@@ -4494,7 +4494,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         todo = s_common.todo('getTasks', peers=False)
         # we can ignore the yielded aha names because we embed it in the task
-        async for (svcname, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
+        async for (ahasvc, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
+
+            if not ok:
+                logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
+                continue
+
             yield retn
 
     async def getTask(self, iden, peers=True, timeout=None):
@@ -4511,10 +4516,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         todo = s_common.todo('getTask', iden, peers=False, timeout=timeout)
         async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
 
-            if ok:
-                return retn
+            if not ok:
+                logger.warning(f'getTask() on {ahasvc} failed: {retn}')
+                continue
 
-            logger.warning(f'getTask() on {ahasvc} failed: {retn}')
+            if retn is not None:
+                return retn
 
     async def killTask(self, iden, peers=True, timeout=None):
 
@@ -4528,7 +4535,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         todo = s_common.todo('killTask', iden, peers=False, timeout=timeout)
         async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
-            if ok and retn:
+
+            if not ok:
+                logger.warning(f'killTask() on {ahasvc} failed: {retn}')
+                continue
+
+            if retn:
                 return True
 
         return False
