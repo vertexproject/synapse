@@ -824,6 +824,105 @@ class AgendaTest(s_t_utils.SynTest):
                 data = stream.read()
                 self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)
 
+    async def test_agenda_promotions(self):
+        async with self.getTestAha() as aha:
+
+            conf00 = {
+                'aha:provision': await aha.addAhaSvcProv('00.cortex')
+            }
+
+            async with self.getTestCore(conf=conf00) as core00:
+                self.false(core00.conf.get('mirror'))
+
+                msgs = await core00.stormlist('[it:dev:str=foo]')
+                self.stormHasNoWarnErr(msgs)
+
+                await core00.callStorm('cron.add --minute +1 { $lib.time.sleep(90) }')
+
+                prov01 = {'mirror': '00.cortex'}
+                conf01 = {
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                }
+
+                async with self.getTestCore(conf=conf01) as core01:
+                    msgs = await core01.stormlist('[it:dev:str=bar]')
+                    self.stormHasNoWarnErr(msgs)
+
+                    # Advance the ticks so the cronjob starts sooner
+                    core00.agenda._addTickOff(55)
+
+                    mesgs = []
+                    async for mesg in core00.behold():
+                        mesgs.append(mesg)
+                        break
+
+                    self.eq(mesgs[0]['event'], 'cron:start')
+
+                    # Inspect crons and tasks
+                    crons00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, crons00)
+                    # isrunning is synced via nexus so it should be true for both cortexes
+                    self.true(crons00[0].get('isrunning'))
+
+                    crons01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(1, crons01)
+                    # isrunning is synced via nexus so it should be true for both cortexes
+                    self.true(crons01[0].get('isrunning'))
+
+                    tasks00 = await core00.callStorm('return($lib.ps.list())')
+                    # Two tasks: one for the cronjob and one for the cronjob instance
+                    self.len(2, tasks00)
+
+                    tasks01 = await core01.callStorm('return($lib.ps.list())')
+                    self.len(0, tasks01)
+
+                    # Promote and inspect cortex status
+                    await core01.promote(graceful=True)
+                    self.false(core00.isactive)
+                    self.true(core01.isactive)
+
+                    # Sync the (now) follower so the isrunning status gets updated to false on both cortexes
+                    await core00.sync()
+
+                    crons00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, crons00)
+                    self.false(crons00[0].get('isrunning'))
+
+                    crons01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(1, crons01)
+                    self.false(crons01[0].get('isrunning'))
+
+                    # Bump the ticks on core01 so the cron job starts
+                    core01.agenda._addTickOff(55)
+
+                    mesgs = []
+                    async for mesg in core01.behold():
+                        mesgs.append(mesg)
+                        break
+
+                    self.eq(mesgs[0]['event'], 'cron:start')
+
+                    # Sync the follower to get the latest isrunning status
+                    await core00.sync()
+
+                    crons00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, crons00)
+                    # Cronjob is running so false on both cortexes
+                    self.true(crons00[0].get('isrunning'))
+
+                    crons01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(1, crons01)
+                    # Cronjob is running so false on both cortexes
+                    self.true(crons01[0].get('isrunning'))
+
+                    tasks00 = await core00.callStorm('return($lib.ps.list())')
+                    # This task is the leftover cronjob from before promotion
+                    self.len(1, tasks00)
+
+                    tasks01 = await core01.callStorm('return($lib.ps.list())')
+                    # This should be two? One for the cronjob and one for the instance.
+                    self.len(1, tasks01)
+
     async def test_cron_kill(self):
         async with self.getTestCore() as core:
 

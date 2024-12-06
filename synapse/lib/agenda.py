@@ -5,9 +5,7 @@ import asyncio
 import logging
 import calendar
 import datetime
-import functools
 import itertools
-import collections
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
 
@@ -886,8 +884,10 @@ class Agenda(s_base.Base):
             took = finishtime - starttime
             mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
                    f'took {took:.3f}s'
+
             if not self.core.isactive:
                 mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer the leader.'
+
             logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
                                                  'result': result, 'username': user.name, 'took': took}})
             edits = {
@@ -895,6 +895,7 @@ class Agenda(s_base.Base):
                 'isrunning': False,
                 'lastresult': result,
             }
+
             if self.core.isactive:
                 await self.core.addCronEdits(appt.iden, edits)
 
