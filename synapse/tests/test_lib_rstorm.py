@@ -24,7 +24,7 @@ HI
 .. storm:: --hide-props testpkgcmd foo
 .. storm-pre:: inet:ip='::ffff:0.0.0.0' [ +#foo ]
 .. storm:: --hide-props --hide-tags testpkgcmd foo
-.. storm:: --hide-query $lib.print(secret) $lib.print($lib.globals.get(testpkg))
+.. storm:: --hide-query $lib.print(secret) $lib.print($lib.globals.testpkg)
 .. storm:: --hide-query file:bytes
 .. storm:: --hide-query for $m in ([]) { break } for $m in ([]) { continue }
 .. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
@@ -269,13 +269,13 @@ HI
 
 pkg_onload_timeout = '''
 .. storm-cortex:: default
-.. storm-pre:: $lib.globals.set(onload_sleep, 2)
+.. storm-pre:: $lib.globals.onload_sleep = 2
 .. storm-pkg:: synapse/tests/files/stormpkg/testpkg.yaml
 '''
 
 svc_onload_timeout = '''
 .. storm-cortex:: default
-.. storm-pre:: $lib.globals.set(onload_sleep, 2)
+.. storm-pre:: $lib.globals.onload_sleep = 2
 .. storm-svc:: synapse.tests.files.rstorm.testsvc.Testsvc test {"secret": "jupiter"}
 '''
 

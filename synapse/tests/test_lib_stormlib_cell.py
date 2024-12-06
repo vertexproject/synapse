@@ -28,7 +28,7 @@ class StormCellTest(s_test.SynTest):
             self.eq(ret, await core.getHealthCheck())
 
             # New cores have stormvar set to the current max version fix
-            vers = await core.callStorm('return ( $lib.globals.get($key) )',
+            vers = await core.callStorm('return ( $lib.globals.$key )',
                                         {'vars': {'key': s_stormlib_cell.runtime_fixes_key}})
             self.nn(vers)
             self.eq(vers, s_stormlib_cell.getMaxHotFixes())

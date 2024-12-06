@@ -42,8 +42,10 @@ modules:
               desc: '``newp()`` does not return data.'
 
 onload: |
-  $lib.time.sleep($lib.globals.get(onload_sleep, 0))
-  $lib.globals.set(testpkg, testpkg-done)
+  $time = $lib.globals.onload_sleep
+  if ($time = null) { $time = (0) }
+  $lib.time.sleep($time)
+  $lib.globals.testpkg = testpkg-done
 
 external_modules:
     - name: testext
