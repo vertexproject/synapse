@@ -146,20 +146,20 @@ Updated Types
 *************
 
 ``crypto:currency:address``
-  The type interface has been modified from None to ['econ:pay:instrument'].
+  The type interface has been modified to inherit from ``econ:pay:instrument``.
 
 
 ``econ:bank:account``
-  The type interface has been modified from None to ['econ:pay:instrument'].
+  The type interface has been modified to inherit from ``econ:pay:instrument``.
 
 
 ``econ:pay:card``
-  The type interface has been modified from None to ['econ:pay:instrument'].
+  The type interface has been modified to inherit from ``econ:pay:instrument``.
 
 
 ``inet:service:account``
-  The type interface has been modified from ['inet:service:object'] to
-  ['inet:service:subscriber'].
+  The type interface has been modified to inherit from ``inet:service:object`` instead of
+  ``inet:service:subscriber``.
 
 
 
@@ -232,5 +232,5 @@ Deprecated Properties
   The form had the following property deprecated:
 
   ``acct``
-    Deprecated, use :account
+    Deprecated, use :account.
 

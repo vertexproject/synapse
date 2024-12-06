@@ -377,7 +377,7 @@ class TelcoModule(s_module.CoreModule):
                     ('name', ('ps:name', {}), {}),
                     ('email', ('inet:email', {}), {}),
                     ('acct', ('inet:web:acct', {}), {
-                        'doc': 'Deprecated, use :account',
+                        'doc': 'Deprecated, use :account.',
                         'deprecated': True}),
 
                     ('account', ('inet:service:account', {}), {
