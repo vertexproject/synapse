@@ -1037,7 +1037,6 @@ class AhaCell(s_cell.Cell):
 
     async def getAhaSvcProxy(self, svcdef, timeout=None):
 
-        assert self.isactive
         client = await self.getAhaSvcClient(svcdef)
         if client is None:
             return None
@@ -1045,8 +1044,6 @@ class AhaCell(s_cell.Cell):
         return await client.proxy(timeout=timeout)
 
     async def getAhaSvcClient(self, svcdef):
-
-        assert self.isactive
 
         svcfull = svcdef.get('name')
 
