@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where mirrors of Synapse services may fail to indicate that they
+  have entered into realtime change windows.
+prs: []
+type: bug
+...
