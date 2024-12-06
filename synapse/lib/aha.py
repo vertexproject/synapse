@@ -707,10 +707,6 @@ class AhaCell(s_cell.Cell):
             # in case proxy construction fails
             return (False, s_common.excinfo(e))
 
-    async def callAhaSvcGenr(self, name, todo, timeout=None):
-        name = self._getAhaName(name)
-        svcdef = await self._getAhaSvc(name)
-
     async def _callAhaSvcGenr(self, svcdef, todo, timeout=None):
         try:
             proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
