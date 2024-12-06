@@ -12,6 +12,18 @@ import synapse.tests.utils as s_t_utils
 logger = logging.getLogger(__name__)
 
 class CommonTest(s_t_utils.SynTest):
+
+    async def test_waitgenr(self):
+
+        async def genr():
+            yield 10
+            raise Exception('omg')
+
+        rets = [retn async for retn in s_common.waitgenr(genr(), 10)]
+
+        self.true(rets[0][0])
+        self.false(rets[1][0])
+
     def test_tuplify(self):
         tv = ['node', [['test:str', 'test'],
                        {'tags': {

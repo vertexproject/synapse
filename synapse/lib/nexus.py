@@ -409,7 +409,7 @@ class NexsRoot(s_base.Base):
 
         return await func(nexus, *args, **kwargs)
 
-    async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
+    async def iter(self, offs: int, tellready=False, wait=True) -> AsyncIterator[Any]:
         '''
         Returns an iterator of change entries in the log
         '''
@@ -429,6 +429,9 @@ class NexsRoot(s_base.Base):
 
         if tellready:
             yield None
+
+        if not wait:
+            return
 
         async with self.getChangeDist(maxoffs) as dist:
             async for item in dist:
