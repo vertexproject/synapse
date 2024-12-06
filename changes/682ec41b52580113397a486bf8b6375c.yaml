@@ -1,6 +1,0 @@
----
-desc: Added ``inet:service:tenant``, ``inet:service:subscriber``, and ``inet:service:subscription`` to model service
-  tenants, subscribers, and subscriptions.
-prs: []
-type: model
-...
