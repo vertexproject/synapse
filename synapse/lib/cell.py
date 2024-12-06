@@ -4675,9 +4675,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _genUserApiKey(self, kdef):
         iden = s_common.uhex(kdef.get('iden'))
         user = s_common.uhex(kdef.get('user'))
-        self.slab.put(iden, user, db=self.apikeydb)
+        await self.slab.put(iden, user, db=self.apikeydb)
         lkey = user + b'apikey' + iden
-        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        await self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
 
     async def getUserApiKey(self, iden):
         '''
@@ -4833,7 +4833,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.NoSuchIden(mesg=f'User API key does not exist: {iden}')
         kdef = s_msgpack.un(buf)
         kdef.update(vals)
-        self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
+        await self.slab.put(lkey, s_msgpack.en(kdef), db=self.usermetadb)
         return kdef
 
     async def delUserApiKey(self, iden):
@@ -4862,8 +4862,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = s_common.uhex(user)
         iden = s_common.uhex(iden)
 
-        self.slab.delete(iden, db=self.apikeydb)
-        self.slab.delete(user + b'apikey' + iden, db=self.usermetadb)
+        await self.slab.delete(iden, db=self.apikeydb)
+        await self.slab.delete(user + b'apikey' + iden, db=self.usermetadb)
         return True
 
     async def _onUserDelEvnt(self, evnt):
@@ -4876,9 +4876,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             # Special handling for certain meta which has secondary indexes
             if suffix.startswith(b'apikey'):
                 key_iden = suffix[6:]
-                self.slab.delete(key_iden, db=self.apikeydb)
-            self.slab.delete(lkey, db=self.usermetadb)
-            await asyncio.sleep(0)
+                await self.slab.delete(key_iden, db=self.apikeydb)
+            await self.slab.delete(lkey, db=self.usermetadb)
 
     def _makeCachedSslCtx(self, opts):
 
