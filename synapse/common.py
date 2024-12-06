@@ -1368,3 +1368,12 @@ def _timeout(delay):
     """
     loop = asyncio.get_running_loop()
     return _Timeout(loop.time() + delay if delay is not None else None)
+
+def format(text, **kwargs):
+    '''
+    Similar to python str.format() but treats tokens as opaque.
+    '''
+    for name, valu in kwargs.items():
+        tokn = '{' + name + '}'
+        text = text.replace(tokn, valu)
+    return text
