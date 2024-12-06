@@ -1,0 +1,6 @@
+---
+desc: Added ``$lib.model.migration.s.inetServiceMessageClientAddress()`` migration helper
+  to migrate deprecated ``inet:service:message:client:address`` properties.
+prs: []
+type: feat
+...
