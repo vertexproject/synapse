@@ -903,16 +903,10 @@ class StormHttpTest(s_test.SynTest):
                     core.axoninfo['synapse']['version'] = oldv
 
                 ## version check succeeds
-                # todo: setting the synapse version can be removed once ssl_opts is released
-                try:
-                    oldv = core.axoninfo['synapse']['version']
-                    core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
-                    self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
-                    self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
-                    self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
-                    self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
-                finally:
-                    core.axoninfo['synapse']['version'] = oldv
+                self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
+                self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
+                self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
+                self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
 
                 # verify arg precedence
 
