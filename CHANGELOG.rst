@@ -6,6 +6,65 @@
 Synapse Changelog
 *****************
 
+v2.191.0 - 2024-12-06
+=====================
+
+Model Changes
+-------------
+- Added ``econ:pay:instrument`` interface and type to create an abstraction for
+  payment instruments.
+  (`#3995 <https://github.com/vertexproject/synapse/pull/3995>`_)
+- Added ``inet:service:tenant``, ``inet:service:subscriber``, and
+  ``inet:service:subscription`` to model service tenants, subscribers, and
+  subscriptions.
+  (`#3995 <https://github.com/vertexproject/synapse/pull/3995>`_)
+- See :ref:`userguide_model_v2_191_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated the allowed versions of the ``msgpack`` and ``pycryptodome``
+  libraries. Updated the pinned version of the ``lark`` library to ``1.2.2``.
+  (`#4011 <https://github.com/vertexproject/synapse/pull/4011>`_)
+- Added ``$lib.model.migration.s.inetServiceMessageClientAddress()`` migration
+  helper to migrate deprecated ``inet:service:message:client:address``
+  properties.
+  (`#4022 <https://github.com/vertexproject/synapse/pull/4022>`_)
+
+Bugfixes
+--------
+- Fixed a bug which causes an error when the contents change while lifting
+  runtime nodes such as syn:cron et. al.
+  (`#4018 <https://github.com/vertexproject/synapse/pull/4018>`_)
+
+Deprecations
+------------
+- Deprecated ``inet:web:acct`` secondary properties.
+  (`#4001 <https://github.com/vertexproject/synapse/pull/4001>`_)
+- Deprecated ``inet:service:message:client:address``.
+  (`#4022 <https://github.com/vertexproject/synapse/pull/4022>`_)
+
+
+v2.190.0 - 2024-11-29
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Storm pool query logging to not log the query being executed and
+  added additional context in the structured log data.
+  (`#4008 <https://github.com/vertexproject/synapse/pull/4008>`_)
+- Updated Storm list ``.pop()`` method to accept an optional index to pop from
+  instead of always popping the last entry.
+  (`#4013 <https://github.com/vertexproject/synapse/pull/4013>`_)
+- Restricted the upper version of the ``pyopenssl`` dependency to ``<24.3.0``.
+  (`#4015 <https://github.com/vertexproject/synapse/pull/4015>`_)
+
+Bugfixes
+--------
+- Fix an issue in Storm HTTP request libraries where HTTP request parameter
+  dictionaries with a list of values for a key name were stringified rather
+  than sent as multiple values for the same key.
+  (`#3990 <https://github.com/vertexproject/synapse/pull/3990>`_)
+
 v2.189.0 - 2024-11-21
 =====================
 

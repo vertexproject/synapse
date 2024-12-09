@@ -5014,9 +5014,12 @@ class List(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to check.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the item is in the list, false otherwise.', }}},
-        {'name': 'pop', 'desc': 'Pop and return the last entry in the list.',
+        {'name': 'pop', 'desc': 'Pop and return the entry at the specified index in the list. If no index is specified, pop the last entry.',
          'type': {'type': 'function', '_funcname': '_methListPop',
-                  'returns': {'type': 'any', 'desc': 'The last item from the list.', }}},
+                  'args': (
+                      {'name': 'index', 'type': 'int', 'desc': 'Index of entry to pop.', 'default': -1},
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The entry at the specified index in the list.', }}},
         {'name': 'size', 'desc': 'Return the length of the list.',
          'type': {'type': 'function', '_funcname': '_methListSize',
                   'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
@@ -5159,11 +5162,12 @@ class List(Prim):
         return prim in self.valu
 
     @stormfunc(readonly=True)
-    async def _methListPop(self):
+    async def _methListPop(self, index=-1):
+        index = await toint(index)
         try:
-            return self.valu.pop()
-        except IndexError:
-            mesg = 'The list is empty.  Nothing to pop.'
+            return self.valu.pop(index)
+        except IndexError as exc:
+            mesg = str(exc)
             raise s_exc.StormRuntimeError(mesg=mesg)
 
     @stormfunc(readonly=True)
