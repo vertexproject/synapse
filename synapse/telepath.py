@@ -642,6 +642,9 @@ class Proxy(s_base.Base):
     def _hasTeleFeat(self, name, vers=1):
         return self._features.get(name, 0) >= vers
 
+    def _hasTeleMeth(self, name):
+        return self.methinfo.get(name) is not None
+
     def _getSynVers(self):
         '''
         Helper method to retrieve the remote Synapse version from Proxy.

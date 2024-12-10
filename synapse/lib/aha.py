@@ -137,35 +137,11 @@ class AhaApi(s_cell.CellApi):
 
     @s_cell.adminapi()
     async def callAhaPeerApi(self, iden, todo, timeout=None, skiprun=None):
-        """
-        Call a remote AHA peer API method.
-
-        Args:
-            iden (str): The identifier of the AHA peer.
-            todo (tuple): A tuple containing the method name and arguments to call on the peer.
-            timeout (float, optional): The maximum time to wait for a response. Defaults to None.
-            skiprun (str, optional): An optional run identifier to skip. Defaults to None.
-
-        Returns:
-            item: The result of the API call from the peer.
-        """
         async for item in self.cell.callAhaPeerApi(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
     @s_cell.adminapi()
     async def callAhaPeerGenr(self, iden, todo, timeout=None, skiprun=None):
-        """
-        Call a remote AHA peer generator method.
-
-        Args:
-            iden (str): The identifier of the AHA peer.
-            todo (tuple): A tuple containing the method name and arguments to call on the peer.
-            timeout (float, optional): The maximum time to wait for a response. Defaults to None.
-            skiprun (str, optional): An optional run identifier to skip. Defaults to None.
-
-        Returns:
-            item: The result of the generator method call from the peer.
-        """
         async for item in self.cell.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
@@ -732,12 +708,6 @@ class AhaCell(s_cell.Cell):
             # in case proxy construction fails
             return (False, s_common.excinfo(e))
 
-    async def callAhaSvcGenr(self, name, todo, timeout=None):
-        name = self._getAhaName(name)
-        svcdef = await self._getAhaSvc(name)
-        async for item in self._callAhaSvcGenr(svcdef, todo, timeout=timeout):
-            yield item
-
     async def _callAhaSvcGenr(self, svcdef, todo, timeout=None):
         try:
             proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
@@ -1068,7 +1038,6 @@ class AhaCell(s_cell.Cell):
 
     async def getAhaSvcProxy(self, svcdef, timeout=None):
 
-        assert self.isactive
         client = await self.getAhaSvcClient(svcdef)
         if client is None:
             return None
@@ -1082,15 +1051,12 @@ class AhaCell(s_cell.Cell):
 
     async def getAhaSvcClient(self, svcdef):
 
-        assert self.isactive
-
         svcfull = svcdef.get('name')
 
         client = self.clients.get(svcfull)
         if client is not None:
             return client
 
-        # TODO: add svcurl validation here
         svcurl = self.getAhaSvcUrl(svcdef)
 
         client = self.clients[svcfull] = await s_telepath.ClientV2.anit(svcurl)

@@ -438,16 +438,6 @@ class CellApi(s_base.Base):
         return await self.cell.kill(self.user, iden)
 
     @adminapi()
-    async def callPeerApi(self, todo, timeout=None):
-        async for item in self.cell.callPeerApi(todo, timeout=timeout):
-            yield item
-
-    @adminapi()
-    async def callPeerGenr(self, todo, timeout=None):
-        async for item in self.cell.callPeerGenr(todo, timeout=timeout):
-            yield item
-
-    @adminapi()
     async def getTasks(self, peers=True, timeout=None):
         async for task in self.cell.getTasks(peers=peers, timeout=timeout):
             yield task
@@ -754,23 +744,6 @@ class CellApi(s_base.Base):
 
     @adminapi()
     async def getNexusChanges(self, offs, tellready=False, wait=True):
-        '''
-        Yield nexus changes starting from the specified offset.
-
-        Args:
-            offs (int): The offset to start yielding changes from.
-            tellready (bool): If True, yields None to signal readiness of new entries.
-            wait (bool): If True, wait for new changes after reaching the latest offset.
-
-        Returns:
-            tuple: Individual nexus change entries.
-
-        Note:
-            This method is used by mirrors to synchronize with their leader cell.
-            When tellready=True, and after yielding all current log entries, the method
-            yields None which acts as a marker indicating the iterator is now in a
-            real-time mode of operation.
-        '''
         async for item in self.cell.getNexusChanges(offs, tellready=tellready, wait=wait):
             yield item
 
@@ -4521,7 +4494,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         todo = s_common.todo('getTasks', peers=False)
         # we can ignore the yielded aha names because we embed it in the task
-        async for (svcname, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
+        async for (ahasvc, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
+
+            if not ok:
+                logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
+                continue
+
             yield retn
 
     async def getTask(self, iden, peers=True, timeout=None):
@@ -4538,10 +4516,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         todo = s_common.todo('getTask', iden, peers=False, timeout=timeout)
         async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
 
-            if ok:
-                return retn
+            if not ok:
+                logger.warning(f'getTask() on {ahasvc} failed: {retn}')
+                continue
 
-            logger.warning(f'getTask() on {ahasvc} failed: {retn}')
+            if retn is not None:
+                return retn
 
     async def killTask(self, iden, peers=True, timeout=None):
 
@@ -4555,7 +4535,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         todo = s_common.todo('killTask', iden, peers=False, timeout=timeout)
         async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
-            if ok and retn:
+
+            if not ok:
+                logger.warning(f'killTask() on {ahasvc} failed: {retn}')
+                continue
+
+            if retn:
                 return True
 
         return False
