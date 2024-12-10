@@ -5347,6 +5347,11 @@ class GlobalVars(Prim):
                 yield name, valu
             await asyncio.sleep(0)
 
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) async for (k, v) in self.iter()]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
+
 @registry.registerLib
 class LibVars(Lib):
     '''

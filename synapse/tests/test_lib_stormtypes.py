@@ -2456,6 +2456,9 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('adminkey is sekrit', mesgs)
                     self.stormIsInPrint('userkey is lessThanSekrit', mesgs)
 
+                    rstr = await prox.callStorm('return(`{$lib.globals}`)')
+                    self.eq(rstr, "{'adminkey': 'sekrit', 'bar': {'foo': '1'}, 'cortex:runtime:stormfixes': (4, 0, 0), 'userkey': 'lessThanSekrit'}")
+
                     # Storing a valu gets toprim()'d
                     q = '[test:str=test] $lib.user.vars.mynode = $node return($lib.user.vars.mynode)'
                     data = await prox.callStorm(q)
