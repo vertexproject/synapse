@@ -1390,10 +1390,34 @@ class LibBase(Lib):
                               'desc': 'A deep copy of the primitive object.', }}},
     )
 
+    _storm_lib_perms = (
+        {'perm': ('globals',), 'gate': 'cortex',
+            'desc': 'Used to control all operations for global variables.'},
+
+        {'perm': ('globals', 'get'), 'gate': 'cortex',
+            'desc': 'Used to control read access to all global variables.'},
+        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control read access to a specific global variable.'},
+
+        {'perm': ('globals', 'set'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to all global variables.'},
+        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control edit access to a specific global variable.'},
+
+        {'perm': ('globals', 'pop'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to all global variables.'},
+        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
+            'desc': 'Used to control delete access to a specific global variable.'},
+    )
+
     def __init__(self, runt, name=()):
         Lib.__init__(self, runt, name=name)
         self.stors['debug'] = self._setRuntDebug
         self.gtors['debug'] = self._getRuntDebug
+
+        self.ctors.update({
+            'globals': self._ctorGlobalVars,
+        })
 
     async def _getRuntDebug(self):
         return self.runt.debug
@@ -1731,6 +1755,9 @@ class LibBase(Lib):
         info = await toprim(info)
         s_common.reqjsonsafe(info)
         await self.runt.bus.fire('storm:fire', type=name, data=info)
+
+    def _ctorGlobalVars(self, path=None):
+        return GlobalVars(path=path)
 
 @registry.registerLib
 class LibDict(Lib):
@@ -5283,111 +5310,47 @@ class Number(Prim):
     async def stormrepr(self):
         return str(self.value())
 
-@registry.registerLib
-class LibGlobals(Lib):
+@registry.registerType
+class GlobalVars(Prim):
     '''
-    A Storm Library for interacting with global variables which are persistent across the Cortex.
+    The Storm deref/setitem/iter convention on top of global vars information.
     '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get a Cortex global variables.',
-         'type': {'type': 'function', '_funcname': '_methGet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'Default value to return if the variable is not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
-        {'name': 'pop', 'desc': 'Delete a variable value from the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methPop',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable.', },
-                      {'name': 'default', 'type': 'prim', 'default': None,
-                       'desc': 'Default value to return if the variable is not set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
-        {'name': 'set', 'desc': 'Set a variable value in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methSet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the variable to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The variable value.', }}},
-        {'name': 'list', 'desc': 'Get a list of variable names and values.',
-         'type': {'type': 'function', '_funcname': '_methList',
-                  'returns': {'type': 'list',
-                              'desc': 'A list of tuples with variable names and values that the user can access.', }}},
-    )
-    _storm_lib_path = ('globals', )
-    _storm_lib_perms = (
-        {'perm': ('globals',), 'gate': 'cortex',
-            'desc': 'Used to control all operations for global variables.'},
+    _storm_typename = 'global:vars'
+    _ismutable = True
 
-        {'perm': ('globals', 'get'), 'gate': 'cortex',
-            'desc': 'Used to control read access to all global variables.'},
-        {'perm': ('globals', 'get', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control read access to a specific global variable.'},
+    def __init__(self, path=None):
+        Prim.__init__(self, None, path=path)
 
-        {'perm': ('globals', 'set'), 'gate': 'cortex',
-            'desc': 'Used to control edit access to all global variables.'},
-        {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control edit access to a specific global variable.'},
+    async def deref(self, name):
+        name = await tostr(name)
+        runt = s_scope.get('runt')
+        runt.confirm(('globals', 'get', name))
+        return await runt.view.core.getStormVar(name)
 
-        {'perm': ('globals', 'pop'), 'gate': 'cortex',
-            'desc': 'Used to control delete access to all global variables.'},
-        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
-            'desc': 'Used to control delete access to a specific global variable.'},
-    )
+    async def setitem(self, name, valu):
+        name = await tostr(name)
+        runt = s_scope.get('runt')
 
-    def __init__(self, runt, name):
-        Lib.__init__(self, runt, name)
+        if valu is undef:
+            runt.confirm(('globals', 'pop', name))
+            await runt.view.core.popStormVar(name)
+            return
 
-    def getObjLocals(self):
-        return {
-            'get': self._methGet,
-            'pop': self._methPop,
-            'set': self._methSet,
-            'list': self._methList,
-        }
-
-    def _reqStr(self, name):
-        if not isinstance(name, str):
-            mesg = 'The name of a persistent variable must be a string.'
-            raise s_exc.StormRuntimeError(mesg=mesg, name=name)
-
-    @stormfunc(readonly=True)
-    async def _methGet(self, name, default=None):
-        self._reqStr(name)
-
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'get', name), None),)
-        todo = s_common.todo('getStormVar', name, default=default)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
-
-    async def _methPop(self, name, default=None):
-        self._reqStr(name)
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'pop', name), None),)
-        todo = s_common.todo('popStormVar', name, default=default)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
-
-    async def _methSet(self, name, valu):
-        self._reqStr(name)
+        runt.confirm(('globals', 'set', name))
         valu = await toprim(valu)
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('globals', 'set', name), None),)
-        todo = s_common.todo('setStormVar', name, valu)
-        return await self.runt.dyncall('cortex', todo, gatekeys=gatekeys)
+        await runt.view.core.setStormVar(name, valu)
 
-    @stormfunc(readonly=True)
-    async def _methList(self):
-        ret = []
+    async def iter(self):
+        runt = s_scope.get('runt')
+        async for name, valu in runt.view.core.itemsStormVar():
+            if runt.allowed(('globals', 'get', name)):
+                yield name, valu
+            await asyncio.sleep(0)
 
-        todo = ('itemsStormVar', (), {})
-
-        async for key, valu in self.runt.dyniter('cortex', todo):
-            if allowed(('globals', 'get', key)):
-                ret.append((key, valu))
-        return ret
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) async for (k, v) in self.iter()]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
 
 @registry.registerLib
 class LibVars(Lib):
