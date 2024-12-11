@@ -340,7 +340,7 @@ class BaseTest(s_t_utils.SynTest):
                 'tel:mob:telem:ipv6', 'tel:mob:telem:wifi', 'tel:mob:telem:wifi:ssid',
                 'tel:mob:telem:wifi:bssid', 'tel:mob:telem:adid', 'tel:mob:telem:aaid',
                 'tel:mob:telem:idfa', 'tel:mob:telem:name', 'tel:mob:telem:email',
-                'tel:mob:telem:acct', 'tel:mob:telem:app', 'tel:mob:telem:data',
+                'tel:mob:telem:app', 'tel:mob:telem:data',
                 'inet:http:request:response:time', 'inet:http:request:response:code',
                 'inet:http:request:response:reason', 'inet:http:request:response:body',
                 'gov:us:cage:street', 'gov:us:cage:city', 'gov:us:cage:state', 'gov:us:cage:zip',

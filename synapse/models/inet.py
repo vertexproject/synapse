@@ -3782,7 +3782,8 @@ class InetModule(s_module.CoreModule):
                             'doc': 'The name of the place that the message was sent from.'}),
 
                         ('client:address', ('inet:client', {}), {
-                            'doc': 'The client address that the message was sent from.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :client'}),
 
                         ('client:software', ('it:prod:softver', {}), {
                             'doc': 'The client software version used to send the message.'}),

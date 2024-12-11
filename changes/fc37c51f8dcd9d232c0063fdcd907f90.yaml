@@ -1,0 +1,5 @@
+---
+desc: Added the user-agent string to the structured log information captured by the HTTP API handlers.
+prs: []
+type: feat
+...
