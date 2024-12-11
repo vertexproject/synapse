@@ -198,6 +198,15 @@ class ApiKeyTest(s_test.SynTest):
             self.eq(0, await s_t_apikey.main(argv, outp=outp))
             self.isin('No API keys found.', str(outp))
 
+            argv = (
+                '--svcurl', rooturl,
+                'list',
+                '-u', 'newp',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_apikey.main(argv, outp=outp))
+            self.isin('ERROR: User not found: newp', str(outp))
+
             with self.raises(s_exc.AuthDeny) as exc:
                 argv = (
                     '--svcurl', blckurl,
@@ -206,4 +215,4 @@ class ApiKeyTest(s_test.SynTest):
                 )
                 outp = s_output.OutPutStr()
                 await s_t_apikey.main(argv, outp=outp)
-            self.eq(exc.exception.get('mesg'), 'User is not an admin.')
+            self.eq(exc.exception.get('mesg'), 'User is not an admin [blackout]')

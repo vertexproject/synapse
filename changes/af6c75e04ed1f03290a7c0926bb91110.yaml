@@ -1,0 +1,5 @@
+---
+desc: Added ``synapse.tools.apikey`` tool for managing user API keys via telepath.
+prs: []
+type: feat
+...
