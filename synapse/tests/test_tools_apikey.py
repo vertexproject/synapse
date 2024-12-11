@@ -1,0 +1,209 @@
+import datetime
+
+import synapse.exc as s_exc
+
+import synapse.lib.output as s_output
+import synapse.tests.utils as s_test
+import synapse.tools.apikey as s_t_apikey
+
+async def getApiKeyByName(core, name):
+    keys = {k.get('name'): k async for k in core.getApiKeys()}
+    return keys.get(name)
+
+def fmttime(timestamp, fmt='%Y/%m/%d %H:%M:%S'):
+    dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=timestamp)
+    return dt.strftime(fmt)
+
+class ApiKeyTest(s_test.SynTest):
+
+    async def test_tools_apikey(self):
+        async with self.getTestCore() as core:
+
+            await core.auth.addUser('blackout')
+
+            rooturl = core.getLocalUrl()
+            blckurl = core.getLocalUrl(user='blackout')
+
+            # Add API keys
+            argv = (
+                '--svcurl', rooturl,
+                'add',
+                'rootkey00',
+                '-d', '120',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+
+            self.isin('Successfully added API key with name=rootkey00.', str(outp))
+            rootkey00 = await getApiKeyByName(core, 'rootkey00')
+
+            self.isin(f'Iden: {rootkey00.get("iden")}', str(outp))
+            self.isin('  API Key: ', str(outp))
+            self.isin('  Name: rootkey00', str(outp))
+            self.isin(f'  Created: {fmttime(rootkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {fmttime(rootkey00.get("updated"))}', str(outp))
+            self.isin(f'  Expires: {fmttime(rootkey00.get("expires"))}', str(outp))
+            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000)
+
+            argv = (
+                '--svcurl', rooturl,
+                'add',
+                '-u', 'blackout',
+                'blckkey00',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+
+            self.isin('Successfully added API key with name=blckkey00.', str(outp))
+            blckkey00 = await getApiKeyByName(core, 'blckkey00')
+
+            self.isin(f'Iden: {blckkey00.get("iden")}', str(outp))
+            self.isin('  API Key: ', str(outp))
+            self.isin('  Name: blckkey00', str(outp))
+            self.isin(f'  Created: {fmttime(blckkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {fmttime(blckkey00.get("updated"))}', str(outp))
+            self.notin('  Expires: ', str(outp))
+
+            argv = (
+                '--svcurl', blckurl,
+                'add',
+                'blckkey01',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+
+            self.isin('Successfully added API key with name=blckkey01.', str(outp))
+            blckkey01 = await getApiKeyByName(core, 'blckkey01')
+
+            self.isin(f'Iden: {blckkey01.get("iden")}', str(outp))
+            self.isin('  API Key: ', str(outp))
+            self.isin('  Name: blckkey01', str(outp))
+            self.isin(f'  Created: {fmttime(blckkey01.get("created"))}', str(outp))
+            self.isin(f'  Updated: {fmttime(blckkey01.get("updated"))}', str(outp))
+            self.notin('  Expires: ', str(outp))
+
+            # List API keys
+            argv = (
+                '--svcurl', rooturl,
+                'list',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+
+            self.isin(f'Iden: {rootkey00.get("iden")}', str(outp))
+            self.notin('  API Key: ', str(outp))
+            self.isin('  Name: rootkey00', str(outp))
+            self.isin(f'  Created: {fmttime(rootkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {fmttime(rootkey00.get("updated"))}', str(outp))
+            self.isin(f'  Expires: {fmttime(rootkey00.get("expires"))}', str(outp))
+            self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000)
+
+            argv = (
+                '--svcurl', rooturl,
+                'list',
+                '-u', 'blackout',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+
+            self.isin(f'Iden: {blckkey00.get("iden")}', str(outp))
+            self.notin('  API Key: ', str(outp))
+            self.isin('  Name: blckkey00', str(outp))
+            self.isin(f'  Created: {fmttime(blckkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {fmttime(blckkey00.get("updated"))}', str(outp))
+            self.notin('  Expires: ', str(outp))
+
+            self.isin(f'Iden: {blckkey01.get("iden")}', str(outp))
+            self.notin('  API Key: ', str(outp))
+            self.isin('  Name: blckkey01', str(outp))
+            self.isin(f'  Created: {fmttime(blckkey01.get("created"))}', str(outp))
+            self.isin(f'  Updated: {fmttime(blckkey01.get("updated"))}', str(outp))
+            self.notin('  Expires: ', str(outp))
+
+            argv = (
+                '--svcurl', blckurl,
+                'list',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+
+            self.isin(f'Iden: {blckkey00.get("iden")}', str(outp))
+            self.notin('  API Key: ', str(outp))
+            self.isin('  Name: blckkey00', str(outp))
+            self.isin(f'  Created: {fmttime(blckkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {fmttime(blckkey00.get("updated"))}', str(outp))
+            self.notin('  Expires: ', str(outp))
+
+            self.isin(f'Iden: {blckkey01.get("iden")}', str(outp))
+            self.notin('  API Key: ', str(outp))
+            self.isin('  Name: blckkey01', str(outp))
+            self.isin(f'  Created: {fmttime(blckkey01.get("created"))}', str(outp))
+            self.isin(f'  Updated: {fmttime(blckkey01.get("updated"))}', str(outp))
+            self.notin('  Expires: ', str(outp))
+
+            # Delete API keys
+            rootiden00 = rootkey00.get('iden')
+            argv = (
+                '--svcurl', rooturl,
+                'del',
+                rootiden00,
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+            self.isin(f'Successfully deleted API key with iden={rootiden00}.', str(outp))
+
+            blckiden00 = blckkey00.get('iden')
+            argv = (
+                '--svcurl', rooturl,
+                'del',
+                blckiden00,
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+            self.isin(f'Successfully deleted API key with iden={blckiden00}.', str(outp))
+
+            blckiden01 = blckkey01.get('iden')
+            argv = (
+                '--svcurl', blckurl,
+                'del',
+                blckiden01,
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+            self.isin(f'Successfully deleted API key with iden={blckiden01}.', str(outp))
+
+            # List API keys again
+            argv = (
+                '--svcurl', rooturl,
+                'list',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+            self.isin('No API keys found.', str(outp))
+
+            argv = (
+                '--svcurl', rooturl,
+                'list',
+                '-u', 'blackout',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+            self.isin('No API keys found.', str(outp))
+
+            argv = (
+                '--svcurl', blckurl,
+                'list',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(0, await s_t_apikey.main(argv, outp=outp))
+            self.isin('No API keys found.', str(outp))
+
+            with self.raises(s_exc.AuthDeny) as exc:
+                argv = (
+                    '--svcurl', blckurl,
+                    'list',
+                    '-u', 'blackout',
+                )
+                outp = s_output.OutPutStr()
+                await s_t_apikey.main(argv, outp=outp)
+            self.eq(exc.exception.get('mesg'), 'User is not an admin.')
