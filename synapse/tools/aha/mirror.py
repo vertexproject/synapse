@@ -20,6 +20,59 @@ Examples:
 
 '''
 
+async def get_cell_infos(prox, iden, members, timeout):
+    cell_infos = {}
+    if iden is not None:
+        todo = s_common.todo('getCellInfo')
+        async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo, timeout=timeout):
+            if not ok:
+                continue
+            cell_infos[svcname] = info
+    return cell_infos
+
+def build_status_list(members, cell_infos):
+    group_status = []
+    for svc in members:
+        svcname = svc.get('name')
+        svcinfo = svc.get('svcinfo', {})
+        status = {
+            'name': svcname,
+            'role': '<unknown>',
+            'online': str('online' in svcinfo),
+            'ready': 'True',
+            'host': svcinfo.get('urlinfo', {}).get('host', ''),
+            'port': str(svcinfo.get('urlinfo', {}).get('port', '')),
+            'version': '<unknown>',
+            'nexs_indx': '<unknown>'
+        }
+        if svcname in cell_infos:
+            info = cell_infos[svcname]
+            cell_info = info.get('cell', {})
+            status.update({
+                'nexs_indx': cell_info.get('nexsindx', 0),
+                'role': 'follower' if cell_info.get('uplink') else 'leader',
+                'version': str(info.get('synapse', {}).get('verstring', '')),
+                'online': 'True',
+                'ready': str(cell_info.get('ready', False))
+            })
+        group_status.append(status)
+    return group_status
+
+def output_status(outp, vname, group_status):
+    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<10}'.format(
+        'name', 'role', 'online', 'ready', 'host', 'port', 'version', 'nexus idx')
+    outp.printf(header)
+    outp.printf('#' * 120)
+    outp.printf(vname)
+    for status in group_status:
+        line = ' {name:<40} {role:<10} {online:<8} {ready:<7} {host:<16} {port:<9} {version:<12} {nexs_indx:<10}'.format(**status)
+        outp.printf(line)
+
+def check_sync_status(group_status):
+    indices = {status['nexs_indx'] for status in group_status if isinstance(status['nexs_indx'], int)}
+    known_count = sum(1 for status in group_status if isinstance(status['nexs_indx'], int))
+    return len(indices) == 1 and known_count == len(group_status)
+
 async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='synapse.tools.aha.mirror', description=descr,
@@ -81,59 +134,51 @@ async def main(argv, outp=s_output.stdout):
 
                 outp.printf('Service Mirror Groups:')
                 for vname, members in mirror_groups.items():
-                    group_status = []
-                    cell_infos = {}
-
                     iden = members[0].get('svcinfo', {}).get('iden')
-                    if iden is not None:
-                        todo = s_common.todo('getCellInfo')
-                        async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo, timeout=opts.timeout):
-                            if not ok:
-                                print(f'Error getting cell info from {svcname}: {info}')
-                                continue
-                            cell_infos[svcname] = info
 
-                    for svc in members:
-                        svcinfo = svc.get('svcinfo', {})
-                        is_ready = svcinfo.get('ready', False)
-                        svcname = svc.get('name')
+                    cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
+                    group_status = build_status_list(members, cell_infos)
+                    output_status(outp, vname, group_status)
 
-                        status = {
-                            'name': svcname,
-                            'role': 'unknown',
-                            'online': str(bool(svcinfo.get('online'))),
-                            'ready': str(is_ready),
-                            'host': svcinfo.get('urlinfo', {}).get('host', ''),
-                            'port': str(svcinfo.get('urlinfo', {}).get('port', '')),
-                            'version': '',
-                            'nexs_indx': '<unknown>'
-                        }
-
-                        if is_ready and svcname in cell_infos:
-                            info = cell_infos[svcname]
-                            cell_info = info.get('cell', {})
-                            status['nexs_indx'] = cell_info.get('nexsindx', 0)
-                            status['role'] = 'follower' if cell_info.get('uplink') else 'leader'
-                            status['version'] = str(info.get('synapse', {}).get('verstring', ''))
-
-                        group_status.append(status)
-
-                    header = ('{:<45}{:<9}{:<7}{:<6}{:<16}{:<8}{:<12}Nexus Index').format(
-                        'Name', 'Role', 'Online', 'Ready', 'Host', 'Port', 'Version')
-                    outp.printf(header)
-
-                    for status in group_status:
-                        line = ('{name:<45}{role:<9}{online:<7}{ready:<6}{host:<16}{port:<8}{version:<12}{nexs_indx}').format(**status)
-                        outp.printf(line)
-
-                    indices = {status['nexs_indx'] for status in group_status if isinstance(status['nexs_indx'], int)}
-                    known_count = sum(1 for status in group_status if isinstance(status['nexs_indx'], int))
-                    in_sync = len(indices) == 1 and known_count == len(group_status)
-
-                    if in_sync:
+                    if check_sync_status(group_status):
                         outp.printf('Group Status: In Sync')
                     else:
-                        outp.printf('Group Status: Out of Sync')
+                        outp.printf(f'Group Status: Out of Sync; Waiting {opts.timeout} seconds for sync...')
+                        leader_nexs = None
+                        for status in group_status:
+                            if status['role'] == 'leader' and isinstance(status['nexs_indx'], int):
+                                leader_nexs = status['nexs_indx']
+                                break
+
+                        if leader_nexs is not None:
+                            start_time = s_common.now()
+
+                            while True:
+                                now = s_common.now()
+                                remaining_ms = (opts.timeout * 1000) - (now - start_time)
+                                if remaining_ms <= 0:
+                                    raise s_exc.TimeOut(mesg=f'Mirror sync timeout after {opts.timeout} seconds')
+
+                                todo_timeout = min(5, remaining_ms / 1000)
+                                todo = s_common.todo('waitNexsOffs', leader_nexs-1, timeout=todo_timeout)
+                                responses = []
+
+                                async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo):
+                                    if not ok:
+                                        continue
+                                    if info:
+                                        responses.append((svcname, info))
+
+                                if len(responses) == len(members):
+                                    cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
+                                    group_status = build_status_list(members, cell_infos)
+
+                                    outp.printf('\nUpdated status:')
+                                    output_status(outp, vname, group_status)
+
+                                    if check_sync_status(group_status):
+                                        outp.printf('Group Status: In Sync')
+                                        break
 
                 return 0
 
