@@ -826,6 +826,14 @@ class AgendaTest(s_t_utils.SynTest):
                 self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)
 
     async def test_agenda_promotions(self):
+        # Adjust this knob for the number of cron jobs you want to test. Below
+        # are some average run times from my dev box
+        # 100 -> ~15s
+        # 250 -> ~18s
+        # 500 -> ~22s
+        # 5000 -> ~88s
+        NUMJOBS = 100
+
         async with self.getTestAha() as aha:
 
             conf00 = {
@@ -844,8 +852,14 @@ class AgendaTest(s_t_utils.SynTest):
                 diff = (60 - now.tm_min) * 60
                 core00.agenda._addTickOff(diff + 120)
 
-                # Add a cron job that starts every hour
-                await core00.callStorm('cron.add --hour +1 { $lib.time.sleep(90) }')
+                # Add NUMJOBS cron jobs that starts every hour
+                q = '''
+                for $ii in $lib.range($numjobs) {
+                    cron.add --name `CRON{$ii}` --hour +1 { $lib.time.sleep(90) }
+                }
+                '''
+                opts = {'vars': {'numjobs': NUMJOBS}}
+                await core00.callStorm(q, opts=opts)
 
                 prov01 = {'mirror': '00.cortex'}
                 conf01 = {
@@ -863,76 +877,94 @@ class AgendaTest(s_t_utils.SynTest):
                     mesgs = []
                     async for mesg in core00.behold():
                         mesgs.append(mesg)
-                        break
+                        if len(mesgs) >= NUMJOBS:
+                            break
 
-                    self.eq(mesgs[0]['event'], 'cron:start')
+                    for mesg in mesgs:
+                        self.eq(mesg['event'], 'cron:start')
 
                     # Inspect crons and tasks
                     crons00 = await core00.callStorm('return($lib.cron.list())')
-                    self.len(1, crons00)
+                    self.len(NUMJOBS, crons00)
                     # isrunning is synced via nexus so it should be true for both cortexes
-                    self.true(crons00[0].get('isrunning'))
+                    for cron in crons00:
+                        self.true(cron.get('isrunning'))
 
-                    iden = crons00[0]['iden']
+                    cronidens = [k['iden'] for k in crons00]
 
                     await core01.sync()
 
                     crons01 = await core01.callStorm('return($lib.cron.list())')
-                    self.len(1, crons01)
+                    self.len(NUMJOBS, crons01)
                     # isrunning is synced via nexus so it should be true for both cortexes
-                    self.true(crons01[0].get('isrunning'))
+                    for cron in crons01:
+                        self.true(cron.get('isrunning'))
 
                     tasks00 = await core00.callStorm('return($lib.ps.list())')
-                    # Two tasks: one for the main task and one for the cronjob instance
-                    self.len(2, tasks00)
+                    # 101 tasks: one for the main task and NUMJOBS for the cronjob instances
+                    self.len(NUMJOBS + 1, tasks00)
                     self.eq(tasks00[0]['info']['query'], '[it:dev:str=foo]')
-                    self.eq(tasks00[1]['name'], f'Cron {iden}')
-                    self.eq(tasks00[1]['info']['iden'], iden)
-                    self.eq(tasks00[1]['info']['query'], '$lib.time.sleep(90)')
+                    for idx, task in enumerate(tasks00):
+                        if idx == 0:
+                            continue
 
+                        self.isin(task['info']['iden'], cronidens)
+                        self.eq(task['info']['query'], '$lib.time.sleep(90)')
+
+                    # No tasks running on the follower
                     tasks01 = await core01.callStorm('return($lib.ps.list())')
                     self.len(0, tasks01)
 
-                    mesg = f'Agenda completed query for iden={iden} name= with result "cancelled" took '
-                    with self.getLoggerStream('synapse.lib.agenda', mesg=mesg):
+                    with self.getLoggerStream('synapse.lib.agenda', mesg='name=CRON99') as stream:
                         # Promote and inspect cortex status
                         await core01.promote(graceful=True)
                         self.false(core00.isactive)
                         self.true(core01.isactive)
 
+                    stream.seek(0)
+                    data = stream.read()
+                    for ii in range(NUMJOBS):
+                        self.isin(f' name=CRON{ii} with result "cancelled" took ', data)
+
                     # Sync the (now) follower so the isrunning status gets updated to false on both cortexes
                     await core00.sync()
 
                     crons00 = await core00.callStorm('return($lib.cron.list())')
-                    self.len(1, crons00)
-                    self.false(crons00[0].get('isrunning'))
+                    self.len(NUMJOBS, crons00)
+                    for cron in crons00:
+                        self.false(cron.get('isrunning'))
 
                     crons01 = await core01.callStorm('return($lib.cron.list())')
-                    self.len(1, crons01)
-                    self.false(crons01[0].get('isrunning'))
+                    self.len(NUMJOBS, crons01)
+                    for cron in crons01:
+                        self.false(cron.get('isrunning'))
 
-                    # Bump the ticks on core01 so the cron job starts
+                    # Bump the ticks on core01 so the cron jobs start
                     core01.agenda._addTickOff(3600)
 
                     mesgs = []
                     async for mesg in core01.behold():
                         mesgs.append(mesg)
-                        break
+                        if len(mesgs) >= NUMJOBS:
+                            break
 
-                    self.eq(mesgs[0]['event'], 'cron:start')
+                    for mesg in mesgs:
+                        self.eq(mesg['event'], 'cron:start')
 
                     # Sync the follower to get the latest isrunning status
                     await core00.sync()
 
                     crons00 = await core00.callStorm('return($lib.cron.list())')
-                    self.len(1, crons00)
-                    # Cronjob is running so true on both cortexes
-                    self.true(crons00[0].get('isrunning'))
+                    self.len(NUMJOBS, crons00)
+                    # Cronjobs are running so true on both cortexes
+                    for cron in crons00:
+                        self.true(cron.get('isrunning'))
 
                     crons01 = await core01.callStorm('return($lib.cron.list())')
-                    self.len(1, crons01)
-                    # Cronjob is running so true on both cortexes
-                    self.true(crons01[0].get('isrunning'))
+                    self.len(NUMJOBS, crons01)
+                    # Cronjobs are running so true on both cortexes
+                    for cron in crons01:
+                        self.true(cron.get('isrunning'))
 
                     tasks00 = await core00.callStorm('return($lib.ps.list())')
                     # This task is the main task from before promotion
@@ -940,11 +972,11 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq(tasks00[0]['info']['query'], '[it:dev:str=foo]')
 
                     tasks01 = await core01.callStorm('return($lib.ps.list())')
-                    # The cron job instance is the only task
-                    self.len(1, tasks01)
-                    self.eq(tasks01[0]['name'], f'Cron {iden}')
-                    self.eq(tasks01[0]['info']['iden'], iden)
-                    self.eq(tasks01[0]['info']['query'], '$lib.time.sleep(90)')
+                    # The cronjob instances are the only tasks
+                    self.len(NUMJOBS, tasks01)
+                    for task in tasks01:
+                        self.isin(task['info']['iden'], cronidens)
+                        self.eq(task['info']['query'], '$lib.time.sleep(90)')
 
     async def test_cron_kill(self):
         async with self.getTestCore() as core:
