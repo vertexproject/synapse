@@ -49,6 +49,27 @@ class AhaLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methAhaList', 'args': (),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'The AHA service dictionaries.', }}},
+        {'name': 'callPeerApi', 'desc': '''Call an API on an AHA service.
+
+        Examples:
+            Call getCellInfo on an AHA service::
+
+                for $info in $lib.aha.callPeerApi(cortex..., getCellInfo) { $lib.print($info) }
+
+        ''',
+         'type': {'type': 'function', '_funcname': '_methCallPeerApi',
+                  'args': (
+                      {'name': 'svcname', 'type': 'str',
+                       'desc': 'The name of the AHA service to call. It is easiest to use the relative name of a service, ending with "...".', },
+                      {'name': 'apiname', 'type': ('str', 'tuple'),
+                       'desc': 'The name of the API to call or a todo tuple (name, args, kwargs).'},
+                      {'name': 'timeout', 'type': 'int', 'default': None,
+                       'desc': 'Optional timeout in seconds.'},
+                      {'name': 'skiprun', 'type': 'bool', 'default': None,
+                       'desc': 'Optional flag to skip run checks.'},
+                  ),
+                  'returns': {'type': 'any',
+                             'desc': 'The result of the API call.', }}},
     )
     _storm_lib_path = ('aha',)
     def getObjLocals(self):
@@ -56,6 +77,7 @@ class AhaLib(s_stormtypes.Lib):
             'del': self._methAhaDel,
             'get': self._methAhaGet,
             'list': self._methAhaList,
+            'callPeerApi': self._methCallPeerApi,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -84,6 +106,73 @@ class AhaLib(s_stormtypes.Lib):
         filters = await s_stormtypes.toprim(filters)
         proxy = await self.runt.snap.core.reqAhaProxy()
         return await proxy.getAhaSvc(svcname, filters=filters)
+
+    async def _methCallPeerApi(self, svcname, apiname, timeout=None, skiprun=None):
+        '''
+        Call an API on an AHA service.
+
+        Args:
+            svcname (str): The name of the AHA service to call
+            apiname (str, tuple): The API name or todo tuple (name, args, kwargs)
+            timeout (int): Optional timeout in seconds
+            skiprun (bool): Optional flag to skip run checks
+        '''
+        svcname = await s_stormtypes.tostr(svcname)
+
+        if isinstance(apiname, str):
+            apiname = (apiname, (), {})
+        else:
+            apiname = await s_stormtypes.toprim(apiname)
+            if not isinstance(apiname, (list, tuple)):
+                raise s_exc.BadArg(mesg='API name must be a string or tuple')
+
+            name = apiname[0]
+            if len(apiname) == 1:
+                apiname = (name, (), {})
+            elif len(apiname) == 2:
+                second = apiname[1]
+                if isinstance(second, dict):
+                    apiname = (name, (), second)
+                else:
+                    if not isinstance(second, (list, tuple)):
+                        second = (second,)
+                    apiname = (name, second, {})
+            elif len(apiname) == 3:
+                args = apiname[1]
+                if not isinstance(args, (list, tuple)):
+                    args = (args,)
+                kwargs = apiname[2]
+                if not isinstance(kwargs, dict):
+                    raise s_exc.BadArg(mesg='API kwargs must be a dictionary')
+                apiname = (name, args, kwargs)
+            else:
+                raise s_exc.BadArg(mesg='API tuple must be (name), (name, args), (name, kwargs) or (name, args, kwargs)')
+
+        timeout = await s_stormtypes.toprim(timeout)
+        skiprun = await s_stormtypes.toprim(skiprun)
+
+        proxy = await self.runt.snap.core.reqAhaProxy()
+        svc = await proxy.getAhaSvc(svcname)
+        if svc is None:
+            raise s_exc.NoSuchName(mesg=f'No AHA service found for {svcname}')
+
+        svcinfo = svc.get('svcinfo')
+        svciden = svcinfo.get('iden')
+        if svciden is None:
+            raise s_exc.NoSuchName(mesg=f'Service {svcname} has no iden')
+
+        async for svcname, (ok, info) in proxy.callAhaPeerApi(svciden, apiname, timeout=timeout, skiprun=skiprun):
+            if not ok:
+                if isinstance(info, dict) and 'err' in info:
+                    err = info.get('err')
+                    errinfo = info.get('errinfo', {})
+                    errtype = getattr(s_exc, err, s_exc.SynErr)
+                    if issubclass(errtype, s_exc.SynErr):
+                        if 'mesg' not in errinfo:
+                            errinfo['mesg'] = info.get('errmsg', str(info))
+                        raise errtype(**errinfo)
+                raise s_exc.BadArg(mesg=f'Error calling {apiname} on {svcname}: {info}')
+            yield (svcname, (ok, info))
 
 @s_stormtypes.registry.registerLib
 class AhaPoolLib(s_stormtypes.Lib):
@@ -531,5 +620,223 @@ The ready column indicates that a service has entered into the realtime change w
             }
         }
         '''
-    }
+    },
+    {
+        'name': 'aha.svc.mirror',
+        'descr': '''Query the AHA services and their mirror relationships.
+
+Note: non-mirror services are not displayed.
+        ''',
+        'cmdargs': (
+            ('--timeout', {'help': 'The number of seconds to wait for the mirrors to sync.',
+                           'default': 60, 'action': 'store'}),
+        ),
+        'storm': '''
+        init {
+            $conf = ({
+                "columns": [
+                    {"name": "name", "width": 40},
+                    {"name": "role", "width": 9},
+                    {"name": "online", "width": 7},
+                    {"name": "ready", "width": 6},
+                    {"name": "host", "width": 16},
+                    {"name": "port", "width": 8},
+                    {"name": "version", "width": 12},
+                    {"name": "nexus idx", "width": 10},
+                ],
+                "separators": {
+                    "row:outline": false,
+                    "column:outline": false,
+                    "header:row": "#",
+                    "data:row": "",
+                    "column": "",
+                },
+            })
+            $printer = $lib.tabular.printer($conf)
+            $timeout = $cmdopts.timeout
+        }
+
+        function get_cell_infos(vname) {
+            $cell_infos = ({})
+            for $info in $lib.aha.callPeerApi($vname, getCellInfo) {
+                $svcname = $info.0
+                ($ok, $info) = $info.1
+                if $ok {
+                    $cell_infos.$svcname = $info
+                }
+            }
+            return($cell_infos)
+        }
+
+        function build_status_list(members, cell_infos) {
+            $group_status = $lib.list()
+            for $svc in $members {
+                $svcinfo = $svc.svcinfo
+                $svcname = $svc.name
+                $status = ({
+                    'name': $svcname,
+                    'role': '<unknown>',
+                    'online': $lib.dict.has($svcinfo, 'online'),
+                    'ready': $svcinfo.ready,
+                    'host': $svcinfo.urlinfo.host,
+                    'port': $svcinfo.urlinfo.port,
+                    'version': '<unknown>',
+                    'nexs_indx': '<unknown>'
+                })
+                if ($cell_infos.$svcname) {
+                    $info = $cell_infos.$svcname
+                    $cell_info = $info.cell
+                    $status.nexs_indx = $cell_info.nexsindx
+                    if ($cell_info.uplink) {
+                        $status.role = 'follower'
+                    } else {
+                        $status.role = 'leader'
+                    }
+                    $status.version = $info.synapse.verstring
+                }
+                $group_status.append($status)
+            }
+            return($group_status)
+        }
+
+        function check_sync_status(group_status) {
+            $indices = $lib.set()
+            $known_count = (0)
+            for $status in $group_status {
+                if ($lib.vars.type($status.nexs_indx) = 'int') {
+                    $indices.add($status.nexs_indx)
+                    $known_count = ($known_count + (1))
+                }
+            }
+            if ($lib.len($indices) = 1) {
+                if ($known_count = $lib.len($group_status)) {
+                    return(true)
+                }
+            }
+        }
+
+        function output_status(vname, group_status, printer) {
+            $lib.print($printer.header())
+            $lib.print($vname)
+            for $status in $group_status {
+                $row = (
+                    $status.name,
+                    $status.role,
+                    $status.online,
+                    $status.ready,
+                    $status.host,
+                    $status.port,
+                    $status.version,
+                    $status.nexs_indx
+                )
+                $lib.print($printer.row($row))
+            }
+        }
+
+        $virtual_services = ({})
+        $member_servers = ({})
+
+        for $svc in $lib.aha.list() {
+            $name = $svc.name
+            $svcinfo = $svc.svcinfo
+            $urlinfo = $svcinfo.urlinfo
+            $hostname = $urlinfo.hostname
+
+            if ($name != $hostname) {
+                $virtual_services.$name = $svc
+            } else {
+                $member_servers.$name = $svc
+            }
+        }
+
+        $mirror_groups = ({})
+        for ($vname, $vsvc) in $virtual_services {
+            $vsvc_info = $vsvc.svcinfo
+            $vsvc_iden = $vsvc_info.iden
+            $vsvc_leader = $vsvc_info.leader
+            $vsvc_hostname = $vsvc_info.urlinfo.hostname
+
+            if (not $vsvc_iden or not $vsvc_hostname or not $vsvc_leader) {
+                continue
+            }
+
+            $primary_member = $member_servers.$vsvc_hostname
+            if (not $primary_member) {
+                continue
+            }
+
+            $members = $lib.list($primary_member)
+            for ($mname, $msvc) in $member_servers {
+                if ($mname != $vsvc_hostname) {
+                    $msvc_info = $msvc.svcinfo
+                    if ($msvc_info.iden = $vsvc_iden and $msvc_info.leader = $vsvc_leader) {
+                        $members.append($msvc)
+                    }
+                }
+            }
+
+            if ($lib.len($members) > 1) {
+                $mirror_groups.$vname = $members
+            }
+        }
+
+        for ($vname, $members) in $mirror_groups {
+            $cell_infos = $get_cell_infos($vname)
+            $group_status = $build_status_list($members, $cell_infos)
+            $output_status($vname, $group_status, $printer)
+
+            if $check_sync_status($group_status) {
+                $lib.print('Group Status: In Sync')
+            } else {
+                $lib.print(`Group Status: Out of Sync; Waiting {$timeout} seconds for sync...`)
+                $leader_nexs = $lib.null
+                for $status in $group_status {
+                    if (($status.role = 'leader') and ($lib.vars.type($status.nexs_indx) = 'int')) {
+                        $leader_nexs = $status.nexs_indx
+                        break
+                    }
+                }
+
+                if $leader_nexs {
+                    $start_time = $lib.time.now()
+
+                    while $lib.true {
+                        $now = $lib.time.now()
+                        $elapsed = ($now - $start_time)
+                        if ($elapsed >= ($timeout * 1000)) {
+                            $lib.raise(TimeOut, mesg=`Mirror sync timeout after {$timeout} seconds`)
+                        }
+
+                        $todo_timeout = $lib.min(5, ((($timeout * 1000) - $elapsed) / 1000))
+                        $responses = $lib.list()
+
+                        for $info in $lib.aha.callPeerApi($vname, (waitNexsOffs, ($leader_nexs - 1), ({'timeout': $todo_timeout}))) {
+                            $svcname = $info.0
+                            ($ok, $info) = $info.1
+                            if ($ok and $info) {
+                                $responses.append(($svcname, $info))
+                            }
+                        }
+
+                        if ($lib.len($responses) = $lib.len($members)) {
+                            // Re-check status after sync
+                            $cell_infos = $get_cell_infos($vname)
+                            $group_status = $build_status_list($members, $cell_infos)
+
+                            $lib.print('')
+                            $lib.print('Updated status:')
+                            $output_status($vname, $group_status, $printer)
+
+                            if $check_sync_status($group_status) {
+                                $lib.print('Group Status: In Sync')
+                                break
+                            }
+                        }
+                    }
+                }
+            }
+            $lib.print('')
+        }
+        '''
+    },
 )
