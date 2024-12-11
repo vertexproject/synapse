@@ -4,7 +4,6 @@ import gzip
 import json
 import time
 
-import aiohttp_socks
 import regex
 import types
 import base64

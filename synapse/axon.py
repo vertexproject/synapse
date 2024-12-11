@@ -622,7 +622,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
 
-            For following proxy arguments are supported::
+            The following proxy arguments are supported::
 
                 None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.
@@ -1523,7 +1523,7 @@ class Axon(s_cell.Cell):
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
 
-            For following proxy arguments are supported::
+            The following proxy arguments are supported::
 
                 None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.
@@ -1709,7 +1709,7 @@ class Axon(s_cell.Cell):
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
 
-            For following proxy arguments are supported::
+            The following proxy arguments are supported::
 
                 None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.

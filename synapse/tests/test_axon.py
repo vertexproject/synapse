@@ -953,6 +953,8 @@ bar baz",vv
             self.false(resp.get('ok'))
             self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
 
+            await self.asyncraises(s_exc.BadArg, proxy.wget('http://vertex.link', proxy=1.1))
+
     async def test_axon_wput(self):
 
         async with self.getTestCore() as core:

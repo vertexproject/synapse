@@ -610,6 +610,8 @@ class StormHttpTest(s_test.SynTest):
             self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
             self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
 
+            await self.asyncraises(s_exc.BadArg, core.nodes('$lib.axon.wget("http://vertex.link", proxy=(1.1))'))
+
             # todo: setting the synapse version can be removed once proxy=true support is released
             try:
                 oldv = core.axoninfo['synapse']['version']
@@ -634,6 +636,8 @@ class StormHttpTest(s_test.SynTest):
             msgs = await core.stormlist('$resp=$lib.inet.http.get("http://vertex.link", proxy=(null)) $lib.print($resp.err)')
             self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
             self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
+
+            await self.asyncraises(s_exc.BadArg, core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))'))
 
         async with self.getTestCore() as core:
 
