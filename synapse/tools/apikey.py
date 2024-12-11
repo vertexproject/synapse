@@ -1,20 +1,16 @@
 import sys
 import asyncio
 import argparse
-import datetime
 
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
+import synapse.lib.time as s_time
 import synapse.lib.output as s_output
 
 descr = '''
 Add, list, or delete user API keys from a Synapse cell.
 '''
-
-def fmttime(timestamp, fmt='%Y/%m/%d %H:%M:%S'):
-    dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=timestamp)
-    return dt.strftime(fmt)
 
 def printkey(outp, info, apikey=None):
     iden = info.get('iden')
@@ -27,10 +23,10 @@ def printkey(outp, info, apikey=None):
     if apikey:
         outp.printf(f'  API Key: {apikey}')
     outp.printf(f'  Name: {name}')
-    outp.printf(f'  Created: {fmttime(created)}')
-    outp.printf(f'  Updated: {fmttime(updated)}')
+    outp.printf(f'  Created: {s_time.fmttime(created)}')
+    outp.printf(f'  Updated: {s_time.fmttime(updated)}')
     if expires:
-        outp.printf(f'  Expires: {fmttime(expires)}')
+        outp.printf(f'  Expires: {s_time.fmttime(expires)}')
 
     outp.printf('')
 
