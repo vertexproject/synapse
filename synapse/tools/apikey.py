@@ -3,6 +3,7 @@ import asyncio
 import argparse
 import datetime
 
+import synapse.exc as s_exc
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
@@ -57,36 +58,42 @@ async def main(argv, outp=s_output.stdout):
 
         async with await s_telepath.openurl(opts.svcurl) as cell:
 
-            useriden = None
-            if opts.action in ('add', 'list') and opts.username:
-                user = await cell.getUserDefByName(opts.username)
-                if user is None:
-                    outp.printf(f'ERROR: User not found: {opts.username}')
-                    return 1
+            try:
+                useriden = None
+                if opts.action in ('add', 'list') and opts.username:
+                    user = await cell.getUserDefByName(opts.username)
+                    if user is None:
+                        outp.printf(f'ERROR: User not found: {opts.username}')
+                        return 1
 
-                useriden = user.get('iden')
+                    useriden = user.get('iden')
 
-            if opts.action == 'add':
-                if (duration := opts.duration) is not None:
-                    # Convert from seconds to milliseconds
-                    duration *= 1000
+                if opts.action == 'add':
+                    if (duration := opts.duration) is not None:
+                        # Convert from seconds to milliseconds
+                        duration *= 1000
 
-                apikey, info = await cell.addUserApiKey(opts.name, duration=duration, useriden=useriden)
-                outp.printf(f'Successfully added API key with name={opts.name}.')
-                printkey(outp, info, apikey)
+                    apikey, info = await cell.addUserApiKey(opts.name, duration=duration, useriden=useriden)
+                    outp.printf(f'Successfully added API key with name={opts.name}.')
+                    printkey(outp, info, apikey)
 
-            elif opts.action == 'del':
-                await cell.delUserApiKey(opts.iden)
-                outp.printf(f'Successfully deleted API key with iden={opts.iden}.')
+                elif opts.action == 'del':
+                    await cell.delUserApiKey(opts.iden)
+                    outp.printf(f'Successfully deleted API key with iden={opts.iden}.')
 
-            elif opts.action == 'list':
-                apikeys = await cell.listUserApiKeys(useriden=useriden)
-                if not apikeys:
-                    outp.printf('No API keys found.')
-                    return 0
+                elif opts.action == 'list':
+                    apikeys = await cell.listUserApiKeys(useriden=useriden)
+                    if not apikeys:
+                        outp.printf('No API keys found.')
+                        return 0
 
-                for info in apikeys:
-                    printkey(outp, info)
+                    for info in apikeys:
+                        printkey(outp, info)
+
+            except s_exc.SynErr as exc:
+                mesg = exc.get('mesg')
+                outp.printf(f'ERROR: {exc.__class__.__name__}: {mesg}')
+                return 1
 
     return 0
 

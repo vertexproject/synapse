@@ -1,6 +1,7 @@
 import datetime
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.output as s_output
 import synapse.tests.utils as s_test
@@ -198,6 +199,7 @@ class ApiKeyTest(s_test.SynTest):
             self.eq(0, await s_t_apikey.main(argv, outp=outp))
             self.isin('No API keys found.', str(outp))
 
+            # Check errors
             argv = (
                 '--svcurl', rooturl,
                 'list',
@@ -207,12 +209,21 @@ class ApiKeyTest(s_test.SynTest):
             self.eq(1, await s_t_apikey.main(argv, outp=outp))
             self.isin('ERROR: User not found: newp', str(outp))
 
-            with self.raises(s_exc.AuthDeny) as exc:
-                argv = (
-                    '--svcurl', blckurl,
-                    'list',
-                    '-u', 'blackout',
-                )
-                outp = s_output.OutPutStr()
-                await s_t_apikey.main(argv, outp=outp)
-            self.eq(exc.exception.get('mesg'), 'User is not an admin [blackout]')
+            argv = (
+                '--svcurl', blckurl,
+                'list',
+                '-u', 'blackout',
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_apikey.main(argv, outp=outp))
+            self.isin('ERROR: AuthDeny: User is not an admin [blackout]', str(outp))
+
+            newpiden = s_common.guid()
+            argv = (
+                '--svcurl', rooturl,
+                'del',
+                newpiden,
+            )
+            outp = s_output.OutPutStr()
+            self.eq(1, await s_t_apikey.main(argv, outp=outp))
+            self.isin(f"ERROR: NoSuchObj: User API key with iden='{newpiden}' does not exist.", str(outp))
