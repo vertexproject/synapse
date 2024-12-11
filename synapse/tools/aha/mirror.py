@@ -160,7 +160,7 @@ async def main(argv, outp=s_output.stdout):
                                     raise s_exc.TimeOut(mesg=f'Mirror sync timeout after {opts.timeout} seconds')
 
                                 todo_timeout = min(5, remaining_ms / 1000)
-                                todo = s_common.todo('waitNexsOffs', leader_nexs-1, timeout=todo_timeout)
+                                todo = s_common.todo('waitNexsOffs', leader_nexs - 1, timeout=todo_timeout)
                                 responses = []
 
                                 async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo):
