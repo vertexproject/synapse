@@ -1,0 +1,6 @@
+---
+desc: Support passing ``$lib.true`` to Storm HTTP APIs that accept a proxy argument
+  to indicate that the configured proxy should be used if set.
+prs: []
+type: feat
+...
