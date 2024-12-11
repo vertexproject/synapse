@@ -1150,7 +1150,7 @@ class AhaTest(s_test.SynTest):
             }
 
             await aha.addAhaSvc(name, bad_info)
-            async for ok, info in aha.callAhaSvcGenr(name, ('nonexistent.method', (), {})):
+            async for ok, info in aha.callAhaPeerGenr(name, ('nonexistent.method', (), {})):
                 self.false(ok)
                 self.true('err' in info)
 
@@ -1500,10 +1500,9 @@ class AhaTest(s_test.SynTest):
 
             await cell01.sync()
 
-            async with cell00.getLocalProxy() as proxy:
-                todo = s_common.todo('getCellInfo')
-                items = [item async for item in proxy.callPeerApi(todo)]
-                self.len(1, items)
+            todo = s_common.todo('getCellInfo')
+            items = [item async for item in cell00.callPeerApi(todo)]
+            self.len(1, items)
 
     async def test_lib_aha_peer_genr(self):
 
@@ -1516,11 +1515,6 @@ class AhaTest(s_test.SynTest):
             cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
 
             await cell01.sync()
-
-            async with cell00.getLocalProxy() as proxy:
-                todo = s_common.todo('getNexusChanges', 0, wait=False)
-                items = [item async for item in proxy.callPeerGenr(todo)]
-                self.len(2, items)
 
             todo = s_common.todo('getNexusChanges', 0, wait=False)
             items = [item async for item in cell00.callPeerGenr(todo)]
