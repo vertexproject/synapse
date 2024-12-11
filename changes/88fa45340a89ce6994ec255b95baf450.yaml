@@ -1,0 +1,7 @@
+---
+desc: Fixed a bug that skipped global and form pivots when validating graph projection
+  storm queries.
+prs:
+- 4031
+type: bug
+...
