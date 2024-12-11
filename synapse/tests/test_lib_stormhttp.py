@@ -606,10 +606,34 @@ class StormHttpTest(s_test.SynTest):
             self.false(resp.get('ok'))
             self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
 
+            msgs = await core.stormlist('$resp=$lib.axon.wget("http://vertex.link", proxy=(null)) $lib.print($resp.mesg)')
+            self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
+            self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
+
+            # todo: setting the synapse version can be removed once proxy=true support is released
+            try:
+                oldv = core.axoninfo['synapse']['version']
+                core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
+                resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
+                self.false(resp.get('ok'))
+                self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
+            finally:
+                core.axoninfo['synapse']['version'] = oldv
+
+            size, sha256 = await core.axon.put(b'asdf')
+            opts = {'vars': {'sha256': s_common.ehex(sha256)}}
+            resp = await core.callStorm(f'return($lib.axon.wput($sha256, http://vertex.link))', opts=opts)
+            self.false(resp.get('ok'))
+            self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
+
             q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.err))'
             code, (errname, _) = await core.callStorm(q)
             self.eq(code, -1)
             self.eq('ProxyConnectionError', errname)
+
+            msgs = await core.stormlist('$resp=$lib.inet.http.get("http://vertex.link", proxy=(null)) $lib.print($resp.err)')
+            self.stormIsInWarn('HTTP proxy argument to $lib.null is deprecated', msgs)
+            self.stormIsInPrint('connect to proxy 127.0.0.1:1', msgs)
 
         async with self.getTestCore() as core:
 
@@ -762,9 +786,14 @@ class StormHttpTest(s_test.SynTest):
             ($ok, $valu) = $sock.tx(lololol)
             return($sock.rx())
             '''
-            opts = {'vars': {'port': port, 'proxy': None}}
+            opts = {'vars': {'port': port, 'proxy': True}}
             self.eq((True, ('echo', 'lololol')),
                     await core.callStorm(query, opts=opts))
+
+            opts = {'vars': {'port': port, 'proxy': None}}
+            mesgs = await core.stormlist(query, opts=opts)
+            self.stormIsInWarn('proxy argument to $lib.null is deprecated', mesgs)
+            self.true(mesgs[-2][0] == 'err' and mesgs[-2][1][1]['mesg'] == "(True, ['echo', 'lololol'])")
 
             visi = await core.auth.addUser('visi')
 

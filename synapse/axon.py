@@ -946,9 +946,7 @@ class Axon(s_cell.Cell):
     async def _resolveProxyUrl(self, valu):
         match valu:
             case None:
-                if valu is None:
-                    mesg = 'Setting the HTTP proxy argument to None is deprecated. Use True instead.'
-                    s_common.deprecated(mesg, curv='2.192.0')
+                s_common.deprecated('Setting the Axon HTTP proxy argument to None', curv='2.192.0')
                 return await self.getConfOpt('http:proxy')
 
             case True:

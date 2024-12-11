@@ -90,10 +90,8 @@ async def resolveCoreProxyUrl(valu):
 
     match valu:
         case None:
-            if valu is None:
-                mesg = 'Setting the HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.'
-                s_common.deprecated(mesg, curv='2.192.0')
-                await runt.snap.warnonce(mesg)
+            s_common.deprecated('Setting the HTTP proxy argument $lib.null', curv='2.192.0')
+            await runt.snap.warnonce('Setting the HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
             return await runt.snap.core.getConfOpt('http:proxy')
 
         case True:
@@ -128,9 +126,8 @@ async def resolveAxonProxyArg(valu):
 
     match valu:
         case None:
-            mesg = 'Setting the HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.'
-            s_common.deprecated(mesg, curv='2.192.0')
-            await runt.snap.warnonce(mesg)
+            s_common.deprecated('Setting the Storm HTTP proxy argument $lib.null', curv='2.192.0')
+            await runt.snap.warnonce('Setting the Storm HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
             if axonvers >= AXON_MINVERS_PROXYTRUE:
                 return True, True
             return True, None
@@ -2516,8 +2513,7 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        axon = self.runt.snap.core.axon
-        sha256byts = s_common.uhex(sha256)
+        await self.runt.snap.core.getAxon()
 
         kwargs = {}
 
@@ -2531,6 +2527,9 @@ class LibAxon(Lib):
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
             kwargs['ssl_opts'] = ssl_opts
+
+        axon = self.runt.snap.core.axon
+        sha256byts = s_common.uhex(sha256)
 
         return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
                                ssl=ssl, timeout=timeout, **kwargs)
