@@ -907,6 +907,17 @@ class StormTypesTest(s_test.SynTest):
                        'refs',
                        '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
 
+            data = await core.callStorm('''
+                $data = ({})
+                inet:user=visi
+                for ($name, $valu) in $lib.layer.get().getNodeData($node.iden()) { $data.$name = $valu }
+                return($data)
+            ''')
+            foo = data.get('foo')
+            self.nn(foo)
+            self.nn(foo.get('asof'))
+            self.eq('bar', foo.get('data'))
+
             msgs = await core.stormlist('$lib.print($lib.null)')
             self.stormIsInPrint('$lib.null', msgs)
             self.stormNotInPrint('None', msgs)
@@ -1654,8 +1665,42 @@ class StormTypesTest(s_test.SynTest):
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.1)'))
             self.eq('foo', await core.callStorm('$foo = (foo, bar) return($foo."-2")'))
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.pop())'))
-            with self.raises(s_exc.StormRuntimeError):
+
+            self.eq(3, await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(2))'))
+            self.eq(2, await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(-3))'))
+            self.eq(4, await core.callStorm('$list = ([1, 2, 3, 4]) $list.pop(2) return($list.pop(2))'))
+            self.eq([1, 3, 4], await core.callStorm('$list = ([1, 2, 3, 4]) $list.pop(1) return($list)'))
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
                 await core.callStorm('$lib.list().pop()')
+            self.eq(exc.exception.get('mesg'), 'pop from empty list')
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
+                await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(13))')
+            self.eq(exc.exception.get('mesg'), 'pop index out of range')
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
+                await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(-5))')
+            self.eq(exc.exception.get('mesg'), 'pop index out of range')
+
+            somelist = ["foo", "bar", "baz", "bar"]
+            q = '''
+                $l.rem("bar")
+                $l.rem("newp")
+                return($l)
+            '''
+            opts = {'vars': {'l': somelist.copy()}}
+            out = await core.callStorm(q, opts=opts)
+            self.eq(out, ["foo", "baz", "bar"])
+
+            somelist = ["foo", "bar", "baz", "bar"]
+            q = '''
+                $l.rem("bar", all=$lib.true)
+                return($l)
+            '''
+            opts = {'vars': {'l': somelist.copy()}}
+            out = await core.callStorm(q, opts=opts)
+            self.eq(out, ["foo", "baz"])
 
     async def test_storm_layer_getstornode(self):
 
@@ -2312,7 +2357,7 @@ class StormTypesTest(s_test.SynTest):
                 path = pode[1]['path']
                 self.len(1, path)
                 key = list(path.keys())[0]
-                self.true(key.startswith("Node{(('inet:fqdn', 'vertex.link'), {'iden':"))
+                self.true(key.startswith('vertex.link'))
                 self.eq(('foo', 'bar'), path[key])
 
                 q = '''
@@ -4875,8 +4920,7 @@ class StormTypesTest(s_test.SynTest):
                         unixtime += 7 * MINSECS
                         self.eq('m3', await getNextFoo())
                         self.true(await stream.wait(6))
-                    buf = stream.getvalue()
-                    mesg = json.loads(buf.split('\n')[0])
+                    mesg = stream.jsonlines()[0]
                     self.eq(mesg['message'], f'm3 cron {guid}')
                     self.eq(mesg['iden'], guid)
 
@@ -5638,6 +5682,143 @@ class StormTypesTest(s_test.SynTest):
                 q = 'return($lib.layer.get().getTagPropCount(foo, newp, valu=2))'
                 await core.callStorm(q)
 
+    async def test_stormtypes_prop_uniq_values(self):
+        async with self.getTestCore() as core:
+
+            layr1vals = [
+                'a' * 512 + 'a',
+                'a' * 512 + 'a',
+                'a' * 512 + 'c',
+                'a' * 512 + 'c',
+                'c' * 512,
+                'c' * 512,
+                'c',
+                'c'
+            ]
+            opts = {'vars': {'vals': layr1vals}}
+            await core.nodes('for $val in $vals {[ it:dev:str=$val .seen=2020 ]}', opts=opts)
+            await core.nodes('for $val in $vals {[ ou:org=* :name=$val .seen=2021]}', opts=opts)
+
+            layr2vals = [
+                'a' * 512 + 'a',
+                'a' * 512 + 'a',
+                'a' * 512 + 'b',
+                'a' * 512 + 'b',
+                'b' * 512,
+                'b' * 512,
+                'b',
+                'b'
+            ]
+            forkview = await core.callStorm('return($lib.view.get().fork().iden)')
+            opts = {'view': forkview, 'vars': {'vals': layr2vals}}
+            await core.nodes('for $val in $vals {[ it:dev:str=$val .seen=2020]}', opts=opts)
+            await core.nodes('for $val in $vals {[ ou:org=* :name=$val .seen=2023]}', opts=opts)
+
+            viewq = '''
+            $vals = ([])
+            for $valu in $lib.view.get().getPropValues($prop) {
+                $vals.append($valu)
+            }
+            return($vals)
+            '''
+
+            layrq = '''
+            $vals = ([])
+            for $valu in $lib.layer.get().getPropValues($prop) {
+                $vals.append($valu)
+            }
+            return($vals)
+            '''
+
+            # Values come out in index order which is not necessarily value order
+            opts = {'vars': {'prop': 'it:dev:str'}}
+            uniqvals = list(set(layr1vals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            opts['view'] = forkview
+            uniqvals = list(set(layr2vals) - set(layr1vals))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            uniqvals = list(set(layr1vals) | set(layr2vals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            opts = {'vars': {'prop': 'ou:org:name'}}
+            uniqvals = list(set(layr1vals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            opts['view'] = forkview
+            uniqvals = list(set(layr2vals))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            uniqvals = list(set(layr1vals) | set(layr2vals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            opts = {'vars': {'prop': '.seen'}}
+
+            ival = core.model.type('ival')
+            uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0]]
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            opts['view'] = forkview
+            uniqvals = [ival.norm('2020')[0], ival.norm('2023')[0]]
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0], ival.norm('2023')[0]]
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+
+            opts['vars']['prop'] = 'ps:contact:name'
+            self.eq([], await core.callStorm(viewq, opts=opts))
+
+            opts['vars']['prop'] = 'newp:newp'
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm(layrq, opts=opts)
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.callStorm(viewq, opts=opts)
+
+            arryvals = [
+                ('foo', 'bar'),
+                ('foo', 'bar'),
+                ('foo', 'baz'),
+                ('bar', 'baz'),
+                ('bar', 'foo')
+            ]
+            opts = {'vars': {'vals': arryvals}}
+            await core.nodes('for $val in $vals {[ transport:air:flight=* :stops=$val ]}', opts=opts)
+
+            opts = {'vars': {'prop': 'transport:air:flight:stops'}}
+            uniqvals = list(set(arryvals))
+            self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
+            self.sorteq(uniqvals, await core.callStorm(layrq, opts=opts))
+
+            await core.nodes('[ media:news=(bar,) :title=foo ]')
+            await core.nodes('[ media:news=(baz,) :title=bar ]')
+            await core.nodes('[ media:news=(faz,) :title=faz ]')
+
+            forkopts = {'view': forkview}
+            await core.nodes('[ media:news=(baz,) :title=faz ]', opts=forkopts)
+
+            opts = {'vars': {'prop': 'media:news:title'}}
+            self.eq(['bar', 'faz', 'foo'], await core.callStorm(viewq, opts=opts))
+
+            opts = {'view': forkview, 'vars': {'prop': 'media:news:title'}}
+            self.eq(['faz', 'foo'], await core.callStorm(viewq, opts=opts))
+
+            forkview2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
+            forkopts2 = {'view': forkview2}
+
+            await core.nodes('[ ps:contact=(foo,) :name=foo ]', opts=forkopts2)
+            await core.nodes('[ ps:contact=(foo,) :name=bar ]', opts=forkopts)
+            await core.nodes('[ ps:contact=(bar,) :name=bar ]')
+
+            opts = {'view': forkview2, 'vars': {'prop': 'ps:contact:name'}}
+            self.eq(['bar', 'foo'], await core.callStorm(viewq, opts=opts))
+
+            self.eq([], await alist(core.getLayer().iterPropIndxBuids('newp', 'newp', 'newp')))
+
     async def test_lib_stormtypes_cmdopts(self):
         pdef = {
             'name': 'foo',
@@ -6387,6 +6568,11 @@ words\tword\twrd'''
             self.eq('1.23', await core.callStorm('return($lib.math.number(1.23).tostr())'))
             self.eq(1, await core.callStorm('return($lib.math.number(1.23).toint())'))
             self.eq(2, await core.callStorm('return($lib.math.number(1.23).toint(rounding=ROUND_UP))'))
+
+            with self.raises(s_exc.BadCast):
+                await core.callStorm('return($lib.math.number((null)))')
+            with self.raises(s_exc.BadCast):
+                await core.callStorm('return($lib.math.number(newp))')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('return($lib.math.number(1.23).toint(rounding=NEWP))')

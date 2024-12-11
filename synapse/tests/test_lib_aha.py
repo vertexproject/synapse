@@ -1231,7 +1231,8 @@ class AhaTest(s_test.SynTest):
                     }
                     with self.raises(s_exc.CryptoErr) as errcm:
                         await s_aha.AhaCell.anit(aha00dirn, conf=aconf)
-                    self.isin('Certificate name values must be between 1-64 characters', errcm.exception.get('mesg'))
+                    self.isin('Certificate name values must be between 1-64 bytes when utf8-encoded.',
+                              errcm.exception.get('mesg'))
 
     async def test_aha_prov_with_user(self):
 
@@ -1292,3 +1293,20 @@ class AhaTest(s_test.SynTest):
                 async with await s_cell.Cell.anit(dirn=clldir, conf=cllconf) as cell:
                     self.none(await cell.ahaclient.waitready(timeout=12))
                     self.eq(cell.conf.get('aha:registry'), ahaurl)
+
+    async def test_aha_provision_listen_dns_name(self):
+        # Ensure that we use the dns:name for the provisioning listener when
+        # the provision:listen value is not provided.
+        conf = {
+            'aha:network': 'synapse',
+            'dns:name': 'here.loop.vertex.link',
+        }
+        mesg = 'provision listening: ssl://0.0.0.0:27272?hostname=here.loop.vertex.link'
+        with self.getAsyncLoggerStream('synapse.lib.aha', mesg) as stream:
+            async with self.getTestCell(s_aha.AhaCell, conf=conf) as aha:
+                self.true(await stream.wait(timeout=6))
+                # And the URL works with our listener :)
+                provurl = await aha.addAhaUserEnroll('bob.grey')
+                async with await s_telepath.openurl(provurl) as prox:
+                    info = await prox.getUserInfo()
+                    self.eq(info.get('aha:user'), 'bob.grey')

@@ -18,10 +18,10 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-# This is the regular expression pattern for CPE2.2. It's kind of a hybrid
+# This is the regular expression pattern for CPE 2.2. It's kind of a hybrid
 # between compatible binding and preferred binding. Differences are here:
 # - Use only the list of percent encoded values specified by preferred binding.
-#   This is to ensure it converts properly to CPE2.3.
+#   This is to ensure it converts properly to CPE 2.3.
 # - Add tilde (~) to the UNRESERVED list which removes the need to specify the
 #   PACKED encoding specifically.
 ALPHA = '[A-Za-z]'
@@ -59,6 +59,14 @@ COMPONENT_LIST = f'''
 
 cpe22_regex = regex.compile(f'cpe:/{COMPONENT_LIST}', regex.VERBOSE | regex.IGNORECASE)
 cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
+
+def isValidCpe22(text):
+    rgx = cpe22_regex.fullmatch(text)
+    return rgx is not None
+
+def isValidCpe23(text):
+    rgx = cpe23_regex.fullmatch(text)
+    return rgx is not None
 
 def cpesplit(text):
     part = ''
@@ -199,7 +207,6 @@ URI_PERCENT_CHARS = [
 ]
 
 def uri_quote(text):
-    ret = ''
     for (pct, char) in URI_PERCENT_CHARS:
         text = text.replace(char, pct)
     return text
@@ -252,9 +259,20 @@ class Cpe22Str(s_types.Str):
     def _normPyStr(self, valu):
 
         text = valu.lower()
+
         if text.startswith('cpe:/'):
+
+            if not isValidCpe22(text):
+                mesg = 'CPE 2.2 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
             parts = chopCpe22(text)
         elif text.startswith('cpe:2.3:'):
+
+            if not isValidCpe23(text):
+                mesg = 'CPE 2.3 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
             parts = cpesplit(text[8:])
         else:
             mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
@@ -262,8 +280,7 @@ class Cpe22Str(s_types.Str):
 
         v2_2 = zipCpe22(parts)
 
-        rgx = cpe22_regex.match(v2_2)
-        if rgx is None or rgx.group() != v2_2:
+        if not isValidCpe22(v2_2): # pragma: no cover
             mesg = 'CPE 2.2 string appears to be invalid.'
             raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
 
@@ -331,6 +348,12 @@ class Cpe23Str(s_types.Str):
     def _normPyStr(self, valu):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
+
+            # Validate the CPE 2.3 string immediately
+            if not isValidCpe23(text):
+                mesg = 'CPE 2.3 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
             parts = cpesplit(text[8:])
             if len(parts) > 11:
                 mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
@@ -347,6 +370,10 @@ class Cpe23Str(s_types.Str):
                     v2_2[idx] = ''
                     continue
 
+                if idx in (PART_IDX_PART, PART_IDX_LANG) and part == '-':
+                    v2_2[idx] = ''
+                    continue
+
                 part = fsb_unescape(part)
                 v2_2[idx] = uri_quote(part)
 
@@ -358,11 +385,21 @@ class Cpe23Str(s_types.Str):
                 v2_2[PART_IDX_OTHER]
             )
 
-            v2_2 = v2_2[:7]
+            v2_2 = zipCpe22(v2_2[:7])
+
+            # Now validate the downconvert
+            if not isValidCpe22(v2_2): # pragma: no cover
+                mesg = 'Invalid CPE 2.3 to CPE 2.2 conversion.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_2=v2_2)
 
             parts = [fsb_unescape(k) for k in parts]
 
         elif text.startswith('cpe:/'):
+
+            # Validate the CPE 2.2 string immediately
+            if not isValidCpe22(text):
+                mesg = 'CPE 2.2 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
 
             v2_2 = text
             # automatically normalize CPE 2.2 format to CPE 2.3
@@ -409,23 +446,14 @@ class Cpe23Str(s_types.Str):
 
             v2_3 = 'cpe:2.3:' + ':'.join(escaped)
 
+            # Now validate the upconvert
+            if not isValidCpe23(v2_3): # pragma: no cover
+                mesg = 'Invalid CPE 2.2 to CPE 2.3 conversion.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_3=v2_3)
+
         else:
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
-
-        rgx = cpe23_regex.match(v2_3)
-        if rgx is None or rgx.group() != v2_3:
-            mesg = 'CPE 2.3 string appears to be invalid.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
-
-        if isinstance(v2_2, list):
-            cpe22 = zipCpe22(v2_2)
-        else:
-            cpe22 = v2_2
-
-        rgx = cpe22_regex.match(cpe22)
-        if rgx is None or rgx.group() != cpe22:
-            v2_2 = None
 
         subs = {
             'part': parts[PART_IDX_PART],
@@ -439,10 +467,8 @@ class Cpe23Str(s_types.Str):
             'target_sw': parts[PART_IDX_TARGET_SW],
             'target_hw': parts[PART_IDX_TARGET_HW],
             'other': parts[PART_IDX_OTHER],
+            'v2_2': v2_2,
         }
-
-        if v2_2 is not None:
-            subs['v2_2'] = v2_2
 
         return v2_3, {'subs': subs}
 
@@ -757,30 +783,37 @@ class ItModule(s_module.CoreModule):
                     'doc': 'A developer selected label.',
                 }),
                 ('it:dev:repo', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A version control system instance.',
                 }),
                 ('it:dev:repo:remote', ('guid', {}), {
                     'doc': 'A remote repo that is tracked for changes/branches/etc.',
                 }),
                 ('it:dev:repo:branch', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A branch in a version control system instance.',
                 }),
                 ('it:dev:repo:commit', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A commit to a repository.',
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
                     'doc': 'A diff of a file being applied in a single commit.',
                 }),
                 ('it:dev:repo:issue:label', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'An issue raised in a repository.',
                 }),
                 ('it:dev:repo:issue:comment', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A comment on an issue in a repository.',
                 }),
                 ('it:dev:repo:diff:comment', ('guid', {}), {
+                    'interfaces': ('inet:service:object',),
                     'doc': 'A comment on a diff in a repository.',
                 }),
                 ('it:prod:soft', ('guid', {}), {
@@ -983,6 +1016,9 @@ class ItModule(s_module.CoreModule):
                 ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
                     'doc': 'A YARA rule match to a file.',
                 }),
+                ('it:app:yara:netmatch', ('guid', {}), {
+                    'doc': 'An instance of a YARA rule network hunting match.',
+                }),
                 ('it:app:yara:procmatch', ('guid', {}), {
                     'doc': 'An instance of a YARA rule match to a process.',
                 }),
@@ -1060,6 +1096,8 @@ class ItModule(s_module.CoreModule):
                     'doc': 'The snort rule is intended for use in detecting the target node.'}),
                 (('it:app:yara:rule', 'detects', None), {
                     'doc': 'The YARA rule is intended for use in detecting the target node.'}),
+                (('it:dev:repo', 'has', 'inet:url'), {
+                    'doc': 'The repo has content hosted at the URL.'}),
             ),
             'forms': (
                 ('it:hostname', {}, ()),
@@ -1797,21 +1835,22 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'A free-form description of the repository.',
-                    }),
+                        'doc': 'A free-form description of the repository.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'When the repository was created.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'A URL where the repository is hosted.',
-                    }),
+                        'doc': 'The URL where the repository is hosted.'}),
+
                     ('type', ('it:dev:repo:type:taxonomy', {}), {
                         'doc': 'The type of the version control system used.',
-                        'ex': 'svn'
-                    }),
+                        'ex': 'svn'}),
+
                     ('submodules', ('array', {'type': 'it:dev:repo:commit'}), {
-                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits.",
-                    }),
+                        'doc': "An array of other repos that this repo has as submodules, pinned at specific commits."}),
+
                 )),
 
                 ('it:dev:repo:remote', {}, (
@@ -1831,120 +1870,128 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:dev:repo:branch', {}, (
+
                     ('parent', ('it:dev:repo:branch', {}), {
-                        'doc': 'The branch this branch was branched from.',
-                    }),
+                        'doc': 'The branch this branch was branched from.'}),
+
                     ('start', ('it:dev:repo:commit', {}), {
-                        'doc': 'The commit in the parent branch this branch was created at.'
-                    }),
+                        'doc': 'The commit in the parent branch this branch was created at.'}),
+
                     ('name', ('str', {'strip': True}), {
-                        'doc': 'The name of the branch.',
-                    }),
+                        'doc': 'The name of the branch.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the branch is hosted.',
-                    }),
+                        'doc': 'The URL where the branch is hosted.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time this branch was created',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('merged', ('time', {}), {
-                        'doc': 'The time this branch was merged back into its parent.',
-                    }),
+                        'doc': 'The time this branch was merged back into its parent.'}),
+
                     ('deleted', ('time', {}), {
-                        'doc': 'The time this branch was deleted.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
                 )),
 
                 ('it:dev:repo:commit', {}, (
                     ('repo', ('it:dev:repo', {}), {
-                        'doc': 'The repository the commit lives in.',
-                    }),
+                        'doc': 'The repository the commit lives in.'}),
+
                     ('parents', ('array', {'type': 'it:dev:repo:commit'}), {
-                        'doc': 'The commit or commits this commit is immediately based on.',
-                    }),
+                        'doc': 'The commit or commits this commit is immediately based on.'}),
+
                     ('branch', ('it:dev:repo:branch', {}), {
-                        'doc': 'The name of the branch the commit was made to.',
-                    }),
+                        'doc': 'The name of the branch the commit was made to.'}),
+
                     ('mesg', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The commit message describing the changes in the commit.',
-                    }),
-                    ('id', ('str', {}), {
-                        'doc': 'The version control system specific commit identifier.',
-                    }),
+                        'doc': 'The commit message describing the changes in the commit.'}),
+
+                    # we mirror the interface type options...
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The version control system specific commit identifier.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the commit was made.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the commit is hosted.',
-                    }),
+                        'doc': 'The URL where the commit is hosted.'}),
                 )),
 
                 ('it:dev:repo:diff', {}, (
+
                     ('commit', ('it:dev:repo:commit', {}), {
-                        'doc': 'The commit that produced this diff.',
-                    }),
+                        'doc': 'The commit that produced this diff.'}),
+
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file after the commit has been applied',
-                    }),
+                        'doc': 'The file after the commit has been applied'}),
+
                     ('path', ('file:path', {}), {
-                        'doc': 'The path to the file in the repo that the diff is being applied to.',
-                    }),
+                        'doc': 'The path to the file in the repo that the diff is being applied to.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the diff is hosted.',
-                    }),
+                        'doc': 'The URL where the diff is hosted.'}),
                 )),
 
                 ('it:dev:repo:issue', {}, (
+
                     ('repo', ('it:dev:repo', {}), {
-                        'doc': 'The repo where the issue was logged.',
-                    }),
+                        'doc': 'The repo where the issue was logged.'}),
+
                     ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The title of the issue.'
-                    }),
+                        'doc': 'The title of the issue.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The text describing the issue.'
-                    }),
+                        'doc': 'The text describing the issue.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the issue was created.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('updated', ('time', {}), {
-                        'doc': 'The time the issue was updated.',
-                    }),
+                        'doc': 'The time the issue was updated.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the issue is hosted.',
-                    }),
+                        'doc': 'The URL where the issue is hosted.'}),
+
                     ('id', ('str', {'strip': True}), {
-                        'doc': 'The ID of the issue in the repository system.',
-                    }),
+                        'doc': 'The ID of the issue in the repository system.'}),
                 )),
 
                 ('it:dev:repo:label', {}, (
+
                     ('id', ('str', {'strip': True}), {
-                        'doc': 'The ID of the label.',
-                    }),
+                        'doc': 'The ID of the label.'}),
+
                     ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The human friendly name of the label.',
-                    }),
+                        'doc': 'The human friendly name of the label.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The description of the label.',
-                    }),
+                        'doc': 'The description of the label.'}),
+
                 )),
 
                 ('it:dev:repo:issue:label', {}, (
+
                     ('issue', ('it:dev:repo:issue', {}), {
-                        'doc': 'The issue the label was applied to.',
-                    }),
+                        'doc': 'The issue the label was applied to.'}),
+
                     ('label', ('it:dev:repo:label', {}), {
-                        'doc': 'The label that was applied to the issue.',
-                    }),
+                        'doc': 'The label that was applied to the issue.'}),
+
                     ('applied', ('time', {}), {
-                        'doc': 'The time the label was applied.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('removed', ('time', {}), {
-                        'doc': 'The time the label was removed.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                 )),
 
                 ('it:dev:repo:issue:comment', {}, (
@@ -1962,7 +2009,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL where the comment is hosted.',
                     }),
                     ('created', ('time', {}), {
-                        'doc': 'The time the comment was created.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.',
                     }),
                     ('updated', ('time', {}), {
                         'doc': 'The time the comment was updated.',
@@ -1970,31 +2018,33 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:dev:repo:diff:comment', {}, (
+
                     ('diff', ('it:dev:repo:diff', {}), {
-                        'doc': 'The diff the comment is being added to.',
-                    }),
+                        'doc': 'The diff the comment is being added to.'}),
+
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},
-                        'doc': 'The body of the comment.',
-                    }),
+                        'doc': 'The body of the comment.'}),
+
                     ('replyto', ('it:dev:repo:diff:comment', {}), {
-                        'doc': 'The comment that this comment is replying to.',
-                    }),
+                        'doc': 'The comment that this comment is replying to.'}),
+
                     ('line', ('int', {}), {
-                        'doc': 'The line in the file that is being commented on.',
-                    }),
+                        'doc': 'The line in the file that is being commented on.'}),
+
                     ('offset', ('int', {}), {
-                        'doc': 'The offset in the line in the file that is being commented on.',
-                    }),
+                        'doc': 'The offset in the line in the file that is being commented on.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The URL where the comment is hosted.',
-                    }),
+                        'doc': 'The URL where the comment is hosted.'}),
+
                     ('created', ('time', {}), {
-                        'doc': 'The time the comment was created.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :period.'}),
+
                     ('updated', ('time', {}), {
-                        'doc': 'The time the comment was updated.',
-                    }),
+                        'doc': 'The time the comment was updated.'}),
+
                 )),
 
                 ('it:prod:hardwaretype', {}, ()),
@@ -2687,15 +2737,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path for the file.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2733,15 +2780,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was created.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2767,15 +2811,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was deleted.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2801,15 +2842,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was read.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2835,15 +2873,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was written to/modified.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2979,6 +3014,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The sensor host node that produced the hit.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The version of the rule at the time of match.'}),
+
+                    ('dropped', ('bool', {}), {
+                        'doc': 'Set to true if the network traffic was dropped due to the match.'}),
                 )),
 
                 ('it:sec:stix:bundle', {}, (
@@ -2991,14 +3029,27 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The STIX id field from the indicator pattern.'}),
                     ('name', ('str', {}), {
                         'doc': 'The name of the STIX indicator pattern.'}),
+                    ('confidence', ('int', {'min': 0, 'max': 100}), {
+                        'doc': 'The confidence field from the STIX indicator.'}),
+                    ('revoked', ('bool', {}), {
+                        'doc': 'The revoked field from the STIX indicator.'}),
+                    ('description', ('str', {}), {
+                        'doc': 'The description field from the STIX indicator.'}),
                     ('pattern', ('str', {}), {
                         'doc': 'The STIX indicator pattern text.'}),
+                    ('pattern_type', ('str', {'strip': True, 'lower': True,
+                                              'enums': 'stix,pcre,sigma,snort,suricata,yara'}), {
+                        'doc': 'The STIX indicator pattern type.'}),
                     ('created', ('time', {}), {
                         'doc': 'The time that the indicator pattern was first created.'}),
                     ('updated', ('time', {}), {
                         'doc': 'The time that the indicator pattern was last modified.'}),
                     ('labels', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                         'doc': 'The label strings embedded in the STIX indicator pattern.'}),
+                    ('valid_from', ('time', {}), {
+                        'doc': 'The valid_from field from the STIX indicator.'}),
+                    ('valid_until', ('time', {}), {
+                        'doc': 'The valid_until field from the STIX indicator.'}),
                 )),
 
                 ('it:app:yara:rule', {}, (
@@ -3046,9 +3097,18 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The most recent version of the rule evaluated as a match.'}),
                 )),
 
+                ('it:app:yara:netmatch', {}, (
+                    ('rule', ('it:app:yara:rule', {}), {
+                        'doc': 'The YARA rule that triggered the match.'}),
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The most recent version of the rule evaluated as a match.'}),
+                    ('node', ('ndef', {'forms': ('inet:fqdn', 'inet:ipv4', 'inet:ipv6', 'inet:url')}), {
+                        'doc': 'The node which matched the rule.'}),
+                )),
+
                 ('it:app:yara:procmatch', {}, (
                     ('rule', ('it:app:yara:rule', {}), {
-                        'doc': 'The YARA rule that matched the file.'}),
+                        'doc': 'The YARA rule that matched the process.'}),
                     ('proc', ('it:exec:proc', {}), {
                         'doc': 'The process that matched the YARA rule.'}),
                     ('time', ('time', {}), {

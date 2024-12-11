@@ -1,3 +1,4 @@
+import sys
 import asyncio
 import decimal
 import logging
@@ -77,6 +78,14 @@ class Type:
         self.deprecated = bool(self.info.get('deprecated', False))
 
         self.postTypeInit()
+
+        normopts = dict(self.opts)
+        for optn, valu in normopts.items():
+            if isinstance(valu, float):
+                normopts[optn] = str(valu)
+
+        ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
+        self.typehash = sys.intern(s_common.guid((ctor, s_common.flatten(normopts))))
 
     def _storLiftSafe(self, cmpr, valu):
         try:
@@ -358,6 +367,13 @@ class Type:
         topt = self.opts.copy()
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
+
+    def __eq__(self, othr):
+        if self.name != othr.name:
+            return False
+        if self.opts != othr.opts:
+            return False
+        return True
 
 class Bool(Type):
 
@@ -1886,6 +1902,12 @@ class Tag(Str):
         if not s_grammar.tagre.fullmatch(norm):
             mesg = f'Tag does not match tagre: [{s_grammar.tagre.pattern}]'
             raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
+
+        core = self.modl.core
+        if core is not None:
+            (ok, mesg) = core.isTagValid(norm)
+            if not ok:
+                raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
 
         return norm, {'subs': subs, 'toks': toks}
 

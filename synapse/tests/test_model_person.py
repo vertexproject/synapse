@@ -165,6 +165,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :birth:place:name=$p."birth:place:name"
                     :death:place=$p."death:place" :death:place:loc=$p."death:place:loc"
                     :death:place:name=$p."death:place:name"
+                    :service:accounts=(*, *)
                         )]'''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -208,6 +209,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('death:place:name'), 'reston, va, usa, earth, sol, milkyway')
             self.len(1, await core.nodes('ps:contact :birth:place -> geo:place'))
             self.len(1, await core.nodes('ps:contact :death:place -> geo:place'))
+            self.len(2, await core.nodes('ps:contact :service:accounts -> inet:service:account'))
 
             nodes = await core.nodes('''[
                 ps:achievement=*
@@ -276,12 +278,14 @@ class PsModelTest(s_t_utils.SynTest):
                     :source:host=*
                     :source:file=*
                     :source:acct=(twitter.com, invisig0th)
+                    :source:account=(twitter.com, invisig0th)
             ]''')
             self.len(1, nodes)
             self.len(1, await core.nodes('ps:contactlist -> it:host'))
             self.len(1, await core.nodes('ps:contactlist -> file:bytes'))
             self.len(2, await core.nodes('ps:contactlist -> ps:contact'))
             self.len(1, await core.nodes('ps:contactlist -> inet:web:acct'))
+            self.len(1, await core.nodes('ps:contactlist -> inet:service:account'))
 
             nodes = await core.nodes('''[
                 ps:workhist = *

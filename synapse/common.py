@@ -2,6 +2,7 @@ import io
 import os
 import ssl
 import sys
+import enum
 import json
 import http
 import stat
@@ -36,7 +37,7 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
-import enum
+import synapse.vendor.cpython.lib.ipaddress as ipaddress
 
 try:
     from yaml import CSafeLoader as Loader
@@ -1367,3 +1368,12 @@ def _timeout(delay):
     """
     loop = asyncio.get_running_loop()
     return _Timeout(loop.time() + delay if delay is not None else None)
+
+def format(text, **kwargs):
+    '''
+    Similar to python str.format() but treats tokens as opaque.
+    '''
+    for name, valu in kwargs.items():
+        tokn = '{' + name + '}'
+        text = text.replace(tokn, valu)
+    return text

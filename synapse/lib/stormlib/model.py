@@ -2,10 +2,10 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.node as s_node
+import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
+import synapse.lib.layer as s_layer
 import synapse.lib.stormtypes as s_stormtypes
-
-import synapse.models.infotech as s_infotech
 
 RISK_HASVULN_VULNPROPS = (
     'hardware',
@@ -497,6 +497,7 @@ class ModelType(s_stormtypes.Prim):
     _storm_locals = (
         {'name': 'name', 'desc': 'The name of the Type.', 'type': 'str', },
         {'name': 'stortype', 'desc': 'The storetype of the Type.', 'type': 'int', },
+        {'name': 'opts', 'desc': 'The options for the Type.', 'type': 'dict', },
         {'name': 'repr', 'desc': 'Get the repr of a value for the Type.',
          'type': {'type': 'function', '_funcname': '_methRepr',
                   'args': (
@@ -516,6 +517,7 @@ class ModelType(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.locls.update(self.getObjLocals())
         self.locls.update({'name': valu.name,
+                           'opts': valu.opts,
                            'stortype': valu.stortype,
                            })
 
@@ -540,7 +542,7 @@ class ModelType(s_stormtypes.Prim):
 @s_stormtypes.registry.registerLib
 class LibModelEdge(s_stormtypes.Lib):
     '''
-    A Storm Library for interacting with light edges and manipulating their key-value attributes.
+    A Storm Library for interacting with light edges and manipulating their key-value attributes. This Library is deprecated.
     '''
     _storm_locals = (
         {'name': 'get', 'desc': 'Get the key-value data for a given Edge verb.',
@@ -585,6 +587,7 @@ class LibModelEdge(s_stormtypes.Lib):
     hivepath = ('cortex', 'model', 'edges')
 
     _storm_lib_path = ('model', 'edge')
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
 
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name)
@@ -756,6 +759,16 @@ class MigrationEditorMixin:
                 if overwrite or not proto.hasTagProp(tagname, propname):
                     await proto.setTagProp(tagname, propname, valu) # use tag perms
 
+    async def copyExtProps(self, src, proto):
+
+        form = src.form
+
+        for name, valu in src.props.items():
+            prop = form.props.get(name)
+            if not prop.isext:
+                continue
+
+            await proto.set(name, valu)
 
 @s_stormtypes.registry.registerLib
 class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
@@ -788,6 +801,13 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Copy tag property value even if the property exists on the destination node.', },
                   ),
                   'returns': {'type': 'null', }}},
+        {'name': 'copyExtProps', 'desc': 'Copy extended properties from the src node to the dst node.',
+         'type': {'type': 'function', '_funcname': '_methCopyExtProps',
+                  'args': (
+                      {'name': 'src', 'type': 'node', 'desc': 'The node to copy extended props from.', },
+                      {'name': 'dst', 'type': 'node', 'desc': 'The node to copy extended props to.', },
+                  ),
+                  'returns': {'type': 'null', }}},
     )
     _storm_lib_path = ('model', 'migration')
 
@@ -796,6 +816,7 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             'copyData': self._methCopyData,
             'copyEdges': self._methCopyEdges,
             'copyTags': self._methCopyTags,
+            'copyExtProps': self._methCopyExtProps,
         }
 
     async def _methCopyData(self, src, dst, overwrite=False):
@@ -839,65 +860,25 @@ class LibModelMigration(s_stormtypes.Lib, MigrationEditorMixin):
             proto = editor.loadNode(dst)
             await self.copyTags(src, proto, overwrite=overwrite)
 
+    async def _methCopyExtProps(self, src, dst):
+
+        if not isinstance(src, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyExtProps() source argument must be a node.')
+        if not isinstance(dst, s_node.Node):
+            raise s_exc.BadArg(mesg='$lib.model.migration.copyExtProps() dest argument must be a node.')
+
+        snap = self.runt.snap
+
+        async with snap.getEditor() as editor:
+            proto = editor.loadNode(dst)
+            await self.copyExtProps(src, proto)
+
 @s_stormtypes.registry.registerLib
 class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
     '''
     A Storm library for selectively migrating nodes in the current view.
     '''
     _storm_locals = (
-        {'name': 'itSecCpe_2_170_0',
-         'desc': '''
-            Versions of Synapse prior to v2.169.0 did not correctly parse and
-            convert CPE strings from 2.2 -> 2.3 or 2.3 -> 2.2. This migration
-            attempts to re-normalize `it:sec:cpe` nodes that may be fixable.
-
-            NOTE: It is highly recommended to test the `it:sec:cpe` migrations
-            in a fork first and confirm the migration was successful without any
-            issues. Then run the migration in view deporder to migrate the
-            entire cortex. E.g.::
-
-                for $view in $lib.view.list(deporder=$lib.true) {
-                    view.exec $view.iden {
-                        for $n in $lib.layer.get().liftByProp(it:sec:cpe) {
-                            $lib.model.migration.s.itSecCpe_2_170_0($n)
-                        }
-                    }
-                }
-
-            Upon completion of the migration, nodedata will contain a
-            `migration.s.itSecCpe_2_170_0` dict with information about the
-            migration status. This dict may contain the following:
-
-                - `status`: (required str) "success" or "failed"
-                - `reason`: (optional str) if "status" is "failed", this key will
-                  explain why the migration failed.
-                - `valu`: (optional str) if this key is present, it will contain
-                  an updated CPE2.3 string since the primary property cannot be
-                  changed.
-                - `updated`: (optional list[str]) A list of properties that were
-                  updated by the migration.
-
-            Failed or incorrect migrations may be helped by updating the :v2_2
-            property to be a valid CPE2.2 string and then re-running the
-            migration with `force=$lib.true`. If the primary property (CPE2.3)
-            is valid but incorrect, users may update the :v2_2 property and then
-            run the migration with `prefer_v22=$lib.true` to make the migration
-            use the `:v2_2` string instead of the primary property for the
-            migration process.
-         ''',
-         'type': {'type': 'function', '_funcname': '_itSecCpe_2_170_0',
-                  'args': (
-                      {'name': 'n', 'type': 'node', 'desc': 'The it:sec:cpe node to migrate.'},
-                      {'name': 'prefer_v22', 'type': 'bool', 'default': False,
-                       'desc': '''
-                        Try to renormalize using the :v2_2 prop instead of the
-                        primary property. This can be especially useful when the
-                        primary property is a valid but incorrect CPE string.
-                        '''},
-                      {'name': 'force', 'type': 'bool', 'default': False,
-                       'desc': 'Perform fixups even if the primary property and :v2_2 are valid.'},
-                  ),
-                  'returns': {'type': 'boolean', 'desc': 'Boolean indicating if the migration was successful.'}}},
         {'name': 'riskHasVulnToVulnerable', 'desc': '''
             Create a risk:vulnerable node from the provided risk:hasvuln node.
 
@@ -935,6 +916,21 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                        'desc': 'Do not copy nodedata to the inet:tls:servercert node.'},
                  ),
                  'returns': {'type': 'node', 'desc': 'The newly created inet:tls:servercert node.'}}},
+        {'name': 'inetServiceMessageClientAddress', 'desc': '''
+            Migrate the :client:address property to :client on inet:service:message nodes.
+
+            Edits will be made to the inet:service:message node in the current write layer.
+
+            If the :client:address property is set and the :client property is not set,
+            the :client property will be set with the :client:address value. If both
+            properties are set, the value will be moved into nodedata under the key
+            'migration:inet:service:message:address'.
+        ''',
+        'type': {'type': 'function', '_funcname': '_storm_query',
+                 'args': (
+                      {'name': 'n', 'type': 'node', 'desc': 'The inet:sevice:message node to migrate.'},
+                 ),
+                 'returns': {'type': 'null'}}},
 
     )
     _storm_lib_path = ('model', 'migration', 's')
@@ -975,139 +971,34 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
 
             return($node)
         }
+
+        function inetServiceMessageClientAddress(n) {
+            $form = $n.form()
+            if ($form != 'inet:service:message') {
+                $mesg = `$lib.model.migration.s.inetServiceMessageClientAddress() only accepts inet:service:message nodes, not {$form}`
+                $lib.raise(BadArg, $mesg)
+            }
+
+            if (not $n.props.'client:address') { return() }
+
+            yield $n
+
+            if :client {
+                $node.data.set(migration:inet:service:message:client:address, :client:address)
+            } else {
+                [ :client = :client:address ]
+            }
+
+            [ -:client:address ]
+
+            return()
+        }
     '''
 
     def getObjLocals(self):
         return {
-            'itSecCpe_2_170_0': self._itSecCpe_2_170_0,
             'riskHasVulnToVulnerable': self._riskHasVulnToVulnerable,
         }
-
-    async def _itSecCpe_2_170_0(self, n, prefer_v22=False, force=False):
-
-        if not isinstance(n, s_node.Node):
-            raise s_exc.BadArg(mesg='$lib.model.migration.s.itSecCpe_2_170_0() argument must be a node.')
-
-        if n.form.name != 'it:sec:cpe':
-            raise s_exc.BadArg(f'itSecCpeFix only accepts it:sec:cpe nodes, not {n.form.name}')
-
-        prefer_v22 = await s_stormtypes.tobool(prefer_v22)
-        force = await s_stormtypes.tobool(force)
-
-        layr = self.runt.snap.wlyr
-        # We only need to check :v2_2 since that's the only property that's
-        # writable. Everthing else is readonly. And we can do it here once
-        # instead of in the loop below which will cause a perf hit.
-        self.runt.confirmPropSet(n.form.prop('v2_2'), layriden=layr.iden)
-
-        curv = n.repr()
-        reprvalu = f'it:sec:cpe={curv}'
-
-        nodedata = await n.getData('migration.s.itSecCpe_2_170_0', {})
-        if nodedata.get('status') == 'success' and not force:
-            if self.runt.debug:
-                mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node already migrated.'
-                await self.runt.printf(mesg)
-            return True
-
-        modl = self.runt.model.type('it:sec:cpe')
-
-        valu23 = None
-        valu22 = None
-        invalid = ''
-
-        # Check the primary property for validity.
-        cpe23 = s_infotech.cpe23_regex.match(curv)
-        if cpe23 is not None and cpe23.group() == curv:
-            valu23 = curv
-
-        # Check the v2_2 property for validity.
-        v2_2 = n.props.get('v2_2')
-        if v2_2 is not None:
-            rgx = s_infotech.cpe22_regex.match(v2_2)
-            if rgx is not None and rgx.group() == v2_2:
-                valu22 = v2_2
-
-        async with self.runt.snap.getNodeEditor(n) as proto:
-
-            # If both values are populated, this node is valid
-            if valu23 is not None and valu22 is not None and not force:
-                if self.runt.debug:
-                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Node is valid, no migration necessary.'
-                    await self.runt.printf(mesg)
-
-                await proto.setData('migration.s.itSecCpe_2_170_0', {
-                    'status': 'success',
-                })
-
-                return True
-
-            if valu23 is None and valu22 is None:
-                reason = 'Unable to migrate due to invalid data. Primary property and :v2_2 are both invalid.'
-                # Invalid 2.3 string and no/invalid v2_2 prop. Nothing
-                # we can do here so log, mark, and go around.
-                mesg = f'itSecCpe_2_170_0({reprvalu}): {reason}'
-                await self.runt.warn(mesg)
-
-                await proto.setData('migration.s.itSecCpe_2_170_0', {
-                    'status': 'failed',
-                    'reason': reason,
-                })
-
-                return False
-
-            if prefer_v22:
-                valu = valu22 or valu23
-            else:
-                valu = valu23 or valu22
-
-            # Re-normalize the data from the 2.3 or 2.2 string, whichever was valid.
-            norm, info = modl.norm(valu)
-            subs = info.get('subs')
-
-            edits = []
-            nodedata = {'status': 'success'}
-
-            if norm != curv:
-                # The re-normed value is not the same as the current value.
-                # Since we can't change the primary property, store the
-                # updated value in nodedata.
-                if self.runt.debug:
-                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Stored updated primary property value to nodedata: {curv} -> {norm}.'
-                    await self.runt.printf(mesg)
-
-                nodedata['valu'] = norm
-
-            # Iterate over the existing properties
-            for propname, propcurv in n.props.items():
-                subscurv = subs.get(propname)
-                if subscurv is None:
-                    continue
-
-                if propname == 'v2_2' and isinstance(subscurv, list):
-                    subscurv = s_infotech.zipCpe22(subscurv)
-
-                # Values are the same, go around
-                if propcurv == subscurv:
-                    continue
-
-                nodedata.setdefault('updated', [])
-                nodedata['updated'].append(propname)
-
-                # Update the existing property with the re-normalized property value.
-                await proto.set(propname, subscurv, ignore_ro=True)
-
-            await proto.setData('migration.s.itSecCpe_2_170_0', nodedata)
-
-            if self.runt.debug:
-                if nodedata.get('updated'):
-                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): Updated properties: {", ".join(nodedata["updated"])}.'
-                    await self.runt.printf(mesg)
-                else:
-                    mesg = f'DEBUG: itSecCpe_2_170_0({reprvalu}): No property updates required.'
-                    await self.runt.printf(mesg)
-
-            return True
 
     async def _riskHasVulnToVulnerable(self, n, nodata=False):
 
@@ -1166,3 +1057,322 @@ class LibModelMigrations(s_stormtypes.Lib, MigrationEditorMixin):
                     await self.copyData(n, proto, overwrite=False)
 
         return retidens
+
+@s_stormtypes.registry.registerLib
+class LibModelMigrations_0_2_31(s_stormtypes.Lib):
+    '''
+    A Storm library with helper functions for the 0.2.31 model it:sec:cpe migration.
+    '''
+    _storm_locals = (
+        {'name': 'listNodes', 'desc': 'Yield queued nodes.',
+         'type': {'type': 'function', '_funcname': '_methListNodes',
+                  'args': (
+                      {'name': 'form', 'type': 'form', 'default': None,
+                       'desc': 'Only yield entries matching the specified form.'},
+                      {'name': 'source', 'type': 'str', 'default': None,
+                       'desc': 'Only yield entries that were seen by the specified source.'},
+                      {'name': 'offset', 'type': 'int', 'default': 0,
+                       'desc': 'Skip this many entries.'},
+                      {'name': 'size', 'type': 'int', 'default': None,
+                       'desc': 'Only yield up to this many entries.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'list',
+                              'desc': 'A tuple of (offset, form, valu, sources) values for the specified node.', }}},
+        {'name': 'printNode', 'desc': 'Print detailed queued node information.',
+         'type': {'type': 'function', '_funcname': '_methPrintNode',
+                  'args': (
+                      {'name': 'offset', 'type': 'into', 'desc': 'The offset of the queued node to print.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'repairNode', 'desc': 'Repair a queued node.',
+         'type': {'type': 'function', '_funcname': '_methRepairNode',
+                  'args': (
+                      {'name': 'offset', 'type': 'str', 'desc': 'The node queue offset to repair.'},
+                      {'name': 'newvalu', 'type': 'any', 'desc': 'The new (corrected) node value.'},
+                      {'name': 'remove', 'type': 'boolean', 'default': False,
+                       'desc': 'Specify whether to delete the repaired node from the queue.'},
+                  ),
+                  'returns': {'type': 'dict', 'desc': 'The queue node information'}}},
+    )
+    _storm_lib_path = ('model', 'migration', 's', 'model_0_2_31')
+
+    def getObjLocals(self):
+        return {
+            'listNodes': self._methListNodes,
+            'printNode': self._methPrintNode,
+            'repairNode': self._methRepairNode,
+        }
+
+    async def _hasCoreQueue(self, name):
+        try:
+            await self.runt.snap.core.getCoreQueue(name)
+            return True
+        except s_exc.NoSuchName:
+            return False
+
+    async def _methListNodes(self, form=None, source=None, offset=0, size=None):
+        form = await s_stormtypes.tostr(form, noneok=True)
+        source = await s_stormtypes.tostr(source, noneok=True)
+        offset = await s_stormtypes.toint(offset)
+        size = await s_stormtypes.toint(size, noneok=True)
+
+        if not await self._hasCoreQueue('model_0_2_31:nodes'):
+            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to list.')
+            return
+
+        nodes = self.runt.snap.core.coreQueueGets('model_0_2_31:nodes', offs=offset, cull=False, size=size)
+        async for offs, node in nodes:
+            if form is not None and node['formname'] != form:
+                continue
+
+            if source is not None and source not in node['sources']:
+                continue
+
+            yield (offs, node['formname'], node['formvalu'], node['sources'])
+
+    async def _methPrintNode(self, offset):
+        offset = await s_stormtypes.toint(offset)
+
+        if not await self._hasCoreQueue('model_0_2_31:nodes'):
+            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to print.')
+            return
+
+        node = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes', offs=offset, cull=False)
+        if not node:
+            await self.runt.warn(f'Queued node with offset {offset} not found.')
+            return
+
+        node = node[1]
+
+        await self.runt.printf(f'{node["formname"]}={repr(node["formvalu"])}')
+
+        for layriden, sode in node['sodes'].items():
+            await self.runt.printf(f'  layer: {layriden}')
+
+            for propname, propvalu in sode.get('props', {}).items():
+                if propname == '.seen':
+                    mintime, maxtime = propvalu[0]
+                    mindt = s_time.repr(mintime)
+                    maxdt = s_time.repr(maxtime)
+                    await self.runt.printf(f'    .seen = ({mindt}, {maxdt})')
+                else:
+                    await self.runt.printf(f'    :{propname} = {propvalu[0]}')
+
+            for tagname, tagvalu in sode.get('tags', {}).items():
+                if tagvalu == (None, None):
+                    await self.runt.printf(f'    #{tagname}')
+                else:
+                    mintime, maxtime = tagvalu
+                    mindt = s_time.repr(mintime)
+                    maxdt = s_time.repr(maxtime)
+                    await self.runt.printf(f'    #{tagname} = ({mindt}, {maxdt})')
+
+            for tagprop, tagpropvalu in sode.get('tagprops', {}).items():
+                for prop, valu in tagpropvalu.items():
+                    await self.runt.printf(f'    #{tagprop}:{prop} = {valu[0]}')
+
+        if sources := node['sources']:
+            await self.runt.printf(f'  sources: {sorted(sources)}')
+
+        if noderefs := node['refs']:
+            await self.runt.printf('  refs:')
+
+            for layriden, reflist in noderefs.items():
+                await self.runt.printf(f'    layer: {layriden}')
+                for iden, refinfo in reflist:
+                    form, prop, *_ = refinfo
+                    await self.runt.printf(f'      - {form}:{prop} (iden: {iden}')
+
+        n1edges = node['n1edges']
+        n2edges = node['n2edges']
+
+        if n1edges or n2edges:
+            await self.runt.printf('  edges:')
+
+        for layriden, edges in n1edges.items():
+            for verb, iden in edges:
+                await self.runt.printf(f'    -({verb})> {iden}')
+
+        for layriden, edges in n2edges.items():
+            for verb, iden, n2form in edges:
+                await self.runt.printf(f'    <({verb})- {iden}')
+
+    async def _repairNode(self, offset, newvalu):
+        item = await self.runt.snap.core.coreQueueGet('model_0_2_31:nodes', offset, cull=False)
+        if item is None:
+            await self.runt.warn(f'Queued node with offset {offset} not found.')
+            return False
+
+        node = item[1]
+
+        nodeform = node['formname']
+        form = self.runt.snap.core.model.form(nodeform)
+
+        norm, info = form.type.norm(newvalu)
+
+        buid = s_common.buid((nodeform, norm))
+
+        nodeedits = {}
+
+        for layriden in node['layers']:
+            nodeedits.setdefault(layriden, {})
+
+            layer = self.runt.snap.core.getLayer(layriden)
+            if layer is None: # pragma: no cover
+                await self.runt.warn(f'Layer does not exist to recreate node: {layriden}.')
+                return False
+
+        await self.runt.printf(f'Repairing node at offset {offset} from {node["formvalu"]} -> {norm}')
+
+        # Create the node in the right layers
+        for layriden in node['layers']:
+            nodeedits[layriden][buid] = (
+                buid, nodeform, [
+                (s_layer.EDIT_NODE_ADD, (norm, form.type.stortype), ()),
+            ])
+
+            for propname, propvalu in info.get('subs', {}).items():
+                prop = form.prop(propname)
+                if prop is None:
+                    continue
+
+                stortype = prop.type.stortype
+
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_PROP_SET, (propname, propvalu, None, stortype), ()),
+                )
+
+        for layriden, sode in node['sodes'].items():
+            nodeedits.setdefault(layriden, {})
+            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
+
+            for propname, propvalu in sode.get('props', {}).items():
+                propvalu, stortype = propvalu
+
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_PROP_SET, (propname, propvalu, None, stortype), ()),
+                )
+
+            for tagname, tagvalu in sode.get('tags', {}).items():
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_TAG_SET, (tagname, tagvalu, None), ()),
+                )
+
+            for tagprop, tagpropvalu in sode.get('tagprops', {}).items():
+                for propname, propvalu in tagpropvalu.items():
+                    propvalu, stortype = propvalu
+                    nodeedits[layriden][buid][2].append(
+                        (s_layer.EDIT_TAGPROP_SET, (tagname, propname, propvalu, None, stortype), ()),
+                    )
+
+        for layriden, data in node['nodedata'].items():
+            nodeedits.setdefault(layriden, {})
+            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
+
+            for name, valu in data:
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_NODEDATA_SET, (name, valu, None), ()),
+                )
+
+        for layriden, edges in node['n1edges'].items():
+            nodeedits.setdefault(layriden, {})
+            nodeedits[layriden].setdefault(buid, (buid, nodeform, []))
+
+            for verb, iden in edges:
+                nodeedits[layriden][buid][2].append(
+                    (s_layer.EDIT_EDGE_ADD, (verb, iden), ()),
+                )
+
+        for layriden, edges in node['n2edges'].items():
+            n1iden = s_common.ehex(buid)
+
+            for verb, iden, n2form in edges:
+                n2buid = s_common.uhex(iden)
+
+                nodeedits.setdefault(layriden, {})
+                nodeedits[layriden].setdefault(n2buid, (n2buid, n2form, []))
+
+                nodeedits[layriden][n2buid][2].append(
+                    (s_layer.EDIT_EDGE_ADD, (verb, n1iden), ()),
+                )
+
+        for layriden, reflist in node['refs'].items():
+            layer = self.runt.snap.core.getLayer(layriden)
+            if layer is None:
+                continue
+
+            for iden, refinfo in reflist:
+                refform, refprop, reftype, isarray, isro = refinfo
+
+                if isro:
+                    continue
+
+                refbuid = s_common.uhex(iden)
+
+                nodeedits.setdefault(layriden, {})
+                nodeedits[layriden].setdefault(refbuid, (refbuid, refform, []))
+
+                if reftype == 'ndef':
+                    propvalu = (nodeform, norm)
+                else:
+                    propvalu = norm
+
+                stortype = self.runt.snap.core.model.type(reftype).stortype
+
+                if isarray:
+
+                    sode = await layer.getStorNode(refbuid)
+                    if not sode:
+                        continue
+
+                    props = sode.get('props', {})
+
+                    curv, _ = props.get(refprop, (None, None))
+                    _curv = curv
+
+                    if _curv is None:
+                        _curv = []
+
+                    newv = list(_curv).copy()
+                    newv.append(propvalu)
+
+                    nodeedits[layriden][refbuid][2].append(
+                        (s_layer.EDIT_PROP_SET, (refprop, newv, curv, stortype | s_layer.STOR_FLAG_ARRAY), ()),
+                    )
+
+                else:
+
+                    nodeedits[layriden][refbuid][2].append(
+                        (s_layer.EDIT_PROP_SET, (refprop, propvalu, None, stortype), ()),
+                    )
+
+        meta = {'time': s_common.now(), 'user': self.runt.snap.core.auth.rootuser.iden}
+
+        # Process all layer edits as a single batch
+        for layriden, edits in nodeedits.items():
+            layer = self.runt.snap.core.getLayer(layriden)
+            if layer is None: # pragma: no cover
+                continue
+
+            await layer.storNodeEditsNoLift(list(edits.values()), meta)
+
+        return True
+
+    async def _methRepairNode(self, offset, newvalu, remove=False):
+        ok = False
+
+        if not await self._hasCoreQueue('model_0_2_31:nodes'):
+            await self.runt.printf('Queue model_0_2_31:nodes not found, no nodes to repair.')
+            return False
+
+        try:
+            ok = await self._repairNode(offset, newvalu)
+        except s_exc.SynErr as exc: # pragma: no cover
+            mesg = exc.get('mesg')
+            await self.runt.warn(f'Error when restoring node {offset}: {mesg}')
+
+        if ok and remove:
+            await self.runt.printf(f'Removing queued node: {offset}.')
+            await self.runt.snap.core.coreQueuePop('model_0_2_31:nodes', offset)
+
+        return ok

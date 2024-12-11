@@ -1,4 +1,3 @@
-import json
 import asyncio
 import hashlib
 import datetime
@@ -9,8 +8,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-import synapse.lib.hive as s_hive
-import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.tools.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
@@ -401,9 +398,7 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
                 core.stormlog = False
 
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 msgs = [m for m in msgs if m['text'] == '$lib.queue.gen(visi).put(bar)']
                 self.gt(len(msgs), 0)
                 for m in msgs:
@@ -431,6 +426,19 @@ class AgendaTest(s_t_utils.SynTest):
                     await core.nexsroot.waitOffs(strt + 4)
 
                     self.eq(2, appt.startcount)
+
+                # Can't use an existing authgate iden
+                viewiden = core.getView().iden
+                cdef = {'creator': core.auth.rootuser.iden,
+                        'storm': '[test:str=bar]',
+                        'reqs': {'hour': 10},
+                        'incunit': 'dayofweek',
+                        'incvals': (2, 4),
+                        'iden': viewiden}
+                await self.asyncraises(s_exc.DupIden, core.addCronJob(cdef))
+                await core.delCronJob(viewiden)
+
+                self.nn(core.getAuthGate(viewiden))
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''

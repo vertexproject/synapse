@@ -356,18 +356,27 @@ to perform a set of Storm operations in the case where none of the explicitly de
 
 **Syntax:**
 
-:: 
-  
+::
+
   <inbound nodes>
-  
+
   switch <constant> {
-    
+
     <case1>: { <storm> }
     <case2>: { <storm> }
     <case3>: { <storm> }
+    (<case4>, <case5>): { <storm> }
     *: { <storm for optional default case> }
   }
 
+Switch statements can match either a single value or multiple values to a query. To specify multiple values, enclose all
+of the values in parentheses. An example of matching multiple values is shown below and the general syntax can be seen
+above.
+
+.. NOTE::
+
+  The default case is optional but if one is specified, there can only be one. Specifying multiple default cases will
+  raise a syntax error. Additionally, the default case cannot be specified within a multi-value switch case.
 
 **Example:**
 
@@ -381,21 +390,17 @@ the node's form).
 :: 
 
   <inbound nodes>
-  
+
   switch $node.form() {
-  
-      "hash:md5": { | malware.service }
-      
-      "hash:sha1": { | malware.service }
-      
-      "hash:sha256": { | malware.service }
-      
+
+      ("hash:md5", "hash:sha1", "hash:sha256"): { | malware.service }
+
       "inet:fqdn": { | pdns.service | whois.service }
-      
+
       "inet:ipv4": { | pdns.service }
-      
+
       "inet:email": { | whois.service }
-      
+
       *: { $lib.print("{form} is not supported.", form=$node.form()) }
   }
 
@@ -413,7 +418,7 @@ The default case above is not strictly necessary - any inbound nodes that fail t
 pass through the switch statement with no action taken. It is used above to illustrate the optional use of a
 default case for any non-matching nodes.
 
-**Note:** the Storm command names used above are examples only and do not exist in the base Synapse code.  
+**Note:** the Storm command names used above are examples only and do not exist in the base Synapse code.
 
 .. _flow-for:
 

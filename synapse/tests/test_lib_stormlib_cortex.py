@@ -9,8 +9,6 @@ import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
 
-from pprint import pprint
-
 class CortexLibTest(s_test.SynTest):
 
     async def test_libcortex_httpapi_methods(self):
@@ -63,11 +61,16 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             '''
             testpath00 = await core.callStorm(q)
 
+            iden = s_common.guid()
             q = '''
-            $api = $lib.cortex.httpapi.add(nomeths)
+            $api = $lib.cortex.httpapi.add(nomeths, iden=$iden)
             return ( $api.iden )
             '''
-            nomeths = await core.callStorm(q)
+            nomeths = await core.callStorm(q, opts={'vars': {'iden': iden}})
+            self.eq(iden, nomeths)
+
+            adef = await core.getHttpExtApi(iden)
+            self.nn(adef)
 
             info = await core.callStorm('return( $lib.cortex.httpapi.get($iden).pack() )',
                                         opts={'vars': {'iden': testpath00}})
@@ -88,6 +91,20 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             with self.raises(s_exc.NoSuchName):
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.wildycustomverb = ${}'
                 await core.callStorm(q, opts={'vars': {'iden': testpath00}})
+
+            with self.raises(s_exc.DupIden):
+                q = '''
+                $api = $lib.cortex.httpapi.add(duplicate, iden=$iden)
+                return ( $api.iden )
+                '''
+                await core.callStorm(q, opts={'vars': {'iden': iden}})
+
+            with self.raises(s_exc.SchemaViolation):
+                q = '''
+                $api = $lib.cortex.httpapi.add(duplicate, iden="trollolololol")
+                return ( $api.iden )
+                '''
+                await core.callStorm(q, opts={'vars': {'iden': iden}})
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:  # type: aiohttp.ClientSession
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
@@ -287,9 +304,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     resp = await sess.get(url)
                     self.eq(resp.status, 200)
                     self.true(await stream.wait(timeout=12))
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 self.eq(msgs[0].get('httpapi'), echoiden)
                 core.stormlog = False
 
