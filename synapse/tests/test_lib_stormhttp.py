@@ -9,7 +9,7 @@ import synapse.common as s_common
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.stormhttp as s_stormhttp
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
@@ -616,7 +616,7 @@ class StormHttpTest(s_test.SynTest):
             try:
                 oldv = core.axoninfo['synapse']['version']
                 core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
-                resp = await core.callStorm('return($lib.axon.wget("http://vertex.link"))')
+                resp = await core.callStorm('return($lib.axon.wget("http://vertex.link", proxy=(null)))')
                 self.false(resp.get('ok'))
                 self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
             finally:
@@ -681,6 +681,24 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(f'return($lib.axon.wput({sha256}, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
+
+            host, port = await core.addHttpsPort(0)
+            opts = {
+                'vars': {
+                    'url': f'https://loop.vertex.link:{port}',
+                    'proxy': 'socks5://user:pass@127.0.0.1:1',
+                }
+            }
+            try:
+                oldv = core.axoninfo['synapse']['version']
+                minver = s_stormtypes.AXON_MINVERS_PROXY
+                core.axoninfo['synapse']['version'] = minver[2], minver[1] - 1, minver[0]
+                q = '$resp=$lib.axon.wget($url, ssl=(false), proxy=$proxy) $lib.print(`code={$resp.code}`)'
+                mesgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('code=404', mesgs)
+                self.stormIsInWarn('Axon version does not support proxy argument', mesgs)
+            finally:
+                core.axoninfo['synapse']['version'] = oldv
 
         async with self.getTestCore(conf=conf) as core:
             # Proxy permission tests in this section

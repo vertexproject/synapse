@@ -121,6 +121,7 @@ async def resolveAxonProxyArg(valu):
 
     axonvers = runt.snap.core.axoninfo['synapse']['version']
     if axonvers < AXON_MINVERS_PROXY:
+        await runt.snap.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
         return False, None
 
     match valu:
