@@ -142,32 +142,6 @@ class EchoAuth(s_cell.Cell):
         if doraise:
             raise s_exc.BadTime(mesg='call again later')
 
-async def altAuthCtor(cell):
-    authconf = cell.conf.get('auth:conf')
-    assert authconf['foo'] == 'bar'
-    authconf['baz'] = 'faz'
-
-    maxusers = cell.conf.get('max:users')
-
-    seed = s_common.guid((cell.iden, 'hive', 'auth'))
-
-    auth = await s_auth.Auth.anit(
-        cell.slab,
-        'auth',
-        seed=seed,
-        nexsroot=cell.getCellNexsRoot(),
-        maxusers=maxusers
-    )
-
-    auth.link(cell.dist)
-
-    def finilink():
-        auth.unlink(cell.dist)
-
-    cell.onfini(finilink)
-    cell.onfini(auth.fini)
-    return auth
-
 testDataSchema_v0 = {
     'type': 'object',
     'properties': {
@@ -494,30 +468,6 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.icando('foo', 'bar'))
                     await self.asyncraises(s_exc.AuthDeny, proxy.icando('foo', 'newp'))
 
-                    # happy path perms
-                    await visi.addRule((True, ('hive:set', 'foo', 'bar')))
-                    await visi.addRule((True, ('hive:get', 'foo', 'bar')))
-                    await visi.addRule((True, ('hive:pop', 'foo', 'bar')))
-
-                    val = await echo.setHiveKey(('foo', 'bar'), 'thefirstval')
-                    self.eq(None, val)
-
-                    # check that we get the old val back
-                    val = await echo.setHiveKey(('foo', 'bar'), 'wootisetit')
-                    self.eq('thefirstval', val)
-
-                    val = await echo.getHiveKey(('foo', 'bar'))
-                    self.eq('wootisetit', val)
-
-                    val = await echo.popHiveKey(('foo', 'bar'))
-                    self.eq('wootisetit', val)
-
-                    val = await echo.setHiveKey(('foo', 'bar', 'baz'), 'a')
-                    val = await echo.setHiveKey(('foo', 'bar', 'faz'), 'b')
-                    val = await echo.setHiveKey(('foo', 'bar', 'haz'), 'c')
-                    val = await echo.listHiveKey(('foo', 'bar'))
-                    self.eq(('baz', 'faz', 'haz'), val)
-
                     # visi user can change visi user pass
                     await proxy.setUserPasswd(visi.iden, 'foobar')
                     # non admin visi user cannot change root user pass
@@ -609,26 +559,14 @@ class CellTest(s_t_utils.SynTest):
                     await self.asyncraises(s_exc.AuthDeny,
                                            s_telepath.openurl(visi_url))
 
-                await echo.setHiveKey(('foo', 'bar'), [1, 2, 3, 4])
-                self.eq([1, 2, 3, 4], await echo.getHiveKey(('foo', 'bar')))
-                self.isin('foo', await echo.listHiveKey())
-                self.eq(['bar'], await echo.listHiveKey(('foo',)))
-                await echo.popHiveKey(('foo', 'bar'))
-                self.eq([], await echo.listHiveKey(('foo',)))
-
                 # Ensure we can delete a rule by its item and index position
                 async with echo.getLocalProxy() as proxy:  # type: EchoAuthApi
-                    rule = (True, ('hive:set', 'foo', 'bar'))
+                    rule = (True, ('foo', 'bar'))
                     self.isin(rule, visi.info.get('rules'))
                     await proxy.delUserRule(visi.iden, rule)
                     self.notin(rule, visi.info.get('rules'))
                     # Removing a non-existing rule by *rule* has no consequence
                     await proxy.delUserRule(visi.iden, rule)
-
-                    rule = visi.info.get('rules')[0]
-                    self.isin(rule, visi.info.get('rules'))
-                    await proxy.delUserRule(visi.iden, rule)
-                    self.notin(rule, visi.info.get('rules'))
 
                 self.eq(echo.getDmonUser(), echo.auth.rootuser.iden)
 
@@ -914,7 +852,7 @@ class CellTest(s_t_utils.SynTest):
                 yielded = False
                 async for offset, data in prox.getNexusChanges(offs):
                     yielded = True
-                    nexsiden, act, args, kwargs, meta = data
+                    nexsiden, act, args, kwargs, meta, _ = data
                     if nexsiden == 'auth:auth' and act == 'user:add':
                         retn.append(args)
                         break
@@ -1005,7 +943,7 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(0, await prox.trimNexsLog())
 
                     for i in range(5):
-                        await prox.setHiveKey(('foo', 'bar'), i)
+                        await cell.sync()
 
                     ind = await prox.getNexsIndx()
                     offs = await prox.rotateNexsLog()
@@ -1034,7 +972,7 @@ class CellTest(s_t_utils.SynTest):
                     self.eq('nexslog:cull', retn[0][1][1])
 
                     for i in range(6, 10):
-                        await prox.setHiveKey(('foo', 'bar'), i)
+                        await cell.sync()
 
                     # trim
                     ind = await prox.getNexsIndx()
@@ -1047,7 +985,7 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(ind + 2, await prox.trimNexsLog())
 
                     for i in range(10, 15):
-                        await prox.setHiveKey(('foo', 'bar'), i)
+                        await cell.sync()
 
             # nexus log exists but logging is disabled
             conf['nexslog:en'] = False
@@ -1087,8 +1025,8 @@ class CellTest(s_t_utils.SynTest):
             }
             async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
 
-                await cell.setHiveKey(('foo', 'bar'), 0)
-                await cell.setHiveKey(('foo', 'bar'), 1)
+                await cell.sync()
+                await cell.sync()
 
                 await cell.rotateNexsLog()
 
@@ -1100,7 +1038,7 @@ class CellTest(s_t_utils.SynTest):
                 self.len(2, cell.nexsroot.nexslog._ranges)
                 self.eq(0, cell.nexsroot.nexslog.tailseqn.size)
 
-                await cell.setHiveKey(('foo', 'bar'), 2)
+                await cell.sync()
 
                 # new item is added to the right log
                 self.len(2, cell.nexsroot.nexslog._ranges)
@@ -1183,17 +1121,6 @@ class CellTest(s_t_utils.SynTest):
                     for prop in ('volsize', 'volfree', 'backupvolsize', 'backupvolfree', 'celluptime', 'cellrealdisk',
                                  'cellapprdisk', 'totalmem', 'availmem'):
                         self.lt(0, info.get(prop))
-
-    async def test_cell_hiveapi(self):
-
-        async with self.getTestCore() as core:
-
-            await core.setHiveKey(('foo', 'bar'), 10)
-            await core.setHiveKey(('foo', 'baz'), 30)
-
-            async with core.getLocalProxy() as proxy:
-                self.eq((), await proxy.getHiveKeys(('lulz',)))
-                self.eq((('bar', 10), ('baz', 30)), await proxy.getHiveKeys(('foo',)))
 
     async def test_cell_confprint(self):
 
@@ -1492,19 +1419,6 @@ class CellTest(s_t_utils.SynTest):
                     url = f'ssl://newp@127.0.0.1:{port}?hostname=localhost'
                     async with await s_telepath.openurl(url) as proxy:
                         pass
-
-    async def test_cell_auth_ctor(self):
-        conf = {
-            'auth:ctor': 'synapse.tests.test_lib_cell.altAuthCtor',
-            'auth:conf': {
-                'foo': 'bar',
-            },
-        }
-        with self.getTestDir() as dirn:
-            async with await s_cell.Cell.anit(dirn, conf=conf) as cell:
-                self.eq('faz', cell.conf.get('auth:conf')['baz'])
-                await cell.auth.addUser('visi')
-                await cell._storCellAuthMigration()
 
     async def test_cell_auth_userlimit(self):
         maxusers = 3
@@ -2048,7 +1962,7 @@ class CellTest(s_t_utils.SynTest):
 
             # Make our first backup
             async with self.getTestCore() as core:
-                self.len(1, await core.nodes('[inet:ipv4=1.2.3.4]'))
+                self.len(1, await core.nodes('[inet:ip=1.2.3.4]'))
 
                 # Punch in a value to the cell.yaml to ensure it persists
                 core.conf['storm:log'] = True
@@ -2076,14 +1990,14 @@ class CellTest(s_t_utils.SynTest):
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
-                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
                             self.true(core.conf.get('storm:log'))
 
                     # Turning the service back on with the restore URL is fine too.
                     with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
-                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
                             # Take a backup of the cell with the restore.done file in place
                             async with await axon.upload() as upfd:
@@ -2113,7 +2027,7 @@ class CellTest(s_t_utils.SynTest):
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
-                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
             # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
             furl2 = f'{url}{s_common.ehex(sha256r)}'
@@ -2125,7 +2039,7 @@ class CellTest(s_t_utils.SynTest):
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
                             self.true(await stream.wait(6))
-                            self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
+                            self.len(1, await core.nodes('inet:ip=1.2.3.4'))
 
                     rpath = s_common.genpath(cdir, 'restore.done')
                     with s_common.genfile(rpath) as fd:
@@ -2339,73 +2253,6 @@ class CellTest(s_t_utils.SynTest):
                                         self.len(1, await bcree01.nodes('[inet:asn=8675]'))
                                         self.len(1, await bcree00.nodes('inet:asn=8675'))
 
-    async def test_passwd_regression(self):
-        # Backwards compatibility test for shadowv2
-        # Cell was created prior to the shadowv2 password change.
-        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
-            async with self.getTestCell(s_cell.Cell, dirn=dirn) as cell:  # type: s_cell.Cell
-                root = await cell.auth.getUserByName('root')
-                shadow = root.info.get('passwd')
-                self.isinstance(shadow, tuple)
-                self.len(2, shadow)
-
-                # Old password works and is migrated to the new password scheme
-                self.false(await root.tryPasswd('newp'))
-                self.true(await root.tryPasswd('root'))
-                shadow = root.info.get('passwd')
-                self.isinstance(shadow, dict)
-                self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
-
-                # Logging back in works
-                self.true(await root.tryPasswd('root'))
-
-                user = await cell.auth.getUserByName('user')
-
-                # User can login with their regular password.
-                shadow = user.info.get('passwd')
-                self.isinstance(shadow, tuple)
-                self.true(await user.tryPasswd('secret1234'))
-                shadow = user.info.get('passwd')
-                self.isinstance(shadow, dict)
-
-                # User has a 10 year duration onepass value available.
-                onepass = '0f327906fe0221a7f582744ad280e1ca'
-                self.true(await user.tryPasswd(onepass))
-                self.false(await user.tryPasswd(onepass))
-
-                # Passwords can be changed as well.
-                await user.setPasswd('hehe')
-                self.true(await user.tryPasswd('hehe'))
-                self.false(await user.tryPasswd('secret1234'))
-
-        # Password policies do not prevent live migration of an existing password
-        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
-            policy = {'complexity': {'length': 5}}
-            conf = {'auth:passwd:policy': policy}
-            async with self.getTestCell(s_cell.Cell, conf=conf, dirn=dirn) as cell:  # type: s_cell.Cell
-                root = await cell.auth.getUserByName('root')
-                shadow = root.info.get('passwd')
-                self.isinstance(shadow, tuple)
-                self.len(2, shadow)
-
-                # Old password works and is migrated to the new password scheme
-                self.false(await root.tryPasswd('newp'))
-                self.true(await root.tryPasswd('root'))
-                shadow = root.info.get('passwd')
-                self.isinstance(shadow, dict)
-                self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
-
-        # Pre-nexus changes of root via auth:passwd work too.
-        with self.getRegrDir('cells', 'passwd-2.109.0') as dirn:
-            conf = {'auth:passwd': 'supersecretpassword'}
-            async with self.getTestCell(s_cell.Cell, dirn=dirn, conf=conf) as cell:  # type: s_cell.Cell
-                root = await cell.auth.getUserByName('root')
-                shadow = root.info.get('passwd')
-                self.isinstance(shadow, dict)
-                self.eq(shadow.get('type'), s_passwd.DEFAULT_PTYP)
-                self.false(await root.tryPasswd('root'))
-                self.true(await root.tryPasswd('supersecretpassword'))
-
     async def test_cell_minspace(self):
 
         with self.raises(s_exc.LowSpace):
@@ -2471,7 +2318,7 @@ class CellTest(s_t_utils.SynTest):
 
                 conf = {'limit:disk:free': 0}
                 async with self.getTestCore(dirn=path00, conf=conf) as core00:
-                    await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                    await core00.nodes('[ inet:ip=1.2.3.4 ]')
 
                 s_tools_backup.backup(path00, path01)
 
@@ -2491,21 +2338,21 @@ class CellTest(s_t_utils.SynTest):
                             self.stormIsInErr(errmsg, msgs)
                             msgs = await core01.stormlist('[inet:fqdn=newp.fail]')
                             self.stormIsInErr(errmsg, msgs)
-                            self.len(1, await core00.nodes('[ inet:ipv4=2.3.4.5 ]'))
+                            self.len(1, await core00.nodes('[ inet:ip=2.3.4.5 ]'))
 
                             offs = await core00.getNexsIndx()
                             self.false(await core01.waitNexsOffs(offs, 1))
 
-                            self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
-                            self.len(0, await core01.nodes('inet:ipv4=2.3.4.5'))
+                            self.len(1, await core01.nodes('inet:ip=1.2.3.4'))
+                            self.len(0, await core01.nodes('inet:ip=2.3.4.5'))
                             revt.clear()
 
                         revt.clear()
                         self.true(await asyncio.wait_for(revt.wait(), 1))
                         await core01.sync()
 
-                        self.len(1, await core01.nodes('inet:ipv4=1.2.3.4'))
-                        self.len(1, await core01.nodes('inet:ipv4=2.3.4.5'))
+                        self.len(1, await core01.nodes('inet:ip=1.2.3.4'))
+                        self.len(1, await core01.nodes('inet:ip=2.3.4.5'))
 
         with mock.patch.object(s_cell.Cell, 'FREE_SPACE_CHECK_FREQ', 600):
 
@@ -2519,9 +2366,9 @@ class CellTest(s_t_utils.SynTest):
 
                     with mock.patch('shutil.disk_usage', full_disk):
                         opts = {'view': viewiden}
-                        msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ipv4=$x]}', opts=opts)
+                        msgs = await core.stormlist('for $x in $lib.range(20000) {[inet:ip=([4, $x])]}', opts=opts)
                         self.stormIsInErr(errmsg, msgs)
-                        nodes = await core.nodes('inet:ipv4', opts=opts)
+                        nodes = await core.nodes('inet:ip', opts=opts)
                         self.gt(len(nodes), 0)
                         self.lt(len(nodes), 20000)
 
@@ -2540,7 +2387,7 @@ class CellTest(s_t_utils.SynTest):
                     opts = {'view': viewiden}
                     with self.getLoggerStream('synapse.lib.lmdbslab',
                                               'Error during slab resize callback - foo') as stream:
-                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
+                        nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ip=([4, $x])]}', opts=opts)
                         self.true(stream.wait(1))
 
         async with self.getTestCore() as core:
@@ -3013,105 +2860,6 @@ class CellTest(s_t_utils.SynTest):
             self.eq(data, [('yupwow', 'yes')])
             data = await s_t_utils.alist(cell.iterSlabData('hehe', prefix='yup'))
             self.eq(data, [('wow', 'yes')])
-
-    async def test_cell_nexus_compat(self):
-        with mock.patch('synapse.lib.cell.NEXUS_VERSION', (0, 0)):
-            async with self.getRegrCore('hive-migration') as core0:
-                with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 177)):
-                    conf = {'mirror': core0.getLocalUrl()}
-                    async with self.getRegrCore('hive-migration', conf=conf) as core1:
-                        await core1.sync()
-
-                        await core1.nodes('$lib.user.vars.set(foo, bar)')
-                        self.eq('bar', await core0.callStorm('return($lib.user.vars.get(foo))'))
-
-                        await core1.nodes('$lib.user.vars.pop(foo)')
-                        self.none(await core0.callStorm('return($lib.user.vars.get(foo))'))
-
-                        await core1.nodes('$lib.user.profile.set(bar, baz)')
-                        self.eq('baz', await core0.callStorm('return($lib.user.profile.get(bar))'))
-
-                        await core1.nodes('$lib.user.profile.pop(bar)')
-                        self.none(await core0.callStorm('return($lib.user.profile.get(bar))'))
-
-                        self.eq((0, 0), core1.nexsvers)
-                        await core0.setNexsVers((2, 177))
-                        await core1.sync()
-                        self.eq((2, 177), core1.nexsvers)
-
-                        await core1.nodes('$lib.user.vars.set(foo, bar)')
-                        self.eq('bar', await core0.callStorm('return($lib.user.vars.get(foo))'))
-
-                        await core1.nodes('$lib.user.vars.pop(foo)')
-                        self.none(await core0.callStorm('return($lib.user.vars.get(foo))'))
-
-                        await core1.nodes('$lib.user.profile.set(bar, baz)')
-                        self.eq('baz', await core0.callStorm('return($lib.user.profile.get(bar))'))
-
-                        await core1.nodes('$lib.user.profile.pop(bar)')
-                        self.none(await core0.callStorm('return($lib.user.profile.get(bar))'))
-
-    async def test_cell_hive_migration(self):
-
-        with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
-
-            async with self.getRegrCore('hive-migration') as core:
-                visi = await core.auth.getUserByName('visi')
-                asvisi = {'user': visi.iden}
-
-                valu = await core.callStorm('return($lib.user.vars.get(foovar))', opts=asvisi)
-                self.eq('barvalu', valu)
-
-                valu = await core.callStorm('return($lib.user.profile.get(fooprof))', opts=asvisi)
-                self.eq('barprof', valu)
-
-                msgs = await core.stormlist('cron.list')
-                self.stormIsInPrint(' visi                      8437c35a.. ', msgs)
-                self.stormIsInPrint('[tel:mob:telem=*]', msgs)
-
-                msgs = await core.stormlist('dmon.list')
-                self.stormIsInPrint('0973342044469bc40b577969028c5079:  (foodmon             ): running', msgs)
-
-                msgs = await core.stormlist('trigger.list')
-                self.stormIsInPrint('visi       27f5dc524e7c3ee8685816ddf6ca1326', msgs)
-                self.stormIsInPrint('[ +#count test:str=$tag ]', msgs)
-
-                msgs = await core.stormlist('testcmd0 foo')
-                self.stormIsInPrint('foo haha', msgs)
-
-                msgs = await core.stormlist('testcmd1')
-                self.stormIsInPrint('hello', msgs)
-
-                msgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('ou:hasalias', msgs)
-
-                nodes = await core.nodes('_visi:int')
-                self.len(1, nodes)
-                node = nodes[0]
-                self.eq(node.get('tick'), 1577836800000,)
-                self.eq(node.get('._woot'), 5)
-                self.nn(node.getTagProp('test', 'score'), 6)
-
-                self.maxDiff = None
-                roles = s_t_utils.deguidify('[{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}]')
-                users = s_t_utils.deguidify('[{"type": "user", "iden": "a357138db50780b62093a6ce0d057fd8", "name": "root", "rules": [], "roles": [], "admin": true, "email": null, "locked": false, "archived": false, "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"admin": true}, "4d50eb257549436414643a71e057091a": {"admin": true}}}, {"type": "user", "iden": "f77ac6744671a845c27e571071877827", "name": "visi", "rules": [[true, ["cron", "add"]], [true, ["dmon", "add"]], [true, ["trigger", "add"]]], "roles": [{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}], "admin": false, "email": null, "locked": false, "archived": false, "authgates": {"f21b7ae79c2dacb89484929a8409e5d8": {"admin": true}, "d7d0380dd4e743e35af31a20d014ed48": {"admin": true}}}]')
-                gates = s_t_utils.deguidify('[{"iden": "46cfde2c1682566602860f8df7d0cc83", "type": "layer", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["layer", "read"]]], "admin": false}]}, {"iden": "d7d0380dd4e743e35af31a20d014ed48", "type": "trigger", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "f21b7ae79c2dacb89484929a8409e5d8", "type": "cronjob", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "4d50eb257549436414643a71e057091a", "type": "view", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["view", "read"]]], "admin": false}]}, {"iden": "cortex", "type": "cortex", "users": [], "roles": []}]')
-
-                self.eq(roles, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.roles.list())'))))
-                self.eq(users, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.users.list())'))))
-                self.eq(gates, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.gates.list())'))))
-
-                with self.raises(s_exc.BadTypeValu):
-                    await core.nodes('[ it:dev:str=foo +#test.newp ]')
-
-        stream.seek(0)
-        data = stream.getvalue()
-        newprole = s_common.guid('newprole')
-        newpuser = s_common.guid('newpuser')
-
-        self.isin(f'Unknown user {newpuser} on gate', data)
-        self.isin(f'Unknown role {newprole} on gate', data)
-        self.isin(f'Unknown role {newprole} on user', data)
 
     async def test_cell_check_sysctl(self):
         sysctls = s_linux.getSysctls()

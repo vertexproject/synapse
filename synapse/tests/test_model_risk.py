@@ -52,8 +52,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :target:host={host}
                     :target:place={plac}
                     :target:person={pers}
-                    :via:ipv4=1.2.3.4
-                    :via:ipv6=ff::01
                     :via:email=visi@vertex.link
                     :via:phone=1234567890
                     :used:vuln={vuln}
@@ -83,8 +81,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('target:place'), plac)
             self.eq(node.get('target:person'), pers)
             self.eq(node.get('reporter:name'), 'vertex')
-            self.eq(node.get('via:ipv4'), 0x01020304)
-            self.eq(node.get('via:ipv6'), 'ff::1')
             self.eq(node.get('via:email'), 'visi@vertex.link')
             self.eq(node.get('via:phone'), '1234567890')
             self.eq(node.get('used:vuln'), vuln)
@@ -103,7 +99,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(node.get('attacker'))
             self.nn(node.get('reporter'))
 
-            self.len(1, await core.nodes('risk:attack -> risk:attacktype'))
+            self.len(1, await core.nodes('risk:attack -> risk:attack:type:taxonomy'))
 
             node = await addNode(f'''[
                 risk:vuln={vuln}
@@ -368,7 +364,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('usd', nodes[0].get('econ:currency'))
             self.eq(10, nodes[0].get('severity'))
             self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
-            self.len(1, await core.nodes('risk:compromise -> risk:compromisetype'))
+            self.len(1, await core.nodes('risk:compromise -> risk:compromise:type:taxonomy'))
             self.len(1, await core.nodes('risk:compromise :vector -> risk:attack'))
             self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
             self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))
@@ -582,11 +578,12 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter = { gen.ou.org vertex }
                     :mitre:attack:mitigation=M1036
             ]''')
-            self.eq('foobar', nodes[0].props['name'])
-            self.eq('BazFaz', nodes[0].props['desc'])
+            self.eq('foobar', nodes[0].get('name'))
+            self.eq('BazFaz', nodes[0].get('desc'))
             self.eq('vertex', nodes[0].get('reporter:name'))
             self.eq('foo.bar.', nodes[0].get('type'))
             self.nn(nodes[0].get('reporter'))
+
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))

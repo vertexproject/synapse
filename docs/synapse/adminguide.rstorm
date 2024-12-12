@@ -436,12 +436,12 @@ analysts may be allowed to apply tags representing certain assessments (such as 
 |                                                                 |                                 |
 | node data)                                                      |                                 |
 +-----------------------------------------------------------------+---------------------------------+
-| **Only** add ``inet:ipv4`` nodes                                |                                 |
-|                                                                 | ``node.add.inet:ipv4``          |
+| **Only** add ``inet:ip`` nodes                                |                                 |
+|                                                                 | ``node.add.inet:ip``          |
 | (but not set properties, or work with tags or edges)            |                                 |
 +-----------------------------------------------------------------+---------------------------------+
-| **Only** add (set) the ``:asn`` property of ``inet:ipv4`` nodes |                                 |
-|                                                                 | ``node.prop.set.inet:ipv4:asn`` |
+| **Only** add (set) the ``:asn`` property of ``inet:ip`` nodes |                                 |
+|                                                                 | ``node.prop.set.inet:ip:asn`` |
 | (but not create nodes or work with other properties, tags,      |                                 |
 |                                                                 |                                 |
 | edges, etc.)                                                    |                                 |

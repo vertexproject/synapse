@@ -26,21 +26,6 @@ class RStormToolTest(s_test.SynTest):
 
             self.eq(text, s_test_rstorm.rst_out)
 
-            # debug output
-            path = s_common.genpath(dirn, 'test2.rst')
-            with s_common.genfile(path) as fd:
-                fd.write(s_test_rstorm.rst_in_debug.encode())
-
-            outpath = s_common.genpath(dirn, 'out2.rst')
-
-            await s_rstorm.main(('--save', outpath, path))
-
-            with s_common.genfile(outpath) as fd:
-                text = fd.read().decode()
-
-            self.isin('node:edits', text)
-            self.isin('inet:ipv4', text)
-
             # props output
             path = s_common.genpath(dirn, 'test3.rst')
             with s_common.genfile(path) as fd:

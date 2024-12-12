@@ -149,7 +149,7 @@ class LibModelExt(s_stormtypes.Lib):
         typeopts = await s_stormtypes.toprim(typeopts)
         typeinfo = await s_stormtypes.toprim(typeinfo)
         s_stormtypes.confirm(('model', 'form', 'add', formname))
-        await self.runt.snap.core.addForm(formname, basetype, typeopts, typeinfo)
+        await self.runt.view.core.addForm(formname, basetype, typeopts, typeinfo)
 
     async def addFormProp(self, formname, propname, typedef, propinfo):
         formname = await s_stormtypes.tostr(formname)
@@ -160,7 +160,7 @@ class LibModelExt(s_stormtypes.Lib):
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(prop=propname, mesg=mesg)
-        await self.runt.snap.core.addFormProp(formname, propname, typedef, propinfo)
+        await self.runt.view.core.addFormProp(formname, propname, typedef, propinfo)
 
     async def addUnivProp(self, propname, typedef, propinfo):
         propname = await s_stormtypes.tostr(propname)
@@ -170,7 +170,7 @@ class LibModelExt(s_stormtypes.Lib):
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
-        await self.runt.snap.core.addUnivProp(propname, typedef, propinfo)
+        await self.runt.view.core.addUnivProp(propname, typedef, propinfo)
 
     async def addTagProp(self, propname, typedef, propinfo):
         propname = await s_stormtypes.tostr(propname)
@@ -180,12 +180,12 @@ class LibModelExt(s_stormtypes.Lib):
         if not s_grammar.isBasePropNoPivprop(propname):
             mesg = f'Invalid prop name {propname}'
             raise s_exc.BadPropDef(name=propname, mesg=mesg)
-        await self.runt.snap.core.addTagProp(propname, typedef, propinfo)
+        await self.runt.view.core.addTagProp(propname, typedef, propinfo)
 
     async def delForm(self, formname):
         formname = await s_stormtypes.tostr(formname)
         s_stormtypes.confirm(('model', 'form', 'del', formname))
-        await self.runt.snap.core.delForm(formname)
+        await self.runt.view.core.delForm(formname)
 
     async def delFormProp(self, formname, propname, force=False):
         formname = await s_stormtypes.tostr(formname)
@@ -194,10 +194,10 @@ class LibModelExt(s_stormtypes.Lib):
         s_stormtypes.confirm(('model', 'prop', 'del', formname))
 
         if force is True:
-            meta = {'user': self.runt.snap.user.iden, 'time': s_common.now()}
-            await self.runt.snap.core._delAllFormProp(formname, propname, meta)
+            meta = {'user': self.runt.user.iden, 'time': s_common.now()}
+            await self.runt.view.core._delAllFormProp(formname, propname, meta)
 
-        await self.runt.snap.core.delFormProp(formname, propname)
+        await self.runt.view.core.delFormProp(formname, propname)
 
     async def delUnivProp(self, propname, force=False):
         propname = await s_stormtypes.tostr(propname)
@@ -205,10 +205,10 @@ class LibModelExt(s_stormtypes.Lib):
         s_stormtypes.confirm(('model', 'univ', 'del'))
 
         if force:
-            meta = {'user': self.runt.snap.user.iden, 'time': s_common.now()}
-            await self.runt.snap.core._delAllUnivProp(propname, meta)
+            meta = {'user': self.runt.user.iden, 'time': s_common.now()}
+            await self.runt.view.core._delAllUnivProp(propname, meta)
 
-        await self.runt.snap.core.delUnivProp(propname)
+        await self.runt.view.core.delUnivProp(propname)
 
     async def delTagProp(self, propname, force=False):
         propname = await s_stormtypes.tostr(propname)
@@ -217,19 +217,19 @@ class LibModelExt(s_stormtypes.Lib):
         s_stormtypes.confirm(('model', 'tagprop', 'del'))
 
         if force:
-            meta = {'user': self.runt.snap.user.iden, 'time': s_common.now()}
-            await self.runt.snap.core._delAllTagProp(propname, meta)
+            meta = {'user': self.runt.user.iden, 'time': s_common.now()}
+            await self.runt.view.core._delAllTagProp(propname, meta)
 
-        await self.runt.snap.core.delTagProp(propname)
+        await self.runt.view.core.delTagProp(propname)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getExtModel(self):
-        return await self.runt.snap.core.getExtModel()
+        return await self.runt.view.core.getExtModel()
 
     async def addExtModel(self, model):
         self.runt.reqAdmin()
         model = await s_stormtypes.toprim(model)
-        return await self.runt.snap.core.addExtModel(model)
+        return await self.runt.view.core.addExtModel(model)
 
     async def addEdge(self, n1form, verb, n2form, edgeinfo):
         verb = await s_stormtypes.tostr(verb)
@@ -248,7 +248,7 @@ class LibModelExt(s_stormtypes.Lib):
             n2form = None
 
         s_stormtypes.confirm(('model', 'edge', 'add'))
-        await self.runt.snap.core.addEdge((n1form, verb, n2form), edgeinfo)
+        await self.runt.view.core.addEdge((n1form, verb, n2form), edgeinfo)
 
     async def delEdge(self, n1form, verb, n2form):
         verb = await s_stormtypes.tostr(verb)
@@ -266,7 +266,7 @@ class LibModelExt(s_stormtypes.Lib):
             n2form = None
 
         s_stormtypes.confirm(('model', 'edge', 'del'))
-        await self.runt.snap.core.delEdge((n1form, verb, n2form))
+        await self.runt.view.core.delEdge((n1form, verb, n2form))
 
     async def addType(self, typename, basetype, typeopts, typeinfo):
         typename = await s_stormtypes.tostr(typename)
@@ -274,9 +274,9 @@ class LibModelExt(s_stormtypes.Lib):
         typeopts = await s_stormtypes.toprim(typeopts)
         typeinfo = await s_stormtypes.toprim(typeinfo)
         s_stormtypes.confirm(('model', 'type', 'add', typename))
-        await self.runt.snap.core.addType(typename, basetype, typeopts, typeinfo)
+        await self.runt.view.core.addType(typename, basetype, typeopts, typeinfo)
 
     async def delType(self, typename):
         typename = await s_stormtypes.tostr(typename)
         s_stormtypes.confirm(('model', 'type', 'del', typename))
-        await self.runt.snap.core.delType(typename)
+        await self.runt.view.core.delType(typename)

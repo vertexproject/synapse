@@ -103,7 +103,6 @@ class BadCoreStore(SynErr):
 
 class BadCtorType(SynErr): pass
 class BadFormDef(SynErr): pass
-class BadHivePath(SynErr): pass
 class BadLiftValu(SynErr): pass
 class BadPropDef(SynErr): pass
 class BadEdgeDef(SynErr): pass
@@ -144,6 +143,7 @@ class BadUrl(SynErr): pass
 class TypeMismatch(SynErr): pass
 
 class CantDelCmd(SynErr): pass
+class CantDelEdge(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass
 class CantDelProp(SynErr): pass
@@ -266,6 +266,14 @@ class NoSuchProp(SynErr):
         if mesg is None:
             mesg = f'No property named {name}.'
         return NoSuchProp(mesg=mesg, name=name)
+
+class NoSuchVirt(SynErr):
+
+    @classmethod
+    def init(cls, name, ptyp, mesg=None):
+        if mesg is None:
+            mesg = f'No virtual prop named {name} on type {ptyp.name}.'
+        return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp.name)
 
 class NoSuchEdge(SynErr):
 

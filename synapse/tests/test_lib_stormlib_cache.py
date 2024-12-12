@@ -176,9 +176,9 @@ class StormlibCacheTest(s_test.SynTest):
             ## coverage for the cb runtime emiting nodes
             rets = await core.callStorm('''
                 $rets = ([])
-                $cache = $lib.cache.fixed(${ if (0) { return(yup) } [ inet:ipv4=$cache_key ] })
+                $cache = $lib.cache.fixed(${ if (0) { return(yup) } [ inet:ip=$cache_key ] })
 
-                for $i in (0, 1) {
+                for $i in (0.0.0.0, 0.0.0.1) {
                     $rets.append($cache.get($i))
                 }
                 return($rets)
