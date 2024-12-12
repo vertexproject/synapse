@@ -199,6 +199,9 @@ Features and Enhancements
   ``$lib.model.migration.s.model_0_2_31.printNode()``, and
   ``$lib.model.migration.s.model_0_2_31.repairNode()``
   (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
+- Added a ``getNodeData()`` API to the Storm Layer object for yielding
+  node data by node iden.
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
 
 v2.186.0 - 2024-10-29
 =====================
