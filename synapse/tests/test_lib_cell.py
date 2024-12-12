@@ -125,6 +125,10 @@ class EchoAuthApi(s_cell.CellApi):
 
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
+    # non-default commit / version / verstring
+    COMMIT = 'mycommit'
+    VERSION = (1, 2, 3)
+    VERSTRING = '1.2.3'
 
     async def answer(self):
         return 42
@@ -752,6 +756,37 @@ class CellTest(s_t_utils.SynTest):
                 netw = cnfo.get('network')
                 https = netw.get('https')
                 self.eq(https, http_info)
+
+        # Mirrors & ready flags
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'cell00')
+                cdr1 = s_common.genpath(dirn, 'cell01')
+                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', EchoAuth,
+                                                                  dirn=cdr0))  # type: EchoAuth
+                # Ensure we have a nexus transaction
+                await cell00.sync()
+                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', EchoAuth,
+                                                                  dirn=cdr1,
+                                                                  provinfo={'mirror': 'cell'}))  # type: EchoAuth
+
+                self.true(await asyncio.wait_for(cell01.nexsroot.ready.wait(), timeout=12))
+                await cell01.sync()
+
+                cnfo0 = await cell00.getCellInfo()
+                cnfo1 = await cell01.getCellInfo()
+                self.true(cnfo0['cell']['ready'])
+                self.false(cnfo0['cell']['uplink'])
+                self.none(cnfo0['cell']['mirror'])
+                self.eq(cnfo0['cell']['version'], (1, 2, 3))
+
+                self.true(cnfo1['cell']['ready'])
+                self.true(cnfo1['cell']['uplink'])
+                self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
+                self.eq(cnfo1['cell']['version'], (1, 2, 3))
+
+                self.eq(cnfo0['cell']['nexsindx'], cnfo1['cell']['nexsindx'])
 
     async def test_cell_dyncall(self):
 

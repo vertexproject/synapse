@@ -375,6 +375,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=VTX-APT1
                     :tag=cno.threat.apt1
                     :active=(2012,2023)
+                    :activity=high
                     :reporter=*
                     :reporter:name=mandiant
                     :reporter:discovered=202202
@@ -396,6 +397,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('vtx-apt1', nodes[0].get('name'))
             self.eq('VTX-APT1', nodes[0].get('desc'))
+            self.eq(40, nodes[0].get('activity'))
             self.eq('apt1', nodes[0].get('org:name'))
             self.eq('ua', nodes[0].get('country:code'))
             self.eq('cn.shanghai', nodes[0].get('org:loc'))
@@ -542,11 +544,13 @@ class RiskModelTest(s_t_utils.SynTest):
                     :cause=nature.earthquake
                     :provider={[ ou:org=* :name="desert power" ]}
                     :provider:name="desert power"
+                    :attack={[ risk:attack=* ]}
                     :reporter={ ou:org:name=vertex }
                     :reporter:name=vertex
                 ]
             ''')
             self.len(1, nodes)
+            self.nn(nodes[0].get('attack'))
             self.nn(nodes[0].get('reporter'))
             self.eq('the big one', nodes[0].get('name'))
             self.eq('vertex', nodes[0].get('reporter:name'))
@@ -555,6 +559,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('nature.earthquake.', nodes[0].get('cause'))
             self.eq((1672531200000, 1704067200000), nodes[0].get('period'))
 
+            self.len(1, await core.nodes('risk:outage -> risk:attack'))
             self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))
             self.len(1, await core.nodes('risk:outage :reporter -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))

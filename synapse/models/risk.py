@@ -280,6 +280,9 @@ class RiskModule(s_module.CoreModule):
                     ('active', ('ival', {}), {
                         'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
 
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'The most recently assessed activity level of the threat cluster.'}),
+
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the threat cluster.'}),
 
@@ -1078,6 +1081,9 @@ class RiskModule(s_module.CoreModule):
                     ('cause', ('risk:outage:cause:taxonomy', {}), {
                         'ex': 'nature.earthquake',
                         'doc': 'The outage cause type.'}),
+
+                    ('attack', ('risk:attack', {}), {
+                        'doc': 'An attack which caused the outage.'}),
 
                     ('provider', ('ou:org', {}), {
                         'doc': 'The organization which experienced the outage event.'}),

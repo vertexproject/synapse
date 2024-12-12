@@ -1129,7 +1129,14 @@ class Model:
                 if item == '$self':
                     return form.name
 
-                return item.format(**template)
+                item = s_common.format(item, **template)
+
+                # warn but do not blow up. there may be extended model elements
+                # with {}s which are not used for templates...
+                if item.find('{') != -1: # pragma: no cover
+                    logger.warning(f'Missing template specifier in: {item}')
+
+                return item
 
             if isinstance(item, dict):
                 return {convert(k): convert(v) for (k, v) in item.items()}

@@ -82,13 +82,23 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[meta:source="*" :name="FOO Bar" :type=osint :url="https://foo.bar/index.html"]')
+            nodes = await core.nodes('''
+                [meta:source="*"
+                    :name="FOO Bar"
+                    :type=osint
+                    :url="https://foo.bar/index.html"
+                    :ingest:latest=20241205
+                    :ingest:offset=17
+                ]
+            ''')
             self.len(1, nodes)
             sorc = nodes[0]
 
             self.eq(sorc.get('type'), 'osint.')
             self.eq(sorc.get('name'), 'foo bar')
             self.eq(sorc.get('url'), 'https://foo.bar/index.html')
+            self.eq(sorc.get('ingest:offset'), 17)
+            self.eq(sorc.get('ingest:latest'), 1733356800000)
 
             valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
             nodes = await core.nodes('[meta:seen=$valu]', opts={'vars': {'valu': valu}})

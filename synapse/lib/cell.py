@@ -1021,6 +1021,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
     SYSCTL_CHECK_FREQ = 60.0
 
+    LOGGED_HTTPAPI_HEADERS = ('User-Agent',)
+
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
         # phase 1
@@ -3026,6 +3028,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'uri': uri,
                 'remoteip': remote_ip,
                 }
+
+        headers = {}
+
+        for header in self.LOGGED_HTTPAPI_HEADERS:
+            if (valu := handler.request.headers.get(header)) is not None:
+                headers[header.lower()] = valu
+
+        if headers:
+            enfo['headers'] = headers
 
         extra = {'synapse': enfo}
 
