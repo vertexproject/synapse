@@ -1442,7 +1442,12 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A channel within a web service or instance such as slack or discord.'
                     }),
 
-                    ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#\w[\w·]*(?<!·)$'}), {
+                    ('inet:web:hashtag', ('str', {'lower': True, 'regex': r'^#[^\p{P}\p{Z}]([^\p{Z}]*[^\p{P}\p{Z}])?$'}), {
+                        # regex explanation:
+                        # - starts with pound
+                        # - any non-punctuation/non-whitespace character
+                        # - zero or more non-whitespace characters followed by a non-punctuation/non-whitespace character
+                        # The minimum hashtag is a pound with a single non-punctuation/non-whitespace character
                         'doc': 'A hashtag used in a web post.',
                     }),
 
