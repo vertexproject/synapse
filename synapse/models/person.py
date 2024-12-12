@@ -113,10 +113,12 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('job:type', ('ou:job:type:taxonomy', {}), {
                         'doc': 'The type of job.',
-                    }),
+                        'prevnames': ('jobtype',)}),
+
                     ('employment:type', ('ou:employment:type:taxonomy', {}), {
                         'doc': 'The type of employment.',
-                    }),
+                        'prevnames': ('employment',)}),
+
                     ('jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'The job title.',
                     }),
@@ -500,6 +502,9 @@ class PsModule(s_module.CoreModule):
                     }),
                     ('source:file', ('file:bytes', {}), {
                         'doc': 'The file from which the contact list was extracted.',
+                    }),
+                    ('source:account', ('inet:service:account', {}), {
+                        'doc': 'The service account from which the contact list was extracted.',
                     }),
                 )),
 

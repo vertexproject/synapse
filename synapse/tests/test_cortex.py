@@ -1,11 +1,9 @@
 import os
 import copy
-import json
 import time
 import asyncio
 import hashlib
 import logging
-import textwrap
 
 import regex
 
@@ -16,13 +14,13 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
-import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
@@ -1020,8 +1018,7 @@ class CortexTest(s_t_utils.SynTest):
                 ''')
                 self.true(await stream.wait(6))
 
-            buf = stream.getvalue()
-            mesg = json.loads(buf.split('\n')[0])
+            mesg = stream.jsonlines()[0]
             self.eq(mesg.get('message'), f'Running dmon {iden}')
             self.eq(mesg.get('iden'), iden)
 
@@ -2967,11 +2964,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(0, node[1]['path']['edges'])
                 elif node[0][0] == 'inet:ip':
                     self.eq(node[1]['path']['edges'], (
-                        ('3732000e26dc7b6c0ad44dbb13e28d9401d4f8280f091461f6f6dd9a63c53124', {'type': 'prop', 'prop': 'ip', 'reverse': True}),
+                        (1, {'type': 'prop', 'prop': 'ip', 'reverse': True}),
                     ))
                 elif node[0] == ('inet:fqdn', 'woot.com'):
                     self.eq(node[1]['path']['edges'], (
-                        ('3732000e26dc7b6c0ad44dbb13e28d9401d4f8280f091461f6f6dd9a63c53124', {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                        (1, {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
                     ))
 
     async def test_onadd(self):
@@ -3171,8 +3168,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
                 self.true(await stream.wait(4))
 
-            buf = stream.getvalue()
-            mesg = json.loads(buf.split('\n')[0])
+            mesg = stream.jsonlines()[0]
             self.eq(mesg.get('view'), view)
 
     async def test_getcoremods(self):
@@ -5608,6 +5604,13 @@ class CortexBasicTest(s_t_utils.SynTest):
             # but getTypeNorm won't handle that
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
 
+            # specify typeopts to getTypeNorm/getPropNorm
+            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), {'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
+            self.eq(norm, ('pass', 'the', 'time'))
+
+            norm, info = await prox.getPropNorm('test:comp', "1234:comedy", {'sepr': ':'})
+            self.eq(norm, (1234, "comedy"))
+
             # getTypeNorm can norm types which aren't defined as forms/props
             norm, info = await core.getTypeNorm('test:lower', 'ASDF')
             self.eq(norm, 'asdf')
@@ -5995,7 +5998,17 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.DupEdgeType):
                     await core.addEdge(('test:int', '_goes', None), {})
 
+                await core.addType('_test:type', 'str', {}, {'interfaces': ['taxonomy']})
+                self.eq(['meta:taxonomy'], core.model.type('_test:type').info.get('interfaces'))
+
+                with self.raises(s_exc.NoSuchType):
+                    await core.addType('_test:newp', 'newp', {}, {})
+
+                with self.raises(s_exc.BadTypeDef):
+                    await core.addType('_test:newp', 'array', {'type': 'newp'}, {})
+
                 # manually edit in borked entries
+                core.exttypes.set('_type:bork', ('_type:bork', None, None, None))
                 core.extforms.set('_hehe:bork', ('_hehe:bork', None, None, None))
                 core.extedges.set(s_common.guid('newp'), ((None, '_does', 'newp'), {}))
 
@@ -6024,6 +6037,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 await core.nodes('._woot [ -._woot ]')
 
+                self.nn(core.model.type('_test:type'))
                 self.nn(core.model.prop('._woot'))
                 self.nn(core.model.prop('inet:ip._woot'))
                 self.nn(core.model.form('inet:ip').prop('._woot'))
@@ -6060,6 +6074,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.NoSuchEdge):
                     await core.delEdge(('newp', 'newp', 'newp'))
+
+                with self.raises(s_exc.NoSuchType):
+                    await core.delType('_newp')
 
                 await core._delEdge(('newp', 'newp', 'newp'))
 
@@ -6590,7 +6607,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expect = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDITS)
-            expectedits = ((node.nid, 'test:str',
+            expectedits = ((s_common.int64un(node.nid), 'test:str',
                             ((s_layer.EDIT_NODE_ADD, ('foo', 1, None)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
                                                       s_layer.STOR_TYPE_MINTIME, None)))),)
@@ -6648,7 +6665,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             item4 = items[0]
 
             expect = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDITS)
-            expectedits = ((node.nid, 'test:str',
+            expectedits = ((s_common.int64un(node.nid), 'test:str',
                             [(s_layer.EDIT_NODE_ADD, ('bar', 1, None)),
                              (s_layer.EDIT_PROP_SET, ('.created', node.get('.created'), None,
                                                       s_layer.STOR_TYPE_MINTIME, None))]),)
@@ -6680,7 +6697,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item0 = await genr.__anext__()
             expectadd = (baseoffs, baselayr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)))
+                         (s_common.int64un(node.nid), 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)))
             self.eq(expectadd[1:], item0[1:])
 
             layr = await core.addLayer()
@@ -6711,7 +6728,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             item4 = await genr.__anext__()
             expectadd = (baseoffs + 5, layr.iden, s_cortex.SYNC_NODEEDIT,
-                         (node.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8, None)))
+                         (s_common.int64un(node.nid), 'test:str', s_layer.EDIT_NODE_ADD, ('bar', s_layer.STOR_TYPE_UTF8, None)))
             self.eq(expectadd[1:], item4[1:])
 
             # Make sure progress every 1000 layer log entries works
@@ -6802,14 +6819,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 nodes = await core.nodes('[ test:str=foo ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(nodes[0].nid, item[1][0][0])
+                self.eq(s_common.int64un(nodes[0].nid), item[1][0][0])
 
                 # we should now be in live sync
                 # and the empty layer will be pulling from the window
 
                 nodes = await core.nodes('[ test:str=bar ]')
                 item = await asyncio.wait_for(genr.__anext__(), timeout=2)
-                self.eq(nodes[0].nid, item[1][0][0])
+                self.eq(s_common.int64un(nodes[0].nid), item[1][0][0])
 
                 # add more nodes than the window size without consuming from the genr
 
@@ -6817,7 +6834,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 nodes = await core.nodes('for $s in (baz, bam, cat, dog) { [ test:str=$s ] }', opts=opts)
                 items = [await asyncio.wait_for(genr.__anext__(), timeout=2) for _ in range(4)]
                 self.sorteq(
-                    [n.nid for n in nodes],
+                    [s_common.int64un(n.nid) for n in nodes],
                     [item[1][0][0] for item in items],
                 )
 
@@ -7065,15 +7082,15 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[(inet:ip=([4, 1]) :asn=10 .seen=(2016, 2017) +#foo=(2020,2021) +#foo:score=42)]')
             self.len(1, nodes)
-            nid1 = nodes[0].nid
+            nid1 = nodes[0].intnid()
 
             nodes = await core.nodes('[(inet:ip=([4, 2]) :asn=20 .seen=(2015, 2016) +#foo=(2019,2020) +#foo:score=41)]')
             self.len(1, nodes)
-            nid2 = nodes[0].nid
+            nid2 = nodes[0].intnid()
 
             nodes = await core.nodes('[(inet:ip=([4, 3]) :asn=30 .seen=(2015, 2016) +#foo=(2018, 2020) +#foo:score=99)]')
             self.len(1, nodes)
-            nid3 = nodes[0].nid
+            nid3 = nodes[0].intnid()
 
             self.len(1, await core.nodes('[test:str=yolo]'))
             self.len(1, await core.nodes('[test:str=$valu]', opts={'vars': {'valu': 'z' * 500}}))
@@ -7621,8 +7638,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq('admin', whoami)
                     self.eq('lowuser', udef.get('name'))
 
-                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
                 self.eq('Added user=lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
@@ -7636,8 +7652,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         msgs.append(mesg)
                     self.stormHasNoWarnErr(msgs)
 
-                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
                 self.isin('Set admin=True for lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
@@ -7806,6 +7821,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestAha() as aha:
 
+            ahanet = aha.conf.req('aha:network')
+
             async with await s_base.Base.anit() as base:
 
                 with self.getTestDir() as dirn:
@@ -7841,43 +7858,89 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormIsInPrint('Storm pool configuration set.', msgs)
 
                     await core00.fini()
+                    await core01.fini()
 
                     core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
+                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01, conf={'storm:log': True}))
 
                     await core00.stormpool.waitready(timeout=12)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core00.storm('inet:asn=0'))
+                    # storm()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        msgs = await alist(core00.storm(q))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = stream.jsonlines()
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # callStorm()
+                    q = 'inet:asn=0 return($lib.true)'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm(q))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = stream.jsonlines()
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # exportStorm()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm(q)))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = stream.jsonlines()
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.eq(1, await core00.count('inet:asn=0'))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # count()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count(q))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = stream.jsonlines()
+                    self.len(2, msgs)
+
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
                     with mock.patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 

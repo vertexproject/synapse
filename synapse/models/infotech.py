@@ -1113,7 +1113,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The authentication domain that the host is a member of.'}),
 
                     ('ip', ('inet:ip', {}), {
-                        'doc': 'The last known IP address for the host.'}),
+                        'doc': 'The last known IP address for the host.',
+                        'prevnames': ('ipv4',)}),
 
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'The last known location for the host.'}),
@@ -1270,7 +1271,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The org that owns/operates the network.'}),
 
                     ('net', ('inet:net', {}), {
-                        'doc': 'The optional contiguous IP address range of this network.'}),
+                        'doc': 'The optional contiguous IP address range of this network.',
+                        'prevnames': ('net4', 'net6')}),
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
@@ -1362,7 +1364,7 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('client:ip', ('inet:ip', {}), {
                         'doc': 'The IP where the logon originated.',
-                    }),
+                        'prevnames': ('client:ipv4', 'client:ipv6')}),
                 )),
                 ('it:hosturl', {}, (
                     ('host', ('it:host', {}), {
@@ -2041,7 +2043,9 @@ class ItModule(s_module.CoreModule):
 
                 )),
 
-                ('it:prod:hardware:type:taxonomy', {}, ()),
+                ('it:prod:hardware:type:taxonomy', {
+                    'prevnames': ('it:prod:hardwaretype',)}, ()),
+
                 ('it:prod:hardware', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The display name for this hardware specification.'}),
@@ -2319,7 +2323,8 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL that was scanned to produce the result.'}),
 
                     ('target:ip', ('inet:ip', {}), {
-                        'doc': 'The IP address that was scanned to produce the result.'}),
+                        'doc': 'The IP address that was scanned to produce the result.',
+                        'prevnames': ('target:ipv4', 'target:ipv6')}),
 
                     ('multi:scan', ('it:av:scan:result', {}), {
                         'doc': 'Set if this result was part of running multiple scanners.'}),

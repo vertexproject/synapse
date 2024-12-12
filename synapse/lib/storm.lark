@@ -392,9 +392,9 @@ relpropvalu: (RELNAME | _COLONDOLLAR _varvaluatom) virtprop?
 univpropvalu: univprop virtprop?
 
 virtprop: _BYVIRT _virtnames? VIRTNAME
-_BYVIRT.2: /(?<!\s)\*(?=\w+)(?!\w+(\*\w+)*[@?!<>^~=]*[<>=])/
-_virtnames: _virtnames? VIRTNAME "*"
-VIRTNAME: /\w+/
+_BYVIRT.2: /(?<!\s)\*(?=[a-zA-Z]\w*)(?![a-zA-Z]\w*(\*[a-zA-Z]\w*)*[@?!<>^~=]*[<>=])/
+_virtnames: _virtnames? VIRTNAME _BYVIRT
+VIRTNAME: /[a-zA-Z]\w*/
 
 embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"

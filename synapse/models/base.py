@@ -202,7 +202,8 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'The type of timeline.'}),
                 )),
 
-                ('meta:timeline:type:taxonomy', {}, ()),
+                ('meta:timeline:type:taxonomy', {
+                    'prevnames': ('meta:timeline:taxonomy',)}, ()),
 
                 ('meta:event', {}, (
 
@@ -229,7 +230,8 @@ class BaseModule(s_module.CoreModule):
                         'doc': 'Type of event.'}),
                 )),
 
-                ('meta:event:type:taxonomy', {}, ()),
+                ('meta:event:type:taxonomy', {
+                    'prevnames': ('meta:event:taxonomy',)}, ()),
 
                 ('meta:ruleset', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {

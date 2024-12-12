@@ -862,14 +862,23 @@ class StormTest(s_t_utils.SynTest):
             pkg1 = {'name': 'haha', 'version': '1.2.3'}
             await core.addStormPkg(pkg1)
             msgs = await core.stormlist('pkg.list')
-            self.isin('haha', msgs[2][1]['mesg'])
-            self.isin('hehe', msgs[3][1]['mesg'])
+            self.stormIsInPrint('haha', msgs)
+            self.stormIsInPrint('hehe', msgs)
 
             self.true(await core.callStorm('return($lib.pkg.has(haha))'))
 
             await core.delStormPkg('haha')
             self.none(await core.callStorm('return($lib.pkg.get(haha))'))
             self.false(await core.callStorm('return($lib.pkg.has(haha))'))
+
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('not available', msgs)
+
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            await core.addStormPkg(pkg2)
+            self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('2024-11-19 12:00:00', msgs)
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -2056,7 +2065,7 @@ class StormTest(s_t_utils.SynTest):
 
             node = nodes[0]
             self.eq('hehe', node[1]['embeds']['asn']['name'])
-            self.eq('796d67b92a6ffe9b88fa19d115b46ab6712d673a06ae602d41de84b1464782f2', node[1]['embeds']['asn']['*'])
+            self.eq(1, node[1]['embeds']['asn']['*'])
 
             opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
             msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
@@ -2064,7 +2073,7 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
 
             self.eq('visi', node[1]['embeds']['hq::email']['user'])
-            self.eq('2346d7bed4b0fae05e00a413bbf8716c9e08857eb71a1ecf303b8972823f2899', node[1]['embeds']['hq::email']['*'])
+            self.eq(6, node[1]['embeds']['hq::email']['*'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 

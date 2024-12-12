@@ -251,6 +251,9 @@ class Node(NodeBase):
     def iden(self):
         return s_common.ehex(self.buid)
 
+    def intnid(self):
+        return s_common.int64un(self.nid)
+
     def pack(self, dorepr=False):
         '''
         Return the serializable/packed version of the node.
@@ -263,6 +266,7 @@ class Node(NodeBase):
         '''
 
         pode = (self.ndef, {
+            'nid': s_common.int64un(self.nid),
             'iden': self.iden(),
             'tags': self._getTagsDict(),
             'props': self.getProps(),
@@ -319,7 +323,7 @@ class Node(NodeBase):
             embdnode = retn.get(nodepath)
             if embdnode is None:
                 embdnode = retn[nodepath] = {}
-                embdnode['*'] = s_common.ehex(node.buid)
+                embdnode['*'] = s_common.int64un(node.nid)
 
             for relp in relprops:
                 embdnode[relp] = node.get(relp)
@@ -992,6 +996,9 @@ class RuntNode(NodeBase):
     def iden(self):
         return s_common.ehex(s_common.buid(self.ndef))
 
+    def intnid(self):
+        return None
+
     def pack(self, dorepr=False):
         pode = s_msgpack.deepcopy(self.pode)
         if dorepr:
@@ -1119,7 +1126,7 @@ class Path:
 
         links = list(self.links)
         if self.node is not None and link is not None:
-            links.append((self.node.iden(), link))
+            links.append((self.node.intnid(), link))
 
         nodes = list(self.nodes)
         nodes.append(node)

@@ -435,6 +435,10 @@ class Form:
 
         full = f'{self.name}:{name}'
         mesg = f'No property named {full}.'
+
+        if (prevname := self.modl.propprevnames.get(full)) is not None:
+            mesg += f' Did you mean {prevname}?'
+
         raise s_exc.NoSuchProp(mesg=mesg, name=full)
 
     def pack(self):
@@ -476,6 +480,9 @@ class Model:
         self.tagprops = {}  # name: TagProp()
         self.formabbr = {}  # name: [Form(), ... ]
         self.modeldefs = []
+
+        self.formprevnames = {}
+        self.propprevnames = {}
 
         self.univs = {}
         self.allunivs = collections.defaultdict(list)
@@ -634,7 +641,11 @@ class Model:
         if prop is not None:
             return prop
 
-        exc = s_exc.NoSuchProp.init(name)
+        mesg = None
+        if (prevname := self.propprevnames.get(name)) is not None:
+            mesg = f'No property named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
         if extra is not None:
             raise extra(exc)
         raise exc
@@ -676,7 +687,11 @@ class Model:
         if name.endswith('*'):
             return self.reqFormsByPrefix(name[:-1], extra=extra)
 
-        exc = s_exc.NoSuchForm.init(name)
+        mesg = None
+        if (prevname := self.formprevnames.get(name)) is not None:
+            mesg = f'No form named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchForm.init(name, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
 
@@ -692,7 +707,11 @@ class Model:
         if name.endswith('*'):
             return self.reqFormsByPrefix(name[:-1], extra=extra)
 
-        exc = s_exc.NoSuchProp.init(name)
+        mesg = None
+        if (prevname := self.propprevnames.get(name)) is not None:
+            mesg = f'No property named {name}. Did you mean {prevname}?'
+
+        exc = s_exc.NoSuchProp.init(name, mesg=mesg)
         if extra is not None:
             exc = extra(exc)
 
@@ -920,6 +939,10 @@ class Model:
         self.forms[formname] = form
         self.props[formname] = form
 
+        if (prevnames := forminfo.get('prevnames')) is not None:
+            for prevname in prevnames:
+                self.formprevnames[prevname] = formname
+
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name][form.name] = form
 
@@ -1020,10 +1043,21 @@ class Model:
             return
 
         if self.propsbytype.get(typename):
-            raise s_exc.CantDelType(name=typename)
+            mesg = f'Cannot delete type {typename} as it is still in use by properties.'
+            raise s_exc.CantDelType(mesg=mesg, name=typename)
+
+        for _type in self.types.values():
+            if typename in _type.info['bases']:
+                mesg = f'Cannot delete type {typename} as it is still in use by other types.'
+                raise s_exc.CantDelType(mesg=mesg, name=typename)
+
+            if _type.isarray and _type.arraytype.name == typename:
+                mesg = f'Cannot delete type {typename} as it is still in use by array types.'
+                raise s_exc.CantDelType(mesg=mesg, name=typename)
 
         self.types.pop(typename, None)
         self.propsbytype.pop(typename, None)
+        self.arraysbytype.pop(typename, None)
 
     def _addFormUniv(self, form, name, tdef, info):
 
@@ -1075,6 +1109,12 @@ class Model:
             self.arraysbytype[prop.type.arraytype.name][prop.full] = prop
 
         self.props[prop.full] = prop
+
+        if (prevnames := info.get('prevnames')) is not None:
+            for prevname in prevnames:
+                prevfull = f'{form.name}:{prevname}'
+                self.propprevnames[prevfull] = prop.full
+
         return prop
 
     def _prepFormIface(self, form, iface):
@@ -1252,6 +1292,9 @@ class Model:
             return form
 
         mesg = f'No form named {name}.'
+        if (prevname := self.formprevnames.get(name)) is not None:
+            mesg += f' Did you mean {prevname}?'
+
         raise s_exc.NoSuchForm(mesg=mesg, name=name)
 
     def univ(self, name):

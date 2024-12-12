@@ -603,7 +603,7 @@ class LayerTest(s_t_utils.SynTest):
             newtagv = (tagv[0] + 100, tagv[1] - 100)
 
             nodeedits = [
-                (nid, 'inet:ip', (
+                (s_common.int64un(nid), 'inet:ip', (
                     (s_layer.EDIT_PROP_SET, ('.seen', newival, ival, s_layer.STOR_TYPE_IVAL, None)),
                 )),
             ]
@@ -613,7 +613,7 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:ip=1.2.3.4 +.seen=(2012,2014)'))
 
             nodeedits = [
-                (nid, 'inet:ip', (
+                (s_common.int64un(nid), 'inet:ip', (
                     (s_layer.EDIT_PROP_SET, ('.created', tick + 200, tick, s_layer.STOR_TYPE_MINTIME, None)),
                 )),
             ]
@@ -624,7 +624,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(tick, nodes[0].get('.created'))
 
             nodeedits = [
-                (nid, 'inet:ip', (
+                (s_common.int64un(nid), 'inet:ip', (
                     (s_layer.EDIT_PROP_SET, ('.created', tick - 200, tick, s_layer.STOR_TYPE_MINTIME, None)),
                 )),
             ]
@@ -638,7 +638,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(tick - 200, nodes[0].get('.created'))
 
             nodeedits = [
-                (nid, 'inet:ip', (
+                (s_common.int64un(nid), 'inet:ip', (
                     (s_layer.EDIT_TAG_SET, ('foo.bar', newtagv, tagv)),
                 )),
             ]
@@ -801,8 +801,8 @@ class LayerTest(s_t_utils.SynTest):
 
             q = '[ inet:ip=1.2.3.4 +#tp:score=5 +(refs)> { test:str=foo } ] $node.data.set(foo, bar)'
             nodes = await core0.nodes(q)
-            ipv4nid = nodes[0].nid
-            tstrnid = (await core0.nodes('test:str=foo'))[0].nid
+            ipv4nid = s_common.int64un(nodes[0].nid)
+            tstrnid = s_common.int64un((await core0.nodes('test:str=foo'))[0].nid)
 
             layr = core0.getLayer()
 
@@ -853,40 +853,42 @@ class LayerTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ test:str=foo ]')
             strnode = nodes[0]
+            strnid = s_common.int64un(strnode.nid)
             q = '[ inet:ip=1.2.3.4 :asn=42 .seen=(2012,2014) +#mytag:score=99 +#foo.bar=(2012, 2014) ]'
             nodes = await core.nodes(q)
             ipv4node = nodes[0]
+            ipnid = s_common.int64un(ipv4node.nid)
 
             await core.nodes('inet:ip=1.2.3.4 test:str=foo | delnode')
 
             mdef = {'forms': ['test:str']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (strnode.nid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)),
-                (strnode.nid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)),
+                (strnid, 'test:str', s_layer.EDIT_NODE_ADD, ('foo', s_layer.STOR_TYPE_UTF8, None)),
+                (strnid, 'test:str', s_layer.EDIT_NODE_DEL, ('foo', s_layer.STOR_TYPE_UTF8)),
             ])
 
             mdef = {'props': ['.seen']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             ival = tuple([s_time.parse(x) for x in ('2012', '2014')])
             self.eq(events, [
-                (ipv4node.nid, 'inet:ip', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL, None)),
-                (ipv4node.nid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL)),
+                (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('.seen', ival, None, s_layer.STOR_TYPE_IVAL, None)),
+                (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('.seen', ival, s_layer.STOR_TYPE_IVAL)),
             ])
 
             mdef = {'props': ['inet:ip:asn']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.len(2, events)
             self.eq(events, [
-                (ipv4node.nid, 'inet:ip', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64, None)),
-                (ipv4node.nid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
+                (ipnid, 'inet:ip', s_layer.EDIT_PROP_SET, ('asn', 42, None, s_layer.STOR_TYPE_I64, None)),
+                (ipnid, 'inet:ip', s_layer.EDIT_PROP_DEL, ('asn', 42, s_layer.STOR_TYPE_I64)),
             ])
 
             mdef = {'tags': ['foo.bar']}
             events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
             self.eq(events, [
-                (ipv4node.nid, 'inet:ip', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None)),
-                (ipv4node.nid, 'inet:ip', s_layer.EDIT_TAG_DEL, ('foo.bar', ival)),
+                (ipnid, 'inet:ip', s_layer.EDIT_TAG_SET, ('foo.bar', ival, None)),
+                (ipnid, 'inet:ip', s_layer.EDIT_TAG_DEL, ('foo.bar', ival)),
             ])
 
             mdefs = ({'tagprops': ['score']}, {'tagprops': ['mytag:score']})
@@ -894,9 +896,9 @@ class LayerTest(s_t_utils.SynTest):
             for mdef in mdefs:
                 events = [e[1] for e in await alist(layr.syncIndexEvents(baseoff, mdef, wait=False))]
                 self.eq(events, [
-                    (ipv4node.nid, 'inet:ip', s_layer.EDIT_TAGPROP_SET,
+                    (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_SET,
                         ('mytag', 'score', 99, None, s_layer.STOR_TYPE_I64)),
-                    (ipv4node.nid, 'inet:ip', s_layer.EDIT_TAGPROP_DEL,
+                    (ipnid, 'inet:ip', s_layer.EDIT_TAGPROP_DEL,
                         ('mytag', 'score', 99, s_layer.STOR_TYPE_I64)),
                 ])
 
@@ -2673,3 +2675,74 @@ class LayerTest(s_t_utils.SynTest):
             self.true(sodes[0][1].get('antivalu'))
 
             self.len(0, await alist(layr00.iterNodeData(nid)))
+
+    async def test_layer_deleted_fork_edits(self):
+
+        with self.getTestDir() as dirn:
+
+            path00 = s_common.gendir(dirn, 'core00')
+            path01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                vdef2 = await core00.view.fork()
+                opts2 = {'view': vdef2.get('iden')}
+
+                await core00.nodes('[ it:dev:str=foo ]', opts=opts2)
+
+                vdef3 = await core00.view.fork()
+                opts3 = {'view': vdef3.get('iden')}
+
+                await core00.nodes('[ it:dev:str=bar ]', opts=opts3)
+
+            s_tools_backup.backup(path00, path01)
+
+            async with self.getTestCore(dirn=path00) as core00:
+
+                url = core00.getLocalUrl()
+
+                core01conf = {'mirror': url}
+
+                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                    await core01.sync()
+
+                    indx = await core00.getNexsIndx()
+
+                    # attempt to edit a node in a deleted layer from the leader
+                    with self.raises(s_exc.NoSuchLayer):
+                        await core00.nodes('''
+                            it:dev:str=foo
+                            $lib.view.del($lib.view.get().iden)
+                            $lib.layer.del($lib.layer.get().iden)
+                            [ .seen=2020 ]''', opts=opts2)
+
+                    await core01.sync()
+
+                    evnts = [n[1][1] for n in await alist(core00.nexsroot.nexslog.iter(indx))]
+                    self.eq(['view:del', 'layer:del', 'sync'], evnts)
+
+                await core00.nodes('''
+                    $lib.view.del($lib.view.get().iden)
+                    $lib.layer.del($lib.layer.get().iden)
+                    ''', opts=opts3)
+
+            async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
+
+                indx = await core01.getNexsIndx()
+
+                # attempt to edit a node on the mirror in a layer that has been deleted on the leader
+                async def doEdit():
+                    with self.raises(s_exc.NoSuchLayer):
+                        await core01.nodes('it:dev:str=bar [ .seen=2020 ]', opts=opts3)
+
+                task = core01.schedCoro(doEdit())
+
+                async with self.getTestCore(dirn=path00) as core00:
+
+                    await asyncio.wait_for(task, timeout=6)
+
+                    await core01.sync()
+
+                    evnts = [n[1][1] for n in await alist(core01.nexsroot.nexslog.iter(indx))]
+                    self.eq(['view:del', 'layer:del', 'sync'], evnts)

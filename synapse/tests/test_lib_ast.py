@@ -1380,7 +1380,7 @@ class AstTest(s_test.SynTest):
                     {n.ndef for n in nodes})
 
             msgs = await core.stormlist('pkg.list')
-            self.stormIsInPrint('foo                             : 0.0.1', msgs)
+            self.stormIsInPrint('foo 0.0.1', msgs, whitespace=False)
 
             msgs = await core.stormlist('pkg.del asdf')
             self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
@@ -3200,22 +3200,19 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('media:news inet:ip', opts={'graph': True})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(2, nodes)
-            self.eq(nodes[1][1]['path']['edges'], (('8f66c747665dc3f16603bb25c78323ede90086d255ac07176a98a579069c4bb6',
-                        {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
+            self.eq(nodes[1][1]['path']['edges'], ((1, {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
 
-            opts = {'graph': {'existing': (news.iden(),)}}
+            opts = {'graph': {'existing': (s_common.int64un(news.nid),)}}
             msgs = await core.stormlist('inet:ip', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
-            self.eq(nodes[0][1]['path']['edges'], (('8f66c747665dc3f16603bb25c78323ede90086d255ac07176a98a579069c4bb6',
-                        {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
+            self.eq(nodes[0][1]['path']['edges'], ((1, {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
 
-            opts = {'graph': {'existing': (ipv4.iden(),)}}
+            opts = {'graph': {'existing': (s_common.int64un(ipv4.nid),)}}
             msgs = await core.stormlist('media:news', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
-            self.eq(nodes[0][1]['path']['edges'], (('6ff89ac24110dec0216d5ce85382056ed50f508dbf718764039f061fc190b3c8',
-                        {'type': 'edge', 'verb': 'refs'}),))
+            self.eq(nodes[0][1]['path']['edges'], ((2, {'type': 'edge', 'verb': 'refs'}),))
 
             msgs = await core.stormlist('media:news inet:ip', opts={'graph': {'maxsize': 1}})
             self.len(1, [m[1] for m in msgs if m[0] == 'node'])
@@ -3243,16 +3240,16 @@ class AstTest(s_test.SynTest):
             await core.nodes('[test:str=neato +(_selfrefs)> { test:str=neato }]')
             self.len(1, neato)
 
-            iden = neato[0].iden()
-            idens = [iden,]
+            intnid = s_common.int64un(neato[0].nid)
+            nids = [intnid,]
             opts = {
                 'graph': {
                     'degrees': None,
                     'edges': True,
                     'refs': True,
-                    'existing': idens
+                    'existing': nids
                 },
-                'idens': idens
+                'nids': nids
             }
 
             def testedges(msgs):
@@ -3263,8 +3260,8 @@ class AstTest(s_test.SynTest):
                     node = m[1]
                     edges = node[1]['path']['edges']
                     self.len(1, edges)
-                    edgeiden, edgedata = edges[0]
-                    self.eq(edgeiden, iden)
+                    edgenid, edgedata = edges[0]
+                    self.eq(edgenid, intnid)
                     self.true(edgedata.get('reverse', False))
                     self.eq(edgedata['verb'], 'refs')
                     self.eq(edgedata['type'], 'edge')
@@ -3281,17 +3278,16 @@ class AstTest(s_test.SynTest):
             burrito = await core.nodes('[test:str=burrito <(_awesome)+ { inet:ip }]')
             self.len(1, burrito)
 
-            iden = burrito[0].iden()
             for m in msgs:
                 if m[0] != 'node':
                     continue
                 node = m[1]
-                idens.append(node[1]['iden'])
+                nids.append(node[1]['nid'])
 
-            opts['graph']['existing'] = idens
-            opts['idens'] = [ipv4s[0].iden(),]
-            ipidens = [n.iden() for n in ipv4s]
-            ipidens.append(neato[0].iden())
+            opts['graph']['existing'] = nids
+            opts['nids'] = [s_common.int64un(ipv4s[0].nid),]
+            ipnids = [s_common.int64un(n.nid) for n in ipv4s]
+            ipnids.append(s_common.int64un(neato[0].nid))
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
@@ -3303,8 +3299,8 @@ class AstTest(s_test.SynTest):
                 self.len(256, edges)
 
                 for edge in edges:
-                    edgeiden, edgedata = edge
-                    self.isin(edgeiden, ipidens)
+                    edgenid, edgedata = edge
+                    self.isin(edgenid, ipnids)
                     self.true(edgedata.get('reverse', False))
                     self.eq(edgedata['verb'], '_awesome')
                     self.eq(edgedata['type'], 'edge')
@@ -3314,17 +3310,17 @@ class AstTest(s_test.SynTest):
                 self.len(256, edges)
                 edges = node[1]['path']['edges']
                 for edge in edges:
-                    edgeiden, edgedata = edge
-                    self.isin(edgeiden, ipidens)
+                    edgenid, edgedata = edge
+                    self.isin(edgenid, ipnids)
                     self.eq(edgedata['type'], 'edge')
                     if edgedata['verb'] == '_selfrefs':
-                        self.eq(edgeiden, neato[0].iden())
+                        self.eq(edgenid, s_common.int64un(neato[0].nid))
                     else:
                         self.eq(edgedata['verb'], 'refs')
                         self.false(edgedata.get('reverse', False))
 
             opts['graph'].pop('existing', None)
-            opts['idens'] = [neato[0].iden(),]
+            opts['nids'] = [s_common.int64un(neato[0].nid),]
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee { --> * } { <-- * }', opts=opts)
@@ -3341,9 +3337,9 @@ class AstTest(s_test.SynTest):
                     elif form == 'test:str':
                         self.len(258, edges)
                         for e in edges:
-                            self.isin(e[0], ipidens)
+                            self.isin(e[0], ipnids)
                             self.eq('edge', e[1]['type'])
-                            if e[0] == neato[0].iden():
+                            if e[0] == s_common.int64un(neato[0].nid):
                                 selfrefs += 1
                                 self.eq('_selfrefs', e[1]['verb'])
                             else:
@@ -3353,8 +3349,7 @@ class AstTest(s_test.SynTest):
             boop = await core.nodes('[test:str=boop +(refs)> {[inet:ip=5.6.7.0/24]}]')
             await core.nodes('[test:str=boop <(refs)+ {[inet:ip=4.5.6.0/24]}]')
             self.len(1, boop)
-            boopiden = boop[0].iden()
-            opts['idens'] = [boopiden,]
+            opts['nids'] = [s_common.int64un(boop[0].nid),]
             for limit in limits:
                 opts['graph']['edgelimit'] = limit
                 msgs = await core.stormlist('tee --join { --> * } { <-- * }', opts=opts)
@@ -3364,24 +3359,24 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             (fn,) = await core.nodes('[ file:bytes=(woot,) :md5=e5a23e8a2c0f98850b1a43b595c08e63 ]')
-            fiden = fn.iden()
+            fnid = s_common.int64un(fn.nid)
 
             rules = {
                 'degrees': None,
                 'edges': True,
                 'refs': True,
-                'existing': [fiden]
+                'existing': [fnid]
             }
 
             nodes = []
 
-            async for node in core.view.iterStormPodes(':md5 -> hash:md5', opts={'idens': [fiden], 'graph': rules}):
+            async for node in core.view.iterStormPodes(':md5 -> hash:md5', opts={'nids': [fnid], 'graph': rules}):
                 nodes.append(node)
 
                 edges = node[1]['path'].get('edges')
                 self.len(1, edges)
                 self.eq(edges, [
-                    [fn.iden(), {
+                    [s_common.int64un(fn.nid), {
                         "type": "prop",
                         "prop": "md5",
                         "reverse": True
@@ -4285,7 +4280,7 @@ class AstTest(s_test.SynTest):
                 links = nodes[nidx][1].get('links')
                 self.nn(links)
                 self.lt(eidx, len(links))
-                self.eq(links[eidx], (src.iden(), edge))
+                self.eq(links[eidx], (src.intnid(), edge))
 
             opts = {'links': True}
 

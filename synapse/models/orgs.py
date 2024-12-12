@@ -296,6 +296,8 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The campaign used the technique.'}),
                 (('ou:org', 'uses', 'ou:technique'), {
                     'doc': 'The org uses the technique.'}),
+                (('risk:vuln', 'uses', 'ou:technique'), {
+                    'doc': 'The vulnerability uses the technique.'}),
 
                 (('ou:org', 'uses', None), {
                     'doc': 'The ou:org makes use of the target node.'}),
@@ -315,9 +317,13 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The organization owns or owned the target node.'}),
             ),
             'forms': (
-                ('ou:job:type:taxonomy', {}, ()),
+                ('ou:job:type:taxonomy', {
+                    'prevnames': ('ou:jobtype',)}, ()),
+
                 ('ou:jobtitle', {}, ()),
-                ('ou:employment:type:taxonomy', {}, ()),
+                ('ou:employment:type:taxonomy', {
+                    'prevnames': ('ou:employment',)}, ()),
+
                 ('ou:opening', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which has the opening.',
@@ -345,10 +351,12 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('job:type', ('ou:job:type:taxonomy', {}), {
                         'doc': 'The job type taxonomy.',
-                    }),
+                        'prevnames': ('jobtype',)}),
+
                     ('employment:type', ('ou:employment:type:taxonomy', {}), {
                         'doc': 'The type of employment.',
-                    }),
+                        'prevnames': ('employment',)}),
+
                     ('jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'The title of the opening.',
                     }),
@@ -544,7 +552,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Set if a goal has a limited time window.',
                     }),
                 )),
-                ('ou:campaign:type:taxonomy', {}, ()),
+                ('ou:campaign:type:taxonomy', {
+                    'prevnames': ('ou:camptype',)}, ()),
+
                 ('ou:campname', {}, ()),
                 ('ou:campaign', {}, (
                     # political campaign, funding round, ad campaign, fund raising
@@ -593,7 +603,8 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A timeline of significant events related to the campaign.'}),
 
                     ('type', ('ou:campaign:type:taxonomy', {}), {
-                        'doc': 'The campaign type taxonomy.'}),
+                        'doc': 'The campaign type taxonomy.',
+                        'prevnames': ('camptype',)}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -704,8 +715,12 @@ class OuModule(s_module.CoreModule):
                     ('ext:id', ('str', {'strip': True}), {
                         'doc': 'An external identifier for the technique.'}),
                 )),
-                ('ou:technique:type:taxonomy', {}, ()),
-                ('ou:org:type:taxonomy', {}, ()),
+                ('ou:technique:type:taxonomy', {
+                    'prevnames': ('ou:technique:taxonomy',)}, ()),
+
+                ('ou:org:type:taxonomy', {
+                    'prevnames': ('ou:orgtype',)}, ()),
+
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'Location for an organization.'
@@ -714,16 +729,13 @@ class OuModule(s_module.CoreModule):
                         'alts': ('names',),
                         'doc': 'The localized name of an organization.',
                     }),
-                    ('type', ('str', {'lower': True, 'strip': True}), {
-                        'deprecated': True,
-                        'doc': 'The type of organization.',
-                    }),
                     ('motto', ('lang:phrase', {}), {
                         'doc': 'The motto used by the organization.'}),
 
                     ('type', ('ou:org:type:taxonomy', {}), {
                         'doc': 'The type of organization.',
-                    }),
+                        'prevnames': ('orgtype',)}),
+
                     ('vitals', ('ou:vitals', {}), {
                         'doc': 'The most recent/accurate ou:vitals for the org.',
                     }),
@@ -866,7 +878,9 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:name', {}, ()),
-                ('ou:contract:type:taxonomy', {}, ()),
+                ('ou:contract:type:taxonomy', {
+                    'prevnames': ('ou:conttype',)}, ()),
+
                 ('ou:contract', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A terse title for the contract.'}),
@@ -945,7 +959,9 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Alias for the organization.',
                     }),
                 )),
-                ('ou:orgnet', {}, (
+                ('ou:orgnet', {
+                    'prevnames': ('ou:orgnet4', 'ou:orgnet6')}, (
+
                     ('org', ('ou:org', {}), {
                         'ro': True,
                         'doc': 'The org guid which owns the netblock.',

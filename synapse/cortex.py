@@ -357,13 +357,14 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
-    async def getPropNorm(self, prop, valu):
+    async def getPropNorm(self, prop, valu, typeopts=None):
         '''
         Get the normalized property value based on the Cortex data model.
 
         Args:
             prop (str): The property to normalize.
             valu: The value to normalize.
+            typeopts: A Synapse type opts dictionary used to further normalize the value.
 
         Returns:
             (tuple): A two item tuple, containing the normed value and the info dictionary.
@@ -372,15 +373,16 @@ class CoreApi(s_cell.CellApi):
             s_exc.NoSuchProp: If the prop does not exist.
             s_exc.BadTypeValu: If the value fails to normalize.
         '''
-        return await self.cell.getPropNorm(prop, valu)
+        return await self.cell.getPropNorm(prop, valu, typeopts=typeopts)
 
-    async def getTypeNorm(self, name, valu):
+    async def getTypeNorm(self, name, valu, typeopts=None):
         '''
         Get the normalized type value based on the Cortex data model.
 
         Args:
             name (str): The type to normalize.
             valu: The value to normalize.
+            typeopts: A Synapse type opts dictionary used to further normalize the value.
 
         Returns:
             (tuple): A two item tuple, containing the normed value and the info dictionary.
@@ -389,7 +391,7 @@ class CoreApi(s_cell.CellApi):
             s_exc.NoSuchType: If the type does not exist.
             s_exc.BadTypeValu: If the value fails to normalize.
         '''
-        return await self.cell.getTypeNorm(name, valu)
+        return await self.cell.getTypeNorm(name, valu, typeopts=typeopts)
 
     async def addForm(self, formname, basetype, typeopts, typeinfo):
         '''
@@ -1124,6 +1126,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('model', 'form', 'del', '<form>'), 'gate': 'cortex',
              'desc': 'Controls access to deleting specific extended model forms.',
              'ex': 'model.form.del._foo:bar'},
+
+            {'perm': ('model', 'type', 'add'), 'gate': 'cortex',
+             'desc': 'Controls access to adding extended model types.'},
+            {'perm': ('model', 'type', 'add', '<type>'), 'gate': 'cortex',
+             'desc': 'Controls access to adding specific extended model types.',
+             'ex': 'model.type.add._foo:bar'},
+            {'perm': ('model', 'type', 'del'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting extended model types.'},
+            {'perm': ('model', 'type', 'del', '<type>'), 'gate': 'cortex',
+             'desc': 'Controls access to deleting specific extended model types.',
+             'ex': 'model.type.del._foo:bar'},
 
             {'perm': ('model', 'prop', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to adding extended model properties.'},
@@ -2725,11 +2738,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _loadExtModel(self):
 
+        self.exttypes = self.cortexdata.getSubKeyVal('model:types:')
         self.extforms = self.cortexdata.getSubKeyVal('model:forms:')
         self.extprops = self.cortexdata.getSubKeyVal('model:props:')
         self.extunivs = self.cortexdata.getSubKeyVal('model:univs:')
         self.extedges = self.cortexdata.getSubKeyVal('model:edges:')
         self.exttagprops = self.cortexdata.getSubKeyVal('model:tagprops:')
+
+        for typename, basetype, typeopts, typeinfo in self.exttypes.values():
+            try:
+                self.model.addType(typename, basetype, typeopts, typeinfo)
+            except Exception as e:
+                logger.warning(f'Extended type ({typename}) error: {e}')
 
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
             try:
@@ -2780,6 +2800,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             dict: A dictionary containing forms, form properties, universal properties and tag properties.
         '''
         ret = collections.defaultdict(list)
+        for typename, basetype, typeopts, typeinfo in self.exttypes.values():
+            ret['types'].append((typename, basetype, typeopts, typeinfo))
+
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
             ret['forms'].append((formname, basetype, typeopts, typeinfo))
 
@@ -2819,17 +2842,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         emodl = await self.getExtModel()
         amodl = collections.defaultdict(list)
 
+        types = {info[0]: info for info in model.get('types', ())}
         forms = {info[0]: info for info in model.get('forms', ())}
         props = {(info[0], info[1]): info for info in model.get('props', ())}
         tagprops = {info[0]: info for info in model.get('tagprops', ())}
         univs = {info[0]: info for info in model.get('univs', ())}
         edges = {info[0]: info for info in model.get('edges', ())}
 
+        etyps = {info[0]: info for info in emodl.get('types', ())}
         efrms = {info[0]: info for info in emodl.get('forms', ())}
         eprops = {(info[0], info[1]): info for info in emodl.get('props', ())}
         etagprops = {info[0]: info for info in emodl.get('tagprops', ())}
         eunivs = {info[0]: info for info in emodl.get('univs', ())}
         eedges = {info[0]: info for info in emodl.get('edges', ())}
+
+        for (name, info) in types.items():
+            enfo = etyps.get(name)
+            if enfo is None:
+                amodl['types'].append(info)
+                continue
+            if enfo == info:
+                continue
+            mesg = f'Extended type definition differs from existing definition for {name}.'
+            raise s_exc.BadTypeDef(mesg=mesg, name=name)
 
         for (name, info) in forms.items():
             enfo = efrms.get(name)
@@ -2882,6 +2917,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (n1form, verb, n2form) = info[0]
             mesg = f'Extended edge definition differs from existing definition for {info[0]}'
             raise s_exc.BadEdgeDef(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
+
+        for typename, basetype, typeopts, typeinfo in amodl['types']:
+            await self.addType(typename, basetype, typeopts, typeinfo)
 
         for formname, basetype, typeopts, typeinfo in amodl['forms']:
             await self.addForm(formname, basetype, typeopts, typeinfo)
@@ -2947,9 +2985,15 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if not formname.startswith('_'):
             mesg = 'Extended form must begin with "_"'
             raise s_exc.BadFormDef(form=formname, mesg=mesg)
+
         if self.model.form(formname) is not None:
             mesg = f'Form name already exists: {formname}'
             raise s_exc.DupFormName(mesg=mesg)
+
+        if self.model.type(formname) is not None:
+            mesg = f'Type already exists: {formname}'
+            raise s_exc.DupTypeName.init(formname)
+
         return await self._push('model:form:add', formname, basetype, typeopts, typeinfo)
 
     @s_nexus.Pusher.onPush('model:form:add')
@@ -3003,6 +3047,74 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.extforms.pop(formname, None)
         await self.fire('core:extmodel:change', form=formname, act='del', type='form')
         await self.feedBeholder('model:form:del', {'form': formname})
+
+    async def addType(self, typename, basetype, typeopts, typeinfo):
+        if not isinstance(typeopts, dict):
+            mesg = 'Type options should be a dict.'
+            raise s_exc.BadArg(type=typename, mesg=mesg)
+
+        if not isinstance(typeinfo, dict):
+            mesg = 'Type info should be a dict.'
+            raise s_exc.BadArg(type=typename, mesg=mesg)
+
+        if not typename.startswith('_'):
+            mesg = 'Extended type must begin with "_".'
+            raise s_exc.BadTypeDef(type=typename, mesg=mesg)
+
+        if self.model.type(typename) is not None:
+            raise s_exc.DupTypeName.init(typename)
+
+        if (base := self.model.type(basetype)) is None:
+            mesg = f'Specified base type {basetype} does not exist.'
+            raise s_exc.NoSuchType(mesg=mesg, name=basetype)
+
+        base.clone(typeopts)
+
+        return await self._push('model:type:add', typename, basetype, typeopts, typeinfo)
+
+    @s_nexus.Pusher.onPush('model:type:add')
+    async def _addType(self, typename, basetype, typeopts, typeinfo):
+        if self.model.type(typename) is not None:
+            return
+
+        ifaces = typeinfo.get('interfaces')
+
+        if ifaces and 'taxonomy' in ifaces:
+            logger.warning(f'{typename} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
+
+            ifaces = set(ifaces)
+            ifaces.remove('taxonomy')
+            ifaces.add('meta:taxonomy')
+            typeinfo['interfaces'] = tuple(ifaces)
+
+        self.model.addType(typename, basetype, typeopts, typeinfo)
+
+        self.exttypes.set(typename, (typename, basetype, typeopts, typeinfo))
+        await self.fire('core:extmodel:change', name=typename, act='add', type='type')
+
+        if (_type := self.model.type(typename)) is not None:
+            await self.feedBeholder('model:type:add', {'type': _type.pack()})
+
+    async def delType(self, typename):
+        if not typename.startswith('_'):
+            mesg = 'Extended type must begin with "_".'
+            raise s_exc.BadTypeDef(type=typename, mesg=mesg)
+
+        if self.model.type(typename) is None:
+            raise s_exc.NoSuchType.init(typename)
+
+        return await self._push('model:type:del', typename)
+
+    @s_nexus.Pusher.onPush('model:type:del')
+    async def _delType(self, typename):
+        if self.model.type(typename) is None:
+            return
+
+        self.model.delType(typename)
+
+        self.exttypes.pop(typename, None)
+        await self.fire('core:extmodel:change', name=typename, act='del', type='type')
+        await self.feedBeholder('model:type:del', {'type': typename})
 
     async def addFormProp(self, form, prop, tdef, info):
         if not isinstance(tdef, tuple):
@@ -3066,7 +3178,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for rows in s_coro.chunks(genr):
                 nodeedits = []
                 for nid, valu in rows:
-                    nodeedits.append((nid, prop.form.name, (
+                    nodeedits.append((s_common.int64un(nid), prop.form.name, (
                         (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
                     )))
 
@@ -3094,7 +3206,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 nodeedits = []
                 for nid, valu in rows:
                     sode = layr._getStorNode(nid)
-                    nodeedits.append((nid, sode.get('form'), (
+                    nodeedits.append((s_common.int64un(nid), sode.get('form'), (
                         (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
                     )))
 
@@ -3125,7 +3237,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 async for rows in s_coro.chunks(genr):
                     nodeedits = []
                     for nid, valu in rows:
-                        nodeedits.append((nid, form, (
+                        nodeedits.append((s_common.int64un(nid), form, (
                             (s_layer.EDIT_TAGPROP_DEL, (tag, prop.name, None, prop.type.stortype), ()),
                         )))
 
@@ -3840,9 +3952,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # Ensure each ctor's permdefs are valid
             for pdef in ctor._storm_lib_perms:
                 s_storm.reqValidPermDef(pdef)
-            # Skip libbase which is registered as a default ctor in the storm Runtime
-            if path:
-                self.addStormLib(path, ctor)
+
+            self.addStormLib(path, ctor)
 
     def _initCortexHttpApi(self):
         '''
@@ -4784,14 +4895,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     def localToRemoteEdits(self, lnodeedits):
         rnodeedits = []
         for nid, form, ledits in lnodeedits:
-            if (ndef := self.getNidNdef(nid)) is None:
+            if (ndef := self.getNidNdef(s_common.int64en(nid))) is None:
                 continue
 
             redits = []
             for edit in ledits:
                 if edit[0] in (10, 11):
                     verb, n2nid = edit[1]
-                    if (n2ndef := self.getNidNdef(n2nid)) is None:
+                    if (n2ndef := self.getNidNdef(s_common.int64en(n2nid))) is None:
                         continue
 
                     redits.append((edit[0], (verb, n2ndef)))
@@ -4809,19 +4920,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for form, valu, redits in rnodeedits:
 
             buid = s_common.buid((form, valu))
-            nid = self.getNidByBuid(buid)
-            if nid is None and redits[0][0] != 0:
-                # If we don't know this buid and the first edit isn't
-                # a node add, this is an edit to a node we won't have
-                # and we need to use a nexus event to generate the NID
-                nid = await self.genNdefNid((form, valu))
+            if (nid := self.getNidByBuid(buid)) is None:
+                if redits[0][0] != 0:
+                    # If we don't know this buid and the first edit isn't
+                    # a node add, this is an edit to a node we won't have
+                    # and we need to use a nexus event to generate the NID
+                    nid = s_common.int64un(await self.genNdefNid((form, valu)))
+            else:
+                nid = s_common.int64un(nid)
 
             ledits = []
             for edit in redits:
                 if edit[0] in (10, 11):
                     verb, n2ndef = edit[1]
                     n2nid = await self.genNdefNid(n2ndef)
-                    ledits.append((edit[0], (verb, n2nid)))
+                    ledits.append((edit[0], (verb, s_common.int64un(n2nid))))
                     continue
 
                 ledits.append(edit)
@@ -5093,6 +5206,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.stormlibs.append((path, ctor))
 
+        # Skip libbase which is registered as a default ctor in the storm Runtime
+        if not path:
+            return
+
         root = self.libroot
         # (name, {kids}, {funcs})
 
@@ -5190,13 +5307,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):
-            extra = await self.getLogExtra(text=text)
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
-                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+                proxname = proxy._ahainfo.get('name')
+                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
+
+                mirropts.setdefault('_loginfo', {})
+                mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
                     return await proxy.count(text, opts=mirropts)
@@ -5271,9 +5392,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
-                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+                proxname = proxy._ahainfo.get('name')
+                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
+
+                mirropts.setdefault('_loginfo', {})
+                mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
                     async for mesg in proxy.storm(text, opts=mirropts):
@@ -5301,9 +5427,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
-                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+                proxname = proxy._ahainfo.get('name')
+                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
+
+                mirropts.setdefault('_loginfo', {})
+                mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
                     return await proxy.callStorm(text, opts=mirropts)
@@ -5326,9 +5457,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
-                logger.info(f'Offloading Storm query {{{text}}} to mirror.', extra=extra)
+                proxname = proxy._ahainfo.get('name')
+                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
+
+                mirropts.setdefault('_loginfo', {})
+                mirropts['_loginfo']['pool:from'] = self.ahasvcname
 
                 try:
                     async for mesg in proxy.exportStorm(text, opts=mirropts):
@@ -5355,6 +5491,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 query = await self.getStormQuery(text, mode=opts.get('mode', 'storm'))
                 async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
+
+                    info = opts.get('_loginfo', {})
+                    info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                    self._logStormQuery(text, user, info=info)
+
                     async for node, path in runt.execute():
                         await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
 
@@ -5509,6 +5650,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             info['text'] = text
             info['username'] = user.name
             info['user'] = user.iden
+            info['hash'] = s_storm.queryhash(text)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra={'synapse': info})
 
@@ -5690,13 +5832,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.exception('mod load fail: %s' % (ctor,))
             return None
 
-    async def getPropNorm(self, prop, valu):
+    async def getPropNorm(self, prop, valu, typeopts=None):
         '''
         Get the normalized property value based on the Cortex data model.
 
         Args:
             prop (str): The property to normalize.
             valu: The value to normalize.
+            typeopts: A Synapse type opts dictionary used to further normalize the value.
 
         Returns:
             (tuple): A two item tuple, containing the normed value and the info dictionary.
@@ -5709,16 +5852,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pobj is None:
             raise s_exc.NoSuchProp(mesg=f'The property {prop} does not exist.',
                                    prop=prop)
-        norm, info = pobj.type.norm(valu)
+
+        tobj = pobj.type
+        if typeopts:
+            tobj = tobj.clone(typeopts)
+
+        norm, info = tobj.norm(valu)
         return norm, info
 
-    async def getTypeNorm(self, name, valu):
+    async def getTypeNorm(self, name, valu, typeopts=None):
         '''
         Get the normalized type value based on the Cortex data model.
 
         Args:
             name (str): The type to normalize.
             valu: The value to normalize.
+            typeopts: A Synapse type opts dictionary used to further normalize the value.
 
         Returns:
             (tuple): A two item tuple, containing the normed value and the info dictionary.
@@ -5731,6 +5880,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if tobj is None:
             raise s_exc.NoSuchType(mesg=f'The type {name} does not exist.',
                                    name=name)
+        if typeopts:
+            tobj = tobj.clone(typeopts)
+
         norm, info = tobj.norm(valu)
         return norm, info
 
@@ -6002,8 +6154,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterPropRows(self, layriden, form, prop, stortype=None, startvalu=None):
         '''
@@ -6023,8 +6175,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
         '''
@@ -6043,8 +6195,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
         '''
@@ -6063,8 +6215,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterTagRows(tag, form=form, starttupl=starttupl):
-            yield item
+        if starttupl is not None:
+            starttupl = (s_common.int64en(starttupl[0]), starttupl[1])
+
+        async for nid, valu in layr.iterTagRows(tag, form=form, starttupl=starttupl):
+            yield s_common.int64un(nid), valu
 
     async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
         '''
@@ -6085,8 +6240,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     def _initVaults(self):
         self.vaultsdb = self.slab.initdb('vaults')

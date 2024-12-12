@@ -207,6 +207,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster uses the vulnerability.'}),
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
+                (('ou:technique', 'uses', 'risk:vuln'), {
+                    'doc': 'The technique uses the vulnerability.'}),
 
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
@@ -332,7 +334,9 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'An external identifier for the threat.'}),
                 )),
                 ('risk:availability', {}, {}),
-                ('risk:tool:software:type:taxonomy', {}, ()),
+                ('risk:tool:software:type:taxonomy', {
+                    'prevnames': ('risk:tool:software:taxonomy',)}, ()),
+
                 ('risk:tool:software', {}, (
 
                     ('tag', ('syn:tag', {}), {
@@ -708,6 +712,9 @@ class RiskModule(s_module.CoreModule):
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
 
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The technique that the node is susceptible to.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
 
@@ -721,7 +728,9 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The mitigations which were used to address the vulnerable node.'}),
                 )),
 
-                ('risk:alert:type:taxonomy', {}, {}),
+                ('risk:alert:type:taxonomy', {
+                    'prevnames': ('risk:alert:taxonomy',)}, {}),
+
                 ('risk:alert:verdict:taxonomy', {}, {}),
                 ('risk:alert', {}, (
                     ('type', ('risk:alert:type:taxonomy', {}), {
@@ -777,7 +786,9 @@ class RiskModule(s_module.CoreModule):
                     ('host', ('it:host', {}), {
                         'doc': 'The host which generated the alert.'}),
                 )),
-                ('risk:compromise:type:taxonomy', {}, ()),
+                ('risk:compromise:type:taxonomy', {
+                    'prevnames': ('risk:compromisetype',)}, ()),
+
                 ('risk:compromise', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for the compromise event.'}),
@@ -869,7 +880,9 @@ class RiskModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
-                ('risk:attack:type:taxonomy', {}, ()),
+                ('risk:attack:type:taxonomy', {
+                    'prevnames': ('risk:attacktype',)}, ()),
+
                 ('risk:attack', {}, (
                     ('desc', ('str', {}), {
                         'doc': 'A description of the attack.',

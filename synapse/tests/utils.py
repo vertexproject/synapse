@@ -21,9 +21,11 @@ import io
 import os
 import sys
 import copy
+import json
 import math
 import types
 import shutil
+import typing
 import asyncio
 import hashlib
 import inspect
@@ -94,6 +96,10 @@ def norm(z):
 
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
+
+def jsonlines(text: str):
+    lines = [k for k in text.split('\n') if k]
+    return [json.loads(line) for line in lines]
 
 async def waitForBehold(core, events):
     async for mesg in core.behold():
@@ -755,6 +761,10 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
+    def jsonlines(self) -> typing.List[dict]:
+        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
+        return jsonlines(self.getvalue())
+
 class AsyncStreamEvent(io.StringIO, asyncio.Event):
     '''
     A combination of a io.StringIO object and an asyncio.Event object.
@@ -786,6 +796,10 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
         if timeout is None:
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
+
+    def jsonlines(self) -> typing.List[dict]:
+        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
+        return jsonlines(self.getvalue())
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''
@@ -1096,6 +1110,28 @@ class SynTest(unittest.TestCase):
             TstOutPut: A TstOutPut instance.
         '''
         return TstOutPut()
+
+    def thisEnvMust(self, *envvars):
+        '''
+        Requires a host must have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being present.
+        '''
+        for envar in envvars:
+            if not s_common.envbool(envar):
+                self.skip(f'Envar {envar} is not set to a truthy value.')
+
+    def thisEnvMustNot(self, *envvars):
+        '''
+        Requires a host must not have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being absent or set to falsey values.
+        '''
+        for envar in envvars:
+            if s_common.envbool(envar):
+                self.skip(f'Envar {envar} is set to a truthy value.')
 
     def thisHostMust(self, **props):  # pragma: no cover
         '''
@@ -1677,7 +1713,7 @@ class SynTest(unittest.TestCase):
             slogger.setLevel(level)
 
     @contextlib.contextmanager
-    def getAsyncLoggerStream(self, logname, mesg=''):
+    def getAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[StreamEvent, None, None]:
         '''
         Async version of getLoggerStream.
 
@@ -1722,7 +1758,7 @@ class SynTest(unittest.TestCase):
             slogger.setLevel(level)
 
     @contextlib.contextmanager
-    def getStructuredAsyncLoggerStream(self, logname, mesg=''):
+    def getStructuredAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[AsyncStreamEvent, None, None]:
         '''
         Async version of getLoggerStream which uses structured logging.
 
@@ -1745,9 +1781,7 @@ class SynTest(unittest.TestCase):
                     # Wait for the mesg to be written to the stream
                     await stream.wait(timeout=10)
 
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 # Do something with messages
 
         Returns:
