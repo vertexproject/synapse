@@ -2875,6 +2875,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for configvar in pkgdef.get('configvars', ()):
             self._reqStormPkgVarType(pkgname, configvar.get('type'))
 
+    # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
+    # executing outside of the nexus lock.
     def loadStormPkg(self, pkgdef):
         '''
         Load a storm package into the storm library for this cortex.
@@ -2931,6 +2933,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self.fire('core:pkg:onload:complete', pkg=name)
             self.schedCoro(_onload())
 
+    # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
+    # executing outside of the nexus lock.
     def _dropStormPkg(self, pkgdef):
         '''
         Reverse the process of loadStormPkg()
