@@ -1,0 +1,6 @@
+---
+desc: Deprecated passing ``None`` as a proxy argument to the ``wget``, ``wput``, and
+  ``postfiles`` Axon APIs.
+prs: []
+type: deprecation
+...
