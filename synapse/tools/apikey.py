@@ -9,7 +9,7 @@ import synapse.lib.time as s_time
 import synapse.lib.output as s_output
 
 descr = '''
-Add, list, or delete user API keys from a Synapse cell.
+Add, list, or delete user API keys from a Synapse service.
 '''
 
 def printkey(outp, info, apikey=None):
@@ -23,10 +23,10 @@ def printkey(outp, info, apikey=None):
     if apikey:
         outp.printf(f'  API Key: {apikey}')
     outp.printf(f'  Name: {name}')
-    outp.printf(f'  Created: {s_time.fmttime(created)}')
-    outp.printf(f'  Updated: {s_time.fmttime(updated)}')
+    outp.printf(f'  Created: {s_time.repr(created)}')
+    outp.printf(f'  Updated: {s_time.repr(updated)}')
     if expires:
-        outp.printf(f'  Expires: {s_time.fmttime(expires)}')
+        outp.printf(f'  Expires: {s_time.repr(expires)}')
 
     outp.printf('')
 

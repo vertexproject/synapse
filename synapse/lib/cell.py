@@ -485,7 +485,7 @@ class CellApi(s_base.Base):
         apikey = await self.cell.getUserApiKey(iden)
         if apikey is None:
             mesg = f'User API key with {iden=} does not exist.'
-            raise s_exc.NoSuchObj(mesg=mesg, iden=iden)
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
 
         useriden = apikey.get('user')
 

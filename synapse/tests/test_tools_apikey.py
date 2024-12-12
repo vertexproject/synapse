@@ -39,9 +39,9 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'Iden: {rootkey00.get("iden")}', str(outp))
             self.isin('  API Key: ', str(outp))
             self.isin('  Name: rootkey00', str(outp))
-            self.isin(f'  Created: {s_time.fmttime(rootkey00.get("created"))}', str(outp))
-            self.isin(f'  Updated: {s_time.fmttime(rootkey00.get("updated"))}', str(outp))
-            self.isin(f'  Expires: {s_time.fmttime(rootkey00.get("expires"))}', str(outp))
+            self.isin(f'  Created: {s_time.repr(rootkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {s_time.repr(rootkey00.get("updated"))}', str(outp))
+            self.isin(f'  Expires: {s_time.repr(rootkey00.get("expires"))}', str(outp))
             self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000)
 
             argv = (
@@ -59,8 +59,8 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'Iden: {blckkey00.get("iden")}', str(outp))
             self.isin('  API Key: ', str(outp))
             self.isin('  Name: blckkey00', str(outp))
-            self.isin(f'  Created: {s_time.fmttime(blckkey00.get("created"))}', str(outp))
-            self.isin(f'  Updated: {s_time.fmttime(blckkey00.get("updated"))}', str(outp))
+            self.isin(f'  Created: {s_time.repr(blckkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {s_time.repr(blckkey00.get("updated"))}', str(outp))
             self.notin('  Expires: ', str(outp))
 
             argv = (
@@ -77,8 +77,8 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'Iden: {blckkey01.get("iden")}', str(outp))
             self.isin('  API Key: ', str(outp))
             self.isin('  Name: blckkey01', str(outp))
-            self.isin(f'  Created: {s_time.fmttime(blckkey01.get("created"))}', str(outp))
-            self.isin(f'  Updated: {s_time.fmttime(blckkey01.get("updated"))}', str(outp))
+            self.isin(f'  Created: {s_time.repr(blckkey01.get("created"))}', str(outp))
+            self.isin(f'  Updated: {s_time.repr(blckkey01.get("updated"))}', str(outp))
             self.notin('  Expires: ', str(outp))
 
             # List API keys
@@ -92,9 +92,9 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'Iden: {rootkey00.get("iden")}', str(outp))
             self.notin('  API Key: ', str(outp))
             self.isin('  Name: rootkey00', str(outp))
-            self.isin(f'  Created: {s_time.fmttime(rootkey00.get("created"))}', str(outp))
-            self.isin(f'  Updated: {s_time.fmttime(rootkey00.get("updated"))}', str(outp))
-            self.isin(f'  Expires: {s_time.fmttime(rootkey00.get("expires"))}', str(outp))
+            self.isin(f'  Created: {s_time.repr(rootkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {s_time.repr(rootkey00.get("updated"))}', str(outp))
+            self.isin(f'  Expires: {s_time.repr(rootkey00.get("expires"))}', str(outp))
             self.eq(rootkey00.get('expires'), rootkey00.get('created') + 120000)
 
             argv = (
@@ -108,15 +108,15 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'Iden: {blckkey00.get("iden")}', str(outp))
             self.notin('  API Key: ', str(outp))
             self.isin('  Name: blckkey00', str(outp))
-            self.isin(f'  Created: {s_time.fmttime(blckkey00.get("created"))}', str(outp))
-            self.isin(f'  Updated: {s_time.fmttime(blckkey00.get("updated"))}', str(outp))
+            self.isin(f'  Created: {s_time.repr(blckkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {s_time.repr(blckkey00.get("updated"))}', str(outp))
             self.notin('  Expires: ', str(outp))
 
             self.isin(f'Iden: {blckkey01.get("iden")}', str(outp))
             self.notin('  API Key: ', str(outp))
             self.isin('  Name: blckkey01', str(outp))
-            self.isin(f'  Created: {s_time.fmttime(blckkey01.get("created"))}', str(outp))
-            self.isin(f'  Updated: {s_time.fmttime(blckkey01.get("updated"))}', str(outp))
+            self.isin(f'  Created: {s_time.repr(blckkey01.get("created"))}', str(outp))
+            self.isin(f'  Updated: {s_time.repr(blckkey01.get("updated"))}', str(outp))
             self.notin('  Expires: ', str(outp))
 
             argv = (
@@ -129,15 +129,15 @@ class ApiKeyTest(s_test.SynTest):
             self.isin(f'Iden: {blckkey00.get("iden")}', str(outp))
             self.notin('  API Key: ', str(outp))
             self.isin('  Name: blckkey00', str(outp))
-            self.isin(f'  Created: {s_time.fmttime(blckkey00.get("created"))}', str(outp))
-            self.isin(f'  Updated: {s_time.fmttime(blckkey00.get("updated"))}', str(outp))
+            self.isin(f'  Created: {s_time.repr(blckkey00.get("created"))}', str(outp))
+            self.isin(f'  Updated: {s_time.repr(blckkey00.get("updated"))}', str(outp))
             self.notin('  Expires: ', str(outp))
 
             self.isin(f'Iden: {blckkey01.get("iden")}', str(outp))
             self.notin('  API Key: ', str(outp))
             self.isin('  Name: blckkey01', str(outp))
-            self.isin(f'  Created: {s_time.fmttime(blckkey01.get("created"))}', str(outp))
-            self.isin(f'  Updated: {s_time.fmttime(blckkey01.get("updated"))}', str(outp))
+            self.isin(f'  Created: {s_time.repr(blckkey01.get("created"))}', str(outp))
+            self.isin(f'  Updated: {s_time.repr(blckkey01.get("updated"))}', str(outp))
             self.notin('  Expires: ', str(outp))
 
             # Delete API keys
@@ -224,4 +224,4 @@ class ApiKeyTest(s_test.SynTest):
             )
             outp = s_output.OutPutStr()
             self.eq(1, await s_t_apikey.main(argv, outp=outp))
-            self.isin(f"ERROR: NoSuchObj: User API key with iden='{newpiden}' does not exist.", str(outp))
+            self.isin(f"ERROR: NoSuchIden: User API key with iden='{newpiden}' does not exist.", str(outp))

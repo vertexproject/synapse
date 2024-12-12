@@ -314,7 +314,3 @@ def toUTC(tick, fromzone):
 
     base = datetime.datetime(1970, 1, 1, tzinfo=tz) + datetime.timedelta(milliseconds=tick)
     return int(base.astimezone(pytz.UTC).timestamp() * 1000)
-
-def fmttime(tick, fmt='%Y/%m/%d %H:%M:%S'):
-    dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=tick)
-    return dt.strftime(fmt)
