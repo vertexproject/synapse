@@ -57,11 +57,7 @@ async def main(argv, outp=s_output.stdout):
             try:
                 useriden = None
                 if opts.action in ('add', 'list') and opts.username:
-                    user = await cell.getUserDefByName(opts.username)
-                    if user is None:
-                        outp.printf(f'ERROR: User not found: {opts.username}')
-                        return 1
-
+                    user = await cell.getUserInfo(opts.username)
                     useriden = user.get('iden')
 
                 if opts.action == 'add':

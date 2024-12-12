@@ -205,16 +205,16 @@ class ApiKeyTest(s_test.SynTest):
             )
             outp = s_output.OutPutStr()
             self.eq(1, await s_t_apikey.main(argv, outp=outp))
-            self.isin('ERROR: User not found: newp', str(outp))
+            self.isin('ERROR: NoSuchUser: No user named newp.', str(outp))
 
             argv = (
                 '--svcurl', blckurl,
                 'list',
-                '-u', 'blackout',
+                '-u', 'root',
             )
             outp = s_output.OutPutStr()
             self.eq(1, await s_t_apikey.main(argv, outp=outp))
-            self.isin('ERROR: AuthDeny: User is not an admin [blackout]', str(outp))
+            self.isin('ERROR: AuthDeny: getUserInfo denied for non-admin and non-self', str(outp))
 
             newpiden = s_common.guid()
             argv = (
