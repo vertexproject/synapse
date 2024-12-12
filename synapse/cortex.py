@@ -2240,7 +2240,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         '''
         name = cdef.get('name')
-        await self._setStormCmd(cdef)
+        self._setStormCmd(cdef)
         self.cmddefs.set(name, cdef)
 
     async def _reqStormCmd(self, cdef):
@@ -2483,7 +2483,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
                 yield sodes
 
-    async def _setStormCmd(self, cdef):
+    def _setStormCmd(self, cdef):
         '''
         Note:
             No change control or persistence
@@ -2543,12 +2543,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = cdef.get('name')
         self.stormcmds[name] = ctor
 
-        await self.fire('core:cmd:change', cmd=name, act='add')
-
     async def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
-
-        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def delStormCmd(self, name):
         '''
@@ -2574,8 +2570,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.cmddefs.pop(name)
         self.stormcmds.pop(name, None)
-
-        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def addStormPkg(self, pkgdef, verify=False):
         '''
@@ -2634,7 +2628,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             else:
                 return
 
-        await self.loadStormPkg(pkgdef)
+        self.loadStormPkg(pkgdef)
         self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
@@ -2713,7 +2707,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _tryLoadStormPkg(self, pkgdef):
         try:
             await self._normStormPkg(pkgdef, validstorm=False)
-            await self.loadStormPkg(pkgdef)
+            self.loadStormPkg(pkgdef)
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
@@ -2881,7 +2875,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for configvar in pkgdef.get('configvars', ()):
             self._reqStormPkgVarType(pkgname, configvar.get('type'))
 
-    async def loadStormPkg(self, pkgdef):
+    def loadStormPkg(self, pkgdef):
         '''
         Load a storm package into the storm library for this cortex.
 
@@ -2911,7 +2905,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormmods = stormmods
 
         for cdef in cmds:
-            await self._setStormCmd(cdef)
+            self._setStormCmd(cdef)
 
         for gdef in pkgdef.get('graphs', ()):
             gdef = copy.deepcopy(gdef)
@@ -4435,7 +4429,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _trySetStormCmd(self, name, cdef):
         try:
-            await self._setStormCmd(cdef)
+            self._setStormCmd(cdef)
         except (asyncio.CancelledError, Exception):
             logger.exception(f'Storm command load failed: {name}')
 
