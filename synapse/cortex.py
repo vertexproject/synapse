@@ -2543,7 +2543,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = cdef.get('name')
         self.stormcmds[name] = ctor
 
-    async def _popStormCmd(self, name):
+    def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
 
     async def delStormCmd(self, name):
@@ -2624,7 +2624,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         olddef = self.pkgdefs.get(name, None)
         if olddef is not None:
             if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
-                await self._dropStormPkg(olddef)
+                self._dropStormPkg(olddef)
             else:
                 return
 
@@ -2658,7 +2658,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pkgdef is None:
             return
 
-        await self._dropStormPkg(pkgdef)
+        self._dropStormPkg(pkgdef)
 
         self._clearPermDefs()
 
@@ -2931,7 +2931,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self.fire('core:pkg:onload:complete', pkg=name)
             self.schedCoro(_onload())
 
-    async def _dropStormPkg(self, pkgdef):
+    def _dropStormPkg(self, pkgdef):
         '''
         Reverse the process of loadStormPkg()
         '''
@@ -2942,7 +2942,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for cdef in pkgdef.get('commands', ()):
             name = cdef.get('name')
-            await self._popStormCmd(name)
+            self._popStormCmd(name)
 
         pkgname = pkgdef.get('name')
 

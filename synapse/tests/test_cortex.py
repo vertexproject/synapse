@@ -513,7 +513,7 @@ class CortexTest(s_t_utils.SynTest):
             vals = [r async for r in core.view.callStormIface('boom', todo)]
             self.eq((), vals)
 
-            await core._dropStormPkg(pkgdef)
+            core._dropStormPkg(pkgdef)
             self.none(core.modsbyiface.get('lookup'))
 
             mods = await core.getStormIfaces('lookup')
