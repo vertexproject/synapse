@@ -738,11 +738,7 @@ class InfotechModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             # it:prod:soft
             prod0 = s_common.guid()
-            org0 = s_common.guid()
-            person0 = s_common.guid()
-            teqs = (s_common.guid(), s_common.guid())
             file0 = 'a' * 64
-            acct0 = ('vertex.link', 'pennywise')
             url0 = 'https://vertex.link/products/balloonmaker'
             props = {
                 'name': 'Balloon Maker',
@@ -750,17 +746,10 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'names': ('clowns inc',),
                 'desc': "Pennywise's patented balloon blower upper",
                 'desc:short': 'Balloon blower',
-                'author:org': org0,
-                'author:email': 'pennywise@vertex.link',
-                'author:acct': acct0,
-                'author:person': person0,
-                'techniques': teqs,
                 'url': url0,
             }
             q = '''[(it:prod:soft=$valu :name=$p.name :type=$p.type :names=$p.names
-                :desc=$p.desc :desc:short=$p."desc:short" :author:org=$p."author:org" :author:email=$p."author:email"
-                :author:acct=$p."author:acct" :author:person=$p."author:person"
-                :techniques=$p.techniques :url=$p.url )]'''
+                :desc=$p.desc :desc:short=$p."desc:short" :url=$p.url )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': prod0, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -768,11 +757,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('name'), 'balloon maker')
             self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
             self.eq(node.get('desc:short'), 'balloon blower')
-            self.eq(node.get('author:org'), org0)
-            self.eq(node.get('author:acct'), acct0)
-            self.eq(node.get('author:email'), 'pennywise@vertex.link')
-            self.eq(node.get('author:person'), person0)
-            self.eq(node.get('techniques'), tuple(sorted(teqs)))
             self.false(node.get('isos'))
             self.false(node.get('islib'))
             await node.set('isos', True)

@@ -2411,12 +2411,12 @@ class LayerTest(s_t_utils.SynTest):
                 (ou:org=* .virtunivarray=(tcp://127.0.0.4:12344, tcp://127.0.0.5:12345))
                 (ou:org=* .virtunivarray=("tcp://[::4]:12344", "tcp://[::5]:12345"))
                 (ou:org=* .virtunivarray=(tcp://127.0.0.4:12344, "tcp://[::5]:12345"))
-                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user1 :signup:client=tcp://127.0.0.1:12341 ]})
-                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user2 :signup:client=tcp://127.0.0.2:12342 ]})
-                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user3 :signup:client=tcp://127.0.0.3:12343 ]})
-                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user4 :signup:client="tcp://[::4]:12344" ]})
-                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user5 :signup:client="tcp://[::5]:12345" ]})
-                (auth:creds=* :web:acct={[ inet:web:acct=foo.com/user6 :signup:client="tcp://[::6]:12346" ]})
+                (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.1:12341 ]})
+                (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.2:12342 ]})
+                (inet:http:request=* :flow={[ inet:flow=* :src=tcp://127.0.0.3:12343 ]})
+                (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::4]:12344" ]})
+                (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::5]:12345" ]})
+                (inet:http:request=* :flow={[ inet:flow=* :src="tcp://[::6]:12346" ]})
                 (test:virtiface=* :servers=(tcp://127.0.0.1:12341, tcp://127.0.0.2:12342))
                 (test:virtiface=* :servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))
                 (test:virtiface=* :servers=("tcp://127.0.0.1:12341", "tcp://[::2]:12342"))
@@ -2434,12 +2434,12 @@ class LayerTest(s_t_utils.SynTest):
 
             self.len(6, await core.nodes('inet:http:request :server*ip -> *'))
             self.len(6, await core.nodes('inet:http:request :server*ip -> inet:ip'))
-            self.len(3, await core.nodes('inet:http:request :server*ip -> inet:web:acct:signup:client*ip'))
+            self.len(3, await core.nodes('inet:http:request :server*ip -> inet:flow:src*ip'))
             self.len(6, await core.nodes('$foo=inet:ip inet:http:request :server*ip -> $foo'))
 
-            q = 'inet:http:request :server*ip -> (inet:web:acct:signup:client*ip, ps:contact.virtuniv*ip)'
+            q = 'inet:http:request :server*ip -> (inet:flow:src*ip, ps:contact.virtuniv*ip)'
             self.len(9, await core.nodes(q))
-            q = '$foo=ps:contact.virtuniv inet:http:request :server*ip -> ($foo*ip, inet:web:acct:signup:client*ip)'
+            q = '$foo=ps:contact.virtuniv inet:http:request :server*ip -> ($foo*ip, inet:flow:src*ip)'
             self.len(9, await core.nodes(q))
 
             self.len(12, await core.nodes('.created +inet:server*ip'))
@@ -2484,10 +2484,10 @@ class LayerTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:contact.created +.virtuniv*ip=127.0.0.4'))
             self.len(2, await core.nodes('ps:contact.created +.virtuniv*ip*range=(127.0.0.4, 127.0.0.5)'))
 
-            self.len(1, await core.nodes('auth:creds.created +:web:acct::signup:client*ip=127.0.0.2'))
-            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ip*range=(127.0.0.2, 127.0.0.3)'))
-            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ip>"::4"'))
-            self.len(2, await core.nodes('auth:creds.created +:web:acct::signup:client*ip*range=("::5", "::6")'))
+            self.len(1, await core.nodes('inet:http:request.created +:flow::src*ip=127.0.0.2'))
+            self.len(2, await core.nodes('inet:http:request.created +:flow::src*ip*range=(127.0.0.2, 127.0.0.3)'))
+            self.len(2, await core.nodes('inet:http:request.created +:flow::src*ip>"::4"'))
+            self.len(2, await core.nodes('inet:http:request.created +:flow::src*ip*range=("::5", "::6")'))
 
             self.len(2, await core.nodes('test:virtiface.created +:servers*[ip=127.0.0.1]'))
             self.len(2, await core.nodes('test:virtiface.created +:servers*[ip="::2"]'))

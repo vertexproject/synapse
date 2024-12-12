@@ -76,7 +76,7 @@ class StormLibStixTest(s_test.SynTest):
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
-            self.len(22, await core.nodes('''[
+            self.len(23, await core.nodes('''[
                 (inet:asn=30 :name=woot30)
                 (inet:asn=40 :name=woot40)
                 (inet:ip=1.2.3.4 :asn=30)
@@ -92,7 +92,8 @@ class StormLibStixTest(s_test.SynTest):
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
                 (media:news=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
                 (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
-                (inet:web:acct=(twitter.com, invisig0th) :realname="visi stark" .seen=(2010,2021) :signup=2010 :passwd=secret)
+                (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark" .seen=(2010,2021) :period=2010)
+                (auth:creds=* :service:account=(twitter, invisig0th) :passwd=secret)
                 (syn:tag=cno.mal.redtree :title="Redtree Malware" .seen=(2010, 2020))
                 (it:prod:soft=$prodsoft :name=rar)
                 (it:prod:softver=$softver :software=$prodsoft .seen=(1996, 2021) :vers=2.0.1)
@@ -109,7 +110,7 @@ class StormLibStixTest(s_test.SynTest):
                 inet:asn
                 inet:ip
                 inet:email
-                inet:web:acct
+                inet:service:account
                 media:news
                 ou:org:name=target
                 ou:campaign
