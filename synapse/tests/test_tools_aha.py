@@ -177,6 +177,57 @@ class AhaToolsTest(s_t_utils.SynTest):
 
         async with self.getTestAha() as aha:
 
+            base_svcinfo = {
+                'iden': 'test_iden',
+                'leader': 'leader',
+                'urlinfo': {
+                    'scheme': 'tcp',
+                    'host': '127.0.0.1',
+                    'port': 0,
+                    'hostname': 'test.host'
+                }
+            }
+
+            conf_no_iden = {'aha:provision': await aha.addAhaSvcProv('no.iden')}
+            async with self.getTestCell(s_cell.Cell, conf=conf_no_iden) as cell_no_iden:
+                svcinfo = {k: v for k, v in base_svcinfo.items() if k != 'iden'}
+                await aha.addAhaSvc('no.iden', svcinfo)
+
+                argv = ['--url', aha.getLocalUrl()]
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 0)
+                outp.expect('Service Mirror Groups:')
+                self.notin('no.iden', str(outp))
+
+            conf_no_host = {'aha:provision': await aha.addAhaSvcProv('no.host')}
+            async with self.getTestCell(s_cell.Cell, conf=conf_no_host) as cell_no_host:
+                svcinfo = dict(base_svcinfo)
+                svcinfo['urlinfo'] = {k: v for k, v in base_svcinfo['urlinfo'].items() if k != 'hostname'}
+                await aha.addAhaSvc('no.host', svcinfo)
+
+                argv = ['--url', aha.getLocalUrl()]
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 0)
+                outp.expect('Service Mirror Groups:')
+                self.notin('no.host', str(outp))
+
+            conf_no_leader = {'aha:provision': await aha.addAhaSvcProv('no.leader')}
+            async with self.getTestCell(s_cell.Cell, conf=conf_no_leader) as cell_no_leader:
+                svcinfo = {k: v for k, v in base_svcinfo.items() if k != 'leader'}
+                await aha.addAhaSvc('no.leader', svcinfo)
+
+                argv = ['--url', aha.getLocalUrl()]
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 0)
+                outp.expect('Service Mirror Groups:')
+                self.notin('no.leader', str(outp))
+
+            conf_no_primary = {'aha:provision': await aha.addAhaSvcProv('no.primary')}
+            async with self.getTestCell(s_cell.Cell, conf=conf_no_primary) as cell_no_primary:
+                svcinfo = dict(base_svcinfo)
+                svcinfo['urlinfo']['hostname'] = 'nonexistent.host'
+                await aha.addAhaSvc('no.primary', svcinfo)
+
             async with aha.waiter(3, 'aha:svcadd', timeout=10):
 
                 conf = {'aha:provision': await aha.addAhaSvcProv('00.cell')}
@@ -263,3 +314,25 @@ class AhaToolsTest(s_t_utils.SynTest):
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(1, retn)
                 outp.expect(f'Service at {curl} is not an Aha server')
+
+
+            async with aha.waiter(1, 'aha:svcadd', timeout=10):
+
+                conf = {'aha:provision': await aha.addAhaSvcProv('02.cell', {'mirror': 'cell'})}
+                cell02 = await aha.enter_context(self.getTestCell(conf=conf))
+                await cell02.sync()
+
+            async def mock_failed_api(*args, **kwargs):
+                yield ('00.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 10}}))
+                yield ('01.cell.synapse', (False, 'error'))
+                yield ('02.cell.synapse', (True, {'cell': {'ready': True, 'nexsindx': 12}}))
+
+            with mock.patch.object(aha, 'callAhaPeerApi', mock_failed_api):
+                argv = ['--url', ahaurl, '--timeout', '1']
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                outp.expect('00.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
+                outp.expect('nexsindx      10', whitespace=False)
+                outp.expect('02.cell.synapse                          leader     True     True    127.0.0.1', whitespace=False)
+                outp.expect('nexsindx      12', whitespace=False)
+                outp.expect('01.cell.synapse                          <unknown>  True     True', whitespace=False)
+                outp.expect('<unknown>    <unknown>', whitespace=False)

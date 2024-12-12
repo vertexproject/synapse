@@ -783,6 +783,7 @@ Note: non-mirror services are not displayed.
         for ($vname, $members) in $mirror_groups {
             $cell_infos = $get_cell_infos($vname)
             $group_status = $build_status_list($members, $cell_infos)
+            $lib.print('Service Mirror Groups:')
             $output_status($vname, $group_status, $printer)
 
             if $check_sync_status($group_status) {
@@ -819,7 +820,6 @@ Note: non-mirror services are not displayed.
                         }
 
                         if ($lib.len($responses) = $lib.len($members)) {
-                            // Re-check status after sync
                             $cell_infos = $get_cell_infos($vname)
                             $group_status = $build_status_list($members, $cell_infos)
 
