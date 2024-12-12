@@ -594,7 +594,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         return await self.cell.dels(sha256s)
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
         '''
         Stream a file download directly into the Axon.
 
@@ -607,6 +607,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
+            proxy (str|bool): The proxy value.
             ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
@@ -620,6 +621,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                     'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
+
+            The following proxy arguments are supported::
+
+                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+                True: Use the proxy defined by the http:proxy configuration option if set.
+                False: Do not use the proxy defined by the http:proxy configuration option if set.
+                <str>: A proxy URL string.
 
             The dictionary returned by this may contain the following values::
 
@@ -654,13 +662,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
                                     ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
 
     async def postfiles(self, fields, url, params=None, headers=None, method='POST',
-                        ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                        ssl=True, timeout=None, proxy=True, ssl_opts=None):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.postfiles(fields, url, params=params, headers=headers, method=method,
                                          ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT',
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.wput(sha256, url, params=params, headers=headers, method=method,
                                     ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
@@ -934,6 +942,24 @@ class Axon(s_cell.Cell):
     def _addSyncItem(self, item, tick=None):
         self.axonhist.add(item, tick=tick)
         self.axonseqn.add(item)
+
+    async def _resolveProxyUrl(self, valu):
+        match valu:
+            case None:
+                s_common.deprecated('Setting the Axon HTTP proxy argument to None', curv='2.192.0')
+                return await self.getConfOpt('http:proxy')
+
+            case True:
+                return await self.getConfOpt('http:proxy')
+
+            case False:
+                return None
+
+            case str():
+                return valu
+
+            case _:
+                raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
 
     async def _reqHas(self, sha256):
         '''
@@ -1462,7 +1488,7 @@ class Axon(s_cell.Cell):
                                         sha256=sha256) from None
 
     async def postfiles(self, fields, url, params=None, headers=None, method='POST',
-                        ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                        ssl=True, timeout=None, proxy=True, ssl_opts=None):
         '''
         Send files from the axon as fields in a multipart/form-data HTTP request.
 
@@ -1474,7 +1500,7 @@ class Axon(s_cell.Cell):
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
-            proxy (bool|str|null): Use a specific proxy or disable proxy use.
+            proxy (str|bool): The proxy value.
             ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
@@ -1497,6 +1523,13 @@ class Axon(s_cell.Cell):
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
 
+            The following proxy arguments are supported::
+
+                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+                True: Use the proxy defined by the http:proxy configuration option if set.
+                False: Do not use the proxy defined by the http:proxy configuration option if set.
+                <str>: A proxy URL string.
+
             The dictionary returned by this may contain the following values::
 
                 {
@@ -1512,14 +1545,11 @@ class Axon(s_cell.Cell):
         Returns:
             dict: An information dictionary containing the results of the request.
         '''
-        if proxy is None:
-            proxy = self.conf.get('http:proxy')
-
         ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 
         connector = None
-        if proxy:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
+        if proxyurl := await self._resolveProxyUrl(proxy):
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -1583,18 +1613,15 @@ class Axon(s_cell.Cell):
                 }
 
     async def wput(self, sha256, url, params=None, headers=None, method='PUT', ssl=True, timeout=None,
-                   filename=None, filemime=None, proxy=None, ssl_opts=None):
+                   filename=None, filemime=None, proxy=True, ssl_opts=None):
         '''
         Stream a blob from the axon as the body of an HTTP request.
         '''
-        if proxy is None:
-            proxy = self.conf.get('http:proxy')
-
         ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 
         connector = None
-        if proxy:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
+        if proxyurl := await self._resolveProxyUrl(proxy):
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 
@@ -1654,7 +1681,7 @@ class Axon(s_cell.Cell):
         return info
 
     async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
         '''
         Stream a file download directly into the Axon.
 
@@ -1667,7 +1694,7 @@ class Axon(s_cell.Cell):
             method (str): The HTTP method to use.
             ssl (bool): Perform SSL verification.
             timeout (int): The timeout of the request, in seconds.
-            proxy (bool|str|null): Use a specific proxy or disable proxy use.
+            proxy (str|bool): The proxy value.
             ssl_opts (dict): Additional SSL/TLS options.
 
         Notes:
@@ -1681,6 +1708,13 @@ class Axon(s_cell.Cell):
                     'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
                     'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
                 }
+
+            The following proxy arguments are supported::
+
+                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+                True: Use the proxy defined by the http:proxy configuration option if set.
+                False: Do not use the proxy defined by the http:proxy configuration option if set.
+                <str>: A proxy URL string.
 
             The dictionary returned by this may contain the following values::
 
@@ -1712,14 +1746,11 @@ class Axon(s_cell.Cell):
         '''
         logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
 
-        if proxy is None:
-            proxy = self.conf.get('http:proxy')
-
         ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 
         connector = None
-        if proxy:
-            connector = aiohttp_socks.ProxyConnector.from_url(proxy)
+        if proxyurl := await self._resolveProxyUrl(proxy):
+            connector = aiohttp_socks.ProxyConnector.from_url(proxyurl)
 
         atimeout = aiohttp.ClientTimeout(total=timeout)
 

@@ -945,9 +945,15 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
+                resp = await proxy.wget('http://vertex.link/', proxy=None)
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
+
             resp = await proxy.wget('vertex.link')
             self.false(resp.get('ok'))
             self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
+
+            await self.asyncraises(s_exc.BadArg, proxy.wget('http://vertex.link', proxy=1.1))
 
     async def test_axon_wput(self):
 
@@ -1022,6 +1028,10 @@ bar baz",vv
 
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
+
+                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False, proxy=None)
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 

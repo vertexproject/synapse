@@ -1,0 +1,5 @@
+---
+desc: Deprecated passing ``$lib.null`` to Storm HTTP APIs that accept a proxy argument.
+prs: []
+type: deprecation
+...

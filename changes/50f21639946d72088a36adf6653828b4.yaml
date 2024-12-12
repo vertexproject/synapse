@@ -1,0 +1,7 @@
+---
+desc: Added support for passing ``True`` as a proxy argument to the ``wget``, ``wput``,
+  and ``postfiles`` Axon APIs to indicate that the configured proxy should be used
+  if set.
+prs: []
+type: feat
+...
