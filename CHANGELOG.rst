@@ -30,7 +30,7 @@ Bugfixes
   they have entered into realtime change windows.
   (`#4028 <https://github.com/vertexproject/synapse/pull/4028>`_)
 - Fixed a bug that skipped global and form pivots when validating graph
-  projection storm queries.
+  projection Storm queries.
   (`#4031 <https://github.com/vertexproject/synapse/pull/4031>`_)
 - Fixed an issue where line number information was not added to exceptions
   raised while dereferencing a Storm variable.
