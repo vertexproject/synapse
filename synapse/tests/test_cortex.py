@@ -4023,6 +4023,58 @@ class CortexBasicTest(s_t_utils.SynTest):
                 gdef = await core.callStorm('return($lib.graph.add(({"name": "def", "permissions": {"default": 0}})))')
                 self.eq(0, gdef['permissions']['default'])
 
+    async def test_graph_projection_query_validation(self):
+        async with self.getTestCore() as core:
+            valid = {
+                'name': 'valid',
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': ['<- *'],
+                        'filters': []
+                    }
+                }
+            }
+
+            self.nn(await core.addStormGraph(valid))
+
+            bad_form_pivot = {
+                'name': 'bad form pivot',
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': ['<- * |||'],
+                        'filters': []
+                    }
+                }
+            }
+
+            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_form_pivot))
+
+            bad_form_filter = {
+                'name': 'bad form filter',
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': [],
+                        'filters': ['+++:wat']
+                    }
+                }
+            }
+
+            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_form_filter))
+
+            bad_global_filter = {
+                'name': 'bad global filter',
+                'filters': ['+++:wat']
+            }
+
+            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_global_filter))
+
+            bad_global_pivot = {
+                'name': 'bad global pivot',
+                'pivots': ['-> * |||']
+            }
+
+            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_global_pivot))
+
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
             q = '$foo=baz $bar=$foo [test:str=$bar]'
