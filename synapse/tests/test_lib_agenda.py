@@ -361,7 +361,9 @@ class AgendaTest(s_t_utils.SynTest):
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, False)
-                self.eq(appt.lastresult, "raised exception StormRaise: errname='OmgWtfBbq' mesg='boom'")
+                self.isin("raised exception StormRaise: errname='OmgWtfBbq'", appt.lastresult)
+                self.isin("highlight={'hash': '6736b8252d9413221a9b693b2b19cf53'", appt.lastresult)
+                self.isin("mesg='boom'", appt.lastresult)
 
                 # Test setting the global enable/disable flag
                 await agenda.delete(guid)
