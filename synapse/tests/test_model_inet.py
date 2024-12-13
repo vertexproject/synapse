@@ -41,8 +41,9 @@ class InetModelTest(s_t_utils.SynTest):
                 with self.raises(s_exc.BadTypeValu):
                     await core.callStorm(f'[ inet:web:hashtag="#{char}bar" ]')
 
-                with self.raises(s_exc.BadTypeValu):
-                    await core.callStorm(f'[ inet:web:hashtag="#foo{char}" ]')
+                # These are allowed because strip=True
+                await core.callStorm(f'[ inet:web:hashtag="#foo{char}" ]')
+                await core.callStorm(f'[ inet:web:hashtag=" #foo{char}" ]')
 
             nodes = await core.nodes('''
                 [ inet:web:instance=(foo,)
