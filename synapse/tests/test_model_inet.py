@@ -22,6 +22,9 @@ class InetModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:web:hashtag="foo" ]')
 
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:web:hashtag="#foo#bar" ]')
+
             # All unicode whitespace from:
             # https://www.compart.com/en/unicode/category/Zl
             # https://www.compart.com/en/unicode/category/Zp
