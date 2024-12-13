@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where line number information was not added to exceptions raised
+  while dereferencing a Storm variable.
+prs: []
+type: bug
+...
