@@ -1739,7 +1739,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for filt in gdef.get('filters', ()):
             await self.getStormQuery(filt)
 
-        for pivo in gdef.get('filters', ()):
+        for pivo in gdef.get('pivots', ()):
             await self.getStormQuery(pivo)
 
         for form, rule in gdef.get('forms', {}).items():
@@ -1749,7 +1749,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for filt in rule.get('filters', ()):
                 await self.getStormQuery(filt)
 
-            for pivo in rule.get('filters', ()):
+            for pivo in rule.get('pivots', ()):
                 await self.getStormQuery(pivo)
 
     async def addStormGraph(self, gdef, user=None):

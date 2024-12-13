@@ -474,6 +474,43 @@ class CellApi(s_base.Base):
     async def delRole(self, iden):
         return await self.cell.delRole(iden)
 
+    async def addUserApiKey(self, name, duration=None, useriden=None):
+        if useriden is None:
+            useriden = self.user.iden
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.addUserApiKey(useriden, name, duration=duration)
+
+    async def listUserApiKeys(self, useriden=None):
+        if useriden is None:
+            useriden = self.user.iden
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.listUserApiKeys(useriden)
+
+    async def delUserApiKey(self, iden):
+        apikey = await self.cell.getUserApiKey(iden)
+        if apikey is None:
+            mesg = f'User API key with {iden=} does not exist.'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
+
+        useriden = apikey.get('user')
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.delUserApiKey(iden)
+
     @adminapi()
     async def dyncall(self, iden, todo, gatekeys=()):
         return await self.cell.dyncall(iden, todo, gatekeys=gatekeys)
