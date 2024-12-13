@@ -135,6 +135,19 @@ class DnsModule(s_module.CoreModule):
                     'ex': '(hehe.vertex.link,"fancy TXT record")',
                     'doc': 'The result of a DNS MX record lookup.'}),
 
+                ('inet:dns:record', ('ndef', {
+                    'forms': (
+                        'inet:dns:a',
+                        'inet:dns:aaaa',
+                        'inet:dns:cname',
+                        'inet:dns:mx',
+                        'inet:dns:ns',
+                        'inet:dns:rev',
+                        'inet:dns:soa',
+                        'inet:dns:txt',
+                    )}), {
+                    'doc': 'An ndef type including all forms which represent DNS records.'}),
+
                 ('inet:dns:type', ('int', {}), {
                     'doc': 'A DNS query/answer type integer.'}),
 
@@ -263,33 +276,12 @@ class DnsModule(s_module.CoreModule):
 
                     ('ttl', ('int', {}), {}),
                     ('request', ('inet:dns:request', {}), {}),
-
-                    ('a', ('inet:dns:a', {}), {
-                        'doc': 'The DNS A record returned by the lookup.'}),
-
-                    ('ns', ('inet:dns:ns', {}), {
-                        'doc': 'The DNS NS record returned by the lookup.'}),
-
-                    ('rev', ('inet:dns:rev', {}), {
-                        'doc': 'The DNS PTR record returned by the lookup.'}),
-
-                    ('aaaa', ('inet:dns:aaaa', {}), {
-                        'doc': 'The DNS AAAA record returned by the lookup.'}),
-
-                    ('cname', ('inet:dns:cname', {}), {
-                        'doc': 'The DNS CNAME record returned by the lookup.'}),
-
-                    ('mx', ('inet:dns:mx', {}), {
-                        'doc': 'The DNS MX record returned by the lookup.'}),
+                    ('record', ('inet:dns:record', {}), {
+                        'doc': 'The DNS record returned by the lookup.',
+                        'prevnames': ('a', 'aaaa', 'cname', 'mx', 'ns', 'rev', 'soa', 'txt')}),
 
                     ('mx:priority', ('int', {}), {
                         'doc': 'The DNS MX record priority.'}),
-
-                    ('soa', ('inet:dns:soa', {}), {
-                        'doc': 'The domain queried for its SOA record.'}),
-
-                    ('txt', ('inet:dns:txt', {}), {
-                        'doc': 'The DNS TXT record returned by the lookup.'}),
 
                     ('time', ('time', {}), {
                         'doc': 'The time that the DNS response was transmitted.'}),
