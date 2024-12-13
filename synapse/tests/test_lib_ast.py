@@ -3119,6 +3119,19 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('newp', text[off:end])
 
+            visi = (await core.addUser('visi'))['iden']
+            text = '$users=$lib.auth.users.list() $lib.print($users.0.profile)'
+            msgs = await core.stormlist(text, opts={'user': visi})
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.print($users.0.profile)', text[off:end])
+
+            text = '$lib.pkg.get()'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.pkg.get()', text[off:end])
+
     async def test_ast_bulkedges(self):
 
         async with self.getTestCore() as core:

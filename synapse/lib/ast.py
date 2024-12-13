@@ -3579,10 +3579,18 @@ class FuncCall(Value):
         kwargs = {k: v for (k, v) in await self.kids[2].compute(runt, path)}
 
         with s_scope.enter({'runt': runt}):
-            retn = func(*argv, **kwargs)
-            if s_coro.iscoro(retn):
-                return await retn
-            return retn
+            try:
+                retn = func(*argv, **kwargs)
+                if s_coro.iscoro(retn):
+                    return await retn
+                return retn
+
+            except TypeError as e:
+                exc = s_exc.StormRuntimeError(mesg=str(e))
+                raise self.addExcInfo(exc)
+
+            except s_exc.SynErr as e:
+                raise self.addExcInfo(e)
 
 class DollarExpr(Value):
     '''
