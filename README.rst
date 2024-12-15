@@ -58,4 +58,6 @@ Connect With Us
 
 .. _LinkedIn: https://www.linkedin.com/company/vertexproject
 
+Thanks for reading!
+
 
