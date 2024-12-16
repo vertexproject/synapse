@@ -85,6 +85,9 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist('$lib.pprint($lib.model.edge((risk:attack, uses, risk:vuln)))')
             self.stormIsInPrint("(('risk:attack', 'uses', 'risk:vuln'),\n {'doc':", mesgs)
 
+            with self.raises(s_exc.BadArg):
+                await core.nodes('$lib.model.edge(newp)')
+
     async def test_stormlib_model_depr(self):
 
         with self.getTestDir() as dirn:
