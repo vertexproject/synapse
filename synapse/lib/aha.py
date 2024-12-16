@@ -1042,11 +1042,6 @@ class AhaCell(s_cell.Cell):
         if client is None:
             return None
 
-        try:
-            await asyncio.wait_for(client.ready.wait(), timeout=5.0)
-        except asyncio.TimeoutError:
-            return None
-
         return await client.proxy(timeout=timeout)
 
     async def getAhaSvcClient(self, svcdef):
