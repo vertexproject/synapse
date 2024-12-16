@@ -3282,7 +3282,7 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell() as cell:
 
             self.none(await cell.getAhaProxy())
-
+          
             class MockAhaClient:
                 def __init__(self, proxy=None):
                     self._proxy = proxy
@@ -3310,3 +3310,14 @@ class CellTest(s_t_utils.SynTest):
             cell.ahaclient = MockAhaClient(proxy=mock_proxy)
             self.eq(await cell.getAhaProxy(), mock_proxy)
             self.eq(await cell.getAhaProxy(feats=(('test', 1),)), mock_proxy)
+
+    async def test_lib_cell_sadaha(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
+
+            # coverage for failure of aha client to connect
+            with self.raises(TimeoutError):
+                self.none(await cell.getAhaProxy(timeout=0.1))

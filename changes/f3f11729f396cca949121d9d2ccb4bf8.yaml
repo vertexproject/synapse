@@ -1,0 +1,6 @@
+---
+desc: Added ``econ:pay:instrument`` interface and type to create an abstraction for payment
+  instruments.
+prs: []
+type: model
+...
