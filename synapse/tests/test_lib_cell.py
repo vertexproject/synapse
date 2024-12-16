@@ -3282,7 +3282,7 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell() as cell:
 
             self.none(await cell.getAhaProxy())
-          
+
             class MockAhaClient:
                 def __init__(self, proxy=None):
                     self._proxy = proxy
