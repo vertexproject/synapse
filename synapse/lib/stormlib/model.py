@@ -258,7 +258,9 @@ class LibModel(s_stormtypes.Lib):
         {'name': 'edge', 'desc': 'Get an edge object by name.',
          'type': {'type': 'function', '_funcname': '_methEdge',
                   'args': (
-                      {'name': 'edgetype', 'type': 'list', 'desc': 'The edge (n1form, verb, n2form) to retrieve.', },
+                      {'name': 'n1form', 'type': 'str', 'desc': 'The form of the n1 node of the edge to retrieve.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The verb of the edge to retrieve.'},
+                      {'name': 'n2form', 'type': 'str', 'desc': 'The form of the n2 node of the edge to retrieve.'},
                   ),
                   'returns': {'type': ['model:edge', 'null'],
                               'desc': 'The ``model:edge`` instance of the edge if present or null.',
@@ -279,12 +281,7 @@ class LibModel(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _methEdge(self, edgetype):
-        edgetype = await s_stormtypes.toprim(edgetype)
-        if not isinstance(edgetype, (tuple, list)):
-            raise s_exc.BadArg(mesg='$lib.model.edge() argument must be a list in (n1form, verb, n2form) format.')
-
-        (n1form, verb, n2form) = edgetype
+    async def _methEdge(self, n1form, verb, n2form):
         verb = await s_stormtypes.tostr(verb)
         n1form = await s_stormtypes.tostr(n1form, noneok=True)
         n2form = await s_stormtypes.tostr(n2form, noneok=True)
