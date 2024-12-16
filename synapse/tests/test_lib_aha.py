@@ -1152,7 +1152,7 @@ class AhaTest(s_test.SynTest):
             await aha.addAhaSvc(name, bad_info)
             async for ok, info in aha.callAhaPeerGenr(name, ('nonexistent.method', (), {})):
                 self.false(ok)
-                self.true('err' in info)
+                self.isin('err', info)
 
     async def test_aha_reprovision(self):
 
