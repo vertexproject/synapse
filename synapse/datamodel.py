@@ -1034,10 +1034,21 @@ class Model:
             return
 
         if self.propsbytype.get(typename):
-            raise s_exc.CantDelType(name=typename)
+            mesg = f'Cannot delete type {typename} as it is still in use by properties.'
+            raise s_exc.CantDelType(mesg=mesg, name=typename)
+
+        for _type in self.types.values():
+            if typename in _type.info['bases']:
+                mesg = f'Cannot delete type {typename} as it is still in use by other types.'
+                raise s_exc.CantDelType(mesg=mesg, name=typename)
+
+            if _type.isarray and _type.arraytype.name == typename:
+                mesg = f'Cannot delete type {typename} as it is still in use by array types.'
+                raise s_exc.CantDelType(mesg=mesg, name=typename)
 
         self.types.pop(typename, None)
         self.propsbytype.pop(typename, None)
+        self.arraysbytype.pop(typename, None)
 
     def _addFormUniv(self, form, name, tdef, info):
 
@@ -1103,7 +1114,14 @@ class Model:
                 if item == '$self':
                     return form.name
 
-                return item.format(**template)
+                item = s_common.format(item, **template)
+
+                # warn but do not blow up. there may be extended model elements
+                # with {}s which are not used for templates...
+                if item.find('{') != -1: # pragma: no cover
+                    logger.warning(f'Missing template specifier in: {item}')
+
+                return item
 
             if isinstance(item, dict):
                 return {convert(k): convert(v) for (k, v) in item.items()}

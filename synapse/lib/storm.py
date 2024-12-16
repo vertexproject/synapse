@@ -1,6 +1,7 @@
 import types
 import pprint
 import asyncio
+import hashlib
 import logging
 import argparse
 import contextlib
@@ -18,7 +19,6 @@ import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.snap as s_snap
-import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
@@ -626,7 +626,7 @@ stormcmds = (
     {
         'name': 'feed.list',
         'descr': 'List the feed functions available in the Cortex',
-        'cmdrargs': (),
+        'cmdargs': (),
         'storm': '''
             $lib.print('Storm feed list:')
             for $flinfo in $lib.feed.list() {
@@ -824,19 +824,51 @@ stormcmds = (
     {
         'name': 'pkg.list',
         'descr': 'List the storm packages loaded in the cortex.',
-        'cmdrargs': (),
+        'cmdargs': (
+            ('--verbose', {'default': False, 'action': 'store_true',
+                'help': 'Display build time for each package.'}),
+        ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "name", "width": 40},
+                        {"name": "vers", "width": 10},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                    },
+                })
+                if $cmdopts.verbose {
+                    $conf.columns.append(({"name": "time", "width": 20}))
+                }
+                $printer = $lib.tabular.printer($conf)
+            }
+
             $pkgs = $lib.pkg.list()
 
-            if $($pkgs.size() = 0) {
-
-                $lib.print('No storm packages installed.')
-
-            } else {
+            if $($pkgs.size() > 0) {
                 $lib.print('Loaded storm packages:')
+                $lib.print($printer.header())
                 for $pkg in $pkgs {
-                    $lib.print("{name}: {vers}", name=$pkg.name.ljust(32), vers=$pkg.version)
+                    $row = (
+                        $pkg.name, $pkg.version,
+                    )
+                    if $cmdopts.verbose {
+                        try {
+                            $row.append($lib.time.format($pkg.build.time, '%Y-%m-%d %H:%M:%S'))
+                        } catch StormRuntimeError as _ {
+                            $row.append('not available')
+                        }
+                    }
+                    $lib.print($printer.row($row))
                 }
+            } else {
+                $lib.print('No storm packages installed.')
             }
         '''
     },
@@ -1357,30 +1389,42 @@ stormcmds = (
         'descr': "List existing cron jobs in the cortex.",
         'cmdargs': (),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "user", "width": 24},
+                        {"name": "iden", "width": 10},
+                        {"name": "view", "width": 10},
+                        {"name": "en?", "width": 3},
+                        {"name": "rpt?", "width": 4},
+                        {"name": "now?", "width": 4},
+                        {"name": "err?", "width": 4},
+                        {"name": "# start", "width": 7},
+                        {"name": "last start", "width": 16},
+                        {"name": "last end", "width": 16},
+                        {"name": "query", "newlines": "split"},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                        },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
             $crons = $lib.cron.list()
-
             if $crons {
-                $lib.print("user       iden       view       en? rpt? now? err? # start last start       last end         query")
-
+                $lib.print($printer.header())
                 for $cron in $crons {
-
                     $job = $cron.pprint()
-
-                    $user = $job.user.ljust(10)
-                    $view = $job.viewshort.ljust(10)
-                    $iden = $job.idenshort.ljust(10)
-                    $enabled = $job.enabled.ljust(3)
-                    $isrecur = $job.isrecur.ljust(4)
-                    $isrunning = $job.isrunning.ljust(4)
-                    $iserr = $job.iserr.ljust(4)
-                    $startcount = $lib.str.format("{startcount}", startcount=$job.startcount).ljust(7)
-                    $laststart = $job.laststart.ljust(16)
-                    $lastend = $job.lastend.ljust(16)
-
-       $lib.print("{user} {iden} {view} {enabled} {isrecur} {isrunning} {iserr} {startcount} {laststart} {lastend} {query}",
-                               user=$user, iden=$iden, view=$view, enabled=$enabled, isrecur=$isrecur,
-                               isrunning=$isrunning, iserr=$iserr, startcount=$startcount,
-                               laststart=$laststart, lastend=$lastend, query=$job.query)
+                    $row = (
+                        $job.user, $job.idenshort, $job.viewshort, $job.enabled,
+                        $job.isrecur, $job.isrunning, $job.iserr, `{$job.startcount}`,
+                        $job.laststart, $job.lastend, $job.query
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print("No cron jobs found")
@@ -1636,6 +1680,10 @@ stormcmds = (
         ''',
     },
 )
+
+@s_cache.memoize(size=1024)
+def queryhash(text):
+    return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
 
 class DmonManager(s_base.Base):
     '''
@@ -5268,6 +5316,13 @@ class BackgroundCmd(Cmd):
         async for item in genr:
             yield item
 
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
+
+        # make sure the subquery *could* have run
+        async with runt.getSubRuntime(query) as subr:
+            query.validate(subr)
+
         runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
         runtvars = {k: v for (k, v) in runtprims.items() if s_msgpack.isok(v)}
 
@@ -5276,12 +5331,6 @@ class BackgroundCmd(Cmd):
             'view': runt.snap.view.iden,
             'vars': runtvars,
         }
-
-        _query = await s_stormtypes.tostr(self.opts.query)
-        query = await runt.getStormQuery(_query)
-
-        # make sure the subquery *could* have run with existing vars
-        query.validate(runt)
 
         coro = self.execStormTask(query, opts)
         runt.snap.core.schedCoro(coro)
@@ -5339,9 +5388,12 @@ class ParallelCmd(Cmd):
             raise s_exc.StormRuntimeError(mesg=mesg)
 
         size = await s_stormtypes.toint(self.opts.size)
-        query = await runt.getStormQuery(self.opts.query)
 
-        query.validate(runt)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
+
+        async with runt.getSubRuntime(query) as subr:
+            query.validate(subr)
 
         async with await s_base.Base.anit() as base:
 

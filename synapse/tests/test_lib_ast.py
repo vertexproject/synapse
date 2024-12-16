@@ -1351,7 +1351,7 @@ class AstTest(s_test.SynTest):
                     {n.ndef for n in nodes})
 
             msgs = await core.stormlist('pkg.list')
-            self.stormIsInPrint('foo                             : 0.0.1', msgs)
+            self.stormIsInPrint('foo 0.0.1', msgs, whitespace=False)
 
             msgs = await core.stormlist('pkg.del asdf')
             self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
@@ -3112,6 +3112,12 @@ class AstTest(s_test.SynTest):
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('haha', text[off:end])
+
+            text = '$lib.newp'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('newp', text[off:end])
 
     async def test_ast_bulkedges(self):
 

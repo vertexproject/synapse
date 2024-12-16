@@ -206,6 +206,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster uses the vulnerability.'}),
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
+                (('ou:technique', 'uses', 'risk:vuln'), {
+                    'doc': 'The technique uses the vulnerability.'}),
 
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
@@ -276,6 +278,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('active', ('ival', {}), {
                         'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'The most recently assessed activity level of the threat cluster.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the threat cluster.'}),
@@ -707,6 +712,9 @@ class RiskModule(s_module.CoreModule):
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
 
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The technique that the node is susceptible to.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
 
@@ -1073,14 +1081,14 @@ class RiskModule(s_module.CoreModule):
                         'ex': 'nature.earthquake',
                         'doc': 'The outage cause type.'}),
 
+                    ('attack', ('risk:attack', {}), {
+                        'doc': 'An attack which caused the outage.'}),
+
                     ('provider', ('ou:org', {}), {
                         'doc': 'The organization which experienced the outage event.'}),
 
                     ('provider:name', ('ou:name', {}), {
                         'doc': 'The name of the organization which experienced the outage event.'}),
-
-                    ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization reporting on the outage event.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the outage event.'}),

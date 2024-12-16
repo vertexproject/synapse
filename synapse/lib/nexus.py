@@ -341,6 +341,12 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
+        if (nexus := self._nexskids.get(nexsiden)) is None:
+            raise s_exc.NoSuchIden(mesg=f'No Nexus Pusher with iden {nexsiden}.', iden=nexsiden)
+
+        if event not in nexus._nexshands:
+            raise s_exc.NoSuchName(mesg=f'No Nexus handler for event {event}.', name=event)
+
         async with self.cell.nexslock:
             self.reqNotReadOnly()
             # Keep a reference to the shielded task to ensure it isn't GC'd
@@ -499,6 +505,7 @@ class NexsRoot(s_base.Base):
             if features.get('dynmirror'):
                 await proxy.readyToMirror()
 
+            synvers = cellinfo['synapse']['version']
             cellvers = cellinfo['cell']['version']
             if cellvers > self.cell.VERSION:
                 logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
@@ -531,7 +538,7 @@ class NexsRoot(s_base.Base):
                 offs = self.nexslog.index()
 
                 opts = {}
-                if cellvers >= (2, 95, 0):
+                if synvers >= (2, 95, 0):
                     opts['tellready'] = True
 
                 genr = proxy.getNexusChanges(offs, **opts)

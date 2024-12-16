@@ -23,6 +23,11 @@ class EconModule(s_module.CoreModule):
                     'doc': 'An Issuer Id Number (IIN).'}),
 
                 ('econ:pay:card', ('guid', {}), {
+
+                    'interfaces': ('econ:pay:instrument',),
+                    'template': {
+                        'instrument': 'payment card'},
+
                     'doc': 'A single payment card.'}),
 
                 ('econ:purchase', ('guid', {}), {
@@ -71,6 +76,11 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A bank account type taxonomy.'}),
 
                 ('econ:bank:account', ('guid', {}), {
+
+                    'interfaces': ('econ:pay:instrument',),
+                    'template': {
+                        'instrument': 'bank account'},
+
                     'doc': 'A bank account.'}),
 
                 ('econ:bank:balance', ('guid', {}), {
@@ -87,6 +97,25 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
                     'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
+
+                ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {
+                    'doc': 'A node which may act as a payment instrument.'}),
+            ),
+
+            'interfaces': (
+                ('econ:pay:instrument', {
+
+                    'doc': 'An interface for forms which may act as a payment instrument.',
+                    'template': {
+                        'instrument': 'instrument',
+                    },
+
+                    'props': (
+
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The primary contact for the {instrument}.'}),
+                    ),
+                }),
             ),
 
             'edges': (
@@ -134,9 +163,6 @@ class EconModule(s_module.CoreModule):
 
                     ('account', ('econ:bank:account', {}), {
                         'doc': 'A bank account associated with the payment card.'}),
-
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact information associated with the payment card.'}),
                 )),
 
                 ('econ:purchase', {}, (
@@ -209,17 +235,26 @@ class EconModule(s_module.CoreModule):
                     ('from:cash', ('bool', {}), {
                         'doc': 'Set to true if the payment input was in cash.'}),
 
+                    ('to:instrument', ('econ:pay:instrument', {}), {
+                        'doc': 'The payment instrument which received funds from the payment.'}),
+
+                    ('from:instrument', ('econ:pay:instrument', {}), {
+                        'doc': 'The payment instrument used to make the payment.'}),
+
                     ('from:account', ('econ:bank:account', {}), {
-                        'doc': 'The bank account which made the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :from:instrument.'}),
 
                     ('from:pay:card', ('econ:pay:card', {}), {
-                        'doc': 'The payment card making the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :from:instrument.'}),
 
                     ('from:contract', ('ou:contract', {}), {
                         'doc': 'A contract used as an aggregate payment source.'}),
 
                     ('from:coinaddr', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address making the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :from:instrument.'}),
 
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the entity making the payment.'}),
@@ -228,10 +263,12 @@ class EconModule(s_module.CoreModule):
                         'doc': 'Set to true if the payment output was in cash.'}),
 
                     ('to:account', ('econ:bank:account', {}), {
-                        'doc': 'The bank account which received the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :to:instrument.'}),
 
                     ('to:coinaddr', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address receiving the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :to:instrument.'}),
 
                     ('to:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
@@ -447,9 +484,6 @@ class EconModule(s_module.CoreModule):
 
                     ('iban', ('econ:bank:iban', {}), {
                         'doc': 'The IBAN for the account.'}),
-
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact information associated with the bank account.'}),
 
                     ('issuer', ('ou:org', {}), {
                         'doc': 'The bank which issued the account.'}),
