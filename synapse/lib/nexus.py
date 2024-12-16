@@ -508,6 +508,7 @@ class NexsRoot(s_base.Base):
             if features.get('dynmirror'):
                 await proxy.readyToMirror()
 
+            synvers = cellinfo['synapse']['version']
             cellvers = cellinfo['cell']['version']
             if cellvers > self.cell.VERSION:
                 logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
@@ -540,7 +541,7 @@ class NexsRoot(s_base.Base):
                 offs = self.nexslog.index()
 
                 opts = {}
-                if cellvers >= (2, 95, 0):
+                if synvers >= (2, 95, 0):
                     opts['tellready'] = True
 
                 genr = proxy.getNexusChanges(offs, **opts)

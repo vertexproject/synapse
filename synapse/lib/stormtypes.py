@@ -3,6 +3,7 @@ import copy
 import gzip
 import json
 import time
+
 import regex
 import types
 import base64
@@ -39,6 +40,7 @@ import synapse.lib.stormctrl as s_stormctrl
 logger = logging.getLogger(__name__)
 
 AXON_MINVERS_PROXY = (2, 97, 0)
+AXON_MINVERS_PROXYTRUE = (2, 192, 0)
 AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
@@ -72,6 +74,79 @@ def strifyHttpArg(item, multi=False):
                 retn[str(name)] = str(valu)
         return retn
     return item
+
+async def resolveCoreProxyUrl(valu):
+    '''
+    Resolve a proxy value to a proxy URL.
+
+    Args:
+        valu (str|None|bool): The proxy value.
+
+    Returns:
+        (str|None): A proxy URL string or None.
+    '''
+    runt = s_scope.get('runt')
+
+    match valu:
+        case None:
+            s_common.deprecated('Setting the HTTP proxy argument $lib.null', curv='2.192.0')
+            await runt.snap.warnonce('Setting the HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
+            return await runt.snap.core.getConfOpt('http:proxy')
+
+        case True:
+            return await runt.snap.core.getConfOpt('http:proxy')
+
+        case False:
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return None
+
+        case str():
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return valu
+
+        case _:
+            raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
+
+async def resolveAxonProxyArg(valu):
+    '''
+    Resolve a proxy value to the kwarg to set for an Axon HTTP call.
+
+    Args:
+        valu (str|null|bool): The proxy value.
+
+    Returns:
+        tuple: A retn tuple where the proxy kwarg should not be set if ok=False, otherwise a proxy URL or None.
+    '''
+    runt = s_scope.get('runt')
+
+    axonvers = runt.snap.core.axoninfo['synapse']['version']
+    if axonvers < AXON_MINVERS_PROXY:
+        await runt.snap.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
+        return False, None
+
+    match valu:
+        case None:
+            s_common.deprecated('Setting the Storm HTTP proxy argument $lib.null', curv='2.192.0')
+            await runt.snap.warnonce('Setting the Storm HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
+            if axonvers >= AXON_MINVERS_PROXYTRUE:
+                return True, True
+            return True, None
+
+        case True:
+            if axonvers < AXON_MINVERS_PROXYTRUE:
+                return True, None
+            return True, True
+
+        case False:
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return True, False
+
+        case str():
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return True, valu
+
+        case _:
+            raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
 
 class StormTypesRegistry:
     # The following types are currently undefined.
@@ -1993,11 +2068,18 @@ class LibAxon(Lib):
 
     For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
 
-        {
+        ({
             'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
             'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
             'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
-        }
+        })
+
+    For APIs that accept a proxy argument, the following values are supported::
+
+        $lib.null: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+        $lib.true: Use the proxy defined by the http:proxy configuration option if set.
+        $lib.false: Do not use the proxy defined by the http:proxy configuration option if set.
+        <str>: A proxy URL string.
     '''
     _storm_locals = (
         {'name': 'wget', 'desc': """
@@ -2031,8 +2113,8 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
-                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'str'],
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
                        'default': None},
@@ -2054,8 +2136,8 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
-                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'str'],
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
                        'default': None},
@@ -2370,7 +2452,7 @@ class LibAxon(Lib):
         return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
@@ -2387,20 +2469,19 @@ class LibAxon(Lib):
         proxy = await toprim(proxy)
         ssl_opts = await toprim(ssl_opts)
 
-        if proxy is not None:
-            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
-
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
         await self.runt.snap.core.getAxon()
 
         kwargs = {}
-        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= AXON_MINVERS_PROXY:
+
+        ok, proxy = await resolveAxonProxyArg(proxy)
+        if ok:
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
+            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
@@ -2413,7 +2494,7 @@ class LibAxon(Lib):
         return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
@@ -2432,22 +2513,23 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        if proxy is not None:
-            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
-
-        axon = self.runt.snap.core.axon
-        sha256byts = s_common.uhex(sha256)
+        await self.runt.snap.core.getAxon()
 
         kwargs = {}
-        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= AXON_MINVERS_PROXY:
+
+        ok, proxy = await resolveAxonProxyArg(proxy)
+        if ok:
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
+            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
             kwargs['ssl_opts'] = ssl_opts
+
+        axon = self.runt.snap.core.axon
+        sha256byts = s_common.uhex(sha256)
 
         return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
                                ssl=ssl, timeout=timeout, **kwargs)
