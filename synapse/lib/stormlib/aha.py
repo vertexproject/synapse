@@ -49,7 +49,7 @@ class AhaLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methAhaList', 'args': (),
                   'returns': {'name': 'Yields', 'type': 'list',
                               'desc': 'The AHA service dictionaries.', }}},
-        {'name': 'callPeerApi', 'desc': '''Call an API on an AHA service.
+        {'name': 'callPeerApi', 'desc': '''Call an API on all peers (leader and mirrors) of an AHA service and yield the responses from each.
 
         Examples:
             Call getCellInfo on an AHA service::
