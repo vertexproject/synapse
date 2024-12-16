@@ -3425,7 +3425,10 @@ class StormTest(s_t_utils.SynTest):
 
             # check that an exception on inbound percolates correctly
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=* ou:org=foo ] | parallel { [:name=bar] }')
+                await core.nodes('[ ou:org=(foo,) ou:org=foo ] | parallel { [:name=bar] }')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=(foo,) ou:org=foo ] | parallel --size 1 { [:name=bar] }')
 
             # check that an exception in the parallel pipeline percolates correctly
             with self.raises(s_exc.BadTypeValu):
