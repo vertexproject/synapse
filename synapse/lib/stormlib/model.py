@@ -255,6 +255,16 @@ class LibModel(s_stormtypes.Lib):
                   'returns': {'type': ['model:tagprop', 'null'],
                               'desc': 'The ``model:tagprop`` instance of the tag prop if present or null.',
                               }}},
+        {'name': 'edge', 'desc': 'Get an edge object by name.',
+         'type': {'type': 'function', '_funcname': '_methEdge',
+                  'args': (
+                      {'name': 'n1form', 'type': 'str', 'desc': 'The form of the n1 node of the edge to retrieve.'},
+                      {'name': 'verb', 'type': 'str', 'desc': 'The verb of the edge to retrieve.'},
+                      {'name': 'n2form', 'type': 'str', 'desc': 'The form of the n2 node of the edge to retrieve.'},
+                  ),
+                  'returns': {'type': ['model:edge', 'null'],
+                              'desc': 'The ``model:edge`` instance of the edge if present or null.',
+                              }}},
     )
 
     def __init__(self, runt, name=()):
@@ -263,11 +273,21 @@ class LibModel(s_stormtypes.Lib):
 
     def getObjLocals(self):
         return {
+            'edge': self._methEdge,
             'type': self._methType,
             'prop': self._methProp,
             'form': self._methForm,
             'tagprop': self._methTagProp,
         }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methEdge(self, n1form, verb, n2form):
+        verb = await s_stormtypes.tostr(verb)
+        n1form = await s_stormtypes.tostr(n1form, noneok=True)
+        n2form = await s_stormtypes.tostr(n2form, noneok=True)
+
+        if (edge := self.model.edge((n1form, verb, n2form))) is not None:
+            return ModelEdge(edge)
 
     @s_cache.memoizemethod(size=100)
     @s_stormtypes.stormfunc(readonly=True)
@@ -469,6 +489,32 @@ class ModelType(s_stormtypes.Prim):
 
     def value(self):
         return self.valu.getTypeDef()
+
+@s_stormtypes.registry.registerType
+class ModelEdge(s_stormtypes.Prim):
+    '''
+    Implements the Storm API for an Edge.
+    '''
+    _storm_locals = (
+        {'name': 'n1form', 'type': 'str',
+         'desc': 'The form of the n1 node. May be null to specify "any".'},
+        {'name': 'verb', 'type': 'str', 'desc': 'The edge verb.'},
+        {'name': 'n2form', 'type': 'str',
+         'desc': 'The form of the n2 node. May be null to specify "any".'},
+    )
+    _storm_typename = 'model:edge'
+    def __init__(self, edge, path=None):
+
+        s_stormtypes.Prim.__init__(self, edge, path=path)
+
+        (n1form, verb, n2form) = edge.edgetype
+
+        self.locls.update({'n1form': n1form,
+                           'verb': verb,
+                           'n2form': n2form})
+
+    def value(self):
+        return self.valu.pack()
 
 @s_stormtypes.registry.registerLib
 class LibModelDeprecated(s_stormtypes.Lib):
