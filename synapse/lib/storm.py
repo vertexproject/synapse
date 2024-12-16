@@ -5344,6 +5344,12 @@ class ParallelCmd(Cmd):
         inet:ipv4#foo | parallel { $place = $lib.import(foobar).lookup(:latlong) [ :place=$place ] }
 
     NOTE: Storm variables set within the parallel query pipelines do not interact.
+
+    NOTE: If there are inbound nodes to the parallel command, parallel pipelines will be created as each node
+          is processed, up to the number specified by --size. If the number of nodes in the pipeline is less
+          than the value specified by --size, additional pipelines with no inbound node will not be created.
+          If there are no inbound nodes to the parallel command, the number of pipelines specified by --size
+          will always be created.
     '''
     name = 'parallel'
     readonly = True
@@ -5400,19 +5406,33 @@ class ParallelCmd(Cmd):
             inq = asyncio.Queue(maxsize=size)
             outq = asyncio.Queue(maxsize=size)
 
-            async def pump():
-                try:
-                    async for pumpitem in genr:
-                        await inq.put(pumpitem)
-                    [await inq.put(None) for i in range(size)]
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-                except Exception as e:
-                    await outq.put(e)
+            tsks = 0
+            try:
+                while tsks < size:
+                    await inq.put(await genr.__anext__())
+                    base.schedCoro(self.pipeline(runt, query, inq, outq))
+                    tsks += 1
+            except StopAsyncIteration:
+                [await inq.put(None) for i in range(tsks)]
 
-            base.schedCoro(pump())
-            for i in range(size):
-                base.schedCoro(self.pipeline(runt, query, inq, outq))
+            # If a full set of tasks were created, keep pumping nodes into the queue
+            if tsks == size:
+                async def pump():
+                    try:
+                        async for pumpitem in genr:
+                            await inq.put(pumpitem)
+                        [await inq.put(None) for i in range(size)]
+                    except Exception as e:
+                        await outq.put(e)
+
+                base.schedCoro(pump())
+
+            # If no tasks were created, make a full set
+            elif tsks == 0:
+                tsks = size
+                for i in range(size):
+                    base.schedCoro(self.pipeline(runt, query, inq, outq))
+                [await inq.put(None) for i in range(tsks)]
 
             exited = 0
             while True:
@@ -5423,7 +5443,7 @@ class ParallelCmd(Cmd):
 
                 if item is None:
                     exited += 1
-                    if exited == size:
+                    if exited == tsks:
                         return
                     continue
 
@@ -5565,9 +5585,6 @@ class TeeCmd(Cmd):
                 await outq.put(subitem)
 
             await outq.put(None)
-
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
 
         except Exception as e:
             await outq.put(e)
