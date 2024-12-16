@@ -56,6 +56,10 @@ class AhaLib(s_stormtypes.Lib):
 
                 for $info in $lib.aha.callPeerApi(cortex..., getCellInfo) { $lib.print($info) }
 
+            Call method with arguments::
+
+                $lib.aha.callPeerApi(cortex..., ('method', (1, 2), {'foo': 'bar'}))
+
         ''',
          'type': {'type': 'function', '_funcname': '_methCallPeerApi',
                   'args': (
@@ -68,8 +72,8 @@ class AhaLib(s_stormtypes.Lib):
                       {'name': 'skiprun', 'type': 'bool', 'default': None,
                        'desc': 'Optional flag to skip run checks.'},
                   ),
-                  'returns': {'type': 'any',
-                             'desc': 'The result of the API call.', }}},
+                  'returns': {'type': 'list',
+                             'desc': 'The result of the API call as a list of tuples (svcname, (ok, info)).', }}},
     )
     _storm_lib_path = ('aha',)
     def getObjLocals(self):
