@@ -6,6 +6,45 @@
 Synapse Changelog
 *****************
 
+v2.192.0 - 2024-12-13
+=====================
+
+Features and Enhancements
+-------------------------
+- Added the user-agent string to the structured log information captured by the
+  HTTP API handlers.
+  (`#4026 <https://github.com/vertexproject/synapse/pull/4026>`_)
+- Added support for passing ``$lib.true`` to Storm HTTP APIs that accept a
+  proxy argument to indicate that the configured proxy should be used if set.
+  (`#4030 <https://github.com/vertexproject/synapse/pull/4030>`_)
+- Added support for passing ``True`` as a proxy argument to the ``wget``,
+  ``wput``, and ``postfiles`` Axon APIs to indicate that the configured proxy
+  should be used if set.
+  (`#4030 <https://github.com/vertexproject/synapse/pull/4030>`_)
+- Added ``synapse.tools.apikey`` tool for managing user API keys via telepath.
+  (`#4032 <https://github.com/vertexproject/synapse/pull/4032>`_)
+
+Bugfixes
+--------
+- Fixed an issue where mirrors of Synapse services may fail to indicate that
+  they have entered into realtime change windows.
+  (`#4028 <https://github.com/vertexproject/synapse/pull/4028>`_)
+- Fixed a bug that skipped global and form pivots when validating graph
+  projection Storm queries.
+  (`#4031 <https://github.com/vertexproject/synapse/pull/4031>`_)
+- Fixed an issue where line number information was not added to exceptions
+  raised while dereferencing a Storm variable.
+  (`#4035 <https://github.com/vertexproject/synapse/pull/4035>`_)
+
+Deprecations
+------------
+- Deprecated passing ``None`` as a proxy argument to the ``wget``, ``wput``,
+  and ``postfiles`` Axon APIs.
+  (`#4030 <https://github.com/vertexproject/synapse/pull/4030>`_)
+- Deprecated passing ``$lib.null`` to Storm HTTP APIs that accept a proxy
+  argument.
+  (`#4030 <https://github.com/vertexproject/synapse/pull/4030>`_)
+
 v2.191.0 - 2024-12-06
 =====================
 
