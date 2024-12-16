@@ -5415,7 +5415,7 @@ class ParallelCmd(Cmd):
             except StopAsyncIteration:
                 [await inq.put(None) for i in range(tsks)]
 
-            # If a full set of tasks was started, keep pumping nodes into the queue
+            # If a full set of tasks were created, keep pumping nodes into the queue
             if tsks == size:
                 async def pump():
                     try:
@@ -5427,7 +5427,7 @@ class ParallelCmd(Cmd):
 
                 base.schedCoro(pump())
 
-            # If no tasks were started, run a full set
+            # If no tasks were created, make a full set
             elif tsks == 0:
                 tsks = size
                 for i in range(size):
