@@ -69,8 +69,8 @@ class AhaLib(s_stormtypes.Lib):
                        'desc': 'The name of the API to call or a todo tuple (name, args, kwargs).'},
                       {'name': 'timeout', 'type': 'int', 'default': None,
                        'desc': 'Optional timeout in seconds.'},
-                      {'name': 'skiprun', 'type': 'bool', 'default': None,
-                       'desc': 'Optional flag to skip run checks.'},
+                      {'name': 'skiprun', 'type': 'str', 'default': None,
+                       'desc': 'Optional run ID argument allows skipping self-enumeration when the caller provides its own run ID.'},
                   ),
                   'returns': {'type': 'list',
                              'desc': 'The result of the API call as a list of tuples (svcname, (ok, info)).', }}},
@@ -119,7 +119,7 @@ class AhaLib(s_stormtypes.Lib):
             svcname (str): The name of the AHA service to call
             apiname (str, tuple): The API name or todo tuple (name, args, kwargs)
             timeout (int): Optional timeout in seconds
-            skiprun (bool): Optional flag to skip run checks
+            skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
         svcname = await s_stormtypes.tostr(svcname)
 
