@@ -670,7 +670,7 @@ The ready column indicates that a service has entered into the realtime change w
                     'host': $svcinfo.urlinfo.host,
                     'port': $svcinfo.urlinfo.port,
                     'version': '<unknown>',
-                    'nexs_indx': '<unknown>'
+                    'nexs_indx': (0)
                 })
                 if ($cell_infos.$svcname) {
                     $info = $cell_infos.$svcname
@@ -692,10 +692,8 @@ The ready column indicates that a service has entered into the realtime change w
             $indices = $lib.set()
             $known_count = (0)
             for $status in $group_status {
-                if ($lib.vars.type($status.nexs_indx) = 'int') {
-                    $indices.add($status.nexs_indx)
-                    $known_count = ($known_count + (1))
-                }
+                $indices.add($status.nexs_indx)
+                $known_count = ($known_count + (1))
             }
             if ($lib.len($indices) = 1) {
                 if ($known_count = $lib.len($group_status)) {
@@ -708,6 +706,9 @@ The ready column indicates that a service has entered into the realtime change w
             $lib.print($printer.header())
             $lib.print($vname)
             for $status in $group_status {
+                if ($status.nexs_indx = 0) {
+                    $status.nexs_indx = '<unknown>'
+                }
                 $row = (
                     $status.name,
                     $status.role,

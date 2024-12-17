@@ -15,18 +15,17 @@ class Todo(s_stormtypes.Prim):
 
     def __init__(self, runt, valu):
         s_stormtypes.Prim.__init__(self, None)
+        self.runt = runt
         if isinstance(valu, (list, tuple)):
-            name = valu[0]
-            args = () if len(valu) < 2 else valu[1] if isinstance(valu[1], (list, tuple)) else (valu[1],)
-            kwargs = {} if len(valu) < 3 else valu[2] if isinstance(valu[2], dict) else {}
-        else:
-            name = valu
-            args = ()
-            kwargs = {}
+            self.name = valu[0]
+            self.args = () if len(valu) < 2 else valu[1] if isinstance(valu[1], (list, tuple)) else (valu[1],)
+            self.kwargs = {} if len(valu) < 3 else valu[2] if isinstance(valu[2], dict) else {}
 
-        self.name = name
-        self.args = args
-        self.kwargs = kwargs
+        self.locls.update({
+            'name': self.name,
+            'args': self.args,
+            'kwargs': self.kwargs,
+        })
 
     def value(self):
         return (self.name, self.args, self.kwargs)
@@ -55,5 +54,19 @@ class LibTodo(s_stormtypes.Lib):
     async def parse(self, valu):
         todo = await s_stormtypes.toprim(valu)
         if isinstance(todo, str):
-            return Todo(self.runt, s_common.todo(todo))
+            parts = todo.split()
+            name = parts[0]
+            args = []
+            kwargs = {}
+
+            for part in parts[1:]:
+                if part.startswith('--'):
+                    if len(parts) > parts.index(part) + 1:
+                        key = part[2:]
+                        val = parts[parts.index(part) + 1]
+                        kwargs[key] = val
+                elif not parts[parts.index(part) - 1].startswith('--'):
+                    args.append(part)
+
+            return Todo(self.runt, (name, tuple(args), kwargs))
         return Todo(self.runt, todo)
