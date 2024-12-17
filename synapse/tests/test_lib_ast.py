@@ -3113,6 +3113,12 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('haha', text[off:end])
 
+            text = '$lib.newp'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('newp', text[off:end])
+
     async def test_ast_bulkedges(self):
 
         async with self.getTestCore() as core:

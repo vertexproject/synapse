@@ -59,7 +59,8 @@ class AstNode:
         }
 
     def addExcInfo(self, exc):
-        exc.errinfo['highlight'] = self.getPosInfo()
+        if 'highlight' not in exc.errinfo:
+            exc.errinfo['highlight'] = self.getPosInfo()
         return exc
 
     def repr(self):
@@ -3554,7 +3555,10 @@ class VarDeref(Value):
 
         valu = s_stormtypes.fromprim(base, path=path)
         with s_scope.enter({'runt': runt}):
-            return await valu.deref(name)
+            try:
+                return await valu.deref(name)
+            except s_exc.SynErr as e:
+                raise self.kids[1].addExcInfo(e)
 
 class FuncCall(Value):
 

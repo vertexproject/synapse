@@ -10,17 +10,40 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_model_inet_basics(self):
         async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[ inet:web:hashtag="#🫠" ]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#🫠🫠" ]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#·bar"]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#foo·"]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#foo〜"]'))
             self.len(1, await core.nodes('[ inet:web:hashtag="#hehe" ]'))
             self.len(1, await core.nodes('[ inet:web:hashtag="#foo·bar"]'))  # note the interpunct
+            self.len(1, await core.nodes('[ inet:web:hashtag="#foo〜bar"]'))  # note the wave dash
             self.len(1, await core.nodes('[ inet:web:hashtag="#fo·o·······b·ar"]'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:web:hashtag="foo" ]')
+
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ inet:web:hashtag="#foo bar" ]')
-            with self.raises(s_exc.BadTypeValu):
-                self.len(1, await core.nodes('[ inet:web:hashtag="#·bar"]'))
-            with self.raises(s_exc.BadTypeValu):
-                self.len(1, await core.nodes('[ inet:web:hashtag="#foo·"]'))
+                await core.nodes('[ inet:web:hashtag="#foo#bar" ]')
+
+            # All unicode whitespace from:
+            # https://www.compart.com/en/unicode/category/Zl
+            # https://www.compart.com/en/unicode/category/Zp
+            # https://www.compart.com/en/unicode/category/Zs
+            whitespace = [
+                '\u0020', '\u00a0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004',
+                '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f',
+                '\u3000', '\u2028', '\u2029',
+            ]
+            for char in whitespace:
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ inet:web:hashtag="#foo{char}bar" ]')
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ inet:web:hashtag="#{char}bar" ]')
+
+                # These are allowed because strip=True
+                await core.callStorm(f'[ inet:web:hashtag="#foo{char}" ]')
+                await core.callStorm(f'[ inet:web:hashtag=" #foo{char}" ]')
 
             nodes = await core.nodes('''
                 [ inet:web:instance=(foo,)
