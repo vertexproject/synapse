@@ -1,5 +1,8 @@
+import textwrap
+
 import synapse.exc as s_exc
 import synapse.lib.stormtypes as s_stormtypes
+import synapse.lib.stormlib.todo as slib_todo
 
 @s_stormtypes.registry.registerLib
 class AhaLib(s_stormtypes.Lib):
@@ -54,11 +57,17 @@ class AhaLib(s_stormtypes.Lib):
         Examples:
             Call getCellInfo on an AHA service::
 
-                for $info in $lib.aha.callPeerApi(cortex..., getCellInfo) { $lib.print($info) }
+                $todo = $lib.todo.parse('getCellInfo')
+                for $info in $lib.aha.callPeerApi(cortex..., $todo) {
+                    $lib.print($info)
+                }
 
             Call method with arguments::
 
-                $lib.aha.callPeerApi(cortex..., ('method', (1, 2), {'foo': 'bar'}))
+                $todo = $lib.todo.parse(('method', (1, 2), ({'foo': 'bar'})))
+                for $info in $lib.aha.callPeerApi(cortex..., $todo) {
+                    $lib.print($info)
+                }
 
         ''',
          'type': {'type': 'function', '_funcname': '_methCallPeerApi',
@@ -117,43 +126,18 @@ class AhaLib(s_stormtypes.Lib):
 
         Args:
             svcname (str): The name of the AHA service to call
-            apiname (str, tuple): The API name or todo tuple (name, args, kwargs)
+            apiname (str, todo): The API name or todo object
             timeout (int): Optional timeout in seconds
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
         svcname = await s_stormtypes.tostr(svcname)
+        apiname = await s_stormtypes.toprim(apiname)
 
-        if isinstance(apiname, str):
-            apiname = (apiname, (), {})
-        else:
-            apiname = await s_stormtypes.toprim(apiname)
-            if not isinstance(apiname, (list, tuple)):
-                raise s_exc.BadArg(mesg='API name must be a string or tuple')
+        todo = slib_todo.Todo(self.runt, apiname)
+        apiname = (todo.name, todo.args, todo.kwargs)
 
-            name = apiname[0]
-            if len(apiname) == 1:
-                apiname = (name, (), {})
-            elif len(apiname) == 2:
-                second = apiname[1]
-                if isinstance(second, dict):
-                    apiname = (name, (), second)
-                else:
-                    if not isinstance(second, (list, tuple)):
-                        second = (second,)
-                    apiname = (name, second, {})
-            elif len(apiname) == 3:
-                args = apiname[1]
-                if not isinstance(args, (list, tuple)):
-                    args = (args,)
-                kwargs = apiname[2]
-                if not isinstance(kwargs, dict):
-                    raise s_exc.BadArg(mesg='API kwargs must be a dictionary')
-                apiname = (name, args, kwargs)
-            else:
-                raise s_exc.BadArg(mesg='API tuple must be (name), (name, args), (name, kwargs) or (name, args, kwargs)')
-
-        timeout = await s_stormtypes.toprim(timeout)
-        skiprun = await s_stormtypes.toprim(skiprun)
+        timeout = await s_stormtypes.toint(timeout, noneok=True)
+        skiprun = await s_stormtypes.tostr(skiprun, noneok=True)
 
         proxy = await self.runt.snap.core.reqAhaProxy()
         svc = await proxy.getAhaSvc(svcname)
@@ -627,10 +611,11 @@ The ready column indicates that a service has entered into the realtime change w
     },
     {
         'name': 'aha.svc.mirror',
-        'descr': '''Query the AHA services and their mirror relationships.
+        'descr': textwrap.dedent('''\
+            Query the AHA services and their mirror relationships.
 
-Note: non-mirror services are not displayed.
-        ''',
+            Note: non-mirror services are not displayed.
+        '''),
         'cmdargs': (
             ('--timeout', {'help': 'The number of seconds to wait for the mirrors to sync.',
                            'default': 60, 'action': 'store'}),

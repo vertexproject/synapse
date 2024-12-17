@@ -1473,15 +1473,18 @@ class AhaTest(s_test.SynTest):
 
             purl00 = await aha.addAhaSvcProv('0.cell')
             purl01 = await aha.addAhaSvcProv('1.cell', provinfo={'mirror': '0.cell'})
+            purl02 = await aha.addAhaSvcProv('2.cell', provinfo={'mirror': '0.cell'})
 
             cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
             cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+            cell02 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl02}))
 
             await cell01.sync()
+            await cell02.sync()
 
             todo = s_common.todo('getCellInfo')
             items = [item async for item in cell00.callPeerApi(todo)]
-            self.len(1, items)
+            self.len(2, items)
 
     async def test_lib_aha_peer_genr(self):
 
@@ -1496,12 +1499,12 @@ class AhaTest(s_test.SynTest):
             await cell01.sync()
 
             todo = s_common.todo('getNexusChanges', 0, wait=False)
-            items = [item async for item in cell00.callPeerGenr(todo)]
-            self.len(2, items)
+            items = dict([item async for item in cell00.callPeerGenr(todo)])
+            self.len(1, items)
 
             todo = s_common.todo('getNexusChanges', 0, wait=False)
-            items = [item async for item in cell00.callPeerGenr(todo, timeout=2)]
-            self.len(2, items)
+            items = dict([item async for item in cell00.callPeerGenr(todo, timeout=2)])
+            self.len(1, items)
 
     async def test_lib_aha_call_aha_peer_api_isactive(self):
 

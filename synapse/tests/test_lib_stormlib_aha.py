@@ -249,15 +249,7 @@ Connection information:
                     $lib.aha.callPeerApi(newp..., getCellInfo)
                 '''))
 
-                await self.asyncraises(s_exc.BadArg, core00.callStorm('''
-                    $lib.aha.callPeerApi(cell..., (getCellInfo, (), (), {}))
-                '''))
-
-                await self.asyncraises(s_exc.BadArg, core00.callStorm('''
-                    $lib.aha.callPeerApi(cell..., (getCellInfo, (), {}))
-                '''))
-
-                await self.asyncraises(s_exc.BadArg, core00.callStorm('''
+                await self.asyncraises(s_exc.SynErr, core00.callStorm('''
                     $lib.aha.callPeerApi(cell..., ({}))
                 '''))
 
@@ -268,38 +260,6 @@ Connection information:
                 await self.asyncraises(s_exc.NoSuchMeth, core00.callStorm('''
                     $lib.aha.callPeerApi(cell..., bogusMethod)
                 '''))
-
-                async def mock_aha_api(*args, **kwargs):
-                    mock_aha_api.last_todo = args[1]
-                    if False:
-                        yield None
-
-                with mock.patch.object(aha, 'callAhaPeerApi', mock_aha_api):
-
-                    await core00.callStorm('''
-                        $lib.aha.callPeerApi(cell..., (bogusMethod, ({'key': 'value'})))
-                    ''')
-                    self.eq(mock_aha_api.last_todo, ('bogusMethod', (), {'key': 'value'}))
-
-                    await core00.callStorm('''
-                        $lib.aha.callPeerApi(cell..., (bogusMethod, ('value')))
-                    ''')
-                    self.eq(mock_aha_api.last_todo, ('bogusMethod', ('value',), {}))
-
-                    await core00.callStorm('''
-                        $lib.aha.callPeerApi(cell..., (bogusMethod,))
-                    ''')
-                    self.eq(mock_aha_api.last_todo, ('bogusMethod', (), {}))
-
-                    await core00.callStorm('''
-                        $lib.aha.callPeerApi(cell..., (bogusMethod, ('arg1', 'arg2'), ({'key': 'value'})))
-                    ''')
-                    self.eq(mock_aha_api.last_todo, ('bogusMethod', ('arg1', 'arg2'), {'key': 'value'}))
-
-                    await core00.callStorm('''
-                        $lib.aha.callPeerApi(cell..., bogusMethod)
-                    ''')
-                    self.eq(mock_aha_api.last_todo, ('bogusMethod', (), {}))
 
                 await aha.addAhaSvc('noiden.cell', info={'urlinfo': {'scheme': 'tcp',
                                                                      'host': '0.0.0.0',

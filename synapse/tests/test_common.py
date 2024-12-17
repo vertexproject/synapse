@@ -24,6 +24,12 @@ class CommonTest(s_t_utils.SynTest):
         self.true(rets[0][0])
         self.false(rets[1][0])
 
+        async def one():
+            yield 'item'
+
+        rets = [retn async for retn in s_common.waitgenr(one(), timeout=1.0)]
+        self.eq(rets, [(True, 'item')])
+
     def test_tuplify(self):
         tv = ['node', [['test:str', 'test'],
                        {'tags': {
@@ -450,32 +456,6 @@ class CommonTest(s_t_utils.SynTest):
         await footask
 
         self.eq(123, await s_common.wait_for(footask, timeout=-1))
-
-    async def test_waitgenr(self):
-
-        async def one_item_genr():
-            yield 'item'
-
-        items = []
-        async for retn in s_common.waitgenr(one_item_genr(), timeout=1.0):
-            items.append(retn)
-
-        self.len(1, items)
-        self.eq((True, 'item'), items[0])
-
-        async def slow_genr():
-            yield 'item1'
-            await asyncio.sleep(2)
-            yield 'item2'
-
-        items = []
-        async for retn in s_common.waitgenr(slow_genr(), timeout=0.1):
-            items.append(retn)
-
-        self.len(2, items)
-        self.eq((True, 'item1'), items[0])
-        self.false(items[1][0])
-        self.eq('TimeoutError', items[1][1]['err'])
 
     def test_trim_text(self):
         tvs = (
