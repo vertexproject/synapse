@@ -23,7 +23,7 @@ class Todo(s_stormtypes.Prim):
             name = valu
             args = ()
             kwargs = {}
-            
+
         self.name = name
         self.args = args
         self.kwargs = kwargs
