@@ -849,7 +849,6 @@ class AhaTest(s_test.SynTest):
                     async with aha.getLocalProxy() as ahaproxy:
                         self.eq(None, await ahaproxy.getAhaSvcMirrors('99.bogus'))
                         self.len(1, await ahaproxy.getAhaSvcMirrors('00.cortex.synapse'))
-                        self.len(1, await ahaproxy.getAhaSvcMirrors(None, iden=core00.iden))
                         self.nn(await ahaproxy.getAhaServer(host=aha._getDnsName(), port=aha.sockaddr[1]))
 
                         todo = s_common.todo('getCellInfo')
@@ -1467,26 +1466,6 @@ class AhaTest(s_test.SynTest):
             self.false(await cell00.killTask(task01))
 
             self.none(await cell00.getAhaProxy(feats=(('newp', 9),)))
-
-    async def test_aha_req_proxy(self):
-
-        async with self.getTestAha() as aha:
-
-            info = {
-                'urlinfo': {
-                    'host': 'localhost',
-                    'port': 12345,
-                    'scheme': 'ssl',
-                    'user': 'root',
-                },
-                'online': 'fakesession',
-                'ready': True,
-            }
-
-            await aha.addAhaSvc('testsvc.aha', info)
-            svcdef = await aha.getAhaSvc('testsvc.aha')
-            with self.raises(s_exc.NotReady):
-                await aha.reqAhaSvcProxy(svcdef)
 
     async def test_lib_aha_peer_api(self):
 

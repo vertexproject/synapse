@@ -235,21 +235,18 @@ class AhaApi(s_cell.CellApi):
 
         return await self.cell.modAhaSvcInfo(name, svcinfo)
 
-    async def getAhaSvcMirrors(self, name, iden=None):
+    async def getAhaSvcMirrors(self, name):
         '''
         Return list of AHA svcinfo dictionaries for mirrors of a service.
         '''
-        if iden is None:
-            svcinfo = await self.cell.getAhaSvc(name)
-            if svcinfo is None:
-                return None
+        svcinfo = await self.cell.getAhaSvc(name)
+        if svcinfo is None:
+            return None
 
-            svcnetw = svcinfo.get('svcnetw')
-            await self._reqUserAllowed(('aha', 'service', 'get', svcnetw))
+        svcnetw = svcinfo.get('svcnetw')
+        await self._reqUserAllowed(('aha', 'service', 'get', svcnetw))
 
-            svciden = svcinfo['svcinfo']['iden']
-        else:
-            svciden = iden
+        svciden = svcinfo['svcinfo']['iden']
 
         return await self.cell.getAhaSvcMirrors(svciden)
 
