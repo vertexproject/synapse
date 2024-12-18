@@ -3590,8 +3590,7 @@ class FuncCall(Value):
                 if (funcpath := getattr(func, '_storm_funcpath', None)) is not None:
                     mesg = f"{funcpath}(){mesg.split(')', 1)[1]}"
 
-                exc = s_exc.StormRuntimeError(mesg=mesg)
-                raise self.addExcInfo(exc)
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             except s_exc.SynErr as e:
                 if getattr(func, '_storm_runtime_lib_func', None) is not None:
