@@ -40,3 +40,6 @@ class TodoTest(s_test.SynTest):
 
             valu = await core.callStorm('return($lib.todo.parse(42))')
             self.eq(valu, ('42', (), {}))
+
+            with self.assertRaises(s_exc.BadArg):
+                valu = await core.callStorm('return($lib.todo.parse((42)))')

@@ -16,10 +16,13 @@ class Todo(s_stormtypes.Prim):
     def __init__(self, runt, valu):
         s_stormtypes.Prim.__init__(self, None)
         self.runt = runt
-        if isinstance(valu, (list, tuple)):
-            self.name = valu[0]
-            self.args = () if len(valu) < 2 else valu[1] if isinstance(valu[1], (list, tuple)) else (valu[1],)
-            self.kwargs = {} if len(valu) < 3 else valu[2] if isinstance(valu[2], dict) else {}
+
+        if not isinstance(valu, (list, tuple)):
+            raise s_exc.BadArg(mesg='Todo value must be a list or tuple')
+
+        self.name = valu[0]
+        self.args = valu[1] if len(valu) > 1 and isinstance(valu[1], (list, tuple)) else (valu[1],) if len(valu) > 1 else ()
+        self.kwargs = valu[2] if len(valu) > 2 and isinstance(valu[2], dict) else {}
 
         self.locls.update({
             'name': self.name,

@@ -43,7 +43,7 @@ def build_status_list(members, cell_infos):
             'host': svcinfo.get('urlinfo', {}).get('host', ''),
             'port': str(svcinfo.get('urlinfo', {}).get('port', '')),
             'version': '<unknown>',
-            'nexs_indx': '<unknown>'
+            'nexs_indx': 0
         }
         if svcname in cell_infos:
             info = cell_infos[svcname]
@@ -65,12 +65,14 @@ def output_status(outp, vname, group_status):
     outp.printf('#' * 120)
     outp.printf(vname)
     for status in group_status:
+        if status['nexs_indx'] == 0:
+            status['nexs_indx'] = '<unknown>'
         line = ' {name:<40} {role:<10} {online:<8} {ready:<7} {host:<16} {port:<9} {version:<12} {nexs_indx:<10}'.format(**status)
         outp.printf(line)
 
 def check_sync_status(group_status):
-    indices = {status['nexs_indx'] for status in group_status if isinstance(status['nexs_indx'], int)}
-    known_count = sum(1 for status in group_status if isinstance(status['nexs_indx'], int))
+    indices = {status['nexs_indx'] for status in group_status}
+    known_count = sum(1 for status in group_status)
     return len(indices) == 1 and known_count == len(group_status)
 
 async def main(argv, outp=s_output.stdout):

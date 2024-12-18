@@ -133,7 +133,9 @@ class AhaLib(s_stormtypes.Lib):
         svcname = await s_stormtypes.tostr(svcname)
         apiname = await s_stormtypes.toprim(apiname)
 
-        todo = slib_todo.Todo(self.runt, apiname)
+        lib_todo = slib_todo.LibTodo(self.runt)
+        todo = await lib_todo.parse(apiname)
+
         apiname = (todo.name, todo.args, todo.kwargs)
 
         timeout = await s_stormtypes.toint(timeout, noneok=True)
