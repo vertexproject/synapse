@@ -23,7 +23,7 @@ class LibUtils(s_stormtypes.Lib):
          ''',
          'type': {'type': 'function', '_funcname': '_todo',
                   'args': (
-                      {'name': '_todoname', 'type': 'str', 
+                      {'name': '_todoname', 'type': 'str',
                        'desc': 'The todo name.'},
                       {'name': '*args', 'type': 'any',
                        'desc': 'Positional arguments for the todo.'},
