@@ -721,7 +721,7 @@ class AhaCell(s_cell.Cell):
         async for svcdef in self.getAhaSvcs():
             await asyncio.sleep(0)
 
-            # TODO services by iden indexes!
+            # TODO services by iden indexes (SYN-8467)
             if svcdef['svcinfo'].get('iden') != iden:
                 continue
 

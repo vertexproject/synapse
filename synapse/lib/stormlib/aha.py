@@ -1,8 +1,8 @@
 import textwrap
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.lib.stormtypes as s_stormtypes
-import synapse.lib.stormlib.todo as slib_todo
 
 @s_stormtypes.registry.registerLib
 class AhaLib(s_stormtypes.Lib):
@@ -57,14 +57,14 @@ class AhaLib(s_stormtypes.Lib):
         Examples:
             Call getCellInfo on an AHA service::
 
-                $todo = $lib.todo.parse('getCellInfo')
+                $todo = $lib.utils.todo('getCellInfo')
                 for $info in $lib.aha.callPeerApi(cortex..., $todo) {
                     $lib.print($info)
                 }
 
             Call method with arguments::
 
-                $todo = $lib.todo.parse(('method', (1, 2), ({'foo': 'bar'})))
+                $todo = $lib.utils.todo(('method', (1, 2), ({'foo': 'bar'})))
                 for $info in $lib.aha.callPeerApi(cortex..., $todo) {
                     $lib.print($info)
                 }
@@ -133,10 +133,8 @@ class AhaLib(s_stormtypes.Lib):
         svcname = await s_stormtypes.tostr(svcname)
         apiname = await s_stormtypes.toprim(apiname)
 
-        lib_todo = slib_todo.LibTodo(self.runt)
-        todo = await lib_todo.parse(apiname)
-
-        apiname = (todo.name, todo.args, todo.kwargs)
+        if isinstance(apiname, str):
+            apiname = s_common.todo(apiname)
 
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         skiprun = await s_stormtypes.tostr(skiprun, noneok=True)
@@ -152,16 +150,6 @@ class AhaLib(s_stormtypes.Lib):
             raise s_exc.NoSuchName(mesg=f'Service {svcname} has no iden')
 
         async for svcname, (ok, info) in proxy.callAhaPeerApi(svciden, apiname, timeout=timeout, skiprun=skiprun):
-            if not ok:
-                if isinstance(info, dict) and 'err' in info:
-                    err = info.get('err')
-                    errinfo = info.get('errinfo', {})
-                    errtype = getattr(s_exc, err, s_exc.SynErr)
-                    if issubclass(errtype, s_exc.SynErr):
-                        if 'mesg' not in errinfo:
-                            errinfo['mesg'] = info.get('errmsg', str(info))
-                        raise errtype(**errinfo)
-                raise s_exc.BadArg(mesg=f'Error calling {apiname} on {svcname}: {info}')
             yield (svcname, (ok, info))
 
 @s_stormtypes.registry.registerLib
@@ -784,7 +772,7 @@ The ready column indicates that a service has entered into the realtime change w
                 $lib.print(`Group Status: Out of Sync; Waiting {$timeout} seconds for sync...`)
                 $leader_nexs = $lib.null
                 for $status in $group_status {
-                    if (($status.role = 'leader') and ($lib.vars.type($status.nexs_indx) = 'int')) {
+                    if (($status.role = 'leader') and ($status.nexs_indx > 0)) {
                         $leader_nexs = $status.nexs_indx
                         break
                     }
@@ -803,7 +791,8 @@ The ready column indicates that a service has entered into the realtime change w
                         $todo_timeout = $lib.min(5, ((($timeout * 1000) - $elapsed) / 1000))
                         $responses = $lib.list()
 
-                        for $info in $lib.aha.callPeerApi($vname, (waitNexsOffs, ($leader_nexs - 1), ({'timeout': $todo_timeout}))) {
+                        $todo = $lib.utils.todo(waitNexsOffs, ($leader_nexs - 1), timeout=$todo_timeout)
+                        for $info in $lib.aha.callPeerApi($vname, $todo) {
                             $svcname = $info.0
                             ($ok, $info) = $info.1
                             if ($ok and $info) {

@@ -228,7 +228,7 @@ Connection information:
 
                 resp = await core00.callStorm('''
                     $resps = $lib.list()
-                    $todo = ('getCellInfo', (), ({}))
+                    $todo = $lib.utils.todo(getCellInfo)
                     for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo) {
                         $resps.append(($name, $info))
                     }
@@ -249,16 +249,17 @@ Connection information:
                     $lib.aha.callPeerApi(newp..., getCellInfo)
                 '''))
 
-                await self.asyncraises(s_exc.SynErr, core00.callStorm('''
-                    $lib.aha.callPeerApi(cell..., ({}))
-                '''))
-
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $lib.aha.callPeerApi(null, getCellInfo)
                 '''))
 
                 await self.asyncraises(s_exc.NoSuchMeth, core00.callStorm('''
-                    $lib.aha.callPeerApi(cell..., bogusMethod)
+                    for $info in $lib.aha.callPeerApi(cell..., bogusMethod) {
+                        ($ok, $info) = $info.1
+                        if (not $ok) {
+                            $lib.raise($info.err, $info.errmsg)
+                        }
+                    }
                 '''))
 
                 await aha.addAhaSvc('noiden.cell', info={'urlinfo': {'scheme': 'tcp',
@@ -268,20 +269,6 @@ Connection information:
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $lib.aha.callPeerApi(noiden.cell..., getCellInfo)
                 '''))
-
-                async def mock_error_api(*args, **kwargs):
-                    yield ('00.cell.synapse', (False, 'error occurred'))
-
-                with mock.patch.object(aha, 'callAhaPeerApi', mock_error_api):
-                    storm = '''
-                        for $info in $lib.aha.callPeerApi(cell..., bogusMethod) {
-                            $lib.print($info)
-                        }
-                    '''
-                    await self.asyncraises(s_exc.BadArg, core00.callStorm(storm))
-
-                    msgs = await core00.stormlist(storm)
-                    self.stormIsInErr('error occurred', msgs)
 
                 msgs = await core00.stormlist('aha.svc.mirror')
                 self.stormIsInPrint('Service Mirror Groups:', msgs)
