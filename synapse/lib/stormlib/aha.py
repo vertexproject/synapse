@@ -83,6 +83,31 @@ class AhaLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'list',
                              'desc': 'The result of the API call as a list of tuples (svcname, (ok, info)).', }}},
+        {'name': 'callPeerGenr', 'desc': '''Call a generator API on all peers (leader and mirrors) of an AHA service and yield the responses from each.
+
+        Examples:
+            Call getNexusChanges on an AHA service::
+
+                $todo = $lib.utils.todo('getNexusChanges', (0), wait=$lib.false)
+                for $info in $lib.aha.callPeerGenr(cortex..., $todo) {
+                    $lib.print($info)
+                }
+
+        ''',
+         'type': {'type': 'function', '_funcname': '_methCallPeerGenr',
+                  'args': (
+                      {'name': 'svcname', 'type': 'str',
+                       'desc': 'The name of the AHA service to call. It is easiest to use the relative name of a service, ending with "...".', },
+                      {'name': 'apiname', 'type': ('str', 'tuple'),
+                       'desc': 'The name of the API to call or a todo tuple (name, args, kwargs).'},
+                      {'name': 'timeout', 'type': 'int', 'default': None,
+                       'desc': 'Optional timeout in seconds.'},
+                      {'name': 'skiprun', 'type': 'str', 'default': None,
+                       'desc': 'Optional run ID argument allows skipping self-enumeration when the caller provides its own run ID.'},
+                  ),
+                  'returns': {'type': 'list',
+                             'desc': 'The result of the API call as a list of tuples (svcname, (ok, info)).', }}}
+
     )
     _storm_lib_path = ('aha',)
     def getObjLocals(self):
@@ -91,6 +116,7 @@ class AhaLib(s_stormtypes.Lib):
             'get': self._methAhaGet,
             'list': self._methAhaList,
             'callPeerApi': self._methCallPeerApi,
+            'callPeerGenr': self._methCallPeerGenr,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -150,6 +176,38 @@ class AhaLib(s_stormtypes.Lib):
             raise s_exc.NoSuchName(mesg=f'Service {svcname} has no iden')
 
         async for svcname, (ok, info) in proxy.callAhaPeerApi(svciden, apiname, timeout=timeout, skiprun=skiprun):
+            yield (svcname, (ok, info))
+
+    async def _methCallPeerGenr(self, svcname, apiname, timeout=None, skiprun=None):
+        '''
+        Call an API on an AHA service.
+
+        Args:
+            svcname (str): The name of the AHA service to call
+            apiname (str, todo): The API name or todo object
+            timeout (int): Optional timeout in seconds
+            skiprun (str): Optional run ID argument allows skipping self-enumeration.
+        '''
+        svcname = await s_stormtypes.tostr(svcname)
+        apiname = await s_stormtypes.toprim(apiname)
+
+        if isinstance(apiname, str):
+            apiname = s_common.todo(apiname)
+
+        timeout = await s_stormtypes.toint(timeout, noneok=True)
+        skiprun = await s_stormtypes.tostr(skiprun, noneok=True)
+
+        proxy = await self.runt.snap.core.reqAhaProxy()
+        svc = await proxy.getAhaSvc(svcname)
+        if svc is None:
+            raise s_exc.NoSuchName(mesg=f'No AHA service found for {svcname}')
+
+        svcinfo = svc.get('svcinfo')
+        svciden = svcinfo.get('iden')
+        if svciden is None:
+            raise s_exc.NoSuchName(mesg=f'Service {svcname} has no iden')
+
+        async for svcname, (ok, info) in proxy.callAhaPeerGenr(svciden, apiname, timeout=timeout, skiprun=skiprun):
             yield (svcname, (ok, info))
 
 @s_stormtypes.registry.registerLib

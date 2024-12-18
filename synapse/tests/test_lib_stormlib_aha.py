@@ -214,6 +214,31 @@ Connection information:
                     core00 = await aha.enter_context(self.addSvcToAha(aha, 'core', s_cortex.Cortex, dirn=dirn02))
                     await cell01.sync()
 
+                # PeerGenr
+                resp = await core00.callStorm('''
+                    $resps = $lib.list()
+                    for ($name, $info) in $lib.aha.callPeerGenr(cell..., getTasks) {
+                        $resps.append(($name, $info))
+                    }
+                    return($resps)
+                ''')
+                self.len(0, resp)
+
+                resp = await core00.callStorm('''
+                    $resps = $lib.list()
+                    $todo = $lib.utils.todo('getNexusChanges', (0), wait=$lib.false)
+                    for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {
+                        $resps.append(($name, $info))
+                    }
+                    return($resps)
+                ''')
+                self.len(4, resp)
+
+                await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
+                    $lib.aha.callPeerGenr(null, getTasks)
+                '''))
+
+                # PeerApi
                 resp = await core00.callStorm('''
                     $resps = $lib.list()
                     for ($name, $info) in $lib.aha.callPeerApi(cell..., getCellInfo) {
@@ -266,6 +291,9 @@ Connection information:
                                                                      'host': '0.0.0.0',
                                                                      'port': '3030'}},
                                   network='synapse')
+                await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
+                    $lib.aha.callPeerGenr(noiden.cell..., getTasks)
+                '''))
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $lib.aha.callPeerApi(noiden.cell..., getCellInfo)
                 '''))
