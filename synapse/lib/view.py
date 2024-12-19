@@ -635,7 +635,6 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
-
         '''
         We spent a lot of time thinking/talking about this so some hefty
         comments are in order:
@@ -1053,6 +1052,8 @@ class View(s_nexus.Pusher):  # type: ignore
                                extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
                 cancelled = True
                 raise
+
+            # except s_stormctrl.StormGenrCtrl:
 
             except Exception as e:
                 logger.exception(f'Error during storm execution for {{ {text} }}',
