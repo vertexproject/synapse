@@ -3119,6 +3119,48 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('newp', text[off:end])
 
+            visi = (await core.addUser('visi'))['iden']
+            text = '$users=$lib.auth.users.list() $lib.print($users.0.profile)'
+            msgs = await core.stormlist(text, opts={'user': visi})
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.print($users.0.profile)', text[off:end])
+
+            text = '$lib.len(foo, bar)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.len(foo, bar)', text[off:end])
+            self.stormIsInErr('$lib.len()', msgs)
+
+            text = '$foo=$lib.pkg.get $foo()'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('foo()', text[off:end])
+            self.stormIsInErr('$lib.pkg.get()', msgs)
+
+            text = '$obj = $lib.pipe.gen(${ $obj.put() }) $obj.put(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('obj.put(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('pipe.put()', msgs)
+
+            text = '$lib.gen.campaign(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.gen.campaign(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.gen.campaign()', msgs)
+
+            text = '$gen = $lib.gen.campaign $gen(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('gen(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.gen.campaign()', msgs)
+
     async def test_ast_bulkedges(self):
 
         async with self.getTestCore() as core:
