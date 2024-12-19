@@ -764,10 +764,10 @@ class StormTest(s_t_utils.SynTest):
                     },
                 )
             }
-            await core.loadStormPkg(emptypkg)
+            core.loadStormPkg(emptypkg)
             await core.addStormPkg(strverpkg)
 
-            await core.loadStormPkg(pkg0)
+            core.loadStormPkg(pkg0)
 
             await core.nodes('$lib.import(foo.baz)', opts=opts)
             await core.nodes('$lib.import(foo.baz, reqvers="==0.0.1")', opts=opts)
@@ -3924,7 +3924,7 @@ class StormTest(s_t_utils.SynTest):
                     )},
                 ),
             }
-            await core.loadStormPkg(pdef)
+            core.loadStormPkg(pdef)
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
@@ -4698,7 +4698,7 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_cmdscope(self):
 
         async with self.getTestCore() as core:
-            await core.loadStormPkg({
+            core.loadStormPkg({
                 'name': 'testpkg',
                 'version': '0.0.1',
                 'commands': (

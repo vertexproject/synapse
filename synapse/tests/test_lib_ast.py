@@ -131,7 +131,7 @@ class AstTest(s_test.SynTest):
             self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
         async with self.getTestCore() as core:
-            await core.loadStormPkg({
+            core.loadStormPkg({
                 'name': 'testsearch',
                 'modules': [
                     {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''

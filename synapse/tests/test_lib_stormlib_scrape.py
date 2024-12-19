@@ -92,7 +92,7 @@ class StormScrapeTest(s_test.SynTest):
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('scrape'))
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
             self.len(2, mods)
@@ -131,7 +131,7 @@ class StormScrapeTest(s_test.SynTest):
         conf = {'storm:interface:scrape': False, }
         async with self.getTestCore(conf=conf) as core:
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
             self.len(2, mods)
