@@ -226,7 +226,7 @@ Connection information:
 
                 resp = await core00.callStorm('''
                     $resps = $lib.list()
-                    $todo = $lib.utils.todo('getNexusChanges', (0), wait=$lib.false)
+                    $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
                     for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {
                         $resps.append(($name, $info))
                     }

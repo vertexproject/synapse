@@ -81,8 +81,8 @@ class AhaLib(s_stormtypes.Lib):
                       {'name': 'skiprun', 'type': 'str', 'default': None,
                        'desc': 'Optional run ID argument allows skipping self-enumeration when the caller provides its own run ID.'},
                   ),
-                  'returns': {'type': 'list',
-                             'desc': 'The result of the API call as a list of tuples (svcname, (ok, info)).', }}},
+                  'returns': {'name': 'yields', 'type': 'list',
+                             'desc': 'Yields the result of the API call as a tuple of (svcname, (ok, info)).', }}},
         {'name': 'callPeerGenr', 'desc': '''Call a generator API on all peers (leader and mirrors) of an AHA service and yield the responses from each.
 
         Examples:
@@ -105,8 +105,8 @@ class AhaLib(s_stormtypes.Lib):
                       {'name': 'skiprun', 'type': 'str', 'default': None,
                        'desc': 'Optional run ID argument allows skipping self-enumeration when the caller provides its own run ID.'},
                   ),
-                  'returns': {'type': 'list',
-                             'desc': 'The result of the API call as a list of tuples (svcname, (ok, info)).', }}}
+                  'returns': {'name': 'yields', 'type': 'list',
+                             'desc': 'Yields the results of the API call as a tuple containing (svcname, (ok, info)).', }}}
 
     )
     _storm_lib_path = ('aha',)
@@ -180,7 +180,7 @@ class AhaLib(s_stormtypes.Lib):
 
     async def _methCallPeerGenr(self, svcname, apiname, timeout=None, skiprun=None):
         '''
-        Call an API on an AHA service.
+        Call a generator API on an AHA service.
 
         Args:
             svcname (str): The name of the AHA service to call
@@ -666,7 +666,7 @@ The ready column indicates that a service has entered into the realtime change w
         '''),
         'cmdargs': (
             ('--timeout', {'help': 'The number of seconds to wait for the mirrors to sync.',
-                           'default': 60, 'action': 'store'}),
+                           'default': 60, 'type': 'int', 'action': 'store'}),
         ),
         'storm': '''
         init {
@@ -839,7 +839,7 @@ The ready column indicates that a service has entered into the realtime change w
                 if $leader_nexs {
                     $start_time = $lib.time.now()
 
-                    while $lib.true {
+                    while (true) {
                         $now = $lib.time.now()
                         $elapsed = ($now - $start_time)
                         if ($elapsed >= ($timeout * 1000)) {
