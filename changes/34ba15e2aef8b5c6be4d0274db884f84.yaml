@@ -1,5 +1,5 @@
 ---
-desc: Refactored backup streaming logic, error handling, and increased test coverage.
+desc: Refactored backup streaming logic and error handling.
 prs: []
 type: feat
 ...
