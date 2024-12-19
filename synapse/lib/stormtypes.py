@@ -201,11 +201,29 @@ class StormTypesRegistry:
             raise Exception('no key!')
         self.addStormLib(path, ctor)
 
+        for info in ctor._storm_locals:
+            rtype = info.get('type')
+            if isinstance(rtype, dict) and rtype.get('type') == 'function':
+                if (fname := rtype.get('_funcname')) == '_storm_query':
+                    continue
+
+                if (func := getattr(ctor, fname, None)) is not None:
+                    funcpath = '.'.join(('lib',) + ctor._storm_lib_path + (info['name'],))
+                    func._storm_funcpath = f"${funcpath}"
+
         return ctor
 
     def registerType(self, ctor):
         '''Decorator to register a StormPrim'''
         self.addStormType(ctor.__name__, ctor)
+
+        for info in ctor._storm_locals:
+            rtype = info.get('type')
+            if isinstance(rtype, dict) and rtype.get('type') == 'function':
+                fname = rtype.get('_funcname')
+                if (func := getattr(ctor, fname, None)) is not None:
+                    func._storm_funcpath = f"{ctor._storm_typename}.{info['name']}"
+
         return ctor
 
     def iterLibs(self):
@@ -628,6 +646,7 @@ class Lib(StormType):
                 if callable(v) and v.__name__ == 'realfunc':
                     v._storm_runtime_lib = self
                     v._storm_runtime_lib_func = k
+                    v._storm_funcpath = f'${".".join(("lib",) + self.name + (k,))}'
 
                 self.locls[k] = v
 
