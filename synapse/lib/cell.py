@@ -2637,19 +2637,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             proc.start()
             return proc
 
+        mesg = 'Streaming complete'
         proc = await s_coro.executor(getproc)
+        cancelled = False
         try:
             await s_coro.executor(proc.join)
             self.backlastuploaddt = datetime.datetime.now()
             logger.debug(f'Backup streaming completed successfully for {name}')
 
-        except Exception:
-            logger.exception('Error during backup streaming.')
-            if proc:
-                proc.terminate()
+        except asyncio.CancelledError:
+            logger.warning('Backup streaming was cancelled.')
+            cancelled = True
             raise
 
-        raise s_exc.DmonSpawn(mesg='Streaming complete')
+        except Exception as e:
+            logger.exception('Error during backup streaming.')
+            mesg = repr(e)
+            raise
+
+        finally:
+            if proc:
+                proc.terminate()
+
+            if not cancelled:
+                raise s_exc.DmonSpawn(mesg=mesg)
 
     async def iterBackupArchive(self, name, user):
         path = self._reqBackDirn(name)
