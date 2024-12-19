@@ -40,7 +40,7 @@ class CookieTests(s_v_utils.VendorTest):
         n = 10**6
         for encoded in r'\\', r'\134':
             with self.subTest(encoded):
-                data = 'a="b=' + encoded*n + ';"'
+                data = 'a="b=' + encoded * n + ';"'
                 C = cookies.SimpleCookie()
                 C.load(data)
                 value = C['a'].value
