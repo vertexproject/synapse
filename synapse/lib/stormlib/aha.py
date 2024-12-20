@@ -85,10 +85,9 @@ class AhaLib(s_stormtypes.Lib):
                       {'name': 'timeout', 'type': 'int', 'default': None,
                        'desc': 'Optional timeout in seconds.'},
                       {'name': 'skiprun', 'type': 'str', 'default': None,
-                       'desc': '''
-                       Optional run ID argument that allows skipping results from a specific service run ID.
-                       This is most often used to omit the invoking service from the results, ensuring that only responses from other services are included.
-                       ''',},
+                       'desc': '''Optional run ID argument that allows skipping results from a specific service run ID.
+                                  This is most often used to omit the invoking service from the results, ensuring that only responses from other services are included.
+                        '''},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                              'desc': 'Yields the result of the API call as a tuple of (svcname, (ok, info)).', }}},
@@ -118,10 +117,9 @@ class AhaLib(s_stormtypes.Lib):
                       {'name': 'timeout', 'type': 'int', 'default': None,
                        'desc': 'Optional timeout in seconds.'},
                       {'name': 'skiprun', 'type': 'str', 'default': None,
-                       'desc': '''
-                       Optional run ID argument that allows skipping results from a specific service run ID.
-                       This is most often used to omit the invoking service from the results, ensuring that only responses from other services are included.
-                       ''',},
+                       'desc': '''Optional run ID argument that allows skipping results from a specific service run ID.
+                                  This is most often used to omit the invoking service from the results, ensuring that only responses from other services are included.
+                       '''},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                              'desc': 'Yields the results of the API call as a tuple containing (svcname, (ok, info)).', }}}
