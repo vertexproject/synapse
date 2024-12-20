@@ -31,4 +31,7 @@ class LibUtils(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _todo(self, _todoname, *args, **kwargs):
+        _todoname = await s_stormtypes.tostr(_todoname)
+        args = await s_stormtypes.toprim(args)
+        kwargs = await s_stormtypes.toprim(kwargs)
         return (_todoname, args, kwargs)
