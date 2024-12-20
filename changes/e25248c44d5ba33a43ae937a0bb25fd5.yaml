@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where certain exceptions raised while calling a function in Storm
+    were not providing appropriate details about the origin of the exception.
+prs: []
+type: bug
+...
