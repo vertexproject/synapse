@@ -140,7 +140,7 @@ class AstNode:
                 retn = True
                 break
 
-            if isinstance(kid, (EditPropSet, Function, CmdOper)):
+            if isinstance(kid, (EditPropSet, EditCondPropSet, Function, CmdOper)):
                 continue
 
             if kid.hasAstClass(clss):
