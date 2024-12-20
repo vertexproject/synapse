@@ -481,7 +481,11 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 q = '[test:str=foo :newp*unset=heval]'
-                nodes = await core.nodes(q, opts={'readonly': True})
+                nodes = await core.nodes(q)
+
+            with self.raises(s_exc.StormRuntimeError):
+                q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
+                nodes = await core.nodes(q)
 
     async def test_ast_editparens(self):
 

@@ -4179,7 +4179,7 @@ class CondSetOper(Oper):
                 return SET_NEVER
             case _:
                 mesg = f'Invalid conditional set operator ({valu}).'
-                exc = s_exc.StormRuntimeError(mesg)
+                exc = s_exc.StormRuntimeError(mesg=mesg)
                 raise self.addExcInfo(exc)
 
 class EditCondPropSet(Edit):
@@ -4286,7 +4286,7 @@ class EditPropSet(Edit):
 
                     if not isarray:
                         mesg = f'Property set using ({oper}) is only valid on arrays.'
-                        exc = s_exc.StormRuntimeError(mesg)
+                        exc = s_exc.StormRuntimeError(mesg=mesg)
                         raise self.kids[0].addExcInfo(exc)
 
                     arry = node.get(name)
