@@ -170,7 +170,7 @@ class AhaLib(s_stormtypes.Lib):
 
         Args:
             svcname (str): The name of the AHA service to call
-            todo (list): The todo tuple (name, args, kwargs)
+            todo (list): The todo tuple from $lib.utils.todo()
             timeout (int): Optional timeout in seconds
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
@@ -198,7 +198,7 @@ class AhaLib(s_stormtypes.Lib):
 
         Args:
             svcname (str): The name of the AHA service to call
-            todo (list): The todo tuple (name, args, kwargs)
+            todo (list): The todo tuple from $lib.utils.todo()
             timeout (int): Optional timeout in seconds
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
