@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import itertools
 import urllib.parse as u_parse
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -638,34 +639,13 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVar):
                 await core.nodes('background { $lib.print($foo) }')
 
+            await core.nodes('background ${ $foo=test $lib.print($foo) }')
+
             await core.nodes('background { $lib.time.sleep(4) }')
             task = await core.callStorm('for $t in $lib.ps.list() { if $t.info.background { return($t) } }')
             self.nn(task)
             self.none(task['info'].get('opts'))
             self.eq(core.view.iden, task['info'].get('view'))
-
-            # test the parallel command
-            nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
-            self.len(4, nodes)
-
-            # check that subquery validation happens
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
-
-            # check that an exception on inbound percolates correctly
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=* ou:org=foo ] | parallel { [:name=bar] }')
-
-            # check that an exception in the parallel pipeline percolates correctly
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('parallel { [ou:org=foo] }')
-
-            nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
-            self.true(all([n.get('name') == 'foo' for n in nodes]))
-
-            # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
             # test $lib.exit() and the StormExit handlers
             msgs = [m async for m in core.view.storm('$lib.exit()')]
@@ -784,10 +764,10 @@ class StormTest(s_t_utils.SynTest):
                     },
                 )
             }
-            await core.loadStormPkg(emptypkg)
+            core.loadStormPkg(emptypkg)
             await core.addStormPkg(strverpkg)
 
-            await core.loadStormPkg(pkg0)
+            core.loadStormPkg(pkg0)
 
             await core.nodes('$lib.import(foo.baz)', opts=opts)
             await core.nodes('$lib.import(foo.baz, reqvers="==0.0.1")', opts=opts)
@@ -857,14 +837,23 @@ class StormTest(s_t_utils.SynTest):
             pkg1 = {'name': 'haha', 'version': '1.2.3'}
             await core.addStormPkg(pkg1)
             msgs = await core.stormlist('pkg.list')
-            self.isin('haha', msgs[2][1]['mesg'])
-            self.isin('hehe', msgs[3][1]['mesg'])
+            self.stormIsInPrint('haha', msgs)
+            self.stormIsInPrint('hehe', msgs)
 
             self.true(await core.callStorm('return($lib.pkg.has(haha))'))
 
             await core.delStormPkg('haha')
             self.none(await core.callStorm('return($lib.pkg.get(haha))'))
             self.false(await core.callStorm('return($lib.pkg.has(haha))'))
+
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('not available', msgs)
+
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            await core.addStormPkg(pkg2)
+            self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('2024-11-19 12:00:00', msgs)
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -3423,6 +3412,73 @@ class StormTest(s_t_utils.SynTest):
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tee $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
+    async def test_storm_parallel(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
+            self.len(4, nodes)
+
+            # check that subquery validation happens
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
+
+            # check that an exception on inbound percolates correctly
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=(foo,) ou:org=foo ] | parallel { [:name=bar] }')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=(foo,) ou:org=foo ] | parallel --size 1 { [:name=bar] }')
+
+            # check that an exception in the parallel pipeline percolates correctly
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('parallel { [ou:org=foo] }')
+
+            nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
+            self.true(all([n.get('name') == 'foo' for n in nodes]))
+
+            # Runtsafety test
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            nodes = await core.nodes('ou:org | parallel ${ $foo=bar [ :name=$foo ]}')
+            self.true(all([n.get('name') == 'bar' for n in nodes]))
+
+            orig = s_storm.ParallelCmd.pipeline
+            tsks = {'cnt': 0}
+
+            async def pipecnt(self, runt, query, inq, outq):
+                tsks['cnt'] += 1
+                await orig(self, runt, query, inq, outq)
+
+            with mock.patch('synapse.lib.storm.ParallelCmd.pipeline', pipecnt):
+
+                nodes = await core.nodes('ou:org parallel --size 4 {[ :name=bar ]}')
+                self.len(5, nodes)
+                self.true(all([n.get('name') == 'bar' for n in nodes]))
+                self.eq(4, tsks['cnt'])
+
+                tsks['cnt'] = 0
+
+                nodes = await core.nodes('ou:org parallel --size 5 {[ :name=bar ]}')
+                self.len(5, nodes)
+                self.true(all([n.get('name') == 'bar' for n in nodes]))
+                self.eq(5, tsks['cnt'])
+
+                tsks['cnt'] = 0
+
+                # --size greater than number of nodes only creates a pipeline for each node
+                nodes = await core.nodes('ou:org parallel --size 10 {[ :name=foo ]}')
+                self.len(5, nodes)
+                self.true(all([n.get('name') == 'foo' for n in nodes]))
+                self.eq(5, tsks['cnt'])
+
+                tsks['cnt'] = 0
+
+                nodes = await core.nodes('parallel --size 4 {[ ou:org=* ]}')
+                self.len(4, nodes)
+                self.eq(4, tsks['cnt'])
+
     async def test_storm_yieldvalu(self):
 
         async with self.getTestCore() as core:
@@ -3868,7 +3924,7 @@ class StormTest(s_t_utils.SynTest):
                     )},
                 ),
             }
-            await core.loadStormPkg(pdef)
+            core.loadStormPkg(pdef)
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
@@ -4642,7 +4698,7 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_cmdscope(self):
 
         async with self.getTestCore() as core:
-            await core.loadStormPkg({
+            core.loadStormPkg({
                 'name': 'testpkg',
                 'version': '0.0.1',
                 'commands': (

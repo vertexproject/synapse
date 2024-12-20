@@ -206,6 +206,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster uses the vulnerability.'}),
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
+                (('ou:technique', 'uses', 'risk:vuln'), {
+                    'doc': 'The technique uses the vulnerability.'}),
 
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
@@ -240,8 +242,17 @@ class RiskModule(s_module.CoreModule):
                 (('risk:mitigation', 'uses', 'inet:service:rule'), {
                     'doc': 'The mitigation uses the service rule.'}),
 
+                (('risk:mitigation', 'uses', 'it:prod:softver'), {
+                    'doc': 'The mitigation uses the software version.'}),
+
+                (('risk:mitigation', 'uses', 'it:prod:hardware'), {
+                    'doc': 'The mitigation uses the hardware.'}),
+
                 (('risk:leak', 'leaked', None), {
                     'doc': 'The leak included the disclosure of the target node.'}),
+
+                (('risk:leak', 'enabled', 'risk:leak'), {
+                    'doc': 'The source leak enabled the target leak to occur.'}),
 
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
@@ -276,6 +287,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('active', ('ival', {}), {
                         'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
+
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'The most recently assessed activity level of the threat cluster.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the threat cluster.'}),
@@ -402,10 +416,12 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
 
                     ('software', ('it:prod:softver', {}), {
-                        'doc': 'A software version which implements a fix for the vulnerability.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:softver.'}),
 
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:hardware.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the mitigation.'}),
@@ -706,6 +722,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
+
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The technique that the node is susceptible to.'}),
 
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
@@ -1026,6 +1045,9 @@ class RiskModule(s_module.CoreModule):
                     ('leaker', ('ps:contact', {}), {
                         'doc': 'The identity which leaked the information.'}),
 
+                    ('recipient', ('ps:contact', {}), {
+                        'doc': 'The identity which received the leaked information.'}),
+
                     ('type', ('risk:leak:type:taxonomy', {}), {
                         'doc': 'A type taxonomy for the leak.'}),
 
@@ -1073,14 +1095,14 @@ class RiskModule(s_module.CoreModule):
                         'ex': 'nature.earthquake',
                         'doc': 'The outage cause type.'}),
 
+                    ('attack', ('risk:attack', {}), {
+                        'doc': 'An attack which caused the outage.'}),
+
                     ('provider', ('ou:org', {}), {
                         'doc': 'The organization which experienced the outage event.'}),
 
                     ('provider:name', ('ou:name', {}), {
                         'doc': 'The name of the organization which experienced the outage event.'}),
-
-                    ('reporter:name', ('ou:name', {}), {
-                        'doc': 'The name of the organization reporting on the outage event.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the outage event.'}),

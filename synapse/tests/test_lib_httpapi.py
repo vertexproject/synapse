@@ -777,6 +777,12 @@ class HttpApiTest(s_tests.SynTest):
                     retn = await resp.json()
                     self.eq('MissingField', retn.get('code'))
 
+                body = {'prop': 'test:comp', 'value': '3^foobar', 'typeopts': {'sepr': '^'}}
+                async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    retn = await resp.json()
+                    self.eq('ok', retn.get('status'))
+                    self.eq([3, 'foobar'], retn['result']['norm'])
+
                 # Norm via POST
                 body = {'prop': 'inet:ipv4', 'value': '1.2.3.4'}
                 async with sess.post(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
@@ -1716,10 +1722,8 @@ class HttpApiTest(s_tests.SynTest):
 
     async def test_request_logging(self):
 
-        def get_mesg(stream):
-            data = stream.getvalue()
-            raw_mesgs = [m for m in data.split('\n') if m]
-            msgs = [json.loads(m) for m in raw_mesgs]
+        def get_mesg(stream: s_tests.AsyncStreamEvent) -> dict:
+            msgs = stream.jsonlines()
             self.len(1, msgs)
             return msgs[0]
 
@@ -1740,8 +1744,12 @@ class HttpApiTest(s_tests.SynTest):
 
                 with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/adduser') as stream:
 
+                    headers = {
+                        'X-Forwarded-For': '1.2.3.4',
+                        'User-Agent': 'test_request_logging',
+                    }
                     async with sess.post(f'https://root:root@localhost:{port}/api/v1/auth/adduser',
-                                         json=info, headers={'X-Forwarded-For': '1.2.3.4'}) as resp:
+                                         json=info, headers=headers) as resp:
                         item = await resp.json()
                         self.nn(item.get('result').get('iden'))
                         visiiden = item['result']['iden']
@@ -1752,6 +1760,8 @@ class HttpApiTest(s_tests.SynTest):
                 self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
                 self.eq(mesg.get('username'), 'root')
                 self.eq(mesg.get('user'), core.auth.rootuser.iden)
+                self.isin('headers', mesg)
+                self.eq(mesg['headers'].get('user-agent'), 'test_request_logging')
                 self.isin('remoteip', mesg)
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
@@ -1759,12 +1769,13 @@ class HttpApiTest(s_tests.SynTest):
 
                 # No auth provided
                 with self.getStructuredAsyncLoggerStream(logname, 'api/v1/active') as stream:
-                    async with sess.get(f'https://root:root@localhost:{port}/api/v1/active') as resp:
+                    async with sess.get(f'https://root:root@localhost:{port}/api/v1/active', skip_auto_headers=['User-Agent']) as resp:
                         self.eq(resp.status, 200)
                         self.true(await stream.wait(6))
 
                 mesg = get_mesg(stream)
                 self.eq(mesg.get('uri'), '/api/v1/active')
+                self.notin('headers', mesg)
                 self.notin('username', mesg)
                 self.notin('user', mesg)
                 self.isin('remoteip', mesg)

@@ -3,6 +3,7 @@ import copy
 import gzip
 import json
 import time
+
 import regex
 import types
 import base64
@@ -39,6 +40,7 @@ import synapse.lib.stormctrl as s_stormctrl
 logger = logging.getLogger(__name__)
 
 AXON_MINVERS_PROXY = (2, 97, 0)
+AXON_MINVERS_PROXYTRUE = (2, 192, 0)
 AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
@@ -59,6 +61,92 @@ def confirmEasyPerm(item, perm, mesg=None):
 
 def allowedEasyPerm(item, perm):
     return s_scope.get('runt').allowedEasyPerm(item, perm)
+
+def strifyHttpArg(item, multi=False):
+    if isinstance(item, (list, tuple)):
+        return [(str(k), str(v)) for (k, v) in item]
+    elif isinstance(item, dict):
+        retn = {}
+        for name, valu in item.items():
+            if isinstance(valu, (list, tuple)) and multi:
+                retn[str(name)] = [str(v) for v in valu]
+            else:
+                retn[str(name)] = str(valu)
+        return retn
+    return item
+
+async def resolveCoreProxyUrl(valu):
+    '''
+    Resolve a proxy value to a proxy URL.
+
+    Args:
+        valu (str|None|bool): The proxy value.
+
+    Returns:
+        (str|None): A proxy URL string or None.
+    '''
+    runt = s_scope.get('runt')
+
+    match valu:
+        case None:
+            s_common.deprecated('Setting the HTTP proxy argument $lib.null', curv='2.192.0')
+            await runt.snap.warnonce('Setting the HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
+            return await runt.snap.core.getConfOpt('http:proxy')
+
+        case True:
+            return await runt.snap.core.getConfOpt('http:proxy')
+
+        case False:
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return None
+
+        case str():
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return valu
+
+        case _:
+            raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
+
+async def resolveAxonProxyArg(valu):
+    '''
+    Resolve a proxy value to the kwarg to set for an Axon HTTP call.
+
+    Args:
+        valu (str|null|bool): The proxy value.
+
+    Returns:
+        tuple: A retn tuple where the proxy kwarg should not be set if ok=False, otherwise a proxy URL or None.
+    '''
+    runt = s_scope.get('runt')
+
+    axonvers = runt.snap.core.axoninfo['synapse']['version']
+    if axonvers < AXON_MINVERS_PROXY:
+        await runt.snap.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
+        return False, None
+
+    match valu:
+        case None:
+            s_common.deprecated('Setting the Storm HTTP proxy argument $lib.null', curv='2.192.0')
+            await runt.snap.warnonce('Setting the Storm HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
+            if axonvers >= AXON_MINVERS_PROXYTRUE:
+                return True, True
+            return True, None
+
+        case True:
+            if axonvers < AXON_MINVERS_PROXYTRUE:
+                return True, None
+            return True, True
+
+        case False:
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return True, False
+
+        case str():
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return True, valu
+
+        case _:
+            raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
 
 class StormTypesRegistry:
     # The following types are currently undefined.
@@ -1980,11 +2068,18 @@ class LibAxon(Lib):
 
     For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
 
-        {
+        ({
             'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
             'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
             'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
-        }
+        })
+
+    For APIs that accept a proxy argument, the following values are supported::
+
+        $lib.null: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+        $lib.true: Use the proxy defined by the http:proxy configuration option if set.
+        $lib.false: Do not use the proxy defined by the http:proxy configuration option if set.
+        <str>: A proxy URL string.
     '''
     _storm_locals = (
         {'name': 'wget', 'desc': """
@@ -2018,8 +2113,8 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
-                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'str'],
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
                        'default': None},
@@ -2041,8 +2136,8 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
-                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'str'],
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
                        'default': None},
@@ -2306,13 +2401,6 @@ class LibAxon(Lib):
             'hashset': self.hashset,
         }
 
-    def strify(self, item):
-        if isinstance(item, (list, tuple)):
-            return [(str(k), str(v)) for (k, v) in item]
-        elif isinstance(item, dict):
-            return {str(k): str(v) for k, v in item.items()}
-        return item
-
     @stormfunc(readonly=True)
     async def readlines(self, sha256, errors='ignore'):
         if not self.runt.allowed(('axon', 'get')):
@@ -2364,7 +2452,7 @@ class LibAxon(Lib):
         return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
@@ -2381,20 +2469,19 @@ class LibAxon(Lib):
         proxy = await toprim(proxy)
         ssl_opts = await toprim(ssl_opts)
 
-        if proxy is not None:
-            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
-
-        params = self.strify(params)
-        headers = self.strify(headers)
+        params = strifyHttpArg(params, multi=True)
+        headers = strifyHttpArg(headers)
 
         await self.runt.snap.core.getAxon()
 
         kwargs = {}
-        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= AXON_MINVERS_PROXY:
+
+        ok, proxy = await resolveAxonProxyArg(proxy)
+        if ok:
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
+            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
@@ -2407,7 +2494,7 @@ class LibAxon(Lib):
         return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
@@ -2423,25 +2510,26 @@ class LibAxon(Lib):
         timeout = await toprim(timeout)
         ssl_opts = await toprim(ssl_opts)
 
-        params = self.strify(params)
-        headers = self.strify(headers)
+        params = strifyHttpArg(params, multi=True)
+        headers = strifyHttpArg(headers)
 
-        if proxy is not None:
-            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
-
-        axon = self.runt.snap.core.axon
-        sha256byts = s_common.uhex(sha256)
+        await self.runt.snap.core.getAxon()
 
         kwargs = {}
-        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= AXON_MINVERS_PROXY:
+
+        ok, proxy = await resolveAxonProxyArg(proxy)
+        if ok:
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
+            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
             kwargs['ssl_opts'] = ssl_opts
+
+        axon = self.runt.snap.core.axon
+        sha256byts = s_common.uhex(sha256)
 
         return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
                                ssl=ssl, timeout=timeout, **kwargs)
@@ -5008,9 +5096,12 @@ class List(Prim):
                       {'name': 'valu', 'type': 'any', 'desc': 'The value to check.', },
                   ),
                   'returns': {'type': 'boolean', 'desc': 'True if the item is in the list, false otherwise.', }}},
-        {'name': 'pop', 'desc': 'Pop and return the last entry in the list.',
+        {'name': 'pop', 'desc': 'Pop and return the entry at the specified index in the list. If no index is specified, pop the last entry.',
          'type': {'type': 'function', '_funcname': '_methListPop',
-                  'returns': {'type': 'any', 'desc': 'The last item from the list.', }}},
+                  'args': (
+                      {'name': 'index', 'type': 'int', 'desc': 'Index of entry to pop.', 'default': -1},
+                  ),
+                  'returns': {'type': 'any', 'desc': 'The entry at the specified index in the list.', }}},
         {'name': 'size', 'desc': 'Return the length of the list.',
          'type': {'type': 'function', '_funcname': '_methListSize',
                   'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
@@ -5153,11 +5244,12 @@ class List(Prim):
         return prim in self.valu
 
     @stormfunc(readonly=True)
-    async def _methListPop(self):
+    async def _methListPop(self, index=-1):
+        index = await toint(index)
         try:
-            return self.valu.pop()
-        except IndexError:
-            mesg = 'The list is empty.  Nothing to pop.'
+            return self.valu.pop(index)
+        except IndexError as exc:
+            mesg = str(exc)
             raise s_exc.StormRuntimeError(mesg=mesg)
 
     @stormfunc(readonly=True)
@@ -7545,6 +7637,9 @@ class View(Prim):
         {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``trigger`` objects associated with the ``view``.',
          'type': 'list', },
+        {'name': 'children', 'desc': 'Yield Views which are children of this View.',
+         'type': {'type': 'function', '_funcname': '_methGetChildren',
+                  'returns': {'name': 'yields', 'type': 'view', 'desc': 'Child Views.', }}},
         {'name': 'set', 'desc': '''
             Set a view configuration option.
 
@@ -7832,6 +7927,7 @@ class View(Prim):
             'merge': self._methViewMerge,
             'detach': self.detach,
             'addNode': self.addNode,
+            'children': self._methGetChildren,
             'getEdges': self._methGetEdges,
             'wipeLayer': self._methWipeLayer,
             'swapLayer': self._methSwapLayer,
@@ -7966,6 +8062,12 @@ class View(Prim):
 
         async for valu in view.iterPropValues(propname):
             yield valu
+
+    @stormfunc(readonly=True)
+    async def _methGetChildren(self):
+        view = self._reqView()
+        async for child in view.children():
+            yield View(self.runt, await child.pack(), path=self.path)
 
     @stormfunc(readonly=True)
     async def _methGetEdges(self, verb=None):
@@ -9610,7 +9712,7 @@ def fromprim(valu, path=None, basetypes=True):
 
     return valu
 
-async def tostor(valu):
+async def tostor(valu, isndef=False):
 
     if isinstance(valu, Number):
         return str(valu.value())
@@ -9632,6 +9734,9 @@ async def tostor(valu):
             except s_exc.NoSuchType:
                 pass
         return retn
+
+    if isndef and isinstance(valu, s_node.Node):
+        return valu.ndef
 
     return await toprim(valu)
 
@@ -9675,6 +9780,9 @@ async def tostr(valu, noneok=False):
     try:
         if isinstance(valu, bytes):
             return valu.decode('utf8', 'surrogatepass')
+
+        if isinstance(valu, s_node.Node):
+            return valu.repr()
 
         return str(valu)
     except Exception as e:

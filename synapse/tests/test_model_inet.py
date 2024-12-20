@@ -10,17 +10,40 @@ class InetModelTest(s_t_utils.SynTest):
 
     async def test_model_inet_basics(self):
         async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[ inet:web:hashtag="#🫠" ]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#🫠🫠" ]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#·bar"]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#foo·"]'))
+            self.len(1, await core.nodes('[ inet:web:hashtag="#foo〜"]'))
             self.len(1, await core.nodes('[ inet:web:hashtag="#hehe" ]'))
             self.len(1, await core.nodes('[ inet:web:hashtag="#foo·bar"]'))  # note the interpunct
+            self.len(1, await core.nodes('[ inet:web:hashtag="#foo〜bar"]'))  # note the wave dash
             self.len(1, await core.nodes('[ inet:web:hashtag="#fo·o·······b·ar"]'))
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ inet:web:hashtag="foo" ]')
+
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ inet:web:hashtag="#foo bar" ]')
-            with self.raises(s_exc.BadTypeValu):
-                self.len(1, await core.nodes('[ inet:web:hashtag="#·bar"]'))
-            with self.raises(s_exc.BadTypeValu):
-                self.len(1, await core.nodes('[ inet:web:hashtag="#foo·"]'))
+                await core.nodes('[ inet:web:hashtag="#foo#bar" ]')
+
+            # All unicode whitespace from:
+            # https://www.compart.com/en/unicode/category/Zl
+            # https://www.compart.com/en/unicode/category/Zp
+            # https://www.compart.com/en/unicode/category/Zs
+            whitespace = [
+                '\u0020', '\u00a0', '\u1680', '\u2000', '\u2001', '\u2002', '\u2003', '\u2004',
+                '\u2005', '\u2006', '\u2007', '\u2008', '\u2009', '\u200a', '\u202f', '\u205f',
+                '\u3000', '\u2028', '\u2029',
+            ]
+            for char in whitespace:
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ inet:web:hashtag="#foo{char}bar" ]')
+
+                with self.raises(s_exc.BadTypeValu):
+                    await core.callStorm(f'[ inet:web:hashtag="#{char}bar" ]')
+
+                # These are allowed because strip=True
+                await core.callStorm(f'[ inet:web:hashtag="#foo{char}" ]')
+                await core.callStorm(f'[ inet:web:hashtag=" #foo{char}" ]')
 
             nodes = await core.nodes('''
                 [ inet:web:instance=(foo,)
@@ -457,6 +480,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :raw=((10), (20))
                 :src:txfiles={[ file:attachment=* :name=foo.exe ]}
                 :dst:txfiles={[ file:attachment=* :name=bar.exe ]}
+                :capture:host=*
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
@@ -500,11 +524,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('src:rdp:hostname'), 'syncoder')
             self.eq(node.get('src:rdp:keyboard:layout'), 'azerty')
             self.eq(node.get('raw'), (10, 20))
+            self.nn(node.get('capture:host'))
             self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
             self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
             self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
             self.len(1, await core.nodes('inet:flow :src:txfiles -> file:attachment +:name=foo.exe'))
             self.len(1, await core.nodes('inet:flow :dst:txfiles -> file:attachment +:name=bar.exe'))
+            self.len(1, await core.nodes('inet:flow :capture:host -> it:host'))
 
     async def test_fqdn(self):
         formname = 'inet:fqdn'
@@ -2746,6 +2772,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [
             inet:email:message="*"
+                :id="Woot-12345 "
                 :to=woot@woot.com
                 :from=visi@vertex.link
                 :replyto=root@root.com
@@ -2767,6 +2794,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts={'vars': {'flow': flow}})
             self.len(1, nodes)
 
+            self.eq(nodes[0].get('id'), 'Woot-12345')
             self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
             self.eq(nodes[0].get('received:from:ipv6'), '::1')
             self.eq(nodes[0].get('received:from:ipv4'), 0x01020304)
@@ -2847,6 +2875,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
             [ inet:egress=*
                 :host = *
+                :host:iface = *
                 :client=1.2.3.4
                 :client:ipv6="::1"
             ]
@@ -2854,9 +2883,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('host:iface'))
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
             self.eq(nodes[0].get('client:ipv4'), 0x01020304)
             self.eq(nodes[0].get('client:ipv6'), '::1')
+
+            self.len(1, await core.nodes('inet:egress -> it:host'))
+            self.len(1, await core.nodes('inet:egress -> inet:iface'))
 
     async def test_model_inet_tls_handshake(self):
 
@@ -2958,10 +2991,12 @@ class InetModelTest(s_t_utils.SynTest):
                 :platform={ inet:service:platform=(slack,) }
                 :url="https://v.vtx.lk/slack"
                 :name="Synapse users slack"
+                :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
             ]
             '''
             nodes = await core.nodes(q)
             self.len(1, nodes)
+            self.nn(nodes[0].get('tenant'))
             self.eq(nodes[0].ndef, ('inet:service:instance', s_common.guid(('vertex', 'slack'))))
             self.eq(nodes[0].get('id'), 'T2XK1223Y')
             self.eq(nodes[0].get('platform'), platform.ndef[1])
@@ -2974,8 +3009,10 @@ class InetModelTest(s_t_utils.SynTest):
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
                     :user=blackout
+                    :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
                     :profile={ gen.ps.contact.email vertex.employee blackout@vertex.link }
+                    :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
                 )
 
                 (inet:service:account=(visi, account, vertex, slack)
@@ -2989,6 +3026,8 @@ class InetModelTest(s_t_utils.SynTest):
             accounts = await core.nodes(q)
             self.len(2, accounts)
 
+            self.nn(accounts[0].get('tenant'))
+
             profiles = await core.nodes('ps:contact')
             self.len(2, profiles)
             self.eq(profiles[0].get('email'), 'blackout@vertex.link')
@@ -2998,6 +3037,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')
             self.eq(accounts[0].get('user'), 'blackout')
+            self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
             self.eq(accounts[0].get('profile'), blckprof.ndef[1])
 
@@ -3068,14 +3108,17 @@ class InetModelTest(s_t_utils.SynTest):
             [ inet:service:session=*
                 :creator=$blckiden
                 :period=(202405160900, 202405161055)
+                :http:session=*
             ]
             '''
             opts = {'vars': {'blckiden': blckacct.ndef[1]}}
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
+            self.nn(nodes[0].get('http:session'))
             self.eq(nodes[0].get('creator'), blckacct.ndef[1])
             self.eq(nodes[0].get('period'), (1715850000000, 1715856900000))
             blcksess = nodes[0]
+            self.len(1, await core.nodes('inet:service:session -> inet:http:session'))
 
             q = '''
             [ inet:service:login=*
@@ -3378,3 +3421,47 @@ class InetModelTest(s_t_utils.SynTest):
                 :channel -> inet:service:channel
                 +:name="/r/synapse"
             '''))
+
+            nodes = await core.nodes('''
+                [ inet:service:relationship=*
+                    :source={ inet:service:account:user=visi }
+                    :target={ inet:service:account:user=visi }
+                    :type=follows
+                ]
+            ''')
+            self.nn(nodes[0].get('source'))
+            self.nn(nodes[0].get('target'))
+            self.eq('follows.', nodes[0].get('type'))
+            self.len(1, await core.nodes('inet:service:relationship :source -> inet:service:account +:user=visi'))
+            self.len(1, await core.nodes('inet:service:relationship :target -> inet:service:account +:user=visi'))
+
+            nodes = await core.nodes('''
+                [ inet:service:emote=*
+                    :creator={ inet:service:account:user=visi }
+                    :about={[ it:dev:repo=* :name=vertex ]}
+                    :text=":gothparrot:"
+                ]
+            ''')
+            self.nn(nodes[0].get('about'))
+            self.nn(nodes[0].get('creator'))
+            self.eq(':gothparrot:', nodes[0].get('text'))
+            self.len(1, await core.nodes('inet:service:emote :about -> it:dev:repo +:name=vertex'))
+            self.len(1, await core.nodes('inet:service:emote :creator -> inet:service:account +:user=visi'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ inet:service:relationship=* :source={[it:dev:str=foo]} ]')
+
+            nodes = await core.nodes('''
+                [ inet:service:subscription=*
+                    :level=vertex.synapse.enterprise
+                    :pay:instrument={[ econ:bank:account=* :contact={[ ps:contact=* :name=visi]} ]}
+                    :subscriber={[ inet:service:tenant=({"id": "VS-31337"}) ]}
+                ]
+            ''')
+            self.len(1, nodes)
+            self.eq('vertex.synapse.enterprise.', nodes[0].get('level'))
+            self.eq('econ:bank:account', nodes[0].get('pay:instrument')[0])
+            self.eq('inet:service:tenant', nodes[0].get('subscriber')[0])
+            self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
+            self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
+            self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))

@@ -96,16 +96,16 @@ def adminapi(log=False):
     def decrfunc(func):
 
         @functools.wraps(func)
-        def wrapped(*args, **kwargs):
+        def wrapped(self, *args, **kwargs):
 
-            if args[0].user is not None and not args[0].user.isAdmin():
-                raise s_exc.AuthDeny(mesg='User is not an admin.',
-                                     user=args[0].user.name)
+            if self.user is not None and not self.user.isAdmin():
+                raise s_exc.AuthDeny(mesg=f'User is not an admin [{self.user.name}]',
+                                     user=self.user.iden, username=self.user.name)
             if log:
-                logger.info('Executing [%s] as [%s] with args [%s][%s]',
-                            func.__qualname__, args[0].user.name, args[1:], kwargs)
+                logger.info(f'Executing [{func.__qualname__}] as [{self.user.name}] with args [{args}[{kwargs}]',
+                            extra={'synapse': {'wrapped_func': func.__qualname__}})
 
-            return func(*args, **kwargs)
+            return func(self, *args, **kwargs)
 
         wrapped.__syn_wrapped__ = 'adminapi'
 
@@ -458,6 +458,43 @@ class CellApi(s_base.Base):
     @adminapi(log=True)
     async def delRole(self, iden):
         return await self.cell.delRole(iden)
+
+    async def addUserApiKey(self, name, duration=None, useriden=None):
+        if useriden is None:
+            useriden = self.user.iden
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.addUserApiKey(useriden, name, duration=duration)
+
+    async def listUserApiKeys(self, useriden=None):
+        if useriden is None:
+            useriden = self.user.iden
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.listUserApiKeys(useriden)
+
+    async def delUserApiKey(self, iden):
+        apikey = await self.cell.getUserApiKey(iden)
+        if apikey is None:
+            mesg = f'User API key with {iden=} does not exist.'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
+
+        useriden = apikey.get('user')
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.delUserApiKey(iden)
 
     @adminapi()
     async def dyncall(self, iden, todo, gatekeys=()):
@@ -1094,6 +1131,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         'vm.dirty_writeback_centisecs': 20,
     }
     SYSCTL_CHECK_FREQ = 60.0
+
+    LOGGED_HTTPAPI_HEADERS = ('User-Agent',)
 
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
@@ -3247,6 +3286,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'uri': uri,
                 'remoteip': remote_ip,
                 }
+
+        headers = {}
+
+        for header in self.LOGGED_HTTPAPI_HEADERS:
+            if (valu := handler.request.headers.get(header)) is not None:
+                headers[header.lower()] = valu
+
+        if headers:
+            enfo['headers'] = headers
 
         extra = {'synapse': enfo}
 
