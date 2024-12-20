@@ -39,7 +39,7 @@ _editblock: "[" _editoper* "]"
 
 // A single edit operation
 _editoper: editnodeadd
-            | editpropset | editunivset | edittagpropset | edittagadd
+            | editpropset | editunivset | edittagpropset | edittagadd | editcondpropset
             | editpropdel | editunivdel | edittagpropdel | edittagdel
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
@@ -49,17 +49,32 @@ edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
 editunivdel: EXPRMINUS univprop
 edittagdel: EXPRMINUS tagname
 editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editcondpropset: relprop condsetoper _valu
 editpropdel: EXPRMINUS relprop
 editunivset: univprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
 edittagpropdel: EXPRMINUS tagprop
+
 EQSPACE: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
 TRYSETPLUS.1: "?+="
 TRYSETMINUS.1: "?-="
 TRYSET.1: "?="
 SETTAGOPER: "?"
+
+condsetoper: ("*" UNSET | _DEREF "$" _condvarvaluatom) "="
+    | ("*" UNSET | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
+UNSET: "unset"
+_condvarvaluatom: condvarvalue | condvarderef | condfunccall
+condvarvalue: VARTOKN -> varvalue
+
+!condvarderef: _condvarvaluatom "." (VARTOKN | "$" VARTOKN | _condderefexpr) -> varderef
+_condderefexpr: "$"? conddollarexpr
+conddollarexpr: "(" expror ")"
+
+condfunccall: _condvarvaluatom _condcallargs -> funccall
+_condcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
 
 // The set of non-edit non-commands in storm
 

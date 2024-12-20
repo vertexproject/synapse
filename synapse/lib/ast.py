@@ -28,6 +28,10 @@ import synapse.lib.stormtypes as s_stormtypes
 
 from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmprvalu, undef
 
+SET_ALWAYS = 0
+SET_UNSET = 1
+SET_NEVER = 2
+
 logger = logging.getLogger(__name__)
 
 def parseNumber(x):
@@ -4147,6 +4151,89 @@ class EditNodeAdd(Edit):
         async with contextlib.aclosing(s_base.schedGenr(feedfunc())) as agen:
             async for item in agen:
                 yield item
+
+class CondSetOper(Oper):
+    def __init__(self, astinfo, kids, errok=False):
+        Value.__init__(self, astinfo, kids=kids)
+        self.errok = errok
+
+    def prepare(self):
+        self.isconst = False
+        if isinstance(self.kids[0], Const):
+            self.isconst = True
+            match self.kids[0].value():
+                case "unset":
+                    self.valu = SET_UNSET
+
+    async def compute(self, runt, path):
+        if self.isconst:
+            return self.valu
+
+        valu = await self.kids[0].compute(runt, path)
+        match valu:
+            case "always":
+                return SET_ALWAYS
+            case "unset":
+                return SET_UNSET
+            case "never":
+                return SET_NEVER
+            case _:
+                mesg = f'Invalid conditional set operator ({valu}).'
+                exc = s_exc.StormRuntimeError(mesg)
+                raise self.addExcInfo(exc)
+
+class EditCondPropSet(Edit):
+
+    async def run(self, runt, genr):
+
+        if runt.readonly:
+            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+
+        excignore = (s_exc.BadTypeValu,) if self.kids[1].errok else ()
+        rval = self.kids[2]
+
+        async for node, path in genr:
+
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
+
+            prop = node.form.props.get(name)
+            if prop is None:
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name} on form {node.form.name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
+
+            oper = await self.kids[1].compute(runt, path)
+            if oper == SET_NEVER or (oper == SET_UNSET and (oldv := node.get(name)) is not None):
+                yield node, path
+                await asyncio.sleep(0)
+                continue
+
+            if not node.form.isrunt:
+                # runt node property permissions are enforced by the callback
+                runt.confirmPropSet(prop)
+
+            isndef = isinstance(prop.type, s_types.Ndef)
+
+            try:
+                valu = await rval.compute(runt, path)
+                valu = await s_stormtypes.tostor(valu, isndef=isndef)
+
+                if isinstance(prop.type, s_types.Ival) and oldv is not None:
+                    valu, _ = prop.type.norm(valu)
+                    valu = prop.type.merge(oldv, valu)
+
+                await node.set(name, valu)
+
+            except excignore:
+                pass
+
+            yield node, path
+
+            await asyncio.sleep(0)
 
 class EditPropSet(Edit):
 
