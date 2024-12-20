@@ -475,6 +475,11 @@ class AstTest(s_test.SynTest):
             self.eq('newv', nodes[0].get('hehe'))
             self.eq(tick, nodes[0].get('tick'))
 
+            q = '$foo=always [test:str=foo :tick*$foo?=2021]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.ne(tick, nodes[0].get('tick'))
+
             with self.raises(s_exc.IsReadOnly):
                 q = '[test:str=foo :hehe*unset=heval]'
                 nodes = await core.nodes(q, opts={'readonly': True})
