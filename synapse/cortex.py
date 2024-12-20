@@ -109,6 +109,8 @@ A Cortex implements the synapse hypergraph object.
 
 reqver = '>=0.2.0,<3.0.0'
 
+NEXSVERS_CRON_USER = (2, 193)
+
 # Constants returned in results from syncLayersEvents and syncIndexEvents
 SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
 SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
@@ -6510,8 +6512,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
             Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
-        if (user := cdef.pop('user', None)) is not None:
-            cdef['creator'] = user
+        if self.nexsvers < NEXSVERS_CRON_USER:
+            if (user := cdef.pop('user', None)) is not None:
+                cdef['creator'] = user
 
         s_schemas.reqValidCronDef(cdef)
 
@@ -6549,7 +6552,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         cdef['created'] = s_common.now()
 
-        opts = {'user': cdef['creator'], 'view': cdef.get('view')}
+        if (user := cdef.get('user')) is None:
+            user = cdef.get('creator')
+
+        opts = {'user': user, 'view': cdef.get('view')}
 
         view = self._viewFromOpts(opts)
         cdef['view'] = view.iden

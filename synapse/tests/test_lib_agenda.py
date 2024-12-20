@@ -12,6 +12,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.tools.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
+import synapse.lib.schemas as s_schemas
 from synapse.lib.agenda import TimeUnit as s_tu
 
 class AgendaTest(s_t_utils.SynTest):
@@ -440,6 +441,15 @@ class AgendaTest(s_t_utils.SynTest):
                 await core.delCronJob(viewiden)
 
                 self.nn(core.getAuthGate(viewiden))
+
+                with self.raises(s_exc.SchemaViolation):
+                    s_schemas.reqValidCronDef({'storm': 'inet:fqdn'})
+
+                with self.raises(s_exc.SchemaViolation):
+                    s_schemas.reqValidCronDef({'storm': 'inet:fqdn', 'creator': s_common.guid(), 'user': s_common.guid()})
+
+                s_schemas.reqValidCronDef({'storm': 'inet:fqdn', 'creator': s_common.guid()})
+                s_schemas.reqValidCronDef({'storm': 'inet:fqdn', 'user': s_common.guid()})
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
