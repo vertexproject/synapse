@@ -9073,8 +9073,10 @@ class LibCron(Lib):
          'desc': 'Permits a user to list cron jobs.'},
         {'perm': ('cron', 'set'), 'gate': 'cronjob',
          'desc': 'Permits a user to modify/move a cron job.'},
+        {'perm': ('cron', 'set', 'user'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify the user property of a cron job.'},
         {'perm': ('cron', 'set', 'creator'), 'gate': 'cortex',
-         'desc': 'Permits a user to modify the creator property of a cron job.'},
+         'desc': 'Deprecated - Permits a user to modify the creator property of a cron job.'},
     )
 
     def getObjLocals(self):
@@ -9345,7 +9347,7 @@ class LibCron(Lib):
                 'pool': pool,
                 'incunit': incunit,
                 'incvals': incval,
-                'creator': self.runt.user.iden
+                'user': self.runt.user.iden
                 }
 
         iden = kwargs.get('iden')
@@ -9424,7 +9426,7 @@ class LibCron(Lib):
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
-                'creator': self.runt.user.iden
+                'user': self.runt.user.iden
                 }
 
         iden = kwargs.get('iden')
@@ -9564,10 +9566,19 @@ class CronJob(Prim):
         valu = await toprim(valu)
         iden = self.valu.get('iden')
 
-        if name == 'creator':
+        if name == 'user':
+            # this permission must be granted cortex wide
+            # to prevent abuse...
+            self.runt.confirm(('cron', 'set', 'user'))
+        elif name == 'creator':
+            s_common.deprecated('Setting cron job "creator" field', curv='2.193.0')
+            mesg = 'Setting the cron job "creator" field is deprecated. Set the "user" field instead.'
+            await self.runt.warnonce(mesg, iden=iden)
+
             # this permission must be granted cortex wide
             # to prevent abuse...
             self.runt.confirm(('cron', 'set', 'creator'))
+            name = 'user'
         else:
             self.runt.confirm(('cron', 'set', name), gateiden=iden)
 

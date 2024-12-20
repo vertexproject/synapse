@@ -109,6 +109,8 @@ A Cortex implements the synapse hypergraph object.
 
 reqver = '>=0.2.0,<3.0.0'
 
+NEXSVERS_CRON_USER = (2, 193)
+
 # Constants returned in results from syncLayersEvents and syncIndexEvents
 SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
 SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
@@ -957,6 +959,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (4, self._storCortexHiveMigration),
+            (5, self._cronCreatorToUser),
         ), nexs=False)
 
         # Perform module loading
@@ -1094,6 +1097,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             nomerge = view.info.get('nomerge', False)
             await view.setViewInfo('protected', nomerge)
             await view.setViewInfo('nomerge', None)
+
+    async def _cronCreatorToUser(self):
+        apptdefs = self.cortexdata.getSubKeyVal('agenda:appt:')
+        for iden, info in apptdefs.items():
+            if (user := info.pop('creator', None)) is not None:
+                info['user'] = user
+                apptdefs.set(iden, info)
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -6500,6 +6510,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
             Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
+        if self.nexsvers < NEXSVERS_CRON_USER:
+            if (user := cdef.pop('user', None)) is not None:
+                cdef['creator'] = user
+
         s_schemas.reqValidCronDef(cdef)
 
         iden = cdef.get('iden')
@@ -6536,7 +6550,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         cdef['created'] = s_common.now()
 
-        opts = {'user': cdef['creator'], 'view': cdef.get('view')}
+        if (user := cdef.get('user')) is None:
+            user = cdef.get('creator')
+
+        opts = {'user': user, 'view': cdef.get('view')}
 
         view = self._viewFromOpts(opts)
         cdef['view'] = view.iden
@@ -6546,6 +6563,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('cron:add')
     async def _onAddCronJob(self, cdef):
 
+        if (user := cdef.pop('creator', None)) is not None:
+            cdef['user'] = user
+
         iden = cdef['iden']
 
         appt = self.agenda.appts.get(iden)
@@ -6554,7 +6574,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.auth.reqNoAuthGate(iden)
 
-        user = await self.auth.reqUser(cdef['creator'])
+        user = await self.auth.reqUser(cdef['user'])
 
         cdef = await self.agenda.add(cdef)
 
@@ -6664,7 +6684,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             info = cron.pack()
 
-            user = self.auth.user(cron.creator)
+            user = self.auth.user(cron.user)
             if user is not None:
                 info['username'] = user.name
 
@@ -6672,17 +6692,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return crons
 
-    @s_nexus.Pusher.onPushAuto('cron:edit')
     async def editCronJob(self, iden, name, valu):
+        if name == 'user':
+            name == 'creator'
+        return await self._push('cron:edit', iden, name, valu)
+
+    @s_nexus.Pusher.onPush('cron:edit')
+    async def _editCronJob(self, iden, name, valu):
         '''
         Modify a cron job definition.
         '''
         appt = await self.agenda.get(iden)
         # TODO make this generic and check cdef
 
-        if name == 'creator':
+        if name in ('creator', 'user'):
             await self.auth.reqUser(valu)
-            appt.creator = valu
+            appt.user = valu
 
         elif name == 'name':
             appt.name = str(valu)

@@ -91,6 +91,7 @@ _CronJobSchema = {
     'properties': {
         'storm': {'type': 'string'},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
@@ -119,7 +120,10 @@ _CronJobSchema = {
         },
     },
     'additionalProperties': False,
-    'required': ['creator', 'storm'],
+    'required': ['storm'],
+    'if': {'required': ['user']},
+    'then': {'not': {'required': ['creator']}},
+    'else': {'required': ['creator']},
     'dependencies': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],
