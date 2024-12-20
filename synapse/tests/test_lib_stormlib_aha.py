@@ -234,6 +234,17 @@ Connection information:
                 ''')
                 self.len(4, resp)
 
+                cell00_rid = (await cell00.getCellInfo())['cell']['run']
+                resp = await core00.callStorm('''
+                    $resps = $lib.list()
+                    $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
+                    for $info in $lib.aha.callPeerGenr(cell..., $todo, skiprun=$skiprun) {
+                        $resps.append($info)
+                    }
+                    return($resps)
+                ''', opts={'vars': {'skiprun': cell00_rid}})
+                self.len(2, resp)
+
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
                     $lib.aha.callPeerGenr(null, getTasks)
                 '''))
@@ -260,6 +271,16 @@ Connection information:
                     return($resps)
                 ''')
                 self.len(2, resp)
+
+                resp = await core00.callStorm('''
+                    $resps = $lib.list()
+                    $todo = $lib.utils.todo(getCellInfo)
+                    for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo, skiprun=$skiprun) {
+                        $resps.append(($name, $info))
+                    }
+                    return($resps)
+                ''', opts={'vars': {'skiprun': cell00_rid}})
+                self.len(1, resp)
 
                 resp = await core00.callStorm('''
                     $resps = $lib.list()

@@ -1,16 +1,5 @@
 import synapse.lib.stormtypes as s_stormtypes
 
-@s_stormtypes.registry.registerType
-class Todo(s_stormtypes.Prim):
-    '''
-    A Storm type representing a todo tuple.
-    '''
-    _storm_typename = 'todo'
-    _ismutable = False
-
-    def __init__(self, valu, path=None):
-        s_stormtypes.Prim.__init__(self, valu, path=path)
-
 @s_stormtypes.registry.registerLib
 class LibUtils(s_stormtypes.Lib):
     '''
@@ -30,7 +19,7 @@ class LibUtils(s_stormtypes.Lib):
                       {'name': '**kwargs', 'type': 'any',
                        'desc': 'Keyword arguments for the todo.'},
                   ),
-                  'returns': {'type': 'todo', 'desc': 'A todo tuple of (name, args, kwargs).'},
+                  'returns': {'type': 'list', 'desc': 'A todo tuple of (name, args, kwargs).'},
         }},
     )
     _storm_lib_path = ('utils',)
@@ -42,4 +31,4 @@ class LibUtils(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _todo(self, _todoname, *args, **kwargs):
-        return Todo((_todoname, args, kwargs))
+        return (_todoname, args, kwargs)

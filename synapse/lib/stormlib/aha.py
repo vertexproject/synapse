@@ -62,6 +62,12 @@ class AhaLib(s_stormtypes.Lib):
                     $lib.print($info)
                 }
 
+            Call getCellInfo on an AHA service, skipping the invoking service::
+
+                for $info in $lib.aha.callPeerApi(cortex..., 'getCellInfo', skiprun=$lib.cell.getCellInfo().cell.run) {
+                    $lib.print($info)
+                }
+
             Call method with arguments::
 
                 $todo = $lib.utils.todo(('method', (1, 2), ({'foo': 'bar'})))
@@ -74,12 +80,15 @@ class AhaLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'svcname', 'type': 'str',
                        'desc': 'The name of the AHA service to call. It is easiest to use the relative name of a service, ending with "...".', },
-                      {'name': 'apiname', 'type': ('str', 'tuple'),
+                      {'name': 'apiname', 'type': ('str', 'list'),
                        'desc': 'The name of the API to call or a todo tuple (name, args, kwargs).'},
                       {'name': 'timeout', 'type': 'int', 'default': None,
                        'desc': 'Optional timeout in seconds.'},
                       {'name': 'skiprun', 'type': 'str', 'default': None,
-                       'desc': 'Optional run ID argument allows skipping self-enumeration when the caller provides its own run ID.'},
+                       'desc': '''
+                       Optional run ID argument that allows skipping results from a specific service run ID.
+                       This is most often used to omit the invoking service from the results, ensuring that only responses from other services are included.
+                       ''',},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                              'desc': 'Yields the result of the API call as a tuple of (svcname, (ok, info)).', }}},
@@ -93,17 +102,26 @@ class AhaLib(s_stormtypes.Lib):
                     $lib.print($info)
                 }
 
+            Call getCellInfo on an AHA service, skipping the invoking service::
+
+                for $info in $lib.aha.callPeerGenr(cortex..., 'getCellInfo', skiprun=$lib.cell.getCellInfo().cell.run) {
+                    $lib.print($info)
+                }
+
         ''',
          'type': {'type': 'function', '_funcname': '_methCallPeerGenr',
                   'args': (
                       {'name': 'svcname', 'type': 'str',
                        'desc': 'The name of the AHA service to call. It is easiest to use the relative name of a service, ending with "...".', },
-                      {'name': 'apiname', 'type': ('str', 'tuple'),
+                      {'name': 'apiname', 'type': ('str', 'list'),
                        'desc': 'The name of the API to call or a todo tuple (name, args, kwargs).'},
                       {'name': 'timeout', 'type': 'int', 'default': None,
                        'desc': 'Optional timeout in seconds.'},
                       {'name': 'skiprun', 'type': 'str', 'default': None,
-                       'desc': 'Optional run ID argument allows skipping self-enumeration when the caller provides its own run ID.'},
+                       'desc': '''
+                       Optional run ID argument that allows skipping results from a specific service run ID.
+                       This is most often used to omit the invoking service from the results, ensuring that only responses from other services are included.
+                       ''',},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
                              'desc': 'Yields the results of the API call as a tuple containing (svcname, (ok, info)).', }}}
@@ -152,7 +170,7 @@ class AhaLib(s_stormtypes.Lib):
 
         Args:
             svcname (str): The name of the AHA service to call
-            apiname (str, todo): The API name or todo object
+            apiname (str, list): The API name or todo tuple from $lib.utils.todo()
             timeout (int): Optional timeout in seconds
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
@@ -184,7 +202,7 @@ class AhaLib(s_stormtypes.Lib):
 
         Args:
             svcname (str): The name of the AHA service to call
-            apiname (str, todo): The API name or todo object
+            apiname (str, list): The API name or todo tuple from $lib.utils.todo()
             timeout (int): Optional timeout in seconds
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
@@ -695,7 +713,7 @@ The ready column indicates that a service has entered into the realtime change w
 
         function get_cell_infos(vname) {
             $cell_infos = ({})
-            for $info in $lib.aha.callPeerApi($vname, getCellInfo) {
+            for $info in $lib.aha.callPeerApi($vname, getCellInfo, timeout=(2)) {
                 $svcname = $info.0
                 ($ok, $info) = $info.1
                 if $ok {
@@ -706,7 +724,7 @@ The ready column indicates that a service has entered into the realtime change w
         }
 
         function build_status_list(members, cell_infos) {
-            $group_status = $lib.list()
+            $group_status = ()
             for $svc in $members {
                 $svcinfo = $svc.svcinfo
                 $svcname = $svc.name
@@ -803,7 +821,8 @@ The ready column indicates that a service has entered into the realtime change w
                 continue
             }
 
-            $members = $lib.list($primary_member)
+            $members = ()
+            $members.append($primary_member)
             for ($mname, $msvc) in $member_servers {
                 if ($mname != $vsvc_hostname) {
                     $msvc_info = $msvc.svcinfo
@@ -847,10 +866,10 @@ The ready column indicates that a service has entered into the realtime change w
                         }
 
                         $todo_timeout = $lib.min(5, ((($timeout * 1000) - $elapsed) / 1000))
-                        $responses = $lib.list()
+                        $responses = ()
 
                         $todo = $lib.utils.todo(waitNexsOffs, ($leader_nexs - 1), timeout=$todo_timeout)
-                        for $info in $lib.aha.callPeerApi($vname, $todo) {
+                        for $info in $lib.aha.callPeerApi($vname, $todo, timeout=(2)) {
                             $svcname = $info.0
                             ($ok, $info) = $info.1
                             if ($ok and $info) {
