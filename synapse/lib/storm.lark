@@ -71,7 +71,7 @@ condvarvalue: VARTOKN -> varvalue
 
 !condvarderef: _condvarvaluatom "." (VARTOKN | "$" VARTOKN | _condderefexpr) -> varderef
 _condderefexpr: "$"? conddollarexpr
-conddollarexpr: "(" expror ")"
+conddollarexpr: "(" expror ")" -> dollarexpr
 
 condfunccall: _condvarvaluatom _condcallargs -> funccall
 _condcallargs: _LPARNOSPACE [(_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu) ("," (_valu | VARTOKN | (VARTOKN | NONQUOTEWORD) (EQSPACE | EQNOSPACE) _valu))*] ","? ")"
