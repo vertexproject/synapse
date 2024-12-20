@@ -368,7 +368,7 @@ Connection information:
                                     yield ('01.cell.synapse', (True, await mockCellInfo()))
 
                         with mock.patch.object(aha, 'callAhaPeerApi', mock_call_aha):
-                            msgs = await core00.stormlist('aha.svc.mirror --timeout 10')
+                            msgs = await core00.stormlist('aha.svc.mirror --wait')
                             self.stormIsInPrint('Group Status: Out of Sync', msgs)
                             self.stormIsInPrint('Updated status:', msgs)
                             self.stormIsInPrint('Group Status: In Sync', msgs)
@@ -377,7 +377,6 @@ Connection information:
                     with mock.patch.object(cell01, 'getCellInfo', mockOutOfSyncCellInfo):
                         msgs = await core00.stormlist('aha.svc.mirror --timeout 1')
                         self.stormIsInPrint('Group Status: Out of Sync', msgs)
-                        self.stormIsInErr('Mirror sync timeout after 1 seconds', msgs)
 
                 await aha.delAhaSvc('00.cell', network='synapse')
                 msgs = await core00.stormlist('aha.svc.mirror')

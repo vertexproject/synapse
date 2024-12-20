@@ -3,6 +3,7 @@ import shutil
 
 from unittest import mock
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.version as s_version
@@ -293,7 +294,7 @@ class AhaToolsTest(s_t_utils.SynTest):
                                 yield ('01.cell.synapse', (True, await mockCellInfo()))
 
                     with mock.patch.object(aha, 'callAhaPeerApi', mock_call_aha):
-                        argv = ['--url', ahaurl, '--timeout', '10']
+                        argv = ['--url', ahaurl, '--wait']
                         retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                         self.eq(retn, 0)
                         outp.expect('Group Status: Out of Sync')
@@ -304,9 +305,8 @@ class AhaToolsTest(s_t_utils.SynTest):
                 with mock.patch.object(cell01, 'getCellInfo', mockOutOfSyncCellInfo):
                     argv = ['--url', ahaurl, '--timeout', '1']
                     retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                    self.eq(retn, 1)
+                    self.eq(retn, 0)
                     outp.expect('Group Status: Out of Sync')
-                    outp.expect('Mirror sync timeout after 1 seconds')
 
             async with self.getTestCore() as core:
                 curl = core.getLocalUrl()
@@ -335,3 +335,21 @@ class AhaToolsTest(s_t_utils.SynTest):
                 outp.expect('nexsindx      12', whitespace=False)
                 outp.expect('01.cell.synapse                          <unknown>  True     True', whitespace=False)
                 outp.expect('<unknown>    <unknown>', whitespace=False)
+
+        self.eq(s_a_mirror.timeout_type('30'), 30)
+        self.eq(s_a_mirror.timeout_type('0'), 0)
+
+        with self.raises(s_exc.BadArg) as cm:
+            s_a_mirror.timeout_type('-1')
+        self.isin('is not a valid non-negative integer', cm.exception.get('mesg'))
+
+        with self.raises(s_exc.BadArg) as cm:
+            s_a_mirror.timeout_type('foo')
+        self.isin('is not a valid non-negative integer', cm.exception.get('mesg'))
+
+        synerr = s_exc.SynErr(mesg='Oof')
+        with mock.patch('synapse.telepath.openurl', side_effect=synerr):
+            argv = ['--url', 'tcp://test:1234/']
+            retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+            self.eq(retn, 1)
+            outp.expect('ERROR: Oof')

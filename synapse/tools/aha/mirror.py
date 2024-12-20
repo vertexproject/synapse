@@ -75,13 +75,23 @@ def check_sync_status(group_status):
     known_count = sum(1 for status in group_status)
     return len(indices) == 1 and known_count == len(group_status)
 
+def timeout_type(valu):
+    try:
+        ivalu = int(valu)
+        if ivalu < 0:
+            raise ValueError
+    except ValueError:
+        raise s_exc.BadArg(mesg=f"{valu} is not a valid non-negative integer")
+    return ivalu
+
 async def main(argv, outp=s_output.stdout):
 
     pars = argparse.ArgumentParser(prog='synapse.tools.aha.mirror', description=descr,
                         formatter_class=argparse.RawDescriptionHelpFormatter)
 
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
-    pars.add_argument('--timeout', type=int, default=60, help='The number of seconds to wait before timing out.')
+    pars.add_argument('--timeout', type=timeout_type, default=10, help='The number of seconds to wait before timing out.')
+    pars.add_argument('--wait', action='store_true', help='Whether to wait for the mirrors to sync.')
     opts = pars.parse_args(argv)
 
     async with s_telepath.withTeleEnv():
@@ -145,42 +155,31 @@ async def main(argv, outp=s_output.stdout):
                     if check_sync_status(group_status):
                         outp.printf('Group Status: In Sync')
                     else:
-                        outp.printf(f'Group Status: Out of Sync; Waiting {opts.timeout} seconds for sync...')
-                        leader_nexs = None
-                        for status in group_status:
-                            if status['role'] == 'leader' and isinstance(status['nexs_indx'], int):
-                                leader_nexs = status['nexs_indx']
-                                break
+                        outp.printf(f'Group Status: Out of Sync')
+                        if opts.wait:
+                            leader_nexs = None
+                            for status in group_status:
+                                if status['role'] == 'leader' and isinstance(status['nexs_indx'], int):
+                                    leader_nexs = status['nexs_indx']
 
-                        if leader_nexs is not None:
-                            start_time = s_common.now()
+                            if leader_nexs is not None:
+                                while True:
+                                    responses = []
+                                    todo = s_common.todo('waitNexsOffs', leader_nexs - 1, timeout=opts.timeout)
+                                    async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo, timeout=opts.timeout):
+                                        if ok and info:
+                                            responses.append((svcname, info))
 
-                            while True:
-                                now = s_common.now()
-                                remaining_ms = (opts.timeout * 1000) - (now - start_time)
-                                if remaining_ms <= 0:
-                                    raise s_exc.TimeOut(mesg=f'Mirror sync timeout after {opts.timeout} seconds')
+                                    if len(responses) == len(members):
+                                        cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
+                                        group_status = build_status_list(members, cell_infos)
 
-                                todo_timeout = min(5, remaining_ms / 1000)
-                                todo = s_common.todo('waitNexsOffs', leader_nexs - 1, timeout=todo_timeout)
-                                responses = []
+                                        outp.printf('\nUpdated status:')
+                                        output_status(outp, vname, group_status)
 
-                                async for svcname, (ok, info) in prox.callAhaPeerApi(iden, todo):
-                                    if not ok:
-                                        continue
-                                    if info:
-                                        responses.append((svcname, info))
-
-                                if len(responses) == len(members):
-                                    cell_infos = await get_cell_infos(prox, iden, members, opts.timeout)
-                                    group_status = build_status_list(members, cell_infos)
-
-                                    outp.printf('\nUpdated status:')
-                                    output_status(outp, vname, group_status)
-
-                                    if check_sync_status(group_status):
-                                        outp.printf('Group Status: In Sync')
-                                        break
+                                        if check_sync_status(group_status):
+                                            outp.printf('Group Status: In Sync')
+                                            break
 
                 return 0
 

@@ -676,7 +676,9 @@ The ready column indicates that a service has entered into the realtime change w
         '''),
         'cmdargs': (
             ('--timeout', {'help': 'The number of seconds to wait for the mirrors to sync.',
-                           'default': 60, 'type': 'int', 'action': 'store'}),
+                           'default': 10, 'type': 'int', 'action': 'store'}),
+            ('--wait', {'help': 'Whether to wait for the mirrors to sync.',
+                        'action': 'store_true'}),
         ),
         'storm': '''
         init {
@@ -701,12 +703,13 @@ The ready column indicates that a service has entered into the realtime change w
             })
             $printer = $lib.tabular.printer($conf)
             $timeout = $cmdopts.timeout
+            $wait = $cmdopts.wait
         }
 
-        function get_cell_infos(vname) {
+        function get_cell_infos(vname, timeout) {
             $cell_infos = ({})
             $todo = $lib.utils.todo('getCellInfo')
-            for $info in $lib.aha.callPeerApi($vname, $todo, timeout=(2)) {
+            for $info in $lib.aha.callPeerApi($vname, $todo, timeout=$timeout) {
                 $svcname = $info.0
                 ($ok, $info) = $info.1
                 if $ok {
@@ -831,7 +834,7 @@ The ready column indicates that a service has entered into the realtime change w
         }
 
         for ($vname, $members) in $mirror_groups {
-            $cell_infos = $get_cell_infos($vname)
+            $cell_infos = $get_cell_infos($vname, $timeout)
             $group_status = $build_status_list($members, $cell_infos)
             $lib.print('Service Mirror Groups:')
             $output_status($vname, $group_status, $printer)
@@ -839,48 +842,38 @@ The ready column indicates that a service has entered into the realtime change w
             if $check_sync_status($group_status) {
                 $lib.print('Group Status: In Sync')
             } else {
-                $lib.print(`Group Status: Out of Sync; Waiting {$timeout} seconds for sync...`)
-                $leader_nexs = $lib.null
-                for $status in $group_status {
-                    if (($status.role = 'leader') and ($status.nexs_indx > 0)) {
-                        $leader_nexs = $status.nexs_indx
-                        break
+                $lib.print(`Group Status: Out of Sync`)
+                if $wait {
+                    $leader_nexs = (0)
+                    for $status in $group_status {
+                        if (($status.role = 'leader') and ($status.nexs_indx > 0)) {
+                            $leader_nexs = $status.nexs_indx
+                        }
                     }
-                }
-
-                if $leader_nexs {
-                    $start_time = $lib.time.now()
-
-                    while (true) {
-                        $now = $lib.time.now()
-                        $elapsed = ($now - $start_time)
-                        if ($elapsed >= ($timeout * 1000)) {
-                            $lib.raise(TimeOut, mesg=`Mirror sync timeout after {$timeout} seconds`)
-                        }
-
-                        $todo_timeout = $lib.min(5, ((($timeout * 1000) - $elapsed) / 1000))
-                        $responses = ()
-
-                        $todo = $lib.utils.todo(waitNexsOffs, ($leader_nexs - 1), timeout=$todo_timeout)
-                        for $info in $lib.aha.callPeerApi($vname, $todo, timeout=(2)) {
-                            $svcname = $info.0
-                            ($ok, $info) = $info.1
-                            if ($ok and $info) {
-                                $responses.append(($svcname, $info))
+                    if ($leader_nexs > 0) {
+                        while (true) {
+                            $responses = ()
+                            $todo = $lib.utils.todo(waitNexsOffs, ($leader_nexs - 1), timeout=$timeout)
+                            for $info in $lib.aha.callPeerApi($vname, $todo, timeout=$timeout) {
+                                $svcname = $info.0
+                                ($ok, $info) = $info.1
+                                if ($ok and $info) {
+                                    $responses.append(($svcname, $info))
+                                }
                             }
-                        }
 
-                        if ($lib.len($responses) = $lib.len($members)) {
-                            $cell_infos = $get_cell_infos($vname)
-                            $group_status = $build_status_list($members, $cell_infos)
+                            if ($lib.len($responses) = $lib.len($members)) {
+                                $cell_infos = $get_cell_infos($vname, $timeout)
+                                $group_status = $build_status_list($members, $cell_infos)
 
-                            $lib.print('')
-                            $lib.print('Updated status:')
-                            $output_status($vname, $group_status, $printer)
+                                $lib.print('')
+                                $lib.print('Updated status:')
+                                $output_status($vname, $group_status, $printer)
 
-                            if $check_sync_status($group_status) {
-                                $lib.print('Group Status: In Sync')
-                                break
+                                if $check_sync_status($group_status) {
+                                    $lib.print('Group Status: In Sync')
+                                    break
+                                }
                             }
                         }
                     }
