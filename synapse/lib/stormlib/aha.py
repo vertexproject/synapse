@@ -64,7 +64,8 @@ class AhaLib(s_stormtypes.Lib):
 
             Call getCellInfo on an AHA service, skipping the invoking service::
 
-                for $info in $lib.aha.callPeerApi(cortex..., 'getCellInfo', skiprun=$lib.cell.getCellInfo().cell.run) {
+                $todo = $lib.utils.todo('getCellInfo')
+                for $info in $lib.aha.callPeerApi(cortex..., $todo, skiprun=$lib.cell.getCellInfo().cell.run) {
                     $lib.print($info)
                 }
 
@@ -80,8 +81,8 @@ class AhaLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'svcname', 'type': 'str',
                        'desc': 'The name of the AHA service to call. It is easiest to use the relative name of a service, ending with "...".', },
-                      {'name': 'apiname', 'type': ('str', 'list'),
-                       'desc': 'The name of the API to call or a todo tuple (name, args, kwargs).'},
+                      {'name': 'todo', 'type': 'list',
+                       'desc': 'The todo tuple (name, args, kwargs).'},
                       {'name': 'timeout', 'type': 'int', 'default': None,
                        'desc': 'Optional timeout in seconds.'},
                       {'name': 'skiprun', 'type': 'str', 'default': None,
@@ -103,7 +104,8 @@ class AhaLib(s_stormtypes.Lib):
 
             Call getCellInfo on an AHA service, skipping the invoking service::
 
-                for $info in $lib.aha.callPeerGenr(cortex..., 'getCellInfo', skiprun=$lib.cell.getCellInfo().cell.run) {
+                $todo = $lib.utils.todo('getCellInfo')
+                for $info in $lib.aha.callPeerGenr(cortex..., $todo, skiprun=$lib.cell.getCellInfo().cell.run) {
                     $lib.print($info)
                 }
 
@@ -112,8 +114,8 @@ class AhaLib(s_stormtypes.Lib):
                   'args': (
                       {'name': 'svcname', 'type': 'str',
                        'desc': 'The name of the AHA service to call. It is easiest to use the relative name of a service, ending with "...".', },
-                      {'name': 'apiname', 'type': ('str', 'list'),
-                       'desc': 'The name of the API to call or a todo tuple (name, args, kwargs).'},
+                      {'name': 'todo', 'type': 'list',
+                       'desc': 'The todo tuple (name, args, kwargs).'},
                       {'name': 'timeout', 'type': 'int', 'default': None,
                        'desc': 'Optional timeout in seconds.'},
                       {'name': 'skiprun', 'type': 'str', 'default': None,
@@ -162,22 +164,18 @@ class AhaLib(s_stormtypes.Lib):
         proxy = await self.runt.snap.core.reqAhaProxy()
         return await proxy.getAhaSvc(svcname, filters=filters)
 
-    async def _methCallPeerApi(self, svcname, apiname, timeout=None, skiprun=None):
+    async def _methCallPeerApi(self, svcname, todo, timeout=None, skiprun=None):
         '''
         Call an API on an AHA service.
 
         Args:
             svcname (str): The name of the AHA service to call
-            apiname (str, list): The API name or todo tuple from $lib.utils.todo()
+            todo (list): The todo tuple (name, args, kwargs)
             timeout (int): Optional timeout in seconds
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
         svcname = await s_stormtypes.tostr(svcname)
-        apiname = await s_stormtypes.toprim(apiname)
-
-        if isinstance(apiname, str):
-            apiname = s_common.todo(apiname)
-
+        todo = await s_stormtypes.toprim(todo)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         skiprun = await s_stormtypes.tostr(skiprun, noneok=True)
 
@@ -191,25 +189,21 @@ class AhaLib(s_stormtypes.Lib):
         if svciden is None:
             raise s_exc.NoSuchName(mesg=f'Service {svcname} has no iden')
 
-        async for svcname, (ok, info) in proxy.callAhaPeerApi(svciden, apiname, timeout=timeout, skiprun=skiprun):
+        async for svcname, (ok, info) in proxy.callAhaPeerApi(svciden, todo, timeout=timeout, skiprun=skiprun):
             yield (svcname, (ok, info))
 
-    async def _methCallPeerGenr(self, svcname, apiname, timeout=None, skiprun=None):
+    async def _methCallPeerGenr(self, svcname, todo, timeout=None, skiprun=None):
         '''
         Call a generator API on an AHA service.
 
         Args:
             svcname (str): The name of the AHA service to call
-            apiname (str, list): The API name or todo tuple from $lib.utils.todo()
+            todo (list): The todo tuple (name, args, kwargs)
             timeout (int): Optional timeout in seconds
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
         svcname = await s_stormtypes.tostr(svcname)
-        apiname = await s_stormtypes.toprim(apiname)
-
-        if isinstance(apiname, str):
-            apiname = s_common.todo(apiname)
-
+        todo = await s_stormtypes.toprim(todo)
         timeout = await s_stormtypes.toint(timeout, noneok=True)
         skiprun = await s_stormtypes.tostr(skiprun, noneok=True)
 
@@ -223,7 +217,7 @@ class AhaLib(s_stormtypes.Lib):
         if svciden is None:
             raise s_exc.NoSuchName(mesg=f'Service {svcname} has no iden')
 
-        async for svcname, (ok, info) in proxy.callAhaPeerGenr(svciden, apiname, timeout=timeout, skiprun=skiprun):
+        async for svcname, (ok, info) in proxy.callAhaPeerGenr(svciden, todo, timeout=timeout, skiprun=skiprun):
             yield (svcname, (ok, info))
 
 @s_stormtypes.registry.registerLib
@@ -711,7 +705,8 @@ The ready column indicates that a service has entered into the realtime change w
 
         function get_cell_infos(vname) {
             $cell_infos = ({})
-            for $info in $lib.aha.callPeerApi($vname, getCellInfo, timeout=(2)) {
+            $todo = $lib.utils.todo('getCellInfo')
+            for $info in $lib.aha.callPeerApi($vname, $todo, timeout=(2)) {
                 $svcname = $info.0
                 ($ok, $info) = $info.1
                 if $ok {

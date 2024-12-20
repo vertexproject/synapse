@@ -217,7 +217,8 @@ Connection information:
                 # PeerGenr
                 resp = await core00.callStorm('''
                     $resps = $lib.list()
-                    for ($name, $info) in $lib.aha.callPeerGenr(cell..., getTasks) {
+                    $todo = $lib.utils.todo('getTasks')
+                    for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -246,13 +247,15 @@ Connection information:
                 self.len(2, resp)
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
-                    $lib.aha.callPeerGenr(null, getTasks)
+                    $todo = $lib.utils.todo('getTasks')
+                    $lib.aha.callPeerGenr(null, $todo)
                 '''))
 
                 # PeerApi
                 resp = await core00.callStorm('''
                     $resps = $lib.list()
-                    for ($name, $info) in $lib.aha.callPeerApi(cell..., getCellInfo) {
+                    $todo = $lib.utils.todo('getCellInfo')
+                    for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -284,7 +287,8 @@ Connection information:
 
                 resp = await core00.callStorm('''
                     $resps = $lib.list()
-                    for ($name, $info) in $lib.aha.callPeerApi(cell..., getCellInfo, timeout=(10)) {
+                    $todo = $lib.utils.todo('getCellInfo')
+                    for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo, timeout=(10)) {
                         $resps.append(($name, $info))
                     }
                     return($resps)
@@ -292,15 +296,18 @@ Connection information:
                 self.len(2, resp)
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
-                    $lib.aha.callPeerApi(newp..., getCellInfo)
+                    $todo = $lib.utils.todo('getCellInfo')
+                    $lib.aha.callPeerApi(newp..., $todo)
                 '''))
 
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
-                    $lib.aha.callPeerApi(null, getCellInfo)
+                    $todo = $lib.utils.todo('getCellInfo')
+                    $lib.aha.callPeerApi(null, $todo)
                 '''))
 
                 await self.asyncraises(s_exc.NoSuchMeth, core00.callStorm('''
-                    for $info in $lib.aha.callPeerApi(cell..., bogusMethod) {
+                    $todo = $lib.utils.todo('bogusMethod')
+                    for $info in $lib.aha.callPeerApi(cell..., $todo) {
                         ($ok, $info) = $info.1
                         if (not $ok) {
                             $lib.raise($info.err, $info.errmsg)
@@ -313,10 +320,12 @@ Connection information:
                                                                      'port': '3030'}},
                                   network='synapse')
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
-                    $lib.aha.callPeerGenr(noiden.cell..., getTasks)
+                    $todo = $lib.utils.todo('getTasks')
+                    $lib.aha.callPeerGenr(noiden.cell..., $todo)
                 '''))
                 await self.asyncraises(s_exc.NoSuchName, core00.callStorm('''
-                    $lib.aha.callPeerApi(noiden.cell..., getCellInfo)
+                    $todo = $lib.utils.todo('getCellInfo')
+                    $lib.aha.callPeerApi(noiden.cell..., $todo)
                 '''))
 
                 msgs = await core00.stormlist('aha.svc.mirror')
