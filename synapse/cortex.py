@@ -6695,8 +6695,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         return crons
 
     async def editCronJob(self, iden, name, valu):
-        if name == 'user':
-            name == 'creator'
+        if self.nexsvers < NEXSVERS_CRON_USER and name == 'user':
+            name = 'creator'
+
         return await self._push('cron:edit', iden, name, valu)
 
     @s_nexus.Pusher.onPush('cron:edit')

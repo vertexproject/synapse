@@ -1119,3 +1119,69 @@ class AgendaTest(s_t_utils.SynTest):
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
             self.eq(cdef['user'], core.auth.rootuser.iden)
             self.none(cdef.get('creator'))
+
+    async def test_cron_creator_nexus_compat(self):
+        with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 177)):
+            async with self.getRegrCore('cron-creator-to-user') as core0:
+                with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 193)):
+
+                    conf = {'mirror': core0.getLocalUrl()}
+                    async with self.getRegrCore('cron-creator-to-user', conf=conf) as core1:
+
+                        lowuser = await core1.addUser('lowuser')
+                        lowuser = lowuser.get('iden')
+
+                        indx = core0.nexsroot.nexslog.index()
+                        await core1.sync()
+
+                        opts = {'vars': {'lowuser': lowuser}}
+                        q = 'for $cron in $lib.cron.list() { return($cron.set(user, $lowuser)) }'
+                        cdef = await core1.callStorm(q, opts=opts)
+                        self.eq(cdef['user'], lowuser)
+                        self.none(cdef.get('creator'))
+
+                        await core1.sync()
+
+                        evts = await s_t_utils.alist(core0.nexsroot.nexslog.iter(indx + 1))
+                        edit = [e[1] for e in evts if e[1][1] == 'cron:edit']
+                        self.len(1, edit)
+                        self.eq(edit[0][2][1], 'creator')
+
+                        await core1.callStorm('cron.add --minute +2 { $lib.print(foo) }')
+
+                        evts = await s_t_utils.alist(core0.nexsroot.nexslog.iter(indx + 1))
+                        edit = [e[1] for e in evts if e[1][1] == 'cron:add']
+                        self.len(1, edit)
+                        self.nn(edit[0][2][0].get('creator'))
+                        self.none(edit[0][2][0].get('user'))
+
+        async with self.getRegrCore('cron-creator-to-user') as core0:
+            conf = {'mirror': core0.getLocalUrl()}
+            async with self.getRegrCore('cron-creator-to-user', conf=conf) as core1:
+
+                lowuser = await core1.addUser('lowuser')
+                lowuser = lowuser.get('iden')
+
+                indx = core0.nexsroot.nexslog.index()
+                await core1.sync()
+
+                opts = {'vars': {'lowuser': lowuser}}
+                q = 'for $cron in $lib.cron.list() { return($cron.set(user, $lowuser)) }'
+                cdef = await core1.callStorm(q, opts=opts)
+                self.eq(cdef['user'], lowuser)
+                self.none(cdef.get('creator'))
+
+                await core1.sync()
+
+                evts = await s_t_utils.alist(core0.nexsroot.nexslog.iter(indx + 1))
+                edit = [e[1] for e in evts if e[1][1] == 'cron:edit']
+                self.len(1, edit)
+                self.eq(edit[0][2][1], 'user')
+
+                await core1.callStorm('cron.add --minute +2 { $lib.print(foo) }')
+
+                evts = await s_t_utils.alist(core0.nexsroot.nexslog.iter(indx + 1))
+                edit = [e[1] for e in evts if e[1][1] == 'cron:add']
+                self.len(1, edit)
+                self.nn(edit[0][2][0].get('user'))
+                self.none(edit[0][2][0].get('creator'))
