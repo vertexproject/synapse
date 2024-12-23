@@ -1,6 +1,5 @@
 ---
 desc: Fixed SIGINT handling in the ``synapse.tools.storm`` CLI tool.
-  signal handler state and proper cleanup.
 prs: []
 type: bug
 ...
