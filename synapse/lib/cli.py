@@ -291,6 +291,15 @@ class Cli(s_base.Base):
 
         self.loop.add_signal_handler(signal.SIGINT, sigint)
 
+    async def delSignalHandlers(self):
+        '''
+        Remove the SIGINT signal handler from the ioloop.
+        '''
+        try:
+            self.loop.remove_signal_handler(signal.SIGINT)
+        except NotImplementedError:  # pragma: no cover
+            pass
+
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
 
