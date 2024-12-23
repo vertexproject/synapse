@@ -4198,13 +4198,7 @@ class EditCondPropSet(Edit):
             propname = await self.kids[0].compute(runt, path)
             name = await tostr(propname)
 
-            prop = node.form.props.get(name)
-            if prop is None:
-                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
-                    mesg = f'No property named {name} on form {node.form.name}.'
-                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
-
-                raise self.kids[0].addExcInfo(exc)
+            prop = node.form.reqProp(name, extra=self.kids[0].addExcInfo)
 
             oper = await self.kids[1].compute(runt, path)
             if oper == SET_NEVER or (oper == SET_UNSET and (oldv := node.get(name)) is not None):
