@@ -2625,6 +2625,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _streamBackupArchive(self, path, user, name):
         link = s_scope.get('link')
+        if link is None:
+            mesg = 'Link not found in scope. This API must be called via a CellApi.'
+            raise s_exc.SynErr(mesg=mesg)
+
         linkinfo = await link.getSpawnInfo()
         linkinfo['logconf'] = await self._getSpawnLogConf()
 
@@ -2656,8 +2660,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise
 
         finally:
-            if proc:
-                proc.terminate()
+            proc.terminate()
 
             if not cancelled:
                 raise s_exc.DmonSpawn(mesg=mesg)
