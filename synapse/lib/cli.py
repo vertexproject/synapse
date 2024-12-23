@@ -3,7 +3,6 @@ import json
 import signal
 import asyncio
 import logging
-import threading
 import traceback
 import collections
 
