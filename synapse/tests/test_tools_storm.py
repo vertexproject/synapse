@@ -1,4 +1,5 @@
 import os
+import asyncio
 import synapse.tests.utils as s_test
 
 from prompt_toolkit.document import Document
@@ -378,3 +379,35 @@ class StormCliTest(s_test.SynTest):
                 ),
                 vals
             )
+
+    async def test_storm_cmdloop_interrupt(self):
+        '''
+        Test interrupting a long-running query in the command loop
+        '''
+        async with self.getTestCore() as core:
+
+            async with core.getLocalProxy() as proxy:
+
+                outp = s_output.OutPutStr()
+                async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
+
+                    cmdqueue = asyncio.Queue()
+                    await cmdqueue.put('while (true) { $lib.time.sleep(1) }')
+                    await cmdqueue.put('!quit')
+
+                    async def fake_prompt():
+                        return await cmdqueue.get()
+                    scli.prompt = fake_prompt
+
+                    cmdloop_task = asyncio.create_task(scli.runCmdLoop())
+                    await asyncio.sleep(0.1)
+
+                    if scli.cmdtask is not None:
+                        scli.cmdtask.cancel()
+
+                    await cmdloop_task
+
+                    text = str(outp)
+                    self.isin('<ctrl-c>', text)
+                    self.isin('o/', text)
+                    self.true(scli.isfini)

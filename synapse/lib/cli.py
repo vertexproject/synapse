@@ -3,6 +3,7 @@ import json
 import signal
 import asyncio
 import logging
+import threading
 import traceback
 import collections
 
@@ -285,13 +286,12 @@ class Cli(s_base.Base):
         '''
         Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
         '''
+        if threading.current_thread() is threading.main_thread():
+            def sigint():
+                if self.cmdtask is not None:
+                    self.cmdtask.cancel()
 
-        def sigint():
-            self.printf('<ctrl-c>')
-            if self.cmdtask is not None:
-                self.cmdtask.cancel()
-
-        self.loop.add_signal_handler(signal.SIGINT, sigint)
+            self.loop.add_signal_handler(signal.SIGINT, sigint)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -386,9 +386,13 @@ class Cli(s_base.Base):
                 if not line:
                     continue
 
+                await self.addSignalHandlers()
                 coro = self.runCmdLine(line)
                 self.cmdtask = self.schedCoro(coro)
-                await self.cmdtask
+                try:
+                    await self.cmdtask
+                except asyncio.CancelledError:
+                    raise KeyboardInterrupt()
 
             except KeyboardInterrupt:
 
@@ -408,11 +412,8 @@ class Cli(s_base.Base):
                 if self.cmdtask is not None:
                     self.cmdtask.cancel()
                     try:
-                        self.cmdtask.result()
-                    except asyncio.CancelledError:
-                        # Wait a beat to let any remaining nodes to print out before we print the prompt
-                        await asyncio.sleep(1)
-                    except Exception:
+                        await asyncio.wait_for(self.cmdtask, timeout=0.1)
+                    except (asyncio.CancelledError, asyncio.TimeoutError):
                         pass
 
     async def runCmdLine(self, line):
