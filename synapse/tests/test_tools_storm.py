@@ -388,7 +388,7 @@ class StormCliTest(s_test.SynTest):
 
             async with core.getLocalProxy() as proxy:
 
-                outp = s_output.OutPutStr()
+                outp = s_test.TstOutPut()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
 
                     cmdqueue = asyncio.Queue()
@@ -407,7 +407,6 @@ class StormCliTest(s_test.SynTest):
 
                     await cmdloop_task
 
-                    text = str(outp)
-                    self.isin('<ctrl-c>', text)
-                    self.isin('o/', text)
+                    outp.expect('<ctrl-c>')
+                    outp.expect('o/')
                     self.true(scli.isfini)
