@@ -325,7 +325,11 @@ class Cli(s_base.Base):
             text = self.cmdprompt
 
         with patch_stdout():
-            retn = await self.sess.prompt_async(text, vi_mode=self.vi_mode, enable_open_in_editor=True)
+            retn = await self.sess.prompt_async(text,
+                vi_mode=self.vi_mode,
+                enable_open_in_editor=True,
+                handle_sigint=False # We handle sigint in the loop
+            )
             return retn
 
     def printf(self, mesg, addnl=True, color=None):
@@ -386,15 +390,11 @@ class Cli(s_base.Base):
                 if not line:
                     continue
 
-                await self.addSignalHandlers()
                 coro = self.runCmdLine(line)
                 self.cmdtask = self.schedCoro(coro)
-                try:
-                    await self.cmdtask
-                except asyncio.CancelledError:
-                    raise KeyboardInterrupt()
+                await self.cmdtask
 
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, asyncio.CancelledError):
 
                 if self.isfini:
                     return

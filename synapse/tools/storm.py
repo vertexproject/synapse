@@ -645,6 +645,7 @@ async def main(argv, outp=s_output.stdout):
                     cli.colorsenabled = True
                     cli.printf(welcome)
 
+                    await cli.addSignalHandlers()
                     await cli.runCmdLoop()
 
 if __name__ == '__main__':  # pragma: no cover
