@@ -1,0 +1,6 @@
+---
+desc: Fixed SIGINT handling for long-running queries in the tools.storm CLI by persisting
+  signal handler state and proper cleanup.
+prs: []
+type: bug
+...

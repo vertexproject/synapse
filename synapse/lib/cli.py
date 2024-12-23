@@ -284,6 +284,7 @@ class Cli(s_base.Base):
     async def addSignalHandlers(self):
         '''
         Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
+        Removes the handler when the cli is fini'd.
         '''
         def sigint():
             if self.cmdtask is not None:
@@ -291,14 +292,10 @@ class Cli(s_base.Base):
 
         self.loop.add_signal_handler(signal.SIGINT, sigint)
 
-    async def delSignalHandlers(self):
-        '''
-        Remove the SIGINT signal handler from the ioloop.
-        '''
-        try:
+        def onfini():
             self.loop.remove_signal_handler(signal.SIGINT)
-        except NotImplementedError:  # pragma: no cover
-            pass
+
+        self.onfini(onfini)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
