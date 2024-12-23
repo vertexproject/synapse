@@ -286,12 +286,11 @@ class Cli(s_base.Base):
         '''
         Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
         '''
-        if threading.current_thread() is threading.main_thread():
-            def sigint():
-                if self.cmdtask is not None:
-                    self.cmdtask.cancel()
+        def sigint():
+            if self.cmdtask is not None:
+                self.cmdtask.cancel()
 
-            self.loop.add_signal_handler(signal.SIGINT, sigint)
+        self.loop.add_signal_handler(signal.SIGINT, sigint)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
