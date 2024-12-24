@@ -24,7 +24,7 @@ class TestUtilsGetrefs(s_utils.SynTest):
         cm = myvcr.use_cassette(fp)
         return cm
 
-    async def test_basics(self):
+    def test_basics(self):
 
         args = s_getrefs.parse_args([
             s_data.path('attack-flow', 'attack-flow-schema-2.0.0.json')
