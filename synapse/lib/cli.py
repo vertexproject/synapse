@@ -281,7 +281,7 @@ class Cli(s_base.Base):
 
         await self.fini()
 
-    async def addSignalHandlers(self):
+    async def addSignalHandlers(self):  # pragma: no cover
         '''
         Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
         Removes the handler when the cli is fini'd.
