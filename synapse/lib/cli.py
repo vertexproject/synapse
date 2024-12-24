@@ -328,7 +328,7 @@ class Cli(s_base.Base):
         if text is None:
             text = self.cmdprompt
 
-        with patch_stdout():
+        with patch_stdout():  # pragma: no cover
             retn = await self.sess.prompt_async(text,
                 vi_mode=self.vi_mode,
                 enable_open_in_editor=True,
