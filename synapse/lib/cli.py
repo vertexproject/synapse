@@ -293,7 +293,11 @@ class Cli(s_base.Base):
         self.loop.add_signal_handler(signal.SIGINT, sigint)
 
         def onfini():
-            self.loop.remove_signal_handler(signal.SIGINT)
+            # N.B. This is reaches into some loop / handle internals but
+            # prevents us from removing a handler that overwrote our own.
+            hndl = self.loop._signal_handlers.get(signal.SIGINT, None)  # type: asyncio.Handle
+            if hndl is not None and hndl._callback is sigint:
+                self.loop.remove_signal_handler(signal.SIGINT)
 
         self.onfini(onfini)
 
