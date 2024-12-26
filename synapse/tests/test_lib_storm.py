@@ -346,7 +346,7 @@ class StormTest(s_t_utils.SynTest):
             function inner(v) {
                 if ( $v = 2 ) {
                     stop
-                } 
+                }
                 return ( $v )
             }
             function outer(n) {
@@ -377,7 +377,7 @@ class StormTest(s_t_utils.SynTest):
                 if ($j = 2) {
                     stop
                 }
-                $lib.print(`{$j}/{$l}`) 
+                $lib.print(`{$j}/{$l}`)
             }
             '''
             msgs = await core.stormlist(q)

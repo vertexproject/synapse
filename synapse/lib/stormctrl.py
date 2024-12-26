@@ -1,6 +1,13 @@
 class StormCtrlFlow(Exception):
-    def __init__(self, item=None, **info):
-        self.item = item
+    '''
+    Base class all StormCtlFlow exceptions derive from.
+    '''
+
+class _SynErrMixin:
+    '''
+    An exception mixin to give some control flow classes functionality like SynErr
+    '''
+    def __init__(self, **info):
         self.errinfo = info
         Exception.__init__(self, self._getExcMsg())
 
@@ -56,19 +63,25 @@ class StormCtrlFlow(Exception):
             self.errinfo[k] = v
         self._setExcMesg()
 
-class StormLoopCtrl(Exception):
+class StormLoopCtrl(_SynErrMixin):
     # Control flow statements for WHILE and FOR loop control
     statement = ''
 
-class StormGenrCtrl(Exception):
+class StormGenrCtrl(_SynErrMixin):
     # Control flow statements for GENERATOR control
     statement = ''
 
-class StormExit(StormCtrlFlow): pass
-class StormStop(StormCtrlFlow, StormGenrCtrl):
+class StormStop(StormGenrCtrl, StormCtrlFlow):
     statement = 'stop'
-class StormBreak(StormCtrlFlow, StormLoopCtrl):
+
+class StormBreak(StormLoopCtrl, StormCtrlFlow):
     statement = 'break'
-class StormReturn(StormCtrlFlow): pass
-class StormContinue(StormCtrlFlow, StormLoopCtrl):
+
+class StormContinue(StormLoopCtrl, StormCtrlFlow):
     statement = 'continue'
+
+class StormExit(_SynErrMixin, StormCtrlFlow): pass
+
+class StormReturn(StormCtrlFlow):
+    def __init__(self, item=None):
+        self.item = item
