@@ -60,7 +60,7 @@ class AstNode:
 
     def addExcInfo(self, exc):
         if 'highlight' not in exc.errinfo:
-            exc.errinfo['highlight'] = self.getPosInfo()
+            exc.set('highlight', self.getPosInfo())
         return exc
 
     def repr(self):

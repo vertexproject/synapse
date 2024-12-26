@@ -507,7 +507,7 @@ class Parser:
             origexc = e.orig_exc
             if not isinstance(origexc, s_exc.SynErr):
                 raise e.orig_exc # pragma: no cover
-            origexc.errinfo['text'] = self.text
+            origexc.set('text', self.text)
             return s_exc.BadSyntax(**origexc.errinfo)
 
         elif isinstance(e, lark.exceptions.UnexpectedCharacters):  # pragma: no cover
