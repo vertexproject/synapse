@@ -63,11 +63,11 @@ class _SynErrMixin:
             self.errinfo[k] = v
         self._setExcMesg()
 
-class StormLoopCtrl(_SynErrMixin):
+class StormLoopCtrl(_SynErrMixin, Exception):
     # Control flow statements for WHILE and FOR loop control
     statement = ''
 
-class StormGenrCtrl(_SynErrMixin):
+class StormGenrCtrl(_SynErrMixin, Exception):
     # Control flow statements for GENERATOR control
     statement = ''
 

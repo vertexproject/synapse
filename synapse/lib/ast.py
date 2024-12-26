@@ -1020,13 +1020,13 @@ class ForLoop(Oper):
                             yield item
 
                     except s_stormctrl.StormBreak as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         break
 
                     except s_stormctrl.StormContinue as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         continue
 
                     finally:
@@ -1079,13 +1079,13 @@ class ForLoop(Oper):
                             yield jtem
 
                     except s_stormctrl.StormBreak as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         break
 
                     except s_stormctrl.StormContinue as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         continue
 
                     finally:
@@ -1109,13 +1109,13 @@ class WhileLoop(Oper):
                         await asyncio.sleep(0)
 
                 except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     break
 
                 except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     continue
 
                 finally:
@@ -1133,13 +1133,13 @@ class WhileLoop(Oper):
                         await asyncio.sleep(0)
 
                 except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     break
 
                 except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     continue
 
                 finally:
