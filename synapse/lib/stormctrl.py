@@ -3,7 +3,7 @@ class StormCtrlFlow(Exception):
     Base class all StormCtlFlow exceptions derive from.
     '''
 
-class _SynErrMixin:
+class _SynErrMixin(Exception):
     '''
     An exception mixin to give some control flow classes functionality like SynErr
     '''
@@ -63,11 +63,11 @@ class _SynErrMixin:
             self.errinfo[k] = v
         self._setExcMesg()
 
-class StormLoopCtrl(_SynErrMixin, Exception):
+class StormLoopCtrl(_SynErrMixin):
     # Control flow statements for WHILE and FOR loop control
     statement = ''
 
-class StormGenrCtrl(_SynErrMixin, Exception):
+class StormGenrCtrl(_SynErrMixin):
     # Control flow statements for GENERATOR control
     statement = ''
 
