@@ -4,7 +4,7 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.191.0'
+version = '2.192.0'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
@@ -35,7 +35,7 @@ dependencies = [
     'aiohttp-socks>=0.9.0,<0.10.0',
     'aioimaplib>=1.1.0,<1.2.0',
     'aiosmtplib>=3.0.0,<3.1.0',
-    'prompt-toolkit>=3.0.4,<3.1.0',
+    'prompt_toolkit>=3.0.29,<3.1.0',
     'lark==1.2.2',
     'Pygments>=2.7.4,<2.18.0',
     'packaging>=20.0,<25.0',
