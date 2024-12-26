@@ -173,6 +173,7 @@ class FixedCache(s_stormtypes.StormType):
             except s_stormctrl.StormReturn as e:
                 return await s_stormtypes.toprim(e.item)
             except s_stormctrl.StormCtrlFlow:
+                # DISCUSS / FIXME: This should probably convert the CtrlFlow into a StormRuntimeError?
                 pass
 
     async def _reqKey(self, key):
