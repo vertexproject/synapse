@@ -1433,6 +1433,11 @@ class CellTest(s_t_utils.SynTest):
                         with mock.patch('os.stat', diffdev):
                             await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
 
+                user = await core.auth.getUserByName('root')
+                with self.raises(s_exc.SynErr) as cm:
+                    await core.iterNewBackupArchive(user)
+                self.isin('This API must be called via a CellApi', cm.exception.get('mesg'))
+
             async def err(*args, **kwargs):
                 raise RuntimeError('boom')
 
