@@ -363,6 +363,27 @@ class StormTest(s_t_utils.SynTest):
             for m in msgs:
                 print(m)
 
+            # Outside of a function, stop be converted into a StormRuntimeError for the control stream.
+            q = '''
+            init {
+                $N = (10)
+                $values = ()
+                 for $i in $lib.range($N) {
+                    $values.append($i)
+                }
+            }
+            $l=$lib.len($values)
+            for $j in $values {
+                if ($j = 2) {
+                    stop
+                }
+                $lib.print(`{$j}/{$l}`) 
+            }
+            '''
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                print(m)
+
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
             await core.nodes('''

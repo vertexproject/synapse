@@ -1053,11 +1053,18 @@ class View(s_nexus.Pusher):  # type: ignore
                 cancelled = True
                 raise
 
-            # except s_stormctrl.StormGenrCtrl:
-
             except Exception as e:
-                logger.exception(f'Error during storm execution for {{ {text} }}',
-                                 extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+                mesg = ''
+                if isinstance(e, s_stormctrl.StormLoopCtrl):
+                    mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
+                    e = s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight'))
+                elif isinstance(e, s_stormctrl.StormGenrCtrl):
+                    mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
+                    e = s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight'))
+                logmesg = f'Error during storm execution for {{ {text} }}'
+                if mesg:
+                    logmesg = f'{logmesg} - {mesg}'
+                logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
