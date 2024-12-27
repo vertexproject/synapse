@@ -486,7 +486,10 @@ _DefaultConfig = {
     },
 }
 
-def _validateConfig(core, config):
+perm_maxsize = ('storm', 'lib', 'stix', 'export', 'maxsize')
+def _validateConfig(runt, config):
+
+    core = runt.snap.core
 
     maxsize = config.get('maxsize', 10000)
 
@@ -506,9 +509,10 @@ def _validateConfig(core, config):
         mesg = f'STIX Bundle config maxsize option must be an integer.'
         raise s_exc.BadConfValu(mesg=mesg)
 
-    if maxsize > 10000:
-        mesg = f'STIX Bundle config maxsize option must be <= 10000.'
-        raise s_exc.BadConfValu(mesg=mesg)
+    if maxsize > 10000 and not runt.allowed(perm_maxsize):
+        permstr = '.'.join(perm_maxsize)
+        mesg = f'Setting STIX export maxsize > 10,000 requires permission: {permstr}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=permstr)
 
     formmaps = config.get('forms')
     if formmaps is None:
@@ -1040,6 +1044,11 @@ class LibStixExport(s_stormtypes.Lib):
     '''
     A Storm Library for exporting to STIX version 2.1 CS02.
     '''
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'stix', 'export', 'maxsize'), 'gate': 'cortex',
+         'desc': 'Controls the ability to specify a STIX export bundle maxsize of greater than 10,000.'},
+    )
+
     _storm_locals = (  # type: ignore
         {
             'name': 'bundle',
@@ -1172,7 +1181,7 @@ class LibStixExport(s_stormtypes.Lib):
             config = _DefaultConfig
 
         config = await s_stormtypes.toprim(config)
-        _validateConfig(self.runt.snap.core, config)
+        _validateConfig(self.runt, config)
 
         return StixBundle(self, self.runt, config)
 

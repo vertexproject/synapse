@@ -1,5 +1,4 @@
 import os
-import json
 import asyncio
 import pathlib
 import multiprocessing
@@ -15,7 +14,6 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 def getFileMapCount(filename):
     filename = str(filename)
@@ -360,8 +358,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
                 self.true(await stream.wait(timeout=1))
 
-            data = stream.getvalue()
-            msgs = [json.loads(m) for m in data.split('\\n') if m]
+            msgs = stream.jsonlines()
             self.gt(len(msgs), 0)
             self.nn(msgs[0].get('delta'))
             self.nn(msgs[0].get('path'))
@@ -1049,7 +1046,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 proc = mpctx.Process(target=self.make_slab, args=(path,))
                 proc.start()
-                proc.join(10)
+                proc.join(20)
                 self.nn(proc.exitcode)
                 slab.initdb('foo')
                 self.true(True)

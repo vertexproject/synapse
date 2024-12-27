@@ -379,6 +379,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=VTX-APT1
                     :tag=cno.threat.apt1
                     :active=(2012,2023)
+                    :activity=high
                     :reporter=*
                     :reporter:name=mandiant
                     :reporter:discovered=202202
@@ -400,6 +401,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('vtx-apt1', nodes[0].get('name'))
             self.eq('VTX-APT1', nodes[0].get('desc'))
+            self.eq(40, nodes[0].get('activity'))
             self.eq('apt1', nodes[0].get('org:name'))
             self.eq('ua', nodes[0].get('country:code'))
             self.eq('cn.shanghai', nodes[0].get('org:loc'))
@@ -428,6 +430,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 :disclosed=20231102
                 :owner={ gen.ou.org.hq acme }
                 :leaker={ gen.ou.org.hq wikileaks }
+                :recipient={ gen.ou.org.hq everyone }
                 :type=public
                 :goal={[ ou:goal=* :name=publicity ]}
                 :compromise={[ risk:compromise=* :target={ gen.ou.org.hq acme } ]}
@@ -456,6 +459,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:leak -> risk:leak:type:taxonomy'))
             self.len(1, await core.nodes('risk:leak :owner -> ps:contact +:orgname=acme'))
             self.len(1, await core.nodes('risk:leak :leaker -> ps:contact +:orgname=wikileaks'))
+            self.len(1, await core.nodes('risk:leak :recipient -> ps:contact +:orgname=everyone'))
             self.len(1, await core.nodes('risk:leak -> ou:goal +:name=publicity'))
             self.len(1, await core.nodes('risk:leak -> risk:compromise :target -> ps:contact +:orgname=acme'))
             self.len(1, await core.nodes('risk:leak :reporter -> ou:org +:name=vertex'))
@@ -523,6 +527,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :period=(2022, ?)
                     :node=(inet:fqdn, vertex.link)
                     :vuln={[ risk:vuln=* :name=redtree ]}
+                    :technique={[ ou:technique=* :name=foo ]}
                     :mitigated=true
                     :mitigations={[ risk:mitigation=* :name=patchstuff ]}
                 ]
@@ -535,6 +540,35 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:vulnerable -> risk:vuln'))
             self.len(1, await core.nodes('risk:vuln:name=redtree -> risk:vulnerable :node -> *'))
             self.len(1, await core.nodes('risk:vulnerable -> risk:mitigation'))
+            self.len(1, await core.nodes('risk:vulnerable -> ou:technique'))
+
+            nodes = await core.nodes('''
+                [ risk:outage=*
+                    :name="The Big One"
+                    :period=(2023, 2024)
+                    :type=service.power
+                    :cause=nature.earthquake
+                    :provider={[ ou:org=* :name="desert power" ]}
+                    :provider:name="desert power"
+                    :attack={[ risk:attack=* ]}
+                    :reporter={ ou:org:name=vertex }
+                    :reporter:name=vertex
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('attack'))
+            self.nn(nodes[0].get('reporter'))
+            self.eq('the big one', nodes[0].get('name'))
+            self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq('desert power', nodes[0].get('provider:name'))
+            self.eq('service.power.', nodes[0].get('type'))
+            self.eq('nature.earthquake.', nodes[0].get('cause'))
+            self.eq((1672531200000, 1704067200000), nodes[0].get('period'))
+
+            self.len(1, await core.nodes('risk:outage -> risk:attack'))
+            self.len(1, await core.nodes('risk:outage -> risk:outage:cause:taxonomy'))
+            self.len(1, await core.nodes('risk:outage :reporter -> ou:org +:name=vertex'))
+            self.len(1, await core.nodes('risk:outage :provider -> ou:org +:name="desert power"'))
 
     async def test_model_risk_mitigation(self):
         async with self.getTestCore() as core:
@@ -542,6 +576,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 risk:mitigation=*
                     :vuln=*
                     :name="  FooBar  "
+                    :type=foo.bar
                     :desc=BazFaz
                     :hardware=*
                     :software=*
@@ -552,11 +587,13 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('foobar', nodes[0].props['name'])
             self.eq('BazFaz', nodes[0].props['desc'])
             self.eq('vertex', nodes[0].get('reporter:name'))
+            self.eq('foo.bar.', nodes[0].get('type'))
             self.nn(nodes[0].get('reporter'))
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
             self.len(1, await core.nodes('risk:mitigation -> it:mitre:attack:mitigation'))
+            self.len(1, await core.nodes('risk:mitigation -> risk:mitigation:type:taxonomy'))
 
     async def test_model_risk_tool_software(self):
 
@@ -574,6 +611,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :techniques=(*,)
                     :tag=cno.mal.cobaltstrike
                     :mitre:attack:software=S0001
+                    :id=" AAAbbb123  "
 
                     :sophistication=high
                     :availability=public
@@ -590,6 +628,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(1643673600000, nodes[0].get('reporter:discovered'))
             self.eq(1675209600000, nodes[0].get('reporter:published'))
             self.eq('S0001', nodes[0].get('mitre:attack:software'))
+            self.eq('AAAbbb123', nodes[0].get('id'))
 
             self.eq('cobaltstrike', nodes[0].get('soft:name'))
             self.eq(('beacon',), nodes[0].get('soft:names'))
@@ -613,3 +652,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('version:min'))
             self.nn(nodes[0].get('version:max'))
             self.len(2, await core.nodes('risk:vuln:name=woot -> risk:vuln:soft:range -> it:prod:softver'))
+
+    async def test_model_risk_vuln_technique(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''
+                [ risk:vuln=* :name=foo <(uses)+ { [ ou:technique=* :name=bar ] } ]
+            ''')
+            self.len(1, await core.nodes('risk:vuln:name=foo <(uses)- ou:technique:name=bar'))

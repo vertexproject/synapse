@@ -368,6 +368,13 @@ class Type:
         topt.update(opts)
         return self.__class__(self.modl, self.name, self.info, topt)
 
+    def __eq__(self, othr):
+        if self.name != othr.name:
+            return False
+        if self.opts != othr.opts:
+            return False
+        return True
+
 class Bool(Type):
 
     stortype = s_layer.STOR_TYPE_U8
@@ -1895,6 +1902,12 @@ class Tag(Str):
         if not s_grammar.tagre.fullmatch(norm):
             mesg = f'Tag does not match tagre: [{s_grammar.tagre.pattern}]'
             raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
+
+        core = self.modl.core
+        if core is not None:
+            (ok, mesg) = core.isTagValid(norm)
+            if not ok:
+                raise s_exc.BadTypeValu(valu=norm, name=self.name, mesg=mesg)
 
         return norm, {'subs': subs, 'toks': toks}
 

@@ -59,7 +59,8 @@ class AstNode:
         }
 
     def addExcInfo(self, exc):
-        exc.errinfo['highlight'] = self.getPosInfo()
+        if 'highlight' not in exc.errinfo:
+            exc.errinfo['highlight'] = self.getPosInfo()
         return exc
 
     def repr(self):
@@ -731,7 +732,7 @@ class SubQuery(Oper):
         async with runt.getSubRuntime(self.kids[0]) as runt:
             async for valunode, valupath in runt.execute():
 
-                retn.append(valunode.ndef[1])
+                retn.append(valunode)
 
                 if len(retn) > limit:
                     query = self.kids[0].text
@@ -1302,8 +1303,9 @@ class VarListSetOper(Oper):
         names = self.kids[0].value()
         vkid = self.kids[1]
 
+        anynodes = False
         async for node, path in genr:
-
+            anynodes = True
             item = await vkid.compute(runt, path)
             item = [i async for i in s_stormtypes.toiter(item)]
 
@@ -1318,7 +1320,7 @@ class VarListSetOper(Oper):
 
             yield node, path
 
-        if vkid.isRuntSafe(runt):
+        if not anynodes and vkid.isRuntSafe(runt):
 
             item = await vkid.compute(runt, None)
             item = [i async for i in s_stormtypes.toiter(item)]
@@ -1386,7 +1388,7 @@ class SwitchCase(Oper):
             varv = await self.kids[0].compute(runt, path)
 
             # TODO:  when we have var type system, do type-aware comparison
-            subq = self.cases.get(str(varv))
+            subq = self.cases.get(await s_stormtypes.tostr(varv))
             if subq is None and self.defcase is not None:
                 subq = self.defcase
 
@@ -1400,7 +1402,7 @@ class SwitchCase(Oper):
             # no nodes and a runt safe value should execute
             varv = await self.kids[0].compute(runt, None)
 
-            subq = self.cases.get(str(varv))
+            subq = self.cases.get(await s_stormtypes.tostr(varv))
             if subq is None and self.defcase is not None:
                 subq = self.defcase
 
@@ -1424,6 +1426,32 @@ class LiftOper(Oper):
     def reverseLift(self, astinfo):
         self.astinfo = astinfo
         self.reverse = True
+
+    def getPivNames(self, runt, prop, pivs):
+        pivnames = []
+        typename = prop.type.name
+        for piv in pivs:
+            pivprop = runt.model.reqProp(f'{typename}:{piv}', extra=self.kids[0].addExcInfo)
+            pivnames.append(pivprop.full)
+            typename = pivprop.type.name
+
+        return pivnames
+
+    async def pivlift(self, runt, props, pivnames, genr):
+
+        async def pivvals(prop, pivgenr):
+            async for node in pivgenr:
+                async for pivo in runt.snap.nodesByPropValu(prop, '=', node.ndef[1], reverse=self.reverse):
+                    yield pivo
+
+        for pivname in pivnames[-2::-1]:
+            genr = pivvals(pivname, genr)
+
+        async for node in genr:
+            valu = node.ndef[1]
+            for prop in props:
+                async for node in runt.snap.nodesByPropValu(prop.full, '=', valu, reverse=self.reverse):
+                    yield node
 
     async def run(self, runt, genr):
 
@@ -1583,30 +1611,52 @@ class LiftByArray(LiftOper):
         cmpr = await self.kids[1].compute(runt, path)
         valu = await s_stormtypes.tostor(await self.kids[2].compute(runt, path))
 
-        prop = runt.model.props.get(name)
-        if prop is not None:
-            async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
+        pivs = None
+        if name.find('::') != -1:
+            parts = name.split('::')
+            name, pivs = parts[0], parts[1:]
+
+        if (prop := runt.model.props.get(name)) is not None:
+            props = (prop,)
+        else:
+            proplist = runt.model.ifaceprops.get(name)
+            if proplist is None:
+                raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+
+            props = []
+            for propname in proplist:
+                props.append(runt.model.props.get(propname))
+
+        try:
+            if pivs is not None:
+                pivnames = self.getPivNames(runt, props[0], pivs)
+
+                genr = runt.snap.nodesByPropArray(pivnames[-1], cmpr, valu, reverse=self.reverse)
+                async for node in self.pivlift(runt, props, pivnames, genr):
+                    yield node
+                return
+
+            if len(props) == 1:
+                async for node in runt.snap.nodesByPropArray(name, cmpr, valu, reverse=self.reverse):
+                    yield node
+                return
+
+            relname = props[0].name
+            def cmprkey(node):
+                return node.props.get(relname)
+
+            genrs = []
+            for prop in props:
+                genrs.append(runt.snap.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
+
+            async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
                 yield node
-            return
 
-        proplist = runt.model.ifaceprops.get(name)
-        if proplist is None:
-            raise self.kids[0].addExcInfo(s_exc.NoSuchProp.init(name))
+        except s_exc.BadTypeValu as e:
+            raise self.kids[2].addExcInfo(e)
 
-        props = []
-        for propname in proplist:
-            props.append(runt.model.props.get(propname))
-
-        relname = props[0].name
-        def cmprkey(node):
-            return node.props.get(relname)
-
-        genrs = []
-        for prop in props:
-            genrs.append(runt.snap.nodesByPropArray(prop.full, cmpr, valu, reverse=self.reverse))
-
-        async for node in s_common.merggenr2(genrs, cmprkey, reverse=self.reverse):
-            yield node
+        except s_exc.SynErr as e:
+            raise self.addExcInfo(e)
 
 class LiftTagProp(LiftOper):
     '''
@@ -1838,6 +1888,11 @@ class LiftPropBy(LiftOper):
         if not isinstance(valu, s_node.Node):
             valu = await s_stormtypes.tostor(valu)
 
+        pivs = None
+        if name.find('::') != -1:
+            parts = name.split('::')
+            name, pivs = parts[0], parts[1:]
+
         prop = runt.model.props.get(name)
         if prop is not None:
             props = (prop,)
@@ -1851,6 +1906,14 @@ class LiftPropBy(LiftOper):
                 props.append(runt.model.props.get(propname))
 
         try:
+            if pivs is not None:
+                pivnames = self.getPivNames(runt, props[0], pivs)
+
+                genr = runt.snap.nodesByPropValu(pivnames[-1], cmpr, valu, reverse=self.reverse)
+                async for node in self.pivlift(runt, props, pivnames, genr):
+                    yield node
+                return
+
             if len(props) == 1:
                 prop = props[0]
                 async for node in runt.snap.nodesByPropValu(prop.full, cmpr, valu, reverse=self.reverse):
@@ -3492,7 +3555,10 @@ class VarDeref(Value):
 
         valu = s_stormtypes.fromprim(base, path=path)
         with s_scope.enter({'runt': runt}):
-            return await valu.deref(name)
+            try:
+                return await valu.deref(name)
+            except s_exc.SynErr as e:
+                raise self.kids[1].addExcInfo(e)
 
 class FuncCall(Value):
 
@@ -3513,10 +3579,23 @@ class FuncCall(Value):
         kwargs = {k: v for (k, v) in await self.kids[2].compute(runt, path)}
 
         with s_scope.enter({'runt': runt}):
-            retn = func(*argv, **kwargs)
-            if s_coro.iscoro(retn):
-                return await retn
-            return retn
+            try:
+                retn = func(*argv, **kwargs)
+                if s_coro.iscoro(retn):
+                    return await retn
+                return retn
+
+            except TypeError as e:
+                mesg = str(e)
+                if (funcpath := getattr(func, '_storm_funcpath', None)) is not None:
+                    mesg = f"{funcpath}(){mesg.split(')', 1)[1]}"
+
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+
+            except s_exc.SynErr as e:
+                if getattr(func, '_storm_runtime_lib_func', None) is not None:
+                    e.errinfo.pop('highlight', None)
+                raise self.addExcInfo(e)
 
 class DollarExpr(Value):
     '''
@@ -3793,7 +3872,7 @@ class ExprDict(Value):
 
     def prepare(self):
         self.const = None
-        if all(isinstance(k, Const) for k in self.kids):
+        if all(isinstance(k, Const) and not isinstance(k, EmbedQuery) for k in self.kids):
             valu = {}
             for i in range(0, len(self.kids), 2):
                 valu[self.kids[i].value()] = self.kids[i + 1].value()
@@ -3823,7 +3902,7 @@ class ExprList(Value):
 
     def prepare(self):
         self.const = None
-        if all(isinstance(k, Const) for k in self.kids):
+        if all(isinstance(k, Const) and not isinstance(k, EmbedQuery) for k in self.kids):
             self.const = s_msgpack.en([k.value() for k in self.kids])
 
     async def compute(self, runt, path):
@@ -4115,9 +4194,11 @@ class EditPropSet(Edit):
                 # runt node property permissions are enforced by the callback
                 runt.confirmPropSet(prop)
 
+            isndef = isinstance(prop.type, s_types.Ndef)
             isarray = isinstance(prop.type, s_types.Array)
 
             try:
+
                 if isarray and isinstance(rval, SubQuery):
                     valu = await rval.compute_array(runt, path)
                     expand = False
@@ -4125,7 +4206,7 @@ class EditPropSet(Edit):
                 else:
                     valu = await rval.compute(runt, path)
 
-                valu = await s_stormtypes.tostor(valu)
+                valu = await s_stormtypes.tostor(valu, isndef=isndef)
 
                 if isadd or issub:
 
@@ -4823,8 +4904,9 @@ class Function(AstNode):
 
             @s_stormtypes.stormfunc(readonly=True)
             async def realfunc(*args, **kwargs):
-                return await self.callfunc(runt, argdefs, args, kwargs)
+                return await self.callfunc(runt, argdefs, args, kwargs, realfunc._storm_funcpath)
 
+            realfunc._storm_funcpath = self.name
             await runt.setVar(self.name, realfunc)
 
         count = 0
@@ -4846,7 +4928,7 @@ class Function(AstNode):
         # var scope validation occurs in the sub-runtime
         pass
 
-    async def callfunc(self, runt, argdefs, args, kwargs):
+    async def callfunc(self, runt, argdefs, args, kwargs, funcpath):
         '''
         Execute a function call using the given runtime.
 
@@ -4857,7 +4939,7 @@ class Function(AstNode):
 
         argcount = len(args) + len(kwargs)
         if argcount > len(argdefs):
-            mesg = f'{self.name}() takes {len(argdefs)} arguments but {argcount} were provided'
+            mesg = f'{funcpath}() takes {len(argdefs)} arguments but {argcount} were provided'
             raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
         # Fill in the positional arguments
@@ -4871,7 +4953,7 @@ class Function(AstNode):
             valu = kwargs.pop(name, s_common.novalu)
             if valu is s_common.novalu:
                 if defv is s_common.novalu:
-                    mesg = f'{self.name}() missing required argument {name}'
+                    mesg = f'{funcpath}() missing required argument {name}'
                     raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
                 valu = defv
 
@@ -4882,11 +4964,11 @@ class Function(AstNode):
             # used a kwarg not defined.
             kwkeys = list(kwargs.keys())
             if kwkeys[0] in posnames:
-                mesg = f'{self.name}() got multiple values for parameter {kwkeys[0]}'
+                mesg = f'{funcpath}() got multiple values for parameter {kwkeys[0]}'
                 raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             plural = 's' if len(kwargs) > 1 else ''
-            mesg = f'{self.name}() got unexpected keyword argument{plural}: {",".join(kwkeys)}'
+            mesg = f'{funcpath}() got unexpected keyword argument{plural}: {",".join(kwkeys)}'
             raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
         assert len(mergargs) == len(argdefs)

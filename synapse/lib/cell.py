@@ -36,6 +36,7 @@ import synapse.lib.boss as s_boss
 import synapse.lib.coro as s_coro
 import synapse.lib.hive as s_hive
 import synapse.lib.link as s_link
+import synapse.lib.task as s_task
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
 import synapse.lib.drive as s_drive
@@ -96,16 +97,16 @@ def adminapi(log=False):
     def decrfunc(func):
 
         @functools.wraps(func)
-        def wrapped(*args, **kwargs):
+        def wrapped(self, *args, **kwargs):
 
-            if args[0].user is not None and not args[0].user.isAdmin():
-                raise s_exc.AuthDeny(mesg='User is not an admin.',
-                                     user=args[0].user.name)
+            if self.user is not None and not self.user.isAdmin():
+                raise s_exc.AuthDeny(mesg=f'User is not an admin [{self.user.name}]',
+                                     user=self.user.iden, username=self.user.name)
             if log:
-                logger.info('Executing [%s] as [%s] with args [%s][%s]',
-                            func.__qualname__, args[0].user.name, args[1:], kwargs)
+                logger.info(f'Executing [{func.__qualname__}] as [{self.user.name}] with args [{args}[{kwargs}]',
+                            extra={'synapse': {'wrapped_func': func.__qualname__}})
 
-            return func(*args, **kwargs)
+            return func(self, *args, **kwargs)
 
         wrapped.__syn_wrapped__ = 'adminapi'
 
@@ -206,6 +207,14 @@ class CellApi(s_base.Base):
 
     async def initCellApi(self):
         pass
+
+    @adminapi(log=True)
+    async def freeze(self, timeout=30):
+        return await self.cell.freeze(timeout=timeout)
+
+    @adminapi(log=True)
+    async def resume(self):
+        return await self.cell.resume()
 
     async def allowed(self, perm, default=None):
         '''
@@ -444,12 +453,49 @@ class CellApi(s_base.Base):
         return await self.cell.delUser(iden)
 
     @adminapi(log=True)
-    async def addRole(self, name):
-        return await self.cell.addRole(name)
+    async def addRole(self, name, iden=None):
+        return await self.cell.addRole(name, iden=iden)
 
     @adminapi(log=True)
     async def delRole(self, iden):
         return await self.cell.delRole(iden)
+
+    async def addUserApiKey(self, name, duration=None, useriden=None):
+        if useriden is None:
+            useriden = self.user.iden
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.addUserApiKey(useriden, name, duration=duration)
+
+    async def listUserApiKeys(self, useriden=None):
+        if useriden is None:
+            useriden = self.user.iden
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.listUserApiKeys(useriden)
+
+    async def delUserApiKey(self, iden):
+        apikey = await self.cell.getUserApiKey(iden)
+        if apikey is None:
+            mesg = f'User API key with {iden=} does not exist.'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
+
+        useriden = apikey.get('user')
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.delUserApiKey(iden)
 
     @adminapi()
     async def dyncall(self, iden, todo, gatekeys=()):
@@ -1092,6 +1138,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
     SYSCTL_CHECK_FREQ = 60.0
 
+    LOGGED_HTTPAPI_HEADERS = ('User-Agent',)
+
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
         # phase 1
@@ -1108,6 +1156,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.auth = None
         self.cellparent = parent
         self.sessions = {}
+        self.paused = False
         self.isactive = False
         self.activebase = None
         self.inaugural = False
@@ -1651,12 +1700,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                        f'{disk.free / disk.total * 100:.2f}%), setting Cell to read-only.'
                 logger.error(mesg)
 
-            elif nexsroot.readonly:
-
-                await nexsroot.delWriteHold(diskspace)
+            elif nexsroot.readonly and await nexsroot.delWriteHold(diskspace):
 
                 mesg = f'Free space on {self.dirn} above minimum threshold (currently ' \
-                       f'{disk.free / disk.total * 100:.2f}%), re-enabling writes.'
+                       f'{disk.free / disk.total * 100:.2f}%), removing free space write hold.'
                 logger.error(mesg)
 
             await self._checkspace.timewait(timeout=self.FREE_SPACE_CHECK_FREQ)
@@ -1783,8 +1830,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return await self.drive.addItemInfo(info, path=path, reldir=reldir)
 
-    async def getDriveInfo(self, iden):
-        return self.drive.getItemInfo(iden)
+    async def getDriveInfo(self, iden, typename=None):
+        return self.drive.getItemInfo(iden, typename=typename)
+
+    def reqDriveInfo(self, iden, typename=None):
+        return self.drive.reqItemInfo(iden, typename=typename)
 
     async def getDrivePath(self, path, reldir=s_drive.rootdir):
         '''
@@ -2134,6 +2184,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Hand off leadership to a mirror in a transactional fashion.
         '''
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
+
+        if not self.isactive:
+            mesg = f'HANDOFF: {_dispname} is not the current leader and cannot handoff leadership to' \
+                   f' {s_urlhelp.sanitizeUrl(turl)}.'
+            logger.error(mesg)
+            raise s_exc.BadState(mesg=mesg, turl=turl, cursvc=_dispname)
+
         logger.warning(f'HANDOFF: Performing leadership handoff to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
         async with await s_telepath.openurl(turl) as cell:
 
@@ -2580,18 +2637,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         walkpath(self.backdirn)
         return backups
 
-    async def iterBackupArchive(self, name, user):
-
-        success = False
-        loglevel = logging.WARNING
-
-        path = self._reqBackDirn(name)
-        cellguid = os.path.join(path, 'cell.guid')
-        if not os.path.isfile(cellguid):
-            mesg = 'Specified backup path has no cell.guid file.'
-            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
-
+    async def _streamBackupArchive(self, path, user, name):
         link = s_scope.get('link')
+        if link is None:
+            mesg = 'Link not found in scope. This API must be called via a CellApi.'
+            raise s_exc.SynErr(mesg=mesg)
+
         linkinfo = await link.getSpawnInfo()
         linkinfo['logconf'] = await self._getSpawnLogConf()
 
@@ -2599,42 +2650,42 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ctx = multiprocessing.get_context('spawn')
 
-        proc = None
-        mesg = 'Streaming complete'
-
         def getproc():
             proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
             proc.start()
             return proc
 
+        mesg = 'Streaming complete'
+        proc = await s_coro.executor(getproc)
+        cancelled = False
         try:
-            proc = await s_coro.executor(getproc)
-
             await s_coro.executor(proc.join)
+            self.backlastuploaddt = datetime.datetime.now()
+            logger.debug(f'Backup streaming completed successfully for {name}')
 
-        except (asyncio.CancelledError, Exception) as e:
+        except asyncio.CancelledError:
+            logger.warning('Backup streaming was cancelled.')
+            cancelled = True
+            raise
 
-            # We want to log all exceptions here, an asyncio.CancelledError
-            # could be the result of a remote link terminating due to the
-            # backup stream being completed, prior to this function
-            # finishing.
+        except Exception as e:
             logger.exception('Error during backup streaming.')
-
-            if proc:
-                proc.terminate()
-
             mesg = repr(e)
             raise
 
-        else:
-            success = True
-            loglevel = logging.DEBUG
-            self.backlastuploaddt = datetime.datetime.now()
-
         finally:
-            phrase = 'successfully' if success else 'with failure'
-            logger.log(loglevel, f'iterBackupArchive completed {phrase} for {name}')
-            raise s_exc.DmonSpawn(mesg=mesg)
+            proc.terminate()
+
+            if not cancelled:
+                raise s_exc.DmonSpawn(mesg=mesg)
+
+    async def iterBackupArchive(self, name, user):
+        path = self._reqBackDirn(name)
+        cellguid = os.path.join(path, 'cell.guid')
+        if not os.path.isfile(cellguid):
+            mesg = 'Specified backup path has no cell.guid file.'
+            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
+        await self._streamBackupArchive(path, user, name)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
 
@@ -2645,9 +2696,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if remove:
                 self.backupstreaming = True
 
-            success = False
-            loglevel = logging.WARNING
-
             if name is None:
                 name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
 
@@ -2655,10 +2703,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isdir(path):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
-
-            link = s_scope.get('link')
-            linkinfo = await link.getSpawnInfo()
-            linkinfo['logconf'] = await self._getSpawnLogConf()
 
             try:
                 await self.runBackup(name)
@@ -2669,54 +2713,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     logger.debug(f'Removed {path}')
                 raise
 
-            await self.boss.promote('backup:stream', user=user, info={'name': name})
-
-            ctx = multiprocessing.get_context('spawn')
-
-            proc = None
-            mesg = 'Streaming complete'
-
-            def getproc():
-                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
-                proc.start()
-                return proc
-
-            try:
-                proc = await s_coro.executor(getproc)
-
-                await s_coro.executor(proc.join)
-
-            except (asyncio.CancelledError, Exception) as e:
-
-                # We want to log all exceptions here, an asyncio.CancelledError
-                # could be the result of a remote link terminating due to the
-                # backup stream being completed, prior to this function
-                # finishing.
-                logger.exception('Error during backup streaming.')
-
-                if proc:
-                    proc.terminate()
-
-                mesg = repr(e)
-                raise
-
-            else:
-                success = True
-                loglevel = logging.DEBUG
-                self.backlastuploaddt = datetime.datetime.now()
-
-            finally:
-                if remove:
-                    logger.debug(f'Removing {path}')
-                    await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-                    logger.debug(f'Removed {path}')
-
-                phrase = 'successfully' if success else 'with failure'
-                logger.log(loglevel, f'iterNewBackupArchive completed {phrase} for {name}')
-                raise s_exc.DmonSpawn(mesg=mesg)
+            await self._streamBackupArchive(path, user, name)
 
         finally:
             if remove:
+                logger.debug(f'Removing {path}')
+                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                logger.debug(f'Removed {path}')
                 self.backupstreaming = False
 
     async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
@@ -2897,8 +2900,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         logger.info(f'Deleted user={name}',
                    extra=await self.getLogExtra(target_user=iden, target_username=name, status='DELETE'))
 
-    async def addRole(self, name):
-        role = await self.auth.addRole(name)
+    async def addRole(self, name, iden=None):
+        role = await self.auth.addRole(name, iden=iden)
         logger.info(f'Added role={name}',
                     extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name, status='CREATE'))
         return role.pack()
@@ -3244,6 +3247,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'remoteip': remote_ip,
                 }
 
+        headers = {}
+
+        for header in self.LOGGED_HTTPAPI_HEADERS:
+            if (valu := handler.request.headers.get(header)) is not None:
+                headers[header.lower()] = valu
+
+        if headers:
+            enfo['headers'] = headers
+
         extra = {'synapse': enfo}
 
         # It is possible that a Cell implementor may register handlers which
@@ -3576,7 +3588,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         item.setdefault('permissions', {})
         item['permissions'].setdefault('users', {})
         item['permissions'].setdefault('roles', {})
-        item['permissions']['default'] = default
+        item['permissions'].setdefault('default', default)
 
     async def getTeleApi(self, link, mesg, path):
 
@@ -4455,6 +4467,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A Dictionary of metadata.
         '''
+
+        mirror = self.conf.get('mirror')
+        if mirror is not None:
+            mirror = s_urlhelp.sanitizeUrl(mirror)
+
         ret = {
             'synapse': {
                 'commit': s_version.commit,
@@ -4465,6 +4482,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'run': await self.getCellRunId(),
                 'type': self.getCellType(),
                 'iden': self.getCellIden(),
+                'paused': self.paused,
                 'active': self.isactive,
                 'started': self.startms,
                 'ready': self.nexsroot.ready.is_set(),
@@ -4474,6 +4492,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'cellvers': dict(self.cellvers.items()),
                 'nexsindx': await self.getNexsIndx(),
                 'uplink': self.nexsroot.miruplink.is_set(),
+                'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
                     'leader': self.conf.get('aha:leader'),
@@ -4941,3 +4960,52 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.SynErr(mesg='no queue available')
         for mesg in list(self._syn_log_queue):
             yield mesg
+
+    async def freeze(self, timeout=30):
+
+        if self.paused:
+            mesg = 'The service is already frozen.'
+            raise s_exc.BadState(mesg=mesg)
+
+        logger.warning(f'Freezing service for volume snapshot.')
+
+        logger.warning('...acquiring nexus lock to prevent edits.')
+
+        try:
+            await asyncio.wait_for(self.nexslock.acquire(), timeout=timeout)
+
+        except asyncio.TimeoutError:
+            logger.warning('...nexus lock acquire timed out!')
+            logger.warning('Aborting freeze and resuming normal operation.')
+
+            mesg = 'Nexus lock acquire timed out.'
+            raise s_exc.TimeOut(mesg=mesg)
+
+        self.paused = True
+
+        try:
+
+            logger.warning('...committing pending transactions.')
+            await self.slab.syncLoopOnce()
+
+            logger.warning('...flushing dirty buffers to disk.')
+            await s_task.executor(os.sync)
+
+            logger.warning('...done!')
+
+        except Exception:
+            self.paused = False
+            self.nexslock.release()
+            logger.exception('Failed to freeze. Resuming normal operation.')
+            raise
+
+    async def resume(self):
+
+        if not self.paused:
+            mesg = 'The service is not frozen.'
+            raise s_exc.BadState(mesg=mesg)
+
+        logger.warning('Resuming normal operations from a freeze.')
+
+        self.paused = False
+        self.nexslock.release()

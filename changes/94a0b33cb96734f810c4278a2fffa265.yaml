@@ -1,5 +1,0 @@
----
-desc: Expose the HTTP request headers on the Storm ``http:resp`` object.
-prs: []
-type: feat
-...

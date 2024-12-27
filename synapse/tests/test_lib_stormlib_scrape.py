@@ -92,7 +92,7 @@ class StormScrapeTest(s_test.SynTest):
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('scrape'))
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
             self.len(2, mods)
@@ -104,14 +104,6 @@ class StormScrapeTest(s_test.SynTest):
             self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
             self.stormIsInPrint('inet:url=https://giggles.com/mallory.html', msgs)
             self.stormIsInPrint("'match': 'hzzps[:]\\\\giggles.com/mallory.html'", msgs)
-
-            with mock.patch('synapse.lib.scrape.SCRAPE_SPAWN_LENGTH', 0):
-                msgs = await core.stormlist(q, opts={'vars': {'text': text}})
-                self.stormIsInPrint('ps:name=alice', msgs)
-                self.stormIsInPrint('inet:fqdn=foo.bar.com', msgs)
-                self.stormIsInPrint('inet:url=https://1.2.3.4/alice.html', msgs)
-                self.stormIsInPrint('inet:url=https://giggles.com/mallory.html', msgs)
-                self.stormIsInPrint("'match': 'hzzps[:]\\\\giggles.com/mallory.html'", msgs)
 
             cq = '''$ret=$lib.list()
             for ($form, $valu) in $lib.scrape.ndefs($text) {
@@ -139,7 +131,7 @@ class StormScrapeTest(s_test.SynTest):
         conf = {'storm:interface:scrape': False, }
         async with self.getTestCore(conf=conf) as core:
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
             self.len(2, mods)

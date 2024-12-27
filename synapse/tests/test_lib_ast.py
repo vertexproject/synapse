@@ -131,7 +131,7 @@ class AstTest(s_test.SynTest):
             self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
         async with self.getTestCore() as core:
-            await core.loadStormPkg({
+            core.loadStormPkg({
                 'name': 'testsearch',
                 'modules': [
                     {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''
@@ -1351,7 +1351,7 @@ class AstTest(s_test.SynTest):
                     {n.ndef for n in nodes})
 
             msgs = await core.stormlist('pkg.list')
-            self.stormIsInPrint('foo                             : 0.0.1', msgs)
+            self.stormIsInPrint('foo 0.0.1', msgs, whitespace=False)
 
             msgs = await core.stormlist('pkg.del asdf')
             self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
@@ -3113,6 +3113,54 @@ class AstTest(s_test.SynTest):
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('haha', text[off:end])
 
+            text = '$lib.newp'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('newp', text[off:end])
+
+            visi = (await core.addUser('visi'))['iden']
+            text = '$users=$lib.auth.users.list() $lib.print($users.0.profile)'
+            msgs = await core.stormlist(text, opts={'user': visi})
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.print($users.0.profile)', text[off:end])
+
+            text = '$lib.len(foo, bar)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.len(foo, bar)', text[off:end])
+            self.stormIsInErr('$lib.len()', msgs)
+
+            text = '$foo=$lib.pkg.get $foo()'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('foo()', text[off:end])
+            self.stormIsInErr('$lib.pkg.get()', msgs)
+
+            text = '$obj = $lib.pipe.gen(${ $obj.put() }) $obj.put(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('obj.put(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('pipe.put()', msgs)
+
+            text = '$lib.gen.campaign(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.gen.campaign(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.gen.campaign()', msgs)
+
+            text = '$gen = $lib.gen.campaign $gen(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('gen(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.gen.campaign()', msgs)
+
     async def test_ast_bulkedges(self):
 
         async with self.getTestCore() as core:
@@ -4331,3 +4379,61 @@ class AstTest(s_test.SynTest):
             _assert_edge(msgs, small, {'type': 'prop', 'prop': 'ndefs', 'reverse': True}, nidx=1)
             _assert_edge(msgs, small, {'type': 'edge', 'verb': 'seen', 'reverse': True}, nidx=2)
             _assert_edge(msgs, small, {'type': 'edge', 'verb': 'someedge', 'reverse': True}, nidx=3)
+
+    async def test_ast_varlistset(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'blob': ('vertex.link', '9001')}}
+            text = '($fqdn, $crap) = $blob [ inet:fqdn=$fqdn ]'
+
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
+
+            now = s_common.now()
+            ret = await core.callStorm('($foo, $bar)=$lib.cast(ival, $lib.time.now()) return($foo)')
+            self.ge(ret, now)
+
+            # The runtsafe invocation of the VarListSetOper is done per node.
+            q = '''
+            init { $count = ({ 'c': (0) }) }
+            function foo(){
+                $count.c = ( $count.c + (1) )
+                return((a, b))
+            }
+            inet:fqdn=vertex.link
+            ($a, $b) = $foo()
+            fini { return ( $count ) }
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, {'c': 1})
+
+            text = '.created ($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
+            text = '($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
+            text = 'for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = 'for ($x, $y) in ($lib.layer.get(),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '($x, $y) = (1)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)

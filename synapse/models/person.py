@@ -377,10 +377,12 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The service accounts associated with this contact.'}),
 
                     ('web:acct', ('inet:web:acct', {}), {
-                        'doc': 'The social media account for this contact.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Use :service:accounts.',
                     }),
                     ('web:group', ('inet:web:group', {}), {
-                        'doc': 'A web group representing this contact.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Use inet:service:group:profile to link to a group.',
                     }),
                     ('birth:place', ('geo:place', {}), {
                         'doc': 'A fully resolved place of birth for this contact.',
@@ -463,7 +465,8 @@ class PsModule(s_module.CoreModule):
                         'doc': 'An array of secondary/associated email addresses.',
                     }),
                     ('web:accts', ('array', {'type': 'inet:web:acct', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of secondary/associated web accounts.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Use :service:accounts.',
                     }),
                     ('id:numbers', ('array', {'type': 'ou:id:number', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of secondary/associated IDs.',
@@ -511,7 +514,11 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The file from which the contact list was extracted.',
                     }),
                     ('source:acct', ('inet:web:acct', {}), {
-                        'doc': 'The web account from which the contact list was extracted.',
+                        'deprecated': True,
+                        'doc': 'Deprecated. Use :source:account.',
+                    }),
+                    ('source:account', ('inet:service:account', {}), {
+                        'doc': 'The service account from which the contact list was extracted.',
                     }),
                 )),
 

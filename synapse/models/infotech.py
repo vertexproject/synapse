@@ -18,10 +18,10 @@ import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
 
-# This is the regular expression pattern for CPE2.2. It's kind of a hybrid
+# This is the regular expression pattern for CPE 2.2. It's kind of a hybrid
 # between compatible binding and preferred binding. Differences are here:
 # - Use only the list of percent encoded values specified by preferred binding.
-#   This is to ensure it converts properly to CPE2.3.
+#   This is to ensure it converts properly to CPE 2.3.
 # - Add tilde (~) to the UNRESERVED list which removes the need to specify the
 #   PACKED encoding specifically.
 ALPHA = '[A-Za-z]'
@@ -59,6 +59,14 @@ COMPONENT_LIST = f'''
 
 cpe22_regex = regex.compile(f'cpe:/{COMPONENT_LIST}', regex.VERBOSE | regex.IGNORECASE)
 cpe23_regex = regex.compile(s_scrape._cpe23_regex, regex.VERBOSE | regex.IGNORECASE)
+
+def isValidCpe22(text):
+    rgx = cpe22_regex.fullmatch(text)
+    return rgx is not None
+
+def isValidCpe23(text):
+    rgx = cpe23_regex.fullmatch(text)
+    return rgx is not None
 
 def cpesplit(text):
     part = ''
@@ -251,9 +259,20 @@ class Cpe22Str(s_types.Str):
     def _normPyStr(self, valu):
 
         text = valu.lower()
+
         if text.startswith('cpe:/'):
+
+            if not isValidCpe22(text):
+                mesg = 'CPE 2.2 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
             parts = chopCpe22(text)
         elif text.startswith('cpe:2.3:'):
+
+            if not isValidCpe23(text):
+                mesg = 'CPE 2.3 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
             parts = cpesplit(text[8:])
         else:
             mesg = 'CPE 2.2 string is expected to start with "cpe:/"'
@@ -261,8 +280,7 @@ class Cpe22Str(s_types.Str):
 
         v2_2 = zipCpe22(parts)
 
-        rgx = cpe22_regex.match(v2_2)
-        if rgx is None or rgx.group() != v2_2:
+        if not isValidCpe22(v2_2): # pragma: no cover
             mesg = 'CPE 2.2 string appears to be invalid.'
             raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
 
@@ -330,6 +348,12 @@ class Cpe23Str(s_types.Str):
     def _normPyStr(self, valu):
         text = valu.lower()
         if text.startswith('cpe:2.3:'):
+
+            # Validate the CPE 2.3 string immediately
+            if not isValidCpe23(text):
+                mesg = 'CPE 2.3 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
+
             parts = cpesplit(text[8:])
             if len(parts) > 11:
                 mesg = f'CPE 2.3 string has {len(parts)} fields, expected up to 11.'
@@ -346,6 +370,10 @@ class Cpe23Str(s_types.Str):
                     v2_2[idx] = ''
                     continue
 
+                if idx in (PART_IDX_PART, PART_IDX_LANG) and part == '-':
+                    v2_2[idx] = ''
+                    continue
+
                 part = fsb_unescape(part)
                 v2_2[idx] = uri_quote(part)
 
@@ -357,11 +385,21 @@ class Cpe23Str(s_types.Str):
                 v2_2[PART_IDX_OTHER]
             )
 
-            v2_2 = v2_2[:7]
+            v2_2 = zipCpe22(v2_2[:7])
+
+            # Now validate the downconvert
+            if not isValidCpe22(v2_2): # pragma: no cover
+                mesg = 'Invalid CPE 2.3 to CPE 2.2 conversion.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_2=v2_2)
 
             parts = [fsb_unescape(k) for k in parts]
 
         elif text.startswith('cpe:/'):
+
+            # Validate the CPE 2.2 string immediately
+            if not isValidCpe22(text):
+                mesg = 'CPE 2.2 string appears to be invalid.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
 
             v2_2 = text
             # automatically normalize CPE 2.2 format to CPE 2.3
@@ -408,23 +446,14 @@ class Cpe23Str(s_types.Str):
 
             v2_3 = 'cpe:2.3:' + ':'.join(escaped)
 
+            # Now validate the upconvert
+            if not isValidCpe23(v2_3): # pragma: no cover
+                mesg = 'Invalid CPE 2.2 to CPE 2.3 conversion.'
+                raise s_exc.BadTypeValu(mesg=mesg, valu=valu, v2_3=v2_3)
+
         else:
             mesg = 'CPE 2.3 string is expected to start with "cpe:2.3:"'
             raise s_exc.BadTypeValu(valu=valu, mesg=mesg)
-
-        rgx = cpe23_regex.match(v2_3)
-        if rgx is None or rgx.group() != v2_3:
-            mesg = 'CPE 2.3 string appears to be invalid.'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=valu)
-
-        if isinstance(v2_2, list):
-            cpe22 = zipCpe22(v2_2)
-        else:
-            cpe22 = v2_2
-
-        rgx = cpe22_regex.match(cpe22)
-        if rgx is None or rgx.group() != cpe22:
-            v2_2 = None
 
         subs = {
             'part': parts[PART_IDX_PART],
@@ -438,10 +467,8 @@ class Cpe23Str(s_types.Str):
             'target_sw': parts[PART_IDX_TARGET_SW],
             'target_hw': parts[PART_IDX_TARGET_HW],
             'other': parts[PART_IDX_OTHER],
+            'v2_2': v2_2,
         }
-
-        if v2_2 is not None:
-            subs['v2_2'] = v2_2
 
         return v2_3, {'subs': subs}
 
@@ -936,12 +963,12 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:exec:pipe', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A named pipe created by a process at runtime.',
-                }),
+                    'doc': 'A named pipe created by a process at runtime.'}),
+
                 ('it:exec:url', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host requesting a URL.',
-                }),
+                    'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
+
                 ('it:exec:bind', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host binding a listening port.',
@@ -1882,7 +1909,8 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'The commit message describing the changes in the commit.'}),
 
-                    ('id', ('str', {}), {
+                    # we mirror the interface type options...
+                    ('id', ('str', {'strip': True}), {
                         'doc': 'The version control system specific commit identifier.'}),
 
                     ('created', ('time', {}), {
@@ -2709,15 +2737,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path for the file.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2755,15 +2780,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was created.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2789,15 +2811,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was deleted.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2823,15 +2842,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was read.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -2857,15 +2873,12 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The path where the file was written to/modified.',
                     }),
                     ('path:dir', ('file:path', {}), {
-                        'ro': True,
                         'doc': 'The parent directory of the file path (parsed from :path).',
                     }),
                     ('path:ext', ('str', {'lower': True, 'strip': True}), {
-                        'ro': True,
                         'doc': 'The file extension of the file name (parsed from :path).',
                     }),
                     ('path:base', ('file:base', {}), {
-                        'ro': True,
                         'doc': 'The final component of the file path (parsed from :path).',
                     }),
                     ('file', ('file:bytes', {}), {
@@ -3001,6 +3014,9 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The sensor host node that produced the hit.'}),
                     ('version', ('it:semver', {}), {
                         'doc': 'The version of the rule at the time of match.'}),
+
+                    ('dropped', ('bool', {}), {
+                        'doc': 'Set to true if the network traffic was dropped due to the match.'}),
                 )),
 
                 ('it:sec:stix:bundle', {}, (

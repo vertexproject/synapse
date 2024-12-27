@@ -59,7 +59,7 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
 
   check_runner_has_work:
     description: Check that this runner has work to do
@@ -69,7 +69,7 @@ commands:
           command: |
             mkdir -p ./tmp && \
             >./tmp/tests.txt && \
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/*/tests/test_*.py | circleci tests run --split-by=timings --command ">./tmp/tests.txt xargs echo"
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | circleci tests run --split-by=timings --command ">./tmp/tests.txt xargs echo"
             [ -s tmp/tests.txt ] || circleci-agent step halt #if there are no tests, terminate execution after this step
 
   test_steps_doc:
@@ -83,9 +83,14 @@ commands:
             sudo apt-get update
             sudo apt-get -y install pandoc
 
+      - run:
+          name: python version dump
+          command: |
+            python -c "import sys; print(sys.version)" | tee -a /tmp/python.version
+
       - restore_cache:
           keys:
-            - v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: setup venv
@@ -103,7 +108,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: executing docs jupyter notebooks
@@ -123,16 +128,21 @@ commands:
           command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
+      - run:
+          name: python version dump
+          command: |
+            python -c "import sys; print(sys.version)" | tee -a /tmp/python.version
+
       - restore_cache:
           keys:
-            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - do_venv_setup
 
       - save_cache:
           paths:
             - ./venv
-          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: syntax
@@ -156,9 +166,14 @@ commands:
     steps:
       - checkout
 
+      - run:
+          name: python version dump
+          command: |
+            python -c "import sys; print(sys.version)" | tee -a /tmp/python.version
+
       - restore_cache:
           keys:
-            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: install python dependencies
@@ -171,7 +186,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: init .pypirc

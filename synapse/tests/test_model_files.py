@@ -638,3 +638,22 @@ class FileTest(s_t_utils.SynTest):
             self.eq(node.get('iconindex'), 1)
 
             self.len(1, await core.nodes('file:mime:lnk -> it:hostname'))
+
+    async def test_model_file_attachment(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''
+                [ file:attachment=*
+                    :name=Foo/Bar.exe
+                    :text="foo bar"
+                    :file=*
+                ]
+            ''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('file'))
+            self.eq('foo bar', nodes[0].get('text'))
+            self.eq('foo/bar.exe', nodes[0].get('name'))
+
+            self.len(1, await core.nodes('file:attachment -> file:bytes'))
+            self.len(1, await core.nodes('file:attachment -> file:path'))
