@@ -2623,18 +2623,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         walkpath(self.backdirn)
         return backups
 
-    async def iterBackupArchive(self, name, user):
-
-        success = False
-        loglevel = logging.WARNING
-
-        path = self._reqBackDirn(name)
-        cellguid = os.path.join(path, 'cell.guid')
-        if not os.path.isfile(cellguid):
-            mesg = 'Specified backup path has no cell.guid file.'
-            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
-
+    async def _streamBackupArchive(self, path, user, name):
         link = s_scope.get('link')
+        if link is None:
+            mesg = 'Link not found in scope. This API must be called via a CellApi.'
+            raise s_exc.SynErr(mesg=mesg)
+
         linkinfo = await link.getSpawnInfo()
         linkinfo['logconf'] = await self._getSpawnLogConf()
 
@@ -2642,42 +2636,42 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ctx = multiprocessing.get_context('spawn')
 
-        proc = None
-        mesg = 'Streaming complete'
-
         def getproc():
             proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
             proc.start()
             return proc
 
+        mesg = 'Streaming complete'
+        proc = await s_coro.executor(getproc)
+        cancelled = False
         try:
-            proc = await s_coro.executor(getproc)
-
             await s_coro.executor(proc.join)
+            self.backlastuploaddt = datetime.datetime.now()
+            logger.debug(f'Backup streaming completed successfully for {name}')
 
-        except (asyncio.CancelledError, Exception) as e:
+        except asyncio.CancelledError:
+            logger.warning('Backup streaming was cancelled.')
+            cancelled = True
+            raise
 
-            # We want to log all exceptions here, an asyncio.CancelledError
-            # could be the result of a remote link terminating due to the
-            # backup stream being completed, prior to this function
-            # finishing.
+        except Exception as e:
             logger.exception('Error during backup streaming.')
-
-            if proc:
-                proc.terminate()
-
             mesg = repr(e)
             raise
 
-        else:
-            success = True
-            loglevel = logging.DEBUG
-            self.backlastuploaddt = datetime.datetime.now()
-
         finally:
-            phrase = 'successfully' if success else 'with failure'
-            logger.log(loglevel, f'iterBackupArchive completed {phrase} for {name}')
-            raise s_exc.DmonSpawn(mesg=mesg)
+            proc.terminate()
+
+            if not cancelled:
+                raise s_exc.DmonSpawn(mesg=mesg)
+
+    async def iterBackupArchive(self, name, user):
+        path = self._reqBackDirn(name)
+        cellguid = os.path.join(path, 'cell.guid')
+        if not os.path.isfile(cellguid):
+            mesg = 'Specified backup path has no cell.guid file.'
+            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
+        await self._streamBackupArchive(path, user, name)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
 
@@ -2688,9 +2682,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if remove:
                 self.backupstreaming = True
 
-            success = False
-            loglevel = logging.WARNING
-
             if name is None:
                 name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
 
@@ -2698,10 +2689,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isdir(path):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
-
-            link = s_scope.get('link')
-            linkinfo = await link.getSpawnInfo()
-            linkinfo['logconf'] = await self._getSpawnLogConf()
 
             try:
                 await self.runBackup(name)
@@ -2712,54 +2699,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     logger.debug(f'Removed {path}')
                 raise
 
-            await self.boss.promote('backup:stream', user=user, info={'name': name})
-
-            ctx = multiprocessing.get_context('spawn')
-
-            proc = None
-            mesg = 'Streaming complete'
-
-            def getproc():
-                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
-                proc.start()
-                return proc
-
-            try:
-                proc = await s_coro.executor(getproc)
-
-                await s_coro.executor(proc.join)
-
-            except (asyncio.CancelledError, Exception) as e:
-
-                # We want to log all exceptions here, an asyncio.CancelledError
-                # could be the result of a remote link terminating due to the
-                # backup stream being completed, prior to this function
-                # finishing.
-                logger.exception('Error during backup streaming.')
-
-                if proc:
-                    proc.terminate()
-
-                mesg = repr(e)
-                raise
-
-            else:
-                success = True
-                loglevel = logging.DEBUG
-                self.backlastuploaddt = datetime.datetime.now()
-
-            finally:
-                if remove:
-                    logger.debug(f'Removing {path}')
-                    await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-                    logger.debug(f'Removed {path}')
-
-                phrase = 'successfully' if success else 'with failure'
-                logger.log(loglevel, f'iterNewBackupArchive completed {phrase} for {name}')
-                raise s_exc.DmonSpawn(mesg=mesg)
+            await self._streamBackupArchive(path, user, name)
 
         finally:
             if remove:
+                logger.debug(f'Removing {path}')
+                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                logger.debug(f'Removed {path}')
                 self.backupstreaming = False
 
     async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
