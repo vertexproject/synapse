@@ -3499,6 +3499,97 @@ class CortexBasicTest(s_t_utils.SynTest):
             for node in nodes:
                 self.nn(node.getTag('hehe'))
 
+            # Break and Continue cannot cross function boundaries and will instead raise a catchable StormRuntimeError
+            keywords = ('break', 'continue')
+            base_func_q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    KEYWORD
+                }
+                return ( $v )
+            }
+            $N = (5)
+
+            for $valu in $lib.range($N) {
+                $lib.print(`{$inner($valu)}/{$N}`)
+            }
+            '''
+            func_catch_q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    KEYWORD
+                }
+                return ( $v )
+            }
+            $N = (5)
+            try {
+                for $valu in $lib.range($N) {
+                    $lib.print(`{$inner($valu)}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            for keyword in keywords:
+                q = base_func_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'function inner - Loop control statement "{keyword}" used outside of a loop.',
+                                  msgs)
+
+                q = func_catch_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInPrint(f'function inner - Loop control statement "{keyword}" used outside of a loop.',
+                                    msgs)
+
+            # The toplevel use of the keywords will convert them into StormRuntimeError in the message stream
+            # but prevent them from being caught.
+            base_top_q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) { break }
+                $lib.print(`{$j}/{$N}`)
+            }
+            if ($j = 2) {
+                KEYWORD
+            }
+            '''
+            top_catch_q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) { break }
+                $lib.print(`{$j}/{$N}`)
+            }
+            try {
+                if ($j = 2) {
+                    KEYWORD
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            for keyword in keywords:
+                q = base_top_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'Loop control statement "{keyword}" used outside of a loop.',
+                                  msgs)
+                errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+                self.eq(errname, 'StormRuntimeError')
+
+                q = top_catch_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'Loop control statement "{keyword}" used outside of a loop.',
+                                    msgs)
+                errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+                self.eq(errname, 'StormRuntimeError')
+
     async def test_storm_varcall(self):
 
         async with self.getTestCore() as core:
