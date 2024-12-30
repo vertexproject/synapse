@@ -360,29 +360,79 @@ class StormTest(s_t_utils.SynTest):
             }
             '''
             msgs = await core.stormlist(q)
-            for m in msgs:
-                print(m)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInErr('function inner - Generator control statement "stop" used outside of a generator '
+                              'function.',
+                              msgs)
 
-            # Outside of a function, stop be converted into a StormRuntimeError for the control stream.
+            # The function exception raised can be caught.
             q = '''
-            init {
-                $N = (10)
-                $values = ()
-                 for $i in $lib.range($N) {
-                    $values.append($i)
-                }
-            }
-            $l=$lib.len($values)
-            for $j in $values {
-                if ($j = 2) {
+            function inner(v) {
+                if ( $v = 2 ) {
                     stop
                 }
-                $lib.print(`{$j}/{$l}`)
+                return ( $v )
+            }
+            function outer(n) {
+                for $i in $lib.range($n) {
+                    emit $inner($i)
+                }
+            }
+            $N = (5)
+            try {
+                for $valu in $outer($N) {
+                    $lib.print(`{$valu}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
             }
             '''
             msgs = await core.stormlist(q)
-            for m in msgs:
-                print(m)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInPrint('caught: function inner - Generator control statement "stop" used outside of a'
+                                ' generator function.',
+                                msgs)
+
+            # Outside a function, StormStorm is caught and converted into a StormRuntimeError for the message stream.
+            # Since this is tearing down the runtime, it cannot be caught.
+            q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) {
+                    stop
+                }
+                $lib.print(`{$j}/{$N}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInErr('Generator control statement "stop" used outside of a generator function.',
+                              msgs)
+            errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+            self.eq(errname, 'StormRuntimeError')
+
+            q = '''
+            $N = (5)
+            try {
+                for $j in $lib.range($N) {
+                    if ($j = 2) {
+                        stop
+                    }
+                    $lib.print(`{$j}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormNotInPrint('caught:', msgs)
+            self.stormIsInErr('Generator control statement "stop" used outside of a generator function.',
+                              msgs)
 
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
