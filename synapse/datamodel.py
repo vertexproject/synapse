@@ -445,14 +445,17 @@ class Form:
         '''
         return self.props.get(name)
 
-    def reqProp(self, name):
+    def reqProp(self, name, extra=None):
         prop = self.props.get(name)
         if prop is not None:
             return prop
 
         full = f'{self.name}:{name}'
-        mesg = f'No property named {full}.'
-        raise s_exc.NoSuchProp(mesg=mesg, name=full)
+        exc = s_exc.NoSuchProp.init(full)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def pack(self):
         props = {p.name: p.pack() for p in self.props.values()}
