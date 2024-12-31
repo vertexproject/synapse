@@ -2,12 +2,14 @@ class StormCtrlFlow(Exception):
     '''
     Base class all StormCtlFlow exceptions derive from.
     '''
+    def __init__(self):
+        raise NotImplementedError
 
 class _SynErrMixin(Exception):
     '''
     An exception mixin to give some control flow classes functionality like SynErr
     '''
-    def __init__(self, **info):
+    def __init__(self, *args, **info):
         self.errinfo = info
         Exception.__init__(self, self._getExcMsg())
 
