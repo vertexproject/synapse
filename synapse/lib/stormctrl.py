@@ -1,6 +1,6 @@
 class StormCtrlFlow(Exception):
     '''
-    Base class all StormCtlFlow exceptions derive from.
+    Base class all StormCtrlFlow exceptions derive from.
     '''
     def __init__(self):
         raise NotImplementedError
@@ -61,8 +61,7 @@ class _SynErrMixin(Exception):
         self._setExcMesg()
 
     def update(self, items):
-        for k, v in items.items():
-            self.errinfo[k] = v
+        self.errinfo.update(items)
         self._setExcMesg()
 
 class StormLoopCtrl(_SynErrMixin):
