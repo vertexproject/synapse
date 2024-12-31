@@ -395,7 +395,7 @@ class StormTest(s_t_utils.SynTest):
                                 ' generator function.',
                                 msgs)
 
-            # Outside a function, StormStorm is caught and converted into a StormRuntimeError for the message stream.
+            # Outside a function, StopStorm is caught and converted into a StormRuntimeError for the message stream.
             # Since this is tearing down the runtime, it cannot be caught.
             q = '''
             $N = (5)
@@ -433,6 +433,34 @@ class StormTest(s_t_utils.SynTest):
             self.stormNotInPrint('caught:', msgs)
             self.stormIsInErr('Generator control statement "stop" used outside of a generator function.',
                               msgs)
+
+            # Mixing a Loop control flow statement in an emitter to stop its processing
+            # will be converted into a catchable StormRuntimeError
+            q = '''
+            function inner(n) {
+                emit $n
+                $n = ( $n + 1 )
+                emit $n
+                $n = ( $n + 1 )
+                if ( $n >= 2 ) {
+                    break
+                }
+                emit $n
+            }
+            $N = (0)
+            try {
+                for $valu in $inner($N) {
+                    $lib.print(`got {$valu}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('got 1', msgs)
+            self.stormNotInPrint('got 2', msgs)
+            self.stormIsInPrint('caught: function inner - Loop control statement "break" used outside of a loop.',
+                                msgs)
 
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
