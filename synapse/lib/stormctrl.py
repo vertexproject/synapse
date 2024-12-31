@@ -60,7 +60,8 @@ class _SynErrMixin(Exception):
         self.errinfo[name] = valu
         self._setExcMesg()
 
-    def update(self, items):
+    def update(self, items: dict):
+        '''Update multiple items in the errinfo dict at once.'''
         self.errinfo.update(items)
         self._setExcMesg()
 
@@ -83,6 +84,8 @@ class StormContinue(StormLoopCtrl, StormCtrlFlow):
 
 class StormExit(_SynErrMixin, StormCtrlFlow): pass
 
+# StormReturn is kept thin since it is commonly used and just
+# needs to be the container for moving an item up a frame.
 class StormReturn(StormCtrlFlow):
     def __init__(self, item=None):
         self.item = item
