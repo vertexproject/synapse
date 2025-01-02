@@ -421,7 +421,7 @@ class ProtoNode(s_node.NodeBase):
             try:
                 valu, _ = self.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
-                e.errinfo['tag'] = tagnode.valu
+                e.set('tag', tagnode.valu)
                 raise e
 
         tagup = tagnode.get('up')
@@ -678,9 +678,9 @@ class ProtoNode(s_node.NodeBase):
                 valu, norminfo = prop.type.norm(valu)
             except s_exc.BadTypeValu as e:
                 oldm = e.errinfo.get('mesg')
-                e.errinfo['prop'] = prop.name
-                e.errinfo['form'] = prop.form.name
-                e.errinfo['mesg'] = f'Bad prop value {prop.full}={valu!r} : {oldm}'
+                e.update({'prop': prop.name,
+                          'form': prop.form.name,
+                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 raise e
 
         if isinstance(prop.type, s_types.Ndef):
@@ -851,7 +851,7 @@ class NodeEditor:
             try:
                 valu, norminfo = form.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                e.errinfo['form'] = form.name
+                e.set('form', form.name)
                 raise e
 
         return valu, norminfo

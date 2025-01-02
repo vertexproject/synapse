@@ -29,6 +29,8 @@ import traceback
 import contextlib
 import collections
 
+import http.cookies
+
 import yaml
 import regex
 
@@ -38,6 +40,8 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
+import synapse.vendor.cpython.lib.http.cookies as v_cookies
+
 
 try:
     from yaml import CSafeLoader as Loader
@@ -1194,6 +1198,17 @@ def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
     assert plen > 0
     assert n > plen
     return f'{text[:mlen]}{placeholder}'
+
+def _patch_http_cookies():
+    '''
+    Patch stdlib http.cookies._unquote from the 3.11.10 implementation if
+    the interpreter we are using is not patched for CVE-2024-7592.
+    '''
+    if not hasattr(http.cookies, '_QuotePatt'):
+        return
+    http.cookies._unquote = v_cookies._unquote
+
+_patch_http_cookies()
 
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up

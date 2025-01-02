@@ -1360,6 +1360,11 @@ class CellTest(s_t_utils.SynTest):
                         with mock.patch('os.stat', diffdev):
                             await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
 
+                user = await core.auth.getUserByName('root')
+                with self.raises(s_exc.SynErr) as cm:
+                    await core.iterNewBackupArchive(user)
+                self.isin('This API must be called via a CellApi', cm.exception.get('mesg'))
+
             async def err(*args, **kwargs):
                 raise RuntimeError('boom')
 
@@ -2212,11 +2217,13 @@ class CellTest(s_t_utils.SynTest):
                             # Backup the mirror (core01) which points to the core00
                             async with await axon00.upload() as upfd:
                                 async with core01.getLocalProxy() as prox:
+                                    tot_chunks = 0
                                     async for chunk in prox.iterNewBackupArchive():
                                         await upfd.write(chunk)
+                                        tot_chunks += len(chunk)
 
                                     size, sha256 = await upfd.save()
-                                    await asyncio.sleep(0)
+                                    self.eq(size, tot_chunks)
 
                     furl = f'{url}{s_common.ehex(sha256)}'
                     purl = await aha.addAhaSvcProv('00.mynewcortex')
@@ -3024,3 +3031,66 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadState) as cm:
                         await cell00.promote(graceful=True)
                     self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
+
+    async def test_stream_backup_exception(self):
+
+        with self.getTestDir() as dirn:
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+
+                    await proxy.runBackup(name='bkup')
+
+                    mock_proc = mock.Mock()
+                    mock_proc.join = mock.Mock()
+
+                    async def mock_executor(func, *args, **kwargs):
+                        if isinstance(func, mock.Mock) and func is mock_proc.join:
+                            raise Exception('boom')
+                        return mock_proc
+
+                    with mock.patch('synapse.lib.cell.s_coro.executor', mock_executor):
+                        with self.getAsyncLoggerStream('synapse.lib.cell', 'Error during backup streaming') as stream:
+                            with self.raises(Exception) as cm:
+                                async for _ in proxy.iterBackupArchive('bkup'):
+                                    pass
+                            self.true(await stream.wait(timeout=6))
+
+    async def test_iter_new_backup_archive(self):
+
+        with self.getTestDir() as dirn:
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+
+                    async def mock_runBackup(*args, **kwargs):
+                        raise Exception('backup failed')
+
+                    with mock.patch.object(s_cell.Cell, 'runBackup', mock_runBackup):
+                        with self.getAsyncLoggerStream('synapse.lib.cell', 'Removing') as stream:
+                            with self.raises(s_exc.SynErr) as cm:
+                                async for _ in proxy.iterNewBackupArchive('failedbackup', remove=True):
+                                    pass
+
+                            self.isin('backup failed', str(cm.exception))
+                            self.true(await stream.wait(timeout=6))
+
+                            path = os.path.join(backdirn, 'failedbackup')
+                            self.false(os.path.exists(path))
+
+                    self.false(core.backupstreaming)
+
+                    core.backupstreaming = True
+                    with self.raises(s_exc.BackupAlreadyRunning):
+                        async for _ in proxy.iterNewBackupArchive('newbackup', remove=True):
+                            pass

@@ -963,12 +963,12 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:exec:pipe', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A named pipe created by a process at runtime.',
-                }),
+                    'doc': 'A named pipe created by a process at runtime.'}),
+
                 ('it:exec:url', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host requesting a URL.',
-                }),
+                    'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
+
                 ('it:exec:bind', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host binding a listening port.',
