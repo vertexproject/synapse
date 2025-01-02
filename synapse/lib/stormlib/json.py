@@ -93,6 +93,7 @@ class JsonLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_jsonSave',
                   'args': (
                       {'name': 'item', 'type': 'any', 'desc': 'The item to be serialized as a JSON string.', },
+                      {'name': 'indent', 'type': ['int', 'str'], 'desc': 'Specify a number of spaces or a string to indent with.', 'default': None},
                   ),
                   'returns': {'type': 'str', 'desc': 'The JSON serialized object.', }}},
         {'name': 'schema', 'desc': 'Get a JS schema validation object.',
@@ -115,10 +116,10 @@ class JsonLib(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _jsonSave(self, item):
+    async def _jsonSave(self, item, indent=None):
         try:
             item = await s_stormtypes.toprim(item)
-            return json.dumps(item)
+            return json.dumps(item, indent=indent)
         except Exception as e:
             mesg = f'Argument is not JSON compatible: {item}'
             raise s_exc.MustBeJsonSafe(mesg=mesg)
