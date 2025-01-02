@@ -2422,22 +2422,6 @@ class LayerTest(s_t_utils.SynTest):
                 (test:virtiface=* :servers=("tcp://127.0.0.1:12341", "tcp://[::2]:12342"))
             ]''')
 
-            self.len(3, await core.nodes('test:virtiface.created +:servers*size=2'))
-            self.len(3, await core.nodes('test:virtiface.created +:servers*size>1'))
-            self.len(0, await core.nodes('test:virtiface.created +:servers*size>2'))
-
-            self.len(3, await core.nodes('test:virtiface:servers*size=2'))
-            self.len(0, await core.nodes('test:virtiface:servers*size=3'))
-
-            self.len(3, await core.nodes('test:virtiface:servers*size>1'))
-            self.len(0, await core.nodes('test:virtiface:servers*size>2'))
-
-            self.len(3, await core.nodes('test:virtiface:servers*size<3'))
-            self.len(0, await core.nodes('test:virtiface:servers*size<2'))
-
-            self.len(3, await core.nodes('test:virtiface:servers*size*range=(1, 3)'))
-            self.len(0, await core.nodes('test:virtiface:servers*size*range=(3, 4)'))
-
             self.len(12, await core.nodes('inet:server*ip'))
             self.len(12, await core.nodes('inet:server*port'))
             self.len(1, await core.nodes('inet:server*ip=127.0.0.1'))
@@ -2528,6 +2512,30 @@ class LayerTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ip=127.0.0.4]'))
             self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ip="::5"]'))
             self.len(2, await core.nodes('ou:org.created +.virtunivarray*[ip*range=(127.0.0.4, 127.0.0.5)]'))
+
+            self.len(3, await core.nodes('test:virtiface.created +:servers*size=2'))
+            self.len(3, await core.nodes('test:virtiface.created +:servers*size>1'))
+            self.len(0, await core.nodes('test:virtiface.created +:servers*size>2'))
+
+            self.len(3, await core.nodes('test:virtiface:servers*size=2'))
+            self.len(0, await core.nodes('test:virtiface:servers*size=3'))
+            self.len(3, await core.nodes('test:virtiface:servers*size>1'))
+            self.len(0, await core.nodes('test:virtiface:servers*size>2'))
+            self.len(3, await core.nodes('test:virtiface:servers*size<3'))
+            self.len(0, await core.nodes('test:virtiface:servers*size<2'))
+            self.len(3, await core.nodes('test:virtiface:servers*size*range=(1, 3)'))
+            self.len(0, await core.nodes('test:virtiface:servers*size*range=(3, 4)'))
+
+            nodes = await core.nodes('.virtunivarray*size=2')
+            self.len(3, nodes)
+            self.eq(nodes[::-1], await core.nodes('reverse(.virtunivarray*size=2)'))
+
+            nodes = await core.nodes('.virtunivarray*size*range=(2, 3)')
+            self.len(3, nodes)
+            self.eq(nodes[::-1], await core.nodes('reverse(.virtunivarray*size*range=(2, 3))'))
+
+            self.len(1, await core.nodes('test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342")'))
+            self.len(1, await core.nodes('reverse(test:virtiface:servers=("tcp://[::1]:12341", "tcp://[::2]:12342"))'))
 
             await core.nodes('.virtunivarray*[ip=127.0.0.4] [ .virtunivarray=(tcp://127.0.0.1, tcp://127.0.0.2) ]')
 
@@ -2628,10 +2636,46 @@ class LayerTest(s_t_utils.SynTest):
             indxby = s_layer.IndxByVirtArray(layr, None, '.virtunivarray', ['ip'])
             self.eq(str(indxby), 'IndxByVirtArray: .virtunivarray*ip')
 
+            self.len(0, await core.nodes('test:arrayform*size=2'))
+
             await core.nodes('[ test:arrayform=([1, 2]) test:arrayform=([2, 3]) test:arrayform=([4, 5, 6]) ]')
-            self.len(2, await core.nodes('test:arrayform*size=2'))
+
+            self.len(1, await core.nodes('test:arrayform=([1, 2])'))
+            self.len(1, await core.nodes('reverse(test:arrayform=([1, 2]))'))
+
+            nodes = await core.nodes('test:arrayform*size=2')
+            self.len(2, nodes)
+            self.eq(nodes[::-1], await core.nodes('reverse(test:arrayform*size=2)'))
+
             self.len(2, await core.nodes('test:arrayform*size*range=(1, 2)'))
-            self.len(3, await core.nodes('test:arrayform*size*range=(2, 3)'))
+
+            nodes = await core.nodes('test:arrayform*size*range=(2, 3)')
+            self.len(3, nodes)
+            self.eq(nodes[::-1], await core.nodes('reverse(test:arrayform*size*range=(2, 3))'))
+
+            indxby = s_layer.IndxByFormArrayValu(layr, 'test:arrayform')
+            self.eq(str(indxby), 'IndxByFormArrayValu: test:arrayform')
+
+            indxby = s_layer.IndxByFormArraySize(layr, 'test:arrayform')
+            self.eq(str(indxby), 'IndxByFormArraySize: test:arrayform')
+
+            indxby = s_layer.IndxByPropArrayValu(layr, 'test:virtiface', 'servers')
+            self.eq(str(indxby), 'IndxByPropArrayValu: test:virtiface:servers')
+
+            indxby = s_layer.IndxByPropArraySize(layr, 'test:virtiface', 'servers')
+            self.eq(str(indxby), 'IndxByPropArraySize: test:virtiface:servers')
+
+            indxby = s_layer.IndxByPropArrayValu(layr, None, '.virtunivarray')
+            self.eq(str(indxby), 'IndxByPropArrayValu: .virtunivarray')
+
+            indxby = s_layer.IndxByPropArraySize(layr, None, '.virtunivarray')
+            self.eq(str(indxby), 'IndxByPropArraySize: .virtunivarray')
+
+            with self.raises(s_exc.NoSuchVirt):
+                await core.nodes('test:arrayform*newp*range=(2, 3)')
+
+            with self.raises(s_exc.NoSuchCmpr):
+                await core.nodes('test:arrayform*size*newp=(2, 3)')
 
     async def test_layer_readahead(self):
 
