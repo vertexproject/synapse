@@ -5,9 +5,7 @@ import asyncio
 import logging
 import calendar
 import datetime
-import functools
 import itertools
-import collections
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
 
