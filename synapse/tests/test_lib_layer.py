@@ -2422,6 +2422,22 @@ class LayerTest(s_t_utils.SynTest):
                 (test:virtiface=* :servers=("tcp://127.0.0.1:12341", "tcp://[::2]:12342"))
             ]''')
 
+            self.len(3, await core.nodes('test:virtiface.created +:servers*size=2'))
+            self.len(3, await core.nodes('test:virtiface.created +:servers*size>1'))
+            self.len(0, await core.nodes('test:virtiface.created +:servers*size>2'))
+
+            self.len(3, await core.nodes('test:virtiface:servers*size=2'))
+            self.len(0, await core.nodes('test:virtiface:servers*size=3'))
+
+            self.len(3, await core.nodes('test:virtiface:servers*size>1'))
+            self.len(0, await core.nodes('test:virtiface:servers*size>2'))
+
+            self.len(3, await core.nodes('test:virtiface:servers*size<3'))
+            self.len(0, await core.nodes('test:virtiface:servers*size<2'))
+
+            self.len(3, await core.nodes('test:virtiface:servers*size*range=(1, 3)'))
+            self.len(0, await core.nodes('test:virtiface:servers*size*range=(3, 4)'))
+
             self.len(12, await core.nodes('inet:server*ip'))
             self.len(12, await core.nodes('inet:server*port'))
             self.len(1, await core.nodes('inet:server*ip=127.0.0.1'))
@@ -2611,6 +2627,11 @@ class LayerTest(s_t_utils.SynTest):
 
             indxby = s_layer.IndxByVirtArray(layr, None, '.virtunivarray', ['ip'])
             self.eq(str(indxby), 'IndxByVirtArray: .virtunivarray*ip')
+
+            await core.nodes('[ test:arrayform=([1, 2]) test:arrayform=([2, 3]) test:arrayform=([4, 5, 6]) ]')
+            self.len(2, await core.nodes('test:arrayform*size=2'))
+            self.len(2, await core.nodes('test:arrayform*size*range=(1, 2)'))
+            self.len(3, await core.nodes('test:arrayform*size*range=(2, 3)'))
 
     async def test_layer_readahead(self):
 
