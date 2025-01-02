@@ -60,7 +60,7 @@ external_modules:
 graphs:
     - name: testgraph
       degrees: 2
-      pivots: ["<- meta:seen <- meta:source"]
+      pivots: ["-> meta:seen <(*)- meta:source"]
       filters: ["-#nope"]
       forms:
         inet:fqdn:

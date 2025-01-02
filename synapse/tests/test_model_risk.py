@@ -426,6 +426,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 :disclosed=20231102
                 :owner={ gen.ou.org.hq acme }
                 :leaker={ gen.ou.org.hq wikileaks }
+                :recipient={ gen.ou.org.hq everyone }
                 :type=public
                 :goal={[ ou:goal=* :name=publicity ]}
                 :compromise={[ risk:compromise=* :target={ gen.ou.org.hq acme } ]}
@@ -454,6 +455,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:leak -> risk:leak:type:taxonomy'))
             self.len(1, await core.nodes('risk:leak :owner -> ps:contact +:orgname=acme'))
             self.len(1, await core.nodes('risk:leak :leaker -> ps:contact +:orgname=wikileaks'))
+            self.len(1, await core.nodes('risk:leak :recipient -> ps:contact +:orgname=everyone'))
             self.len(1, await core.nodes('risk:leak -> ou:goal +:name=publicity'))
             self.len(1, await core.nodes('risk:leak -> risk:compromise :target -> ps:contact +:orgname=acme'))
             self.len(1, await core.nodes('risk:leak :reporter -> ou:org +:name=vertex'))

@@ -27,6 +27,9 @@ class ExcTest(s_t_utils.SynTest):
         e.setdefault('defv', 2)
         self.eq("SynErr: defv=1 foo='words' hehe=1234 mesg='words'", str(e))
 
+        e.update({'foo': 'newwords', 'bar': 'baz'})
+        self.eq("SynErr: bar='baz' defv=1 foo='newwords' hehe=1234 mesg='words'", str(e))
+
         self.eq(e.errname, 'SynErr')
 
         e2 = s_exc.BadTypeValu(mesg='haha')
