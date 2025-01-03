@@ -484,7 +484,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('lookup'))
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('lookup')
             self.len(1, mods)
@@ -513,7 +513,7 @@ class CortexTest(s_t_utils.SynTest):
             vals = [r async for r in core.view.callStormIface('boom', todo)]
             self.eq((), vals)
 
-            await core._dropStormPkg(pkgdef)
+            core._dropStormPkg(pkgdef)
             self.none(core.modsbyiface.get('lookup'))
 
             mods = await core.getStormIfaces('lookup')
@@ -558,7 +558,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('foo@bar.com foo@bar.com', opts={'mode': 'lookup'})
             self.eq(['inet:email', 'inet:email'], [n.ndef[0] for n in nodes])
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
             self.len(1, await core.getStormIfaces('search'))
 
             todo = s_common.todo('search', ('foo@bar.com',))

@@ -480,6 +480,7 @@ class InetModelTest(s_t_utils.SynTest):
                 :raw=((10), (20))
                 :src:txfiles={[ file:attachment=* :name=foo.exe ]}
                 :dst:txfiles={[ file:attachment=* :name=bar.exe ]}
+                :capture:host=*
             )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
             self.len(1, nodes)
@@ -523,11 +524,13 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('src:rdp:hostname'), 'syncoder')
             self.eq(node.get('src:rdp:keyboard:layout'), 'azerty')
             self.eq(node.get('raw'), (10, 20))
+            self.nn(node.get('capture:host'))
             self.len(2, await core.nodes('inet:flow -> crypto:x509:cert'))
             self.len(1, await core.nodes('inet:flow :src:ssh:key -> crypto:key'))
             self.len(1, await core.nodes('inet:flow :dst:ssh:key -> crypto:key'))
             self.len(1, await core.nodes('inet:flow :src:txfiles -> file:attachment +:name=foo.exe'))
             self.len(1, await core.nodes('inet:flow :dst:txfiles -> file:attachment +:name=bar.exe'))
+            self.len(1, await core.nodes('inet:flow :capture:host -> it:host'))
 
     async def test_fqdn(self):
         formname = 'inet:fqdn'
@@ -2769,6 +2772,7 @@ class InetModelTest(s_t_utils.SynTest):
             q = '''
             [
             inet:email:message="*"
+                :id="Woot-12345 "
                 :to=woot@woot.com
                 :from=visi@vertex.link
                 :replyto=root@root.com
@@ -2790,6 +2794,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q, opts={'vars': {'flow': flow}})
             self.len(1, nodes)
 
+            self.eq(nodes[0].get('id'), 'Woot-12345')
             self.eq(nodes[0].get('cc'), ('baz@faz.org', 'foo@bar.com'))
             self.eq(nodes[0].get('received:from:ipv6'), '::1')
             self.eq(nodes[0].get('received:from:ipv4'), 0x01020304)
@@ -2870,6 +2875,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
             [ inet:egress=*
                 :host = *
+                :host:iface = *
                 :client=1.2.3.4
                 :client:ipv6="::1"
             ]
@@ -2877,9 +2883,13 @@ class InetModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.nn(nodes[0].get('host'))
+            self.nn(nodes[0].get('host:iface'))
             self.eq(nodes[0].get('client'), 'tcp://1.2.3.4')
             self.eq(nodes[0].get('client:ipv4'), 0x01020304)
             self.eq(nodes[0].get('client:ipv6'), '::1')
+
+            self.len(1, await core.nodes('inet:egress -> it:host'))
+            self.len(1, await core.nodes('inet:egress -> inet:iface'))
 
     async def test_model_inet_tls_handshake(self):
 
@@ -2999,6 +3009,7 @@ class InetModelTest(s_t_utils.SynTest):
                 (inet:service:account=(blackout, account, vertex, slack)
                     :id=U7RN51U1J
                     :user=blackout
+                    :url=https://vertex.link/users/blackout
                     :email=blackout@vertex.link
                     :profile={ gen.ps.contact.email vertex.employee blackout@vertex.link }
                     :tenant={[ inet:service:tenant=({"id": "VS-31337"}) ]}
@@ -3026,6 +3037,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(accounts[0].ndef, ('inet:service:account', s_common.guid(('blackout', 'account', 'vertex', 'slack'))))
             self.eq(accounts[0].get('id'), 'U7RN51U1J')
             self.eq(accounts[0].get('user'), 'blackout')
+            self.eq(accounts[0].get('url'), 'https://vertex.link/users/blackout')
             self.eq(accounts[0].get('email'), 'blackout@vertex.link')
             self.eq(accounts[0].get('profile'), blckprof.ndef[1])
 
