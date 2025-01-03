@@ -7,7 +7,7 @@ class StormCtrlFlow(Exception):
 
 class _SynErrMixin(Exception):
     '''
-    An exception mixin to give some control flow classes functionality like SynErr
+    An exception mixin to give some control flow classes functionality like SynErr.
     '''
     def __init__(self, *args, **info):
         self.errinfo = info
