@@ -1,5 +1,0 @@
----
-desc: Fixed SIGINT handling in the ``synapse.tools.storm`` CLI tool.
-prs: []
-type: bug
-...

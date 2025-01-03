@@ -404,8 +404,7 @@ class LibGen(s_stormtypes.Lib):
             switch $form {
                 "file:bytes":   { $tprop = target:file }
                 "inet:fqdn":    { $tprop = target:fqdn }
-                "inet:ipv4":    { $tprop = target:ipv4 }
-                "inet:ipv6":    { $tprop = target:ipv6 }
+                "inet:ip":      { $tprop = target:ip   }
                 "inet:url":     { $tprop = target:url  }
                 "it:exec:proc": { $tprop = target:proc }
                 "it:host":      { $tprop = target:host }

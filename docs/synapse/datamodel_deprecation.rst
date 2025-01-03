@@ -68,9 +68,9 @@ Types
 - `ps:persona`
     - Please use the `ps:person` or `ps:contact` types.
 - `ps:person:has`
-    - Please use `edge:has` or a light edge.
+    - Please use a light edge.
 - `ps:persona:has`
-    - Please use `ps:person` or `ps:context` in combination with an `edge:has` or a light edge.
+    - Please use `ps:person` or `ps:context` in combination with a light edge.
 - `inet:ssl:cert`
     - `inet:ssl:cert` is deprecated in favor of `inet:tls:servercert` and `inet:tls:clientcert`.
 
@@ -115,7 +115,7 @@ Properties
     - `:naics` and `:sic`
         - The `ou:org:naics` and `ou:org:sic` properties has been collected into the `ou:org:industries` property, which is an array of type `ou:industry`.
     - `:has`
-        - Please use an `edge:has` node or a light edge.
+        - Please use a light edge.
 
 - `risk:attack`
     - `:actor:org`

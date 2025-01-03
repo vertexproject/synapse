@@ -67,20 +67,20 @@ For example, the following query will return zero nodes, even though the ``yield
 - Pivot from a set of DNS A records to their associated IPs and then to additional DNS A records associated with those IPs. Use a subquery to check whether any of the IPs are RFC1918 addresses (i.e., have ``:type=private``) and if so, tag the IP as non-routable.
 
 
-.. storm-pre:: [inet:dns:a=(woot.com, 1.2.3.4)] -> inet:ipv4 { +:type=private [ +#nonroutable ] } -> inet:dns:a
+.. storm-pre:: [inet:dns:a=(woot.com, 1.2.3.4)] -> inet:ip { +:type=private [ +#nonroutable ] } -> inet:dns:a
 ::
 
-    <inet:dns:a> -> inet:ipv4 { +:type=private [ +#nonroutable ] } -> inet:dns:a
+    <inet:dns:a> -> inet:ip { +:type=private [ +#nonroutable ] } -> inet:dns:a
 
 
 - Pivot from a set of IP addresses to any servers associated with those IPs. Use a subquery to check whether the IP has a location (``:loc``) property, and if not, call a third-party geolocation service to attempt to identify a location and set the property. (**Note:** Synapse does not include a geolocation service in its public distribution; this example assumes such a service has been implemented and is called using an extended Storm command named ``ipgeoloc``.)
 
-.. storm-pre:: [ (inet:ipv4=12.34.56.78 :loc=us.oh) (inet:ipv4=44.44.44.44) (inet:server=tcp://12.34.56.78:80) (inet:server=tcp://44.44.44.44:443)]
-.. storm-pre:: inet:ipv4 { -:loc } -> inet:server
+.. storm-pre:: [ (inet:ip=12.34.56.78 :loc=us.oh) (inet:ip=44.44.44.44) (inet:server=tcp://12.34.56.78:80) (inet:server=tcp://44.44.44.44:443)]
+.. storm-pre:: inet:ip { -:loc } -> inet:server
 .. storm-pre:: $query=${} $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [({'name': 'ipgeoloc', 'storm': $query })] }) $lib.print($pkg) $lib.pkg.add($pkg)
 ::
 
-    <inet:ipv4> { -:loc | ipgeoloc } -> inet:server
+    <inet:ip> { -:loc | ipgeoloc } -> inet:server
 
 
 - Pivot from a set of FQDNs to any files (binaries) that query those FQDNs. Use a subquery with the ``yield`` option to return the file nodes as well as the original FQDNs.

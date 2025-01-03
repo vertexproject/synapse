@@ -40,13 +40,13 @@ class BizModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('purchases'))
             self.nn(nodes[0].get('requirements'))
 
-            self.len(2, await core.nodes('biz:dealstatus'))
+            self.len(2, await core.nodes('biz:deal:status:taxonomy'))
 
             self.len(1, await core.nodes('biz:rfp -> ou:goal'))
             self.len(1, await core.nodes('biz:rfp -> ps:contact'))
             self.len(1, await core.nodes('biz:rfp -> file:bytes'))
             self.len(1, await core.nodes('biz:rfp -> econ:purchase'))
-            self.len(1, await core.nodes('biz:rfp -> biz:dealstatus'))
+            self.len(1, await core.nodes('biz:rfp -> biz:deal:status:taxonomy'))
 
             nodes = await core.nodes('''
                 [ biz:deal=*
@@ -100,14 +100,14 @@ class BizModelTest(s_t_utils.SynTest):
             self.eq('lololol', nodes[0].get('seller:orgname'))
             self.eq('lololol.com', nodes[0].get('seller:orgfqdn'))
 
-            self.len(2, await core.nodes('biz:dealtype'))
+            self.len(2, await core.nodes('biz:deal:type:taxonomy'))
 
             self.len(1, await core.nodes('biz:deal -> biz:rfp'))
             self.len(1, await core.nodes('biz:deal -> econ:purchase'))
             self.len(1, await core.nodes('biz:deal :buyer -> ps:contact +:name=buyer'))
             self.len(1, await core.nodes('biz:deal :seller -> ps:contact +:name=seller'))
-            self.len(1, await core.nodes('biz:deal :type -> biz:dealtype'))
-            self.len(1, await core.nodes('biz:deal :status -> biz:dealstatus'))
+            self.len(1, await core.nodes('biz:deal :type -> biz:deal:type:taxonomy'))
+            self.len(1, await core.nodes('biz:deal :status -> biz:deal:status:taxonomy'))
 
             nodes = await core.nodes('''
                 [ biz:bundle=*
@@ -162,10 +162,10 @@ class BizModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('madeby:orgname'), 'wootwoot')
             self.eq(nodes[0].get('madeby:orgfqdn'), 'wootwoot.com')
 
-            self.len(2, await core.nodes('biz:prodtype'))
+            self.len(2, await core.nodes('biz:product:type:taxonomy'))
 
             self.len(1, await core.nodes('biz:product:name=WootWoot -> biz:bundle'))
-            self.len(1, await core.nodes('biz:product:name=WootWoot -> biz:prodtype'))
+            self.len(1, await core.nodes('biz:product:name=WootWoot -> biz:product:type:taxonomy'))
 
             nodes = await core.nodes('''
                 [ biz:stake=*

@@ -73,15 +73,15 @@ class LibStormTest(s_test.SynTest):
             self.len(2, await core.nodes(q))
 
             q = '''[
-            (inet:ipv4=1.2.3.4 :asn=4)
-            (inet:ipv4=1.2.3.5 :asn=5)
-            (inet:ipv4=1.2.3.6 :asn=10)
+            (inet:ip=1.2.3.4 :asn=4)
+            (inet:ip=1.2.3.5 :asn=5)
+            (inet:ip=1.2.3.6 :asn=10)
             ]'''
             await core.nodes(q)
 
             q = '''
             $filter = '-:asn=10'
-            inet:ipv4:asn
+            inet:ip:asn
             storm.exec $filter
             '''
             nodes = await core.nodes(q)
@@ -91,7 +91,7 @@ class LibStormTest(s_test.SynTest):
 
             q = '''
             $pivot = ${ -> inet:asn }
-            inet:ipv4:asn
+            inet:ip:asn
             storm.exec $pivot
             '''
             nodes = await core.nodes(q)
@@ -101,7 +101,7 @@ class LibStormTest(s_test.SynTest):
 
             # Exec a non-runtsafe query
             q = '''
-            inet:ipv4:asn
+            inet:ip:asn
             $filter = `+:asn={$node.repr().split('.').'-1'}`
             storm.exec $filter
             '''
