@@ -56,9 +56,14 @@ class SynErr(Exception):
         self.errinfo[name] = valu
         self._setExcMesg()
 
+    def update(self, items: dict):
+        '''Update multiple items in the errinfo dict at once.'''
+        self.errinfo.update(**items)
+        self._setExcMesg()
+
 class StormRaise(SynErr):
     '''
-    This represents a user provided exception inside of a Storm runtime. It requires a errname key.
+    This represents a user provided exception raised in the Storm runtime. It requires a errname key.
     '''
     def __init__(self, *args, **info):
         SynErr.__init__(self, *args, **info)
