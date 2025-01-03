@@ -498,6 +498,50 @@ class Array(Type):
 
         self.stortype = s_layer.STOR_FLAG_ARRAY | self.arraytype.stortype
 
+        self.inttype = self.modl.type('int')
+
+        self.virts |= {
+            'size': (self.inttype, self._getSize),
+        }
+
+        self.virtlifts = {
+            'size': {'range=': self._storLiftSizeRange}
+        }
+
+        for oper in ('=', '<', '>', '<=', '>='):
+            self.virtlifts['size'][oper] = self._storLiftSize
+
+    def getStorCmprs(self, cmpr, valu, virts=None):
+        if virts:
+            lifts = self.virtlifts
+            for virt in virts:
+                if (lifts := lifts.get(virt)) is None:
+                    raise s_exc.NoSuchVirt.init(virt, self)
+        else:
+            lifts = self.storlifts
+
+        if (func := lifts.get(cmpr)) is None:
+            mesg = f'Type ({self.name}) has no cmpr: "{cmpr}".'
+            raise s_exc.NoSuchCmpr(mesg=mesg, cmpr=cmpr, name=self.name)
+
+        return func(cmpr, valu)
+
+    def _getSize(self, valu):
+        return len(valu[0])
+
+    def _storLiftSize(self, cmpr, valu):
+        norm, _ = self.inttype.norm(valu)
+        return (
+            (cmpr, norm, s_layer.STOR_TYPE_ARRAY),
+        )
+
+    def _storLiftSizeRange(self, cmpr, valu):
+        minx = self.inttype.norm(valu[0])[0]
+        maxx = self.inttype.norm(valu[1])[0]
+        return (
+            (cmpr, (minx, maxx), s_layer.STOR_TYPE_ARRAY),
+        )
+
     def _normPyStr(self, text):
         if self.splitstr is None:
             mesg = f'{self.name} type has no split-char defined.'
