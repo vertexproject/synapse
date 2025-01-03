@@ -1394,8 +1394,8 @@ async def waitretn(futu, timeout):
 
 async def waitgenr(genr, timeout):
 
-    genr = genr.__aiter__()
-    try:
+    async with contextlib.aclosing(genr.__aiter__()) as genr:
+
         while True:
             retn = await waitretn(genr.__anext__(), timeout)
 
@@ -1406,8 +1406,6 @@ async def waitgenr(genr, timeout):
 
             if not retn[0]:
                 return
-    finally:
-        await genr.aclose()
 
 def format(text, **kwargs):
     '''

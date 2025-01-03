@@ -90,7 +90,7 @@ async def main(argv, outp=s_output.stdout):
                         formatter_class=argparse.RawDescriptionHelpFormatter)
 
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
-    pars.add_argument('--timeout', type=timeout_type, default=10, help='The number of seconds to wait before timing out.')
+    pars.add_argument('--timeout', type=timeout_type, default=10, help='The timeout in seconds for individual service API calls')
     pars.add_argument('--wait', action='store_true', help='Whether to wait for the mirrors to sync.')
     opts = pars.parse_args(argv)
 

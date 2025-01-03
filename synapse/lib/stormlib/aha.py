@@ -71,7 +71,7 @@ class AhaLib(s_stormtypes.Lib):
 
             Call method with arguments::
 
-                $todo = $lib.utils.todo(('method', (1, 2), ({'foo': 'bar'})))
+                $todo = $lib.utils.todo(('method', ([1, 2]), ({'foo': 'bar'})))
                 for $info in $lib.aha.callPeerApi(cortex..., $todo) {
                     $lib.print($info)
                 }
@@ -102,9 +102,9 @@ class AhaLib(s_stormtypes.Lib):
                     $lib.print($info)
                 }
 
-            Call getCellInfo on an AHA service, skipping the invoking service::
+            Call getNexusChanges on an AHA service, skipping the invoking service::
 
-                $todo = $lib.utils.todo('getCellInfo')
+                $todo = $lib.utils.todo('getNexusChanges', (0), wait=$lib.false)
                 for $info in $lib.aha.callPeerGenr(cortex..., $todo, skiprun=$lib.cell.getCellInfo().cell.run) {
                     $lib.print($info)
                 }
@@ -675,7 +675,7 @@ The ready column indicates that a service has entered into the realtime change w
             Note: non-mirror services are not displayed.
         '''),
         'cmdargs': (
-            ('--timeout', {'help': 'The number of seconds to wait for the mirrors to sync.',
+            ('--timeout', {'help': 'The timeout in seconds for individual service API calls.',
                            'default': 10, 'type': 'int'}),
             ('--wait', {'help': 'Whether to wait for the mirrors to sync.',
                         'action': 'store_true'}),
