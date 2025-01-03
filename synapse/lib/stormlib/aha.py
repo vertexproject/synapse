@@ -91,7 +91,7 @@ class AhaLib(s_stormtypes.Lib):
                         '''},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                             'desc': 'Yields the result of the API call as a tuple of (svcname, (ok, info)).', }}},
+                             'desc': 'Yields the results of the API calls as tuples of (svcname, (ok, info)).', }}},
         {'name': 'callPeerGenr', 'desc': '''Call a generator API on all peers (leader and mirrors) of an AHA service and yield the responses from each.
 
         Examples:
@@ -124,7 +124,7 @@ class AhaLib(s_stormtypes.Lib):
                        '''},
                   ),
                   'returns': {'name': 'yields', 'type': 'list',
-                             'desc': 'Yields the results of the API call as a tuple containing (svcname, (ok, info)).', }}}
+                             'desc': 'Yields the results of the API calls as tuples containing (svcname, (ok, info)).', }}}
 
     )
     _storm_lib_path = ('aha',)
@@ -169,9 +169,9 @@ class AhaLib(s_stormtypes.Lib):
         Call an API on an AHA service.
 
         Args:
-            svcname (str): The name of the AHA service to call
-            todo (list): The todo tuple from $lib.utils.todo()
-            timeout (int): Optional timeout in seconds
+            svcname (str): The name of the AHA service to call.
+            todo (list): The todo tuple from $lib.utils.todo().
+            timeout (int): Optional timeout in seconds.
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
         svcname = await s_stormtypes.tostr(svcname)
@@ -197,9 +197,9 @@ class AhaLib(s_stormtypes.Lib):
         Call a generator API on an AHA service.
 
         Args:
-            svcname (str): The name of the AHA service to call
-            todo (list): The todo tuple from $lib.utils.todo()
-            timeout (int): Optional timeout in seconds
+            svcname (str): The name of the AHA service to call.
+            todo (list): The todo tuple from $lib.utils.todo().
+            timeout (int): Optional timeout in seconds.
             skiprun (str): Optional run ID argument allows skipping self-enumeration.
         '''
         svcname = await s_stormtypes.tostr(svcname)
@@ -676,7 +676,7 @@ The ready column indicates that a service has entered into the realtime change w
         '''),
         'cmdargs': (
             ('--timeout', {'help': 'The number of seconds to wait for the mirrors to sync.',
-                           'default': 10, 'type': 'int', 'action': 'store'}),
+                           'default': 10, 'type': 'int'}),
             ('--wait', {'help': 'Whether to wait for the mirrors to sync.',
                         'action': 'store_true'}),
         ),
@@ -817,8 +817,7 @@ The ready column indicates that a service has entered into the realtime change w
                 continue
             }
 
-            $members = ()
-            $members.append($primary_member)
+            $members = ([$primary_member])
             for ($mname, $msvc) in $member_servers {
                 if ($mname != $vsvc_hostname) {
                     $msvc_info = $msvc.svcinfo
