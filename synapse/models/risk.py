@@ -242,8 +242,17 @@ class RiskModule(s_module.CoreModule):
                 (('risk:mitigation', 'uses', 'inet:service:rule'), {
                     'doc': 'The mitigation uses the service rule.'}),
 
+                (('risk:mitigation', 'uses', 'it:prod:softver'), {
+                    'doc': 'The mitigation uses the software version.'}),
+
+                (('risk:mitigation', 'uses', 'it:prod:hardware'), {
+                    'doc': 'The mitigation uses the hardware.'}),
+
                 (('risk:leak', 'leaked', None), {
                     'doc': 'The leak included the disclosure of the target node.'}),
+
+                (('risk:leak', 'enabled', 'risk:leak'), {
+                    'doc': 'The source leak enabled the target leak to occur.'}),
 
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
@@ -407,10 +416,12 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
 
                     ('software', ('it:prod:softver', {}), {
-                        'doc': 'A software version which implements a fix for the vulnerability.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:softver.'}),
 
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:hardware.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the mitigation.'}),
@@ -1033,6 +1044,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('leaker', ('ps:contact', {}), {
                         'doc': 'The identity which leaked the information.'}),
+
+                    ('recipient', ('ps:contact', {}), {
+                        'doc': 'The identity which received the leaked information.'}),
 
                     ('type', ('risk:leak:type:taxonomy', {}), {
                         'doc': 'A type taxonomy for the leak.'}),

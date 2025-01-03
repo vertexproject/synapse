@@ -1732,6 +1732,9 @@ class InetModule(s_module.CoreModule):
                         'template': {'service:base': 'object'},
                         'props': (
 
+                            ('url', ('inet:url', {}), {
+                                'doc': 'The primary URL associated with the {service:base}.'}),
+
                             ('status', ('inet:service:object:status', {}), {
                                 'doc': 'The status of the {service:base}.'}),
 
@@ -1814,6 +1817,9 @@ class InetModule(s_module.CoreModule):
                     )),
 
                     ('inet:email:message', {}, (
+
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'The ID parsed from the "message-id" header.'}),
 
                         ('to', ('inet:email', {}), {
                             'doc': 'The email address of the recipient.'}),
@@ -2175,6 +2181,9 @@ class InetModule(s_module.CoreModule):
                         ('dst:ssh:key', ('crypto:key', {}), {
                             'doc': 'The key sent by the server as part of an SSH session setup.'}),
 
+                        ('capture:host', ('it:host', {}), {
+                            'doc': 'The host which captured the flow.'}),
+
                         ('raw', ('data', {}), {
                             'doc': 'A raw record used to create the flow which may contain additional protocol details.'}),
                     )),
@@ -2197,6 +2206,9 @@ class InetModule(s_module.CoreModule):
 
                         ('host', ('it:host', {}), {
                             'doc': 'The host that used the network egress.'}),
+
+                        ('host:iface', ('inet:iface', {}), {
+                            'doc': 'The interface which the host used to connect out via the egress.'}),
 
                         ('account', ('inet:service:account', {}), {
                             'doc': 'The service account which used the client address to egress.'}),

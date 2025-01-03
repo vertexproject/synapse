@@ -60,7 +60,7 @@ class AstNode:
 
     def addExcInfo(self, exc):
         if 'highlight' not in exc.errinfo:
-            exc.errinfo['highlight'] = self.getPosInfo()
+            exc.set('highlight', self.getPosInfo())
         return exc
 
     def repr(self):
@@ -3579,10 +3579,23 @@ class FuncCall(Value):
         kwargs = {k: v for (k, v) in await self.kids[2].compute(runt, path)}
 
         with s_scope.enter({'runt': runt}):
-            retn = func(*argv, **kwargs)
-            if s_coro.iscoro(retn):
-                return await retn
-            return retn
+            try:
+                retn = func(*argv, **kwargs)
+                if s_coro.iscoro(retn):
+                    return await retn
+                return retn
+
+            except TypeError as e:
+                mesg = str(e)
+                if (funcpath := getattr(func, '_storm_funcpath', None)) is not None:
+                    mesg = f"{funcpath}(){mesg.split(')', 1)[1]}"
+
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+
+            except s_exc.SynErr as e:
+                if getattr(func, '_storm_runtime_lib_func', None) is not None:
+                    e.errinfo.pop('highlight', None)
+                raise self.addExcInfo(e)
 
 class DollarExpr(Value):
     '''
@@ -4891,8 +4904,9 @@ class Function(AstNode):
 
             @s_stormtypes.stormfunc(readonly=True)
             async def realfunc(*args, **kwargs):
-                return await self.callfunc(runt, argdefs, args, kwargs)
+                return await self.callfunc(runt, argdefs, args, kwargs, realfunc._storm_funcpath)
 
+            realfunc._storm_funcpath = self.name
             await runt.setVar(self.name, realfunc)
 
         count = 0
@@ -4914,7 +4928,7 @@ class Function(AstNode):
         # var scope validation occurs in the sub-runtime
         pass
 
-    async def callfunc(self, runt, argdefs, args, kwargs):
+    async def callfunc(self, runt, argdefs, args, kwargs, funcpath):
         '''
         Execute a function call using the given runtime.
 
@@ -4925,7 +4939,7 @@ class Function(AstNode):
 
         argcount = len(args) + len(kwargs)
         if argcount > len(argdefs):
-            mesg = f'{self.name}() takes {len(argdefs)} arguments but {argcount} were provided'
+            mesg = f'{funcpath}() takes {len(argdefs)} arguments but {argcount} were provided'
             raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
         # Fill in the positional arguments
@@ -4939,7 +4953,7 @@ class Function(AstNode):
             valu = kwargs.pop(name, s_common.novalu)
             if valu is s_common.novalu:
                 if defv is s_common.novalu:
-                    mesg = f'{self.name}() missing required argument {name}'
+                    mesg = f'{funcpath}() missing required argument {name}'
                     raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
                 valu = defv
 
@@ -4950,11 +4964,11 @@ class Function(AstNode):
             # used a kwarg not defined.
             kwkeys = list(kwargs.keys())
             if kwkeys[0] in posnames:
-                mesg = f'{self.name}() got multiple values for parameter {kwkeys[0]}'
+                mesg = f'{funcpath}() got multiple values for parameter {kwkeys[0]}'
                 raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
             plural = 's' if len(kwargs) > 1 else ''
-            mesg = f'{self.name}() got unexpected keyword argument{plural}: {",".join(kwkeys)}'
+            mesg = f'{funcpath}() got unexpected keyword argument{plural}: {",".join(kwkeys)}'
             raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
         assert len(mergargs) == len(argdefs)
