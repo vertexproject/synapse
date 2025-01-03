@@ -3284,6 +3284,40 @@ class CellTest(s_t_utils.SynTest):
                         await cell00.promote(graceful=True)
                     self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
 
+    async def test_cell_get_aha_proxy(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+
+            class MockAhaClient:
+                def __init__(self, proxy=None):
+                    self._proxy = proxy
+
+                async def proxy(self, timeout=None):
+                    return self._proxy
+
+            with self.getAsyncLoggerStream('synapse.lib.cell', 'AHA client connection failed.') as stream:
+                cell.ahaclient = MockAhaClient()
+                self.none(await cell.getAhaProxy())
+                self.true(await stream.wait(timeout=1))
+
+            class MockProxyHasNot:
+                def _hasTeleFeat(self, name, vers):
+                    return False
+
+            cell.ahaclient = MockAhaClient(proxy=MockProxyHasNot())
+            self.none(await cell.getAhaProxy(feats=(('test', 1),)))
+
+            class MockProxyHas:
+                def _hasTeleFeat(self, name, vers):
+                    return True
+
+            mock_proxy = MockProxyHas()
+            cell.ahaclient = MockAhaClient(proxy=mock_proxy)
+            self.eq(await cell.getAhaProxy(), mock_proxy)
+            self.eq(await cell.getAhaProxy(feats=(('test', 1),)), mock_proxy)
+
     async def test_lib_cell_sadaha(self):
 
         async with self.getTestCell() as cell:
