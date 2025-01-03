@@ -24,11 +24,14 @@ class JsonTest(s_test.SynTest):
 
             self.eq((
 '''{
-x"foo": 1,
-x"bar": {
-xx"baz": "hello"
-x}
-}'''), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=x))'))
+  "foo": 1,
+  "bar": {
+    "baz": "hello"
+  }
+}'''), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=2))'))
+
+            with self.raises(s_exc.BadCast):
+                await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=x))')
 
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return($lib.json.load(foo))')
