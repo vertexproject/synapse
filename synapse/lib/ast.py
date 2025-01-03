@@ -1020,13 +1020,13 @@ class ForLoop(Oper):
                             yield item
 
                     except s_stormctrl.StormBreak as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         break
 
                     except s_stormctrl.StormContinue as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         continue
 
                     finally:
@@ -1079,13 +1079,13 @@ class ForLoop(Oper):
                             yield jtem
 
                     except s_stormctrl.StormBreak as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         break
 
                     except s_stormctrl.StormContinue as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         continue
 
                     finally:
@@ -1109,13 +1109,13 @@ class WhileLoop(Oper):
                         await asyncio.sleep(0)
 
                 except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     break
 
                 except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     continue
 
                 finally:
@@ -1133,13 +1133,13 @@ class WhileLoop(Oper):
                         await asyncio.sleep(0)
 
                 except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     break
 
                 except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     continue
 
                 finally:
@@ -4724,9 +4724,9 @@ class BreakOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise s_stormctrl.StormBreak(item=(node, path))
+            raise self.addExcInfo(s_stormctrl.StormBreak(item=(node, path)))
 
-        raise s_stormctrl.StormBreak()
+        raise self.addExcInfo(s_stormctrl.StormBreak())
 
 class ContinueOper(AstNode):
 
@@ -4737,9 +4737,9 @@ class ContinueOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise s_stormctrl.StormContinue(item=(node, path))
+            raise self.addExcInfo(s_stormctrl.StormContinue(item=(node, path)))
 
-        raise s_stormctrl.StormContinue()
+        raise self.addExcInfo(s_stormctrl.StormContinue())
 
 class IfClause(AstNode):
     pass
@@ -4842,8 +4842,8 @@ class Stop(Oper):
     async def run(self, runt, genr):
         for _ in (): yield _
         async for node, path in genr:
-            raise s_stormctrl.StormStop()
-        raise s_stormctrl.StormStop()
+            raise self.addExcInfo(s_stormctrl.StormStop())
+        raise self.addExcInfo(s_stormctrl.StormStop())
 
 class FuncArgs(AstNode):
     '''
@@ -4987,9 +4987,16 @@ class Function(AstNode):
                         await asyncio.sleep(0)
 
                     return None
-
                 except s_stormctrl.StormReturn as e:
                     return e.item
+                except s_stormctrl.StormLoopCtrl as e:
+                    mesg = f'function {self.name} - Loop control statement "{e.statement}" used outside of a loop.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e.statement)) from e
+                except s_stormctrl.StormGenrCtrl as e:
+                    mesg = f'function {self.name} - Generator control statement "{e.statement}" used outside of a generator function.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e.statement)) from e
 
         async def genr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
@@ -5009,5 +5016,9 @@ class Function(AstNode):
                                 yield node, path
                 except s_stormctrl.StormStop:
                     return
+                except s_stormctrl.StormLoopCtrl as e:
+                    mesg = f'function {self.name} - Loop control statement "{e.statement}" used outside of a loop.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e.statement)) from e
 
         return genr()

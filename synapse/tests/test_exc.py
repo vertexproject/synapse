@@ -16,6 +16,7 @@ class ExcTest(s_t_utils.SynTest):
     def test_basic(self):
         e = s_exc.SynErr(mesg='words', foo='bar')
         self.eq(e.get('foo'), 'bar')
+        self.eq(e.items(), {'mesg': 'words', 'foo': 'bar'})
         self.eq("SynErr: foo='bar' mesg='words'", str(e))
         e.set('hehe', 1234)
         e.set('foo', 'words')
