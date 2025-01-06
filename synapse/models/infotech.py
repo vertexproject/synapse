@@ -655,6 +655,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:host', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'host'},
                     'doc': 'A GUID that represents a host or system.'}),
 
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
@@ -784,6 +785,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository'},
                     'doc': 'A version control system instance.',
                 }),
                 ('it:dev:repo:remote', ('guid', {}), {
@@ -791,10 +793,12 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:branch', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository branch'},
                     'doc': 'A branch in a version control system instance.',
                 }),
                 ('it:dev:repo:commit', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository commit'},
                     'doc': 'A commit to a repository.',
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
@@ -802,18 +806,22 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:issue:label', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository issue label'},
                     'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository issue'},
                     'doc': 'An issue raised in a repository.',
                 }),
                 ('it:dev:repo:issue:comment', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository issue comment'},
                     'doc': 'A comment on an issue in a repository.',
                 }),
                 ('it:dev:repo:diff:comment', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository diff comment'},
                     'doc': 'A comment on a diff in a repository.',
                 }),
                 ('it:prod:soft', ('guid', {}), {
@@ -1046,6 +1054,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:host:tenancy', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'host tenancy'},
                     'doc': 'A time window where a host was a tenant run by another host.'}),
 
                 ('it:software:image:type:taxonomy', ('taxonomy', {}), {
@@ -1054,6 +1063,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:software:image', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'software image'},
                     'doc': 'The base image used to create a container or OS.'}),
 
                 ('it:storage:mount', ('guid', {}), {
