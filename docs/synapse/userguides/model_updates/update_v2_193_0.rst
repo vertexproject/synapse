@@ -188,10 +188,7 @@ Updated Types
 *************
 
 ``inet:web:hashtag``
-  The type has been modified from {'enums': None, 'globsuffix': False, 'lower':
-  True, 'onespace': False, 'regex': '^#\\w[\\w·]*(?<!·)$', 'replace': [],
-  'strip': False} to {'enums': None, 'globsuffix': False, 'lower': True,
-  'onespace': False, 'regex': '^#[^\\p{Z}#]+$', 'replace': [], 'strip': True}.
+  The regular expression used to validate hashtags has been relaxed.
 
 
 
@@ -201,17 +198,15 @@ Light Edges
 
 ``enabled``
     When used with a ``risk:leak`` and an ``risk:leak`` node, the edge
-    indicates The source leak enabled the target leak to occur.
+    indicates the source leak enabled the target leak to occur.
 
 
 ``uses``
     When used with a ``risk:mitigation`` and an ``it:prod:softver`` node, the
-    edge indicates The mitigation uses the software version.
+    edge indicates the mitigation uses the software version.
 
-
-``uses``
     When used with a ``risk:mitigation`` and an ``it:prod:hardware`` node, the
-    edge indicates The mitigation uses the hardware.
+    edge indicates the mitigation uses the hardware.
 
 
 
