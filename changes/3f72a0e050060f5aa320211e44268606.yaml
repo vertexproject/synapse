@@ -1,6 +1,0 @@
----
-desc: Update to the ``infotech``, ``inet`` and ``risk`` models.
-prs:
-- 4047
-type: model
-...

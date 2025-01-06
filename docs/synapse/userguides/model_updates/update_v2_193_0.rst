@@ -205,13 +205,13 @@ Light Edges
 
 
 ``uses``
-    When used with a ``risk:mitigation`` and an ``it:prod:hardware`` node, the
-    edge indicates The mitigation uses the hardware.
+    When used with a ``risk:mitigation`` and an ``it:prod:softver`` node, the
+    edge indicates The mitigation uses the software version.
 
 
 ``uses``
-    When used with a ``risk:mitigation`` and an ``it:prod:softver`` node, the
-    edge indicates The mitigation uses the software version.
+    When used with a ``risk:mitigation`` and an ``it:prod:hardware`` node, the
+    edge indicates The mitigation uses the hardware.
 
 
 

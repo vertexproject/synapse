@@ -1,7 +1,0 @@
----
-desc: Updated the Storm ``parallel`` command behavior to avoid creating empty pipelines
-  when there are fewer inbound nodes than the number of pipelines specified by the
-  ``--size`` argument.
-prs: []
-type: feat
-...
