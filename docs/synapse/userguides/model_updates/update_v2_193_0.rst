@@ -197,7 +197,7 @@ Light Edges
 ***********
 
 ``enabled``
-    When used with a ``risk:leak`` and an ``risk:leak`` node, the edge
+    When used with a ``risk:leak`` and a ``risk:leak`` node, the edge
     indicates the source leak enabled the target leak to occur.
 
 

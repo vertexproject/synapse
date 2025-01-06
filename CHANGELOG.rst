@@ -11,7 +11,7 @@ v2.193.0 - 2025-01-06
 
 Model Changes
 -------------
-- Updated the ``infotech``, ``inet`` and ``risk`` models.
+- Updated the ``infotech``, ``inet``, and ``risk`` models.
   (`#4047 <https://github.com/vertexproject/synapse/pull/4047>`_)
 - See :ref:`userguide_model_v2_193_0` for more detailed model changes.
 
