@@ -2735,7 +2735,7 @@ class AstTest(s_test.SynTest):
 
             q = 'function func(arg) { auth.user.addrule root $arg | return () } $func(hehe.haha)'
             msgs = await core.stormlist(q, opts={'readonly': True})
-            self.stormIsInErr('Function (_methUserAddRule) is not marked readonly safe.', msgs)
+            self.stormIsInErr('auth:user.addRule() is not marked readonly safe.', msgs)
 
     async def test_ast_yield(self):
 

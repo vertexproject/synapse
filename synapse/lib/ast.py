@@ -32,6 +32,12 @@ SET_ALWAYS = 0
 SET_UNSET = 1
 SET_NEVER = 2
 
+COND_EDIT_SET = {
+    'always': SET_ALWAYS,
+    'unset': SET_UNSET,
+    'never': SET_NEVER,
+}
+
 logger = logging.getLogger(__name__)
 
 def parseNumber(x):
@@ -183,6 +189,12 @@ class AstNode:
 
             todo.extend(nkid.kids)
 
+    def reqNotReadOnly(self, runt, mesg=None):
+        if runt.readonly:
+            if mesg is None:
+                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+
     def hasVarName(self, name):
         return any(k.hasVarName(name) for k in self.kids)
 
@@ -242,9 +254,8 @@ class Lookup(Query):
 
     async def run(self, runt, genr):
 
-        if runt.readonly and self.autoadd:
-            mesg = 'Autoadd may not be executed in readonly Storm runtime.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        if self.autoadd:
+            self.reqNotReadOnly(runt)
 
         async def getnode(form, valu):
             try:
@@ -1273,15 +1284,17 @@ class SetItemOper(Oper):
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
 
             if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
-                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-                raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+                self.kids[0].reqNotReadOnly(runt)
 
             name = await self.kids[1].compute(runt, path)
             valu = await self.kids[2].compute(runt, path)
 
             # TODO: ditch this when storm goes full heavy object
             with s_scope.enter({'runt': runt}):
-                await item.setitem(name, valu)
+                try:
+                    await item.setitem(name, valu)
+                except s_exc.SynErr as e:
+                    raise self.kids[0].addExcInfo(e)
 
             yield node, path
 
@@ -1293,12 +1306,14 @@ class SetItemOper(Oper):
             valu = await self.kids[2].compute(runt, None)
 
             if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
-                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-                raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+                self.kids[0].reqNotReadOnly(runt)
 
             # TODO: ditch this when storm goes full heavy object
             with s_scope.enter({'runt': runt}):
-                await item.setitem(name, valu)
+                try:
+                    await item.setitem(name, valu)
+                except s_exc.SynErr as e:
+                    raise self.kids[0].addExcInfo(e)
 
 class VarListSetOper(Oper):
 
@@ -3576,7 +3591,8 @@ class FuncCall(Value):
             raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
         if runt.readonly and not getattr(func, '_storm_readonly', False):
-            mesg = f'Function ({func.__name__}) is not marked readonly safe.'
+            funcname = getattr(func, '_storm_funcpath', func.__name__)
+            mesg = f'{funcname}() is not marked readonly safe.'
             raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         argv = await self.kids[1].compute(runt, path)
@@ -4002,9 +4018,7 @@ class EditParens(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
@@ -4097,9 +4111,7 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         runtsafe = self.isRuntSafe(runt)
 
@@ -4174,34 +4186,25 @@ class CondSetOper(Oper):
         self.isconst = False
         if isinstance(self.kids[0], Const):
             self.isconst = True
-            match self.kids[0].value():
-                case "unset":
-                    self.valu = SET_UNSET
+            self.valu = COND_EDIT_SET.get(self.kids[0].value())
 
     async def compute(self, runt, path):
         if self.isconst:
             return self.valu
 
         valu = await self.kids[0].compute(runt, path)
-        match valu:
-            case "always":
-                return SET_ALWAYS
-            case "unset":
-                return SET_UNSET
-            case "never":
-                return SET_NEVER
-            case _:
-                mesg = f'Invalid conditional set operator ({valu}).'
-                exc = s_exc.StormRuntimeError(mesg=mesg)
-                raise self.addExcInfo(exc)
+        if (retn := COND_EDIT_SET.get(valu)) is not None:
+            return retn
+
+        mesg = f'Invalid conditional set operator ({valu}).'
+        exc = s_exc.StormRuntimeError(mesg=mesg)
+        raise self.addExcInfo(exc)
 
 class EditCondPropSet(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         excignore = (s_exc.BadTypeValu,) if self.kids[1].errok else ()
         rval = self.kids[2]
@@ -4246,9 +4249,7 @@ class EditPropSet(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         oper = await self.kids[1].compute(runt, None)
         excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
@@ -4341,9 +4342,7 @@ class EditPropDel(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         async for node, path in genr:
             propname = await self.kids[0].compute(runt, path)
@@ -4369,9 +4368,7 @@ class EditUnivDel(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         univprop = self.kids[0]
         assert isinstance(univprop, UnivProp)
@@ -4547,9 +4544,7 @@ class EditEdgeAdd(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         # SubQuery -> Query
         query = self.kids[1].kids[0]
@@ -4612,9 +4607,7 @@ class EditEdgeDel(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         query = self.kids[1].kids[0]
 
@@ -4670,9 +4663,7 @@ class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
             oper_offset = 1
@@ -4716,9 +4707,7 @@ class EditTagDel(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         async for node, path in genr:
 
@@ -4742,9 +4731,7 @@ class EditTagPropSet(Edit):
     '''
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         oper = await self.kids[1].compute(runt, None)
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
@@ -4778,9 +4765,7 @@ class EditTagPropDel(Edit):
     '''
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         async for node, path in genr:
 
