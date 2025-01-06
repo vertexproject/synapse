@@ -1,11 +1,12 @@
 import sys
 import json
 import urllib
+import asyncio
 import logging
 import pathlib
 import argparse
 
-import requests
+import aiohttp
 
 import synapse.exc as s_exc
 import synapse.data as s_data
@@ -20,7 +21,13 @@ def download_refs_handler(uri):
     This function downloads the JSON schema at the given URI, parses the given
     URI to get the path component, and then saves the referenced schema to the
     'jsonschemas' directory of synapse.data.
+
+    This function runs its own asyncio loop for each URI being requested.
     '''
+    ret = asyncio.run(_download_refs_handler(uri))
+    return ret
+
+async def _download_refs_handler(uri):
 
     try:
         parts = urllib.parse.urlparse(uri)
@@ -45,8 +52,12 @@ def download_refs_handler(uri):
 
     # Get the data from the interwebs
     logger.info(f'Downloading schema from {uri}.')
-    resp = requests.get(uri)
-    data = resp.json()
+    async with aiohttp.ClientSession() as session:
+        async with session.get(uri) as resp:
+            resp.raise_for_status()
+            buf = await resp.read()
+
+    data = json.loads(buf.decode())
 
     # Save the json schema to disk
     with filepath.open('w') as fp:
