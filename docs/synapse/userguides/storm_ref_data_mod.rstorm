@@ -184,7 +184,7 @@ See the :ref:`type-syn-tag` section of the :ref:`storm-ref-type-specific` for ad
 Conditional Edit Operators
 ++++++++++++++++++++++++++
 
-The conditional edit operators ( ``*unset=`` and ``*$<varvalue>=`` ) can be used to only set properties when certain
+The conditional edit operators ( ``*unset=`` and ``*$<varname>=`` ) can be used to only set properties when certain
 conditions are met.
 
 The ``*unset=`` operator will only set a property when it does not already have a value to prevent overwriting
@@ -340,7 +340,7 @@ The same syntax is used to apply a new property or modify an existing property.
 
 *<query>* **[ :** *<prop>* ***unset=** | ***unset?** *<pval>* ... **]**
 
-*<query>* **[ :** *<prop>* ***$<varvalue>=** | ***$<varvalue>?=** *<pval>* ... **]**
+*<query>* **[ :** *<prop>* ***$<varname>=** | ***$<varname>?=** *<pval>* ... **]**
 
 .. TIP::
   
