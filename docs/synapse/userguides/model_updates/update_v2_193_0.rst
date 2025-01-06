@@ -142,28 +142,28 @@ New Properties
   The form had the following property added to it:
 
   ``url``
-    The primary URL associated with the object.
+    The primary URL associated with the repository issue label.
 
 
 ``it:host``
   The form had the following property added to it:
 
   ``url``
-    The primary URL associated with the object.
+    The primary URL associated with the host.
 
 
 ``it:host:tenancy``
   The form had the following property added to it:
 
   ``url``
-    The primary URL associated with the object.
+    The primary URL associated with the host tenancy.
 
 
 ``it:software:image``
   The form had the following property added to it:
 
   ``url``
-    The primary URL associated with the object.
+    The primary URL associated with the software image.
 
 
 ``risk:leak``
