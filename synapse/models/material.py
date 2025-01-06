@@ -32,11 +32,22 @@ class MatModule(s_module.CoreModule):
     def getModelDefs(self):
         modl = {
             'types': (
-                ('mat:item', ('guid', {}), {'doc': 'A GUID assigned to a material object.'}),
+
+                ('phys:object', ('ndef', {'interface': 'phys:object'}), {
+                    'doc': 'A node which represents a physical object.'}),
+
+                ('phys:vitals', ('guid', {}), {
+                    'interfaces': ('phys:object',),
+                    'doc': 'Physical characteristics measured at a specific point in time.'}),
+
+                ('mat:item', ('guid', {}), {
+                    'interfaces': ('phys:object',),
+                    'doc': 'A GUID assigned to a material object.'}),
+
                 ('mat:type', ('taxonomy', {}), {
                     'doc': 'A taxonomy of material item/specification types.',
-                    'interfaces': ('meta:taxonomy',),
-                }),
+                    'interfaces': ('meta:taxonomy',)}),
+
                 ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
                 ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
                 ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
@@ -72,6 +83,17 @@ class MatModule(s_module.CoreModule):
 
             'forms': (
 
+                ('phys:vitals', ('phys:vitals', {}), (
+
+                    ('item', ('phys:object', {}), {
+                        'doc': 'The item being measured.'}),
+
+                    ('time', ('time', {}), {
+                        'doc': 'The time the measurements were taken.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place that the measurements were taken.'}),
+                )),
                 ('mat:item', {}, (
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The name of the material item.'}),

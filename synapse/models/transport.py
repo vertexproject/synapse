@@ -5,8 +5,10 @@ class TransportModule(s_module.CoreModule):
         modl = {
             'types': (
 
-                ('transport:journey', ('guid', {}), {
-                    'doc': 'A journey taken to ship cargo or personel.'}),
+                # TODO is transport:journey a thing?
+
+                ('transport:point', ('str', {'lower': True, 'onespace': True}), {
+                    'doc': 'A departure/arrival point such as an airport gate or train platform.'}),
 
                 ('transport:segement', ('ndef', {'interface': 'transport:segment'}), {
                     'doc': 'A segment of a journey such as a flight or train ride.'}),
@@ -14,11 +16,18 @@ class TransportModule(s_module.CoreModule):
                 ('transport:vehicle', ('ndef', {'interface': 'transport:vehicle'}), {
                     'doc': 'A vehicle such as an air craft or sea vessel.'}),
 
+                ('transport:occupant', ('guid', {}), {
+                    'doc': 'An occupant of a vehicle traveling a segment.'}),
+
+                ('transport:occupant:role:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of transportation occupant roles.'}),
+
                 ('transport:direction', ('hugenum', {'modulo': 360}), {
                     'doc': 'A direction measured in degrees with 0.0 being true North.'}),
 
                 ('transport:land:vehicle:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('taxonomy', {}),
+                    'interfaces': ('meta:taxonomy', {}),
                     'doc': 'A type taxonomy for land vehicles.'}),
 
                 ('transport:land:vehicle', ('guid', {}), {
@@ -62,7 +71,8 @@ class TransportModule(s_module.CoreModule):
                     'doc': 'An individual instance of a flight.'}),
 
                 ('transport:air:occupant', ('guid', {}), {
-                    'doc': 'An occupant of a specific flight.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use transport:occupant.'}),
 
                 ('transport:air:port', ('str', {'lower': True}), {
                     'doc': 'An IATA assigned airport code.'}),
@@ -183,7 +193,7 @@ class TransportModule(s_module.CoreModule):
                         ('departed:place', ('geo:place', {}), {
                             'doc': 'The actual departure {place}.'}),
 
-                        ('departed:point', (
+                        ('departed:point', ('transport:point', {}), {
                             'doc': 'The actual departure {point}.'}),
 
                         ('arrived', ('time', {}), {
@@ -192,7 +202,7 @@ class TransportModule(s_module.CoreModule):
                         ('arrived:place', ('geo:place', {}), {
                             'doc': 'The actual departure {place}.'}),
 
-                        ('arrived:point', ('str', {'strip': True}), {
+                        ('arrived:point', ('transport:point', {}), {
                             'doc': 'The actual arrival {point}.'}),
 
                         ('scheduled:duration', ('duration', {}), {
@@ -204,7 +214,7 @@ class TransportModule(s_module.CoreModule):
                         ('scheduled:departure:place', ('geo:place', {}), {
                             'doc': 'The scheduled departure {place}.'}),
 
-                        ('scheduled:departure:point', ('str', {'strip': True}), {
+                        ('scheduled:departure:point', ('transport:point', {}), {
                             'doc': 'The scheduled departure {point}.'}),
 
                         ('scheduled:arrival', ('time', {}), {
@@ -213,7 +223,7 @@ class TransportModule(s_module.CoreModule):
                         ('scheduled:arrival:place', ('geo:place', {}), {
                             'doc': 'The scheduled departure {place}.'}),
 
-                        ('scheduled:arrival:point', ('str', {'strip': True}), {
+                        ('scheduled:arrival:point', ('transport:point', {}), {
                             'doc': 'The scheduled arrival {point}.'}),
 
                         ('occupants', ('int', {'min': 0}), {
@@ -237,21 +247,8 @@ class TransportModule(s_module.CoreModule):
                 }),
             ),
             'edges': (
-                # TODO declare edges with interfaces?
-                # (('transport:journey', 'carried', 'phys:object'), {
-                    # 'doc': 'The object was transported via the segments declared in the journey.'}),
             ),
             'forms': (
-
-                ('transport:journey', {}, (
-                    ('segments', ('array', {'type': 'transport:segment', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The segments of the journey.'}),
-                )),
-
-                ('transport:parcel', {}, (
-                    ('segments', ('array', {'type': 'transport:segment', 'sorted': True, 'uniq': True}), {
-                        'doc': 'The segments of the journey.'}),
-                )),
 
                 ('transport:land:license', {}, (
                     ('id', ('str', {'strip': True}), {
@@ -400,13 +397,17 @@ class TransportModule(s_module.CoreModule):
                 )),
                 ('transport:air:occupant', {}, (
                     ('type', ('str', {'lower': True}), {
-                        'doc': 'The type of occupant such as pilot, crew or passenger.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use transport:occupant.'}),
                     ('flight', ('transport:air:flight', {}), {
-                        'doc': 'The flight that the occupant was aboard.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use transport:occupant.'}),
                     ('seat', ('str', {'lower': True}), {
-                        'doc': 'The seat assigned to the occupant'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use transport:occupant.'}),
                     ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact information of the occupant.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use transport:occupant.'}),
                 )),
                 # TODO ais numbers
                 ('transport:sea:vessel', {}, (
@@ -480,7 +481,11 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:rail:car', {}, ()),
 
+                ('transport:occupant:role:taxonomy', {}, (),
                 ('transport:occupant', {}, (
+
+                    ('role', ('transport:occupant:role:taxonomy', {}), {
+                        'doc': 'The role of the occupant such as captain, crew, passenger.'}),
 
                     ('contact', ('ps:contact', {}), {
                         'doc': 'Contact information of the occupant.'}),
@@ -488,14 +493,62 @@ class TransportModule(s_module.CoreModule):
                     ('segment', ('transport:segment', {}), {
                         'doc': 'The segment traveled by the ocupant.'}),
 
+                    ('vehicle', ('transport:vehicle', {}), {
+                        'doc': 'The vehicle that transported the occupant.'}),
+
                     ('seat', ('str', {'strip': True}), {
                         'doc': 'The seat which the occupant sat in. Likely in a vehicle specific format.'}),
 
                     ('boarded', ('time', {}), {
                         'doc': 'The time when the occupant boarded the vehicle.'}),
 
+                    ('boarded:place', ('geo:place', {}), {
+                        'doc': 'The place where the occupant boarded the vehicle.'}),
+
+                    ('boarded:point', ('transport:point', {}), {
+                        'doc': 'The boarding point such as an airport gate or train platform.'}),
+
                     ('disembarked', ('time', {}), {
                         'doc': 'The time when the occupant disembarked from the vehicle.'}),
+
+                    ('disembarked:place', ('geo:place', {}), {
+                        'doc': 'The place where the occupant disembarked the vehicle.'}),
+
+                    ('disembarked:point', ('transport:point', {}), {
+                        'doc': 'The disembarkation point such as an airport gate or train platform.'}),
+                )),
+
+                ('transport:cargo', {}, (
+
+                    ('item', ('phys:object', {}), {
+                        'doc': 'The physical object being transported.'},
+
+                    ('segment', ('transport:segment', {}), {
+                        'doc': 'The segment traveled by the cargo.'}),
+
+                    ('vehicle', ('transport:vehicle', {}), {
+                        'doc': 'The vehicle used to transport the cargo.'}),
+
+                    ('container', ('transport:container', {}), {
+                        'doc': 'The container in which the cargo was shipped.'}),
+
+                    ('loaded', ('time', {}), {
+                        'doc': 'The time when the cargo was loaded.'}),
+
+                    ('loaded:place', ('geo:place', {}), {
+                        'doc': 'The place where the cargo was loaded.'}),
+
+                    ('loaded:point', ('transport:point', {}), {
+                        'doc': 'The point where the cargo was loaded such as an airport gate or train platform.'}),
+
+                    ('unloaded', ('time', {}), {
+                        'doc': 'The time when the cargo was unloaded.'}),
+
+                    ('unloaded:place', ('geo:place', {}), {
+                        'doc': 'The place where the cargo was unloaded.'}),
+
+                    ('unloaded:point', ('transport:point', {}), {
+                        'doc': 'The point where the cargo was unloaded such as an airport gate or train platform.'}),
                 )),
 
                 ('transport:shipping:container', {}, ()),
