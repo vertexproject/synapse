@@ -4212,7 +4212,7 @@ class EditPropSet(Edit):
 
                     if not isarray:
                         mesg = f'Property set using ({oper}) is only valid on arrays.'
-                        exc = s_exc.StormRuntimeError(mesg)
+                        exc = s_exc.StormRuntimeError(mesg=mesg)
                         raise self.kids[0].addExcInfo(exc)
 
                     arry = node.get(name)
