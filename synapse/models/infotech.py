@@ -652,9 +652,9 @@ class ItModule(s_module.CoreModule):
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
                     'doc': 'The name of a host or system.'}),
 
-
                 ('it:host', ('guid', {}), {
-                    'interfaces': ('inet:service:object',),
+                    'interfaces': ('inet:service:object', 'phys:object'),
+                    'template': {'phys:object': 'host'},
                     'doc': 'A GUID that represents a host or system.'}),
 
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {

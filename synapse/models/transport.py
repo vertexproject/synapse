@@ -7,11 +7,21 @@ class TransportModule(s_module.CoreModule):
 
                 # TODO is transport:journey a thing?
 
+                ('transport:cargo', ('guid', {}), {
+                    'doc': 'Cargo being carried by a vehicle on a segment.'}),
+
                 ('transport:point', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A departure/arrival point such as an airport gate or train platform.'}),
 
-                ('transport:segement', ('ndef', {'interface': 'transport:segment'}), {
-                    'doc': 'A segment of a journey such as a flight or train ride.'}),
+                ('transport:segment', ('ndef', {'interface': 'transport:segment'}), {
+                    'doc': 'A segment of transportation such as a flight or train ride.'}),
+
+                ('transport:segment:stop', ('guid', {}), {
+                    'interfaces': ('transport:schedule',),
+                    'doc': 'A stop made by a vehicle traveling a segment.'}),
+
+                ('transport:container', ('ndef', {'interface': 'transport:container'}), {
+                    'doc': 'A segment of transportation such as a flight or train ride.'}),
 
                 ('transport:vehicle', ('ndef', {'interface': 'transport:vehicle'}), {
                     'doc': 'A vehicle such as an air craft or sea vessel.'}),
@@ -27,12 +37,12 @@ class TransportModule(s_module.CoreModule):
                     'doc': 'A direction measured in degrees with 0.0 being true North.'}),
 
                 ('transport:land:vehicle:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy', {}),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A type taxonomy for land vehicles.'}),
 
                 ('transport:land:vehicle', ('guid', {}), {
+                    'interfaces': ('transport:container',),
                     'template': {'phys:object': 'vehicle'},
-                    'interfaces': ('transport:container', {}),
                     'doc': 'An individual vehicle.'}),
 
                 ('transport:land:registration', ('guid', {}), {
@@ -43,11 +53,16 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:land:segment', ('guid', {}), {
                     'interfaces': ('transport:segment',),
-                    'template': {'phys:object': 'vehicle'},
+                    'template': {
+                        'gate': 'docking bay',
+                        'place': 'place',
+                        'segment': 'route',
+                        'vehicle': 'vehicle'},
                     'doc': 'A specific segment of a journey via a land vehicle.'}),
 
                 ('transport:air:craft', ('guid', {}), {
-                    'interfaces': ('transport:container',),
+                    'interfaces': ('transport:vehicle',),
+                    'template': {'phys:object': 'aircraft'},
                     'doc': 'An individual aircraft.'}),
 
                 ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
@@ -79,6 +94,7 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:sea:vessel', ('guid', {}), {
                     'interfaces': ('transport:vehicle',),
+                    'template': {'phys:object': 'vessel'},
                     'doc': 'An individual sea vessel.'}),
 
                 ('transport:sea:mmsi', ('str', {'regex': '[0-9]{9}'}), {
@@ -90,19 +106,12 @@ class TransportModule(s_module.CoreModule):
                 ('transport:sea:telem', ('guid', {}), {
                     'doc': 'A telemetry sample from a vessel in transit.'}),
 
-                ('transport:rail:segment', ('guid', {}), {
-                    'interfaces': ('transport:segment',),
-                    'template': {
-                        'point': 'gate',
-                        'place': 'station',
-                        'vehicle': 'train'},
-                    'doc': 'A segment of a route taken by a train.'}),
-
                 ('transport:rail:train', ('guid', {}), {
                     'interfaces': ('transport:segment',),
                     'template': {
                         'point': 'gate',
                         'place': 'station',
+                        'segment': 'train route',
                         'vehicle': 'train'},
                     'doc': 'An individual instance of a train running a route.'}),
 
@@ -113,10 +122,8 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:rail:consist', ('guid', {}), {
                     'interfaces': ('transport:vehicle',),
-                    'template': {'vehicle': 'train'},
+                    'template': {'phys:object': 'train'},
                     'doc': 'A group of rail cars and locomotives connected together.'}),
-
-                # TODO transport:shipping:parcel <transport:container>
 
                 ('transport:shipping:container', ('guid', {}), {
                     'interfaces': ('transport:container',),
@@ -155,7 +162,7 @@ class TransportModule(s_module.CoreModule):
                         ('max:cargo:volume', ('geo:dist', {}), {
                             'doc': 'The maxiumum volume the {phys:object} can carry as cargo.'}),
 
-                        # TODO ownership interface
+                        # TODO deprecate for entity:ownership?
                         ('owner', ('ps:contact', {}), {
                             'doc': 'The contact information of the owner of the {phys:object}.'}),
                     ),
@@ -163,16 +170,17 @@ class TransportModule(s_module.CoreModule):
                 # most containers are vehicles, but some are not...
                 ('transport:vehicle', {
                     'interfaces': ('transport:container',),
+                    'templates': {'phys:object': 'vehicle'},
                     'doc': 'Properties common to a vehicle.',
                     'props': (
+                        # TODO: 3.x :operator=<entity:actor>
                         ('operator', ('ps:contact', {}), {
                             'doc': 'The contact information of operator of the {phys:object}.'}),
                     ),
                 }),
 
-                ('transport:segment', {
-                    # train, flight, drive, launch...
-                    'doc': 'Properties common to a specific segment of a journey made by a vehicle.',
+                ('transport:schedule', {
+                    'doc': 'Properties common to travel schedules.',
                     'template': {
                         'place': 'place',       # airport, seaport, starport
                         'point': 'point',       # gate, slip, stargate...
@@ -180,12 +188,6 @@ class TransportModule(s_module.CoreModule):
                         'segment': 'segment'},  # flight, voyage...
 
                     'props': (
-
-                        ('status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
-                            'doc': 'The status of the {segment}.'}),
-
-                        ('duration', ('duration', {}), {
-                            'doc': 'The actual duration.'}),
 
                         ('departed', ('time', {}), {
                             'doc': 'The actual departure time.'}),
@@ -225,6 +227,21 @@ class TransportModule(s_module.CoreModule):
 
                         ('scheduled:arrival:point', ('transport:point', {}), {
                             'doc': 'The scheduled arrival {point}.'}),
+                    ),
+                }),
+
+                ('transport:segment', {
+                    # train, flight, drive, launch...
+                    'doc': 'Properties common to a specific segment of a journey made by a vehicle.',
+                    'interfaces': ('transport:schedule',),
+
+                    'props': (
+
+                        ('status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
+                            'doc': 'The status of the {segment}.'}),
+
+                        ('duration', ('duration', {}), {
+                            'doc': 'The actual duration.'}),
 
                         ('occupants', ('int', {'min': 0}), {
                             'doc': 'The number of occupants of the {vehicle} on this {segment}.'}),
@@ -238,9 +255,6 @@ class TransportModule(s_module.CoreModule):
                         ('operator', ('ps:contact', {}), {
                             'doc': 'The contact information of the operator of the {segment}.'}),
 
-                        ('personel', ('array', {'type': 'ps:contact', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of contacts who staffed the {segment}.'}),
-
                         ('vehicle', ('transport:vehicle', {}), {
                             'doc': 'The {vehicle} which traveled the {segment}.'}),
                     ),
@@ -249,6 +263,12 @@ class TransportModule(s_module.CoreModule):
             'edges': (
             ),
             'forms': (
+
+                ('transport:segment:stop', {}, (
+
+                    ('segment', ('transport:segment', {}), {
+                        'doc': 'The segment being traveled by the vehicle.'}),
+                )),
 
                 ('transport:land:license', {}, (
                     ('id', ('str', {'strip': True}), {
@@ -463,13 +483,12 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The estimated time of arrival that the vessel has declared.'}),
                 )),
 
-                ('transport:rail:consist', ('guid', {}), {
+                ('transport:rail:consist', {}, (
 
                     ('cars', ('array', {'type': 'transport:rail:car', 'uniq': True}), {
                         'doc': 'The rail cars, including locomotives, which compose the consist.'}),
-                }),
+                )),
 
-                ('transport:rail:segment', {}, ()),
                 ('transport:rail:train', {}, (
 
                     ('id', ('str', {'strip': True}), {
@@ -481,7 +500,7 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:rail:car', {}, ()),
 
-                ('transport:occupant:role:taxonomy', {}, (),
+                ('transport:occupant:role:taxonomy', {}, ()),
                 ('transport:occupant', {}, (
 
                     ('role', ('transport:occupant:role:taxonomy', {}), {
@@ -520,8 +539,8 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:cargo', {}, (
 
-                    ('item', ('phys:object', {}), {
-                        'doc': 'The physical object being transported.'},
+                    ('object', ('phys:object', {}), {
+                        'doc': 'The physical object being transported.'}),
 
                     ('segment', ('transport:segment', {}), {
                         'doc': 'The segment traveled by the cargo.'}),

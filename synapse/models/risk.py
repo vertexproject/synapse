@@ -68,6 +68,8 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
+                    'interfaces': ('entity:actor',),
+                    'template': {'entity:actor': 'threat'},
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'org:name'}},
@@ -88,7 +90,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
                 ('risk:compromise', ('guid', {}), {
-                    'doc': 'An instance of a compromise and its aggregate impact.',
+                    'doc': 'A compromise resulting from an attack against a victim.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
@@ -189,6 +191,7 @@ class RiskModule(s_module.CoreModule):
             ),
             'edges': (
                 # some explicit examples...
+                # TODO: uses -> used / targets -> targeted
                 (('risk:attack', 'uses', 'ou:technique'), {
                     'doc': 'The attacker used the technique in the attack.'}),
                 (('risk:threat', 'uses', 'ou:technique'), {
@@ -824,10 +827,14 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The attack assessed to be the initial compromise vector.'}),
 
                     ('target', ('ps:contact', {}), {
-                        'doc': 'Contact information representing the target.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :victim.'}),
 
                     ('attacker', ('ps:contact', {}), {
                         'doc': 'Contact information representing the attacker.'}),
+
+                    ('victim', ('entity:actor', {}), {
+                        'doc': 'The entity which was the victim of the compromise.'}),
 
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'The campaign that this compromise is part of.'}),
@@ -943,6 +950,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('attacker', ('ps:contact', {}), {
                         'doc': 'Contact information representing the attacker.'}),
+
+                    ('victim', ('entity:actor', {}), {
+                        'doc': 'The entity which was the victim of the attack.'}),
 
                     ('target', ('ps:contact', {}), {
                         'deprecated': True,

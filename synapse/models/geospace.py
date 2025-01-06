@@ -390,15 +390,48 @@ class GeoModule(s_module.CoreModule):
                     }),
                 ),
 
+                'interfaces': (
+                    ('geo:locatable', {
+                        'doc': 'Properties common to items and events which may be geo located.',
+                        'template': {'geo:locatable': 'item'},
+                        'props': (
+                            ('place', ('geo:place', {}), {
+                                'doc': 'The place where the {geo:locatable} was located.'}),
+
+                            ('place:loc', ('loc', {}), {
+                                'doc': 'The geopolitical location of the {geo:locatable}.'}),
+
+                            ('place:name', ('geo:name', {}), {
+                                'doc': 'The name of the place where the {geo:locatable} was located.'}),
+
+                            ('place:address', ('geo:address', {}), {
+                                'doc': 'The postal address of the place where the {geo:locatable} was located.'}),
+
+                            ('place:latlong', ('geo:latlong', {}), {
+                                'doc': 'The latlong where the {geo:locatable} was located.'}),
+
+                            ('place:latlong:accuracy', ('geo:dist', {}), {
+                                'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
+
+                            ('place:country', ('pol:country', {}), {
+                                'doc': 'The country where the {geo:locatable} was located.'}),
+
+                            ('place:country:code', ('pol:iso2', {}), {
+                                'doc': 'The country code where the {geo:locatable} was located.'}),
+                        ),
+                    }),
+                ),
+
                 'types': (
 
                     ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
                         'deprecated': True,
                         'doc': 'Records a node latitude/longitude in space-time.'
                     }),
+
                     ('geo:telem', ('guid', {}), {
-                        'doc': 'A geospatial position of a node at a given time. The node should be linked via -(seenat)> edges.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use phys:telemetry.'}),
 
                     ('geo:json', ('data', {'schema': geojsonschema}), {
                         'doc': 'GeoJSON structured JSON data.'}),
@@ -443,7 +476,7 @@ class GeoModule(s_module.CoreModule):
                 'edges': (
                     ((None, 'seenat', 'geo:telem'), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use ``geo:telem:node``.'}),
+                        'doc': 'Deprecated. Please use phys:telemetry.'}),
                     (('geo:place', 'contains', 'geo:place'), {
                         'doc': 'The source place completely contains the target place.'}),
                 ),

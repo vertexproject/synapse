@@ -31,30 +31,6 @@ class MatModule(s_module.CoreModule):
 
     def getModelDefs(self):
         modl = {
-            'types': (
-
-                ('phys:object', ('ndef', {'interface': 'phys:object'}), {
-                    'doc': 'A node which represents a physical object.'}),
-
-                ('phys:vitals', ('guid', {}), {
-                    'interfaces': ('phys:object',),
-                    'doc': 'Physical characteristics measured at a specific point in time.'}),
-
-                ('mat:item', ('guid', {}), {
-                    'interfaces': ('phys:object',),
-                    'doc': 'A GUID assigned to a material object.'}),
-
-                ('mat:type', ('taxonomy', {}), {
-                    'doc': 'A taxonomy of material item/specification types.',
-                    'interfaces': ('meta:taxonomy',)}),
-
-                ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
-                ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
-                ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
-
-                ('mass', ('hugenum', {'units': massunits}), {
-                    'doc': 'A mass which converts to grams as a base unit.'}),
-            ),
 
             'interfaces': (
 
@@ -78,36 +54,78 @@ class MatModule(s_module.CoreModule):
                         ('phys:height', ('geo:dist', {}), {
                             'doc': 'The height of the {phys:object}'}),
                     ),
-                ),
+                }),
+            ),
+
+            'types': (
+
+                ('phys:object', ('ndef', {'interface': 'phys:object'}), {
+                    'doc': 'A node which represents a physical object.'}),
+
+                ('phys:contained', ('guid', {}), {
+                    'doc': 'A node which represents a physical object containing another physical object.'}),
+
+                ('phys:telemetry', ('guid', {}), {
+                    'template': {'phys:object': 'object', 'geo:locatable': 'object'},
+                    'interfaces': ('phys:object', 'geo:locatable'),
+                    'doc': 'Physical characteristics measured at a specific point in time.'}),
+
+                ('mat:item', ('guid', {}), {
+                    'interfaces': ('phys:object',),
+                    'doc': 'A GUID assigned to a material object.'}),
+
+                ('mat:type', ('taxonomy', {}), {
+                    'doc': 'A taxonomy of material item/specification types.',
+                    'interfaces': ('meta:taxonomy',)}),
+
+                ('mat:spec', ('guid', {}), {'doc': 'A GUID assigned to a material specification.'}),
+                ('mat:specimage', ('comp', {'fields': (('spec', 'mat:spec'), ('file', 'file:bytes'))}), {}),
+                ('mat:itemimage', ('comp', {'fields': (('item', 'mat:item'), ('file', 'file:bytes'))}), {}),
+
+                ('mass', ('hugenum', {'units': massunits}), {
+                    'doc': 'A mass which converts to grams as a base unit.'}),
             ),
 
             'forms': (
 
-                ('phys:vitals', ('phys:vitals', {}), (
-
-                    ('item', ('phys:object', {}), {
-                        'doc': 'The item being measured.'}),
+                ('phys:telemetry', {}, (
 
                     ('time', ('time', {}), {
                         'doc': 'The time the measurements were taken.'}),
 
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The place that the measurements were taken.'}),
+                    ('object', ('phys:object', {}), {
+                        'doc': 'The physical object measured.'}),
+                )),
+                ('phys:contained', {}, (
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period where the container held the object.'}),
+
+                    ('object', ('phys:object', {}), {
+                        'doc': 'The object held within the container.'}),
+
+                    ('container', ('phys:object', {}), {
+                        'doc': 'The container which held the object.'}),
                 )),
                 ('mat:item', {}, (
+
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The name of the material item.'}),
+
                     ('type', ('mat:type', {}), {
                         'doc': 'The taxonomy type of the item.'}),
+
                     ('spec', ('mat:spec', {}), {
                         'doc': 'The specification which defines this item.'}),
 
-                    ('place', ('geo:place', {}), {'doc': 'The most recent place the item is known to reside.'}),
-                    ('latlong', ('geo:latlong', {}), {'doc': 'The last known lat/long location of the node.'}),
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The most recent place the item is known to reside.'}),
+
+                    ('latlong', ('geo:latlong', {}), {
+                        'doc': 'The last known lat/long location of the node.'}),
 
                     ('loc', ('loc', {}), {
-                        'doc': 'The geo-political location string for the node.',
-                    }),
+                        'doc': 'The geo-political location string for the node.'}),
                 )),
 
                 ('mat:spec', {}, (

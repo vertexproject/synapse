@@ -28,6 +28,8 @@ class OuModule(s_module.CoreModule):
 
                 ('ou:org', ('guid', {}), {
                     'doc': 'A GUID for a human organization such as a company or military unit.',
+                    'interfaces': ('entity:actor',),
+                    'template': {'entity:actor': 'organization'},
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
@@ -38,6 +40,8 @@ class OuModule(s_module.CoreModule):
 
                 ('ou:team', ('guid', {}), {
                     'doc': 'A GUID for a team within an organization.',
+                    'interfaces': ('entity:actor',),
+                    'template': {'entity:actor': 'team'},
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
