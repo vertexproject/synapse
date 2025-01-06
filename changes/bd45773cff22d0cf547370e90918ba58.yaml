@@ -1,0 +1,5 @@
+---
+desc: Added a patch for Python ``http.cookies`` module to address CVE-2024-7592 exposure.
+prs: []
+type: bug
+...

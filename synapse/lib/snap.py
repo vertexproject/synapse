@@ -363,9 +363,9 @@ class ProtoNode:
                 valu, norminfo = prop.type.norm(valu)
             except s_exc.BadTypeValu as e:
                 oldm = e.errinfo.get('mesg')
-                e.errinfo['prop'] = prop.name
-                e.errinfo['form'] = prop.form.name
-                e.errinfo['mesg'] = f'Bad prop value {prop.full}={valu!r} : {oldm}'
+                e.update({'prop': prop.name,
+                          'form': prop.form.name,
+                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 if self.ctx.snap.strict:
                     raise e
                 await self.ctx.snap.warn(e)
@@ -493,7 +493,7 @@ class SnapEditor:
             try:
                 valu, norminfo = form.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                e.errinfo['form'] = form.name
+                e.set('form', form.name)
                 if self.snap.strict: raise e
                 await self.snap.warn(f'addNode() BadTypeValu {form.name}={valu} {e}')
                 return None
