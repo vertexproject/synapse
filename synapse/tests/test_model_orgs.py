@@ -581,7 +581,7 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'''[
                 ou:contest={cont}
                     :name="defcon ctf 2020"
-                    :type="cyber ctf"
+                    :type=cyber.ctf
                     :family="defcon ctf"
                     :start=20200808
                     :end=20200811
@@ -600,7 +600,7 @@ class OuModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.eq('defcon ctf 2020', nodes[0].get('name'))
-            self.eq('cyber ctf', nodes[0].get('type'))
+            self.eq('cyber.ctf.', nodes[0].get('type'))
             self.eq('defcon ctf', nodes[0].get('family'))
 
             self.eq(1596844800000, nodes[0].get('start'))

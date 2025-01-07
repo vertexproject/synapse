@@ -63,6 +63,10 @@ class EconModule(s_module.CoreModule):
                 ('econ:fin:exchange', ('guid', {}), {
                     'doc': 'A financial exchange where securities are traded.'}),
 
+                ('econ:fin:security:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of financial security types.'}),
+
                 ('econ:fin:security', ('guid', {}), {
                     'doc': 'A financial security which is typically traded on an exchange.'}),
 
@@ -73,6 +77,7 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A sample of the price of a security at a single moment in time'}),
 
                 ('econ:bank:account:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A bank account type taxonomy.'}),
 
                 ('econ:bank:account', ('guid', {}), {
@@ -350,6 +355,7 @@ class EconModule(s_module.CoreModule):
                         'ex': 'usd'}),
                 )),
 
+                ('econ:fin:security:type:taxonomy', {}, ()),
                 ('econ:fin:security', {}, (
 
                     ('exchange', ('econ:fin:exchange', {}), {
@@ -358,8 +364,8 @@ class EconModule(s_module.CoreModule):
                     ('ticker', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The identifier for this security within the exchange'}),
 
-                    ('type', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A user defined type such as stock, bond, option, future, or forex'}),
+                    ('type', ('econ:fin:security:type:taxonomy', {}), {
+                        'doc': 'The type of security.'}),
 
                     ('price', ('econ:price', {}), {
                         'doc': 'The last known/available price of the security'}),

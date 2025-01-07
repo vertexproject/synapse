@@ -220,7 +220,7 @@ class PsModelTest(s_t_utils.SynTest):
             ''')
             self.nn(nodes[0].get('org'))
             self.eq('bachelors of science', nodes[0].get('name'))
-            self.eq('degree', nodes[0].get('type'))
+            self.eq('degree.', nodes[0].get('type'))
 
             opts = {'vars': {'achv': achv}}
             nodes = await core.nodes('''[

@@ -176,7 +176,7 @@ class EconTest(s_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('947183947f2e2c7bdc55264c20670f19', nodes[0].ndef[1])
-            self.eq('stock', nodes[0].get('type'))
+            self.eq('stock.', nodes[0].get('type'))
             self.eq('nasdaq/tsla', nodes[0].get('ticker'))
             self.eq('9999', nodes[0].get('price'))
             self.eq(1580515200000, nodes[0].get('time'))

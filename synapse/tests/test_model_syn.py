@@ -306,7 +306,7 @@ class SynModelTest(s_t_utils.SynTest):
             self.isin('inet:client', pprops)
 
             # Test a cmpr that isn't '='
-            nodes = await core.nodes('syn:form~="test:type"')
+            nodes = await core.nodes('syn:form~="^test:type"')
             self.len(2, nodes)
 
             # Can't add an edge to a runt node

@@ -86,6 +86,10 @@ class ProjectModule(s_module.CoreModule):
                     ('proj:epic', ('guid', {}), {
                         'doc': 'A collection of tickets related to a topic.'}),
 
+                    ('proj:ticket:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A hierarchical taxonomy of project ticket types.'}),
+
                     ('proj:ticket', ('guid', {}), {
                         'interfaces': ('proj:task',),
                         'template': {
@@ -93,6 +97,7 @@ class ProjectModule(s_module.CoreModule):
                         'doc': 'A ticket in a ticketing system.'}),
 
                     ('proj:project:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
                         'doc': 'A type taxonomy for projects.'}),
 
                     ('proj:sprint', ('guid', {}), {
@@ -216,6 +221,7 @@ class ProjectModule(s_module.CoreModule):
                             'doc': 'The comment the attachment was added to.'}),
                     )),
 
+                    ('proj:ticket:type:taxonomy', {}, {}),
                     ('proj:ticket', {}, (
 
                         ('ext:id', ('str', {'strip': True}), {
@@ -243,8 +249,9 @@ class ProjectModule(s_module.CoreModule):
                         ('sprint', ('proj:sprint', {}), {
                             'doc': 'The sprint that contains the ticket.'}),
 
-                        ('type', ('str', {'lower': True, 'strip': True}), {
-                            'doc': 'The type of ticket. (eg story / bug)'}),
+                        ('type', ('proj:ticket:type:taxonomy', {}), {
+                            'doc': 'The type of ticket.',
+                            'ex': 'bug'}),
                     )),
                 ),
             }),

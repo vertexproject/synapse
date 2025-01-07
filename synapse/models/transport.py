@@ -17,8 +17,16 @@ class TransportModule(s_module.CoreModule):
                 ('transport:land:license', ('guid', {}), {
                     'doc': 'A license to operate a land vehicle issued to a contact.'}),
 
+                ('transport:air:craft:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of aircraft types.'}),
+
                 ('transport:air:craft', ('guid', {}), {
                     'doc': 'An individual aircraft.'}),
+
+                ('transport:air:tailnum:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of aircraft registration number types.'}),
 
                 ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
                     'doc': 'An aircraft registration number or military aircraft serial number.',
@@ -33,6 +41,10 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:air:flight', ('guid', {}), {
                     'doc': 'An individual instance of a flight.'}),
+
+                ('transport:air:occupant:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of aircraft occupant types.'}),
 
                 ('transport:air:occupant', ('guid', {}), {
                     'doc': 'An occupant of a specific flight.'}),
@@ -104,10 +116,11 @@ class TransportModule(s_module.CoreModule):
                     ('owner', ('ps:contact', {}), {
                         'doc': 'The contact info of the owner of the vehicle.'}),
                 )),
+                ('transport:air:craft:type:taxonomy', {}, ()),
                 ('transport:air:craft', {}, (
                     ('tailnum', ('transport:air:tailnum', {}), {
                         'doc': 'The aircraft tail number.'}),
-                    ('type', ('str', {'lower': True, 'strip': True}), {
+                    ('type', ('transport:air:craft:type:taxonomy', {}), {
                         'doc': 'The type of aircraft.'}),
                     ('built', ('time', {}), {
                         'doc': 'The date the aircraft was constructed.'}),
@@ -126,10 +139,11 @@ class TransportModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the IATA airport code is assigned.'}),
                 )),
+                ('transport:air:tailnum:type:taxonomy', {}, ()),
                 ('transport:air:tailnum', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location that the tailnumber is allocated to.'}),
-                    ('type', ('str', {'lower': True, 'strip': True}), {
+                    ('type', ('transport:air:tailnum:type:taxonomy', {}), {
                         'doc': 'A type which may be specific to the country prefix.'}),
                 )),
                 ('transport:air:flightnum', {}, (
@@ -196,8 +210,9 @@ class TransportModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The time the telemetry sample was taken.'})
                 )),
+                ('transport:air:occupant:type:taxonomy', {}, ()),
                 ('transport:air:occupant', {}, (
-                    ('type', ('str', {'lower': True}), {
+                    ('type', ('transport:air:occupant:type:taxonomy', {}), {
                         'doc': 'The type of occupant such as pilot, crew or passenger.'}),
                     ('flight', ('transport:air:flight', {}), {
                         'doc': 'The flight that the occupant was aboard.'}),

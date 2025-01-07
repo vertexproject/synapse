@@ -160,9 +160,14 @@ class OuModule(s_module.CoreModule):
                     'deprecated': True,
                     'doc': 'Deprecated. Please use ou:attendee.',
                 }),
+
+                ('ou:contest:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of contest types.'}),
+
                 ('ou:contest', ('guid', {}), {
-                    'doc': 'A competitive event resulting in a ranked set of participants.',
-                }),
+                    'doc': 'A competitive event resulting in a ranked set of participants.'}),
+
                 ('ou:contest:result', ('comp', {'fields': (('contest', 'ou:contest'), ('participant', 'ps:contact'))}), {
                     'doc': 'The results from a single contest participant.',
                 }),
@@ -235,12 +240,17 @@ class OuModule(s_module.CoreModule):
                 ('ou:id:update', ('guid', {}), {
                     'doc': 'A status update to an org:id:number.',
                 }),
+
+                ('ou:award:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of award types.'}),
+
                 ('ou:award', ('guid', {}), {
-                    'doc': 'An award issued by an organization.',
-                }),
+                    'doc': 'An award issued by an organization.'}),
+
                 ('ou:vitals', ('guid', {}), {
-                    'doc': 'Vital statistics about an org for a given time period.',
-                }),
+                    'doc': 'Vital statistics about an org for a given time period.'}),
+
                 ('ou:opening', ('guid', {}), {
                     'doc': 'A job/work opening within an org.'}),
 
@@ -462,12 +472,13 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The change in population over last period.',
                     }),
                 )),
+                ('ou:award:type:taxonomy', {}, ()),
                 ('ou:award', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the award.',
                         'ex': 'Bachelors of Science',
                     }),
-                    ('type', ('str', {'lower': True, 'onespace': True}), {
+                    ('type', ('ou:award:type:taxonomy', {}), {
                         'doc': 'The type of award.',
                         'ex': 'certification',
                     }),
@@ -1267,14 +1278,15 @@ class OuModule(s_module.CoreModule):
                         'doc': 'List of the roles the person had at the conference event.',
                     }),
                 )),
+                ('ou:contest:type:taxonomy', {}, ()),
                 ('ou:contest', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the contest.',
                         'ex': 'defcon ctf 2020',
                     }),
-                    ('type', ('str', {'lower': True, 'onespace': True}), {
+                    ('type', ('ou:contest:type:taxonomy', {}), {
                         'doc': 'The type of contest.',
-                        'ex': 'cyber ctf',
+                        'ex': 'cyber.ctf',
                     }),
                     ('family', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for a series of recurring contests.',
