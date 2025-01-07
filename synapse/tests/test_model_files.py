@@ -34,7 +34,7 @@ class FileTest(s_t_utils.SynTest):
                     :exe:compiler = {[ it:prod:softver=* :name="Visi Studio 31337" ]}
                 ]
             ''', opts={'vars': {'byts': b'visi'}})
-            pref = nodes[0].props.get('sha256')[:4]
+            pref = nodes[0].get('sha256')[:4]
 
             self.nn(nodes[0].get('exe:packer'))
             self.nn(nodes[0].get('exe:compiler'))
@@ -297,6 +297,24 @@ class FileTest(s_t_utils.SynTest):
             self.none(node.get('base:ext'))
             self.none(node.get('dir'))
 
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' /foo/bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '\\foo\\bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' '}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '')
+            self.none(node.get('base'))
+            self.none(node.get('base:ext'))
+            self.none(node.get('dir'))
+
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ''}})
             self.len(1, nodes)
             node = nodes[0]
@@ -346,9 +364,9 @@ class FileTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('file'), node0.ndef[1])
             self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
-            self.eq(node.get('path:dir'), 'c:/www/woah/really')
-            self.eq(node.get('path:base'), 'sup.exe')
-            self.eq(node.get('path:base:ext'), 'exe')
+            self.len(1, await core.nodes('file:filepath:path*dir=c:/www/woah/really'))
+            self.len(1, await core.nodes('file:filepath:path*base=sup.exe'))
+            self.len(1, await core.nodes('file:filepath:path*ext=exe'))
 
             self.len(1, await core.nodes('file:path="c:/www/woah/really"'))
             self.len(1, await core.nodes('file:path="c:/www"'))

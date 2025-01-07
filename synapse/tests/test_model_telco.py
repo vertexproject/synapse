@@ -96,23 +96,21 @@ class TelcoModelTest(s_t_utils.SynTest):
                      'imei': '490154203237518',
                      'phone': '123 456 7890',
                      'mac': '00:00:00:00:00:00',
-                     'ipv4': '1.2.3.4',
-                     'ipv6': '::1',
+                     'ip': '1.2.3.4',
                      'wifi': ('The Best SSID2', '00:11:22:33:44:55'),
                      'adid': 'someadid',
                      'aaid': 'somestr',
                      'idfa': 'someotherstr',
                      'name': 'Robert Grey',
                      'email': 'clown@vertex.link',
-                     'acct': ('vertex.link', 'clown'),
                      'app': softguid,
                      'data': {'some key': 'some valu',
                               'BEEP': 1}
                      }
             q = '''[(tel:mob:telem=$valu :time=$p.time :latlong=$p.latlong :place=$p.place :host=$p.host
              :loc=$p.loc :accuracy=$p.accuracy :cell=$p.cell :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
-             :mac=$p.mac :ipv4=$p.ipv4 :ipv6=$p.ipv6 :wifi=$p.wifi :adid=$p.adid :aaid=$p.aaid :idfa=$p.idfa
-             :name=$p.name :email=$p.email :acct=$p.acct :app=$p.app :data=$p.data :account=*)]'''
+             :mac=$p.mac :ip=$p.ip :wifi=$p.wifi :adid=$p.adid :aaid=$p.aaid :idfa=$p.idfa
+             :name=$p.name :email=$p.email :app=$p.app :data=$p.data :account=*)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -129,8 +127,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('imei'), 490154203237518)
             self.eq(node.get('phone'), '1234567890')
             self.eq(node.get('mac'), '00:00:00:00:00:00')
-            self.eq(node.get('ipv4'), 0x01020304)
-            self.eq(node.get('ipv6'), '::1')
+            self.eq(node.get('ip'), (4, 0x01020304))
             self.eq(node.get('wifi'), ('The Best SSID2', '00:11:22:33:44:55')),
             self.eq(node.get('wifi:ssid'), 'The Best SSID2')
             self.eq(node.get('wifi:bssid'), '00:11:22:33:44:55')
@@ -139,7 +136,6 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('idfa'), 'someotherstr')
             self.eq(node.get('name'), 'robert grey')
             self.eq(node.get('email'), 'clown@vertex.link')
-            self.eq(node.get('acct'), ('vertex.link', 'clown'))
             self.eq(node.get('app'), softguid)
             self.eq(node.get('data'), {'some key': 'some valu', 'BEEP': 1})
             self.len(1, await core.nodes('tel:mob:telem :account -> inet:service:account'))

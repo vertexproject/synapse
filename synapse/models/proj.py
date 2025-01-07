@@ -1,3 +1,4 @@
+import synapse.lib.scope as s_scope
 import synapse.lib.module as s_module
 
 statusenums = (
@@ -23,10 +24,9 @@ class ProjectModule(s_module.CoreModule):
 
         await self.core.auth.addAuthGate(node.ndef[1], 'storm:project')
 
-        useriden = node.snap.user.iden
-
-        rule = (True, ('project', 'admin'))
-        await node.snap.user.addRule(rule, gateiden=gateiden)
+        if (user := s_scope.get('user')) is not None:
+            rule = (True, ('project', 'admin'))
+            await user.addRule(rule, gateiden=gateiden)
 
     def getModelDefs(self):
         return (

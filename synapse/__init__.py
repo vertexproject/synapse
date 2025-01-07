@@ -12,7 +12,7 @@ if sys.maxsize < 9223372036854775807:  # pragma: no cover
 
 # Checking if the interpreter is running with -OO - if so, this breaks
 # behavior which relies on __doc__ being set.  Warn the user of this
-# degraded behavior.  Could affect Cli, Cmdr, Cortex, and other components.
+# degraded behavior.  Could affect Cli, Cortex, and other components.
 if sys.flags.optimize >= 2:
     import warnings
     mesg = '''Synapse components may experience degraded capabilities with sys.flags.optimize >=2.'''

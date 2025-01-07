@@ -514,8 +514,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
                     :identities:urls=(http://woot.com/1, http://woot.com/2)
                     :identities:fqdns=(vertex.link, woot.com)
-                    :identities:ipv4s=(1.2.3.4, 5.5.5.5)
-                    :identities:ipv6s=(ff::11, ff::aa)
+                    :identities:ips=(1.2.3.4, 5.5.5.5, ff::11, ff::aa)
                     :identities:emails=(visi@vertex.link, v@vtx.lk)
                 ]
             ''', opts={'vars': {'icert': icert, 'cert': cert, 'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
@@ -542,8 +541,10 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('ext:sans'), (('dns', '*.vertex.link'), ('dns', 'vertex.link')))
             self.eq(nodes[0].get('identities:urls'), ('http://woot.com/1', 'http://woot.com/2'))
             self.eq(nodes[0].get('identities:fqdns'), ('vertex.link', 'woot.com'))
-            self.eq(nodes[0].get('identities:ipv4s'), (0x01020304, 0x05050505))
-            self.eq(nodes[0].get('identities:ipv6s'), ('ff::11', 'ff::aa'))
+
+            ip3 = (6, 0xff0000000000000000000000000011)
+            ip4 = (6, 0xff00000000000000000000000000aa)
+            self.eq(nodes[0].get('identities:ips'), ((4, 0x01020304), (4, 0x05050505), ip3, ip4))
 
             nodes = await core.nodes('''
                 [
