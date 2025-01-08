@@ -46,13 +46,13 @@ class MatModule(s_module.CoreModule):
                             'doc': 'The cubed volume of the {phys:object}.'}),
 
                         ('phys:length', ('geo:dist', {}), {
-                            'doc': 'The length of the {phys:object}'}),
+                            'doc': 'The length of the {phys:object}.'}),
 
                         ('phys:width', ('geo:dist', {}), {
-                            'doc': 'The width of the {phys:object}'}),
+                            'doc': 'The width of the {phys:object}.'}),
 
                         ('phys:height', ('geo:dist', {}), {
-                            'doc': 'The height of the {phys:object}'}),
+                            'doc': 'The height of the {phys:object}.'}),
                     ),
                 }),
             ),
