@@ -150,7 +150,7 @@ What's Next?
 .. _`The Vertex Project`: https://vertex.link/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 
-.. _`Guided Tour`: https://v.vtx.lk/quick-tour
+.. _`Guided Tour`: https://v.vtx.lk/synapse-tour
 
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
 .. _Slack: https://v.vtx.lk/join-slack
