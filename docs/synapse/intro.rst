@@ -113,7 +113,7 @@ What's Next?
 |                      |   :ref:`quickstart` guide to see which one is |
 |                      |   right for you.                              |
 |                      |                                               | 
-|                      | - Watch `Synapse 101`_                        |
+|                      | - Watch a `Guided Tour`_                      |
 |                      |                                               |
 +----------------------+-----------------------------------------------+
 | **Users**            | - :ref:`userguide`                            |
@@ -150,7 +150,7 @@ What's Next?
 .. _`The Vertex Project`: https://vertex.link/
 .. _hypergraph: https://en.wikipedia.org/wiki/Hypergraph
 
-.. _`Synapse 101`: https://v.vtx.lk/syn101
+.. _`Guided Tour`: https://v.vtx.lk/quick-tour
 
 .. _Changelog: https://synapse.docs.vertex.link/en/latest/synapse/changelog.html
 .. _Slack: https://v.vtx.lk/join-slack
