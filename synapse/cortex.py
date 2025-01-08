@@ -6568,7 +6568,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.auth.reqNoAuthGate(iden)
 
-        user = await self.auth.reqUser(cdef['user'])
+        useriden = cdef.get('user', cdef['creator'])
+        user = await self.auth.reqUser(useriden)
 
         cdef = await self.agenda.add(cdef)
 

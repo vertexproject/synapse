@@ -565,10 +565,10 @@ class Agenda(s_base.Base):
         incvals = cdef.get('incvals')
         reqs = cdef.get('reqs', {})
         query = cdef.get('storm')
-        user = cdef.get('user')
         view = cdef.get('view')
-        creator = cdef.get('creator', self.core.auth.rootuser.iden)
         created = cdef.get('created')
+        creator = cdef.get('creator')
+        user = cdef.get('user', creator)
 
         pool = cdef.get('pool', False)
 
