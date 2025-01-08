@@ -36,6 +36,7 @@ TrigSchema = {
     'properties': {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'form': {'type': 'string', 'pattern': _formre},
         'n2form': {'type': 'string', 'pattern': _formre},
@@ -51,7 +52,7 @@ TrigSchema = {
         'created': {'type': 'integer', 'minimum': 0},
     },
     'additionalProperties': True,
-    'required': ['iden', 'user', 'storm', 'enabled'],
+    'required': ['iden', 'user', 'storm', 'enabled', 'creator'],
     'allOf': [
         {
             'if': {'properties': {'cond': {'const': 'node:add'}}},
@@ -565,6 +566,13 @@ class Trigger:
         tdef['lasterrs'] = list(self.lasterrs)
         if triguser is not None:
             tdef['username'] = triguser.name
+
+        if (creator := tdef.get('creator')) is not None:
+            if (user := self.view.core.auth.user(creator)) is not None:
+                tdef['creatorname'] = user.name
+        else:
+            tdef['creator'] = triguser.iden
+            tdef['creatorname'] = triguser.name
 
         return tdef
 

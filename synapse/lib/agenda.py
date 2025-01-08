@@ -269,7 +269,7 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, query, user, recs, nexttime=None, view=None, created=None, pool=False):
+    def __init__(self, stor, iden, recur, indx, query, creator, user, recs, nexttime=None, view=None, created=None, pool=False):
         self.doc = ''
         self.name = ''
         self.task = None
@@ -280,6 +280,7 @@ class _Appt:
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
         self.query = query  # query to run
         self.user = user  # user iden to run query as
+        self.creator = creator  # user iden which created the appt
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None  # index of rec who is up next
         self.view = view
@@ -347,6 +348,7 @@ class _Appt:
             'indx': self.indx,
             'query': self.query,
             'user': self.user,
+            'creator': self.creator,
             'created': self.created,
             'recs': [d.pack() for d in self.recs],
             'nexttime': self.nexttime,
@@ -364,7 +366,11 @@ class _Appt:
         if val['ver'] != 1:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['user'], recs, nexttime=val['nexttime'], view=val.get('view'))
+
+        creator = val['creator']
+        user = val.get('user', creator)
+
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], creator, user, recs, nexttime=val['nexttime'], view=val.get('view'))
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
         appt.pool = val.get('pool', False)
@@ -525,6 +531,9 @@ class Agenda(s_base.Base):
         Notes:
             The cron definition may contain the following keys:
 
+                creator (str)
+                    Iden of the user which created the appointment.
+
                 user (str)
                     Iden of the user used to run the Storm query.
 
@@ -558,6 +567,7 @@ class Agenda(s_base.Base):
         query = cdef.get('storm')
         user = cdef.get('user')
         view = cdef.get('view')
+        creator = cdef.get('creator', self.core.auth.rootuser.iden)
         created = cdef.get('created')
 
         pool = cdef.get('pool', False)
@@ -603,7 +613,7 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, user, recs, nexttime=nexttime, view=view, created=created, pool=pool)
+        appt = _Appt(self, iden, recur, indx, query, creator, user, recs, nexttime=nexttime, view=view, created=created, pool=pool)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')

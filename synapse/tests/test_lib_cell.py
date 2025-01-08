@@ -3080,7 +3080,7 @@ class CellTest(s_t_utils.SynTest):
                 self.stormIsInPrint('0973342044469bc40b577969028c5079:  (foodmon             ): running', msgs)
 
                 msgs = await core.stormlist('trigger.list')
-                self.stormIsInPrint('visi       27f5dc524e7c3ee8685816ddf6ca1326', msgs)
+                self.stormIsInPrint('visi                      27f5dc524e7c3ee8685816ddf6ca1326', msgs)
                 self.stormIsInPrint('[ +#count test:str=$tag ]', msgs)
 
                 msgs = await core.stormlist('testcmd0 foo')

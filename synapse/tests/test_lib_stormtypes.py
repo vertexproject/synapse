@@ -4325,12 +4325,14 @@ class StormTypesTest(s_test.SynTest):
             tdef = await core.callStorm('return ( $lib.trigger.get(bc1cbf350d151bba5936e6654dd13ff5) )')
             self.notin('async', tdef)
 
+            view = view[:8]
+
             msgs = await core.stormlist('trigger.list')
             self.stormHasNoWarnErr(msgs)
-            trgs = ('iden                             view                             en?    async? cond      object',
-                    f'8af9a5b134d08fded3edb667f8d8bbc2 {view} true   true   tag:add   inet:ipv4',
-                    f'99b637036016dadd6db513552a1174b8 {view} true   false  tag:add            ',
-                    f'bc1cbf350d151bba5936e6654dd13ff5 {view} true   false  node:add  inet:ipv4',
+            trgs = ('iden                              view         en?  async?  cond       object',
+                    f'8af9a5b134d08fded3edb667f8d8bbc2  {view}...  Y    Y       tag:add    inet:ipv4#aka',
+                    f'99b637036016dadd6db513552a1174b8  {view}...  Y    N       tag:add    #aka        ',
+                    f'bc1cbf350d151bba5936e6654dd13ff5  {view}...  Y    N       node:add   inet:ipv4',
                     )
             for m in trgs:
                 self.stormIsInPrint(m, msgs)
@@ -4532,8 +4534,8 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('trigger.add tag:add --view $view --tag neato.* --query {[ +#awesome ]}', opts={'vars': forkopts})
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
             nodes = await core.nodes('syn:trigger', opts=forkopts)
-            self.stormNotInPrint(mainview, mesgs)
-            self.stormIsInPrint(forkview, mesgs)
+            self.stormNotInPrint(mainview[:8], mesgs)
+            self.stormIsInPrint(forkview[:8], mesgs)
             self.len(1, nodes)
             othr = nodes[0].ndef[1]
             self.nn(nodes[0].props.get('.created'))

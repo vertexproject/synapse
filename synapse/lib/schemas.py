@@ -120,10 +120,7 @@ _CronJobSchema = {
         },
     },
     'additionalProperties': False,
-    'required': ['storm'],
-    'if': {'required': ['user']},
-    'then': {'not': {'required': ['creator']}},
-    'else': {'required': ['creator']},
+    'required': ['creator', 'storm', 'user'],
     'dependencies': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],

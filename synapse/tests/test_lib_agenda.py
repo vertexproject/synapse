@@ -434,6 +434,7 @@ class AgendaTest(s_t_utils.SynTest):
                 # Can't use an existing authgate iden
                 viewiden = core.getView().iden
                 cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
                         'storm': '[test:str=bar]',
                         'reqs': {'hour': 10},
                         'incunit': 'dayofweek',
@@ -444,15 +445,6 @@ class AgendaTest(s_t_utils.SynTest):
 
                 self.nn(core.getAuthGate(viewiden))
 
-                with self.raises(s_exc.SchemaViolation):
-                    s_schemas.reqValidCronDef({'storm': 'inet:fqdn'})
-
-                with self.raises(s_exc.SchemaViolation):
-                    s_schemas.reqValidCronDef({'storm': 'inet:fqdn', 'creator': s_common.guid(), 'user': s_common.guid()})
-
-                s_schemas.reqValidCronDef({'storm': 'inet:fqdn', 'creator': s_common.guid()})
-                s_schemas.reqValidCronDef({'storm': 'inet:fqdn', 'user': s_common.guid()})
-
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
 
@@ -461,6 +453,7 @@ class AgendaTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
 
                 cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
                         'storm': '[test:str=bar]',
                         'reqs': {'hour': 10, 'minute': 15},
                         'incunit': 'dayofweek',
@@ -470,6 +463,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
                 cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
                         'storm': '[test:str=baz]',
                         'reqs': {'hour': (7, 8), 'minute': 0, 'dayofmonth': 6},
                         'incunit': 'month',
@@ -483,6 +477,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Add an appt with an invalid query
                 cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
                         'storm': '[test:str=',
                         'reqs': {'hour': (7, 8)},
                         'incunit': 'month',
@@ -497,7 +492,8 @@ class AgendaTest(s_t_utils.SynTest):
                 await core.delCronJob(guid1)
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                cdef = {'user': core.auth.rootuser.iden,
+                cdef = {'creator': core.auth.rootuser.iden,
+                        'user': core.auth.rootuser.iden,
                         'storm': '#happyholidays',
                         'reqs': (xmas, lasthanu)}
 
@@ -726,11 +722,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
             msgs = await core.stormlist(q, opts=opts)
-            self.stormIsInErr('must have permission cron.set.creator', msgs)
-            self.stormIsInWarn('Setting the cron job "creator" field is deprecated', msgs)
-
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $lib.user.iden)) }')
-            self.eq(cdef['user'], core.auth.rootuser.iden)
+            self.stormIsInErr('CronJob does not support setting: creator', msgs)
 
     async def test_agenda_fatal_run(self):
 
@@ -1015,7 +1007,8 @@ class AgendaTest(s_t_utils.SynTest):
             q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) }'
             guid = s_common.guid()
             cdef = {
-                'user': core.auth.rootuser.iden, 'iden': guid,
+                'creator': core.auth.rootuser.iden, 'iden': guid,
+                'user': core.auth.rootuser.iden,
                 'storm': q,
                 'reqs': {'now': True}
             }
@@ -1087,7 +1080,8 @@ class AgendaTest(s_t_utils.SynTest):
                     q = '$q=$lib.queue.gen(test) for $i in $lib.range(60) { $lib.time.sleep(0.1) $q.put($i) }'
                     guid = s_common.guid()
                     cdef = {
-                        'user': core00.auth.rootuser.iden, 'iden': guid,
+                        'creator': core00.auth.rootuser.iden, 'iden': guid,
+                        'user': core00.auth.rootuser.iden,
                         'storm': q,
                         'reqs': {'NOW': True},
                         'pool': True,
@@ -1120,70 +1114,27 @@ class AgendaTest(s_t_utils.SynTest):
         async with self.getRegrCore('cron-creator-to-user') as core:
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
             self.eq(cdef['user'], core.auth.rootuser.iden)
-            self.none(cdef.get('creator'))
+            self.eq(cdef['creator'], core.auth.rootuser.iden)
 
-    async def test_cron_creator_nexus_compat(self):
-        with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 177)):
-            async with self.getRegrCore('cron-creator-to-user') as core0:
-                with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 193)):
+    async def test_cron_creator_mirror(self):
+        conf = {'mirror': 'cell:///newp'}
+        async with self.getRegrCore('cron-creator-to-user', conf=conf) as core:
 
-                    conf = {'mirror': core0.getLocalUrl()}
-                    async with self.getRegrCore('cron-creator-to-user', conf=conf) as core1:
+            apptdefs = core.cortexdata.getSubKeyVal('agenda:appt:')
+            for iden, info in apptdefs.items():
+                self.none(info.get('user'))
 
-                        lowuser = await core1.addUser('lowuser')
-                        lowuser = lowuser.get('iden')
+            q = 'for $cron in $lib.cron.list() { return($cron) }'
+            cdef = await core.callStorm(q)
+            self.eq(cdef['user'], core.auth.rootuser.iden)
+            self.eq(cdef['creator'], core.auth.rootuser.iden)
+            await core.promote(graceful=False)
 
-                        indx = core0.nexsroot.nexslog.index()
-                        await core1.sync()
+            apptdefs = core.cortexdata.getSubKeyVal('agenda:appt:')
+            for iden, info in apptdefs.items():
+                self.nn(info.get('user'))
 
-                        opts = {'vars': {'lowuser': lowuser}}
-                        q = 'for $cron in $lib.cron.list() { return($cron.set(user, $lowuser)) }'
-                        cdef = await core1.callStorm(q, opts=opts)
-                        self.eq(cdef['user'], lowuser)
-                        self.none(cdef.get('creator'))
-
-                        await core1.sync()
-
-                        evts = await s_t_utils.alist(core0.nexsroot.nexslog.iter(indx + 1))
-                        edit = [e[1] for e in evts if e[1][1] == 'cron:edit']
-                        self.len(1, edit)
-                        self.eq(edit[0][2][1], 'creator')
-
-                        await core1.callStorm('cron.add --minute +2 { $lib.print(foo) }')
-
-                        evts = await s_t_utils.alist(core0.nexsroot.nexslog.iter(indx + 1))
-                        edit = [e[1] for e in evts if e[1][1] == 'cron:add']
-                        self.len(1, edit)
-                        self.nn(edit[0][2][0].get('creator'))
-                        self.none(edit[0][2][0].get('user'))
-
-        async with self.getRegrCore('cron-creator-to-user') as core0:
-            conf = {'mirror': core0.getLocalUrl()}
-            async with self.getRegrCore('cron-creator-to-user', conf=conf) as core1:
-
-                lowuser = await core1.addUser('lowuser')
-                lowuser = lowuser.get('iden')
-
-                indx = core0.nexsroot.nexslog.index()
-                await core1.sync()
-
-                opts = {'vars': {'lowuser': lowuser}}
-                q = 'for $cron in $lib.cron.list() { return($cron.set(user, $lowuser)) }'
-                cdef = await core1.callStorm(q, opts=opts)
-                self.eq(cdef['user'], lowuser)
-                self.none(cdef.get('creator'))
-
-                await core1.sync()
-
-                evts = await s_t_utils.alist(core0.nexsroot.nexslog.iter(indx + 1))
-                edit = [e[1] for e in evts if e[1][1] == 'cron:edit']
-                self.len(1, edit)
-                self.eq(edit[0][2][1], 'user')
-
-                await core1.callStorm('cron.add --minute +2 { $lib.print(foo) }')
-
-                evts = await s_t_utils.alist(core0.nexsroot.nexslog.iter(indx + 1))
-                edit = [e[1] for e in evts if e[1][1] == 'cron:add']
-                self.len(1, edit)
-                self.nn(edit[0][2][0].get('user'))
-                self.none(edit[0][2][0].get('creator'))
+            q = 'for $cron in $lib.cron.list() { return($cron) }'
+            cdef = await core.callStorm(q)
+            self.eq(cdef['user'], core.auth.rootuser.iden)
+            self.eq(cdef['creator'], core.auth.rootuser.iden)

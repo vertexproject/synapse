@@ -1603,6 +1603,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         tdef.setdefault('created', s_common.now())
         tdef.setdefault('user', root.iden)
+        tdef.setdefault('creator', tdef['user'])
         tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
 
@@ -1612,8 +1613,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
     @s_nexus.Pusher.onPush('trigger:add')
     async def _onPushAddTrigger(self, tdef):
-
-        s_trigger.reqValidTdef(tdef)
 
         trig = self.trigdict.get(tdef['iden'])
         if trig is not None:

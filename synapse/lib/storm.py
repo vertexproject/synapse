@@ -1187,51 +1187,77 @@ stormcmds = (
             ('--all', {'help': 'List every trigger in every readable view, rather than just the current view.', 'action': 'store_true'}),
         ),
         'storm': '''
+            init {
+                $conf = ({
+                    "columns": [
+                        {"name": "creator", "width": 24},
+                        {"name": "user", "width": 24},
+                        {"name": "iden", "width": 32},
+                        {"name": "view", "width": 11},
+                        {"name": "en?", "width": 3},
+                        {"name": "async?", "width": 6},
+                        {"name": "cond", "width": 9},
+                        {"name": "object", "width": 32},
+                        {"name": "storm query", "newlines": "split"},
+                    ],
+                    "separators": {
+                        "row:outline": false,
+                        "column:outline": false,
+                        "header:row": "#",
+                        "data:row": "",
+                        "column": "",
+                        },
+                })
+                $printer = $lib.tabular.printer($conf)
+            }
+
             $triggers = $lib.trigger.list($cmdopts.all)
-
             if $triggers {
+                $lib.print($printer.header())
 
-                $lib.print("user       iden                             view                             en?    async? cond      object                    storm query")
+                for $trig in $triggers {
 
-                for $trigger in $triggers {
-                    $user = $trigger.username.ljust(10)
-                    $iden = $trigger.iden.ljust(12)
-                    $view = $trigger.view.ljust(12)
-                    ($ok, $async) = $lib.trycast(bool, $trigger.async)
-                    if $ok {
-                        $async = $lib.model.type(bool).repr($async).ljust(6)
-                    } else {
-                        $async = $lib.model.type(bool).repr($lib.false).ljust(6)
-                    }
-                    $enabled = $lib.model.type(bool).repr($trigger.enabled).ljust(6)
-                    $cond = $trigger.cond.ljust(9)
+                    if ($trig.enabled) { $enabled = 'Y' }
+                    else { $enabled = 'N' }
+
+                    if ($trig.async) { $async = 'Y' }
+                    else { $async = 'N' }
 
                     $fo = ""
-                    if $trigger.form {
-                        $fo = $trigger.form
-                    }
+                    if $trig.form { $fo = $trig.form }
 
-                    $pr = ""
-                    if $trigger.prop {
-                        $pr = $trigger.prop
-                    }
+                    if $trig.cond.startswith('tag:') {
 
-                    if $cond.startswith('tag:') {
-                        $obj = $fo.ljust(14)
-                        $obj2 = $trigger.tag.ljust(10)
+                        $obj = `{$fo}#{$trig.tag}`
+
+                    } elif $trig.cond.startswith('edge:') {
+
+                        $n2form = $trig.n2form
+                        if (not $n2form) { $n2form = '*' }
+                        if (not $fo) { $fo = '*' }
+
+                        $obj = `{$fo} -({$trig.verb})> {$n2form}`
 
                     } else {
-                        if $pr {
-                            $obj = $pr.ljust(14)
-                        } elif $fo {
-                            $obj = $fo.ljust(14)
-                        } else {
-                            $obj = '<missing>     '
+                        $pr = ""
+                        if $trig.prop {
+                            $pr = $trig.prop
                         }
-                        $obj2 = '          '
+
+                        if $pr {
+                            $obj = $pr
+                        } elif $fo {
+                            $obj = $fo
+                        } else {
+                            $obj = '<missing>'
+                        }
                     }
 
-                    $lib.print(`{$user} {$iden} {$view} {$enabled} {$async} {$cond} {$obj} {$obj2} {$trigger.storm}`)
+                    $row = (
+                        $trig.creatorname, $trig.username, $trig.iden, $trig.view,
+                        $enabled, $async, $trig.cond, $obj, $trig.storm
+                    )
+                    $lib.print($printer.row($row))
                 }
             } else {
                 $lib.print("No triggers found")
@@ -1392,6 +1418,7 @@ stormcmds = (
             init {
                 $conf = ({
                     "columns": [
+                        {"name": "creator", "width": 24},
                         {"name": "user", "width": 24},
                         {"name": "iden", "width": 10},
                         {"name": "view", "width": 10},
@@ -1420,7 +1447,7 @@ stormcmds = (
                 for $cron in $crons {
                     $job = $cron.pprint()
                     $row = (
-                        $job.user, $job.idenshort, $job.viewshort, $job.enabled,
+                        $job.creator, $job.user, $job.idenshort, $job.viewshort, $job.enabled,
                         $job.isrecur, $job.isrunning, $job.iserr, `{$job.startcount}`,
                         $job.laststart, $job.lastend, $job.query
                     )
@@ -1444,6 +1471,7 @@ stormcmds = (
                 $job = $cron.pprint()
 
                 $lib.print('iden:            {iden}', iden=$job.iden)
+                $lib.print('creator:         {creator}', creator=$job.creator)
                 $lib.print('user:            {user}', user=$job.user)
                 $lib.print('enabled:         {enabled}', enabled=$job.enabled)
                 $lib.print(`pool:            {$job.pool}`)

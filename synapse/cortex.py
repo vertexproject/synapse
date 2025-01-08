@@ -109,8 +109,6 @@ A Cortex implements the synapse hypergraph object.
 
 reqver = '>=0.2.0,<3.0.0'
 
-NEXSVERS_CRON_USER = (2, 193)
-
 # Constants returned in results from syncLayersEvents and syncIndexEvents
 SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
 SYNC_NODEEDIT = 1   # A nodeedit:  (<offs>, 0, <etyp>, (<etype args>))
@@ -959,7 +957,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:storage', (
             (1, self._storUpdateMacros),
             (4, self._storCortexHiveMigration),
-            (5, self._cronCreatorToUser),
         ), nexs=False)
 
         # Perform module loading
@@ -1098,12 +1095,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.setViewInfo('protected', nomerge)
             await view.setViewInfo('nomerge', None)
 
-    async def _cronCreatorToUser(self):
-        apptdefs = self.cortexdata.getSubKeyVal('agenda:appt:')
-        for iden, info in apptdefs.items():
-            if (user := info.pop('creator', None)) is not None:
-                info['user'] = user
-                apptdefs.set(iden, info)
+    async def _addCronUser(self):
+        for iden, cron in self.agenda.list():
+            await self.editCronJob(iden, 'user', cron.creator)
+
+    @s_nexus.Pusher.onPushAuto('cortex:add:trigger:creator')
+    async def _addTriggerCreator(self):
+        for view in self.views.values():
+            for iden, trig in view.triggers.list():
+                if trig.tdef.get('creator') is None:
+                    trig.tdef['creator'] = trig.tdef['user']
+                    view.trigdict.set(iden, trig.tdef)
 
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
@@ -1536,6 +1538,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
             (2, self._viewNomergeToProtected),
+            (3, self._addCronUser),
+            (4, self._addTriggerCreator),
         ))
 
     async def _addAllLayrRead(self):
@@ -6510,10 +6514,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             The incunit if not None it must be larger in unit size than all the keys in all reqs elements.
             Non-recurring jobs may also have a req of 'now' which will cause the job to also execute immediately.
         '''
-        if self.nexsvers < NEXSVERS_CRON_USER:
-            if (user := cdef.pop('user', None)) is not None:
-                cdef['creator'] = user
-
         s_schemas.reqValidCronDef(cdef)
 
         iden = cdef.get('iden')
@@ -6550,10 +6550,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         cdef['created'] = s_common.now()
 
-        if (user := cdef.get('user')) is None:
-            user = cdef.get('creator')
-
-        opts = {'user': user, 'view': cdef.get('view')}
+        opts = {'user': cdef['user'], 'view': cdef.get('view')}
 
         view = self._viewFromOpts(opts)
         cdef['view'] = view.iden
@@ -6562,9 +6559,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('cron:add')
     async def _onAddCronJob(self, cdef):
-
-        if (user := cdef.pop('creator', None)) is not None:
-            cdef['user'] = user
 
         iden = cdef['iden']
 
@@ -6688,25 +6682,23 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if user is not None:
                 info['username'] = user.name
 
+            creator = self.auth.user(cron.creator)
+            if creator is not None:
+                info['creatorname'] = creator.name
+
             crons.append(info)
 
         return crons
 
+    @s_nexus.Pusher.onPushAuto('cron:edit')
     async def editCronJob(self, iden, name, valu):
-        if self.nexsvers < NEXSVERS_CRON_USER and name == 'user':
-            name = 'creator'
-
-        return await self._push('cron:edit', iden, name, valu)
-
-    @s_nexus.Pusher.onPush('cron:edit')
-    async def _editCronJob(self, iden, name, valu):
         '''
         Modify a cron job definition.
         '''
         appt = await self.agenda.get(iden)
         # TODO make this generic and check cdef
 
-        if name in ('creator', 'user'):
+        if name == 'user':
             await self.auth.reqUser(valu)
             appt.user = valu
 
