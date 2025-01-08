@@ -928,6 +928,7 @@ class Agenda(s_base.Base):
                 logger.warning(f'Found running task for {appt.iden}')
 
                 await appt.task.kill()
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
 
                 if self.core.isactive:
                     edits = {

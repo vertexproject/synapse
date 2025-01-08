@@ -2151,7 +2151,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff{_dispname}.')
             async with await s_telepath.openurl(mirurl) as lead:
 
-                if hasattr(lead, 'agenda'):
+                if 'storm' in lead.methinfo:
                     await lead.cancelRunningSchedulerJobs()
                     await lead.pauseScheduler()
 
