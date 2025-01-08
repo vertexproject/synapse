@@ -1198,3 +1198,36 @@ class AgendaTest(s_t_utils.SynTest):
                     self.len(1, cron01)
                     self.false(cron01[0].get('isrunning'))
                     self.eq(cron01[0].get('lasterrs')[0], 'aborted')
+
+    async def test_agenda_pause_resume(self):
+
+        async with self.getTestCore() as core:
+
+            q = '$lib.log.info("cron job executed")'
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'iden': s_common.guid(),
+                'storm': q,
+                'reqs': {},
+                'incunit': 'minute',
+                'incvals': 1
+            }
+            await core.addCronJob(cdef)
+
+            with self.getAsyncLoggerStream('synapse.storm.log', 'cron job executed') as stream:
+                core.agenda._addTickOff(60)
+                self.true(await stream.wait(timeout=6))
+
+            await core.agenda.pause()
+            self.true(core.agenda._paused)
+
+            with self.getAsyncLoggerStream('synapse.storm.log', 'cron job executed') as stream:
+                core.agenda._addTickOff(60)
+                self.false(await stream.wait(timeout=1))
+
+            await core.agenda.resume()
+            self.false(core.agenda._paused)
+
+            with self.getAsyncLoggerStream('synapse.storm.log', 'cron job executed') as stream:
+                core.agenda._addTickOff(60)
+                self.true(await stream.wait(timeout=6))
