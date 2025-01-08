@@ -1,6 +1,6 @@
 ---
 desc: Fixed an issue with the Storm loop and generator keywords, ``continue``, ``break``,
-  and ``stop``. Using these keywords to exit a function will now raise a ``StormRuntimeError``
+  and ``stop``. Using these keywords to outside of a loop or generator function will now raise a ``StormRuntimeError``
   exception. Using these keywords to tear down the Storm runtime will now emit an
   ``err`` message with the type ``StormRuntimeError`` and a message indicating the
   invalid use of the keywords.
