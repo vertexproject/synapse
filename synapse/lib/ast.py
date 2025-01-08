@@ -4830,12 +4830,18 @@ class Emit(Oper):
         count = 0
         async for node, path in genr:
             count += 1
-            await runt.emit(await self.kids[0].compute(runt, path))
+            try:
+                await runt.emit(await self.kids[0].compute(runt, path))
+            except s_exc.StormRuntimeError as e:
+                raise self.addExcInfo(e)
             yield node, path
 
         # no items in pipeline and runtsafe. execute once.
         if count == 0 and self.isRuntSafe(runt):
-            await runt.emit(await self.kids[0].compute(runt, None))
+            try:
+                await runt.emit(await self.kids[0].compute(runt, None))
+            except s_exc.StormRuntimeError as e:
+                raise self.addExcInfo(e)
 
 class Stop(Oper):
 

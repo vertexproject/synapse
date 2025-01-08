@@ -339,9 +339,16 @@ class StormTest(s_t_utils.SynTest):
             prnt = [m[1]['mesg'] for m in msgs if m[0] == 'print']
             self.eq(prnt, ['inner 0', 'outer 0'])
 
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('emit foo'))
+            # Emit outside an emitter function raises a runtime error with posinfo
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('emit foo')
+            self.nn(cm.exception.get('highlight'))
 
-            # stop cannot cross function boundaries
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('[test:str=emit] emit foo')
+            self.nn(cm.exception.get('highlight'))
+
+                # stop cannot cross function boundaries
             q = '''
             function inner(v) {
                 if ( $v = 2 ) {
