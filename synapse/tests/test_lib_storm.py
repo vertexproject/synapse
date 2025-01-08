@@ -348,7 +348,7 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('[test:str=emit] emit foo')
             self.nn(cm.exception.get('highlight'))
 
-                # stop cannot cross function boundaries
+            # stop cannot cross function boundaries
             q = '''
             function inner(v) {
                 if ( $v = 2 ) {
