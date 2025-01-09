@@ -445,7 +445,6 @@ class Agenda(s_base.Base):
         self.appts = {}  # Dict[bytes: Appt]
         self._next_indx = 0  # index a new appt gets assigned
         self.tickoff = 0  # Used for test overrides
-        self._paused = False  # Used to track paused state
 
         self._wake_event = s_coro.Event()  # Causes the scheduler loop to wake up
         self.onfini(self._wake_event.set)
@@ -715,14 +714,6 @@ class Agenda(s_base.Base):
                 }
                 await self.core.addCronEdits(appt.iden, edits)
 
-    async def pause(self):
-        self._paused = True
-        self._wake_event.set()
-
-    async def resume(self):
-        self._paused = False
-        self._wake_event.set()
-
     async def runloop(self):
         '''
         Task loop to issue query tasks at the right times.
@@ -730,7 +721,7 @@ class Agenda(s_base.Base):
         while not self.isfini:
 
             timeout = None
-            if self.apptheap and not self._paused:
+            if self.apptheap:
                 timeout = self.apptheap[0].nexttime - self._getNowTick()
 
             if timeout is None or timeout > 0:
@@ -739,9 +730,6 @@ class Agenda(s_base.Base):
 
             if self.isfini:
                 return
-
-            if self._paused:
-                continue
 
             now = self._getNowTick()
             while self.apptheap and self.apptheap[0].nexttime <= now:
@@ -916,29 +904,3 @@ class Agenda(s_base.Base):
             if not self.isfini:
                 # fire beholder event before invoking nexus change (in case readonly)
                 await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
-
-    async def cancelAll(self):
-        now = self._getNowTick()
-
-        for appt in self.appts.values():
-            logger.warning(f'Cancelling agenda task {appt.iden}')
-            logger.warning(f'Task state: isrunning={appt.isrunning}, task={appt.task}')
-
-            if appt.isrunning:
-                logger.warning(f'Found running task for {appt.iden}')
-
-                await appt.task.kill()
-                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
-
-                if self.core.isactive:
-                    edits = {
-                        'isrunning': False,
-                        'errcount': appt.errcount,
-                        'lasterrs': appt.lasterrs,
-                        'lastfinishtime': now,
-                        'lastresult': 'cancelled',
-                    }
-                    await self.core.addCronEdits(appt.iden, edits)
-
-        self.apptheap = []
-        self._wake_event.set()

@@ -741,19 +741,6 @@ class CoreApi(s_cell.CellApi):
     async def getHttpExtApiByPath(self, path):
         return await self.cell.getHttpExtApiByPath(path)
 
-    async def cancelRunningSchedulerJobs(self):
-        return await self.cell.agenda.cancelAll()
-
-    async def pauseScheduler(self):
-        await self._reqUserAllowed(('agenda', 'control'))
-        if self.cell.agenda is not None:
-            await self.cell.agenda.pause()
-
-    async def resumeScheduler(self):
-        await self._reqUserAllowed(('agenda', 'control'))
-        if self.cell.agenda is not None:
-            await self.cell.agenda.resume()
-
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
     A Cortex implements the synapse hypergraph.
@@ -1506,10 +1493,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to check if the Axon contains a file.'},
             {'perm': ('axon', 'del'), 'gate': 'cortex',
              'desc': 'Controls the ability to remove a file from the Axon.'},
-
-            {'perm': ('agenda', 'control'), 'gate': 'cortex',
-             'desc': 'Controls the scheduler state'},
-
         ))
         for pdef in self._cortex_permdefs:
             s_storm.reqValidPermDef(pdef)
