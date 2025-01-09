@@ -1099,6 +1099,34 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for iden, cron in self.agenda.list():
             await self.editCronJob(iden, 'user', cron.creator)
 
+        oldperm = ['cron', 'set', 'creator']
+        newperm = ['cron', 'set', 'user']
+
+        for user in self.auth.users():
+            rules = []
+            update = False
+
+            for allow, path in user.getRules():
+                if path[:3] == oldperm:
+                    update = True
+                    rules.append((allow, newperm + path[3:]))
+                    continue
+                rules.append((allow, path))
+
+            if update:
+                await user.setRules(rules)
+
+        for role in self.auth.roles():
+            for allow, path in role.getRules():
+                if path[:3] == oldperm:
+                    update = True
+                    rules.append((allow, newperm + path[3:]))
+                    continue
+                rules.append((allow, path))
+
+            if update:
+                await role.setRules(rules)
+
     @s_nexus.Pusher.onPushAuto('cortex:add:trigger:creator')
     async def _addTriggerCreator(self):
         for view in self.views.values():

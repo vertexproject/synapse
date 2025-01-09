@@ -9590,7 +9590,6 @@ class CronJob(Prim):
         if name == 'user':
             # this permission must be granted cortex wide
             # to prevent abuse...
-            # TODO: Should we migrate this perm?
             self.runt.confirm(('cron', 'set', 'user'))
         elif name in ('doc', 'name', 'pool'):
             self.runt.confirm(('cron', 'set', name), gateiden=iden)
