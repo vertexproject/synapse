@@ -1117,6 +1117,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await user.setRules(rules)
 
         for role in self.auth.roles():
+            rules = []
+            update = False
+
             for allow, path in role.getRules():
                 if path[:3] == oldperm:
                     update = True
