@@ -1,0 +1,5 @@
+---
+desc: Fixed a scheduler loop error during a mirror promotion.
+prs: []
+type: bug
+...
