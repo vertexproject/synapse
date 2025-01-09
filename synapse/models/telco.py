@@ -369,7 +369,8 @@ class TelcoModule(s_module.CoreModule):
                     ('wifi:bssid', ('inet:mac', {}), {}),
 
                     # host specific data
-                    ('adid', ('it:adid', {}), {}),
+                    ('adid', ('it:adid', {}), {
+                        'doc': 'The advertising ID of the mobile telemetry sample.'}),
 
                     ('aaid', ('it:os:android:aaid', {}), {
                         'deprecated': True,
