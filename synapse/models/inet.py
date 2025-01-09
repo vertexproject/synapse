@@ -3785,6 +3785,9 @@ class InetModule(s_module.CoreModule):
                         ('replyto', ('inet:service:message', {}), {
                             'doc': 'The message that this message was sent in reply to. Used for message threading.'}),
 
+                        ('repost', ('inet:service:message', {}), {
+                            'doc': 'The message which this message contains as a repost.'}),
+
                         ('links', ('array', {'type': 'inet:service:message:link', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of links contained within the message.'}),
 

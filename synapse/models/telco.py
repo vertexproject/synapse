@@ -370,8 +370,14 @@ class TelcoModule(s_module.CoreModule):
 
                     # host specific data
                     ('adid', ('it:adid', {}), {}),
-                    ('aaid', ('it:os:android:aaid', {}), {}),
-                    ('idfa', ('it:os:ios:idfa', {}), {}),
+
+                    ('aaid', ('it:os:android:aaid', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :adid.'}),
+
+                    ('idfa', ('it:os:ios:idfa', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :adid.'}),
 
                     # User related data
                     ('name', ('ps:name', {}), {}),
