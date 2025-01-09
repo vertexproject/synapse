@@ -1095,7 +1095,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.setViewInfo('protected', nomerge)
             await view.setViewInfo('nomerge', None)
 
-    async def _addCronUser(self):
+    async def _migrateCronUser(self):
         for iden, cron in self.agenda.list():
             await self.editCronJob(iden, 'user', cron.creator)
 
@@ -1128,7 +1128,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await role.setRules(rules)
 
     @s_nexus.Pusher.onPushAuto('cortex:add:trigger:creator')
-    async def _addTriggerCreator(self):
+    async def _migrateTriggerCreator(self):
         for view in self.views.values():
             for iden, trig in view.triggers.list():
                 if trig.tdef.get('creator') is None:
@@ -1566,8 +1566,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
             (2, self._viewNomergeToProtected),
-            (3, self._addCronUser),
-            (4, self._addTriggerCreator),
+            (3, self._migrateCronUser),
+            (4, self._migrateTriggerCreator),
         ))
 
     async def _addAllLayrRead(self):
