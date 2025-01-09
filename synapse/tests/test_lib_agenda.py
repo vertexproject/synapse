@@ -7,6 +7,7 @@ from datetime import timezone as tz
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.backup as s_tools_backup
@@ -1112,29 +1113,110 @@ class AgendaTest(s_t_utils.SynTest):
 
     async def test_cron_creator_migration(self):
         async with self.getRegrCore('cron-creator-to-user') as core:
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
-            self.eq(cdef['user'], core.auth.rootuser.iden)
-            self.eq(cdef['creator'], core.auth.rootuser.iden)
+            msgs = await core.stormlist('cron.list')
+            self.stormIsInPrint('root                      root                      1ec949d8', msgs)
+            self.stormIsInPrint('testuser                  testuser                  8fb20efd', msgs)
 
-    async def test_cron_creator_mirror(self):
-        conf = {'mirror': 'cell:///newp'}
-        async with self.getRegrCore('cron-creator-to-user', conf=conf) as core:
+            msgs = await core.stormlist('trigger.list')
+            self.stormIsInPrint('testuser                  testuser                  2b61c302', msgs)
 
-            apptdefs = core.cortexdata.getSubKeyVal('agenda:appt:')
-            for iden, info in apptdefs.items():
-                self.none(info.get('user'))
+            rules = await core.callStorm('return($lib.auth.users.byname(testuser).getRules())')
+            self.isin((True, ('cron', 'set', 'user')), rules)
+            self.notin((True, ('cron', 'set', 'creator')), rules)
 
-            q = 'for $cron in $lib.cron.list() { return($cron) }'
-            cdef = await core.callStorm(q)
-            self.eq(cdef['user'], core.auth.rootuser.iden)
-            self.eq(cdef['creator'], core.auth.rootuser.iden)
-            await core.promote(graceful=False)
+            rules = await core.callStorm('return($lib.auth.roles.byname(testrole).getRules())')
+            self.isin((True, ('cron', 'set', 'user', 'extra')), rules)
+            self.notin((True, ('cron', 'set', 'creator', 'extra')), rules)
 
-            apptdefs = core.cortexdata.getSubKeyVal('agenda:appt:')
-            for iden, info in apptdefs.items():
-                self.nn(info.get('user'))
+    async def test_cron_creator_mirror_migr(self):
 
-            q = 'for $cron in $lib.cron.list() { return($cron) }'
-            cdef = await core.callStorm(q)
-            self.eq(cdef['user'], core.auth.rootuser.iden)
-            self.eq(cdef['creator'], core.auth.rootuser.iden)
+        orig = s_cortex.Cortex._execCellUpdates
+
+        async def noop(self):
+            pass
+
+        with self.getRegrDir('cortexes', 'cron-creator-to-user') as dirn1, \
+             self.getRegrDir('cortexes', 'cron-creator-to-user') as dirn2:
+
+            with mock.patch.object(s_cortex.Cortex, '_execCellUpdates', noop):
+                async with self.getTestCore(dirn=dirn1) as core1:
+
+                    conf = {'mirror': core1.getLocalUrl()}
+
+                    with mock.patch.object(s_cortex.Cortex, '_execCellUpdates', orig):
+                        async with self.getTestCore(dirn=dirn2, conf=conf) as core2:
+
+                            await core2.sync()
+
+                            apptdefs = core1.cortexdata.getSubKeyVal('agenda:appt:')
+                            for iden, info in apptdefs.items():
+                                self.none(info.get('user'))
+
+                            apptdefs = core2.cortexdata.getSubKeyVal('agenda:appt:')
+                            for iden, info in apptdefs.items():
+                                self.none(info.get('user'))
+
+                            # These should still display correctly before being migrated
+                            msgs = await core2.stormlist('cron.list')
+                            self.stormIsInPrint('root                      root                      1ec949d8', msgs)
+                            self.stormIsInPrint('testuser                  testuser                  8fb20efd', msgs)
+
+                            # Edits to creator from an old leader are handled by an updated mirror
+                            user = await core1.auth.getUserByName('roleuser')
+                            await core1._push('cron:edit', '1ec949d8c09ef603e391068ffaca1b8f', 'creator', user.iden)
+
+                            await core2.sync()
+
+                            msgs = await core2.stormlist('cron.list')
+                            self.stormIsInPrint('roleuser                  roleuser                  1ec949d8', msgs)
+                            self.stormIsInPrint('testuser                  testuser                  8fb20efd', msgs)
+
+                            for view in core1.views.values():
+                                for iden, trig in view.triggers.list():
+                                    self.none(trig.tdef.get('creator'))
+
+                            for view in core2.views.values():
+                                for iden, trig in view.triggers.list():
+                                    self.none(trig.tdef.get('creator'))
+
+                            msgs = await core2.stormlist('trigger.list')
+                            self.stormIsInPrint('testuser                  testuser                  2b61c302', msgs)
+
+                            await core1.nodes(f'$lib.trigger.get(2b61c3028a3efc87dcd99b8bfc1fbd83).set(user, {user.iden})')
+
+                            await core2.sync()
+
+                            msgs = await core2.stormlist('trigger.list')
+                            self.stormIsInPrint('roleuser                  roleuser                  2b61c302', msgs)
+
+            async with self.getTestCore(dirn=dirn1) as core1, \
+                       self.getTestCore(dirn=dirn2, conf=conf) as core2:
+
+                await core2.sync()
+
+                apptdefs = core1.cortexdata.getSubKeyVal('agenda:appt:')
+                for iden, info in apptdefs.items():
+                    self.nn(info.get('user'))
+                    self.eq(info.get('user'), info.get('creator'))
+
+                apptdefs = core2.cortexdata.getSubKeyVal('agenda:appt:')
+                for iden, info in apptdefs.items():
+                    self.nn(info.get('user'))
+                    self.eq(info.get('user'), info.get('creator'))
+
+                for view in core1.views.values():
+                    for iden, trig in view.triggers.list():
+                        self.nn(trig.tdef.get('creator'))
+                        self.eq(trig.tdef.get('creator'), trig.tdef.get('user'))
+
+                for view in core2.views.values():
+                    for iden, trig in view.triggers.list():
+                        self.nn(trig.tdef.get('creator'))
+                        self.eq(trig.tdef.get('creator'), trig.tdef.get('user'))
+
+                msgs = await core2.stormlist('cron.list')
+                self.stormIsInPrint('roleuser                  roleuser                  1ec949d8', msgs)
+                self.stormIsInPrint('testuser                  testuser                  8fb20efd', msgs)
+
+                msgs = await core2.stormlist('trigger.list')
+                self.stormIsInPrint('roleuser                  roleuser                  2b61c302', msgs)

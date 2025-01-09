@@ -1099,8 +1099,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for iden, cron in self.agenda.list():
             await self.editCronJob(iden, 'user', cron.creator)
 
-        oldperm = ['cron', 'set', 'creator']
-        newperm = ['cron', 'set', 'user']
+        oldperm = ('cron', 'set', 'creator')
+        newperm = ('cron', 'set', 'user')
 
         for user in self.auth.users():
             rules = []
@@ -6719,8 +6719,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return crons
 
-    @s_nexus.Pusher.onPushAuto('cron:edit')
     async def editCronJob(self, iden, name, valu):
+
+        if name == 'user':
+            await self.auth.reqUser(valu)
+
+        elif name not in ('name', 'doc', 'pool'):
+            mesg = f'editCronJob name {name} is not supported for editing.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return await self._push('cron:edit', iden, name, valu)
+
+    @s_nexus.Pusher.onPush('cron:edit')
+    async def _editCronJob(self, iden, name, valu):
         '''
         Modify a cron job definition.
         '''
@@ -6730,6 +6741,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if name == 'user':
             await self.auth.reqUser(valu)
             appt.user = valu
+
+        elif name == 'creator':
+            await self.auth.reqUser(valu)
+            appt.user = valu
+            appt.creator = valu
 
         elif name == 'name':
             appt.name = str(valu)
