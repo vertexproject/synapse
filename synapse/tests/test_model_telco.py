@@ -97,7 +97,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                      'phone': '123 456 7890',
                      'mac': '00:00:00:00:00:00',
                      'ip': '1.2.3.4',
-                     'wifi': ('The Best SSID2', '00:11:22:33:44:55'),
+                     'wifi:ap': ('The Best SSID2', '00:11:22:33:44:55'),
                      'adid': 'someadid',
                      'aaid': 'somestr',
                      'idfa': 'someotherstr',
@@ -109,7 +109,7 @@ class TelcoModelTest(s_t_utils.SynTest):
                      }
             q = '''[(tel:mob:telem=$valu :time=$p.time :latlong=$p.latlong :place=$p.place :host=$p.host
              :loc=$p.loc :accuracy=$p.accuracy :cell=$p.cell :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
-             :mac=$p.mac :ip=$p.ip :wifi=$p.wifi :adid=$p.adid :aaid=$p.aaid :idfa=$p.idfa
+             :mac=$p.mac :ip=$p.ip :wifi:ap=$p."wifi:ap" :adid=$p.adid :aaid=$p.aaid :idfa=$p.idfa
              :name=$p.name :email=$p.email :app=$p.app :data=$p.data :account=*)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
@@ -128,9 +128,9 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('phone'), '1234567890')
             self.eq(node.get('mac'), '00:00:00:00:00:00')
             self.eq(node.get('ip'), (4, 0x01020304))
-            self.eq(node.get('wifi'), ('The Best SSID2', '00:11:22:33:44:55')),
-            self.eq(node.get('wifi:ssid'), 'The Best SSID2')
-            self.eq(node.get('wifi:bssid'), '00:11:22:33:44:55')
+            self.eq(node.get('wifi:ap'), ('The Best SSID2', '00:11:22:33:44:55')),
+            self.eq(node.get('wifi:ap:ssid'), 'The Best SSID2')
+            self.eq(node.get('wifi:ap:bssid'), '00:11:22:33:44:55')
             self.eq(node.get('adid'), 'someadid')
             self.eq(node.get('aaid'), 'somestr')
             self.eq(node.get('idfa'), 'someotherstr')

@@ -837,8 +837,8 @@ class InetModelTest(s_t_utils.SynTest):
                 :mac="ff:00:ff:00:ff:00"
                 :ip=1.2.3.4
                 :phone=12345678910
-                :wifi:ssid="hehe haha"
-                :wifi:bssid="00:ff:00:ff:00:ff"
+                :wifi:ap:ssid="hehe haha"
+                :wifi:ap:bssid="00:ff:00:ff:00:ff"
                 :mob:imei=123456789012347
                 :mob:imsi=12345678901234
             )]'''
@@ -852,8 +852,8 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('mac'), 'ff:00:ff:00:ff:00')
             self.eq(node.get('ip'), (4, 0x01020304))
             self.eq(node.get('phone'), '12345678910')
-            self.eq(node.get('wifi:ssid'), 'hehe haha')
-            self.eq(node.get('wifi:bssid'), '00:ff:00:ff:00:ff')
+            self.eq(node.get('wifi:ap:ssid'), 'hehe haha')
+            self.eq(node.get('wifi:ap:bssid'), '00:ff:00:ff:00:ff')
             self.eq(node.get('mob:imei'), 123456789012347)
             self.eq(node.get('mob:imsi'), 12345678901234)
 

@@ -364,9 +364,9 @@ class TelcoModule(s_module.CoreModule):
                     ('ip', ('inet:ip', {}), {
                         'prevnames': ('ipv4', 'ipv6')}),
 
-                    ('wifi', ('inet:wifi:ap', {}), {}),
-                    ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
-                    ('wifi:bssid', ('inet:mac', {}), {}),
+                    ('wifi:ap', ('inet:wifi:ap', {}), {}),
+                    ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {}),
+                    ('wifi:ap:bssid', ('inet:mac', {}), {}),
 
                     # host specific data
                     ('adid', ('it:adid', {}), {}),
