@@ -493,10 +493,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:id:number', {}, (
 
                     ('type', ('ou:id:type', {}), {
-                        'doc': 'The type of org id', 'ro': True}),
+                        'doc': 'The type of org ID.', 'ro': True}),
 
                     ('value', ('ou:id:value', {}), {
-                        'doc': 'The value of org id', 'ro': True}),
+                        'doc': 'The value of the org ID.', 'ro': True}),
 
                     ('status', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A freeform status such as valid, suspended, expired.'}),
