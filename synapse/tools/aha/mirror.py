@@ -9,8 +9,6 @@ import synapse.telepath as s_telepath
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
-reqver = '>=2.2.0,<3.0.0' # TODO: update version with gatherApis
-
 descr = '''
 Query the Aha server for the service cluster status of mirrors.
 
@@ -98,7 +96,9 @@ async def main(argv, outp=s_output.stdout):
         try:
             async with await s_telepath.openurl(opts.url) as prox:
                 try:
-                    s_version.reqVersion(prox._getSynVers(), reqver)
+                    if not prox._hasTeleFeat('callpeers', vers=1):
+                        outp.printf(f'Service at {opts.url} does not support the required callpeers feature.')
+                        return 1
                 except s_exc.BadVersion as e:
                     valu = s_version.fmtVersion(*e.get('valu'))
                     outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')

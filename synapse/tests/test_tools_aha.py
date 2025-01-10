@@ -253,12 +253,12 @@ class AhaToolsTest(s_t_utils.SynTest):
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 0)
 
-            with mock.patch('synapse.telepath.Proxy._getSynVers',
-                            return_value=(0, 0, 1)):
+            with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
+                          return_value=False):
                 argv = ['--url', ahaurl]
                 retn, outp = await self.execToolMain(s_a_mirror.main, argv)
                 self.eq(retn, 1)
-                outp.expect('Proxy version 0.0.1 is outside of')
+                outp.expect(f'Service at {ahaurl} does not support the required callpeers feature.')
 
             argv = ['--url', 'tcp://newp:1234/']
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
@@ -311,9 +311,11 @@ class AhaToolsTest(s_t_utils.SynTest):
             async with self.getTestCore() as core:
                 curl = core.getLocalUrl()
                 argv = ['--url', curl]
-                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
-                self.eq(1, retn)
-                outp.expect(f'Service at {curl} is not an Aha server')
+                with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
+                          return_value=True):
+                    retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                    self.eq(1, retn)
+                    outp.expect(f'Service at {curl} is not an Aha server')
 
             async with aha.waiter(1, 'aha:svcadd', timeout=10):
 
