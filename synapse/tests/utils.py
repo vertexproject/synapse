@@ -1003,6 +1003,14 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         self._NextBuid = 0
         self._NextGuid = 0
 
+    def _setupAsyncioRunner(self):
+        assert self._asyncioRunner is None, 'asyncio runner is already initialized'
+        debug = True
+        # FIXME - check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
+        # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
+        runner = asyncio.Runner(debug=debug)
+        self._asyncioRunner = runner
+
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
