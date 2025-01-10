@@ -150,6 +150,7 @@ class PsModelTest(s_t_utils.SynTest):
             }
             opts = {'vars': {'valu': con0, 'p': props}}
             q = '''[(ps:contact=$valu
+                    :bio="I am ironman."
                     :org=$p.org :asof=$p.asof :person=$p.person
                     :place=$p.place :place:name=$p."place:name" :name=$p.name
                     :title=$p.title :orgname=$p.orgname :user=$p.user
@@ -178,6 +179,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('place'), place)
             self.eq(node.get('place:name'), 'the shire')
             self.eq(node.get('name'), 'tony stark')
+            self.eq(node.get('bio'), 'I am ironman.')
             self.eq(node.get('title'), 'ceo')
             self.eq(node.get('titles'), ('haha', 'hehe'))
             self.eq(node.get('orgname'), 'stark industries, inc')
