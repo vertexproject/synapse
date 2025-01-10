@@ -6639,7 +6639,7 @@ words\tword\twrd'''
                                                      'newname': 'oops'
                                                  }})
 
-            self.stormIsInErr('Function (_storUserName) is not marked readonly safe.', msgs)
+            self.stormIsInErr('Setting name on auth:user is not marked readonly safe.', msgs)
 
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
 
@@ -6669,6 +6669,10 @@ words\tword\twrd'''
             '''
             msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
             self.stormIsInErr(mesg, msgs)
+
+            q = '$lib.pkg.add(({}))'
+            msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
+            self.stormIsInErr('$lib.pkg.add() is not marked readonly safe.', msgs)
 
     async def test_storm_view_counts(self):
 
