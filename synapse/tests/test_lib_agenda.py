@@ -721,6 +721,9 @@ class AgendaTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q, opts=opts)
             self.stormIsInErr('must have permission cron.set.user', msgs)
 
+            with self.raises(s_exc.BadArg):
+                await core.editCronJob(cdef.get('iden'), 'newp', 'newp')
+
             q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
             msgs = await core.stormlist(q, opts=opts)
             self.stormIsInErr('CronJob does not support setting: creator', msgs)

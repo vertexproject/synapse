@@ -1130,7 +1130,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if update:
                 await role.setRules(rules)
 
-    @s_nexus.Pusher.onPushAuto('cortex:add:trigger:creator')
+    @s_nexus.Pusher.onPushAuto('cortex:migr:trigger:creator')
     async def _migrateTriggerCreator(self):
         for view in self.views.values():
             for iden, trig in view.triggers.list():
