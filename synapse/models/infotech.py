@@ -857,10 +857,12 @@ class ItModule(s_module.CoreModule):
                 }),
 
                 ('it:os:ios:idfa', ('it:adid', {}), {
-                    'doc': 'An iOS advertising identification string.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:adid.'}),
 
                 ('it:os:android:aaid', ('it:adid', {}), {
-                    'doc': 'An android advertising identification string.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:adid.'}),
 
                 ('it:os:android:perm', ('str', {}), {
                     'doc': 'An android permission string.'}),
@@ -2094,6 +2096,10 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:prod:soft:taxonomy', {}, ()),
                 ('it:prod:soft', {}, (
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An ID for the software.'}),
+
                     ('name', ('it:prod:softname', {}), {
                         'doc': 'Name of the software.',
                     }),
