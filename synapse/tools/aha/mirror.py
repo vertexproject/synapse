@@ -99,9 +99,8 @@ async def main(argv, outp=s_output.stdout):
                     if not prox._hasTeleFeat('callpeers', vers=1):
                         outp.printf(f'Service at {opts.url} does not support the required callpeers feature.')
                         return 1
-                except s_exc.BadVersion as e:
-                    valu = s_version.fmtVersion(*e.get('valu'))
-                    outp.printf(f'Proxy version {valu} is outside of the aha supported range ({reqver}).')
+                except s_exc.NoSuchMeth:
+                    outp.printf(f'Service at {opts.url} does not support the required callpeers feature.')
                     return 1
                 classes = prox._getClasses()
                 if 'synapse.lib.aha.AhaApi' not in classes:

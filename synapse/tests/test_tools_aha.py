@@ -260,6 +260,13 @@ class AhaToolsTest(s_t_utils.SynTest):
                 self.eq(retn, 1)
                 outp.expect(f'Service at {ahaurl} does not support the required callpeers feature.')
 
+            with mock.patch('synapse.telepath.Proxy._hasTeleFeat',
+                          side_effect=s_exc.NoSuchMeth(name='_hasTeleFeat')):
+                argv = ['--url', ahaurl]
+                retn, outp = await self.execToolMain(s_a_mirror.main, argv)
+                self.eq(retn, 1)
+                outp.expect(f'Service at {ahaurl} does not support the required callpeers feature.')
+
             argv = ['--url', 'tcp://newp:1234/']
             retn, outp = await self.execToolMain(s_a_mirror.main, argv)
             self.eq(retn, 1)
