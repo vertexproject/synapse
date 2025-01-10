@@ -183,6 +183,10 @@ class TelcoModule(s_module.CoreModule):
                     'doc': 'The fusion of a MCC/MNC.'
                 }),
 
+                ('tel:mob:cell:radio:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of cell radio types.'}),
+
                 ('tel:mob:cell', ('comp', {'fields': (('carrier', 'tel:mob:carrier'),
                                                       ('lac', ('int', {})),
                                                       ('cid', ('int', {})))}), {
@@ -312,6 +316,7 @@ class TelcoModule(s_module.CoreModule):
                         'doc': 'Location the carrier operates from.'
                     }),
                 )),
+                ('tel:mob:cell:radio:type:taxonomy', {}, ()),
                 ('tel:mob:cell', {}, (
                     ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.', 'ro': True, }),
                     ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.', 'ro': True, }),
@@ -319,7 +324,7 @@ class TelcoModule(s_module.CoreModule):
                     ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.',
                                           'ro': True, }),
                     ('cid', ('int', {}), {'doc': 'The Cell ID.', 'ro': True, }),
-                    ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
+                    ('radio', ('tel:mob:cell:radio:type:taxonomy', {}), {'doc': 'Cell radio type.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
 
                     ('loc', ('loc', {}), {

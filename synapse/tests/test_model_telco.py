@@ -76,7 +76,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('lac'), 3)
             self.eq(node.get('cid'), 4)
             self.eq(node.get('loc'), 'us.ca.la')
-            self.eq(node.get('radio'), 'pirate')
+            self.eq(node.get('radio'), 'pirate.')
             self.eq(node.get('latlong'), (0.0, 0.0))
             self.eq(node.get('place'), place)
             self.len(1, await core.nodes('tel:mob:mcc=001'))

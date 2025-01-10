@@ -7,7 +7,7 @@ class TransportTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             craft = (await core.nodes('[ transport:air:craft=* :tailnum=FF023 :type=helicopter :built=202002 :make=boeing :model=747 :serial=1234 :operator=*]'))[0]
-            self.eq('helicopter', craft.get('type'))
+            self.eq('helicopter.', craft.get('type'))
             self.eq(1580515200000, craft.get('built'))
             self.eq('boeing', craft.get('make'))
             self.eq('747', craft.get('model'))

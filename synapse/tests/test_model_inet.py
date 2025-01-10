@@ -848,7 +848,7 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('inet:iface', valu))
             self.eq(node.get('host'), host)
             self.eq(node.get('network'), netw)
-            self.eq(node.get('type'), 'cool')
+            self.eq(node.get('type'), 'cool.')
             self.eq(node.get('mac'), 'ff:00:ff:00:ff:00')
             self.eq(node.get('ip'), (4, 0x01020304))
             self.eq(node.get('phone'), '12345678910')

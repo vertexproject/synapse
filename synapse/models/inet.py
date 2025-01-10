@@ -1260,6 +1260,10 @@ class InetModule(s_module.CoreModule):
                         'interfaces': ('inet:proto:request',),
                         'doc': 'A single HTTP request.'}),
 
+                    ('inet:iface:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A hierarchical taxonomy of network interface types.'}),
+
                     ('inet:iface', ('guid', {}), {
                         'doc': 'A network interface with a set of associated protocol addresses.'
                     }),
@@ -2117,6 +2121,7 @@ class InetModule(s_module.CoreModule):
                             'doc': 'An array of cookies used to identify this specific session.'}),
                     )),
 
+                    ('inet:iface:type:taxonomy', {}, ()),
                     ('inet:iface', {}, (
                         ('host', ('it:host', {}), {
                             'doc': 'The guid of the host the interface is associated with.'}),
@@ -2128,8 +2133,8 @@ class InetModule(s_module.CoreModule):
                         ('network', ('it:network', {}), {
                             'doc': 'The guid of the it:network the interface connected to.'
                         }),
-                        ('type', ('str', {'lower': True}), {
-                            'doc': 'The free-form interface type.'
+                        ('type', ('inet:iface:type:taxonomy', {}), {
+                            'doc': 'The interface type.'
                         }),
                         ('mac', ('inet:mac', {}), {
                             'doc': 'The ethernet (MAC) address of the interface.'
