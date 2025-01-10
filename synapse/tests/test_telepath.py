@@ -1,10 +1,11 @@
 import os
 import ssl
-import json
+import sys
 import socket
 import asyncio
 import logging
 import threading
+import multiprocessing
 
 from unittest import mock
 
@@ -174,6 +175,39 @@ class TeleAuth(s_telepath.Aware):
     def getFooBar(self, x, y):
         return x + y
 
+def run_telepath_sync_genr_break(url: str,
+                      evt1: multiprocessing.Event,
+                      evt2: multiprocessing.Event,):
+    '''
+    This is a Process target.
+    '''
+    with s_telepath.openurl(url) as prox:
+        form = 'test:int'
+
+        q = '[' + ' '.join([f'{form}={i}' for i in range(10)]) + ' ]'
+
+        # This puts a link into the link pool
+        emesg = 12
+        msgs = list(prox.storm(q, opts={'show': ('node', 'nodeedits')}))
+        assert len(msgs) == emesg, f'Got {len(msgs)} messages, expected {emesg}'
+
+        # Get the link from the pool, add the fini callback and put it back
+        link = s_glob.sync(prox.getPoolLink())
+        link.onfini(evt1.set)
+        s_glob.sync(prox._putPoolLink(link))
+
+        # Break from the generator right away, causing a
+        # GeneratorExit in the GenrHelp object __iter__ method.
+        mesg = None
+        for mesg in prox.storm(q):
+            break
+        # Ensure the query did yield an object
+        assert mesg is not None, 'mesg was not recieved!'
+        assert link.isfini is True, 'link.fini was not set to true'
+
+        evt2.set()
+        sys.exit(137)
+
 class TeleTest(s_t_utils.SynTest):
 
     async def test_telepath_basics(self):
@@ -279,43 +313,20 @@ class TeleTest(s_t_utils.SynTest):
             async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
                 self.eq((10, 20, 30), await s_coro.executor(sync))
 
-    def test_telepath_sync_genr_break(self):
+    async def test_telepath_sync_genr_break(self):
+        async with self.getTestCore() as core:
+            url = core.getLocalUrl()
 
-        try:
-            acm = self.getTestCoreAndProxy()
-            core, proxy = s_glob.sync(acm.__aenter__())
+            ctx = multiprocessing.get_context('spawn')
+            evt1 = ctx.Event()
+            evt2 = ctx.Event()
+            proc = ctx.Process(target=run_telepath_sync_genr_break, args=(url, evt1, evt2))
+            proc.start()
 
-            form = 'test:int'
-
-            q = '[' + ' '.join([f'{form}={i}' for i in range(10)]) + ' ]'
-
-            # This puts a link into the link pool
-            msgs = list(proxy.storm(q, opts={'show': ('node',)}))
-            self.len(12, msgs)
-
-            evt = threading.Event()
-
-            # Get the link from the pool, add the fini callback and put it back
-            link = s_glob.sync(proxy.getPoolLink())
-            link.onfini(evt.set)
-            s_glob.sync(proxy._putPoolLink(link))
-
-            q = f'{form} | sleep 0.1'
-
-            # Break from the generator right away, causing a
-            # GeneratorExit in the GenrHelp object __iter__ method.
-            mesg = None
-            for mesg in proxy.storm(q):
-                break
-            # Ensure the query did yield an object
-            self.nn(mesg)
-
-            # Ensure the link we have a reference too was torn down
-            self.true(evt.wait(4))
-            self.true(link.isfini)
-
-        finally:
-            s_glob.sync(acm.__aexit__(None, None, None))
+            self.true(await s_coro.executor(evt1.wait, timeout=30))
+            self.true(await s_coro.executor(evt2.wait, timeout=30))
+            proc.join(timeout=30)
+            self.eq(proc.exitcode, 137)
 
     async def test_telepath_no_sess(self):
 
