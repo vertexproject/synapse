@@ -1,0 +1,6 @@
+---
+desc: Fixed bug in password complexity rules where setting a password to (null) or
+  None would fail.
+prs: []
+type: bug
+...
