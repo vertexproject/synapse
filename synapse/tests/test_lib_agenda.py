@@ -1130,29 +1130,35 @@ class AgendaTest(s_t_utils.SynTest):
 
     async def test_cron_creator_mirror_migr(self):
 
-        orig = s_cortex.Cortex._execCellUpdates
+        realexec = s_cortex.Cortex._execCellUpdates
+        realpack = s_agenda._Appt.pack
 
         async def noop(self):
             pass
 
+        def nouser(self):
+            appt = realpack(self)
+            if self.stor.core.isactive:
+                appt.pop('user')
+            return appt
+
         with self.getRegrDir('cortexes', 'cron-creator-to-user') as dirn1, \
              self.getRegrDir('cortexes', 'cron-creator-to-user') as dirn2:
 
-            with mock.patch.object(s_cortex.Cortex, '_execCellUpdates', noop):
+            with mock.patch.object(s_cortex.Cortex, '_execCellUpdates', noop), \
+                 mock.patch.object(s_agenda._Appt, 'pack', nouser):
+
                 async with self.getTestCore(dirn=dirn1) as core1:
 
                     conf = {'mirror': core1.getLocalUrl()}
 
-                    with mock.patch.object(s_cortex.Cortex, '_execCellUpdates', orig):
+                    with mock.patch.object(s_cortex.Cortex, '_execCellUpdates', realexec):
+
                         async with self.getTestCore(dirn=dirn2, conf=conf) as core2:
 
                             await core2.sync()
 
                             apptdefs = core1.cortexdata.getSubKeyVal('agenda:appt:')
-                            for iden, info in apptdefs.items():
-                                self.none(info.get('user'))
-
-                            apptdefs = core2.cortexdata.getSubKeyVal('agenda:appt:')
                             for iden, info in apptdefs.items():
                                 self.none(info.get('user'))
 
