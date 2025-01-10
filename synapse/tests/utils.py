@@ -1011,12 +1011,20 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         runner = asyncio.Runner(debug=debug)
         self._asyncioRunner = runner
 
-    def setUp(self):
-        # asyncio.get_running_loop().set_debug(False)
-        print('weeeeeeeeeeeeeeeee')
-
     def tearDown(self):
-        print('tearing down globals')
+        '''
+        Test teardown method which clears globals in ``synapse.glob`` which may have been set.
+
+        Implementors who define their own ``teardown`` method should also call this via ``super()``.
+
+        Examples:
+            Teardown a custom resource created in ``setUp()`` or ``asyncSetUp()``::
+
+                def teardown():
+                    super().tearDown()
+                    self.my_custom_resource.close()
+
+        '''
         s_glob._clearGlobals()
 
     def checkNode(self, node, expected):
