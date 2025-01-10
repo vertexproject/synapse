@@ -996,23 +996,12 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-class SynTest(unittest.TestCase):
-    '''
-    Mark all async test methods as s_glob.synchelp decorated.
+class SynTest(unittest.IsolatedAsyncioTestCase):
 
-    Note:
-        This precludes running a single unit test via path using the unittest module.
-    '''
     def __init__(self, *args, **kwargs):
-        unittest.TestCase.__init__(self, *args, **kwargs)
+        unittest.IsolatedAsyncioTestCase.__init__(self, *args, **kwargs)
         self._NextBuid = 0
         self._NextGuid = 0
-
-        for s in dir(self):
-            attr = getattr(self, s, None)
-            # If s is an instance method and starts with 'test_', synchelp wrap it
-            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, s_glob.synchelp(attr))
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected

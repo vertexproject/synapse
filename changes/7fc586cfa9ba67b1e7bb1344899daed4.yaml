@@ -1,0 +1,5 @@
+---
+desc: Changed the ``synapse.tests.utils.SynTest`` class to inherit from ``unittest.IsolatedAsyncioTestCase``.
+prs: []
+type: feat
+...
