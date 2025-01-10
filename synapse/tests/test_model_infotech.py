@@ -761,7 +761,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'techniques': teqs,
                 'url': url0,
             }
-            q = '''[(it:prod:soft=$valu :name=$p.name :type=$p.type :names=$p.names
+            q = '''[(it:prod:soft=$valu :id="Foo " :name=$p.name :type=$p.type :names=$p.names
                 :desc=$p.desc :desc:short=$p."desc:short" :author:org=$p."author:org" :author:email=$p."author:email"
                 :author:acct=$p."author:acct" :author:person=$p."author:person"
                 :techniques=$p.techniques :url=$p.url )]'''
@@ -769,6 +769,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:prod:soft', prod0))
+            self.eq(node.get('id'), 'Foo')
             self.eq(node.get('name'), 'balloon maker')
             self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
             self.eq(node.get('desc:short'), 'balloon blower')
