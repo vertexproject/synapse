@@ -62,6 +62,21 @@ def initloop():
 
     return _glob_loop
 
+def _clearGlobals():
+    '''
+    reset loop / thrd vars. for unit test use.
+    '''
+    global _glob_loop
+    global _glob_thrd
+    print('sup!')
+    if _glob_thrd is not None and _glob_thrd.name == 'SynLoop':
+        print(f'Stoping {_glob_loop=} {id(_glob_loop)}')
+        _glob_loop.stop()
+        _glob_thrd.join(timeout=30)
+    _glob_loop = None
+    _glob_thrd = None
+    print('cleard globals')
+
 def setGreedCoro(loop: asyncio.AbstractEventLoop):
     greedy_threshold = os.environ.get('SYN_GREEDY_CORO')
     if greedy_threshold is not None:  # pragma: no cover

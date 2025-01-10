@@ -1011,8 +1011,13 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         runner = asyncio.Runner(debug=debug)
         self._asyncioRunner = runner
 
-    # def setUp(self):
-    #     asyncio.get_running_loop().set_debug(False)
+    def setUp(self):
+        # asyncio.get_running_loop().set_debug(False)
+        print('weeeeeeeeeeeeeeeee')
+
+    def tearDown(self):
+        print('tearing down globals')
+        s_glob._clearGlobals()
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
