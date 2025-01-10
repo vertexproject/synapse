@@ -828,6 +828,33 @@ class AhaTest(s_test.SynTest):
                         async with await s_telepath.openurl(url) as prox:
                             self.fail(f'Connected to an expired clone URL {url}')  # pragma: no cover
 
+    async def test_lib_aha_mirrors(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    user = 'synuser'
+                    dirn00 = s_common.genpath(dirn, 'cell00')
+                    dirn01 = s_common.genpath(dirn, 'cell01')
+
+                    core00 = await base.enter_context(self.addSvcToAha(aha, '00.cortex', s_cortex.Cortex, dirn=dirn00,
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(core00.conf.get('aha:user'), user)
+
+                    core01 = await base.enter_context(self.addSvcToAha(aha, '01.cortex', s_cortex.Cortex, dirn=dirn01,
+                                                                       conf={'axon': 'aha://cortex...'},
+                                                                       provinfo={'conf': {'aha:user': user}}))
+                    self.eq(core01.conf.get('aha:user'), user)
+
+                    async with aha.getLocalProxy() as ahaproxy:
+                        self.eq(None, await ahaproxy.getAhaSvcMirrors('99.bogus'))
+                        self.len(1, await ahaproxy.getAhaSvcMirrors('00.cortex.synapse'))
+                        self.nn(await ahaproxy.getAhaServer(host=aha._getDnsName(), port=aha.sockaddr[1]))
+
+                        todo = s_common.todo('getCellInfo')
+                        res = await asyncio.wait_for(await aha.callAhaSvcApi('00.cortex.synapse', todo, timeout=3), 3)
+                        self.nn(res)
+
     async def test_aha_httpapi(self):
 
         async with self.getTestAha() as aha:
@@ -905,6 +932,10 @@ class AhaTest(s_test.SynTest):
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
+                async with sess.post(url, json={'name': 'doom' * 16}) as resp:
+                    info = await resp.json()
+                    self.eq(info.get('status'), 'err')
+                    self.eq(info.get('code'), 'BadArg')
 
             # Not an admin
             await aha.addUser('lowuser', passwd='lowuser')
@@ -1092,6 +1123,35 @@ class AhaTest(s_test.SynTest):
                     msgs = await core00.stormlist('aha.pool.del pool00...')
                     self.stormHasNoWarnErr(msgs)
                     self.stormIsInPrint('Removed AHA service pool: pool00.synapse', msgs)
+
+    async def test_aha_svc_api_exception(self):
+
+        async with self.getTestAha() as aha:
+
+            async def mockGetAhaSvcProxy(*args, **kwargs):
+                raise s_exc.SynErr(mesg='proxy error')
+
+            aha.getAhaSvcProxy = mockGetAhaSvcProxy
+            name = '00.cortex.synapse'
+            todo = ('bogus', (), {})
+            retn = await asyncio.wait_for(await aha.callAhaSvcApi(name, todo), 3)
+
+            self.false(retn[0])
+            self.eq('SynErr', retn[1].get('err'))
+            self.eq('proxy error', retn[1].get('errinfo').get('mesg'))
+
+            bad_info = {
+                'urlinfo': {
+                    'host': 'nonexistent.host',
+                    'port': 12345,
+                    'scheme': 'ssl'
+                }
+            }
+
+            await aha.addAhaSvc(name, bad_info)
+            async for ok, info in aha.callAhaPeerGenr(name, ('nonexistent.method', (), {})):
+                self.false(ok)
+                self.isin('err', info)
 
     async def test_aha_reprovision(self):
 
@@ -1406,3 +1466,88 @@ class AhaTest(s_test.SynTest):
             self.false(await cell00.killTask(task01))
 
             self.none(await cell00.getAhaProxy(feats=(('newp', 9),)))
+
+    async def test_lib_aha_peer_api(self):
+
+        async with self.getTestAha() as aha:
+
+            purl00 = await aha.addAhaSvcProv('0.cell')
+            purl01 = await aha.addAhaSvcProv('1.cell', provinfo={'mirror': '0.cell'})
+            purl02 = await aha.addAhaSvcProv('2.cell', provinfo={'mirror': '0.cell'})
+
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+            cell02 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl02}))
+
+            await cell01.sync()
+            await cell02.sync()
+
+            todo = s_common.todo('getCellInfo')
+            items = [item async for item in cell00.callPeerApi(todo)]
+            self.len(2, items)
+
+    async def test_lib_aha_peer_genr(self):
+
+        async with self.getTestAha() as aha:
+
+            purl00 = await aha.addAhaSvcProv('0.cell')
+            purl01 = await aha.addAhaSvcProv('1.cell', provinfo={'mirror': '0.cell'})
+
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+
+            await cell01.sync()
+
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = dict([item async for item in cell00.callPeerGenr(todo)])
+            self.len(1, items)
+
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = dict([item async for item in cell00.callPeerGenr(todo, timeout=2)])
+            self.len(1, items)
+
+    async def test_lib_aha_call_aha_peer_api_isactive(self):
+
+        async with self.getTestAha() as aha0:
+
+            async with aha0.waiter(3, 'aha:svcadd', timeout=10):
+
+                conf = {'aha:provision': await aha0.addAhaSvcProv('00.cell')}
+                cell00 = await aha0.enter_context(self.getTestCell(conf=conf))
+
+                conf = {'aha:provision': await aha0.addAhaSvcProv('01.cell', {'mirror': 'cell'})}
+                cell01 = await aha0.enter_context(self.getTestCell(conf=conf))
+
+            await cell01.sync()
+
+            # test active AHA peer
+            todo = s_common.todo('getCellInfo')
+            items = dict([item async for item in aha0.callAhaPeerApi(cell00.iden, todo, timeout=3)])
+            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+
+            todo = s_common.todo('getNexusChanges', 0, wait=False)
+            items = dict([item async for item in aha0.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
+            self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+
+            async with aha0.getLocalProxy() as proxy0:
+                purl = await proxy0.addAhaClone('01.aha.loop.vertex.link')
+
+            conf1 = {'clone': purl}
+            async with self.getTestAha(conf=conf1) as aha1:
+
+                await aha1.sync()
+
+                self.eq(aha0.iden, aha1.iden)
+                self.nn(aha1.conf.get('mirror'))
+
+                self.true(aha0.isactive)
+                self.false(aha1.isactive)
+
+                # test non-active AHA peer
+                todo = s_common.todo('getCellInfo')
+                items = dict([item async for item in aha1.callAhaPeerApi(cell00.iden, todo, timeout=3)])
+                self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))
+
+                todo = s_common.todo('getNexusChanges', 0, wait=False)
+                items = dict([item async for item in aha1.callAhaPeerGenr(cell00.iden, todo, timeout=3)])
+                self.sorteq(items.keys(), ('00.cell.synapse', '01.cell.synapse'))

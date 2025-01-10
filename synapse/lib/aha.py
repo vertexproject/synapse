@@ -133,8 +133,6 @@ class AhaApi(s_cell.CellApi):
 
     async def getAhaUrls(self, user='root'):
         ahaurls = await self.cell.getAhaUrls(user=user)
-        if ahaurls is None:
-            return ()
         return ahaurls
 
     @s_cell.adminapi()
@@ -723,7 +721,7 @@ class AhaCell(s_cell.Cell):
         async for svcdef in self.getAhaSvcs():
             await asyncio.sleep(0)
 
-            # TODO services by iden indexes!
+            # TODO services by iden indexes (SYN-8467)
             if svcdef['svcinfo'].get('iden') != iden:
                 continue
 
@@ -1032,7 +1030,7 @@ class AhaCell(s_cell.Cell):
         if proxy is not None:
             return proxy
 
-        mesg = f'The service is not ready {svcfull}.'
+        mesg = f'The service is not ready {svcdef.get("name")}.'
         raise s_exc.NotReady(mesg=mesg)
 
     async def getAhaSvcProxy(self, svcdef, timeout=None):
