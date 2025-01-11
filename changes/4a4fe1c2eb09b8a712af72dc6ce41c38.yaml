@@ -1,9 +1,8 @@
 ---
-desc: |
-  Added ``alts`` definitions to the following forms: ``geo:place``, ``it:prod:soft``,
+desc: 'Added ``alts`` definitions to the following forms: ``geo:place``, ``it:prod:soft``,
   ``it:prod:softver``, ``ou:campaign``, ``ou:conference``, ``ou:goal``, ``ou:industry``,
   ``pol:country``, ``ps:contact``, ``ps:person``, ``risk:threat``, ``risk:tool:software``,
-  and ``risk:vuln``.
+  and ``risk:vuln``.'
 prs: []
 type: model
 ...
