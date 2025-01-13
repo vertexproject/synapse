@@ -707,6 +707,10 @@ class Agenda(s_base.Base):
         for appt in list(self.appts.values()):
             if appt.isrunning:
                 logger.debug(f'Clearing the isrunning flag for {appt.iden}')
+
+                if appt.nexttime is None and appt in self.apptheap:
+                    self.delete(appt.iden)
+
                 edits = {
                     'isrunning': False,
                     'lastfinishtime': self._getNowTick(),
@@ -718,6 +722,7 @@ class Agenda(s_base.Base):
         '''
         Task loop to issue query tasks at the right times.
         '''
+        await self.clearRunningStatus()
         while not self.isfini:
 
             timeout = None
