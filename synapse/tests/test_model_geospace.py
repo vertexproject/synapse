@@ -281,6 +281,12 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> geo:name')
             self.eq(('baz', 'foo bar'), [n.ndef[1] for n in nodes])
 
+            nodes = await core.nodes('geo:place=(hehe, haha)')
+            node = nodes[0]
+
+            self.len(1, nodes := await core.nodes('[ geo:place=({"name": "baz"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
+
     async def test_eq(self):
 
         async with self.getTestCore() as core:
