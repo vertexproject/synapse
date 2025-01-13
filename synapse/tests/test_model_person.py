@@ -60,6 +60,9 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('names'), ['billy bob'])
             self.eq(node.get('photo'), file0)
 
+            self.len(1, nodes := await core.nodes('[ ps:person=({"name": "billy bob"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
+
             props = {
                 'dob': '2000',
                 'img': file0,
@@ -147,6 +150,7 @@ class PsModelTest(s_t_utils.SynTest):
                 'id:numbers': (('*', 'asdf'), ('*', 'qwer')),
                 'users': ('visi', 'invisigoth'),
                 'crypto:address': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
+                'langs': (lang00 := s_common.guid(),),
             }
             opts = {'vars': {'valu': con0, 'p': props}}
             q = '''[(ps:contact=$valu
@@ -166,7 +170,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :birth:place:name=$p."birth:place:name"
                     :death:place=$p."death:place" :death:place:loc=$p."death:place:loc"
                     :death:place:name=$p."death:place:name"
-                    :service:accounts=(*, *)
+                    :service:accounts=(*, *) :langs=$p.langs
                         )]'''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -212,6 +216,22 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:contact :birth:place -> geo:place'))
             self.len(1, await core.nodes('ps:contact :death:place -> geo:place'))
             self.len(2, await core.nodes('ps:contact :service:accounts -> inet:service:account'))
+
+            opts = {
+                'vars': {
+                    'ctor': {
+                        'email': 'v@vtx.lk',
+                        'id:number': node.get('id:numbers')[0],
+                        'lang': lang00,
+                        'name': 'vi',
+                        'orgname': 'vertex',
+                        'title': 'haha',
+                        'user': 'invisigoth',
+                    },
+                },
+            }
+            self.len(1, nodes := await core.nodes('[ ps:contact=$ctor ]', opts=opts))
+            self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''[
                 ps:achievement=*
