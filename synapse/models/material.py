@@ -66,7 +66,8 @@ class MatModule(s_module.CoreModule):
                     'doc': 'A node which represents a physical object containing another physical object.'}),
 
                 ('mat:item', ('guid', {}), {
-                    'interfaces': ('phys:object',),
+                    'interfaces': ('phys:object', 'geo:locatable'),
+                    'template': {'phys:object': 'item', 'geo:locatable': 'item'},
                     'doc': 'A GUID assigned to a material object.'}),
 
                 ('mat:type', ('taxonomy', {}), {
@@ -105,14 +106,13 @@ class MatModule(s_module.CoreModule):
                     ('spec', ('mat:spec', {}), {
                         'doc': 'The specification which defines this item.'}),
 
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The most recent place the item is known to reside.'}),
-
                     ('latlong', ('geo:latlong', {}), {
-                        'doc': 'The last known lat/long location of the node.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :place:latlong.'}),
 
                     ('loc', ('loc', {}), {
-                        'doc': 'The geo-political location string for the node.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :place:loc.'}),
                 )),
 
                 ('mat:spec', {}, (

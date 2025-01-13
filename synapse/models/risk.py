@@ -88,7 +88,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
                 ('risk:compromise', ('guid', {}), {
-                    'doc': 'A compromise resulting from a successful attack against victim.',
+                    'doc': 'A compromise and its aggregate impact. The compromise is the result of a successful attack.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
@@ -189,7 +189,6 @@ class RiskModule(s_module.CoreModule):
             ),
             'edges': (
                 # some explicit examples...
-                # TODO: uses -> used / targets -> targeted
                 (('risk:attack', 'uses', 'ou:technique'), {
                     'doc': 'The attacker used the technique in the attack.'}),
                 (('risk:threat', 'uses', 'ou:technique'), {
@@ -825,8 +824,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The attack assessed to be the initial compromise vector.'}),
 
                     ('target', ('ps:contact', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :victim.'}),
+                        'doc': 'Contact information representing the target.'}),
 
                     ('attacker', ('ps:contact', {}), {
                         'doc': 'Contact information representing the attacker.'}),
