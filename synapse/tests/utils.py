@@ -1000,11 +1000,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
     _syn_asyncio_debug = False
 
-    def __init__(self, *args, **kwargs):
-        unittest.IsolatedAsyncioTestCase.__init__(self, *args, **kwargs)
-        self._NextBuid = 0
-        self._NextGuid = 0
-
     def _setupAsyncioRunner(self):
         assert self._asyncioRunner is None, 'asyncio runner is already initialized'
         # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
@@ -2409,29 +2404,35 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                 yield hive
 
-    def stablebuid(self, valu=None):
+    def stablebuid(self):
         '''
-        A stable buid generation for testing purposes
+        Get a function for producing a stable buid.
         '''
-        if valu is None:
-            retn = self._NextBuid.to_bytes(32, 'big')
-            self._NextBuid += 1
-            return retn
+        d = {'counter': 0}
+        def func(valu=None):
+            if valu is None:
+                retn = d.get('counter').to_bytes(32, 'big')
+                d['counter'] = d['counter'] + 1
+                return retn
 
-        byts = s_msgpack.en(valu)
-        return hashlib.sha256(byts).digest()
+            byts = s_msgpack.en(valu)
+            return hashlib.sha256(byts).digest()
+        return func
 
-    def stableguid(self, valu=None):
+    def stableguid(self):
         '''
-        A stable guid generation for testing purposes
+        Get a function for producing a stable guid.
         '''
-        if valu is None:
-            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
-            self._NextGuid += 1
-            return retn
+        d = {'counter': 0}
+        def func(valu=None):
+            if valu is None:
+                retn = s_common.ehex(d.get('counter').to_bytes(16, 'big'))
+                d['counter'] = d['counter'] + 1
+                return retn
 
-        byts = s_msgpack.en(valu)
-        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
+            byts = s_msgpack.en(valu)
+            return hashlib.md5(byts, usedforsecurity=False).hexdigest()
+        return func
 
     @contextlib.contextmanager
     def withStableUids(self):
@@ -2439,7 +2440,8 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         A context manager that generates guids and buids in sequence so that successive test runs use the same
         data
         '''
-        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
+        with (mock.patch('synapse.common.guid', self.stableguid()),
+              mock.patch('synapse.common.buid', self.stablebuid())):
             yield
 
     async def runCoreNodes(self, core, query, opts=None):
