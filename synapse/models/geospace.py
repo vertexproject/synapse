@@ -511,18 +511,21 @@ class GeoModule(s_module.CoreModule):
                     )),
 
                     ('geo:telem', {}, (
+
                         ('time', ('time', {}), {
-                            'doc': 'The time that the node was at the position.'}),
+                            'doc': 'The time that the telemetry measurements were taken.'}),
+
                         ('desc', ('str', {}), {
                             'doc': 'A description of the telemetry sample.'}),
+
                         ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The latitude/longitude reading at the time.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :place:latlong.'}),
+
                         ('accuracy', ('geo:dist', {}), {
-                            'doc': 'The reported accuracy of the latlong telemetry reading.'}),
-                        ('place', ('geo:place', {}), {
-                            'doc': 'The place which includes the latlong value.'}),
-                        ('place:name', ('geo:name', {}), {
-                            'doc': 'The purported place name. Used for entity resolution.'}),
+                            'deprecated': True,
+                            'doc': 'Deprecated. Please use :place:latlong:accuracy.'}),
+
                         ('node', ('ndef', {}), {
                             'doc': 'The node that was observed at the associated time and place.'}),
                     )),
