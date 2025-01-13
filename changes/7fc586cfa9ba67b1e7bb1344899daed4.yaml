@@ -1,5 +1,7 @@
 ---
 desc: Changed the ``synapse.tests.utils.SynTest`` class to inherit from ``unittest.IsolatedAsyncioTestCase``.
+  Users with custom ``unittest`` setup and teardown methods should first be calling
+  our implementations with ``super()`` in their own methods.
 prs: []
 type: feat
 ...
