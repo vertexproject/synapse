@@ -90,7 +90,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
                 ('risk:compromise', ('guid', {}), {
-                    'doc': 'A compromise resulting from an attack against a victim.',
+                    'doc': 'A compromise resulting from a successful attack against victim.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
