@@ -4,18 +4,18 @@ This contains the core test helper code used in Synapse.
 This gives the opportunity for third-party users of Synapse to test their
 code using some of the same helpers used to test Synapse.
 
-The core class, synapse.tests.utils.SynTest is a subclass of unittest.TestCase,
-with several wrapper functions to allow for easier calls to assert* functions,
-with less typing.  There are also Synapse specific helpers, to load Cortexes and
-whole both multi-component environments into memory.
+The core class, synapse.tests.utils.SynTest is a subclass of
+unittest.IsolatedAsyncioTestCase, with several wrapper functions to allow for
+easier calls to assert* functions, with less typing.  There are also Synapse
+specific helpers, to load Cortexes and whole multi-component environments
+into memory.
 
-Since SynTest is built from unittest.TestCase, the use of SynTest is
-compatible with the unittest, nose and pytest frameworks.  This does not lock
-users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library, with one important exception:
-due to an unfortunate design approach, you cannot use the unittest module command
-line to run a *single* async unit test.  pytest works fine though.
-
+Since SynTest is built from unittest.IsolatedAsyncioTestCase, the use of
+SynTest is compatible with the unittest and pytest frameworks.  This does not
+lock users into a particular test framework; while at the same time allowing
+base use to be invoked via the built-in Unittest library. Customizations made
+using the various setup and teardown helpers available on
+``IsolatedAsyncioTestCase`` should first call our methods using ``super()``.
 '''
 import io
 import os
@@ -1016,7 +1016,7 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         '''
         Test class setup method which detects if we should be running in asyncio debug mode.
 
-        Implementors who define their own ``teardown`` method should also call this via ``super()``.
+        Implementors who define their own ``setUpClass`` method should also call this via ``super()``.
 
         Examples:
             Set up a custom resource created in ``setUpClass()``::
