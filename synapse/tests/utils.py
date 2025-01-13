@@ -998,6 +998,8 @@ class ReloadCell(s_cell.Cell):
 
 class SynTest(unittest.IsolatedAsyncioTestCase):
 
+    _syn_asyncio_debug = False
+
     def __init__(self, *args, **kwargs):
         unittest.IsolatedAsyncioTestCase.__init__(self, *args, **kwargs)
         self._NextBuid = 0
@@ -1005,11 +1007,29 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
     def _setupAsyncioRunner(self):
         assert self._asyncioRunner is None, 'asyncio runner is already initialized'
-        debug = False
-        # FIXME - check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
         # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
-        runner = asyncio.Runner(debug=debug)
+        runner = asyncio.Runner(debug=self._syn_asyncio_debug)
         self._asyncioRunner = runner
+
+    @classmethod
+    def setUpClass(cls):
+        '''
+        Test class setup method which detects if we should be running in asyncio debug mode.
+
+        Implementors who define their own ``teardown`` method should also call this via ``super()``.
+
+        Examples:
+            Set up a custom resource created in ``setUpClass()``::
+
+                @classmethod
+                def setUpClass(class):
+                    super().setUpClass()
+                    self.my_custom_resource = 'some_resource'
+        '''
+        cls._syn_asyncio_debug = False
+        # Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
+        if s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode:
+            cls._syn_asyncio_debug = True
 
     def tearDown(self):
         '''
@@ -1023,7 +1043,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
                 def teardown():
                     super().tearDown()
                     self.my_custom_resource.close()
-
         '''
         s_glob._clearGlobals()
 
