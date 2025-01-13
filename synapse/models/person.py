@@ -25,6 +25,8 @@ class PsModule(s_module.CoreModule):
                     'ex': 'robert grey'
                 }),
                 ('ps:person', ('guid', {}), {
+                    'interfaces': ('phys:object',),
+                    'template': {'phys:object': 'person'},
                     'doc': 'A GUID for a person.',
                 }),
                 ('ps:persona', ('guid', {}), {
@@ -43,6 +45,8 @@ class PsModule(s_module.CoreModule):
 
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record.',
+                    'interfaces': ('phys:object',),
+                    'template': {'phys:object': 'contact'},
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
@@ -93,9 +97,9 @@ class PsModule(s_module.CoreModule):
                 (('ps:person', 'has', None), {
                     'doc': 'The person is or was in possession of the target node.'}),
                 (('ps:contact', 'owns', None), {
-                    'doc': 'The contact owns or owned the target node.'}),
+                    'doc': 'The contact which owns or owned the target node.'}),
                 (('ps:person', 'owns', None), {
-                    'doc': 'The person owns or owned the target node.'}),
+                    'doc': 'The person which owns or owned the target node.'}),
             ),
             'forms': (
                 ('ps:workhist', {}, (

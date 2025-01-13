@@ -88,7 +88,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
                 ('risk:compromise', ('guid', {}), {
-                    'doc': 'An instance of a compromise and its aggregate impact.',
+                    'doc': 'A compromise and its aggregate impact. The compromise is the result of a successful attack.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
