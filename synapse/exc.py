@@ -58,7 +58,7 @@ class SynErr(Exception):
 
     def update(self, items: dict):
         '''Update multiple items in the errinfo dict at once.'''
-        self.errinfo.update(**items)
+        self.errinfo.update(items)
         self._setExcMesg()
 
 class StormRaise(SynErr):
