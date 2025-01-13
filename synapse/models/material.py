@@ -65,11 +65,6 @@ class MatModule(s_module.CoreModule):
                 ('phys:contained', ('guid', {}), {
                     'doc': 'A node which represents a physical object containing another physical object.'}),
 
-                ('phys:telemetry', ('guid', {}), {
-                    'template': {'phys:object': 'object', 'geo:locatable': 'object'},
-                    'interfaces': ('phys:object', 'geo:locatable'),
-                    'doc': 'Physical characteristics measured at a specific point in time.'}),
-
                 ('mat:item', ('guid', {}), {
                     'interfaces': ('phys:object',),
                     'doc': 'A GUID assigned to a material object.'}),
@@ -88,14 +83,6 @@ class MatModule(s_module.CoreModule):
 
             'forms': (
 
-                ('phys:telemetry', {}, (
-
-                    ('time', ('time', {}), {
-                        'doc': 'The time the measurements were taken.'}),
-
-                    ('object', ('phys:object', {}), {
-                        'doc': 'The physical object measured.'}),
-                )),
                 ('phys:contained', {}, (
 
                     ('period', ('ival', {}), {

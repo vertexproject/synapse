@@ -430,8 +430,9 @@ class GeoModule(s_module.CoreModule):
                     }),
 
                     ('geo:telem', ('guid', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use phys:telemetry.'}),
+                        'interfaces': ('phys:object', 'geo:locatable'),
+                        'template': {'phys:object': 'object', 'geo:locatable': 'object'},
+                        'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
                     ('geo:json', ('data', {'schema': geojsonschema}), {
                         'doc': 'GeoJSON structured JSON data.'}),
@@ -474,9 +475,11 @@ class GeoModule(s_module.CoreModule):
                 ),
 
                 'edges': (
+
                     ((None, 'seenat', 'geo:telem'), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use phys:telemetry.'}),
+                        'doc': 'Deprecated. Please use geo:telem:node.'}),
+
                     (('geo:place', 'contains', 'geo:place'), {
                         'doc': 'The source place completely contains the target place.'}),
                 ),
