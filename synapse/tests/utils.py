@@ -2404,46 +2404,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
 
                 yield hive
 
-    def stablebuid(self):
-        '''
-        Get a function for producing a stable buid.
-        '''
-        d = {'counter': 0}
-        def func(valu=None):
-            if valu is None:
-                retn = d.get('counter').to_bytes(32, 'big')
-                d['counter'] = d['counter'] + 1
-                return retn
-
-            byts = s_msgpack.en(valu)
-            return hashlib.sha256(byts).digest()
-        return func
-
-    def stableguid(self):
-        '''
-        Get a function for producing a stable guid.
-        '''
-        d = {'counter': 0}
-        def func(valu=None):
-            if valu is None:
-                retn = s_common.ehex(d.get('counter').to_bytes(16, 'big'))
-                d['counter'] = d['counter'] + 1
-                return retn
-
-            byts = s_msgpack.en(valu)
-            return hashlib.md5(byts, usedforsecurity=False).hexdigest()
-        return func
-
-    @contextlib.contextmanager
-    def withStableUids(self):
-        '''
-        A context manager that generates guids and buids in sequence so that successive test runs use the same
-        data
-        '''
-        with (mock.patch('synapse.common.guid', self.stableguid()),
-              mock.patch('synapse.common.buid', self.stablebuid())):
-            yield
-
     async def runCoreNodes(self, core, query, opts=None):
         '''
         Run a storm query through a Cortex as a SchedCoro and return the results.
