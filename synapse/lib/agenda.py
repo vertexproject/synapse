@@ -426,6 +426,7 @@ class _Appt:
                 setattr(self, name, valu)
 
         await self.save()
+        await asyncio.sleep(0)
 
     async def save(self):
         stordict = self.pack()

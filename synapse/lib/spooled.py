@@ -110,7 +110,7 @@ class Set(Spooled):
     async def add(self, valu):
 
         if self.fallback:
-            if self.slab.put(s_msgpack.en(valu), b'\x01', overwrite=False):
+            if await self.slab.put(s_msgpack.en(valu), b'\x01', overwrite=False):
                 self.len += 1
             return
 
@@ -118,7 +118,7 @@ class Set(Spooled):
 
         if len(self.realset) >= self.size:
             await self._initFallBack()
-            [self.slab.put(s_msgpack.en(valu), b'\x01') for valu in self.realset]
+            [await self.slab.put(s_msgpack.en(valu), b'\x01') for valu in self.realset]
             self.len = len(self.realset)
             self.realset.clear()
 
@@ -130,7 +130,7 @@ class Set(Spooled):
     def discard(self, valu):
 
         if self.fallback:
-            ret = self.slab.pop(s_msgpack.en(valu))
+            ret = self.slab._pop(s_msgpack.en(valu))
             if ret is None:
                 return
             self.len -= 1
@@ -154,7 +154,7 @@ class Dict(Spooled):
     async def set(self, key, val):
 
         if self.fallback:
-            if self.slab.replace(s_msgpack.en(key), s_msgpack.en(val)) is None:
+            if await self.slab.replace(s_msgpack.en(key), s_msgpack.en(val)) is None:
                 self.len += 1
             return
 
@@ -162,13 +162,13 @@ class Dict(Spooled):
 
         if len(self.realdict) >= self.size:
             await self._initFallBack()
-            [self.slab.put(s_msgpack.en(k), s_msgpack.en(v)) for (k, v) in self.realdict.items()]
+            [await self.slab.put(s_msgpack.en(k), s_msgpack.en(v)) for (k, v) in self.realdict.items()]
             self.len = len(self.realdict)
             self.realdict.clear()
 
     def pop(self, key, defv=None):
         if self.fallback:
-            ret = self.slab.pop(s_msgpack.en(key))
+            ret = self.slab._pop(s_msgpack.en(key))
             if ret is None:
                 return defv
             self.len -= 1
