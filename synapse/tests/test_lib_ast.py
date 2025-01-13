@@ -405,6 +405,93 @@ class AstTest(s_test.SynTest):
             q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
+    async def test_ast_condsetoper(self):
+        async with self.getTestCore() as core:
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*unset=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*unset=newp]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*$foo=newp]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=always [test:str=foo :$var*$foo=yep]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('yep', nodes[0].get('hehe'))
+
+            q = '[test:str=foo -:hehe]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=never [test:str=foo :$var*$foo=yep]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*$foo=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            with self.raises(s_exc.BadTypeValu):
+                q = '$var=tick $foo=always [test:str=foo :$var*$foo=heval]'
+                nodes = await core.nodes(q)
+
+            q = '$var=tick $foo=always [test:str=foo :$var*$foo?=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('tick'))
+
+            q = '''
+            $opts=({"tick": "unset", "hehe": "always"})
+            [ test:str=foo
+                :hehe*$opts.hehe=newv
+                :tick*$opts.tick?=2020]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('newv', nodes[0].get('hehe'))
+            tick = nodes[0].get('tick')
+            self.nn(tick)
+
+            q = '''
+            $opts=({"tick": "never", "hehe": "unset"})
+            [ test:str=foo
+                :hehe*$opts.hehe=newp
+                :tick*$opts.tick?=2020]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('newv', nodes[0].get('hehe'))
+            self.eq(tick, nodes[0].get('tick'))
+
+            q = '$foo=always [test:str=foo :tick*$foo?=2021]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.ne(tick, nodes[0].get('tick'))
+
+            with self.raises(s_exc.IsReadOnly):
+                q = '[test:str=foo :hehe*unset=heval]'
+                nodes = await core.nodes(q, opts={'readonly': True})
+
+            with self.raises(s_exc.NoSuchProp):
+                q = '[test:str=foo :newp*unset=heval]'
+                nodes = await core.nodes(q)
+
+            with self.raises(s_exc.StormRuntimeError):
+                q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
+                nodes = await core.nodes(q)
+
     async def test_ast_editparens(self):
 
         async with self.getTestCore() as core:
@@ -2648,7 +2735,7 @@ class AstTest(s_test.SynTest):
 
             q = 'function func(arg) { auth.user.addrule root $arg | return () } $func(hehe.haha)'
             msgs = await core.stormlist(q, opts={'readonly': True})
-            self.stormIsInErr('Function (_methUserAddRule) is not marked readonly safe.', msgs)
+            self.stormIsInErr('auth:user.addRule() is not marked readonly safe.', msgs)
 
     async def test_ast_yield(self):
 
