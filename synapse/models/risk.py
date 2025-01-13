@@ -68,8 +68,6 @@ class RiskModule(s_module.CoreModule):
 
                 ('risk:threat', ('guid', {}), {
                     'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
-                    'interfaces': ('entity:actor',),
-                    'template': {'entity:actor': 'threat'},
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'org:name'}},
@@ -833,9 +831,6 @@ class RiskModule(s_module.CoreModule):
                     ('attacker', ('ps:contact', {}), {
                         'doc': 'Contact information representing the attacker.'}),
 
-                    ('victim', ('entity:actor', {}), {
-                        'doc': 'The entity which was the victim of the compromise.'}),
-
                     ('campaign', ('ou:campaign', {}), {
                         'doc': 'The campaign that this compromise is part of.'}),
 
@@ -950,9 +945,6 @@ class RiskModule(s_module.CoreModule):
 
                     ('attacker', ('ps:contact', {}), {
                         'doc': 'Contact information representing the attacker.'}),
-
-                    ('victim', ('entity:actor', {}), {
-                        'doc': 'The entity which was the victim of the attack.'}),
 
                     ('target', ('ps:contact', {}), {
                         'deprecated': True,

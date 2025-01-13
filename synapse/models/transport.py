@@ -173,7 +173,6 @@ class TransportModule(s_module.CoreModule):
                     'templates': {'phys:object': 'vehicle'},
                     'doc': 'Properties common to a vehicle.',
                     'props': (
-                        # TODO: 3.x :operator=<entity:actor>
                         ('operator', ('ps:contact', {}), {
                             'doc': 'The contact information of operator of the {phys:object}.'}),
                     ),
@@ -202,7 +201,7 @@ class TransportModule(s_module.CoreModule):
                             'doc': 'The actual arrival time.'}),
 
                         ('arrived:place', ('geo:place', {}), {
-                            'doc': 'The actual departure {place}.'}),
+                            'doc': 'The actual arrival {place}.'}),
 
                         ('arrived:point', ('transport:point', {}), {
                             'doc': 'The actual arrival {point}.'}),
