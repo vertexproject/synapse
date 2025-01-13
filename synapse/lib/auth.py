@@ -1545,6 +1545,7 @@ class User(Ruler):
         # Prevent empty string or non-string values
         if passwd is None:
             shadow = None
+            enforce_policy = False
         elif passwd and isinstance(passwd, str):
             shadow = await s_passwd.getShadowV2(passwd=passwd)
         else:

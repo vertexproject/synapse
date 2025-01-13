@@ -6,6 +6,41 @@
 Synapse Changelog
 *****************
 
+v2.193.0 - 2025-01-06
+=====================
+
+Model Changes
+-------------
+- Updated the ``infotech``, ``inet``, and ``risk`` models.
+  (`#4047 <https://github.com/vertexproject/synapse/pull/4047>`_)
+- See :ref:`userguide_model_v2_193_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated the Storm ``parallel`` command behavior to avoid creating empty
+  pipelines when there are fewer inbound nodes than the number of pipelines
+  specified by the ``--size`` argument.
+  (`#4041 <https://github.com/vertexproject/synapse/pull/4041>`_)
+- Refactored backup streaming logic and error handling.
+  (`#4042 <https://github.com/vertexproject/synapse/pull/4042>`_)
+- Added ``indent`` kwarg to ``$lib.json.save()`` to indent serialized json with
+  a number of spaces.
+  (`#4052 <https://github.com/vertexproject/synapse/pull/4052>`_)
+
+Bugfixes
+--------
+- Relaxed ``inet:web:hashtag`` regex.
+  (`#4033 <https://github.com/vertexproject/synapse/pull/4033>`_)
+- Fixed an issue where certain exceptions raised while calling a function in
+  Storm were not providing appropriate details about the origin of the
+  exception.
+  (`#4038 <https://github.com/vertexproject/synapse/pull/4038>`_)
+- Added a patch for Python ``http.cookies`` module to address CVE-2024-7592
+  exposure.
+  (`#4045 <https://github.com/vertexproject/synapse/pull/4045>`_)
+- Fixed SIGINT handling in the ``synapse.tools.storm`` CLI tool.
+  (`#4048 <https://github.com/vertexproject/synapse/pull/4048>`_)
+
 v2.192.0 - 2024-12-13
 =====================
 

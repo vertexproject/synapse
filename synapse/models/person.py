@@ -359,11 +359,14 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The most recent known vitals for the contact.',
                     }),
                     ('name', ('ps:name', {}), {
-                        'doc': 'The person name listed for the contact.',
-                    }),
+                        'doc': 'The person name listed for the contact.'}),
+
+                    ('bio', ('str', {}), {
+                        'doc': 'A brief bio provided for the contact.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of this contact.',
-                    }),
+                        'doc': 'A description of this contact.'}),
+
                     ('title', ('ou:jobtitle', {}), {
                         'doc': 'The job/org title listed for this contact.'}),
 
