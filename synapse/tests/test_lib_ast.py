@@ -4473,6 +4473,16 @@ class AstTest(s_test.SynTest):
 
             q = '''
             function foo() {
+                switch $foo { *: { $lib.print(yep) return() } }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yep', msgs)
+
+            q = '''
+            function foo() {
                 if { return(newp) } { $lib.print(newp) }
             }
             [ it:dev:str=test ]
@@ -4596,12 +4606,23 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormNotInPrint('newp', msgs)
 
-            q = '''
-            function foo() {
-                it:dev:str={ $lib.print(newp) return(test) }
-            }
-            [ it:dev:str=test ]
-            $foo()
-            '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            # hasAstClass caching coverage
+            tree = await core.getStormQuery('for $n in { return((newp,)) } { $lib.print($n) }')
+            self.false(tree.kids[0].hasAstClass(s_ast.Return))
+            self.false(tree.kids[0].hasAstClass(s_ast.Return))
+
+            tree = await core.getStormQuery('while { return((newp,)) } { $lib.print(newp) break }')
+            self.false(tree.kids[0].hasAstClass(s_ast.Return))
+            self.false(tree.kids[0].hasAstClass(s_ast.Return))
+
+            tree = await core.getStormQuery('switch $lib.print({ return(newp) }) { *: { $lib.print(newp) } }')
+            self.false(tree.kids[0].hasAstClass(s_ast.Return))
+            self.false(tree.kids[0].hasAstClass(s_ast.Return))
+
+            tree = await core.getStormQuery('if { return(newp) } { $lib.print(newp) }')
+            self.false(tree.kids[0].hasAstClass(s_ast.Return))
+            self.false(tree.kids[0].hasAstClass(s_ast.Return))
+
+            tree = await core.getStormQuery('try { $lib.raise(boom) } catch { $lib.print(newp) return(newp) } as e {}')
+            self.false(tree.kids[0].kids[1].hasAstClass(s_ast.Return))
+            self.false(tree.kids[0].kids[1].hasAstClass(s_ast.Return))

@@ -1407,8 +1407,7 @@ class VarEvalOper(Oper):
 class SwitchCase(Oper):
 
     def hasAstClass(self, clss):
-        hasast = self.hasast.get(clss)
-        if hasast is not None:
+        if (hasast := self.hasast.get(clss)) is not None:
             return hasast
 
         retn = False
