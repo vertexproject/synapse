@@ -1680,6 +1680,8 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _list(self, *vals):
+        s_common.deprecated('$lib.list()', curv='2.194.0')
+        await self.runt.snap.warnonce('$lib.list() is deprecated. Use ([]) instead.')
         return List(list(vals))
 
     @stormfunc(readonly=True)
@@ -5177,7 +5179,7 @@ class List(Prim):
             Examples:
                 Populate a list by extending it with to other lists::
 
-                    $list = $lib.list()
+                    $list = ()
 
                     $foo = (f, o, o)
                     $bar = (b, a, r)

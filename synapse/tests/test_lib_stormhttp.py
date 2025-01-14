@@ -518,11 +518,11 @@ class StormHttpTest(s_test.SynTest):
             self.eq(data.get('body'), 'MTIzNA==')
 
             q = '''
-            $fields=$lib.list(
-                ({"name": "foo", "value": "bar"}),
-                ({"name": "foo", "value": "bar2"}),
-                ({"name": "baz", "value": "cool"})
-            )
+            $fields=([
+                {"name": "foo", "value": "bar"},
+                {"name": "foo", "value": "bar2"},
+                {"name": "baz", "value": "cool"}
+            ])
             $resp = $lib.inet.http.post($url, fields=$fields, ssl_verify=$lib.false)
             return ( $resp.json() )
             '''
