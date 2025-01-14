@@ -3073,14 +3073,14 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('barprof', valu)
 
                 msgs = await core.stormlist('cron.list')
-                self.stormIsInPrint(' visi                      8437c35a.. ', msgs)
+                self.stormIsInPrint(' visi 8437c35a.. ', msgs, whitespace=False)
                 self.stormIsInPrint('[tel:mob:telem=*]', msgs)
 
                 msgs = await core.stormlist('dmon.list')
                 self.stormIsInPrint('0973342044469bc40b577969028c5079:  (foodmon             ): running', msgs)
 
                 msgs = await core.stormlist('trigger.list')
-                self.stormIsInPrint('visi                      27f5dc524e7c3ee8685816ddf6ca1326', msgs)
+                self.stormIsInPrint('visi 27f5dc524e7c3ee8685816ddf6ca1326', msgs, whitespace=False)
                 self.stormIsInPrint('[ +#count test:str=$tag ]', msgs)
 
                 msgs = await core.stormlist('testcmd0 foo')

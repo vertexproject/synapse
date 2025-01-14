@@ -1117,11 +1117,11 @@ class AgendaTest(s_t_utils.SynTest):
     async def test_cron_creator_migration(self):
         async with self.getRegrCore('cron-creator-to-user') as core:
             msgs = await core.stormlist('cron.list')
-            self.stormIsInPrint('root                      root                      1ec949d8', msgs)
-            self.stormIsInPrint('testuser                  testuser                  8fb20efd', msgs)
+            self.stormIsInPrint('root root 1ec949d8', msgs, whitespace=False)
+            self.stormIsInPrint('testuser testuser 8fb20efd', msgs, whitespace=False)
 
             msgs = await core.stormlist('trigger.list')
-            self.stormIsInPrint('testuser                  testuser                  2b61c302', msgs)
+            self.stormIsInPrint('testuser testuser 2b61c302', msgs, whitespace=False)
 
             rules = await core.callStorm('return($lib.auth.users.byname(testuser).getRules())')
             self.isin((True, ('cron', 'set', 'user')), rules)
@@ -1167,8 +1167,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                             # These should still display correctly before being migrated
                             msgs = await core2.stormlist('cron.list')
-                            self.stormIsInPrint('root                      root                      1ec949d8', msgs)
-                            self.stormIsInPrint('testuser                  testuser                  8fb20efd', msgs)
+                            self.stormIsInPrint('root root 1ec949d8', msgs, whitespace=False)
+                            self.stormIsInPrint('testuser testuser 8fb20efd', msgs, whitespace=False)
 
                             # Edits to creator from an old leader are handled by an updated mirror
                             user = await core1.auth.getUserByName('roleuser')
@@ -1177,8 +1177,8 @@ class AgendaTest(s_t_utils.SynTest):
                             await core2.sync()
 
                             msgs = await core2.stormlist('cron.list')
-                            self.stormIsInPrint('roleuser                  roleuser                  1ec949d8', msgs)
-                            self.stormIsInPrint('testuser                  testuser                  8fb20efd', msgs)
+                            self.stormIsInPrint('roleuser roleuser 1ec949d8', msgs, whitespace=False)
+                            self.stormIsInPrint('testuser testuser 8fb20efd', msgs, whitespace=False)
 
                             for view in core1.views.values():
                                 for iden, trig in view.triggers.list():
@@ -1189,14 +1189,14 @@ class AgendaTest(s_t_utils.SynTest):
                                     self.none(trig.tdef.get('creator'))
 
                             msgs = await core2.stormlist('trigger.list')
-                            self.stormIsInPrint('testuser                  testuser                  2b61c302', msgs)
+                            self.stormIsInPrint('testuser testuser 2b61c302', msgs, whitespace=False)
 
                             await core1.nodes(f'$lib.trigger.get(2b61c3028a3efc87dcd99b8bfc1fbd83).set(user, {user.iden})')
 
                             await core2.sync()
 
                             msgs = await core2.stormlist('trigger.list')
-                            self.stormIsInPrint('roleuser                  roleuser                  2b61c302', msgs)
+                            self.stormIsInPrint('roleuser roleuser 2b61c302', msgs, whitespace=False)
 
             async with self.getTestCore(dirn=dirn1) as core1, \
                        self.getTestCore(dirn=dirn2, conf=conf) as core2:
@@ -1224,8 +1224,8 @@ class AgendaTest(s_t_utils.SynTest):
                         self.eq(trig.tdef.get('creator'), trig.tdef.get('user'))
 
                 msgs = await core2.stormlist('cron.list')
-                self.stormIsInPrint('roleuser                  roleuser                  1ec949d8', msgs)
-                self.stormIsInPrint('testuser                  testuser                  8fb20efd', msgs)
+                self.stormIsInPrint('roleuser roleuser 1ec949d8', msgs, whitespace=False)
+                self.stormIsInPrint('testuser testuser 8fb20efd', msgs, whitespace=False)
 
                 msgs = await core2.stormlist('trigger.list')
-                self.stormIsInPrint('roleuser                  roleuser                  2b61c302', msgs)
+                self.stormIsInPrint('roleuser roleuser 2b61c302', msgs, whitespace=False)
