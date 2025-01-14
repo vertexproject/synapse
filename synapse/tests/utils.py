@@ -86,6 +86,11 @@ logging.getLogger('vcr').setLevel(logging.ERROR)
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
 
+_SYN_ASYNCIO_DEBUG = False
+# Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
+if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode):  # pragma: no cover
+    _SYN_ASYNCIO_DEBUG = True
+
 async def alist(coro):
     return [x async for x in coro]
 
@@ -998,34 +1003,11 @@ class ReloadCell(s_cell.Cell):
 
 class SynTest(unittest.IsolatedAsyncioTestCase):
 
-    _syn_asyncio_debug = False
-
     def _setupAsyncioRunner(self):
         assert self._asyncioRunner is None, 'asyncio runner is already initialized'
         # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
-        runner = asyncio.Runner(debug=self._syn_asyncio_debug)
+        runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG)
         self._asyncioRunner = runner
-
-    @classmethod
-    def setUpClass(cls):
-        '''
-        Test class setup method which detects if we should be running in asyncio debug mode.
-
-        Implementors who define their own ``setUpClass`` method should also call this via ``super()``.
-
-        Examples:
-            Set up a custom resource created in ``setUpClass()``::
-
-                @classmethod
-                def setUpClass(class):
-                    super().setUpClass()
-                    self.my_custom_resource = 'some_resource'
-        '''
-        cls._syn_asyncio_debug = False
-        # Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
-        if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE')
-                or sys.flags.dev_mode):  # pragma: no cover
-            cls._syn_asyncio_debug = True
 
     def tearDown(self):
         '''
