@@ -495,7 +495,7 @@ class AuthTest(s_test.SynTest):
             ])
 
             # Check sequences
-            seqmsg = f'Password must not contain forward/reverse sequences longer than 3 characters.'
+            seqmsg = 'Password must not contain forward/reverse sequences longer than 3 characters.'
             passwords = [
                 # letters
                 'abcA', 'dcbA', 'Abcd', 'Acba',
@@ -531,12 +531,8 @@ class AuthTest(s_test.SynTest):
                 'Password must contain at least 2 digit characters, 0 found.'
             ])
 
-            with self.raises(s_exc.BadArg) as exc:
-                await core.setUserPasswd(user.iden, None)
-            self.isin(
-                'Password must be at least 12 characters.',
-                exc.exception.get('failures')
-            )
+            # Setting password to None should work also
+            await core.setUserPasswd(user.iden, None)
 
             # Attempting to add a user with a bad passwd will add the user and fail to set the password
             with self.raises(s_exc.BadArg):
@@ -581,6 +577,9 @@ class AuthTest(s_test.SynTest):
             await core.setUserPasswd(user.iden, pass1)
             await core.setUserPasswd(user.iden, pass2)
             await core.setUserPasswd(user.iden, pass3)
+
+            # Setting password to None should work also
+            await core.setUserPasswd(user.iden, None)
 
             with self.raises(s_exc.BadArg) as exc:
                 await core.setUserPasswd(user.iden, pass1)
