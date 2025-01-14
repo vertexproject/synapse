@@ -1195,3 +1195,29 @@ class AgendaTest(s_t_utils.SynTest):
                     self.len(1, cron01)
                     self.false(cron01[0].get('isrunning'))
                     self.eq(cron01[0].get('lasterrs')[0], 'aborted')
+
+    async def test_agenda_clear_running_none_nexttime(self):
+
+        async with self.getTestCore() as core:
+
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'iden': s_common.guid(),
+                'storm': '$lib.log.info("test")',
+                'reqs': {},
+                'incunit': 'minute',
+                'incvals': 1
+            }
+            await core.addCronJob(cdef)
+
+            appt = core.agenda.appts[cdef['iden']]
+            self.true(appt in core.agenda.apptheap)
+
+            appt.isrunning = True
+            appt.nexttime = None
+
+            await core.agenda.clearRunningStatus()
+            self.false(appt in core.agenda.apptheap)
+
+            crons = await core.callStorm('return($lib.cron.list())')
+            self.len(1, crons)
