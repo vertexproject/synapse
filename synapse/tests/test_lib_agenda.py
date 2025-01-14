@@ -441,7 +441,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.DupIden, core.addCronJob(cdef))
                 await core.delCronJob(viewiden)
 
-                self.nn(core.getAuthGate(viewiden))
+                self.nn(await core.getAuthGate(viewiden))
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
@@ -1097,3 +1097,127 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq(cdef01.get('lastresult'), 'cancelled')
                     self.gt(cdef00['laststarttime'], 0)
                     self.eq(cdef00['laststarttime'], cdef01['laststarttime'])
+
+    async def test_agenda_graceful_promotion_with_running_cron(self):
+
+        async with self.getTestAha() as aha:
+
+            conf00 = {
+                'aha:provision': await aha.addAhaSvcProv('00.cortex')
+            }
+
+            async with self.getTestCore(conf=conf00) as core00:
+                self.false(core00.conf.get('mirror'))
+
+                q = '''
+                while((true)) {
+                    $lib.log.error('I AM A ERROR LOG MESSAGE')
+                    $lib.time.sleep(6)
+                }
+                '''
+                msgs = await core00.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
+                self.stormHasNoWarnErr(msgs)
+
+                crons00 = await core00.callStorm('return($lib.cron.list())')
+                self.len(1, crons00)
+
+                prov01 = {'mirror': '00.cortex'}
+                conf01 = {
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                }
+
+                async with self.getTestCore(conf=conf01) as core01:
+
+                    with self.getAsyncLoggerStream('synapse.storm.log', 'I AM A ERROR LOG MESSAGE') as stream:
+                        self.true(await stream.wait(timeout=6))
+
+                    cron = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, cron)
+                    self.true(cron[0].get('isrunning'))
+
+                    await core01.promote(graceful=True)
+
+                    self.false(core00.isactive)
+                    self.true(core01.isactive)
+
+                    await core00.sync()
+
+                    cron00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, cron00)
+                    self.false(cron00[0].get('isrunning'))
+                    self.eq(cron00[0].get('lasterrs')[0], 'aborted')
+
+                    cron01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(1, cron01)
+                    self.false(cron01[0].get('isrunning'))
+                    self.eq(cron01[0].get('lasterrs')[0], 'aborted')
+
+    async def test_agenda_force_promotion_with_running_cron(self):
+
+        async with self.getTestAha() as aha:
+
+            conf00 = {
+                'aha:provision': await aha.addAhaSvcProv('00.cortex')
+            }
+
+            async with self.getTestCore(conf=conf00) as core00:
+                self.false(core00.conf.get('mirror'))
+
+                q = '''
+                while((true)) {
+                    $lib.log.error('I AM A ERROR LOG MESSAGE')
+                    $lib.time.sleep(6)
+                }
+                '''
+                msgs = await core00.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
+                self.stormHasNoWarnErr(msgs)
+
+                crons00 = await core00.callStorm('return($lib.cron.list())')
+                self.len(1, crons00)
+
+                prov01 = {'mirror': '00.cortex'}
+                conf01 = {
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                }
+
+                async with self.getTestCore(conf=conf01) as core01:
+
+                    cron = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, cron)
+                    self.true(cron[0].get('isrunning'))
+
+                    await core01.promote(graceful=False)
+
+                    self.true(core00.isactive)
+                    self.true(core01.isactive)
+
+                    cron01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(1, cron01)
+                    self.false(cron01[0].get('isrunning'))
+                    self.eq(cron01[0].get('lasterrs')[0], 'aborted')
+
+    async def test_agenda_clear_running_none_nexttime(self):
+
+        async with self.getTestCore() as core:
+
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'iden': s_common.guid(),
+                'storm': '$lib.log.info("test")',
+                'reqs': {},
+                'incunit': 'minute',
+                'incvals': 1
+            }
+            await core.addCronJob(cdef)
+
+            appt = core.agenda.appts[cdef['iden']]
+            self.true(appt in core.agenda.apptheap)
+
+            appt.isrunning = True
+            appt.nexttime = None
+
+            await core.agenda.clearRunningStatus()
+            self.false(appt in core.agenda.apptheap)
+
+            crons = await core.callStorm('return($lib.cron.list())')
+            self.len(1, crons)

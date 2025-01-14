@@ -1,0 +1,5 @@
+---
+desc: Fixed a Cortex cron scheduler loop error during a mirror promotion.
+prs: []
+type: bug
+...
