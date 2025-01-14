@@ -94,6 +94,8 @@ class CoroTest(s_t_utils.SynTest):
         self.eq([1, 2, 3], await woot().list())
 
     async def test_executor(self):
+        # Initialize s_glob vars
+        s_glob.initloop()
 
         def func(*args, **kwargs):
             tid = threading.get_ident()
