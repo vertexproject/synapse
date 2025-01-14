@@ -1,6 +1,6 @@
 ---
 desc: Fixed an issue in Storm where attempting to iterate a non-iterable object would
-  raise a Python exception.
+  raise a Python exception rather than a StormRuntimeError.
 prs: []
 type: bug
 ...
