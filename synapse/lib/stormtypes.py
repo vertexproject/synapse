@@ -8514,6 +8514,7 @@ class LibTrigger(Lib):
         useriden = self.runt.user.iden
 
         tdef['user'] = useriden
+        tdef['creator'] = useriden
 
         viewiden = tdef.pop('view', None)
         if viewiden is None:
@@ -8738,6 +8739,7 @@ class Trigger(Prim):
         tdef = dict(self.valu)
         tdef['view'] = viewiden
         tdef['user'] = useriden
+        tdef['creator'] = useriden
 
         try:
             s_trigger.reqValidTdef(tdef)
@@ -9092,8 +9094,8 @@ class LibCron(Lib):
          'desc': 'Permits a user to list cron jobs.'},
         {'perm': ('cron', 'set'), 'gate': 'cronjob',
          'desc': 'Permits a user to modify/move a cron job.'},
-        {'perm': ('cron', 'set', 'creator'), 'gate': 'cortex',
-         'desc': 'Permits a user to modify the creator property of a cron job.'},
+        {'perm': ('cron', 'set', 'user'), 'gate': 'cortex',
+         'desc': 'Permits a user to modify the user property of a cron job.'},
     )
 
     def getObjLocals(self):
@@ -9364,6 +9366,7 @@ class LibCron(Lib):
                 'pool': pool,
                 'incunit': incunit,
                 'incvals': incval,
+                'user': self.runt.user.iden,
                 'creator': self.runt.user.iden
                 }
 
@@ -9443,6 +9446,7 @@ class LibCron(Lib):
                 'reqs': reqdicts,
                 'incunit': None,
                 'incvals': None,
+                'user': self.runt.user.iden,
                 'creator': self.runt.user.iden
                 }
 
@@ -9583,12 +9587,15 @@ class CronJob(Prim):
         valu = await toprim(valu)
         iden = self.valu.get('iden')
 
-        if name == 'creator':
+        if name == 'user':
             # this permission must be granted cortex wide
             # to prevent abuse...
-            self.runt.confirm(('cron', 'set', 'creator'))
-        else:
+            self.runt.confirm(('cron', 'set', 'user'))
+        elif name in ('doc', 'name', 'pool'):
             self.runt.confirm(('cron', 'set', name), gateiden=iden)
+        else:
+            mesg = f'CronJob does not support setting: {name}'
+            raise s_exc.BadArg(mesg=mesg)
 
         self.valu = await self.runt.snap.core.editCronJob(iden, name, valu)
 
@@ -9605,6 +9612,8 @@ class CronJob(Prim):
     @stormfunc(readonly=True)
     async def _methCronJobPprint(self):
         user = self.valu.get('username')
+        creator = self.valu.get('creatorname')
+
         view = self.valu.get('view')
         if not view:
             view = self.runt.snap.core.view.iden
@@ -9618,6 +9627,7 @@ class CronJob(Prim):
             'iden': iden,
             'idenshort': iden[:8] + '..',
             'user': user or '<None>',
+            'creator': creator or '<None>',
             'view': view,
             'viewshort': view[:8] + '..',
             'query': self.valu.get('query') or '<missing>',

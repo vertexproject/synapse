@@ -726,7 +726,7 @@ class SynModelTest(s_t_utils.SynTest):
 
             visi = await core.addUser('visi')
 
-            cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}, 'creator': visi.get('iden')}
+            cdef = {'storm': 'inet:ipv4', 'reqs': {'hour': 2}, 'creator': visi.get('iden'), 'user': visi.get('iden')}
             adef = await core.addCronJob(cdef)
             iden = adef.get('iden')
 
