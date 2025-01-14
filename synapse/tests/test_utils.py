@@ -279,3 +279,20 @@ class TestUtils(s_t_utils.SynTest):
         # Patch is removed and singleton behavior is restored
         self.true(oldcertdir is s_certdir.getCertDir())
         self.eq(oldcertdirn, s_certdir.getCertDirn())
+
+    async def test_checknode(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:comp=(1, test)]')
+            self.len(1, nodes)
+            self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'test'}))
+            with self.raises(AssertionError):
+                self.checkNode(nodes[0], (('test:comp', (1, 'newp')), {'hehe': 1, 'haha': 'test'}))
+            with self.raises(AssertionError):
+                self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'newp'}))
+            with self.getAsyncLoggerStream('synapse.tests.utils', 'untested properties') as stream:
+                self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1}))
+                self.true(await stream.wait(timeout=12))
+
+            await self.checkNodes(core, [('test:comp', (1, 'test')),])
+            with self.raises(AssertionError):
+                await self.checkNodes(core, [('test:comp', (1, 'newp')),])

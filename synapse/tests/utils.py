@@ -1023,7 +1023,8 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         '''
         cls._syn_asyncio_debug = False
         # Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
-        if s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode:
+        if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE')
+                or sys.flags.dev_mode):  # pragma: no cover
             cls._syn_asyncio_debug = True
 
     def tearDown(self):
