@@ -96,6 +96,18 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes12)
             self.ne(nodes11[0].ndef, nodes12[0].ndef)
 
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({}) ]')
+
+            self.len(1, await core.nodes('[ ou:org=() ]'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({}) ]')
+
+            msgs = await core.stormlist('[ ou:org=({"$try": true}) ]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInWarn('No properties provided for form ou:org', msgs)
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 

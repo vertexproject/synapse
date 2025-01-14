@@ -1407,6 +1407,13 @@ class Snap(s_base.Base):
         if addprops is not None:
             props.update(addprops)
 
+        if not vals and not props:
+            mesg = f'No properties provided for form {form.full}'
+            if not trycast:
+                raise s_exc.BadTypeValu(mesg=mesg)
+            await self.warn(mesg)
+            return
+
         try:
             for name, valu in list(props.items()):
                 props[name] = form.reqProp(name).type.norm(valu)
