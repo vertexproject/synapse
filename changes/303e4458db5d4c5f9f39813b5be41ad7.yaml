@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue in Storm functions where using the return keyword in a subquery
+  used as a value could incorrectly change the function type.
+prs: []
+type: bug
+...
