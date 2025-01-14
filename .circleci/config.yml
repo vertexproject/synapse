@@ -113,8 +113,6 @@ commands:
     steps:
       - checkout
 
-      - check_runner_has_work
-
       - run:
           name: checkout regression repo
           command: |
