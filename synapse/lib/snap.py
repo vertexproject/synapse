@@ -1404,32 +1404,56 @@ class Snap(s_base.Base):
 
         trycast = vals.pop('$try', False)
         addprops = vals.pop('$props', None)
-        if addprops is not None:
-            props.update(addprops)
+        # addprops is just additional properties
+        # vals is used to actually make things
 
-        if not vals and not props:
-            mesg = f'No properties provided for form {form.full}'
-            if not trycast:
-                raise s_exc.BadTypeValu(mesg=mesg)
-            await self.warn(mesg)
-            return
+        if not vals:
+            mesg = f'No values provided for form {form.full}'
+            raise s_exc.BadTypeValu(mesg=mesg)
 
-        try:
-            for name, valu in list(props.items()):
+        for name, valu in list(props.items()):
+            try:
                 props[name] = form.reqProp(name).type.norm(valu)
+            except s_exc.BadTypeValu as e:
+                mesg = e.errinfo.get('mesg')
+                e.update({
+                    'prop': name,
+                    'form': form.name,
+                    'mesg': f'Bad value for prop {name}: {mesg}',
+                })
+                raise e
 
-            for name, valu in vals.items():
+        if addprops is not None:
+            for name, valu in addprops.items():
+                try:
+                    props[name] = form.reqProp(name).type.norm(valu)
+                except s_exc.BadTypeValu as e:
+                    mesg = e.errinfo.get("mesg")
+                    if not trycast:
+                        e.update({
+                            'prop': name,
+                            'form': form.name,
+                            'mesg': f'Bad value for prop {name}: {mesg}'
+                        })
+                        raise e
+                    await self.warn(f'Skipping bad value for prop {name}: {mesg}')
 
+        for name, valu in vals.items():
+
+            try:
                 prop = form.reqProp(name)
                 norm, norminfo = prop.type.norm(valu)
 
                 norms[name] = (prop, norm, norminfo)
                 proplist.append((name, norm))
-        except s_exc.BadTypeValu as e:
-            if not trycast: raise
-            mesg = e.errinfo.get('mesg')
-            await self.warn(f'Bad value for prop {name}: {mesg}')
-            return
+            except s_exc.BadTypeValu as e:
+                mesg = e.errinfo.get('mesg')
+                e.update({
+                    'prop': name,
+                    'form': form.name,
+                    'mesg': f'Bad value for prop {name}: {mesg}',
+                })
+                raise e
 
         proplist.sort()
 

@@ -53,10 +53,6 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({"hq": "woot"}) ]')
 
-            msgs = await core.stormlist('[ ou:org=({"hq": "woot", "$try": true}) ]')
-            self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInWarn('Bad value for prop hq: valu is not a guid', msgs)
-
             nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
             self.len(1, nodes05)
             self.eq('vertex', nodes05[0].get('name'))
@@ -104,9 +100,31 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({}) ]')
 
-            msgs = await core.stormlist('[ ou:org=({"$try": true}) ]')
+            msgs = await core.stormlist('[ ou:org=({"$props": {"desc": "lol"}})]')
             self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInWarn('No properties provided for form ou:org', msgs)
+            self.stormIsInErr('No values provided for form ou:org', msgs)
+
+            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$props": {"phone": "lolnope"}})]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('Bad value for prop phone: requires a digit string', msgs)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({"$try": true}) ]')
+
+            # $try only affects $props
+            msgs = await core.stormlist('[ ou:org=({"founded": "lolnope", "$try": true}) ]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('Bad value for prop founded: Unknown time format for lolnope', msgs)
+
+            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            node = nodes[0][1]
+            props = node[1]['props']
+            self.none(props.get('phone'))
+            self.eq(props.get('name'), 'burrito corp')
+            self.eq(props.get('desc'), 'burritos man')
+            self.stormIsInWarn('Skipping bad value for prop phone: requires a digit string', msgs)
 
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
