@@ -1404,8 +1404,6 @@ class Snap(s_base.Base):
 
         trycast = vals.pop('$try', False)
         addprops = vals.pop('$props', None)
-        # addprops is just additional properties
-        # vals is used to actually make things
 
         if not vals:
             mesg = f'No values provided for form {form.full}'
