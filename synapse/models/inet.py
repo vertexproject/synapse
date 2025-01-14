@@ -2146,11 +2146,11 @@ class InetModule(s_module.CoreModule):
                         ('phone', ('tel:phone', {}), {
                             'doc': 'The telephone number of the interface.'
                         }),
-                        ('wifi:ssid', ('inet:wifi:ssid', {}), {
-                            'doc': 'The wifi SSID of the interface.'
+                        ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
+                            'doc': 'The SSID of the wifi AP the interface connected to.'
                         }),
-                        ('wifi:bssid', ('inet:mac', {}), {
-                            'doc': 'The wifi BSSID of the interface.'
+                        ('wifi:ap:bssid', ('inet:mac', {}), {
+                            'doc': 'The BSSID of the wifi AP the interface connected to.'
                         }),
                         ('adid', ('it:adid', {}), {
                             'doc': 'An advertising ID associated with the interface.',

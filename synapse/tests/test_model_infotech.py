@@ -923,59 +923,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('it:dev:str', 'evil RAT'))
             self.eq(node.get('norm'), 'evil rat')
-            # Named pipes create it:dev:str nodes
-            nodes = await core.nodes('[it:dev:pipe="MyPipe"]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:pipe', 'MyPipe'))
-            nodes = await core.nodes('it:dev:str=MyPipe')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:str', 'MyPipe'))
-            self.eq(node.get('norm'), 'mypipe')
-            # mutexs behave the same way
-            nodes = await core.nodes('[it:dev:mutex="MyMutex"]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:mutex', 'MyMutex'))
-            nodes = await core.nodes('it:dev:str=MyMutex')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:str', 'MyMutex'))
-            self.eq(node.get('norm'), 'mymutex')
-            # registry keys are similar
-            key = 'HKEY_LOCAL_MACHINE\\Foo\\Bar'
-            nodes = await core.nodes('[it:dev:regkey=$valu]', opts={'vars': {'valu': key}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:regkey', key))
-            nodes = await core.nodes('it:dev:str=$valu', opts={'vars': {'valu': key}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('it:dev:str', key))
-            self.eq(node.get('norm'), 'hkey_local_machine\\foo\\bar')
-            # Regval behaves the same
-            fbyts = 'sha256:' + 64 * 'f'
-            key = 'HKEY_LOCAL_MACHINE\\DUCK\\QUACK'
-            valus = [
-                ('str', 'knight'),
-                ('int', 20),
-                ('bytes', fbyts),
-            ]
-            for prop, valu in valus:
-                iden = s_common.guid((key, valu))
-                props = {
-                    'key': key,
-                    'prop': valu,
-                }
-                q = f'[it:dev:regval=$valu :key=$p.key :{prop}=$p.prop]'
-                nodes = await core.nodes(q, opts={'vars': {'valu': iden, 'p': props}})
-                self.len(1, nodes)
-                node = nodes[0]
-                self.eq(node.ndef, ('it:dev:regval', iden))
-                self.eq(node.get('key'), key)
-                self.eq(node.get(prop), valu)
-            self.len(1, await core.nodes('it:dev:str=HKEY_LOCAL_MACHINE\\DUCK\\QUACK'))
 
     async def test_it_semvertype(self):
         async with self.getTestCore() as core:

@@ -570,10 +570,6 @@ attack_flow_schema_2_0_0 = s_data.getJSON('attack-flow/attack-flow-schema-2.0.0'
 class ItModule(s_module.CoreModule):
     async def initCoreModule(self):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
-        self.model.form('it:dev:pipe').onAdd(self._onFormMakeDevStr)
-        self.model.form('it:dev:mutex').onAdd(self._onFormMakeDevStr)
-        self.model.form('it:dev:regkey').onAdd(self._onFormMakeDevStr)
-        self.model.prop('it:prod:softver:arch').onSet(self._onPropSoftverArch)
         self.model.prop('it:prod:softver:vers').onSet(self._onPropSoftverVers)
 
     def bruteVersionStr(self, valu):
@@ -601,16 +597,6 @@ class ItModule(s_module.CoreModule):
     async def _onFormItDevStr(self, node):
         await node.set('norm', node.ndef[1])
 
-    async def _onFormMakeDevStr(self, node):
-        pprop = node.ndef[1]
-        await node.view.addNode('it:dev:str', pprop)
-
-    async def _onPropSoftverArch(self, node, oldv):
-        # make it:dev:str for arch
-        prop = node.get('arch')
-        if prop:
-            await node.view.addNode('it:dev:str', prop)
-
     async def _onPropSoftverVers(self, node, oldv):
         # Set vers:norm and make its normed valu
         prop = node.get('vers')
@@ -618,9 +604,6 @@ class ItModule(s_module.CoreModule):
             return
 
         await node.set('vers:norm', prop)
-
-        # Make it:dev:str from version str
-        await node.view.addNode('it:dev:str', prop)
 
         # form the semver properly or bruteforce parts
         try:
