@@ -716,6 +716,7 @@ class Agenda(s_base.Base):
                     'lasterrs': ['aborted'] + appt.lasterrs[-4:]
                 }
                 await self.core.addCronEdits(appt.iden, edits)
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
 
                 if appt.nexttime is None:
                     self._delete_appt_from_heap(appt)
