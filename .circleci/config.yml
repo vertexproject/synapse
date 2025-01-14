@@ -62,7 +62,7 @@ commands:
             circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | \
               circleci tests run \
                 --timings-type=name \
-                --command="xargs python3 -m pytest -n auto --dist worksteal -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
+                --command="xargs python3 -m pytest -n auto --dist worksteal -v -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
 
   test_steps_doc:
     description: "Documentation test steps"
