@@ -1005,8 +1005,6 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
-        self._NextBuid = 0
-        self._NextGuid = 0
 
         for s in dir(self):
             attr = getattr(self, s, None)
@@ -2376,39 +2374,6 @@ class SynTest(unittest.TestCase):
             async with await s_hive.openurl(turl) as hive:
 
                 yield hive
-
-    def stablebuid(self, valu=None):
-        '''
-        A stable buid generation for testing purposes
-        '''
-        if valu is None:
-            retn = self._NextBuid.to_bytes(32, 'big')
-            self._NextBuid += 1
-            return retn
-
-        byts = s_msgpack.en(valu)
-        return hashlib.sha256(byts).digest()
-
-    def stableguid(self, valu=None):
-        '''
-        A stable guid generation for testing purposes
-        '''
-        if valu is None:
-            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
-            self._NextGuid += 1
-            return retn
-
-        byts = s_msgpack.en(valu)
-        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
-
-    @contextlib.contextmanager
-    def withStableUids(self):
-        '''
-        A context manager that generates guids and buids in sequence so that successive test runs use the same
-        data
-        '''
-        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
-            yield
 
     async def runCoreNodes(self, core, query, opts=None):
         '''
