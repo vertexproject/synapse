@@ -134,9 +134,12 @@ class AstNode:
         pass
 
     def hasAstClass(self, clss):
-        hasast = self.hasast.get(clss)
-        if hasast is not None:
+        if (hasast := self.hasast.get(clss)) is not None:
             return hasast
+
+        return self._hasAstClass(clss)
+
+    def _hasAstClass(self, clss):
 
         retn = False
 
@@ -930,10 +933,7 @@ class TryCatch(AstNode):
 
 class CatchBlock(AstNode):
 
-    def hasAstClass(self, clss):
-        if (hasast := self.hasast.get(clss)) is not None:
-            return hasast
-
+    def _hasAstClass(self, clss):
         retn = self.kids[1].hasAstClass(clss)
         self.hasast[clss] = retn
         return retn
@@ -971,10 +971,7 @@ class CatchBlock(AstNode):
 
 class ForLoop(Oper):
 
-    def hasAstClass(self, clss):
-        if (hasast := self.hasast.get(clss)) is not None:
-            return hasast
-
+    def _hasAstClass(self, clss):
         retn = self.kids[2].hasAstClass(clss)
         self.hasast[clss] = retn
         return retn
@@ -1140,10 +1137,7 @@ class ForLoop(Oper):
 
 class WhileLoop(Oper):
 
-    def hasAstClass(self, clss):
-        if (hasast := self.hasast.get(clss)) is not None:
-            return hasast
-
+    def _hasAstClass(self, clss):
         retn = self.kids[1].hasAstClass(clss)
         self.hasast[clss] = retn
         return retn
@@ -1425,9 +1419,7 @@ class VarEvalOper(Oper):
 
 class SwitchCase(Oper):
 
-    def hasAstClass(self, clss):
-        if (hasast := self.hasast.get(clss)) is not None:
-            return hasast
+    def _hasAstClass(self, clss):
 
         retn = False
 
@@ -4866,9 +4858,7 @@ class IfClause(AstNode):
 
 class IfStmt(Oper):
 
-    def hasAstClass(self, clss):
-        if (hasast := self.hasast.get(clss)) is not None:
-            return hasast
+    def _hasAstClass(self, clss):
 
         retn = False
         clauses = self.kids
