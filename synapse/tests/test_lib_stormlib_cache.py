@@ -138,19 +138,55 @@ class StormlibCacheTest(s_test.SynTest):
             self.none(await core.callStorm('return($lib.cache.fixed("if (0) { return(yup) }").get(foo))'))
 
             ## control flow exceptions don't propagate up
-            rets = await core.callStorm('''
+            msgs = await core.stormlist('''
                 $cache = $lib.cache.fixed( ${ if ($cache_key < (2)) { return (`key={$cache_key}`) } else { break } } )
 
-                $rets = ([])
+                for $i in $lib.range(4) {
+                    $lib.print(`{$cache.get($i)}`)
+                }
+            ''')
+            self.stormIsInPrint('key=0', msgs)
+            self.stormIsInPrint('key=1', msgs)
+            self.stormNotInPrint('key=2', msgs)
+            self.stormIsInErr('Storm control flow "break" not allowed in cache callbacks.', msgs)
+
+            msgs = await core.stormlist('''
+                $cache = $lib.cache.fixed( ${ if ($cache_key < (2)) { return (`key={$cache_key}`) } else { continue } } )
 
                 for $i in $lib.range(4) {
-                    $rets.append($cache.get($i))
+                    $lib.print(`{$cache.get($i)}`)
                 }
-
-                $rets.append(`i={$i}`)
-                return($rets)
             ''')
-            self.eq(['key=0', 'key=1', None, None, 'i=3'], rets)
+            self.stormIsInPrint('key=0', msgs)
+            self.stormIsInPrint('key=1', msgs)
+            self.stormNotInPrint('key=2', msgs)
+            self.stormIsInErr('Storm control flow "continue" not allowed in cache callbacks.', msgs)
+
+            msgs = await core.stormlist('''
+                $cache = $lib.cache.fixed( ${ if ($cache_key < (2)) { return (`key={$cache_key}`) } else { stop } } )
+
+                for $i in $lib.range(4) {
+                    $lib.print(`{$cache.get($i)}`)
+                }
+            ''')
+            self.stormIsInPrint('key=0', msgs)
+            self.stormIsInPrint('key=1', msgs)
+            self.stormNotInPrint('key=2', msgs)
+            self.stormIsInErr('Storm control flow "stop" not allowed in cache callbacks.', msgs)
+
+            msgs = await core.stormlist('''
+                $cache = $lib.cache.fixed(
+                    ${ if ($cache_key < (2)) { return (`key={$cache_key}`) } else { $lib.exit(mesg=newp) } }
+                )
+
+                for $i in $lib.range(4) {
+                    $lib.print(`{$cache.get($i)}`)
+                }
+                ''')
+            self.stormIsInPrint('key=0', msgs)
+            self.stormIsInPrint('key=1', msgs)
+            self.stormNotInPrint('key=2', msgs)
+            self.stormIsInErr('Storm control flow "StormExit" not allowed in cache callbacks.', msgs)
 
             ## control flow scoped inside the callback
             rets = await core.callStorm("""
