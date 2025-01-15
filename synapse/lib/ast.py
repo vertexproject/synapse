@@ -4119,7 +4119,6 @@ class EditNodeAdd(Edit):
 
             if not runtsafe:
 
-                first = True
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc

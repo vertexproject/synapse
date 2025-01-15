@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where invalid dictionary constructor values would result in unhandled
+  Python ``AttributeError`` exceptions leaking through.
+prs: []
+type: bug
+...
