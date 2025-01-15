@@ -254,7 +254,7 @@ class StormTest(s_t_utils.SynTest):
                     emit bar
                 }
                 function makelist() {
-                    $retn = $lib.list()
+                    $retn = ()
                     for $item in $generate() { $retn.append($item) }
                     return($retn)
                 }
@@ -267,7 +267,7 @@ class StormTest(s_t_utils.SynTest):
                     emit $node.repr()
                 }
                 function makelist() {
-                    $retn = $lib.list()
+                    $retn = ()
                     for $item in $generate() { $retn.append($item) }
                     return($retn)
                 }
@@ -706,7 +706,7 @@ class StormTest(s_t_utils.SynTest):
                   return((0))
                 }
 
-                $alerts = $lib.list()
+                $alerts = ()
                 { $alerts.append($node.repr()) }
 
                 $bool = $stuff($alerts)
@@ -1035,7 +1035,7 @@ class StormTest(s_t_utils.SynTest):
 
             opts = {'view': view}
             self.len(0, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for $item in $layr.getStorNodes() {
                     $list.append($item)
@@ -1048,7 +1048,7 @@ class StormTest(s_t_utils.SynTest):
             await core.callStorm('inet:ipv4=11.22.33.44 [ +(blahverb)> { inet:asn=99 } ]', opts=opts)
 
             sodes = await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for $item in $layr.getStorNodes() {
                     $list.append($item)
@@ -1057,7 +1057,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(2, sodes)
 
             ipv4 = await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for ($buid, $sode) in $layr.getStorNodes() {
                     yield $buid
@@ -1199,7 +1199,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('diff', opts=opts))
 
             self.len(0, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {
                     $list.append($buid)
                 }
@@ -1480,9 +1480,9 @@ class StormTest(s_t_utils.SynTest):
             '''))
 
             self.eq(('foo', 'bar', 'baz'), await core.callStorm('''
-                return($lib.list( // do foo thing
-                    /* hehe */ foo /* hehe */ , /* hehe */ bar /* hehe */ , /* hehe */ baz /* hehe */
-                ))
+                return(([ // do foo thing
+                    /* hehe */ "foo" /* hehe */ , /* hehe */ "bar" /* hehe */ , /* hehe */ "baz" /* hehe */
+                ]))
             '''))
 
             # surrogate escapes are allowed
@@ -3380,7 +3380,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # Queries can be a heavy list
-            q = '$list = $lib.list(${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }) inet:ipv4=1.2.3.4 | tee --join $list'
+            q = '$list = ([${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }]) inet:ipv4=1.2.3.4 | tee --join $list'
             nodes = await core.nodes(q)
             self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
@@ -3390,22 +3390,22 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # A empty list of queries still works as an nop
-            q = '$list = $lib.list() | tee $list'
+            q = '$list = () | tee $list'
             msgs = await core.stormlist(q)
             self.len(2, msgs)
             self.eq(('init', 'fini'), [m[0] for m in msgs])
 
-            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --join $list'
+            q = 'inet:ipv4=1.2.3.4 $list = () | tee --join $list'
             msgs = await core.stormlist(q)
             self.len(3, msgs)
             self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
 
-            q = '$list = $lib.list() | tee --parallel $list'
+            q = '$list = () | tee --parallel $list'
             msgs = await core.stormlist(q)
             self.len(2, msgs)
             self.eq(('init', 'fini'), [m[0] for m in msgs])
 
-            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --parallel --join $list'
+            q = 'inet:ipv4=1.2.3.4 $list = () | tee --parallel --join $list'
             msgs = await core.stormlist(q)
             self.len(3, msgs)
             self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
@@ -3659,7 +3659,7 @@ class StormTest(s_t_utils.SynTest):
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
                 yield $n
@@ -3669,7 +3669,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInErr('Node is not from the current view.', msgs)
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
                 yield $n
@@ -3684,7 +3684,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Nodes lifted from another view and referred to by iden() works
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
                 yield $n.iden()
@@ -3694,7 +3694,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
                 yield $n.iden()
