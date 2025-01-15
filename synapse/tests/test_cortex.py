@@ -440,7 +440,7 @@ class CortexTest(s_t_utils.SynTest):
                  'interfaces': ['lookup'],
                  'storm': '''
                      function lookup(tokens) {
-                        $looks = $lib.list()
+                        $looks = ()
                         for $token in $tokens { $looks.append( (inet:fqdn, $token) ) }
                         return($looks)
                      }
@@ -679,7 +679,7 @@ class CortexTest(s_t_utils.SynTest):
             # functions that don't return a generator
             storm = '''
             function x() {
-                $lst = $lib.list()
+                $lst = ()
                 [ ou:org=* ou:org=* +#cat ]
                 $lst.append($node)
                 fini { return($lst) }
@@ -692,7 +692,7 @@ class CortexTest(s_t_utils.SynTest):
 
             storm = '''
             function x() {
-                $lst = $lib.list()
+                $lst = ()
                 [ ou:org=* ou:org=* +#dog ]
                 $lst.append($node)
                 fini { return($lst) }
@@ -974,7 +974,7 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('media:news -(refs)> $(10)')
 
             self.eq(1, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 for $edge in $lib.view.get().getEdges() { $list.append($edge) }
                 return($list.size())
             '''))
@@ -982,7 +982,7 @@ class CortexTest(s_t_utils.SynTest):
             # check that auto-deleting a node's edges works
             await core.nodes('media:news | delnode')
             self.eq(0, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 for $edge in $lib.view.get().getEdges() { $list.append($edge) }
                 return($list.size())
             '''))
@@ -1017,7 +1017,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(('1', '2'), retn)
 
                 with self.raises(s_exc.StormRuntimeError):
-                    q = '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'
+                    q = '$foo=() $bar=$foo.index(10) return ( $bar )'
                     await proxy.callStorm(q)
 
                 with self.raises(s_exc.SynErr) as cm:
@@ -1032,6 +1032,26 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(cm.exception.get('mesg'), 'bar')
                 self.eq(cm.exception.get('hehe'), 'haha')
                 self.eq(cm.exception.get('key'), 1)
+
+                # We convert StormLoopCtrl and StormGenrCtrl into StormRuntimeError
+                opts = {'vars': {'i': 2}}
+                q = 'if ($i = 2) { break }'
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(q, opts=opts)
+                self.eq(cm.exception.get('mesg'),
+                        'Loop control statement "break" used outside of a loop.')
+
+                q = 'if ($i = 2) { continue }'
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(q, opts=opts)
+                self.eq(cm.exception.get('mesg'),
+                        'Loop control statement "continue" used outside of a loop.')
+
+                q = 'if ($i = 2) { stop }'
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(q, opts=opts)
+                self.eq(cm.exception.get('mesg'),
+                        'Generator control statement "stop" used outside of a generator function.')
 
             with self.getAsyncLoggerStream('synapse.lib.view', 'callStorm cancelled') as stream:
                 async with core.getLocalProxy() as proxy:
@@ -1069,7 +1089,7 @@ class CortexTest(s_t_utils.SynTest):
                     self.eq('ok', retn.get('status'))
                     self.eq('asdf', retn['result'])
 
-                body = {'query': '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'}
+                body = {'query': '$foo=() $bar=$foo.index(10) return ( $bar )'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
@@ -1081,7 +1101,7 @@ class CortexTest(s_t_utils.SynTest):
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormExit', retn.get('code'))
-                    self.eq('', retn.get('mesg'))
+                    self.eq('StormExit: ', retn.get('mesg'))
 
                 # No body
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call') as resp:
@@ -1760,7 +1780,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
 
-            nodes = await wcore.nodes('$foo=$lib.list("foo", "bar.baz") [test:int=4 +#$foo]')
+            nodes = await wcore.nodes('$foo=(["foo", "bar.baz"]) [test:int=4 +#$foo]')
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
 
@@ -3498,6 +3518,97 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4')
             for node in nodes:
                 self.nn(node.getTag('hehe'))
+
+            # Break and Continue cannot cross function boundaries and will instead raise a catchable StormRuntimeError
+            keywords = ('break', 'continue')
+            base_func_q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    KEYWORD
+                }
+                return ( $v )
+            }
+            $N = (5)
+
+            for $valu in $lib.range($N) {
+                $lib.print(`{$inner($valu)}/{$N}`)
+            }
+            '''
+            func_catch_q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    KEYWORD
+                }
+                return ( $v )
+            }
+            $N = (5)
+            try {
+                for $valu in $lib.range($N) {
+                    $lib.print(`{$inner($valu)}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            for keyword in keywords:
+                q = base_func_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'function inner - Loop control statement "{keyword}" used outside of a loop.',
+                                  msgs)
+
+                q = func_catch_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInPrint(f'function inner - Loop control statement "{keyword}" used outside of a loop.',
+                                    msgs)
+
+            # The toplevel use of the keywords will convert them into StormRuntimeError in the message stream
+            # but prevent them from being caught.
+            base_top_q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) { break }
+                $lib.print(`{$j}/{$N}`)
+            }
+            if ($j = 2) {
+                KEYWORD
+            }
+            '''
+            top_catch_q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) { break }
+                $lib.print(`{$j}/{$N}`)
+            }
+            try {
+                if ($j = 2) {
+                    KEYWORD
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            for keyword in keywords:
+                q = base_top_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'Loop control statement "{keyword}" used outside of a loop.',
+                                  msgs)
+                errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+                self.eq(errname, 'StormRuntimeError')
+
+                q = top_catch_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'Loop control statement "{keyword}" used outside of a loop.',
+                                    msgs)
+                errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+                self.eq(errname, 'StormRuntimeError')
 
     async def test_storm_varcall(self):
 
@@ -5684,7 +5795,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         url02 = core02.getLocalUrl()
                         opts = {'vars': {'url01': url01, 'url02': url02}}
-                        strim = 'return($lib.cell.trimNexsLog(consumers=$lib.list($url01, $url02), timeout=$lib.null))'
+                        strim = 'return($lib.cell.trimNexsLog(consumers=($url01, $url02), timeout=$lib.null))'
 
                         await core00.nodes('[ inet:ipv4=11.0.0.0/28 ]')
                         ips00 = await core00.count('inet:ipv4')
