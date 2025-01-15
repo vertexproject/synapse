@@ -2,33 +2,27 @@ import os
 import sys
 import warnings
 
-# Most of these bind to a random port but because it's not zero, it would emit
-# the warning so just ignore these
-allowed = [
-    'synapse/tests/test_lib_aha.py::AhaTest::test_aha_clone',
-    'synapse/tests/test_lib_aha.py::AhaTest::test_aha_restart',
-    'synapse/tests/test_lib_aha.py::AhaTest::test_lib_aha_offon',
-    'synapse/tests/test_lib_storm.py::StormTest::test_storm_pushpull',
-    'synapse/tests/test_lib_stormsvc.py::StormSvcTest::test_storm_svc_restarts',
+import synapse.common as s_common
 
-    # This test checks binding on port 27492 on purpose
-    'synapse/tests/test_telepath.py::TeleTest::test_telepath_default_port',
-]
+THROW = False
 
 def audithook(event, args):
     if event == 'socket.bind':
         _, addr = args
         if isinstance(addr, tuple) and (port := addr[1]) != 0:
 
-            if (testname := os.environ.get('PYTEST_CURRENT_TEST')) is None:
-                testname = '<unknown>'
+            testname = os.environ.get('PYTEST_CURRENT_TEST', '<unknown>').split(' ')[0]
 
-            else:
-                testname = testname.split(' ')[0]
-                if testname in allowed:
-                    return
+            mesg = f'Synapse tests should not bind to fixed ports: {testname=} {port=}'
+            warnings.warn(mesg)
 
-            warnings.warn(f'Synapse tests should not bind to fixed ports: {testname=} {port=}')
+            if THROW:
+                raise RuntimeError(mesg)
 
 def pytest_sessionstart(session):
-    sys.addaudithook(audithook)
+    if s_common.envbool('SYNDEV_AUDIT_PORT_BINDS'):
+        sys.addaudithook(audithook)
+
+    if s_common.envbool('SYNDEV_AUDIT_PORT_BINDS_RAISE'):
+        global THROW
+        THROW = True
