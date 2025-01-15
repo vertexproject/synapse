@@ -1248,6 +1248,7 @@ class LibBase(Lib):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'list', 'desc': 'Get a Storm List object. This is deprecated, use ([]) to declare a list instead.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_list',
                   'args': (
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the list.', },
