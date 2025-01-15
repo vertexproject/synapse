@@ -1413,11 +1413,11 @@ class Snap(s_base.Base):
             try:
                 props[name] = form.reqProp(name).type.norm(valu)
             except s_exc.BadTypeValu as e:
-                mesg = e.errinfo.get('mesg')
+                mesg = e.get('mesg')
                 e.update({
                     'prop': name,
                     'form': form.name,
-                    'mesg': f'Bad value for prop {name}: {mesg}',
+                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
                 })
                 raise e
 
@@ -1426,15 +1426,15 @@ class Snap(s_base.Base):
                 try:
                     props[name] = form.reqProp(name).type.norm(valu)
                 except s_exc.BadTypeValu as e:
-                    mesg = e.errinfo.get("mesg")
+                    mesg = e.get("mesg")
                     if not trycast:
                         e.update({
                             'prop': name,
                             'form': form.name,
-                            'mesg': f'Bad value for prop {name}: {mesg}'
+                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}'
                         })
                         raise e
-                    await self.warn(f'Skipping bad value for prop {name}: {mesg}')
+                    await self.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
         for name, valu in vals.items():
 
@@ -1445,11 +1445,11 @@ class Snap(s_base.Base):
                 norms[name] = (prop, norm, norminfo)
                 proplist.append((name, norm))
             except s_exc.BadTypeValu as e:
-                mesg = e.errinfo.get('mesg')
+                mesg = e.get('mesg')
                 e.update({
                     'prop': name,
                     'form': form.name,
-                    'mesg': f'Bad value for prop {name}: {mesg}',
+                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
                 })
                 raise e
 

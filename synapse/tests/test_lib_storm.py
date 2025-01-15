@@ -92,6 +92,12 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes12)
             self.ne(nodes11[0].ndef, nodes12[0].ndef)
 
+            # GUID ctor has a short-circuit where it tries to find an existing ndef before it does,
+            # some property deconfliction, and `<form>=({})` when pushed through guid generation does 
+            # give the same guid as `<form>=()`, which if we're not careful could lead to an
+            # inconsistent case where you fail to make a node because you don't provide any props,
+            # make a node with that matching ndef, and then run that invalid GUID ctor query again,
+            # and have it return back a node due to the short circuit. So test that we're consistent here.
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({}) ]')
 
@@ -106,7 +112,7 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$props": {"phone": "lolnope"}})]')
             self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInErr('Bad value for prop phone: requires a digit string', msgs)
+            self.stormIsInErr('Bad value for prop ou:org:phone: requires a digit string', msgs)
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({"$try": true}) ]')
@@ -114,7 +120,7 @@ class StormTest(s_t_utils.SynTest):
             # $try only affects $props
             msgs = await core.stormlist('[ ou:org=({"founded": "lolnope", "$try": true}) ]')
             self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInErr('Bad value for prop founded: Unknown time format for lolnope', msgs)
+            self.stormIsInErr('Bad value for prop ou:org:founded: Unknown time format for lolnope', msgs)
 
             msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
             nodes = [m for m in msgs if m[0] == 'node']
@@ -124,7 +130,7 @@ class StormTest(s_t_utils.SynTest):
             self.none(props.get('phone'))
             self.eq(props.get('name'), 'burrito corp')
             self.eq(props.get('desc'), 'burritos man')
-            self.stormIsInWarn('Skipping bad value for prop phone: requires a digit string', msgs)
+            self.stormIsInWarn('Skipping bad value for prop ou:org:phone: requires a digit string', msgs)
 
             await self.asyncraises(s_exc.BadTypeValu, core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77', 'phone': 'lolnope'}, props={'desc': 'an org desc'}))
 
