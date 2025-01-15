@@ -5957,7 +5957,7 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_ctrl.StormExit) as cm:
                 q = '[test:str=beep.sys] $lib.exit(foo)'
                 _ = await core.callStorm(q)
-            self.eq(cm.exception.args, ('foo',))
+            self.eq(cm.exception.get('mesg'), 'foo')
 
             # Remote tests
             async with core.getLocalProxy() as prox:
@@ -5971,7 +5971,7 @@ class StormTypesTest(s_test.SynTest):
                 q = '[test:str=beep.sys] $lib.exit()'
                 with self.raises(s_exc.SynErr) as cm:
                     _ = await prox.callStorm(q)
-                self.eq(cm.exception.get('mesg'), '')
+                self.eq(cm.exception.get('mesg'), 'StormExit: ')
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
                 # A warn is emitted
@@ -5983,7 +5983,7 @@ class StormTypesTest(s_test.SynTest):
                 q = '[test:str=beep.sys] $lib.exit("foo {bar}", bar=baz)'
                 with self.raises(s_exc.SynErr) as cm:
                     _ = await prox.callStorm(q)
-                self.eq(cm.exception.get('mesg'), 'foo baz')
+                self.eq(cm.exception.get('mesg'), "StormExit: mesg='foo baz'")
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
     async def test_iter(self):
