@@ -4528,6 +4528,16 @@ class AstTest(s_test.SynTest):
     async def test_ast_functypes(self):
 
         async with self.getTestCore() as core:
+
+            async def verify(q, isin=False):
+                msgs = await core.stormlist(q)
+                if isin:
+                    self.stormIsInPrint('yep', msgs)
+                else:
+                    self.stormNotInPrint('newp', msgs)
+                self.len(1, [m for m in msgs if m[0] == 'node'])
+                self.stormHasNoErr(msgs)
+
             q = '''
             function foo() {
                 for $n in { return((newp,)) } { $lib.print($n) }
@@ -4535,8 +4545,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4545,8 +4554,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4555,8 +4563,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4565,8 +4572,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('yep', msgs)
+            await verify(q, isin=True)
 
             q = '''
             function foo() {
@@ -4575,8 +4581,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4586,8 +4591,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4597,8 +4601,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('yep', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4609,8 +4612,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormIsInPrint('yep', msgs)
+            await verify(q, isin=True)
 
             q = '''
             function foo() {
@@ -4619,8 +4621,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4629,8 +4630,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4639,8 +4639,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4649,8 +4648,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4660,8 +4658,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4670,8 +4667,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4680,8 +4676,7 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
 
             q = '''
             function foo() {
@@ -4690,5 +4685,4 @@ class AstTest(s_test.SynTest):
             [ it:dev:str=test ]
             $foo()
             '''
-            msgs = await core.stormlist(q)
-            self.stormNotInPrint('newp', msgs)
+            await verify(q)
