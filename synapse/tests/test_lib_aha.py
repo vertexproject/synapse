@@ -1161,6 +1161,8 @@ class AhaTest(s_test.SynTest):
                     aconf = {
                         'aha:name': 'aha',
                         'aha:network': networkname,
+                        'dmon:listen': f'ssl://aha.{networkname}:0',
+                        'provision:listen': f'ssl://aha.{networkname}:0',
                     }
                     name = aconf.get('aha:name')
                     netw = aconf.get('aha:network')
