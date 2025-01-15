@@ -93,8 +93,8 @@ class StormTest(s_t_utils.SynTest):
             self.ne(nodes11[0].ndef, nodes12[0].ndef)
 
             # GUID ctor has a short-circuit where it tries to find an existing ndef before it does,
-            # some property deconfliction, and `<form>=({})` when pushed through guid generation does 
-            # give the same guid as `<form>=()`, which if we're not careful could lead to an
+            # some property deconfliction, and `<form>=({})` when pushed through guid generation gives
+            # back the same guid as `<form>=()`, which if we're not careful could lead to an
             # inconsistent case where you fail to make a node because you don't provide any props,
             # make a node with that matching ndef, and then run that invalid GUID ctor query again,
             # and have it return back a node due to the short circuit. So test that we're consistent here.
