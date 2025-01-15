@@ -1,6 +1,6 @@
 codecov:
   notify:
-    after_n_builds: 8
+    after_n_builds: 1
 
 coverage:
   status:
@@ -12,4 +12,4 @@ coverage:
         target: 96%
 
 comment:
-  after_n_builds: 8
+  after_n_builds: 1
