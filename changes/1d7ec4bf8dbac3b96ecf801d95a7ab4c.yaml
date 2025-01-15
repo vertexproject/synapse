@@ -1,0 +1,6 @@
+---
+desc: The Storm function `$lib.list()` has been deprecated, in favor of using the `()` or
+  `([])` style syntax for directly declaring a list in Storm.
+prs: []
+type: deprecation
+...
