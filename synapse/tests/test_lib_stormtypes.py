@@ -1817,6 +1817,10 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('8', msgs)
             self.stormIsInPrint('13', msgs)
 
+            msgs = await core.stormlist('help --verbose $lib.text')
+            self.stormIsInPrint('Warning', msgs)
+            self.stormIsInPrint('$lib.text`` has been deprecated and will be removed in version 3.0.0', msgs)
+
     async def test_storm_set(self):
 
         async with self.getTestCore() as core:

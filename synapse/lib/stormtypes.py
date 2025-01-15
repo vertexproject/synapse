@@ -1307,7 +1307,8 @@ class LibBase(Lib):
                     cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
-        {'name': 'text', 'desc': 'Get a Storm Text object.',
+        {'name': 'text', 'desc': 'Get a Storm Text object. This is deprecated; please use ``$lib.str()`` instead.',
+         'deprecated': {'eolvers': '3.0.0'},
          'type': {'type': 'function', '_funcname': '_text',
                   'args': (
                       {'name': '*args', 'type': 'str',
@@ -1684,6 +1685,10 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _text(self, *args):
+        s_common.deprecated('$lib.text()', curv='2.193.0')
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce('$lib.text() is deprecated. Use $lib.str() instead.')
         valu = ''.join(args)
         return Text(valu)
 
