@@ -86,10 +86,13 @@ logging.getLogger('vcr').setLevel(logging.ERROR)
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
 
+print('Checking debug mode')
 _SYN_ASYNCIO_DEBUG = False
 # Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
 if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode):  # pragma: no cover
     _SYN_ASYNCIO_DEBUG = True
+    print('found debug mode')
+print(f'{_SYN_ASYNCIO_DEBUG=}')
 
 async def alist(coro):
     return [x async for x in coro]
