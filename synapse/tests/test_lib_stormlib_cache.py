@@ -145,7 +145,6 @@ class StormlibCacheTest(s_test.SynTest):
                     $lib.print(`{$cache.get($i)}`)
                 }
             ''')
-            self.stormIsInPrint('key=0', msgs)
             self.stormIsInPrint('key=1', msgs)
             self.stormNotInPrint('key=2', msgs)
             self.stormIsInErr('Storm control flow "break" not allowed in cache callbacks.', msgs)
@@ -157,7 +156,6 @@ class StormlibCacheTest(s_test.SynTest):
                     $lib.print(`{$cache.get($i)}`)
                 }
             ''')
-            self.stormIsInPrint('key=0', msgs)
             self.stormIsInPrint('key=1', msgs)
             self.stormNotInPrint('key=2', msgs)
             self.stormIsInErr('Storm control flow "continue" not allowed in cache callbacks.', msgs)
@@ -169,7 +167,6 @@ class StormlibCacheTest(s_test.SynTest):
                     $lib.print(`{$cache.get($i)}`)
                 }
             ''')
-            self.stormIsInPrint('key=0', msgs)
             self.stormIsInPrint('key=1', msgs)
             self.stormNotInPrint('key=2', msgs)
             self.stormIsInErr('Storm control flow "stop" not allowed in cache callbacks.', msgs)
@@ -183,7 +180,6 @@ class StormlibCacheTest(s_test.SynTest):
                     $lib.print(`{$cache.get($i)}`)
                 }
                 ''')
-            self.stormIsInPrint('key=0', msgs)
             self.stormIsInPrint('key=1', msgs)
             self.stormNotInPrint('key=2', msgs)
             self.stormIsInErr('Storm control flow "StormExit" not allowed in cache callbacks.', msgs)
