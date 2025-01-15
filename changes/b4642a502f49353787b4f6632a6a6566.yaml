@@ -3,8 +3,8 @@ desc: Fixed an issue with the Storm loop and generator keywords, ``continue``, `
   and ``stop``. Using these keywords outside of a loop or generator function will now
   raise a ``StormRuntimeError`` exception. Using these keywords to tear down the Storm
   runtime will now emit an ``err`` message with the type ``StormRuntimeError`` and a
-  message indicating the invalid use of the keywords. The use of these keywords in
-  ``$lib.cache.fixed`` callbacks will new raise a ``StormRuntimeError``.
+  message indicating the invalid use of the keywords. The use of these keywords or
+  ``$lib.exit()`` in ``$lib.cache.fixed`` callbacks will now raise a ``StormRuntimeError``.
 prs: []
 type: bug
 ...
