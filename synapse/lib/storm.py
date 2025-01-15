@@ -1603,7 +1603,7 @@ stormcmds = (
             function fetchnodes(url, ssl) {
                 $resp = $lib.inet.http.get($url, ssl_verify=$ssl)
                 if ($resp.code = 200) {
-                    $nodes = $lib.list()
+                    $nodes = ()
                     for $valu in $resp.msgpack() {
                         $nodes.append($valu)
                     }
