@@ -1556,7 +1556,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
-        await self.agenda.clearRunningStatus()
 
         async def _runMigrations():
             # Run migrations when this cortex becomes active. This is to prevent
