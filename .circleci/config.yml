@@ -114,6 +114,16 @@ commands:
       - checkout
 
       - run:
+          # Run this first so we fail on syntax errors before installing a bunch
+          # of stuff and doing a bunch of work. It's easier now that we're only
+          # a single runner using xdist.
+          name: syntax
+          command: |
+            pip install "pycodestyle>=2.10.0,<3.0.0"
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
+
+      - run:
           name: checkout regression repo
           command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
@@ -133,13 +143,6 @@ commands:
           paths:
             - ./venv
           key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
-
-      - run:
-          name: syntax
-          command: |
-            . venv/bin/activate
-            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
-            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
 
       - do_test_execution
 
