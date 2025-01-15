@@ -1157,10 +1157,10 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(100, 101, 102) ]')
-            nodes = await core.nodes('test:arrayprop +:ints=$lib.list(1,2,3)')
+            nodes = await core.nodes('test:arrayprop +:ints=([1,2,3])')
             self.len(1, nodes)
 
-            nodes = await core.nodes('test:arrayprop:ints=$lib.list(1,2,3)')
+            nodes = await core.nodes('test:arrayprop:ints=([1,2,3])')
             self.len(1, nodes)
 
             with self.raises(s_exc.NoSuchProp):
@@ -1319,7 +1319,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            nodes = await core.nodes('[ test:arrayprop=* :strs={return ($lib.list(a,b,c,d))} ]')
+            nodes = await core.nodes('[ test:arrayprop=* :strs={return ((a,b,c,d))} ]')
             self.len(1, nodes)
             self.len(4, nodes[0].get('strs'))
 
@@ -1957,7 +1957,7 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('init { function x() { return((0)) } }'))
 
             # Can't use a mutable variable as a default
-            q = '$var=$lib.list(1,2,3) function badargs(x=foo, y=$var) {} $badargs()'
+            q = '$var=([1,2,3]) function badargs(x=foo, y=$var) {} $badargs()'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
@@ -2740,7 +2740,7 @@ class AstTest(s_test.SynTest):
     async def test_ast_yield(self):
 
         async with self.getTestCore() as core:
-            q = '$nodes = $lib.list() [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes'
+            q = '$nodes = () [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes'
             nodes = await core.nodes(q)
             self.len(2, nodes)
 
