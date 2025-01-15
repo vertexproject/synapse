@@ -254,7 +254,7 @@ class StormTest(s_t_utils.SynTest):
                     emit bar
                 }
                 function makelist() {
-                    $retn = $lib.list()
+                    $retn = ()
                     for $item in $generate() { $retn.append($item) }
                     return($retn)
                 }
@@ -267,7 +267,7 @@ class StormTest(s_t_utils.SynTest):
                     emit $node.repr()
                 }
                 function makelist() {
-                    $retn = $lib.list()
+                    $retn = ()
                     for $item in $generate() { $retn.append($item) }
                     return($retn)
                 }
@@ -339,9 +339,135 @@ class StormTest(s_t_utils.SynTest):
             prnt = [m[1]['mesg'] for m in msgs if m[0] == 'print']
             self.eq(prnt, ['inner 0', 'outer 0'])
 
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('emit foo'))
+            # Emit outside an emitter function raises a runtime error with posinfo
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('emit foo')
+            self.nn(cm.exception.get('highlight'))
 
-            # include a quick test for using stop in a node yielder
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('[test:str=emit] emit foo')
+            self.nn(cm.exception.get('highlight'))
+
+            # stop cannot cross function boundaries
+            q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    stop
+                }
+                return ( $v )
+            }
+            function outer(n) {
+                for $i in $lib.range($n) {
+                    emit $inner($i)
+                }
+            }
+            $N = (5)
+            for $valu in $outer($N) {
+                $lib.print(`{$valu}/{$N}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInErr('function inner - Generator control statement "stop" used outside of a generator '
+                              'function.',
+                              msgs)
+
+            # The function exception raised can be caught.
+            q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    stop
+                }
+                return ( $v )
+            }
+            function outer(n) {
+                for $i in $lib.range($n) {
+                    emit $inner($i)
+                }
+            }
+            $N = (5)
+            try {
+                for $valu in $outer($N) {
+                    $lib.print(`{$valu}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInPrint('caught: function inner - Generator control statement "stop" used outside of a'
+                                ' generator function.',
+                                msgs)
+
+            # Outside a function, StopStorm is caught and converted into a StormRuntimeError for the message stream.
+            # Since this is tearing down the runtime, it cannot be caught.
+            q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) {
+                    stop
+                }
+                $lib.print(`{$j}/{$N}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInErr('Generator control statement "stop" used outside of a generator function.',
+                              msgs)
+            errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+            self.eq(errname, 'StormRuntimeError')
+
+            q = '''
+            $N = (5)
+            try {
+                for $j in $lib.range($N) {
+                    if ($j = 2) {
+                        stop
+                    }
+                    $lib.print(`{$j}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormNotInPrint('caught:', msgs)
+            self.stormIsInErr('Generator control statement "stop" used outside of a generator function.',
+                              msgs)
+
+            # Mixing a Loop control flow statement in an emitter to stop its processing
+            # will be converted into a catchable StormRuntimeError
+            q = '''
+            function inner(n) {
+                emit $n
+                $n = ( $n + 1 )
+                emit $n
+                $n = ( $n + 1 )
+                if ( $n >= 2 ) {
+                    break
+                }
+                emit $n
+            }
+            $N = (0)
+            try {
+                for $valu in $inner($N) {
+                    $lib.print(`got {$valu}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('got 1', msgs)
+            self.stormNotInPrint('got 2', msgs)
+            self.stormIsInPrint('caught: function inner - Loop control statement "break" used outside of a loop.',
+                                msgs)
 
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
@@ -580,7 +706,7 @@ class StormTest(s_t_utils.SynTest):
                   return((0))
                 }
 
-                $alerts = $lib.list()
+                $alerts = ()
                 { $alerts.append($node.repr()) }
 
                 $bool = $stuff($alerts)
@@ -909,7 +1035,7 @@ class StormTest(s_t_utils.SynTest):
 
             opts = {'view': view}
             self.len(0, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for $item in $layr.getStorNodes() {
                     $list.append($item)
@@ -922,7 +1048,7 @@ class StormTest(s_t_utils.SynTest):
             await core.callStorm('inet:ipv4=11.22.33.44 [ +(blahverb)> { inet:asn=99 } ]', opts=opts)
 
             sodes = await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for $item in $layr.getStorNodes() {
                     $list.append($item)
@@ -931,7 +1057,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(2, sodes)
 
             ipv4 = await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for ($buid, $sode) in $layr.getStorNodes() {
                     yield $buid
@@ -1073,7 +1199,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('diff', opts=opts))
 
             self.len(0, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {
                     $list.append($buid)
                 }
@@ -1354,9 +1480,9 @@ class StormTest(s_t_utils.SynTest):
             '''))
 
             self.eq(('foo', 'bar', 'baz'), await core.callStorm('''
-                return($lib.list( // do foo thing
-                    /* hehe */ foo /* hehe */ , /* hehe */ bar /* hehe */ , /* hehe */ baz /* hehe */
-                ))
+                return(([ // do foo thing
+                    /* hehe */ "foo" /* hehe */ , /* hehe */ "bar" /* hehe */ , /* hehe */ "baz" /* hehe */
+                ]))
             '''))
 
             # surrogate escapes are allowed
@@ -3254,7 +3380,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # Queries can be a heavy list
-            q = '$list = $lib.list(${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }) inet:ipv4=1.2.3.4 | tee --join $list'
+            q = '$list = ([${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }]) inet:ipv4=1.2.3.4 | tee --join $list'
             nodes = await core.nodes(q)
             self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
@@ -3264,22 +3390,22 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # A empty list of queries still works as an nop
-            q = '$list = $lib.list() | tee $list'
+            q = '$list = () | tee $list'
             msgs = await core.stormlist(q)
             self.len(2, msgs)
             self.eq(('init', 'fini'), [m[0] for m in msgs])
 
-            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --join $list'
+            q = 'inet:ipv4=1.2.3.4 $list = () | tee --join $list'
             msgs = await core.stormlist(q)
             self.len(3, msgs)
             self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
 
-            q = '$list = $lib.list() | tee --parallel $list'
+            q = '$list = () | tee --parallel $list'
             msgs = await core.stormlist(q)
             self.len(2, msgs)
             self.eq(('init', 'fini'), [m[0] for m in msgs])
 
-            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --parallel --join $list'
+            q = 'inet:ipv4=1.2.3.4 $list = () | tee --parallel --join $list'
             msgs = await core.stormlist(q)
             self.len(3, msgs)
             self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
@@ -3533,7 +3659,7 @@ class StormTest(s_t_utils.SynTest):
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
                 yield $n
@@ -3543,7 +3669,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInErr('Node is not from the current view.', msgs)
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
                 yield $n
@@ -3558,7 +3684,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Nodes lifted from another view and referred to by iden() works
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
                 yield $n.iden()
@@ -3568,7 +3694,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
                 yield $n.iden()
