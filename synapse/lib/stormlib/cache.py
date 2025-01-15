@@ -176,7 +176,7 @@ class FixedCache(s_stormtypes.StormType):
                 name = e.__class__.__name__
                 if hasattr(e, 'statement'):
                     name = e.statement
-                exc = s_exc.StormRuntimeError(mesg = f'Storm control flow "{name}" not allowed in cache callbacks.')
+                exc = s_exc.StormRuntimeError(mesg=f'Storm control flow "{name}" not allowed in cache callbacks.')
                 raise exc from None
 
     async def _reqKey(self, key):
