@@ -292,7 +292,7 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             q = '''
                 [test:str=another :hehe=asdf]
-                $s = ("Foo")
+                $s = ("Foo",)
                 $newvar=:hehe
                 -.created
                 $s.append("yar {x}", x=$newvar)
