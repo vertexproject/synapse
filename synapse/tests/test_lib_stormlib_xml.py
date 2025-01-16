@@ -38,7 +38,7 @@ class XmlTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
             valu = await core.callStorm('''
-                $retn = $lib.list()
+                $retn = ()
                 $root = $lib.xml.parse($xmltext)
                 for $elem in $root {
                     $retn.append((
@@ -56,7 +56,7 @@ class XmlTest(s_test.SynTest):
             ))
 
             valu = await core.callStorm('''
-                $retn = $lib.list()
+                $retn = ()
                 $root = $lib.xml.parse($xmltext)
                 for $elem in $root.find(country) {
                     $retn.append((
@@ -74,7 +74,7 @@ class XmlTest(s_test.SynTest):
             ))
 
             valu = await core.callStorm('''
-                $retn = $lib.list()
+                $retn = ()
                 $root = $lib.xml.parse($xmltext)
                 for $elem in $root.find(rank) {
                     $retn.append($elem.text)
@@ -84,7 +84,7 @@ class XmlTest(s_test.SynTest):
             self.eq(valu, ('1', '4', '68'))
 
             valu = await core.callStorm('''
-                $retn = $lib.list()
+                $retn = ()
                 $root = $lib.xml.parse($xmltext)
                 for $elem in $root.find(rank, nested=$lib.false) {
                     $retn.append($elem.text)
@@ -94,7 +94,7 @@ class XmlTest(s_test.SynTest):
             self.eq(valu, ())
 
             valu = await core.callStorm('''
-                $retn = $lib.list()
+                $retn = ()
                 $root = $lib.xml.parse($xmltext)
                 for $elem in $root.find(rank, nested=$lib.false) {
                     $retn.append($elem.text)
