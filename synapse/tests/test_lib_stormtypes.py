@@ -1801,8 +1801,8 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
 
-            q = '''$t=() $t.append(beepboop) $lib.print($lib.len($lib.str.join('',$t)))
-            $t.append("more!") $lib.print($lib.len($lib.str.join('',$t)))
+            q = '''$t=$lib.text(beepboop) $lib.print($lib.len($t))
+            $t.add("more!") $lib.print($lib.len($t))
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('8', msgs)
