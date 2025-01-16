@@ -1,5 +1,5 @@
 ---
-desc: Deprecated ``$lib.text()`` to instead use ``()`` syntax.
+desc: Deprecated ``$lib.text()``. Please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.
 prs: []
 type: feat
 ...
