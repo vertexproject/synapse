@@ -341,10 +341,13 @@ class SynModule(s_module.CoreModule):
                     ('svciden', ('guid', {'strip': True}), {
                         'doc': 'Storm service iden which provided the package.'}),
                     ('input', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
                         'doc': 'The list of forms accepted by the command as input.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('output', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
                         'doc': 'The list of forms produced by the command as output.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('nodedata', ('array', {'type': 'syn:nodedata'}), {
+                        'deprecated': True,
                         'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
                 )),
             ),
