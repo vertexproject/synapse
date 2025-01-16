@@ -5230,6 +5230,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(('inet:fqdn', 'nest.com'), nodes[0].ndef)
             self.eq(('inet:fqdn', 'nest.com'), nodes[1].ndef)
 
+            with self.raises(s_exc.StormRuntimeError) as err:
+                await core.nodes('[ it:dev:int=1 ] for $n in $node.value() { }')
+            self.isin("'int' object is not iterable: 1", err.exception.errinfo.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as err:
+                await core.nodes('for $n in { .created return($node) } { }')
+            self.isin("'node' object is not iterable", err.exception.errinfo.get('mesg'))
+
     async def test_storm_whileloop(self):
 
         async with self.getTestCore() as core:
