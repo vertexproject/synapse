@@ -2742,6 +2742,7 @@ class StormTest(s_t_utils.SynTest):
         class PkgHandler(s_httpapi.Handler):
 
             async def get(self, name):
+                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
 
                 if name == 'notok':
                     self.sendRestErr('FooBar', 'baz faz')
@@ -2751,6 +2752,8 @@ class StormTest(s_t_utils.SynTest):
 
         class PkgHandlerRaw(s_httpapi.Handler):
             async def get(self, name):
+                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
+
                 self.set_header('Content-Type', 'application/json')
                 return self.write(pkg)
 

@@ -1,0 +1,6 @@
+---
+desc: Updated the ``pkg.load`` Storm command to include an ``X-Synapse-Version`` HTTP header
+  in requests.
+prs: []
+type: feat
+...
