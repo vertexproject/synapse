@@ -5,6 +5,65 @@
 *****************
 Synapse Changelog
 *****************
+v2.194.0 - 2025-01-16
+=====================
+
+Model Changes
+-------------
+- Added ``alts`` definitions to the following forms: ``geo:place``,
+  ``it:prod:soft``, ``it:prod:softver``, ``ou:campaign``, ``ou:conference``,
+  ``ou:goal``, ``ou:industry``, ``pol:country``, ``ps:contact``, ``ps:person``,
+  ``risk:threat``, ``risk:tool:software``, and ``risk:vuln``.
+  (`#4064 <https://github.com/vertexproject/synapse/pull/4064>`_)
+- See :ref:`userguide_model_v2_194_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added syntax for conditional node property edit operators in Storm.
+  (`#4046 <https://github.com/vertexproject/synapse/pull/4046>`_)
+- Updated the ``pkg.load`` Storm command to include an ``X-Synapse-Version``
+  HTTP header in requests.
+  (`#4074 <https://github.com/vertexproject/synapse/pull/4074>`_)
+
+Bugfixes
+--------
+- Fixed an issue with the Storm loop and generator keywords, ``continue``,
+  ``break``, and ``stop``. Using these keywords outside of a loop or generator
+  function will now raise a ``StormRuntimeError`` exception. Using these
+  keywords to tear down the Storm runtime will now emit an ``err`` message with
+  the type ``StormRuntimeError`` and a message indicating the invalid use of
+  the keywords. The use of these keywords or ``$lib.exit()`` in
+  ``$lib.cache.fixed`` callbacks will now raise a ``StormRuntimeError``.
+  (`#4025 <https://github.com/vertexproject/synapse/pull/4025>`_)
+  (`#4073 <https://github.com/vertexproject/synapse/pull/4073>`_)
+- Fixed a Cortex cron scheduler loop error during a mirror promotion.
+  (`#4058 <https://github.com/vertexproject/synapse/pull/4058>`_)
+- Fixed bug in password complexity rules where setting a password to (null) or
+  None would fail.
+  (`#4059 <https://github.com/vertexproject/synapse/pull/4059>`_)
+- Fixed an issue in Storm where attempting to iterate a non-iterable object
+  would raise a Python exception rather than a ``StormRuntimeError``.
+  (`#4066 <https://github.com/vertexproject/synapse/pull/4066>`_)
+- Fixed an issue in Storm functions where using the return keyword in a
+  subquery used as a value could incorrectly change the function type.
+  (`#4066 <https://github.com/vertexproject/synapse/pull/4066>`_)
+- Fixed an issue where invalid dictionary constructor values would result in
+  unhandled Python ``AttributeError`` exceptions leaking into the Storm
+  runtime.
+  (`#4068 <https://github.com/vertexproject/synapse/pull/4068>`_)
+- Fixed an issue where the dictionary based guid constructor could raise
+  unclear Python ``IndexError`` exceptions. It now raises ``BadTypeValu``
+  exceptions detailing the problem.
+  (`#4068 <https://github.com/vertexproject/synapse/pull/4068>`_)
+
+Deprecations
+------------
+- The Storm function ``$lib.list()`` has been deprecated, in favor of using the
+  ``()`` or ``([])`` style syntax for directly declaring a list in Storm.
+  (`#4071 <https://github.com/vertexproject/synapse/pull/4071>`_)
+- Deprecated ``$lib.text()``. Please use a list to append strings to, and then
+  use ``$lib.str.join()`` to join them on demand.
+  (`#4072 <https://github.com/vertexproject/synapse/pull/4072>`_)
 
 v2.193.0 - 2025-01-06
 =====================
