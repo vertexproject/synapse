@@ -4524,3 +4524,165 @@ class AstTest(s_test.SynTest):
             text = '($x, $y) = (1)'
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes(text)
+
+    async def test_ast_functypes(self):
+
+        async with self.getTestCore() as core:
+
+            async def verify(q, isin=False):
+                msgs = await core.stormlist(q)
+                if isin:
+                    self.stormIsInPrint('yep', msgs)
+                else:
+                    self.stormNotInPrint('newp', msgs)
+                self.len(1, [m for m in msgs if m[0] == 'node'])
+                self.stormHasNoErr(msgs)
+
+            q = '''
+            function foo() {
+                for $n in { return((newp,)) } { $lib.print($n) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                while { return((newp,)) } { $lib.print(newp) break }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                switch $lib.print({ return(newp) }) { *: { $lib.print(newp) } }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                switch $foo { *: { $lib.print(yep) return() } }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q, isin=True)
+
+            q = '''
+            function foo() {
+                if { return(newp) } { $lib.print(newp) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif { return(newp) } { $lib.print(newp) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif (true) { $lib.print(yep) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif (false) { $lib.print(newp) }
+                else { $lib.print(yep) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q, isin=True)
+
+            q = '''
+            function foo() {
+                [ it:dev:str=foo +(refs)> { $lib.print(newp) return() } ]
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $lib.print({ return(newp) })
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $x = { $lib.print(newp) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                ($x, $y) = { $lib.print(newp) return((foo, bar)) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $x = ({})
+                $x.y = { $lib.print(newp) return((foo, bar)) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                .created -({$lib.print(newp) return(refs)})> *
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                try { $lib.raise(boom) } catch { $lib.print(newp) return(newp) } as e {}
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                it:dev:str={ $lib.print(newp) return(test) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
