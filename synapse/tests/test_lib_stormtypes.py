@@ -1570,20 +1570,12 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm(q)
             self.eq(ret, ('bar', 'baz', 'foo',))
 
-            # Sort a few text objects
-            q = '$foo=("foo") $bar=("bar") $baz=("baz") $v=($foo, $bar, $baz) $v.sort() return ($v)'
-            ret = await core.callStorm(q)
-            self.eq(ret, ('bar', 'baz', 'foo',))
-
             # incompatible sort types
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$v=(foo,bar,(1)) $v.sort() return ($v)')
 
             q = '$l = (1, 2, (3), 4, 1, (3), 3, asdf) return ( $l.unique() )'
             self.eq(['1', '2', 3, '4', '3', 'asdf'], await core.callStorm(q))
-
-            q = '$a=("hehe") $b=("haha") $c=("hehe") $foo=($a, $b, $c) return ($foo.unique())'
-            self.eq(['hehe', 'haha'], await core.callStorm(q))
 
             await core.addUser('lowuser1')
             await core.addUser('lowuser2')
@@ -1802,9 +1794,10 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_text(self):
         async with self.getTestCore() as core:
+            # $lib.text() is deprecated (SYN-8482); test ensures the object works as expected until removed
             nodes = await core.nodes('''
-                [ test:int=10 ] $text=() $text.append(hehe) { +test:int>=10 $text.append(haha) }
-                [ test:str=$lib.str.join('', $text) ] +test:str''')
+                [ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) }
+                [ test:str=$text.str() ] +test:str''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
 
