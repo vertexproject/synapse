@@ -1691,7 +1691,7 @@ class LibBase(Lib):
         s_common.deprecated('$lib.text()', curv='2.194.0')
         runt = s_scope.get('runt')
         if runt:
-            await runt.snap.warnonce('$lib.text() is deprecated. Use () instead.')
+            await runt.snap.warnonce('$lib.text() is deprecated. Please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.')
         valu = ''.join(args)
         return Text(valu)
 
