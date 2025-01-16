@@ -1571,7 +1571,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(ret, ('bar', 'baz', 'foo',))
 
             # Sort a few text objects
-            q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $baz=$lib.text(baz) $v=($foo, $bar, $baz) $v.sort() return ($v)'
+            q = '$foo=("foo") $bar=("bar") $baz=("baz") $v=($foo, $bar, $baz) $v.sort() return ($v)'
             ret = await core.callStorm(q)
             self.eq(ret, ('bar', 'baz', 'foo',))
 
@@ -1579,15 +1579,10 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$v=(foo,bar,(1)) $v.sort() return ($v)')
 
-            # mix Prims and heavy objects
-            with self.raises(s_exc.StormRuntimeError):
-                q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $v=($foo, aString, $bar,) $v.sort() return ($v)'
-                await core.callStorm(q)
-
             q = '$l = (1, 2, (3), 4, 1, (3), 3, asdf) return ( $l.unique() )'
             self.eq(['1', '2', 3, '4', '3', 'asdf'], await core.callStorm(q))
 
-            q = '$a=$lib.text(hehe) $b=$lib.text(haha) $c=$lib.text(hehe) $foo=($a, $b, $c) return ($foo.unique())'
+            q = '$a=("hehe") $b=("haha") $c=("hehe") $foo=($a, $b, $c) return ($foo.unique())'
             self.eq(['hehe', 'haha'], await core.callStorm(q))
 
             await core.addUser('lowuser1')
@@ -1805,13 +1800,13 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_text(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('''
-                [ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) }
-                [ test:str=$text.str() ] +test:str''')
+                [ test:int=10 ] $text=() $text.append(hehe) { +test:int>=10 $text.append(haha) }
+                [ test:str=$lib.str.join('', $text) ] +test:str''')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'hehehaha'))
 
-            q = '''$t=$lib.text(beepboop) $lib.print($lib.len($t))
-            $t.add("more!") $lib.print($lib.len($t))
+            q = '''$t=() $t.append(beepboop) $lib.print($lib.len($lib.str.join('',$t)))
+            $t.append("more!") $lib.print($lib.len($lib.str.join('',$t)))
             '''
             msgs = await core.stormlist(q)
             self.stormIsInPrint('8', msgs)
@@ -2216,7 +2211,7 @@ class StormTypesTest(s_test.SynTest):
 
             # text
             q = '''
-                $text = $lib.text(beepboopgetthejedi)
+                $text = () $text.append(beepboopgetthejedi)
                 $set = $lib.set($text)
             '''
             msgs = await core.stormlist(q)
@@ -3430,8 +3425,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq('telepath:proxy', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url)) )', opts))
             self.eq('telepath:proxy:method', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).getCellInfo) )', opts))
             self.eq('telepath:proxy:genrmethod', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).storm) )', opts))
-
-            self.eq('text', await core.callStorm('return ( $lib.vars.type($lib.text(hehe)) )'))
 
             self.eq('node', await core.callStorm('[test:str=foo] return ($lib.vars.type($node))'))
             self.eq('node:props', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.props))'))

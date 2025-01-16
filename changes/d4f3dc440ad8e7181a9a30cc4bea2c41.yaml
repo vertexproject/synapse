@@ -1,0 +1,5 @@
+---
+desc: Deprecated ``$lib.text()`` to instead use ``()`` syntax.
+prs: []
+type: feat
+...
