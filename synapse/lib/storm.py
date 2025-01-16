@@ -984,7 +984,9 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl)
+                $headers = ({'X-Synapse-Version': $lib.str.join('.', $lib.version.synapse())})
+
+                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
                 if ($resp.code != 200) {
                     $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)

@@ -134,27 +134,27 @@ class AstNode:
         pass
 
     def hasAstClass(self, clss):
-        hasast = self.hasast.get(clss)
-        if hasast is not None:
+        if (hasast := self.hasast.get(clss)) is not None:
             return hasast
 
-        retn = False
+        retn = self._hasAstClass(clss)
+        self.hasast[clss] = retn
+        return retn
+
+    def _hasAstClass(self, clss):
 
         for kid in self.kids:
 
             if isinstance(kid, clss):
-                retn = True
-                break
+                return True
 
-            if isinstance(kid, (EditPropSet, EditCondPropSet, Function, CmdOper)):
+            if isinstance(kid, (Edit, Function, CmdOper, SetVarOper, SetItemOper, VarListSetOper, Value, N1Walk, LiftOper)):
                 continue
 
             if kid.hasAstClass(clss):
-                retn = True
-                break
+                return True
 
-        self.hasast[clss] = retn
-        return retn
+        return False
 
     def optimize(self):
         [k.optimize() for k in self.kids]
@@ -930,6 +930,9 @@ class TryCatch(AstNode):
 
 class CatchBlock(AstNode):
 
+    def _hasAstClass(self, clss):
+        return self.kids[1].hasAstClass(clss)
+
     async def run(self, runt, genr):
         async for item in self.kids[2].run(runt, genr):
             yield item
@@ -962,6 +965,9 @@ class CatchBlock(AstNode):
         raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=etyp))
 
 class ForLoop(Oper):
+
+    def _hasAstClass(self, clss):
+        return self.kids[2].hasAstClass(clss)
 
     def getRuntVars(self, runt):
 
@@ -998,6 +1004,14 @@ class ForLoop(Oper):
                 valu = ()
 
             async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+
+                try:
+                    agen, _ = await pullone(agen)
+                except TypeError:
+                    styp = await s_stormtypes.totype(valu, basetypes=True)
+                    mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
+                    raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
+
                 async for item in agen:
 
                     if isinstance(name, (list, tuple)):
@@ -1064,6 +1078,13 @@ class ForLoop(Oper):
                 valu = ()
 
             async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+                try:
+                    agen, _ = await pullone(agen)
+                except TypeError:
+                    styp = await s_stormtypes.totype(valu, basetypes=True)
+                    mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
+                    raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
+
                 async for item in agen:
 
                     if isinstance(name, (list, tuple)):
@@ -1108,6 +1129,9 @@ class ForLoop(Oper):
                         await asyncio.sleep(0)
 
 class WhileLoop(Oper):
+
+    def _hasAstClass(self, clss):
+        return self.kids[1].hasAstClass(clss)
 
     async def run(self, runt, genr):
         subq = self.kids[1]
@@ -1162,20 +1186,21 @@ class WhileLoop(Oper):
                     await asyncio.sleep(0)
 
 async def pullone(genr):
-    gotone = None
-    async for gotone in genr:
-        break
+    empty = False
+    try:
+        gotone = await genr.__anext__()
+    except StopAsyncIteration:
+        empty = True
 
     async def pullgenr():
-
-        if gotone is None:
+        if empty:
             return
 
         yield gotone
         async for item in genr:
             yield item
 
-    return pullgenr(), gotone is None
+    return pullgenr(), empty
 
 class CmdOper(Oper):
 
@@ -1384,6 +1409,14 @@ class VarEvalOper(Oper):
                     await asyncio.sleep(0)
 
 class SwitchCase(Oper):
+
+    def _hasAstClass(self, clss):
+
+        for kid in self.kids[1:]:
+            if kid.hasAstClass(clss):
+                return True
+
+        return False
 
     def prepare(self):
         self.cases = {}
@@ -4810,6 +4843,22 @@ class IfClause(AstNode):
     pass
 
 class IfStmt(Oper):
+
+    def _hasAstClass(self, clss):
+
+        clauses = self.kids
+
+        if not isinstance(clauses[-1], IfClause):
+            if clauses[-1].hasAstClass(clss):
+                return True
+
+            clauses = clauses[:-1]
+
+        for clause in clauses:
+            if clause.kids[1].hasAstClass(clss):
+                return True
+
+        return False
 
     def prepare(self):
         if isinstance(self.kids[-1], IfClause):
