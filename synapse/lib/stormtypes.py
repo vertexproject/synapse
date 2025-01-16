@@ -1308,7 +1308,7 @@ class LibBase(Lib):
                     cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
-        {'name': 'text', 'desc': 'Get a Storm Text object. This is deprecated; please use ``()`` instead.',
+        {'name': 'text', 'desc': 'Get a Storm Text object. This is deprecated; please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.',
          'deprecated': {'eolvers': '3.0.0'},
          'type': {'type': 'function', '_funcname': '_text',
                   'args': (
