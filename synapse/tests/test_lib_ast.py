@@ -292,11 +292,11 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             q = '''
                 [test:str=another :hehe=asdf]
-                $s = $lib.text("Foo")
+                $s = ("Foo",)
                 $newvar=:hehe
                 -.created
-                $s.add("yar {x}", x=$newvar)
-                $lib.print($s.str())
+                $s.append("yar {x}", x=$newvar)
+                $lib.print($lib.str.join('', $s))
             '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']

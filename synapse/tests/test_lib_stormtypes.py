@@ -1570,25 +1570,12 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm(q)
             self.eq(ret, ('bar', 'baz', 'foo',))
 
-            # Sort a few text objects
-            q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $baz=$lib.text(baz) $v=($foo, $bar, $baz) $v.sort() return ($v)'
-            ret = await core.callStorm(q)
-            self.eq(ret, ('bar', 'baz', 'foo',))
-
             # incompatible sort types
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$v=(foo,bar,(1)) $v.sort() return ($v)')
 
-            # mix Prims and heavy objects
-            with self.raises(s_exc.StormRuntimeError):
-                q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $v=($foo, aString, $bar,) $v.sort() return ($v)'
-                await core.callStorm(q)
-
             q = '$l = (1, 2, (3), 4, 1, (3), 3, asdf) return ( $l.unique() )'
             self.eq(['1', '2', 3, '4', '3', 'asdf'], await core.callStorm(q))
-
-            q = '$a=$lib.text(hehe) $b=$lib.text(haha) $c=$lib.text(hehe) $foo=($a, $b, $c) return ($foo.unique())'
-            self.eq(['hehe', 'haha'], await core.callStorm(q))
 
             await core.addUser('lowuser1')
             await core.addUser('lowuser2')
@@ -1807,6 +1794,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_text(self):
         async with self.getTestCore() as core:
+            # $lib.text() is deprecated (SYN-8482); test ensures the object works as expected until removed
             nodes = await core.nodes('''
                 [ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) }
                 [ test:str=$text.str() ] +test:str''')
@@ -1819,6 +1807,10 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('8', msgs)
             self.stormIsInPrint('13', msgs)
+
+            msgs = await core.stormlist('help --verbose $lib.text')
+            self.stormIsInPrint('Warning', msgs)
+            self.stormIsInPrint('$lib.text`` has been deprecated and will be removed in version 3.0.0', msgs)
 
     async def test_storm_set(self):
 
@@ -2215,7 +2207,7 @@ class StormTypesTest(s_test.SynTest):
 
             # text
             q = '''
-                $text = $lib.text(beepboopgetthejedi)
+                $text = () $text.append(beepboopgetthejedi)
                 $set = $lib.set($text)
             '''
             msgs = await core.stormlist(q)
@@ -3429,8 +3421,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq('telepath:proxy', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url)) )', opts))
             self.eq('telepath:proxy:method', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).getCellInfo) )', opts))
             self.eq('telepath:proxy:genrmethod', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).storm) )', opts))
-
-            self.eq('text', await core.callStorm('return ( $lib.vars.type($lib.text(hehe)) )'))
 
             self.eq('node', await core.callStorm('[test:str=foo] return ($lib.vars.type($node))'))
             self.eq('node:props', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.props))'))
