@@ -62,6 +62,10 @@ class MatModule(s_module.CoreModule):
                 ('phys:object', ('ndef', {'interface': 'phys:object'}), {
                     'doc': 'A node which represents a physical object.'}),
 
+                ('phys:contained:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy for types of contained relationships.'}),
+
                 ('phys:contained', ('guid', {}), {
                     'doc': 'A node which represents a physical object containing another physical object.'}),
 
@@ -85,6 +89,9 @@ class MatModule(s_module.CoreModule):
             'forms': (
 
                 ('phys:contained', {}, (
+
+                    ('type', ('phys:contained:type:taxonomy', {}), {
+                        'doc': 'The type of container relationship.'}),
 
                     ('period', ('ival', {}), {
                         'doc': 'The period where the container held the object.'}),

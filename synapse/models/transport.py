@@ -113,7 +113,7 @@ class TransportModule(s_module.CoreModule):
                         'place': 'station',
                         'segment': 'train route',
                         'vehicle': 'train'},
-                    'doc': 'An individual instance of a train running a route.'}),
+                    'doc': 'An individual instance of a consist of train cars running a route.'}),
 
                 ('transport:rail:car', ('guid', {}), {
                     'interfaces': ('transport:container',),
@@ -231,7 +231,7 @@ class TransportModule(s_module.CoreModule):
 
                 ('transport:segment', {
                     # train, flight, drive, launch...
-                    'doc': 'Properties common to a specific segment of a journey made by a vehicle.',
+                    'doc': 'Properties common to a specific instance of a route taken by a vehicle.',
                     'interfaces': ('transport:schedule',),
 
                     'props': (

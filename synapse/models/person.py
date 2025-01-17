@@ -22,31 +22,25 @@ class PsModule(s_module.CoreModule):
                 }),
                 ('ps:name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'An arbitrary, lower spaced string with normalized whitespace.',
-                    'ex': 'robert grey'
-                }),
+                    'ex': 'robert grey'}),
+
                 ('ps:person', ('guid', {}), {
-                    'interfaces': ('phys:object',),
-                    'template': {'phys:object': 'person'},
-                    'doc': 'A GUID for a person.',
-                }),
+                    'doc': 'A GUID for a person.'}),
+
                 ('ps:persona', ('guid', {}), {
                     'deprecated': True,
-                    'doc': 'A GUID for a suspected person.',
-                }),
+                    'doc': 'Deprecated. Please use ps:contact.'}),
+
                 ('ps:person:has', ('comp', {'fields': (('person', 'ps:person'), ('node', 'ndef'))}), {
                     'deprecated': True,
-                    'doc': 'A person owns, controls, or has exclusive use of an object or'
-                           ' resource, potentially during a specific period of time.'
-                }),
+                    'doc': 'Deprecated. Please use ps:person -(has)>.'}),
+
                 ('ps:persona:has', ('comp', {'fields': (('persona', 'ps:persona'), ('node', 'ndef'))}), {
                     'deprecated': True,
-                    'doc': 'A persona owns, controls, or has exclusive use of an object or'
-                           ' resource, potentially during a specific period of time.'}),
+                    'doc': 'Deprecated. Please use ps:contact -(has)>.'}),
 
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record.',
-                    'interfaces': ('phys:object',),
-                    'template': {'phys:object': 'contact'},
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
@@ -64,9 +58,11 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A GUID for a list of associated contacts.',
                 }),
                 ('ps:workhist', ('guid', {}), {
-                    'doc': "A GUID representing entry in a contact's work history.",
-                }),
+                    'doc': "A GUID representing entry in a contact's work history."}),
+
                 ('ps:vitals', ('guid', {}), {
+                    'interfaces': ('phys:object',),
+                    'template': {'phys:object', 'person'},
                     'doc': 'Statistics and demographic data about a person or contact.'}),
 
                 ('ps:skill', ('guid', {}), {
