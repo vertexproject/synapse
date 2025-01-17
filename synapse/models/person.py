@@ -58,7 +58,7 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A GUID for a list of associated contacts.',
                 }),
                 ('ps:workhist', ('guid', {}), {
-                    'doc': "A GUID representing entry in a contact's work history."}),
+                    'doc': "An entry in a contact's work history."}),
 
                 ('ps:vitals', ('guid', {}), {
                     'interfaces': ('phys:object',),
