@@ -1,7 +1,0 @@
----
-desc: Fixed an issue where the dictionary based guid constructor could raise unclear
-  Python ``IndexError`` exceptions, and instead raise ``BadTypeValu`` exceptions detailing
-  the problem.
-prs: []
-type: bug
-...
