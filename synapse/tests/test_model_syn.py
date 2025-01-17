@@ -448,10 +448,16 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
 
-                await core.nodes(f'service.add test {url}')
-                iden = core.getStormSvcs()[0].iden
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    await core.nodes(f'service.add test {url}')
+                    iden = core.getStormSvcs()[0].iden
 
-                await core.nodes('$lib.service.wait(test)')
+                    await core.nodes('$lib.service.wait(test)')
+
+                stream.seek(0)
+                warn = "Storm command definition 'forms' key is deprecated and will be removed " \
+                       "in 3.0.0 (command foobar in package foo)"
+                self.isin(warn, stream.read())
 
                 # check that runt nodes for new commands are created
                 nodes = await core.nodes('syn:cmd +:package')

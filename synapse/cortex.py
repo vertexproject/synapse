@@ -2410,6 +2410,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 cmdtext = cdef.get('storm')
                 await self.getStormQuery(cmdtext)
 
+            if cdef.get('forms') is not None:
+                name = cdef.get('name')
+                mesg = f"Storm command definition 'forms' key is deprecated and will be removed " \
+                       f"in 3.0.0 (command {name} in package {pkgname})"
+                logger.warning(mesg, extra=await self.getLogExtra(name=name, pkgname=pkgname))
+
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
             gdef['scope'] = 'power-up'
