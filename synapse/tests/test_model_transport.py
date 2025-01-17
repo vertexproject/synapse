@@ -166,6 +166,7 @@ class TransportTest(s_test.SynTest):
                         :make=lotus
                         :model=elise
                         :registration=$regid
+                        :type=car
                         :owner={gen.ps.contact.email us.va.dmv visi@vertex.link}
                     ]}
 
@@ -192,12 +193,14 @@ class TransportTest(s_test.SynTest):
 
             nodes = await core.nodes('transport:land:registration:id=zeroday :vehicle -> transport:land:vehicle')
             self.len(1, nodes)
+            self.eq(nodes[0].get('type'), 'car.')
             self.eq(nodes[0].get('make'), 'lotus')
             self.eq(nodes[0].get('model'), 'elise')
             self.eq(nodes[0].get('serial'), 'V-31337')
             self.eq(nodes[0].get('built'), 1104537600000)
             self.nn(nodes[0].get('owner'))
             self.nn(nodes[0].get('registration'))
+            self.len(1, await core.nodes('transport:land:vehicle -> transport:land:vehicle:type:taxonomy'))
 
             nodes = await core.nodes('transport:land:registration:id=zeroday -> transport:land:license')
             self.len(1, nodes)
@@ -208,3 +211,162 @@ class TransportTest(s_test.SynTest):
 
             self.nn(nodes[0].get('issuer'))
             self.nn(nodes[0].get('contact'))
+
+            nodes = await core.nodes('''[
+                transport:land:drive=*
+                    :vehicle={transport:land:vehicle}
+            ]''')
+
+            self.eq('transport:land:vehicle', nodes[0].get('vehicle')[0])
+
+    async def test_model_transport_rail(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                transport:rail:train=*
+
+                    :status=completed
+                    :occupants=1
+                    :cargo:mass=10kg
+                    :cargo:volume=10m
+
+                    :duration=03:00:00
+                    :scheduled:duration=03:00:00
+
+                    :departed=202501171030
+                    :departed:point=2C
+                    :departed:place={[ geo:place=* :name="grand central station" ]}
+
+                    :scheduled:departure=202501171030
+                    :scheduled:departure:point=2C
+                    :scheduled:departure:place={ geo:place:name="grand central station" }
+
+                    :arrived=202501171330
+                    :arrived:place={[ geo:place=* :name="union station" ]}
+                    :arrived:point=2C
+
+                    :scheduled:arrival=202501171330
+                    :scheduled:arrival:place={ geo:place:name="union station" }
+                    :scheduled:arrival:point=2C
+
+                    :vehicle={[
+                        transport:rail:consist=*
+                            :max:occupants=2
+                            :cars={[
+                                transport:rail:car=*
+                                :serial=001
+                                :built=20221212
+                                :manufacturer:name=acme
+                                :manufacturer={[ ou:org=({"name": "acme"}) ]}
+                                :model="Engine That Could"
+                                :max:occupants=2
+                                :max:cargo:mass=1000kg
+                                :max:cargo:volume=1000m
+                                :owner={[ ps:contact=* :name="road runner" ]}
+                            ]}
+                    ]}
+                    :operator={[ ps:contact=* :name="visi" ]}
+            ]''')
+
+            self.eq(10800000, nodes[0].get('duration'))
+            self.eq(10800000, nodes[0].get('scheduled:duration'))
+
+            self.eq(1737109800000, nodes[0].get('departed'))
+            self.eq('2c', nodes[0].get('departed:point'))
+            self.nn(nodes[0].get('departed:place'))
+
+            self.eq(1737109800000, nodes[0].get('scheduled:departure'))
+            self.eq('2c', nodes[0].get('scheduled:departure:point'))
+            self.nn(nodes[0].get('scheduled:departure:place'))
+
+            self.eq(1737120600000, nodes[0].get('arrived'))
+            self.nn(nodes[0].get('arrived:place'))
+            self.eq('2c', nodes[0].get('arrived:point'))
+
+            self.eq(1737120600000, nodes[0].get('scheduled:arrival'))
+            self.nn(nodes[0].get('scheduled:arrival:place'))
+            self.eq('2c', nodes[0].get('scheduled:arrival:point'))
+
+            nodes = await core.nodes('transport:rail:consist')
+            self.eq(2, nodes[0].get('max:occupants'))
+            self.len(1, nodes[0].get('cars'))
+
+            nodes = await core.nodes('transport:rail:car')
+            self.eq('001', nodes[0].get('serial'))
+            self.eq(1670803200000, nodes[0].get('built'))
+            self.eq('acme', nodes[0].get('manufacturer:name'))
+            self.eq('engine that could', nodes[0].get('model'))
+            self.eq(2, nodes[0].get('max:occupants'))
+            self.eq('1000000', nodes[0].get('max:cargo:mass'))
+            self.eq(1000000, nodes[0].get('max:cargo:volume'))
+
+            self.nn(nodes[0].get('owner'))
+
+            nodes = await core.nodes('''[
+                transport:stop=*
+                    :arrived:place={[ geo:place=* :name="BWI Rail Station" ]}
+                    :trip={ transport:rail:train }
+            ]''')
+            self.nn(nodes[0].get('arrived:place'))
+            self.eq('transport:rail:train', nodes[0].get('trip')[0])
+
+            nodes = await core.nodes('''[
+                transport:occupant=*
+                    :role=passenger
+                    :contact={[ ps:contact=({"name": "visi"}) ]}
+                    :trip={ transport:rail:train }
+                    :vehicle={ transport:rail:consist }
+                    :seat=2c
+                    :boarded=202501171020
+                    :boarded:point=2c
+                    :boarded:place={ geo:place:name="grand central station" }
+
+                    :disembarked=202501171335
+                    :disembarked:point=2c
+                    :disembarked:place={ geo:place:name="union station" }
+            ]''')
+            self.nn(nodes[0].get('contact'))
+            self.eq('2c', nodes[0].get('seat'))
+            self.eq('passenger.', nodes[0].get('role'))
+            self.eq('transport:rail:train', nodes[0].get('trip')[0])
+            self.eq('transport:rail:consist', nodes[0].get('vehicle')[0])
+
+            self.eq(1737109200000, nodes[0].get('boarded'))
+            self.nn(nodes[0].get('boarded:place'))
+            self.eq('2c', nodes[0].get('boarded:point'))
+
+            self.eq(1737120900000, nodes[0].get('disembarked'))
+            self.nn(nodes[0].get('disembarked:place'))
+            self.eq('2c', nodes[0].get('disembarked:point'))
+            self.len(1, await core.nodes('transport:occupant -> transport:occupant:role:taxonomy'))
+
+            nodes = await core.nodes('''[
+                transport:cargo=*
+
+                    :trip={ transport:rail:train }
+                    :vehicle={ transport:rail:consist }
+
+                    :container={ transport:rail:car }
+                    :object={[ transport:shipping:container=({"serial": "007"}) ]}
+
+                    :loaded=202501171020
+                    :loaded:point=2c
+                    :loaded:place={ geo:place:name="grand central station" }
+
+                    :unloaded=202501171335
+                    :unloaded:point=2c
+                    :unloaded:place={ geo:place:name="union station" }
+            ]''')
+
+            self.eq('transport:rail:train', nodes[0].get('trip')[0])
+            self.eq('transport:rail:car', nodes[0].get('container')[0])
+            self.eq('transport:rail:consist', nodes[0].get('vehicle')[0])
+            self.eq('transport:shipping:container', nodes[0].get('object')[0])
+
+            self.eq(1737109200000, nodes[0].get('loaded'))
+            self.nn(nodes[0].get('loaded:place'))
+            self.eq('2c', nodes[0].get('loaded:point'))
+
+            self.eq(1737120900000, nodes[0].get('unloaded'))
+            self.nn(nodes[0].get('unloaded:place'))
+            self.eq('2c', nodes[0].get('unloaded:point'))

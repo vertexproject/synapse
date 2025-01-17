@@ -269,6 +269,8 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The trip which contains the stop.'}),
                 )),
 
+                ('transport:land:drive', {}, ()),
+
                 ('transport:land:license', {}, (
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The license ID.'}),
