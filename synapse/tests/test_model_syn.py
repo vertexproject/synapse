@@ -18,27 +18,10 @@ class TestService(s_stormsvc.StormSvc):
                 {
                     'name': 'foobar',
                     'descr': 'foobar is a great service',
-                    'forms': {
-                        'input': [
-                            'inet:ip',
-                        ],
-                        'output': [
-                            'inet:fqdn',
-                        ],
-                        'nodedata': [
-                            ('foo', 'inet:ip'),
-                            ('bar', 'inet:fqdn'),
-                        ],
-                    },
                     'storm': '',
                 },
                 {
                     'name': 'ohhai',
-                    'forms': {
-                        'output': [
-                            'inet:ip',
-                        ],
-                    },
                     'storm': '',
                 },
             )
@@ -459,8 +442,6 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('doc'), 'List available information about Storm and'
                                              ' brief descriptions of different items.')
 
-                self.none(nodes[0].get('input'))
-                self.none(nodes[0].get('output'))
                 self.none(nodes[0].get('package'))
                 self.none(nodes[0].get('svciden'))
 
@@ -478,40 +459,13 @@ class SynModelTest(s_t_utils.SynTest):
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'foobar'))
                 self.eq(nodes[0].get('doc'), 'foobar is a great service')
-                self.eq(nodes[0].get('input'), ('inet:ip',))
-                self.eq(nodes[0].get('output'), ('inet:fqdn',))
-                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ip'), ('bar', 'inet:fqdn')))
                 self.eq(nodes[0].get('package'), 'foo')
                 self.eq(nodes[0].get('svciden'), iden)
 
                 self.eq(nodes[1].ndef, ('syn:cmd', 'ohhai'))
                 self.eq(nodes[1].get('doc'), 'No description')
-                self.none(nodes[1].get('input'))
-                self.eq(nodes[1].get('output'), ('inet:ip',))
-                self.none(nodes[1].get('nodedata'))
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
-
-                # Pivot from cmds to their forms
-                nodes = await core.nodes('syn:cmd=foobar -> *')
-                self.len(2, nodes)
-                self.eq({('syn:form', 'inet:ip'), ('syn:form', 'inet:fqdn')},
-                        {n.ndef for n in nodes})
-                nodes = await core.nodes('syn:cmd=foobar :input -> *')
-                self.len(1, nodes)
-                self.eq({('syn:form', 'inet:ip')},
-                        {n.ndef for n in nodes})
-                nodes = await core.nodes('syn:cmd=foobar :output -> *')
-                self.len(1, nodes)
-                self.eq(('syn:form', 'inet:fqdn'), nodes[0].ndef)
-
-                nodes = await core.nodes('syn:cmd=foobar :input -+> *')
-                self.len(2, nodes)
-                self.eq({('syn:form', 'inet:ip'), ('syn:cmd', 'foobar')},
-                        {n.ndef for n in nodes})
-
-                nodes = await core.nodes('syn:cmd +:input*[=inet:ip]')
-                self.len(2, nodes)
 
                 # Test a cmpr that isn't '='
                 nodes = await core.nodes('syn:cmd~="foo"')
@@ -522,15 +476,6 @@ class SynModelTest(s_t_utils.SynTest):
                 # Check that runt nodes for the commands are gone
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
-
-                # Check that testcmd sets form props
-                nodes = await core.nodes('syn:cmd=testcmd')
-                self.len(1, nodes)
-
-                self.eq(nodes[0].ndef, ('syn:cmd', 'testcmd'))
-                self.eq(nodes[0].get('input'), ('test:str', 'inet:ip'))
-                self.eq(nodes[0].get('output'), ('inet:fqdn',))
-                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ip'), ('bar', 'inet:fqdn')))
 
         async with self.getTestCore() as core:
                 # Check we can iterate runt nodes while changing the underlying dictionary

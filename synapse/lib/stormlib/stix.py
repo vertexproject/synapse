@@ -74,7 +74,7 @@ _DefaultConfig = {
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sectors': '''
-                            init { $list = $lib.list() }
+                            init { $list = () }
                             -> ou:industry +:name $list.append(:name)
                             fini { if $list { return($list) } }
                         ''',
@@ -88,7 +88,7 @@ _DefaultConfig = {
                         'first_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.0))',
                         'last_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.1))',
                         'goals': '''
-                            init { $goals = $lib.list() }
+                            init { $goals = () }
                             -> ou:campaign:org -> ou:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
@@ -181,7 +181,7 @@ _DefaultConfig = {
                     'props': {
                         'value': 'return($node.repr())',
                         'resolves_to_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             { -> inet:dns:a -> inet:ip $refs.append($bundle.add($node)) }
                             { -> inet:dns:aaaa -> inet:ip $refs.append($bundle.add($node)) }
                             { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
@@ -254,7 +254,7 @@ _DefaultConfig = {
                         ''',
                         'mime_type': '+:mime return(:mime)',
                         'contains_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -(refs)> *
                             $stixid = $bundle.add($node)
                             if $stixid { $refs.append($stixid) }
@@ -276,7 +276,7 @@ _DefaultConfig = {
                         'is_multipart': 'return($lib.false)',
                         'from_ref': ':from -> inet:email return($bundle.add($node))',
                         'to_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             { :to -> inet:email $refs.append($bundle.add($node)) }
                             fini { if $refs { return($refs) } }
                         ''',
@@ -308,7 +308,7 @@ _DefaultConfig = {
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sample_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -> file:bytes $refs.append($bundle.add($node))
                             fini { if $refs { return($refs) } }
                         ''',
@@ -390,7 +390,7 @@ _DefaultConfig = {
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list(({"source_name": "cve", "external_id": $cve})) return($list) }'
+                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() return(([{"source_name": "cve", "external_id": $cve}])) }'
                     },
                     'rels': (
 
@@ -436,7 +436,7 @@ _DefaultConfig = {
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'published': 'return($lib.stix.export.timestamp(:published))',
                         'object_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -(refs)> *
                             $stixid = $bundle.add($node)
                             if $stixid { $refs.append($stixid) }

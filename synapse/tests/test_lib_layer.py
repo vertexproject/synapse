@@ -56,7 +56,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[2][0], 'NoPropIndex')
 
             errors = await core.callStorm('''
-                $retn = $lib.list()
+                $retn = ()
                 for $mesg in $lib.layer.get().verify() {
                     $retn.append($mesg)
                 }

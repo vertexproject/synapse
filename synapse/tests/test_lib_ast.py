@@ -292,11 +292,11 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             q = '''
                 [test:str=another :hehe=asdf]
-                $s = $lib.text("Foo")
+                $s = ("Foo",)
                 $newvar=:hehe
                 -.created
-                $s.add("yar {x}", x=$newvar)
-                $lib.print($s.str())
+                $s.append("yar {x}", x=$newvar)
+                $lib.print($lib.str.join('', $s))
             '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
@@ -404,6 +404,93 @@ class AstTest(s_test.SynTest):
 
             q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+    async def test_ast_condsetoper(self):
+        async with self.getTestCore() as core:
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*unset=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*unset=newp]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*$foo=newp]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=always [test:str=foo :$var*$foo=yep]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('yep', nodes[0].get('hehe'))
+
+            q = '[test:str=foo -:hehe]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=never [test:str=foo :$var*$foo=yep]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*$foo=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            with self.raises(s_exc.BadTypeValu):
+                q = '$var=tick $foo=always [test:str=foo :$var*$foo=heval]'
+                nodes = await core.nodes(q)
+
+            q = '$var=tick $foo=always [test:str=foo :$var*$foo?=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('tick'))
+
+            q = '''
+            $opts=({"tick": "unset", "hehe": "always"})
+            [ test:str=foo
+                :hehe*$opts.hehe=newv
+                :tick*$opts.tick?=2020]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('newv', nodes[0].get('hehe'))
+            tick = nodes[0].get('tick')
+            self.nn(tick)
+
+            q = '''
+            $opts=({"tick": "never", "hehe": "unset"})
+            [ test:str=foo
+                :hehe*$opts.hehe=newp
+                :tick*$opts.tick?=2020]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('newv', nodes[0].get('hehe'))
+            self.eq(tick, nodes[0].get('tick'))
+
+            q = '$foo=always [test:str=foo :tick*$foo?=2021]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.ne(tick, nodes[0].get('tick'))
+
+            with self.raises(s_exc.IsReadOnly):
+                q = '[test:str=foo :hehe*unset=heval]'
+                nodes = await core.nodes(q, opts={'readonly': True})
+
+            with self.raises(s_exc.NoSuchProp):
+                q = '[test:str=foo :newp*unset=heval]'
+                nodes = await core.nodes(q)
+
+            with self.raises(s_exc.StormRuntimeError):
+                q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
+                nodes = await core.nodes(q)
 
     async def test_ast_editparens(self):
 
@@ -1099,10 +1186,10 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(100, 101, 102) ]')
-            nodes = await core.nodes('test:arrayprop +:ints=$lib.list(1,2,3)')
+            nodes = await core.nodes('test:arrayprop +:ints=([1,2,3])')
             self.len(1, nodes)
 
-            nodes = await core.nodes('test:arrayprop:ints=$lib.list(1,2,3)')
+            nodes = await core.nodes('test:arrayprop:ints=([1,2,3])')
             self.len(1, nodes)
 
             with self.raises(s_exc.NoSuchProp):
@@ -1261,7 +1348,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            nodes = await core.nodes('[ test:arrayprop=* :strs={return ($lib.list(a,b,c,d))} ]')
+            nodes = await core.nodes('[ test:arrayprop=* :strs={return ((a,b,c,d))} ]')
             self.len(1, nodes)
             self.len(4, nodes[0].get('strs'))
 
@@ -1899,7 +1986,7 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('init { function x() { return((0)) } }'))
 
             # Can't use a mutable variable as a default
-            q = '$var=$lib.list(1,2,3) function badargs(x=foo, y=$var) {} $badargs()'
+            q = '$var=([1,2,3]) function badargs(x=foo, y=$var) {} $badargs()'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
@@ -2677,12 +2764,12 @@ class AstTest(s_test.SynTest):
 
             q = 'function func(arg) { auth.user.addrule root $arg | return () } $func(hehe.haha)'
             msgs = await core.stormlist(q, opts={'readonly': True})
-            self.stormIsInErr('Function (_methUserAddRule) is not marked readonly safe.', msgs)
+            self.stormIsInErr('auth:user.addRule() is not marked readonly safe.', msgs)
 
     async def test_ast_yield(self):
 
         async with self.getTestCore() as core:
-            q = '$nodes = $lib.list() [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes'
+            q = '$nodes = () [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes'
             nodes = await core.nodes(q)
             self.len(2, nodes)
 
@@ -4555,3 +4642,165 @@ class AstTest(s_test.SynTest):
             text = '($x, $y) = (1)'
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes(text)
+
+    async def test_ast_functypes(self):
+
+        async with self.getTestCore() as core:
+
+            async def verify(q, isin=False):
+                msgs = await core.stormlist(q)
+                if isin:
+                    self.stormIsInPrint('yep', msgs)
+                else:
+                    self.stormNotInPrint('newp', msgs)
+                self.len(1, [m for m in msgs if m[0] == 'node'])
+                self.stormHasNoErr(msgs)
+
+            q = '''
+            function foo() {
+                for $n in { return((newp,)) } { $lib.print($n) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                while { return((newp,)) } { $lib.print(newp) break }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                switch $lib.print({ return(newp) }) { *: { $lib.print(newp) } }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                switch $foo { *: { $lib.print(yep) return() } }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q, isin=True)
+
+            q = '''
+            function foo() {
+                if { return(newp) } { $lib.print(newp) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif { return(newp) } { $lib.print(newp) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif (true) { $lib.print(yep) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif (false) { $lib.print(newp) }
+                else { $lib.print(yep) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q, isin=True)
+
+            q = '''
+            function foo() {
+                [ it:dev:str=foo +(refs)> { $lib.print(newp) return() } ]
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $lib.print({ return(newp) })
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $x = { $lib.print(newp) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                ($x, $y) = { $lib.print(newp) return((foo, bar)) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $x = ({})
+                $x.y = { $lib.print(newp) return((foo, bar)) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                .created -({$lib.print(newp) return(refs)})> *
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                try { $lib.raise(boom) } catch { $lib.print(newp) return(newp) } as e {}
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                it:dev:str={ $lib.print(newp) return(test) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)

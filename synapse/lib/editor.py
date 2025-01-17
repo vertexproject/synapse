@@ -677,7 +677,7 @@ class ProtoNode(s_node.NodeBase):
             try:
                 valu, norminfo = prop.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                oldm = e.errinfo.get('mesg')
+                oldm = e.get('mesg')
                 e.update({'prop': prop.name,
                           'form': prop.form.name,
                           'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})

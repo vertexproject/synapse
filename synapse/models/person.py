@@ -256,6 +256,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The most recent known vitals for the person.',
                     }),
                     ('name', ('ps:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The localized name for the person.',
                     }),
                     ('name:sur', ('ps:tokn', {}), {
@@ -352,12 +353,17 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The most recent known vitals for the contact.',
                     }),
                     ('name', ('ps:name', {}), {
-                        'doc': 'The person name listed for the contact.',
-                    }),
+                        'alts': ('names',),
+                        'doc': 'The person name listed for the contact.'}),
+
+                    ('bio', ('str', {}), {
+                        'doc': 'A brief bio provided for the contact.'}),
+
                     ('desc', ('str', {}), {
-                        'doc': 'A description of this contact.',
-                    }),
+                        'doc': 'A description of this contact.'}),
+
                     ('title', ('ou:jobtitle', {}), {
+                        'alts': ('titles',),
                         'doc': 'The job/org title listed for this contact.'}),
 
                     ('titles', ('array', {'type': 'ou:jobtitle', 'sorted': True, 'uniq': True}), {
@@ -367,12 +373,14 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The photo listed for this contact.',
                     }),
                     ('orgname', ('ou:name', {}), {
+                        'alts': ('orgnames',),
                         'doc': 'The listed org/company name for this contact.',
                     }),
                     ('orgfqdn', ('inet:fqdn', {}), {
                         'doc': 'The listed org/company FQDN for this contact.',
                     }),
                     ('user', ('inet:user', {}), {
+                        'alts': ('users',),
                         'doc': 'The username or handle for this contact.'}),
 
                     ('service:accounts', ('array', {'type': 'inet:service:account', 'sorted': True, 'uniq': True}), {
@@ -406,6 +414,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The home or main site for this contact.',
                     }),
                     ('email', ('inet:email', {}), {
+                        'alts': ('emails',),
                         'doc': 'The main email address for this contact.',
                     }),
                     ('email:work', ('inet:email', {}), {
@@ -434,6 +443,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The work phone number for this contact.',
                     }),
                     ('id:number', ('ou:id:number', {}), {
+                        'alts': ('id:numbers',),
                         'doc': 'An ID number issued by an org and associated with this contact.',
                     }),
                     ('adid', ('it:adid', {}), {
@@ -469,6 +479,7 @@ class PsModule(s_module.CoreModule):
                     }),
 
                     ('lang', ('lang:language', {}), {
+                        'alts': ('langs',),
                         'doc': 'The language specified for the contact.'}),
 
                     ('langs', ('array', {'type': 'lang:language'}), {

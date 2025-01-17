@@ -60,6 +60,7 @@ what changes should be made and to what data:
 - `Edit Brackets`_
 - `Edit Parentheses`_
 - `"Try" Operator`_
+- `Conditional Edit Operators`_
 - `Autoadds and Depadds`_
 
 .. _edit-brackets:
@@ -180,6 +181,31 @@ where the variable may contain unexpected values. For example:
 
 See the :ref:`type-syn-tag` section of the :ref:`storm-ref-type-specific` for additional detail on tags / ``syn:tag`` forms.
 
+Conditional Edit Operators
+++++++++++++++++++++++++++
+
+The conditional edit operators ( ``*unset=`` and ``*$<varname>=`` ) can be used to only set properties when certain
+conditions are met.
+
+The ``*unset=`` operator will only set a property when it does not already have a value to prevent overwriting
+existing data. For example:
+
+``inet:ipv4 = 1.2.3.4 [ :asn *unset= 12345 ]``
+
+will only set the ``:asn`` property on the ``inet:ipv4`` node if it is not already set. The conditional edit operators
+can also be combined with the "try" operator ( ``*unset?=`` ) to prevent failures due to bad data:
+
+``inet:ipv4 = 1.2.3.4 [ :asn *unset?= invalid ]``
+
+Variable values may also be used to control the conditional edit behavior, and allow two more values in addition to
+``unset``; ``always`` and ``never``. For example:
+
+``$asn = 'always' $loc = 'never' inet:ipv4 = 1.2.4.5 [ :loc *$loc= us :asn *$asn?= 12345 ]``
+
+will never set the ``:loc`` property and will always attempt to set the ``:asn`` property. This behavior is useful
+when creating Storm ingest functions where fine tuned control over specific property edit behavior is needed. Rather
+than creating variations of the same ingest function with different combinations of property set behavior, one function
+can use a dictionary of configuration options to control the edit behavior used during each execution.
 
 .. _autoadds-depadds:
 
@@ -298,6 +324,10 @@ The same syntax is used to apply a new property or modify an existing property.
 **Syntax:**
 
 *<query>* **[ :** *<prop>* **=** | **?=** *<pval>* ... **]**
+
+*<query>* **[ :** *<prop>* ***unset=** | ***unset?** *<pval>* ... **]**
+
+*<query>* **[ :** *<prop>* ***$<varname>=** | ***$<varname>?=** *<pval>* ... **]**
 
 .. TIP::
   

@@ -428,7 +428,7 @@ class Form:
         '''
         return self.props.get(name)
 
-    def reqProp(self, name):
+    def reqProp(self, name, extra=None):
         prop = self.props.get(name)
         if prop is not None:
             return prop
@@ -439,7 +439,11 @@ class Form:
         if (prevname := self.modl.propprevnames.get(full)) is not None:
             mesg += f' Did you mean {prevname}?'
 
-        raise s_exc.NoSuchProp(mesg=mesg, name=full)
+        exc = s_exc.NoSuchProp.init(full, mesg=mesg)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     def pack(self):
         props = {p.name: p.pack() for p in self.props.values()}

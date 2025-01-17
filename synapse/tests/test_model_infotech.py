@@ -748,12 +748,13 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'desc:short': 'Balloon blower',
                 'url': url0,
             }
-            q = '''[(it:prod:soft=$valu :name=$p.name :type=$p.type :names=$p.names
+            q = '''[(it:prod:soft=$valu :id="Foo " :name=$p.name :type=$p.type :names=$p.names
                 :desc=$p.desc :desc:short=$p."desc:short" :url=$p.url )]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': prod0, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:prod:soft', prod0))
+            self.eq(node.get('id'), 'Foo')
             self.eq(node.get('name'), 'balloon maker')
             self.eq(node.get('desc'), "Pennywise's patented balloon blower upper")
             self.eq(node.get('desc:short'), 'balloon blower')
@@ -766,6 +767,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('url'), url0)
             self.len(1, await core.nodes('it:prod:soft:name="balloon maker" -> it:prod:soft:taxonomy'))
             self.len(2, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft -> it:prod:softname'))
+
+            self.len(1, nodes := await core.nodes('[ it:prod:soft=({"name": "clowns inc"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
+
             # it:prod:softver - this does test a bunch of property related callbacks
             ver0 = s_common.guid()
             url1 = 'https://vertex.link/products/balloonmaker/release_101-beta.exe'
@@ -799,6 +804,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('url'), url1)
             self.eq(node.get('name'), 'balloonmaker')
             self.eq(node.get('desc'), 'makes balloons')
+
+            self.len(1, nodes := await core.nodes('[ it:prod:softver=({"name": "clowns inc"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
+
             # callback node creation checks
             self.len(1, await core.nodes('it:dev:str=V1.0.1-beta+exp.sha.5114f85'))
             self.len(1, await core.nodes('it:dev:str=amd64'))

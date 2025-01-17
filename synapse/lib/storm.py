@@ -431,7 +431,6 @@ reqValidPkgdef = s_config.getJsValidator({
                     'items': {'$ref': '#/definitions/cmdinput'},
                 },
                 'storm': {'type': 'string'},
-                'forms': {'$ref': '#/definitions/cmdformhints'},
                 'perms': {'type': 'array',
                     'items': {'type': 'array',
                         'items': {'type': 'string'}},
@@ -481,38 +480,6 @@ reqValidPkgdef = s_config.getJsValidator({
                 {'type': 'array', 'items': {'$ref': '#/definitions/configvartype'}},
                 {'type': 'string'},
             ]
-        },
-        # deprecated
-        'cmdformhints': {
-            'type': 'object',
-            'properties': {
-                'input': {
-                    'type': 'array',
-                    'uniqueItems': True,
-                    'items': {
-                        'type': 'string',
-                    }
-                },
-                'output': {
-                    'type': 'array',
-                    'uniqueItems': True,
-                    'items': {
-                        'type': 'string',
-                    }
-                },
-                'nodedata': {
-                    'type': 'array',
-                    'uniqueItems': True,
-                    'items': {
-                        'type': 'array',
-                        'items': [
-                            {'type': 'string'},
-                            {'type': 'string'},
-                        ],
-                        'additionalItems': False,
-                    },
-                },
-            }
         },
         'require': {
             'type': 'object',
@@ -966,7 +933,9 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl)
+                $headers = ({'X-Synapse-Version': $lib.str.join('.', $lib.version.synapse())})
+
+                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
                 if ($resp.code != 200) {
                     $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
@@ -1585,7 +1554,7 @@ stormcmds = (
             function fetchnodes(url, ssl) {
                 $resp = $lib.inet.http.get($url, ssl_verify=$ssl)
                 if ($resp.code = 200) {
-                    $nodes = $lib.list()
+                    $nodes = ()
                     for $valu in $resp.msgpack() {
                         $nodes.append($valu)
                     }
@@ -2949,37 +2918,12 @@ class Cmd:
 
         cmd --help
 
-    Notes:
-        Python Cmd implementers may override the ``forms`` attribute with a dictionary to provide information
-        about Synapse forms which are possible input and output nodes that a Cmd may recognize. A list of
-        (key, form) tuples may also be added to provide information about forms which may have additional
-        nodedata added to them by the Cmd.
-
-        Example:
-
-            ::
-
-                {
-                    'input': (
-                        'inet:ipv4',
-                        'tel:mob:telem',
-                    ),
-                    'output': (
-                        'geo:place',
-                    ),
-                    'nodedata': (
-                        ('foodata', 'inet:http:request'),
-                        ('bardata', 'inet:ipv4'),
-                    ),
-                }
-
     '''
     name = 'cmd'
     pkgname = ''
     svciden = ''
     asroot = False
     readonly = False
-    forms = {}  # type: ignore
 
     def __init__(self, runt, runtsafe):
 
@@ -3039,19 +2983,6 @@ class Cmd:
         props = {
             'doc': cls.getCmdBrief()
         }
-
-        inpt = cls.forms.get('input')
-        outp = cls.forms.get('output')
-        nodedata = cls.forms.get('nodedata')
-
-        if inpt:
-            props['input'] = tuple(inpt)
-
-        if outp:
-            props['output'] = tuple(outp)
-
-        if nodedata:
-            props['nodedata'] = tuple(nodedata)
 
         if cls.svciden:
             props['svciden'] = cls.svciden
@@ -3609,7 +3540,7 @@ class HelpCmd(Cmd):
                 await runt.printf(line)
 
         else:  # pragma: no cover
-            raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
+            raise s_exc.StormRuntimeError(mesg=f'Unknown bound method {func}')
 
     async def _handleStormLibMethod(self, func, runt: Runtime, verbose: bool =False):
         # Storm library methods must be derived from a library definition.
@@ -3640,7 +3571,7 @@ class HelpCmd(Cmd):
                 await runt.printf(line)
 
         else:  # pragma: no cover
-            raise s_exc.StormRuntimeError(mesgf=f'Unknown runtime lib method {func} {cls} {fname}')
+            raise s_exc.StormRuntimeError(mesg=f'Unknown runtime lib method {func} {cls} {fname}')
 
 class DiffCmd(Cmd):
     '''

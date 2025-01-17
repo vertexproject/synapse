@@ -1319,7 +1319,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
-        await self.agenda.clearRunningStatus()
 
         async def _runMigrations():
             # Run migrations when this cortex becomes active. This is to prevent
@@ -2085,19 +2084,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             props = {
                 'doc': ctor.getCmdBrief()
             }
-
-            inpt = ctor.forms.get('input')
-            outp = ctor.forms.get('output')
-            nodedata = ctor.forms.get('nodedata')
-
-            if inpt:
-                props['input'] = tuple(inpt)
-
-            if outp:
-                props['output'] = tuple(outp)
-
-            if nodedata:
-                props['nodedata'] = tuple(nodedata)
 
             if ctor.svciden:
                 props['svciden'] = ctor.svciden
@@ -5386,7 +5372,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):
-            extra = await self.getLogExtra(text=text)
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
@@ -5406,7 +5391,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 except s_exc.TimeOut:
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
+                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
@@ -5421,7 +5406,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):
-            extra = await self.getLogExtra(text=text)
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
@@ -5438,7 +5422,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return await proxy.callStorm(text, opts=mirropts)
                 except s_exc.TimeOut:
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
+                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
@@ -5451,7 +5435,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):
-            extra = await self.getLogExtra(text=text)
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
@@ -5471,7 +5454,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 except s_exc.TimeOut:
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
+                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):

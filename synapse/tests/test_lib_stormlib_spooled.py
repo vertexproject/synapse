@@ -19,7 +19,7 @@ class StormlibSpooledTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.spooled.set()
-                $set.adds($lib.list(1, 2, 3, 4))
+                $set.adds((1, 2, 3, 4))
                 return($set)
             '''
             valu = await core.callStorm(q)

@@ -369,14 +369,18 @@ class TelcoModule(s_module.CoreModule):
                     ('ip', ('inet:ip', {}), {
                         'prevnames': ('ipv4', 'ipv6')}),
 
-                    ('wifi:ap', ('inet:wifi:ap', {}), {}),
-                    ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {}),
-                    ('wifi:ap:bssid', ('inet:mac', {}), {}),
+                    ('wifi:ap', ('inet:wifi:ap', {}), {
+                        'prevnames': ('wifi')}),
+
+                    ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
+                        'prevnames': ('wifi:ssid')}),
+
+                    ('wifi:ap:bssid', ('inet:mac', {}), {
+                        'prevnames': ('wifi:bssid')}),
 
                     # host specific data
-                    ('adid', ('it:adid', {}), {}),
-                    ('aaid', ('it:os:android:aaid', {}), {}),
-                    ('idfa', ('it:os:ios:idfa', {}), {}),
+                    ('adid', ('it:adid', {}), {
+                        'doc': 'The advertising ID of the mobile telemetry sample.'}),
 
                     # User related data
                     ('name', ('ps:name', {}), {}),

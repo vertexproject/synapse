@@ -724,7 +724,14 @@ Queries = [
     '$pvar=ints test:arrayprop +:$pvar*[=$othervar]',
     '$foo = ({"foo": ${ inet:fqdn }})',
     '[ .seen?=($foo.bar*1000) ]',
-    '[ .seen?=(:foo*virt*1000) ]'
+    '[ .seen?=(:foo*virt*1000) ]',
+    '[test:str=foo :hehe*unset=heval]',
+    '[test:str=foo :hehe*$foo=heval]',
+    '[test:str=foo :$foo*unset=heval]',
+    '[test:str=foo :$foo*$bar=heval]',
+    '[test:str=foo :$foo*$bar.baz=heval]',
+    '[test:str=foo :$foo*$bar.("baz")=heval]',
+    '[test:str=foo :$foo*$bar.baz()=heval]',
 ]
 
 # Generated with print_parse_list below
@@ -1350,6 +1357,13 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: foo, EmbedQuery: inet:fqdn]]]]',
     'Query: [EditPropSet: [UnivProp: [Const: .seen], Const: ?=, DollarExpr: [ExprNode: [VarDeref: [VarValue: [Const: foo], Const: bar], Const: *, Const: 1000]]]]',
     'Query: [EditPropSet: [UnivProp: [Const: .seen], Const: ?=, DollarExpr: [ExprNode: [RelPropValue: [RelProp: [Const: foo], VirtProp: [Const: virt]], Const: *, Const: 1000]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [Const: hehe], CondSetOper: [Const: unset], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [Const: hehe], CondSetOper: [VarValue: [Const: foo]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [Const: unset], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarValue: [Const: bar]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarDeref: [VarValue: [Const: bar], Const: baz]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarDeref: [VarValue: [Const: bar], DollarExpr: [Const: baz]]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [FuncCall: [VarDeref: [VarValue: [Const: bar], Const: baz], CallArgs: [], CallKwargs: []]], Const: heval]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

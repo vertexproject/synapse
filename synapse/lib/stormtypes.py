@@ -563,7 +563,7 @@ class StormType:
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
         if s_scope.get('runt').readonly and not getattr(stor, '_storm_readonly', False):
-            mesg = f'Function ({stor.__name__}) is not marked readonly safe.'
+            mesg = f'Setting {name} on {self._storm_typename} is not marked readonly safe.'
             raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
 
         await s_coro.ornot(stor, valu)
@@ -1225,12 +1225,6 @@ class LibBase(Lib):
                        'desc': 'Additional keyword arguments containing data to add to the event.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a Storm List object.',
-         'type': {'type': 'function', '_funcname': '_list',
-                  'args': (
-                      {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the list.', },
-                  ),
-                  'returns': {'type': 'list', 'desc': 'A new list object.', }}},
         {'name': 'raise', 'desc': 'Raise an exception in the storm runtime.',
          'type': {'type': 'function', '_funcname': '_raise',
                   'args': (
@@ -1285,14 +1279,6 @@ class LibBase(Lib):
                     cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
-        {'name': 'text', 'desc': 'Get a Storm Text object.',
-         'type': {'type': 'function', '_funcname': '_text',
-                  'args': (
-                      {'name': '*args', 'type': 'str',
-                       'desc': 'An initial set of values to place in the Text. '
-                               'These values are joined together with an empty string.', },
-                  ),
-                  'returns': {'type': 'text', 'desc': 'The new Text object.', }}},
         {'name': 'cast', 'desc': 'Normalize a value as a Synapse Data Model Type.',
          'type': {'type': 'function', '_funcname': '_cast',
                   'args': (
@@ -1518,12 +1504,10 @@ class LibBase(Lib):
             'exit': self._exit,
             'guid': self._guid,
             'fire': self._fire,
-            'list': self._list,
             'null': None,
             'undef': undef,
             'true': True,
             'false': False,
-            'text': self._text,
             'cast': self._cast,
             'repr': self._repr,
             'warn': self._warn,
@@ -1665,7 +1649,7 @@ class LibBase(Lib):
         if mesg:
             mesg = await self._get_mesg(mesg, **kwargs)
             await self.runt.warn(mesg, log=False)
-            raise s_stormctrl.StormExit(mesg)
+            raise s_stormctrl.StormExit(mesg=mesg)
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)
@@ -1679,15 +1663,6 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _set(self, *vals):
         return Set(vals)
-
-    @stormfunc(readonly=True)
-    async def _list(self, *vals):
-        return List(list(vals))
-
-    @stormfunc(readonly=True)
-    async def _text(self, *args):
-        valu = ''.join(args)
-        return Text(valu)
 
     @stormfunc(readonly=True)
     async def _guid(self, *args, valu=undef):
@@ -1956,11 +1931,6 @@ class LibDict(Lib):
 
         valu = await toprim(valu)
         return list(valu.values())
-
-    async def __call__(self, **kwargs):
-        s_common.deprecated('$lib.dict()', curv='2.161.0')
-        await self.runt.warnonce('$lib.dict() is deprecated. Use ({}) instead.')
-        return Dict(kwargs)
 
 @registry.registerLib
 class LibPs(Lib):
@@ -4970,7 +4940,7 @@ class List(Prim):
             Examples:
                 Populate a list by extending it with to other lists::
 
-                    $list = $lib.list()
+                    $list = ()
 
                     $foo = (f, o, o)
                     $bar = (b, a, r)
@@ -6277,48 +6247,6 @@ class Path(Prim):
     @stormfunc(readonly=True)
     async def _methPathListVars(self):
         return list(self.path.vars.items())
-
-@registry.registerType
-class Text(Prim):
-    '''
-    A mutable text type for simple text construction.
-    '''
-    _storm_locals = (
-        {'name': 'add', 'desc': 'Add text to the Text object.',
-         'type': {'type': 'function', '_funcname': '_methTextAdd',
-                  'args': (
-                      {'name': 'text', 'desc': 'The text to add.', 'type': 'str', },
-                      {'name': '**kwargs', 'desc': 'Keyword arguments used to format the text.', 'type': 'any', }
-                  ),
-                  'returns': {'type': 'null'}}},
-        {'name': 'str', 'desc': 'Get the text content as a string.',
-         'type': {'type': 'function', '_funcname': '_methTextStr',
-                  'returns': {'desc': 'The current string of the text object.', 'type': 'str', }}},
-    )
-    _storm_typename = 'text'
-    _ismutable = True
-
-    def __init__(self, valu, path=None):
-        Prim.__init__(self, valu, path=path)
-        self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'add': self._methTextAdd,
-            'str': self._methTextStr,
-        }
-
-    def __len__(self):
-        return len(self.valu)
-
-    @stormfunc(readonly=True)
-    async def _methTextAdd(self, text, **kwargs):
-        text = await kwarg_format(text, **kwargs)
-        self.valu += text
-
-    @stormfunc(readonly=True)
-    async def _methTextStr(self):
-        return self.valu
 
 @registry.registerLib
 class LibLayer(Lib):

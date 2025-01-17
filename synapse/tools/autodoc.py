@@ -559,32 +559,6 @@ async def processStormCmds(rst, pkgname, commands):
 
         lines.append('\n')
 
-        forms = cdef.get('forms', {})
-        iforms = forms.get('input')
-        oforms = forms.get('output')
-        nodedata = forms.get('nodedata')
-
-        if iforms:
-            line = 'The command is aware of how to automatically handle the following forms as input nodes:\n'
-            lines.append(line)
-            for form in iforms:
-                lines.append(f'- ``{form}``')
-            lines.append('\n')
-
-        if oforms:
-            line = 'The command may make the following types of nodes in the graph as a result of its execution:\n'
-            lines.append(line)
-            for form in oforms:
-                lines.append(f'- ``{form}``')
-            lines.append('\n')
-
-        if nodedata:
-            line = 'The command may add nodedata with the following keys to the corresponding forms:\n'
-            lines.append(line)
-            for key, form in nodedata:
-                lines.append(f'- ``{key}`` on ``{form}``')
-            lines.append('\n')
-
         rst.addLines(*lines)
 
 async def processStormModules(rst, pkgname, modules):

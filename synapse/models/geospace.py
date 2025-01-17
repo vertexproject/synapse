@@ -497,6 +497,7 @@ class GeoModule(s_module.CoreModule):
                     ('geo:place', {}, (
 
                         ('name', ('geo:name', {}), {
+                            'alts': ('names',),
                             'doc': 'The name of the place.'}),
 
                         ('type', ('geo:place:type:taxonomy', {}), {

@@ -293,13 +293,6 @@ class StormvarService(s_cell.CellApi, s_stormsvc.StormSvc):
                         ('name', {}),
                         ('--debug', {'default': False, 'action': 'store_true'})
                     ),
-                    'forms': {
-                        'input': ('test:str', 'test:int'),
-                        'output': ('test:comp', 'inet:ip'),
-                        'nodedata': (
-                            ('foo', 'inet:ip'),
-                        ),
-                    },
                     'storm': '''
                     $fooz = $cmdopts.name
                     if $cmdopts.debug {

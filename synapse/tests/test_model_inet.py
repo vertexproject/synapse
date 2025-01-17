@@ -2842,6 +2842,7 @@ class InetModelTest(s_t_utils.SynTest):
                     :type=chat.group
                     :group=$devsiden
                     :public=$lib.false
+                    :repost=*
                 )
 
                 (inet:service:message=(blackout, visi, 1715856900000, vertex, slack)
@@ -2891,6 +2892,7 @@ class InetModelTest(s_t_utils.SynTest):
                 self.nn(node.get('place'))
                 self.eq(node.get('place:name'), 'nyc')
 
+            self.nn(nodes[0].get('repost'))
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))
             self.eq(nodes[0].get('type'), 'chat.group.')
@@ -2920,6 +2922,7 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:service:message:type:taxonomy=chat.channel -> inet:service:message')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('inet:service:message', 'c0d64c559e2f42d57b37b558458c068b'))
+            self.len(1, await core.nodes('inet:service:message:repost :repost -> inet:service:message'))
 
             q = '''
             [ inet:service:resource=(web, api, vertex, slack)

@@ -69,6 +69,7 @@ class PolModule(s_module.CoreModule):
                         ('tld', ('inet:fqdn', {}), {}),
 
                         ('name', ('geo:name', {}), {
+                            'alts': ('names',),
                             'doc': 'The name of the country.'}),
 
                         ('names', ('array', {'type': 'geo:name', 'uniq': True, 'sorted': True}), {

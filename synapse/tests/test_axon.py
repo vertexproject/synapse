@@ -989,12 +989,12 @@ bar baz",vv
             self.isinstance(resp.get('err'), tuple)
 
             q = f'''
-            $fields = $lib.list(
-                ({{'name':'file', 'sha256':$sha256, 'filename':'file'}}),
-                ({{'name':'zip_password', 'value':'test'}}),
-                ({{'name':'dict', 'value':({{'foo':'bar'}}) }}),
-                ({{'name':'bytes', 'value':$bytes}})
-            )
+            $fields = ([
+                {{'name':'file', 'sha256':$sha256, 'filename':'file'}},
+                {{'name':'zip_password', 'value':'test'}},
+                {{'name':'dict', 'value':{{'foo':'bar'}} }},
+                {{'name':'bytes', 'value':$bytes}}
+            ])
             $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
                                         fields=$fields, ssl_verify=(0))
             return($resp)

@@ -161,9 +161,6 @@ class SynModule(s_module.CoreModule):
                 ('syn:cmd', ('str', {'strip': True}), {
                     'doc': 'A Synapse storm command.'
                 }),
-                ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
-                    'doc': 'A nodedata key and the form it may be present on.',
-                }),
             ),
 
             'forms': (
@@ -243,12 +240,6 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Storm package which provided the command.'}),
                     ('svciden', ('guid', {'strip': True}), {
                         'doc': 'Storm service iden which provided the package.'}),
-                    ('input', ('array', {'type': 'syn:form'}), {
-                        'doc': 'The list of forms accepted by the command as input.', 'uniq': True, 'sorted': True, 'ro': True}),
-                    ('output', ('array', {'type': 'syn:form'}), {
-                        'doc': 'The list of forms produced by the command as output.', 'uniq': True, 'sorted': True, 'ro': True}),
-                    ('nodedata', ('array', {'type': 'syn:nodedata'}), {
-                        'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
                 )),
             ),
         }),)

@@ -311,6 +311,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': "The reporting organization's assessed location of the threat cluster."}),
 
                     ('org:name', ('ou:name', {}), {
+                        'alts': ('org:names',),
                         'ex': 'apt1',
                         'doc': "The reporting organization's name for the threat cluster."}),
 
@@ -386,6 +387,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The authoritative software family for the tool.'}),
 
                     ('soft:name', ('it:prod:softname', {}), {
+                        'alts': ('soft:names',),
                         'doc': 'The reporting organization\'s name for the tool.'}),
 
                     ('soft:names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
@@ -444,6 +446,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:vuln', {}, (
 
                     ('name', ('risk:vulnname', {}), {
+                        'alts': ('names',),
                         'doc': 'A user specified name for the vulnerability.'}),
 
                     ('names', ('array', {'type': 'risk:vulnname', 'sorted': True, 'uniq': True}), {

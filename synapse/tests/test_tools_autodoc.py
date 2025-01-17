@@ -132,12 +132,6 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('.. _stormcmd-stormvar-magic:\n', s)
             self.isin('magic\n-----', s)
             self.isin('Test stormvar support', s)
-            self.isin('forms as input nodes', s)
-            self.isin('``test:str``', s)
-            self.isin('nodes in the graph', s)
-            self.isin('``test:comp``', s)
-            self.isin('nodedata with the following keys', s)
-            self.isin('``foo`` on ``inet:ip``', s)
 
             self.isin('.. _stormmod-stormvar-apimod', s)
             self.isin('status()', s)
@@ -167,13 +161,6 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('testpkgcmd does some stuff', s)
             self.isin('Help on foo opt', s)
             self.isin('Help on bar opt', s)
-
-            self.isin('forms as input nodes', s)
-            self.isin('``test:str``', s)
-            self.isin('nodes in the graph', s)
-            self.isin('``test:int``', s)
-            self.isin('nodedata with the following keys', s)
-            self.isin('``testnd`` on ``inet:ip``', s)
 
             # Tuplelized output
             self.isin('testpkg.baz', s)

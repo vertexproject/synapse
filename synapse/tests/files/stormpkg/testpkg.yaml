@@ -103,13 +103,6 @@ commands:
     - name: testpkgcmd
       descr: |
         testpkgcmd does some stuff.
-      forms:
-        input:
-          - test:str
-        output:
-          - test:int
-        nodedata:
-          - [testnd, inet:ip]
       cmdargs:
         - - foo
           - help: Help on foo opt

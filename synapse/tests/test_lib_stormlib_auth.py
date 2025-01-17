@@ -427,7 +427,7 @@ class StormLibAuthTest(s_test.SynTest):
 
             await core.callStorm('$lib.user.json.set(hi, hehe, prop=foo)')
             items = await core.callStorm('''
-            $list = $lib.list()
+            $list = ()
             for $item in $lib.user.json.iter() { $list.append($item) }
             return($list)
             ''')
@@ -437,7 +437,7 @@ class StormLibAuthTest(s_test.SynTest):
             ))
 
             items = await core.callStorm('''
-            $list = $lib.list()
+            $list = ()
             for $item in $lib.user.json.iter(path=bye) { $list.append($item) }
             return($list)
             ''')
@@ -723,7 +723,7 @@ class StormLibAuthTest(s_test.SynTest):
             '''))
 
             # user roles can be set in bulk
-            roles = await core.callStorm('''$roles=$lib.list()
+            roles = await core.callStorm('''$roles=()
             $role=$lib.auth.roles.byname(admins) $roles.append($role.iden)
             $role=$lib.auth.roles.byname(all) $roles.append($role.iden)
             $lib.auth.users.byname(visi).setRoles($roles)
@@ -783,7 +783,7 @@ class StormLibAuthTest(s_test.SynTest):
             visi = await core.callStorm('''
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $visi = $lib.auth.users.byname(visi)
-                $visi.setRules($lib.list($rule))
+                $visi.setRules(([$rule]))
                 return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
@@ -826,7 +826,7 @@ class StormLibAuthTest(s_test.SynTest):
             ninjas = await core.callStorm('''
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $ninjas = $lib.auth.roles.byname(ninjas)
-                $ninjas.setRules($lib.list($rule))
+                $ninjas.setRules(([$rule]))
                 return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
