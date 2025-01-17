@@ -534,11 +534,29 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'ext:id': 'foo123',
                 'image': image.ndef[1],
             }
-            q = '''[(it:host=$valu :name=$p.name :desc=$p.desc :ipv4=$p.ipv4 :place=$p.place :latlong=$p.latlong
-                :os=$p.os :manu=$p.manu :model=$p.model :serial=$p.serial :loc=$p.loc :operator=$p.operator
-                :org=$p.org :ext:id=$p."ext:id" :image=$p.image)]'''
+            q = '''
+                [ it:host=$valu
+
+                    :phys:mass=10kg
+                    :phys:width=5m
+                    :phys:height=10m
+                    :phys:length=20m
+                    :phys:volume=1000m
+
+                    :name=$p.name :desc=$p.desc :ipv4=$p.ipv4 :place=$p.place :latlong=$p.latlong
+                    :os=$p.os :manu=$p.manu :model=$p.model :serial=$p.serial :loc=$p.loc :operator=$p.operator
+                    :org=$p.org :ext:id=$p."ext:id" :image=$p.image
+                ]
+            '''
             nodes = await core.nodes(q, opts={'vars': {'valu': host0, 'p': props}})
             self.len(1, nodes)
+
+            self.eq('10000', nodes[0].get('phys:mass'))
+            self.eq(5000, nodes[0].get('phys:width'))
+            self.eq(10000, nodes[0].get('phys:height'))
+            self.eq(20000, nodes[0].get('phys:length'))
+            self.eq(1000000, nodes[0].get('phys:volume'))
+
             node = nodes[0]
             self.eq(node.ndef[1], host0)
             self.eq(node.get('name'), 'bobs laptop')

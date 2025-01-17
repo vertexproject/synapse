@@ -43,3 +43,20 @@ class MatTest(s_t_utils.SynTest):
             self.eq(node3.props.get('file'), f0_valu)
 
             self.len(1, await core.nodes('mat:spec:name="f16 fighter jet" -> mat:item'))
+
+    async def test_model_material(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('''[
+                phys:contained=*
+                    :period=(2024, ?)
+                    :type=component
+                    :object={[ mat:item=* :phys:volume=9000cm :place:loc=us.ny ]}
+                    :container={[ mat:item=* :phys:volume=10000cm :place:loc=us.ny ]}
+            ]''')
+
+            self.nn(nodes[0].get('object'))
+            self.nn(nodes[0].get('container'))
+            self.eq('component.', nodes[0].get('type'))
+            self.eq((1704067200000, 9223372036854775807), nodes[0].get('period'))
