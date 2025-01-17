@@ -984,7 +984,9 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl)
+                $headers = ({'X-Synapse-Version': $lib.str.join('.', $lib.version.synapse())})
+
+                $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
                 if ($resp.code != 200) {
                     $lib.warn("pkg.load got HTTP code: {code} for URL: {url}", code=$resp.code, url=$cmdopts.url)
@@ -1603,7 +1605,7 @@ stormcmds = (
             function fetchnodes(url, ssl) {
                 $resp = $lib.inet.http.get($url, ssl_verify=$ssl)
                 if ($resp.code = 200) {
-                    $nodes = $lib.list()
+                    $nodes = ()
                     for $valu in $resp.msgpack() {
                         $nodes.append($valu)
                     }
@@ -3552,7 +3554,7 @@ class HelpCmd(Cmd):
                 await runt.printf(line)
 
         else:  # pragma: no cover
-            raise s_exc.StormRuntimeError(mesgf=f'Unknown bound method {func}')
+            raise s_exc.StormRuntimeError(mesg=f'Unknown bound method {func}')
 
     async def _handleStormLibMethod(self, func, runt: Runtime, verbose: bool =False):
         # Storm library methods must be derived from a library definition.
@@ -3583,7 +3585,7 @@ class HelpCmd(Cmd):
                 await runt.printf(line)
 
         else:  # pragma: no cover
-            raise s_exc.StormRuntimeError(mesgf=f'Unknown runtime lib method {func} {cls} {fname}')
+            raise s_exc.StormRuntimeError(mesg=f'Unknown runtime lib method {func} {cls} {fname}')
 
 class DiffCmd(Cmd):
     '''

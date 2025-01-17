@@ -1247,7 +1247,8 @@ class LibBase(Lib):
                        'desc': 'Additional keyword arguments containing data to add to the event.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a Storm List object.',
+        {'name': 'list', 'desc': 'Get a Storm List object. This is deprecated, use ([]) to declare a list instead.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_list',
                   'args': (
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the list.', },
@@ -1307,7 +1308,8 @@ class LibBase(Lib):
                     cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
-        {'name': 'text', 'desc': 'Get a Storm Text object.',
+        {'name': 'text', 'desc': 'Get a Storm Text object. This is deprecated; please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.',
+         'deprecated': {'eolvers': '3.0.0'},
          'type': {'type': 'function', '_funcname': '_text',
                   'args': (
                       {'name': '*args', 'type': 'str',
@@ -1663,7 +1665,7 @@ class LibBase(Lib):
         if mesg:
             mesg = await self._get_mesg(mesg, **kwargs)
             await self.runt.warn(mesg, log=False)
-            raise s_stormctrl.StormExit(mesg)
+            raise s_stormctrl.StormExit(mesg=mesg)
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)
@@ -1680,10 +1682,16 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _list(self, *vals):
+        s_common.deprecated('$lib.list()', curv='2.194.0')
+        await self.runt.snap.warnonce('$lib.list() is deprecated. Use ([]) instead.')
         return List(list(vals))
 
     @stormfunc(readonly=True)
     async def _text(self, *args):
+        s_common.deprecated('$lib.text()', curv='2.194.0')
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce('$lib.text() is deprecated. Please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.')
         valu = ''.join(args)
         return Text(valu)
 
@@ -5177,7 +5185,7 @@ class List(Prim):
             Examples:
                 Populate a list by extending it with to other lists::
 
-                    $list = $lib.list()
+                    $list = ()
 
                     $foo = (f, o, o)
                     $bar = (b, a, r)

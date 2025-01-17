@@ -122,7 +122,7 @@ class StormtypesModelextTest(s_test.SynTest):
             self.none(core.model.edge(('inet:user', '_copies', None)))
 
             # Underscores can exist in extended names but only at specific locations
-            q = '''$l =$lib.list('str', ({})) $d=({"doc": "Foo"})
+            q = '''$l =(['str', {}]) $d=({"doc": "Foo"})
             $lib.model.ext.addFormProp('test:str', '_test:_myprop', $l, $d)
             '''
             self.none(await core.callStorm(q))
@@ -144,13 +144,13 @@ class StormtypesModelextTest(s_test.SynTest):
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$l =$lib.list('str', ({})) $d=({"doc": "Foo"})
+                q = '''$l =(['str', {}]) $d=({"doc": "Foo"})
                 $lib.model.ext.addFormProp('test:str', '_test:_my^prop', $l, $d)
                 '''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadPropDef):
-                q = '''$l =$lib.list('str', ({})) $d=({"doc": "Foo"})
+                q = '''$l =(['str', {}]) $d=({"doc": "Foo"})
                 $lib.model.ext.addFormProp('test:str', '_test::_myprop', $l, $d)
                 '''
                 await core.callStorm(q)
