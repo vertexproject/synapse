@@ -62,7 +62,7 @@ class PsModule(s_module.CoreModule):
 
                 ('ps:vitals', ('guid', {}), {
                     'interfaces': ('phys:object',),
-                    'template': {'phys:object', 'person'},
+                    'template': {'phys:object': 'person'},
                     'doc': 'Statistics and demographic data about a person or contact.'}),
 
                 ('ps:skill', ('guid', {}), {

@@ -21,10 +21,10 @@ class TransportModule(s_module.CoreModule):
                     'doc': 'A stop made by a vehicle traveling a segment.'}),
 
                 ('transport:container', ('ndef', {'interface': 'transport:container'}), {
-                    'doc': 'A segment of transportation such as a flight or train ride.'}),
+                    'doc': 'A container capable of transporting cargo or personnel.'}),
 
                 ('transport:vehicle', ('ndef', {'interface': 'transport:vehicle'}), {
-                    'doc': 'A vehicle such as an air craft or sea vessel.'}),
+                    'doc': 'A vehicle such as an aircraft or sea vessel.'}),
 
                 ('transport:occupant', ('guid', {}), {
                     'doc': 'An occupant of a vehicle traveling a segment.'}),
@@ -41,9 +41,9 @@ class TransportModule(s_module.CoreModule):
                     'doc': 'A type taxonomy for land vehicles.'}),
 
                 ('transport:land:vehicle', ('guid', {}), {
-                    'interfaces': ('transport:container',),
+                    'interfaces': ('transport:vehicle',),
                     'template': {'phys:object': 'vehicle'},
-                    'doc': 'An individual vehicle.'}),
+                    'doc': 'An individual land based vehicle.'}),
 
                 ('transport:land:registration', ('guid', {}), {
                     'doc': 'Registration issued to a contact for a land vehicle.'}),
@@ -188,6 +188,9 @@ class TransportModule(s_module.CoreModule):
 
                     'props': (
 
+                        ('duration', ('duration', {}), {
+                            'doc': 'The actual duration.'}),
+
                         ('departed', ('time', {}), {
                             'doc': 'The actual departure time.'}),
 
@@ -239,9 +242,6 @@ class TransportModule(s_module.CoreModule):
                         ('status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {
                             'doc': 'The status of the {segment}.'}),
 
-                        ('duration', ('duration', {}), {
-                            'doc': 'The actual duration.'}),
-
                         ('occupants', ('int', {'min': 0}), {
                             'doc': 'The number of occupants of the {vehicle} on this {segment}.'}),
 
@@ -274,7 +274,7 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The license ID.'}),
                     # TODO type ( drivers license, commercial trucking, etc? )
                     ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact info of the registrant.'}),
+                        'doc': 'The contact info of the licensee.'}),
                     ('issued', ('time', {}), {
                         'doc': 'The time the license was issued.'}),
                     ('expires', ('time', {}), {
@@ -509,7 +509,7 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'Contact information of the occupant.'}),
 
                     ('segment', ('transport:segment', {}), {
-                        'doc': 'The segment traveled by the ocupant.'}),
+                        'doc': 'The segment traveled by the occupant.'}),
 
                     ('vehicle', ('transport:vehicle', {}), {
                         'doc': 'The vehicle that transported the occupant.'}),
