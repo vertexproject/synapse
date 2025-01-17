@@ -319,18 +319,23 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The serial number or VIN of the vehicle.'}),
 
                     ('make', ('ou:name', {}), {
+                        'deprecated': True,
                         'doc': 'Deprecated. Please use :manufacturer:name.'}),
 
                     ('registration', ('transport:land:registration', {}), {
                         'doc': 'The current vehicle registration information.'}),
                 )),
                 ('transport:air:craft', {}, (
+
                     ('tailnum', ('transport:air:tailnum', {}), {
                         'doc': 'The aircraft tail number.'}),
+
                     # TODO 3.x modify type to being a taxonomy.
                     ('type', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The type of aircraft.'}),
+
                     ('make', ('str', {'lower': True, 'strip': True}), {
+                        'deprecated': True,
                         'doc': 'Deprecated. Please use :manufacturer:name.'}),
                 )),
                 ('transport:air:port', {}, (
