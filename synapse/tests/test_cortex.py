@@ -3107,8 +3107,8 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(model['univs'].get('.created'))
             self.nn(model['univs'].get('.seen'))
 
-            self.true(model['types']['edge'].get('deprecated'))
-            self.true(model['types']['timeedge'].get('deprecated'))
+            self.true(model['types']['edge']['info'].get('deprecated'))
+            self.true(model['types']['timeedge']['info'].get('deprecated'))
 
     async def test_storm_graph(self):
 
