@@ -504,7 +504,7 @@ In the above cases, generic forms may be used to capture data where a more speci
 forms reside in within the ``meta:*`` forms in the data model.
 
 The ``meta:rule`` form is an example of a generic form. Synapse includes more specific forms to represent common
-detection logic such as antivirus (``it:av:sig`` and ``it:av:filehit``) or YARA rules (``it:app:yara:rule`` and 
+detection logic such as antivirus (``it:av:signame`` and ``it:av:scan:result``) or YARA rules (``it:app:yara:rule`` and
 ``it:app:yara:match``). Other technologies or organizations may have their own specific (and often "black box")
 detection logic.
 

@@ -1487,13 +1487,14 @@ be used to show the current lock status of all deprecated model elements.
 
 **Examples:**
 
-Lock the ``ps:person:img`` property:
+Lock the ``inet:fqdn:_depr`` property:
 
-.. storm-cli:: model.deprecated.lock ps:person:img
+.. storm-pre:: $lib.model.ext.addFormProp(inet:fqdn, _depr, (str, ({})),({'deprecated': true}))
+.. storm-cli:: model.deprecated.lock inet:fqdn:_depr
 
-Unlock the ``ps:person:img`` property:
+Unlock the ``inet:fqdn:_depr`` property:
 
-.. storm-cli:: model.deprecated.lock --unlock ps:person:img
+.. storm-cli:: model.deprecated.lock --unlock inet:fqdn:_depr
 
 Lock all deprecated model elements:
 
