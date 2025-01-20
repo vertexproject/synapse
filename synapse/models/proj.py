@@ -224,10 +224,6 @@ class ProjectModule(s_module.CoreModule):
                     ('proj:ticket:type:taxonomy', {}, {}),
                     ('proj:ticket', {}, (
 
-                        ('ext:id', ('str', {'strip': True}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use :id.'}),
-
                         ('ext:url', ('inet:url', {}), {
                             'doc': 'A URL to the ticket in an external system.'}),
 

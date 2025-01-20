@@ -15,15 +15,7 @@ class RiskModelTest(s_t_utils.SynTest):
 
             attk = s_common.guid()
             camp = s_common.guid()
-            org0 = s_common.guid()
-            pers = s_common.guid()
-            host = s_common.guid()
             vuln = s_common.guid()
-            soft = s_common.guid()
-            hasv = s_common.guid()
-            plac = s_common.guid()
-            spec = s_common.guid()
-            item = s_common.guid()
 
             async def addNode(text):
                 nodes = await core.nodes(text)
@@ -44,23 +36,7 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc=wootwoot
                     :campaign={camp}
                     :prev={attk}
-                    :actor:org={org0}
-                    :actor:person={pers}
-                    :target = *
                     :attacker = *
-                    :target:org={org0}
-                    :target:host={host}
-                    :target:place={plac}
-                    :target:person={pers}
-                    :via:email=visi@vertex.link
-                    :via:phone=1234567890
-                    :used:vuln={vuln}
-                    :used:url=https://attacker.com/
-                    :used:host={host}
-                    :used:email=visi@vertex.link
-                    :used:file="*"
-                    :used:server=tcp://1.2.3.4/
-                    :used:software={soft}
                     :sophistication=high
                     :url=https://vertex.link/attacks/CASE-2022-03
                     :ext:id=CASE-2022-03
@@ -74,28 +50,12 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('targeted'), True)
             self.eq(node.get('campaign'), camp)
             self.eq(node.get('prev'), attk)
-            self.eq(node.get('actor:org'), org0)
-            self.eq(node.get('actor:person'), pers)
-            self.eq(node.get('target:org'), org0)
-            self.eq(node.get('target:host'), host)
-            self.eq(node.get('target:place'), plac)
-            self.eq(node.get('target:person'), pers)
             self.eq(node.get('reporter:name'), 'vertex')
-            self.eq(node.get('via:email'), 'visi@vertex.link')
-            self.eq(node.get('via:phone'), '1234567890')
-            self.eq(node.get('used:vuln'), vuln)
-            self.eq(node.get('used:url'), 'https://attacker.com/')
-            self.eq(node.get('used:host'), host)
-            self.eq(node.get('used:email'), 'visi@vertex.link')
-            self.eq(node.get('used:server'), 'tcp://1.2.3.4')
-            self.eq(node.get('used:software'), soft)
             self.eq(node.get('sophistication'), 40)
             self.eq(node.get('severity'), 10)
             self.eq(node.get('url'), 'https://vertex.link/attacks/CASE-2022-03')
             self.eq(node.get('ext:id'), 'CASE-2022-03')
-            self.nn(node.get('used:file'))
             self.nn(node.get('goal'))
-            self.nn(node.get('target'))
             self.nn(node.get('attacker'))
             self.nn(node.get('reporter'))
 
@@ -246,35 +206,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('cisa:kev:product'), 'kevproduct')
             self.eq(node.get('cisa:kev:added'), 1641081600000)
             self.eq(node.get('cisa:kev:duedate'), 1641081600000)
-            self.len(1, await core.nodes('risk:attack :target -> ps:contact'))
             self.len(1, await core.nodes('risk:attack :attacker -> ps:contact'))
 
             self.len(1, nodes := await core.nodes('[ risk:vuln=({"name": "hehe"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
-
-            node = await addNode(f'''[
-                risk:hasvuln={hasv}
-                :vuln={vuln}
-                :person={pers}
-                :org={org0}
-                :place={plac}
-                :software={soft}
-                :hardware=*
-                :spec={spec}
-                :item={item}
-                :host={host}
-            ]''')
-            self.eq(node.ndef, ('risk:hasvuln', hasv))
-            self.eq(node.get('vuln'), vuln)
-            self.eq(node.get('person'), pers)
-            self.eq(node.get('org'), org0)
-            self.eq(node.get('place'), plac)
-            self.eq(node.get('software'), soft)
-            self.eq(node.get('spec'), spec)
-            self.eq(node.get('item'), item)
-            self.eq(node.get('host'), host)
-            self.nn(node.get('hardware'))
-            self.len(1, await core.nodes('risk:hasvuln -> it:prod:hardware'))
 
             nodes = await core.nodes('''
                 [ risk:alert=*
@@ -390,7 +325,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :country={gen.pol.country ua}
                     :country:code=ua
                     :goals=(*,)
-                    :techniques=(*,)
                     :sophistication=high
                     :merged:time = 20230111
                     :merged:isnow = {[ risk:threat=* ]}
@@ -420,7 +354,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('G0001', nodes[0].get('mitre:attack:group'))
 
             self.len(1, nodes[0].get('goals'))
-            self.len(1, nodes[0].get('techniques'))
             self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
             self.len(1, await core.nodes('risk:threat -> it:mitre:attack:group'))
 
@@ -581,8 +514,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :name="  FooBar  "
                     :type=foo.bar
                     :desc=BazFaz
-                    :hardware=*
-                    :software=*
                     :reporter:name=vertex
                     :reporter = { gen.ou.org vertex }
                     :mitre:attack:mitigation=M1036
@@ -594,8 +525,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('reporter'))
 
             self.len(1, await core.nodes('risk:mitigation -> risk:vuln'))
-            self.len(1, await core.nodes('risk:mitigation -> it:prod:softver'))
-            self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
             self.len(1, await core.nodes('risk:mitigation -> it:mitre:attack:mitigation'))
             self.len(1, await core.nodes('risk:mitigation -> risk:mitigation:type:taxonomy'))
 
@@ -612,7 +541,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter:name=vertex
                     :reporter:discovered=202202
                     :reporter:published=202302
-                    :techniques=(*,)
                     :tag=cno.mal.cobaltstrike
                     :mitre:attack:software=S0001
                     :id=" AAAbbb123  "
@@ -638,10 +566,8 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('cobaltstrike', nodes[0].get('soft:name'))
             self.eq(('beacon',), nodes[0].get('soft:names'))
 
-            self.len(1, nodes[0].get('techniques'))
             self.len(1, await core.nodes('risk:tool:software -> ou:org'))
             self.len(1, await core.nodes('risk:tool:software -> it:prod:soft'))
-            self.len(1, await core.nodes('risk:tool:software -> ou:technique'))
             self.len(1, await core.nodes('risk:tool:software -> syn:tag'))
             self.len(1, await core.nodes('risk:tool:software -> it:mitre:attack:software'))
 

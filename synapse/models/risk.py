@@ -59,10 +59,6 @@ class RiskModule(s_module.CoreModule):
                 ('risk:vuln:soft:range', ('guid', {}), {
                     'doc': 'A contiguous range of software versions which contain a vulnerability.'}),
 
-                ('risk:hasvuln', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use risk:vulnerable.'}),
-
                 ('risk:vulnerable', ('guid', {}), {
                     'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
 
@@ -330,10 +326,6 @@ class RiskModule(s_module.CoreModule):
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': "The reporting organization's assessed sophistication of the threat cluster."}),
 
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
-
                     ('merged:time', ('time', {}), {
                         'doc': 'The time that the reporting organization merged this threat cluster into another.'}),
 
@@ -393,10 +385,6 @@ class RiskModule(s_module.CoreModule):
                     ('soft:names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the tool, according to the reporting organization.'}),
 
-                    ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
-
                     ('mitre:attack:software', ('it:mitre:attack:software', {}), {
                         'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
 
@@ -419,14 +407,6 @@ class RiskModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
-
-                    ('software', ('it:prod:softver', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:softver.'}),
-
-                    ('hardware', ('it:prod:hardware', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:hardware.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the mitigation.'}),
@@ -703,27 +683,6 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The maximum version which is vulnerable in this range.'}),
                 )),
 
-                ('risk:hasvuln', {}, (
-                    ('vuln', ('risk:vuln', {}), {
-                        'doc': 'The vulnerability present in the target.'}),
-                    ('person', ('ps:person', {}), {
-                        'doc': 'The vulnerable person.'}),
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The vulnerable org.'}),
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The vulnerable place.'}),
-                    ('software', ('it:prod:softver', {}), {
-                        'doc': 'The vulnerable software.'}),
-                    ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'The vulnerable hardware.'}),
-                    ('spec', ('mat:spec', {}), {
-                        'doc': 'The vulnerable material specification.'}),
-                    ('item', ('mat:item', {}), {
-                        'doc': 'The vulnerable material item.'}),
-                    ('host', ('it:host', {}), {
-                        'doc': 'The vulnerable host.'})
-                )),
-
                 ('risk:vulnerable', {}, (
 
                     ('vuln', ('risk:vuln', {}), {
@@ -892,10 +851,6 @@ class RiskModule(s_module.CoreModule):
 
                     # -(stole)> file:bytes ps:contact file:bytes
                     # -(compromised)> geo:place it:account it:host
-
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
                 )),
                 ('risk:attack:type:taxonomy', {
                     'prevnames': ('risk:attacktype',)}, ()),
@@ -945,76 +900,8 @@ class RiskModule(s_module.CoreModule):
                     ('prev', ('risk:attack', {}), {
                         'doc': 'The previous/parent attack in a list or hierarchy.'}),
 
-                    ('actor:org', ('ou:org', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.'}),
-
-                    ('actor:person', ('ps:person', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :attacker to allow entity resolution.'}),
-
                     ('attacker', ('ps:contact', {}), {
                         'doc': 'Contact information representing the attacker.'}),
-
-                    ('target', ('ps:contact', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
-
-                    ('target:org', ('ou:org', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
-
-                    ('target:host', ('it:host', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
-
-                    ('target:person', ('ps:person', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
-
-                    ('target:place', ('geo:place', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(targets)> light weight edges.'}),
-
-                    ('via:email', ('inet:email', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('via:phone', ('tel:phone', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('used:vuln', ('risk:vuln', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('used:url', ('inet:url', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('used:host', ('it:host', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('used:email', ('inet:email', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('used:file', ('file:bytes', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('used:server', ('inet:server', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('used:software', ('it:prod:softver', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use -(uses)> light weight edges.'}),
-
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the attack.'}),

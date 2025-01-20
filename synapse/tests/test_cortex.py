@@ -1370,7 +1370,7 @@ class CortexTest(s_t_utils.SynTest):
             node = nodes[0]
             self.len(0, node.getNodeRefs())
             # test ndef field
-            nodes = await core.nodes('[geo:nloc=((inet:fqdn, woot.com), "34.1,-118.3", now)]')
+            nodes = await core.nodes('[meta:seen=(*, (inet:fqdn, woot.com))]')
             self.len(1, nodes)
             node = nodes[0]
             refs = dict(node.getNodeRefs())
@@ -4612,14 +4612,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             core1.view.layers[0].readonly = True
             await self.asyncraises(s_exc.IsReadOnly, core1.addFeedData(data))
 
-            await core1.nodes('model.deprecated.lock ou:org:sic')
+            await core1.nodes('model.deprecated.lock test:deprform:deprprop2')
 
-            data = [(('ou:org', '*'), {'props': {'sic': 1111, 'name': 'foo'}})]
+            data = [(('test:deprform', 'foo'), {'props': {'deprprop2': 'bar', 'okayprop': 'foo'}})]
             await core1.addFeedData(data, viewiden=view2_iden)
-            nodes = await core1.nodes('ou:org', opts={'view': view2_iden})
+            nodes = await core1.nodes('test:deprform=foo', opts={'view': view2_iden})
             self.len(1, nodes)
-            self.nn(nodes[0].get('name'))
-            self.none(nodes[0].get('sic'))
+            self.nn(nodes[0].get('okayprop'))
+            self.none(nodes[0].get('deprprop2'))
 
             await core1.nodes('model.deprecated.lock test:deprprop')
 
@@ -4627,7 +4627,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                                                             'ndefprop': ('test:deprprop', 'a'),
                                                             'okayprop': 'okay'}})]
             await core1.addFeedData(data, viewiden=view2_iden)
-            nodes = await core1.nodes('test:deprform', opts={'view': view2_iden})
+            nodes = await core1.nodes('test:deprform=dform', opts={'view': view2_iden})
             self.len(1, nodes)
             self.nn(nodes[0].get('okayprop'))
             self.none(nodes[0].get('deprprop'))
@@ -7361,8 +7361,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 stream.seek(here)
                 data = stream.read()
 
-                self.eq(1, data.count('deprecated properties unlocked'))
-                self.isin(f'Detected {count - 4} deprecated properties', data)
+                if (count - 4) == 0:
+                    self.eq(0, data.count('deprecated properties unlocked'))
+                else:
+                    self.eq(1, data.count('deprecated properties unlocked'))
+                    self.isin(f'Detected {count - 4} deprecated properties', data)
 
     async def test_cortex_dmons_after_modelrev(self):
         with self.getTestDir() as dirn:

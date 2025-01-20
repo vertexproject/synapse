@@ -1282,11 +1282,6 @@ class InetModule(s_module.CoreModule):
                         'doc': 'A password string.'
                     }),
 
-                    ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use inet:tls:servercert or inet:tls:clientcert',
-                    }),
-
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
                         'doc': 'A network port.',
                         'ex': '80'
@@ -2269,17 +2264,6 @@ class InetModule(s_module.CoreModule):
                         }),
                     )),
 
-                    ('inet:ssl:cert', {}, (
-                        ('file', ('file:bytes', {}), {
-                            'ro': True,
-                            'doc': 'The file bytes for the SSL certificate.'
-                        }),
-                        ('server', ('inet:server', {}), {
-                            'ro': True,
-                            'doc': 'The server that presented the SSL certificate.'
-                        }),
-                    )),
-
                     ('inet:url', {}, (
                         ('fqdn', ('inet:fqdn', {}), {
                             'ro': True,
@@ -2585,10 +2569,6 @@ class InetModule(s_module.CoreModule):
                         }),
                         ('parentid', ('inet:whois:regid', {}), {
                             'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
-                        }),
-                        ('registrant', ('inet:whois:ipcontact', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Add the registrant inet:whois:ipcontact to the :contacts array.'
                         }),
                         ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
                             'doc': 'Additional contacts from the record.',
@@ -2952,10 +2932,6 @@ class InetModule(s_module.CoreModule):
 
                         ('place:name', ('geo:name', {}), {
                             'doc': 'The name of the place that the message was sent from.'}),
-
-                        ('client:address', ('inet:client', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use :client'}),
 
                         ('client:software', ('it:prod:softver', {}), {
                             'doc': 'The client software version used to send the message.'}),

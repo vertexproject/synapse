@@ -572,28 +572,6 @@ class ItModule(s_module.CoreModule):
         self.model.form('it:dev:str').onAdd(self._onFormItDevStr)
         self.model.prop('it:prod:softver:vers').onSet(self._onPropSoftverVers)
 
-    def bruteVersionStr(self, valu):
-        '''
-        This API is deprecated.
-
-        Brute force the version out of a string.
-
-        Args:
-            valu (str): String to attempt to get version information for.
-
-        Notes:
-            This first attempts to parse strings using the it:semver normalization
-            before attempting to extract version parts out of the string.
-
-        Returns:
-            int, dict: The system normalized version integer and a subs dictionary.
-        '''
-        s_common.deprecated('ItModule.bruteVersionStr')
-
-        valu, info = self.core.model.type('it:semver').norm(valu)
-        subs = info.get('subs')
-        return valu, subs
-
     async def _onFormItDevStr(self, node):
         await node.set('norm', node.ndef[1])
 
@@ -839,14 +817,6 @@ class ItModule(s_module.CoreModule):
                     'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
                 }),
 
-                ('it:os:ios:idfa', ('it:adid', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use it:adid.'}),
-
-                ('it:os:android:aaid', ('it:adid', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use it:adid.'}),
-
                 ('it:os:android:perm', ('str', {}), {
                     'doc': 'An android permission string.'}),
 
@@ -896,23 +866,11 @@ class ItModule(s_module.CoreModule):
                    'doc': 'A version of a software product which is present on a given host.',
                 }),
 
-                ('it:av:sig', ('comp', {'fields': (('soft', 'it:prod:soft'), ('name', 'it:av:signame'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use it:av:scan:result.'
-                }),
                 ('it:av:signame', ('str', {'lower': True}), {
                     'doc': 'An antivirus signature name.'}),
 
                 ('it:av:scan:result', ('guid', {}), {
                     'doc': 'The result of running an antivirus scanner.'}),
-
-                ('it:av:filehit', ('comp', {'fields': (('file', 'file:bytes'), ('sig', 'it:av:sig'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use it:av:scan:result.'}),
-
-                ('it:av:prochit', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use it:av:scan:result.'}),
 
                 ('it:auth:passwdhash', ('guid', {}), {
                     'doc': 'An instance of a password hash.',
@@ -1027,10 +985,6 @@ class ItModule(s_module.CoreModule):
                 ('it:reveng:filefunc', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
                     'doc': 'An instance of a function in an executable.',
                 }),
-                ('it:reveng:funcstr', ('comp', {'fields': (('function', 'it:reveng:function'), ('string', 'str'))}), {
-                    'deprecated': True,
-                    'doc': 'A reference to a string inside a function.',
-                }),
                 ('it:reveng:impfunc', ('str', {'lower': 1}), {
                     'doc': 'A function from an imported library.',
                 }),
@@ -1128,14 +1082,6 @@ class ItModule(s_module.CoreModule):
 
                     ('hardware', ('it:prod:hardware', {}), {
                         'doc': 'The hardware specification for this host.'}),
-
-                    ('manu', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Please use :hardware::manufacturer:name.'}),
-
-                    ('model', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Please use :hardware::model.'}),
 
                     ('serial', ('str', {}), {
                         'doc': 'The serial number of the host.'}),
@@ -1383,21 +1329,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Lower case normalized version of the it:dev:str.',
                     }),
                 )),
-                ('it:sec:cve', {}, (
-
-                    ('desc', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:vuln:cve:desc.'}),
-
-                    ('url', ('inet:url', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:vuln:cve:url.'}),
-
-                    ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:vuln:cve:references.'}),
-
-                )),
+                ('it:sec:cve', {}, ()),
                 ('it:sec:cpe', {}, (
                     ('v2_2', ('it:sec:cpe:v2_2', {}), {
                         'doc': 'The CPE 2.2 string which is equivalent to the primary property.',
@@ -1583,10 +1515,6 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The URL that documents the ATT&CK group.',
                     }),
 
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use a risk:threat:tag.'}),
-
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK group.',
                     }),
@@ -1613,10 +1541,6 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK tactic.'}),
 
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated.'}),
-
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK tactic.',
                     }),
@@ -1640,10 +1564,6 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK technique.'}),
-
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:technique:tag.'}),
 
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK technique.',
@@ -1680,10 +1600,6 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK software.'}),
 
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:tool:software:tag.'}),
-
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK software.',
                     }),
@@ -1706,10 +1622,6 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL that documents the ATT&CK mitigation.'}),
-
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use risk:mitigation:tag.'}),
 
                     ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
                         'doc': 'An array of URLs that document the ATT&CK mitigation.',
@@ -1758,11 +1670,6 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The time that the campaign was created by MITRE.'}),
                     ('updated', ('time', {}), {
                         'doc': 'The time that the campaign was last updated by MITRE.'}),
-
-                    ('tag', ('syn:tag', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:campaign:tag.'}),
-
                 )),
                 ('it:mitre:attack:flow', {}, (
                     ('name', ('str', {}), {
@@ -1828,10 +1735,6 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'A free-form description of the repository.'}),
 
-                    ('created', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.'}),
-
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the repository is hosted.'}),
 
@@ -1874,16 +1777,8 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the branch is hosted.'}),
 
-                    ('created', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.'}),
-
                     ('merged', ('time', {}), {
                         'doc': 'The time this branch was merged back into its parent.'}),
-
-                    ('deleted', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.'}),
                 )),
 
                 ('it:dev:repo:commit', {}, (
@@ -1903,10 +1798,6 @@ class ItModule(s_module.CoreModule):
                     # we mirror the interface type options...
                     ('id', ('str', {'strip': True}), {
                         'doc': 'The version control system specific commit identifier.'}),
-
-                    ('created', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the commit is hosted.'}),
@@ -1939,10 +1830,6 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'The text describing the issue.'}),
 
-                    ('created', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.'}),
-
                     ('updated', ('time', {}), {
                         'doc': 'The time the issue was updated.'}),
 
@@ -1974,15 +1861,6 @@ class ItModule(s_module.CoreModule):
 
                     ('label', ('it:dev:repo:label', {}), {
                         'doc': 'The label that was applied to the issue.'}),
-
-                    ('applied', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.'}),
-
-                    ('removed', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.'}),
-
                 )),
 
                 ('it:dev:repo:issue:comment', {}, (
@@ -1998,10 +1876,6 @@ class ItModule(s_module.CoreModule):
                     }),
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the comment is hosted.',
-                    }),
-                    ('created', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.',
                     }),
                     ('updated', ('time', {}), {
                         'doc': 'The time the comment was updated.',
@@ -2029,10 +1903,6 @@ class ItModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL where the comment is hosted.'}),
 
-                    ('created', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :period.'}),
-
                     ('updated', ('time', {}), {
                         'doc': 'The time the comment was updated.'}),
 
@@ -2055,9 +1925,6 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The organization that manufactures this hardware.'}),
                     ('manufacturer:name', ('ou:name', {}), {
                         'doc': 'The name of the organization that manufactures this hardware.'}),
-                    ('make', ('ou:name', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :manufacturer:name.'}),
                     ('model', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The model name or number for this hardware specification.'}),
                     ('version', ('str', {'lower': True, 'onespace': True}), {
@@ -2131,8 +1998,6 @@ class ItModule(s_module.CoreModule):
                 )),
 
                 ('it:adid', {}, ()),
-                ('it:os:ios:idfa', {}, ()),
-                ('it:os:android:aaid', {}, ()),
                 ('it:os:android:perm', {}, ()),
                 ('it:os:android:intent', {}, ()),
 
@@ -2177,10 +2042,6 @@ class ItModule(s_module.CoreModule):
 
                     ('software', ('it:prod:soft', {}), {
                         'doc': 'Software associated with this version instance.',
-                    }),
-                    ('software:name', ('str', {'lower': True, 'strip': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:prod:softver:name.',
                     }),
                     ('name', ('it:prod:softname', {}), {
                         'alts': ('names',),
@@ -2272,23 +2133,6 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Software on the host.'})
 
                 )),
-                ('it:av:sig', {}, (
-                    ('soft', ('it:prod:soft', {}), {
-                        'ro': True,
-                        'doc': 'The anti-virus product which contains the signature.',
-                    }),
-                    ('name', ('it:av:signame', {}), {
-                        'ro': True,
-                        'doc': 'The signature name.'
-                    }),
-                    ('desc', ('str', {}), {
-                        'doc': 'A free-form description of the signature.',
-                        'disp': {'hint': 'text'},
-                    }),
-                    ('url', ('inet:url', {}), {
-                        'doc': 'A reference URL for information about the signature.',
-                    })
-                )),
                 ('it:av:signame', {}, ()),
 
                 ('it:av:scan:result', {}, (
@@ -2346,36 +2190,6 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The number of scanners which returned a malicious verdict.'}),
                 )),
 
-                ('it:av:filehit', {}, (
-                    ('file', ('file:bytes', {}), {
-                        'ro': True,
-                        'doc': 'The file that triggered the signature hit.',
-                    }),
-                    ('sig', ('it:av:sig', {}), {
-                        'ro': True,
-                        'doc': 'The signature that the file triggered on.'
-                    }),
-                    ('sig:name', ('it:av:signame', {}), {
-                        'ro': True,
-                        'doc': 'The signature name.',
-                    }),
-                    ('sig:soft', ('it:prod:soft', {}), {
-                        'ro': True,
-                        'doc': 'The anti-virus product which contains the signature.',
-                    }),
-
-                )),
-                ('it:av:prochit', {}, (
-                    ('proc', ('it:exec:proc', {}), {
-                        'doc': 'The file that triggered the signature hit.',
-                    }),
-                    ('sig', ('it:av:sig', {}), {
-                        'doc': 'The signature that the file triggered on.'
-                    }),
-                    ('time', ('time', {}), {
-                        'doc': 'The time that the AV engine detected the signature.'
-                    }),
-                )),
                 ('it:auth:passwdhash', {}, (
                     ('salt', ('hex', {}), {
                         'doc': 'The (optional) hex encoded salt value used to calculate the password hash.',
@@ -2460,19 +2274,11 @@ class ItModule(s_module.CoreModule):
                     ('exitcode', ('int', {}), {
                         'doc': 'The exit code for the process.',
                     }),
-                    ('user', ('inet:user', {}), {
-                        'deprecated': True,
-                        'doc': 'The user name of the process owner.',
-                    }),
                     ('account', ('it:account', {}), {
                         'doc': 'The account of the process owner.',
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the executable of the process.',
-                    }),
-                    ('src:exe', ('file:path', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Create :src:proc and set :path.',
                     }),
                     ('src:proc', ('it:exec:proc', {}), {
                         'doc': 'The process which created the process.'
@@ -3044,15 +2850,6 @@ class ItModule(s_module.CoreModule):
                     ('funccalls', ('array', {'type': 'it:reveng:filefunc', 'uniq': True, 'sorted': True}), {
                         'doc': 'Other function calls within the scope of the function.',
                     }),
-                )),
-
-                ('it:reveng:funcstr', {}, (
-                    ('function', ('it:reveng:function', {}), {
-                        'ro': True,
-                        'doc': 'The guid matching the function.'}),
-                    ('string', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The string that the function references.'}),
                 )),
 
                 ('it:reveng:impfunc', {}, ()),

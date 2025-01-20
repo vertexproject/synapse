@@ -185,12 +185,6 @@ class StormLibGenTest(s_test.SynTest):
                 -> it:av:scan:result
             ''', opts=opts))
 
-            nodes = await core.nodes('''
-                [ it:av:filehit=(`guid:{$lib.guid()}`, ($lib.guid(), fsig)) :sig:name=fsig ]
-                gen.it.av.scan.result file:bytes :file :sig:name
-            ''')
-            self.sorteq(['it:av:filehit', 'it:av:scan:result'], [n.ndef[0] for n in nodes])
-
             with self.raises(s_exc.NoSuchType) as cm:
                 await core.nodes('gen.it.av.scan.result newp vertex.link foosig --try')
             self.eq('No type or prop found for name newp.', cm.exception.errinfo['mesg'])

@@ -49,14 +49,6 @@ class MediaModule(s_module.CoreModule):
                     'ex': '20161201180433',
                     'doc': 'The last time the news item was updated.'}),
 
-                ('org', ('ou:alias', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use :publisher:name.'}),
-
-                ('author', ('ps:name', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use :authors array of ps:contact nodes.'}),
-
                 ('authors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of authors of the news item.'}),
 

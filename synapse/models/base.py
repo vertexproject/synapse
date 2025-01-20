@@ -109,11 +109,6 @@ class BaseModule(s_module.CoreModule):
                         ('title', ('str', {}), {
                             'doc': 'A brief title of the definition.'}),
 
-                        ('summary', ('str', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use title/desc.',
-                            'disp': {'hint': 'text'}}),
-
                         ('desc', ('str', {}), {
                             'doc': 'A definition of the taxonomy entry.',
                             'disp': {'hint': 'text'}}),

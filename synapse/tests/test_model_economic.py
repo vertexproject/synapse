@@ -104,26 +104,13 @@ class EconTest(s_utils.SynTest):
             self.len(1, await core.nodes('econ:purchase -> geo:place'))
             self.len(2, await core.nodes('econ:purchase -> ps:contact | uniq'))
 
-            acqu = (await core.nodes(f'[ econ:acquired=({perc.ndef[1]}, (inet:fqdn,vertex.link)) ]'))[0]
-            self.eq(perc.ndef[1], acqu.get('purchase'))
-
-            self.len(1, await core.nodes('econ:acquired:item:form=inet:fqdn'))
-            self.len(1, await core.nodes('inet:fqdn=vertex.link'))
-
-            self.eq(('inet:fqdn', 'vertex.link'), acqu.get('item'))
-
             text = f'''[
                 econ:acct:payment="*"
 
-                    :to:account=*
                     :to:contact={bycont}
-                    :to:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
 
-                    :from:account=*
                     :from:contact={fromcont}
-                    :from:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
 
-                    :from:pay:card={card.ndef[1]}
                     :amount = 20.30
                     :currency = usd
 
@@ -145,14 +132,8 @@ class EconTest(s_utils.SynTest):
 
             self.len(1, await core.nodes('econ:acct:payment -> geo:place'))
 
-            self.len(1, await core.nodes('econ:acct:payment +:time@=(2017,2019) +{-> econ:pay:card +:name="bob smith"}'))
-
             self.len(1, await core.nodes('econ:acct:payment -> econ:purchase'))
-            self.len(1, await core.nodes('econ:acct:payment -> econ:pay:card'))
             self.len(2, await core.nodes('econ:acct:payment -> ps:contact | uniq'))
-
-            self.len(1, await core.nodes('econ:acct:payment :to:account -> econ:bank:account'))
-            self.len(1, await core.nodes('econ:acct:payment :from:account -> econ:bank:account'))
 
             nodes = await core.nodes('''
                 [ econ:fin:exchange=(us,nasdaq) :name=nasdaq :currency=usd :org=* ]

@@ -91,59 +91,63 @@ class StormlibModelTest(s_test.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
+                core.model.addDataModels((('depr', s_test.deprmodel),))
+
                 # create both a deprecated form and a node with a deprecated prop
-                await core.nodes('[ ou:org=* :sic=1234 ou:hasalias=($node.repr(), foobar) ]')
+                await core.nodes('[ test:deprform=* :deprprop2=foo test:deprprop=baz ]')
 
                 with self.raises(s_exc.NoSuchProp):
                     await core.nodes('model.deprecated.lock newp:newp')
 
                 # lock a prop and a form/type
-                await core.nodes('model.deprecated.lock ou:org:sic')
-                await core.nodes('model.deprecated.lock ou:hasalias')
+                await core.nodes('model.deprecated.lock test:deprform:deprprop2')
+                await core.nodes('model.deprecated.lock test:deprprop')
 
                 with self.raises(s_exc.IsDeprLocked):
-                    await core.nodes('ou:org [ :sic=5678 ]')
+                    await core.nodes('test:deprform [ :deprprop2=baz ]')
 
                 with self.raises(s_exc.IsDeprLocked):
-                    await core.nodes('[ou:hasalias=(*, hehe)]')
+                    await core.nodes('[test:deprprop=newp]')
 
                 with self.getAsyncLoggerStream('synapse.lib.view',
-                                               'Prop ou:org:sic is locked due to deprecation') as stream:
+                                               'Prop test:deprform:deprprop2 is locked due to deprecation') as stream:
                     data = (
-                        (('ou:org', ('t0',)), {'props': {'sic': '5678'}}),
+                        (('test:deprform', 'depr'), {'props': {'deprprop2': '5678'}}),
                     )
                     await core.addFeedData(data)
                     self.true(await stream.wait(1))
-                    nodes = await core.nodes('ou:org=(t0,)')
-                    self.none(nodes[0].get('sic'))
+                    nodes = await core.nodes('test:deprform=depr')
+                    self.none(nodes[0].get('deprprop2'))
 
                 mesgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('ou:org:sic: true', mesgs)
-                self.stormIsInPrint('ou:hasalias: true', mesgs)
-                self.stormIsInPrint('it:reveng:funcstr: false', mesgs)
+                self.stormIsInPrint('test:deprform:deprprop2: true', mesgs)
+                self.stormIsInPrint('test:deprprop: true', mesgs)
+                self.stormIsInPrint('test:deprform2: false', mesgs)
 
-                await core.nodes('model.deprecated.lock --unlock ou:org:sic')
-                await core.nodes('ou:org [ :sic=5678 ]')
-                await core.nodes('model.deprecated.lock ou:org:sic')
+                await core.nodes('model.deprecated.lock --unlock test:deprform:deprprop2')
+                await core.nodes('test:deprform [ :deprprop2=bar ]')
+                await core.nodes('model.deprecated.lock test:deprform:deprprop2')
 
             # ensure that the locks persisted and got loaded correctly
             async with self.getTestCore(dirn=dirn) as core:
 
+                core.model.addDataModels((('depr', s_test.deprmodel),))
+
                 mesgs = await core.stormlist('model.deprecated.check')
                 # warn due to unlocked
-                self.stormIsInWarn('it:reveng:funcstr', mesgs)
+                self.stormIsInWarn('test:deprform2', mesgs)
                 # warn due to existing
-                self.stormIsInWarn('ou:org:sic', mesgs)
-                self.stormIsInWarn('ou:hasalias', mesgs)
+                self.stormIsInWarn('test:deprform:deprprop2', mesgs)
+                self.stormIsInWarn('test:deprprop', mesgs)
                 self.stormIsInPrint('Your cortex contains deprecated model elements', mesgs)
 
                 await core.nodes('model.deprecated.lock *')
 
                 mesgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('it:reveng:funcstr: true', mesgs)
+                self.stormIsInPrint('test:deprform2: true', mesgs)
 
-                await core.nodes('ou:org [ -:sic ]')
-                await core.nodes('ou:hasalias | delnode')
+                await core.nodes('test:deprform [ -:deprprop2 ]')
+                await core.nodes('test:deprprop | delnode')
 
                 mesgs = await core.stormlist('model.deprecated.check')
                 self.stormIsInPrint('Congrats!', mesgs)
