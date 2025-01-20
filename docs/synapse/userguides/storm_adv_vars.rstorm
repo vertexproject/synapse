@@ -331,7 +331,7 @@ You can assign an explicit, unchanging value to a variable.
 
 .. TIP::
   
-  The example above uses a subquery filter (:ref:`filter-subquery`) to pivot to the ``it:av:sva:result`` nodes
+  The example above uses a subquery filter (:ref:`filter-subquery`) to pivot to the ``it:av:scan:result`` nodes
   associated with the ``file:bytes`` node, and compares the number of malicious AV scan results to the value of the ``$threshold``
   variable.
 
