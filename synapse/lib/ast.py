@@ -1365,12 +1365,7 @@ class VarEvalOper(Oper):
             yield node, path
 
         if not anynodes and self.isRuntSafe(runt):
-
-            valu = await self.kids[0].compute(runt, None)
-
-            if isinstance(valu, types.AsyncGeneratorType):
-                async for item in valu:
-                    await asyncio.sleep(0)
+            await self.kids[0].compute(runt, None)
 
 class SwitchCase(Oper):
 
