@@ -583,11 +583,11 @@ class Model:
         item = s_types.Array(self, 'array', info, {'type': 'int'})
         self.addBaseType(item)
 
-        info = {'doc': 'An digraph edge base type.'}
+        info = {'doc': 'An digraph edge base type.', 'deprecated': True}
         item = s_types.Edge(self, 'edge', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'An digraph edge base type with a unique time.'}
+        info = {'doc': 'An digraph edge base type with a unique time.', 'deprecated': True}
         item = s_types.TimeEdge(self, 'timeedge', info, {})
         self.addBaseType(item)
 
