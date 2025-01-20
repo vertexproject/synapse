@@ -17,6 +17,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -4242,9 +4243,17 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.\n'
                                 'Args:\n    name (str): The name of the org.', msgs)
 
-            msgs = await core.stormlist('help --verbose $lib.infosec.cvss.saveVectToNode')
-            self.stormIsInPrint('Warning', msgs)
-            self.stormIsInPrint('``$lib.infosec.cvss.saveVectToNode`` has been deprecated and will be removed in version v3.0.0.', msgs)
+            orig = s_stormtypes.registry.getLibDocs
+            def forcedep(cls):
+                libsinfo = orig(cls)
+                for info in libsinfo:
+                    info['deprecated'] = {'eolvers': 'v999.0.0'}
+                return libsinfo
+
+            with mock.patch('synapse.lib.stormtypes.registry.getLibDocs', forcedep):
+                msgs = await core.stormlist('help --verbose $lib.len')
+                self.stormIsInPrint('Warning', msgs)
+                self.stormIsInPrint('``$lib.len`` has been deprecated and will be removed in version v999.0.0', msgs)
 
             msgs = await core.stormlist('help $lib.inet')
             self.stormIsInPrint('The following libraries are available:\n\n'
