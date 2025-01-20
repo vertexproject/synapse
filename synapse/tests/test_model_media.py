@@ -23,7 +23,6 @@ class MediaModelTest(s_t_utils.SynTest):
                 'summary': 'I forget ',
                 'published': 0,
                 'updated': 0,
-                'org': 'verteX',
                 'authors': cont,
                 'publisher': publisher,
                 'publisher:name': 'The Vertex Project, LLC.',
@@ -34,7 +33,7 @@ class MediaModelTest(s_t_utils.SynTest):
             q = '''[(media:news=$valu
                     :url=$p.url :file=$p.file :title=$p.title
                     :summary=$p.summary :published=$p.published :updated=$p.updated
-                    :org=$p.org :authors=$p.authors
+                    :authors=$p.authors
                     :publisher=$p.publisher :publisher:name=$p."publisher:name"
                     :rss:feed=$p."rss:feed" :topics=$p.topics
                     )]'''
@@ -52,7 +51,6 @@ class MediaModelTest(s_t_utils.SynTest):
             self.eq(node.get('updated'), 0)
             self.eq(node.get('publisher'), publisher)
             self.eq(node.get('publisher:name'), 'the vertex project, llc.')
-            self.eq(node.get('org'), 'vertex')
             self.eq(node.get('rss:feed'), 'http://vertex.link/rss')
             self.eq(node.get('authors'), (cont,))
             self.eq(node.get('topics'), ('foo bar', 'woot'))

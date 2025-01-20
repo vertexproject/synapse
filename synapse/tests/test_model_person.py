@@ -27,7 +27,6 @@ class PsModelTest(s_t_utils.SynTest):
             props = {
                 'dob': '1971',
                 'dod': '20501217',
-                'img': file0,
                 'photo': file0,
                 'nick': 'pennywise',
                 'name': 'robert clown grey',
@@ -39,7 +38,7 @@ class PsModelTest(s_t_utils.SynTest):
             }
             opts = {'vars': {'valu': person0, 'p': props}}
             q = '''[(ps:person=$valu
-            :img=$p.img :dob=$p.dob :dod=$p.dod :photo=$p.photo
+            :dob=$p.dob :dod=$p.dod :photo=$p.photo
             :nick=$p.nick :name=$p.name :name:sur=$p."name:sur"
             :name:middle=$p."name:middle" :name:given=$p."name:given"
             :nicks=$p.nicks :names=$p.names
@@ -48,7 +47,6 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('ps:person', person0))
-            self.eq(node.get('img'), file0)
             self.eq(node.get('dob'), 31536000000)
             self.eq(node.get('dod'), 2554848000000)
             self.eq(node.get('nick'), 'pennywise')
@@ -62,58 +60,6 @@ class PsModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes := await core.nodes('[ ps:person=({"name": "billy bob"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
-
-            props = {
-                'dob': '2000',
-                'img': file0,
-                'nick': 'acid burn',
-                'person': person0,
-                'name': 'Эммануэль брат Гольдштейн',
-                'name:sur': 'Гольдштейн',
-                'name:middle': 'брат',
-                'name:given': 'эммануэль',
-                'nicks': ['beeper88', 'W1ntermut3'],
-                'names': ['Bob Ross']
-            }
-            opts = {'vars': {'valu': persona0, 'p': props}}
-            q = '''[(ps:persona=$valu
-                    :img=$p.img :dob=$p.dob :person=$p.person
-                    :nick=$p.nick :name=$p.name :name:sur=$p."name:sur"
-                    :name:middle=$p."name:middle" :name:given=$p."name:given"
-                    :nicks=$p.nicks :names=$p.names
-                    )]'''
-            nodes = await core.nodes(q, opts=opts)
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('ps:persona', persona0))
-            self.eq(node.get('img'), file0)
-            self.eq(node.get('dob'), 946684800000)
-            self.eq(node.get('nick'), 'acid burn')
-            self.eq(node.get('person'), person0)
-            self.eq(node.get('name'), 'эммануэль брат гольдштейн')
-            self.eq(node.get('name:sur'), 'гольдштейн')
-            self.eq(node.get('name:middle'), 'брат')
-            self.eq(node.get('name:given'), 'эммануэль')
-            self.eq(node.get('nicks'), ['beeper88', 'w1ntermut3'])
-            self.eq(node.get('names'), ['bob ross'])
-
-            nodes = await core.nodes('[ps:person:has=($person, ("test:str", "sewer map"))]',
-                                     opts={'vars': {'person': person0}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('ps:person:has', (person0, ('test:str', 'sewer map'))))
-            self.eq(node.get('person'), person0)
-            self.eq(node.get('node'), ('test:str', 'sewer map'))
-            self.eq(node.get('node:form'), 'test:str')
-
-            nodes = await core.nodes('[ps:persona:has=($persona, ("test:str", "the gibson"))]',
-                                     opts={'vars': {'persona': persona0}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef, ('ps:persona:has', (persona0, ('test:str', 'the gibson'))))
-            self.eq(node.get('persona'), persona0)
-            self.eq(node.get('node'), ('test:str', 'the gibson'))
-            self.eq(node.get('node:form'), 'test:str')
 
             props = {
                 'org': org0,
@@ -334,12 +280,11 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:workhist -> ou:employment:type:taxonomy'))
             nodes = await core.nodes('''
                 ou:employment:type:taxonomy=fulltime.salary
-                [ :title=FullTime :summary=HeHe :sort=9 ]
+                [ :title=FullTime :sort=9 ]
                 +:base=salary +:parent=fulltime +:depth=1
             ''')
             self.len(1, nodes)
             self.eq(nodes[0].get('title'), 'FullTime')
-            self.eq(nodes[0].get('summary'), 'HeHe')
             self.eq(nodes[0].get('sort'), 9)
 
             self.len(2, await core.nodes('ou:employment:type:taxonomy^=fulltime'))

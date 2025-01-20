@@ -36,10 +36,6 @@ class EconModule(s_module.CoreModule):
                 ('econ:receipt:item', ('guid', {}), {
                     'doc': 'A line item included as part of a purchase.'}),
 
-                ('econ:acquired', ('comp', {'fields': (('purchase', 'econ:purchase'), ('item', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use econ:purchase -(acquired)> *.'}),
-
                 ('econ:acct:payment', ('guid', {}), {
                     'doc': 'A payment or crypto currency transaction.'}),
 
@@ -220,14 +216,6 @@ class EconModule(s_module.CoreModule):
                     ('product', ('biz:product', {}), {
                         'doc': 'The product being being purchased in this line item.'}),
                 )),
-                ('econ:acquired', {}, (
-                    ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase event which acquired an item.', 'ro': True, }),
-                    ('item', ('ndef', {}), {
-                        'doc': 'A reference to the item that was acquired.', 'ro': True, }),
-                    ('item:form', ('str', {}), {
-                        'doc': 'The form of item purchased.'}),
-                )),
 
                 ('econ:acct:payment', {}, (
 
@@ -246,34 +234,14 @@ class EconModule(s_module.CoreModule):
                     ('from:instrument', ('econ:pay:instrument', {}), {
                         'doc': 'The payment instrument used to make the payment.'}),
 
-                    ('from:account', ('econ:bank:account', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
-
-                    ('from:pay:card', ('econ:pay:card', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
-
                     ('from:contract', ('ou:contract', {}), {
                         'doc': 'A contract used as an aggregate payment source.'}),
-
-                    ('from:coinaddr', ('crypto:currency:address', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
 
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the entity making the payment.'}),
 
                     ('to:cash', ('bool', {}), {
                         'doc': 'Set to true if the payment output was in cash.'}),
-
-                    ('to:account', ('econ:bank:account', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :to:instrument.'}),
-
-                    ('to:coinaddr', ('crypto:currency:address', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :to:instrument.'}),
 
                     ('to:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),

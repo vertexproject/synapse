@@ -1107,14 +1107,6 @@ on the form and value of the object scanned and the signature name used for the 
 You can optionally include the name of the scanner / scan engine and/or the time the scan was performed
 for additional deconfliction.
 
-.. NOTE::
-  
-  The command can be used to generate ``it:av:scan:result`` nodes from existing ``it:av:filehit`` nodes.
-  The ``it:av:filehit`` form has been marked as deprecated and will be removed in a future version of Synapse.
-  Some :ref:`synapse_powerups` that previously created ``it:av:filehit`` nodes may include dedicated commands
-  to assist with migration; if a migration tool exists, it will be documented in the Admin Guide section of
-  the Power-Up's Help.
-
 **Syntax:**
 
 .. storm-cli:: gen.it.av.scan.result --help

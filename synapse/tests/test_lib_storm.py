@@ -17,6 +17,7 @@ import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
@@ -1848,20 +1849,20 @@ class StormTest(s_t_utils.SynTest):
             self.sorteq(list(nodes[0].getTagNames()), exp)
 
             q = '''
-            [ file:bytes=*
+            [ crypto:x509:cert=*
               :md5=00000a5758eea935f817dd1490a322a5
 
-              inet:ssl:cert=(1.2.3.4, $node)
+              inet:tls:servercert=(1.2.3.4, $node)
             ]
             '''
             await core.nodes(q, opts=altview)
 
             self.len(0, await core.nodes('hash:md5'))
-            await core.nodes('file:bytes | merge --apply', opts=altview)
+            await core.nodes('crypto:x509:cert | merge --apply', opts=altview)
             self.len(1, await core.nodes('hash:md5'))
 
             self.len(0, await core.nodes('inet:ip'))
-            await core.nodes('inet:ssl:cert | merge --apply', opts=altview)
+            await core.nodes('inet:tls:servercert | merge --apply', opts=altview)
             self.len(1, await core.nodes('inet:ip'))
 
     async def test_storm_merge_perms(self):
@@ -4242,9 +4243,17 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('Returns an ou:org by name, adding the node if it does not exist.\n'
                                 'Args:\n    name (str): The name of the org.', msgs)
 
-            msgs = await core.stormlist('help --verbose $lib.infosec.cvss.saveVectToNode')
-            self.stormIsInPrint('Warning', msgs)
-            self.stormIsInPrint('``$lib.infosec.cvss.saveVectToNode`` has been deprecated and will be removed in version v3.0.0.', msgs)
+            orig = s_stormtypes.registry.getLibDocs
+            def forcedep(cls):
+                libsinfo = orig(cls)
+                for info in libsinfo:
+                    info['deprecated'] = {'eolvers': 'v999.0.0'}
+                return libsinfo
+
+            with mock.patch('synapse.lib.stormtypes.registry.getLibDocs', forcedep):
+                msgs = await core.stormlist('help --verbose $lib.len')
+                self.stormIsInPrint('Warning', msgs)
+                self.stormIsInPrint('``$lib.len`` has been deprecated and will be removed in version v999.0.0', msgs)
 
             msgs = await core.stormlist('help $lib.inet')
             self.stormIsInPrint('The following libraries are available:\n\n'
@@ -5255,25 +5264,25 @@ class StormTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('[(media:news=* :org=foo) (inet:ip=1.2.3.4 +#test:score=1)]')
+            await core.nodes('[(media:news=* :publisher:name=foo) (inet:ip=1.2.3.4 +#test:score=1)]')
 
-            q = 'media:news:org #test'
+            q = 'media:news:publisher:name #test'
             self.len(2, await core.nodes(q))
             self.len(1, await core.nodes('#test'))
 
-            q = 'media:news:org #test:score'
+            q = 'media:news:publisher:name #test:score'
             self.len(2, await core.nodes(q))
             self.len(1, await core.nodes('#test:score'))
 
-            q = 'media:news:org#test'
+            q = 'media:news:publisher:name#test'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form named media:news:org', msgs)
+            self.stormIsInErr('No form named media:news:publisher:name', msgs)
 
-            q = 'media:news:org#test:score'
+            q = 'media:news:publisher:name#test:score'
             msgs = await core.stormlist(q)
-            self.stormIsInErr('No form named media:news:org', msgs)
+            self.stormIsInErr('No form named media:news:publisher:name', msgs)
 
-            q = 'media:news:org#test.*.bar'
+            q = 'media:news:publisher:name#test.*.bar'
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token 'default case'", msgs)
 
@@ -5281,7 +5290,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token 'default case'", msgs)
 
-            q = 'media:news:org#test.*.bar:score'
+            q = 'media:news:publisher:name#test.*.bar:score'
             msgs = await core.stormlist(q)
             self.stormIsInErr("Unexpected token 'default case'", msgs)
 

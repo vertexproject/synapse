@@ -88,14 +88,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('coin'), 'btc')
             self.eq(nodes[0].get('iden'), '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
 
-            nodes = await core.nodes('''
-                [
-                    econ:acct:payment="*"
-                        :from:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :to:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                ]
-            ''')
-
             # these would explode if the model was wrong
             self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact="*" ] -> ps:contact'))
             self.len(1, await core.nodes('crypto:currency:address:iden=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
@@ -159,11 +151,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('eth:gasprice'), '0.001')
             self.eq(node.get('contract:input'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
             self.eq(node.get('contract:output'), 'sha256:f6f2ea8f45d8a057c9566a33f99474da2e5c6a6604d736121650e2730c6fb0a3')
-
-            with self.raises(s_exc.IsDeprLocked):
-                await node.set('inputs', (payor,))
-            with self.raises(s_exc.IsDeprLocked):
-                await node.set('outputs', (payee,))
 
             q = 'crypto:currency:transaction=(t1,) | tee { -> crypto:payment:input } { -> crypto:payment:output }'
             nodes = await core.nodes(q)

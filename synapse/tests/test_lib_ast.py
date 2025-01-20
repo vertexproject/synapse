@@ -770,13 +770,13 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('meta:seen -> test:str')
             self.eq(nodes[0].ndef, ('test:str', 'woot'))
 
-            nodes = await core.nodes('[ geo:nloc=((inet:fqdn, woot.com), "34.1,-118.3", now) ]')
+            nodes = await core.nodes('[ meta:seen=(*, (inet:fqdn, woot.com)) ]')
             self.len(1, nodes)
 
             # test a reverse ndef pivot
-            nodes = await core.nodes('inet:fqdn=woot.com -> geo:nloc')
+            nodes = await core.nodes('inet:fqdn=woot.com -> meta:seen')
             self.len(1, nodes)
-            self.eq('geo:nloc', nodes[0].ndef[0])
+            self.eq('meta:seen', nodes[0].ndef[0])
 
             await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
             await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')

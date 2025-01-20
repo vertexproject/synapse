@@ -392,10 +392,6 @@ class GeoModule(s_module.CoreModule):
 
                 'types': (
 
-                    ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
-                        'deprecated': True,
-                        'doc': 'Records a node latitude/longitude in space-time.'
-                    }),
                     ('geo:telem', ('guid', {}), {
                         'doc': 'A geospatial position of a node at a given time. The node should be linked via -(seenat)> edges.',
                     }),
@@ -441,9 +437,6 @@ class GeoModule(s_module.CoreModule):
                 ),
 
                 'edges': (
-                    ((None, 'seenat', 'geo:telem'), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ``geo:telem:node``.'}),
                     (('geo:place', 'contains', 'geo:place'), {
                         'doc': 'The source place completely contains the target place.'}),
                 ),
@@ -451,28 +444,6 @@ class GeoModule(s_module.CoreModule):
                 'forms': (
 
                     ('geo:name', {}, ()),
-
-                    ('geo:nloc', {}, (
-
-                        ('ndef', ('ndef', {}), {'ro': True,
-                            'doc': 'The node with location in geospace and time.'}),
-
-                        ('ndef:form', ('str', {}), {'ro': True,
-                            'doc': 'The form of node referenced by the ndef.'}),
-
-                        ('latlong', ('geo:latlong', {}), {'ro': True,
-                            'doc': 'The latitude/longitude the node was observed.'}),
-
-                        ('time', ('time', {}), {'ro': True,
-                            'doc': 'The time the node was observed at location.'}),
-
-                        ('place', ('geo:place', {}), {
-                            'doc': 'The place corresponding to the latlong property.'}),
-
-                        ('loc', ('loc', {}), {
-                            'doc': 'The geo-political location string for the node.'}),
-
-                    )),
 
                     ('geo:telem', {}, (
                         ('time', ('time', {}), {
@@ -505,10 +476,6 @@ class GeoModule(s_module.CoreModule):
 
                         ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of alternative place names.'}),
-
-                        ('parent', ('geo:place', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use a -(contains)> edge.'}),
 
                         ('desc', ('str', {}), {
                             'doc': 'A long form description of the place.'}),

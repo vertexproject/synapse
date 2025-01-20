@@ -678,7 +678,6 @@ stormcmds = (
         ),
         'storm': 'yield $lib.gen.langByName($cmdopts.name)',
     },
-    # todo: remove it:av:filehit example in 3.x.x
     {
         'name': 'gen.it.av.scan.result',
         'descr': '''
@@ -693,9 +692,6 @@ stormcmds = (
 
                 // Also deconflict by scanner name and scan time
                 gen.it.av.scan.result inet:fqdn fqdn vertex.link foosig --scanner-name barscanner --time 2022-11-03
-
-                // Generate an it:av:scan:result node from an it:av:filehit node
-                it:av:filehit#foo | gen.it.av.scan.result file:bytes :file :sig:name
         ''',
         'cmdargs': (
             ('form', {'help': 'The target form.'}),

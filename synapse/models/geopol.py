@@ -62,10 +62,6 @@ class PolModule(s_module.CoreModule):
 
                         ('isonum', ('pol:isonum', {}), {}),
 
-                        ('pop', ('int', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use :vitals::population.'}),
-
                         ('tld', ('inet:fqdn', {}), {}),
 
                         ('name', ('geo:name', {}), {

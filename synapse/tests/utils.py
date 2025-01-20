@@ -523,6 +523,7 @@ deprmodel = {
         ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
         ('test:deprform', ('test:str', {}), {}),
         ('test:deprndef', ('ndef', {}), {}),
+        ('test:deprform2', ('test:str', {}), {'deprecated': True}),
     ),
     'forms': (
         ('test:deprprop', {}, ()),
@@ -530,7 +531,9 @@ deprmodel = {
             ('ndefprop', ('test:deprndef', {}), {}),
             ('deprprop', ('test:deprarray', {}), {}),
             ('okayprop', ('str', {}), {}),
+            ('deprprop2', ('test:str', {}), {'deprecated': True}),
         )),
+        ('test:deprform2', {}, ()),
     ),
 
 }

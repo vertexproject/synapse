@@ -211,12 +211,6 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The destination address of the transaction.'}),
                     ('from', ('crypto:currency:address', {}), {
                         'doc': 'The source address of the transaction.'}),
-                    ('inputs', ('array', {'type': 'crypto:payment:input', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use crypto:payment:input:transaction.'}),
-                    ('outputs', ('array', {'type': 'crypto:payment:output', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use crypto:payment:output:transaction.'}),
                     ('fee', ('econ:price', {}), {
                         'doc': 'The total fee paid to execute the transaction.'}),
                     ('value', ('econ:price', {}), {

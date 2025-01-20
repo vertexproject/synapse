@@ -1360,16 +1360,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('server:host'), 32 * 'a')
             self.eq(node.get('file'), 'sha256:' + 64 * 'f')
 
-    async def test_ssl_cert(self):
-
-        async with self.getTestCore() as core:
-
-            nodes = await core.nodes('[inet:ssl:cert=("tcp://1.2.3.4:443", "guid:abcdabcdabcdabcdabcdabcdabcdabcd")]')
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('file'), 'guid:abcdabcdabcdabcdabcdabcdabcdabcd')
-            self.eq(node.get('server'), 'tcp://1.2.3.4:443')
-
     async def test_url(self):
         formname = 'inet:url'
         async with self.getTestCore() as core:
@@ -2201,7 +2191,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'id': 'NET-10-0-0-0-1',
                 'name': 'vtx',
                 'parentid': 'NET-10-0-0-0-0',
-                'registrant': contact,
                 'contacts': (addlcontact, ),
                 'country': 'US',
                 'status': 'validated',
@@ -2210,7 +2199,7 @@ class InetModelTest(s_t_utils.SynTest):
             }
             q = '''[(inet:whois:iprec=$valu :net=$p.net :asof=$p.asof :created=$p.created :updated=$p.updated
                 :text=$p.text :desc=$p.desc :asn=$p.asn :id=$p.id :name=$p.name :parentid=$p.parentid
-                :registrant=$p.registrant :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
+                :contacts=$p.contacts :country=$p.country :status=$p.status :type=$p.type
                 :links=$p.links)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv4, 'p': props}})
             self.len(1, nodes)
@@ -2228,7 +2217,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('id'), 'NET-10-0-0-0-1')
             self.eq(node.get('name'), 'vtx')
             self.eq(node.get('parentid'), 'NET-10-0-0-0-0')
-            self.eq(node.get('registrant'), contact)
             self.eq(node.get('contacts'), (addlcontact,))
             self.eq(node.get('country'), 'us')
             self.eq(node.get('status'), 'validated')
@@ -2245,7 +2233,6 @@ class InetModelTest(s_t_utils.SynTest):
                 'asn': 12345,
                 'id': 'NET-10-0-0-0-0',
                 'name': 'EU-VTX-1',
-                'registrant': contact,
                 'country': 'tp',
                 'status': 'renew prohibited',
                 'type': 'allocated-BY-rir',
@@ -2256,7 +2243,7 @@ class InetModelTest(s_t_utils.SynTest):
 
             q = '''[(inet:whois:iprec=$valu :net=$p.net :asof=$p.asof :created=$p.created :updated=$p.updated
                 :text=$p.text :asn=$p.asn :id=$p.id :name=$p.name
-                :registrant=$p.registrant :country=$p.country :status=$p.status :type=$p.type)]'''
+                :country=$p.country :status=$p.status :type=$p.type)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': rec_ipv6, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -2271,7 +2258,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('asn'), 12345)
             self.eq(node.get('id'), 'NET-10-0-0-0-0')
             self.eq(node.get('name'), 'EU-VTX-1')
-            self.eq(node.get('registrant'), contact)
             self.eq(node.get('country'), 'tp')
             self.eq(node.get('status'), 'renew prohibited')
             self.eq(node.get('type'), 'allocated-by-rir')

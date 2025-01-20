@@ -223,15 +223,6 @@ class FileTest(s_t_utils.SynTest):
             self.eq(0, sect.get('type'))
             self.eq(5678, sect.get('offset'))
 
-    async def test_model_filebytes_string(self):
-        async with self.getTestCore() as core:
-            file0 = 'a' * 64
-            nodes = await core.nodes('[file:string=($valu, foo)]', opts={'vars': {'valu': file0}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('file'), f'sha256:{file0}')
-            self.eq(node.get('string'), 'foo')
-
     async def test_model_file_types(self):
 
         async with self.getTestCore() as core:
@@ -348,14 +339,13 @@ class FileTest(s_t_utils.SynTest):
             fake = nodes[0]
             self.true(fake.ndef[1].startswith('guid:'))
 
-            nodes = await core.nodes('[file:subfile=$valu :name=embed.BIN :path="foo/embed.bin"]',
+            nodes = await core.nodes('[file:subfile=$valu :path="foo/embed.bin"]',
                                      opts={'vars': {'valu': (node1.ndef[1], node2.ndef[1])}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], (node1.ndef[1], node2.ndef[1]))
             self.eq(node.get('parent'), node1.ndef[1])
             self.eq(node.get('child'), node2.ndef[1])
-            self.eq(node.get('name'), 'embed.bin')
             self.eq(node.get('path'), 'foo/embed.bin')
 
             fp = 'C:\\www\\woah\\really\\sup.exe'

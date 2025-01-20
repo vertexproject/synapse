@@ -86,7 +86,7 @@ class StormLibStixTest(s_test.SynTest):
                 (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :hq={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
                 (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[ou:goal=$goal :name=pwning]})
-                (risk:attack=$attack :campaign={ou:campaign} :target:org={ou:org:name=target})
+                (risk:attack=$attack :campaign={ou:campaign} +(targets)> {ou:org:name=target})
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
@@ -314,8 +314,8 @@ class StormLibStixTest(s_test.SynTest):
             [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
             [(ou:campaign=(campaign1,) :name="bob hax" :org=(bob1,) )]
-            [(risk:attack=(attk1,) :used:vuln=(vuln1,) :campaign=(campaign1,) )]
-            [(risk:attack=(attk2,) :used:vuln=(vuln3,) :campaign=(campaign1,) )]
+            [(risk:attack=(attk1,) +(uses)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
+            [(risk:attack=(attk2,) +(uses)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
             ''')
 
             bund = await core.callStorm('''

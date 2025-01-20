@@ -432,12 +432,6 @@ class FileModule(s_module.CoreModule):
                         ('keyval', 'file:mime:pe:vsvers:keyval'))}), {
                     'doc': 'knowledge of a file:bytes node containing vsvers info.',
                 }),
-                ('file:string', ('comp', {'fields': (
-                        ('file', 'file:bytes'),
-                        ('string', 'str'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use the edge -(refs)> it:dev:str.',
-                }),
 
                 ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
                     'doc': 'The typecode for the resource.',
@@ -625,17 +619,6 @@ class FileModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('file:string', {}, (
-                    ('file', ('file:bytes', {}), {
-                        'ro': True,
-                        'doc': 'The file containing the string.',
-                    }),
-                    ('string', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The string contained in this file:bytes node.',
-                    }),
-                )),
-
                 ('file:base', {}, (
                     ('ext', ('str', {}), {'ro': True,
                         'doc': 'The file extension (if any).'}),
@@ -711,10 +694,6 @@ class FileModule(s_module.CoreModule):
                     ('child', ('file:bytes', {}), {
                         'ro': True,
                         'doc': 'The child file contained in the parent file.',
-                    }),
-                    ('name', ('file:base', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated, please use the :path property.',
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path that the parent uses to refer to the child file.',

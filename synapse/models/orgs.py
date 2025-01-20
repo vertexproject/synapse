@@ -93,10 +93,6 @@ class OuModule(s_module.CoreModule):
                     'doc': 'An alias for the org GUID.',
                     'ex': 'vertexproject',
                 }),
-                ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
-                    'deprecated': True,
-                    'doc': 'The knowledge that an organization has an alias.',
-                }),
                 ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
                     'doc': "An organization's IPv4 netblock.",
                 }),
@@ -105,20 +101,11 @@ class OuModule(s_module.CoreModule):
                            'organization.',
                     'ex': 'acme corporation',
                 }),
-                ('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:position.',
-                }),
                 ('ou:position', ('guid', {}), {
                     'doc': 'A position within an org.  May be organized into an org chart.',
                 }),
                 ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
                     'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
-                }),
-                ('ou:org:has', ('comp', {'fields': (('org', 'ou:org'), ('node', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'An org owns, controls, or has exclusive use of an object or resource, '
-                           'potentially during a specific period of time.',
                 }),
                 ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
                     'doc': 'A user name within an organization.',
@@ -136,10 +123,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:preso', ('guid', {}), {
                     'doc': 'A webinar, conference talk, or other type of presentation.',
                 }),
-                ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
-                }),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
                     'display': {
@@ -149,16 +132,8 @@ class OuModule(s_module.CoreModule):
                         ),
                     },
                 }),
-                ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
-                }),
                 ('ou:conference:event', ('guid', {}), {
                     'doc': 'A conference event with a name and associated conference.',
-                }),
-                ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
                 }),
 
                 ('ou:contest:type:taxonomy', ('taxonomy', {}), {
@@ -185,10 +160,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:goal:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A hierarchical taxonomy of goal types.',
-                }),
-                ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:org:goals.',
                 }),
                 ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
@@ -545,24 +516,6 @@ class OuModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the goal.'}),
-
-                    ('prev', ('ou:goal', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:goal:type taxonomy.'}),
-                )),
-                ('ou:hasgoal', {}, (
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The org which has the goal.', 'ro': True,
-                    }),
-                    ('goal', ('ou:goal', {}), {
-                        'doc': 'The goal which the org has.', 'ro': True,
-                    }),
-                    ('stated', ('bool', {}), {
-                        'doc': 'Set to true/false if the goal is known to be self stated.',
-                    }),
-                    ('window', ('ival', {}), {
-                        'doc': 'Set if a goal has a limited time window.',
-                    }),
                 )),
                 ('ou:campaign:type:taxonomy', {
                     'prevnames': ('ou:camptype',)}, ()),
@@ -653,10 +606,6 @@ class OuModule(s_module.CoreModule):
 
                     ('conflict', ('ou:conflict', {}), {
                         'doc': 'The conflict in which this campaign is a primary participant.'}),
-
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
@@ -769,14 +718,6 @@ class OuModule(s_module.CoreModule):
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
                     }),
-                    ('sic', ('ou:sic', {}), {
-                        'deprecated': True,
-                        'doc': 'The Standard Industrial Classification code for the organization.',
-                    }),
-                    ('naics', ('ou:naics', {}), {
-                        'deprecated': True,
-                        'doc': 'The North American Industry Classification System code for the organization.',
-                    }),
                     ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
                         'doc': 'The industries associated with the org.',
                     }),
@@ -810,10 +751,6 @@ class OuModule(s_module.CoreModule):
 
                     ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
-                    }),
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': 'The assessed goals of the organization.'}),
@@ -946,10 +883,6 @@ class OuModule(s_module.CoreModule):
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the industry.'}),
 
-                    ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:industry:type taxonomy.'}),
-
                     ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of SIC codes that map to the industry.'}),
 
@@ -964,16 +897,6 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A description of the industry.'}),
                 )),
                 ('ou:industryname', {}, ()),
-                ('ou:hasalias', {}, (
-                    ('org', ('ou:org', {}), {
-                        'ro': True,
-                        'doc': 'The org guid which has the alias.',
-                    }),
-                    ('alias', ('ou:alias', {}), {
-                        'ro': True,
-                        'doc': 'Alias for the organization.',
-                    }),
-                )),
                 ('ou:orgnet', {
                     'prevnames': ('ou:orgnet4', 'ou:orgnet6')}, (
 
@@ -988,25 +911,6 @@ class OuModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name that the organization assigns to this netblock.'
                     }),
-                )),
-                ('ou:member', {}, (
-                    ('org', ('ou:org', {}), {
-                        'ro': True,
-                        'doc': 'The GUID of the org the person is a member of.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The GUID of the person that is a member of an org.',
-                    }),
-                    ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The persons normalized title.'
-                    }),
-                    ('start', ('time', {'ismin': True}), {
-                        'doc': 'Earliest known association of the person with the org.',
-                    }),
-                    ('end', ('time', {'ismax': True}), {
-                        'doc': 'Most recent known association of the person with the org.',
-                    })
                 )),
                 ('ou:suborg', {}, (
                     ('org', ('ou:org', {}), {
@@ -1028,20 +932,6 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('current', ('bool', {}), {
                         'doc': 'Bool indicating if the suborg relationship still current.',
-                    }),
-                )),
-                ('ou:org:has', {}, (
-                    ('org', ('ou:org', {}), {
-                        'ro': True,
-                        'doc': 'The org who owns or controls the object or resource.',
-                    }),
-                    ('node', ('ndef', {}), {
-                        'ro': True,
-                        'doc': 'The object or resource that is owned or controlled by the org.',
-                    }),
-                    ('node:form', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The form of the object or resource that is owned or controlled by the org.',
                     }),
                 )),
                 ('ou:user', {}, (
@@ -1146,22 +1036,6 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The geo:place node where the meet was held.',
                     }),
                 )),
-                ('ou:meet:attendee', {}, (
-                    ('meet', ('ou:meet', {}), {
-                        'ro': True,
-                        'doc': 'The meeting which was attended.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The person who attended the meeting.',
-                    }),
-                    ('arrived', ('time', {}), {
-                        'doc': 'The time when a person arrived to the meeting.',
-                    }),
-                    ('departed', ('time', {}), {
-                        'doc': 'The time when a person departed from the meeting.',
-                    }),
-                )),
                 ('ou:conference', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which created/managed the conference.',
@@ -1202,31 +1076,6 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The inet:url node for the conference website.',
                     }),
                 )),
-                ('ou:conference:attendee', {}, (
-                    ('conference', ('ou:conference', {}), {
-                        'ro': True,
-                        'doc': 'The conference which was attended.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The person who attended the conference.',
-                    }),
-                    ('arrived', ('time', {}), {
-                        'doc': 'The time when a person arrived to the conference.',
-                    }),
-                    ('departed', ('time', {}), {
-                        'doc': 'The time when a person departed from the conference.',
-                    }),
-                    ('role:staff', ('bool', {}), {
-                        'doc': 'The person worked as staff at the conference.',
-                    }),
-                    ('role:speaker', ('bool', {}), {
-                        'doc': 'The person was a speaker or presenter at the conference.',
-                    }),
-                    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
-                        'doc': 'List of the roles the person had at the conference.',
-                    }),
-                 )),
                 ('ou:conference:event', {}, (
                     ('conference', ('ou:conference', {}), {
                         'ro': True,
@@ -1261,26 +1110,6 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('end', ('time', {}), {
                         'doc': 'The event end date / time.',
-                    }),
-                )),
-                ('ou:conference:event:attendee', {}, (
-
-                    ('event', ('ou:conference:event', {}), {
-                        'ro': True,
-                        'doc': 'The conference event which was attended.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The person who attended the conference event.',
-                    }),
-                    ('arrived', ('time', {}), {
-                        'doc': 'The time when a person arrived to the conference event.',
-                    }),
-                    ('departed', ('time', {}), {
-                        'doc': 'The time when a person departed from the conference event.',
-                    }),
-                    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
-                        'doc': 'List of the roles the person had at the conference event.',
                     }),
                 )),
                 ('ou:contest:type:taxonomy', {}, ()),

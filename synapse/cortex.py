@@ -3666,11 +3666,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO: 3.0.0 conversion will truncate this hive key
 
         if self.inaugural:
-            locks = (
-                # 2.87.0 - lock out incorrect crypto model
-                ('crypto:currency:transaction:inputs', True),
-                ('crypto:currency:transaction:outputs', True),
-            )
+            locks = ()
             for k, v in locks:
                 await self._hndlsetDeprLock(k, v)
 

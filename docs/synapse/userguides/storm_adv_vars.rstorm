@@ -323,16 +323,16 @@ You can assign an explicit, unchanging value to a variable.
 
 *Example:*
 
-- Tag ``file:bytes`` nodes that have a number of AV signature hits higher than a given threshold for review:
+- Tag ``file:bytes`` nodes that have a number of malicious AV scan results higher than a given threshold for review:
 
-.. storm-pre:: [file:bytes=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 it:av:filehit=(sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4, (0bfef0179bf358f3fe7bad67fa529c77, trojan.gen.2)) it:av:filehit=(sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4, (325cd5a01724fa0c63907eac044f4961, trojan.agent/gen-onlinegames)) it:av:filehit=(sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4, (ac8d9645c6cdf123683a73a02e231052, w32/imestartup.a.gen!eldorado))]
-.. storm-pre:: [file:bytes=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (be9793d772d23269ab0c165af819e74a, troj_gen.r002c0gkj17)) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (eef2ccb70945fb28a45c7f14f2a0f11d, malicious.1b8fb7)) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (ce4e34d2f9207095aa7351986bbad357, trojan-ddos.win32.stormattack.c)) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (ed344310e3203ec4348c4ee549a3b188, "trojan ( 00073eb11 )")) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (f5b5daeda10e487fccc07463d9df6b47, tool.stormattack.win32.10)) it:av:filehit=(sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f, (a0f25a5ba637d5c8e7c42911c4336085, trojan/w32.agent.61440.eii))]
-.. storm-cli:: $threshold=5 file:bytes +{ -> it:av:filehit } >= $threshold [ +#review ]
+.. storm-pre:: [file:bytes=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 (it:av:scan:result=(1,) it:av:scan:result=(2,) it:av:scan:result=(3,) :target:file=sha256:0000746c55336cd8d34885545f9347d96607d0391fbd3e76dae7f2b3447775b4 :verdict=malicious) ]
+.. storm-pre:: [file:bytes=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f (it:av:scan:result=(4,) it:av:scan:result=(5,) it:av:scan:result=(6,) it:av:scan:result=(7,) it:av:scan:result=(8,) it:av:scan:result=(9,) :target:file=sha256:00007694135237ec8dc5234007043814608f239befdfc8a61b992e4d09e0cf3f :verdict=malicious) ]
+.. storm-cli:: $threshold=5 file:bytes +{ -> it:av:scan:result +:verdict=malicious } >= $threshold [ +#review ]
 
 .. TIP::
   
-  The example above uses a subquery filter (:ref:`filter-subquery`) to pivot to the ``it:av:filehit`` nodes
-  associated with the ``file:bytes`` node, and compares the number of AV hits to the value of the ``$threshold``
+  The example above uses a subquery filter (:ref:`filter-subquery`) to pivot to the ``it:av:scan:result`` nodes
+  associated with the ``file:bytes`` node, and compares the number of malicious AV scan results to the value of the ``$threshold``
   variable.
 
 

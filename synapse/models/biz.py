@@ -174,14 +174,6 @@ class BizModule(s_module.CoreModule):
                     ('service', ('biz:service', {}), {
                         'doc': 'The service included in the bundle.',
                     }),
-                    ('deal', ('biz:deal', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use econ:receipt:item for instances of bundles being sold.',
-                    }),
-                    ('purchase', ('econ:purchase', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use econ:receipt:item for instances of bundles being sold.',
-                    }),
                 )),
                 ('biz:listing', {}, (
 
@@ -243,18 +235,6 @@ class BizModule(s_module.CoreModule):
                     }),
                     ('maker', ('ps:contact', {}), {
                         'doc': 'A contact for the maker of the product.',
-                    }),
-                    ('madeby:org', ('ou:org', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use biz:product:maker.',
-                    }),
-                    ('madeby:orgname', ('ou:name', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use biz:product:maker.',
-                    }),
-                    ('madeby:orgfqdn', ('inet:fqdn', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use biz:product:maker.',
                     }),
                     ('price:retail', ('econ:price', {}), {
                         'doc': 'The MSRP price of the product.',

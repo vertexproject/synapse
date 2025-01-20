@@ -327,13 +327,13 @@ new cron jobs. See the help for each command for options and additional details.
 **One-time (non-recurring) cron job example**
 
 You want to use a one-time cron job that runs during off hours to perform some data cleanup. Specifically, you
-want a job that will lift all existing ``media:news`` nodes and remove (delete) the deprecated ``:author`` property
+want a job that will lift all existing ``media:news`` nodes and remove (delete) the ``:publisher:name`` property
 at 0200 UTC.
 
-.. storm-pre:: [ (media:news=* :author='ron the cat' :title='my article') (media:news=* :title='your article') ]
-.. storm-pre:: media:news:author [ -:author ]
+.. storm-pre:: [ (media:news=* :publisher:name='ron the cat' :title='my article') (media:news=* :title='your article') ]
+.. storm-pre:: media:news:publisher:name [ -:publisher:name ]
 
-.. storm-cli:: cron.at --hour 2 { media:news:author [ -:author ] }
+.. storm-cli:: cron.at --hour 2 { media:news:publisher:name [ -:publisher:name ] }
 
 We can view the details of this cron job using the ``cron.list`` command:
 
