@@ -225,7 +225,7 @@ class TransportModule(s_module.CoreModule):
                             'doc': 'The scheduled arrival time.'}),
 
                         ('scheduled:arrival:place', ('geo:place', {}), {
-                            'doc': 'The scheduled departure {place}.'}),
+                            'doc': 'The scheduled arrival {place}.'}),
 
                         ('scheduled:arrival:point', ('transport:point', {}), {
                             'doc': 'The scheduled arrival {point}.'}),
