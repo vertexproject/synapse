@@ -304,6 +304,7 @@ class TransportTest(s_test.SynTest):
             self.eq(2, nodes[0].get('max:occupants'))
             self.eq('1000000', nodes[0].get('max:cargo:mass'))
             self.eq(1000000, nodes[0].get('max:cargo:volume'))
+            self.len(1, await core.nodes('transport:rail:car -> transport:rail:car:type:taxonomy'))
 
             self.nn(nodes[0].get('owner'))
 

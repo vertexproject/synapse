@@ -516,6 +516,7 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The ID assigned to the train.'}),
                 )),
 
+                ('transport:rail:car:type:taxonomy', {}, ()),
                 ('transport:rail:car', {}, (
                     ('type', ('transport:rail:car:type:taxonomy', {}), {
                         'doc': 'The type of rail car.'}),
