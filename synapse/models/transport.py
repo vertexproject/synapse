@@ -160,7 +160,7 @@ class TransportModule(s_module.CoreModule):
                             'doc': 'The maximum mass the {phys:object} can carry as cargo.'}),
 
                         ('max:cargo:volume', ('geo:dist', {}), {
-                            'doc': 'The maxiumum volume the {phys:object} can carry as cargo.'}),
+                            'doc': 'The maximum volume the {phys:object} can carry as cargo.'}),
 
                         # TODO deprecate for entity:ownership?
                         ('owner', ('ps:contact', {}), {
