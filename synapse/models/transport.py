@@ -8,7 +8,7 @@ class TransportModule(s_module.CoreModule):
                 # TODO is transport:journey a thing?
 
                 ('transport:cargo', ('guid', {}), {
-                    'doc': 'Cargo being carried by a vehicle on trip.'}),
+                    'doc': 'Cargo being carried by a vehicle on a trip.'}),
 
                 ('transport:point', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A departure/arrival point such as an airport gate or train platform.'}),
@@ -169,7 +169,7 @@ class TransportModule(s_module.CoreModule):
                             'doc': 'The maximum mass the {phys:object} can carry as cargo.'}),
 
                         ('max:cargo:volume', ('geo:dist', {}), {
-                            'doc': 'The maxiumum volume the {phys:object} can carry as cargo.'}),
+                            'doc': 'The maximum volume the {phys:object} can carry as cargo.'}),
 
                         # TODO deprecate for entity:ownership?
                         ('owner', ('ps:contact', {}), {
@@ -234,7 +234,7 @@ class TransportModule(s_module.CoreModule):
                             'doc': 'The scheduled arrival time.'}),
 
                         ('scheduled:arrival:place', ('geo:place', {}), {
-                            'doc': 'The scheduled departure {place}.'}),
+                            'doc': 'The scheduled arrival {place}.'}),
 
                         ('scheduled:arrival:point', ('transport:point', {}), {
                             'doc': 'The scheduled arrival {point}.'}),
@@ -319,7 +319,7 @@ class TransportModule(s_module.CoreModule):
                 ('transport:land:vehicle', {}, (
 
                     ('type', ('transport:land:vehicle:type:taxonomy', {}), {
-                        'doc': 'A type taxonomy for land vehicles.'}),
+                        'doc': 'The type of land vehicle.'}),
 
                     ('desc', ('str', {}), {
                         'doc': 'A description of the vehicle.'}),

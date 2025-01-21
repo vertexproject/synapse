@@ -392,7 +392,7 @@ class GeoModule(s_module.CoreModule):
 
                 'interfaces': (
                     ('geo:locatable', {
-                        'doc': 'Properties common to items and events which may be geo located.',
+                        'doc': 'Properties common to items and events which may be geolocated.',
                         'template': {'geo:locatable': 'item'},
                         'props': (
                             ('place', ('geo:place', {}), {
