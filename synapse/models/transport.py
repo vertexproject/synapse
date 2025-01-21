@@ -8,7 +8,7 @@ class TransportModule(s_module.CoreModule):
                 # TODO is transport:journey a thing?
 
                 ('transport:cargo', ('guid', {}), {
-                    'doc': 'Cargo being carried by a vehicle on trip.'}),
+                    'doc': 'Cargo being carried by a vehicle on a trip.'}),
 
                 ('transport:point', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A departure/arrival point such as an airport gate or train platform.'}),
