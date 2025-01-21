@@ -88,6 +88,7 @@ class TransportTest(s_test.SynTest):
                     :mmsi=123456789
                     :name="Slice of Life"
                     :flag=us
+                    :type=cargo.tanker.oil
                     :imo="IMO 1234567"
                     :built=2020
                     :make="The Vertex Project"
@@ -98,6 +99,7 @@ class TransportTest(s_test.SynTest):
                 ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
             self.eq('slice of life', vessel.get('name'))
+            self.eq('cargo.tanker.oil.', vessel.get('type'))
             self.eq('the vertex project', vessel.get('make'))
             self.eq('speed boat 9000', vessel.get('model'))
             self.eq('us', vessel.get('flag'))
@@ -108,6 +110,7 @@ class TransportTest(s_test.SynTest):
             self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
+            self.len(1, await core.nodes('transport:sea:vessel -> transport:sea:vessel:type:taxonomy'))
 
             seatelem = (await core.nodes('''[
                  transport:sea:telem=*
@@ -255,6 +258,7 @@ class TransportTest(s_test.SynTest):
                             :cars={[
                                 transport:rail:car=*
                                 :serial=001
+                                :type=engine.diesel
                                 :built=20221212
                                 :manufacturer:name=acme
                                 :manufacturer={[ ou:org=({"name": "acme"}) ]}
@@ -293,6 +297,7 @@ class TransportTest(s_test.SynTest):
 
             nodes = await core.nodes('transport:rail:car')
             self.eq('001', nodes[0].get('serial'))
+            self.eq('engine.diesel.', nodes[0].get('type'))
             self.eq(1670803200000, nodes[0].get('built'))
             self.eq('acme', nodes[0].get('manufacturer:name'))
             self.eq('engine that could', nodes[0].get('model'))

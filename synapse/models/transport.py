@@ -92,6 +92,10 @@ class TransportModule(s_module.CoreModule):
                 ('transport:air:port', ('str', {'lower': True}), {
                     'doc': 'An IATA assigned airport code.'}),
 
+                ('transport:sea:vessel:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of sea vessel types.'}),
+
                 ('transport:sea:vessel', ('guid', {}), {
                     'interfaces': ('transport:vehicle',),
                     'template': {'phys:object': 'vessel'},
@@ -114,6 +118,11 @@ class TransportModule(s_module.CoreModule):
                         'trip': 'train trip',
                         'vehicle': 'train'},
                     'doc': 'An individual instance of a consist of train cars running a route.'}),
+
+                ('transport:rail:car:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'ex': 'engine.diesel',
+                    'doc': 'A hierarchical taxonomy of rail car types.'}),
 
                 ('transport:rail:car', ('guid', {}), {
                     'interfaces': ('transport:container',),
@@ -436,9 +445,15 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'Deprecated. Please use transport:occupant.'}),
                 )),
                 # TODO ais numbers
+                ('transport:sea:vessel:type:taxonomy', {}, ()),
                 ('transport:sea:vessel', {}, (
+
                     ('imo', ('transport:sea:imo', {}), {
                         'doc': 'The International Maritime Organization number for the vessel.'}),
+
+                    ('type', ('transport:sea:vessel:type:taxonomy', {}), {
+                        'doc': 'The type of vessel.'}),
+
                     # TODO: convert this to an entity:name
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the vessel'}),
@@ -501,7 +516,10 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The ID assigned to the train.'}),
                 )),
 
-                ('transport:rail:car', {}, ()),
+                ('transport:rail:car', {}, (
+                    ('type', ('transport:rail:car:type:taxonomy', {}), {
+                        'doc': 'The type of rail car.'}),
+                )),
 
                 ('transport:occupant:role:taxonomy', {}, ()),
                 ('transport:occupant', {}, (

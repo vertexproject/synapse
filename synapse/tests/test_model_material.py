@@ -60,3 +60,4 @@ class MatTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('container'))
             self.eq('component.', nodes[0].get('type'))
             self.eq((1704067200000, 9223372036854775807), nodes[0].get('period'))
+            self.len(1, await core.nodes('phys:contained -> phys:contained:type:taxonomy'))

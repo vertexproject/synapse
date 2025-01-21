@@ -88,6 +88,7 @@ class MatModule(s_module.CoreModule):
 
             'forms': (
 
+                ('phys:contained:type:taxonomy', {}, ()),
                 ('phys:contained', {}, (
 
                     ('type', ('phys:contained:type:taxonomy', {}), {
