@@ -4323,10 +4323,13 @@ class StormTest(s_t_utils.SynTest):
                 function y() {
                     function z() {
                         $foo = (20)
+                        return()
                     }
                     $z()
+                    return()
                 }
                 $y()
+                return()
             }
             $x()
             return ($foo)

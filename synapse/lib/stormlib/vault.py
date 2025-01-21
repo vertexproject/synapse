@@ -365,7 +365,7 @@ class LibVault(s_stormtypes.Lib):
         {'name': 'list', 'desc': 'List vaults accessible to the current user.',
          'type': {'type': 'function', '_funcname': '_listVaults',
                   'args': (),
-                  'returns': {'type': 'list', 'desc': 'Yields vaults.'}}},
+                  'returns': {'name': 'yields', 'type': 'vault', 'desc': 'Yields vaults.'}}},
         {'name': 'print', 'desc': 'Print the details of the specified vault.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -431,6 +431,7 @@ class LibVault(s_stormtypes.Lib):
                     $lib.print('  Secrets: None')
                 }
             }
+            return()
         }
     '''
 
