@@ -310,7 +310,7 @@ class TransportModule(s_module.CoreModule):
                 ('transport:land:vehicle', {}, (
 
                     ('type', ('transport:land:vehicle:type:taxonomy', {}), {
-                        'doc': 'A type taxonomy for land vehicles.'}),
+                        'doc': 'The type of land vehicle.'}),
 
                     ('desc', ('str', {}), {
                         'doc': 'A description of the vehicle.'}),
