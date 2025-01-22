@@ -689,6 +689,11 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
+        self._delete_appt_from_heap(appt)
+        del self.appts[iden]
+        self.apptdefs.delete(iden)
+
+    def _delete_appt_from_heap(self, appt):
         try:
             heappos = self.apptheap.index(appt)
         except ValueError:
@@ -702,9 +707,6 @@ class Agenda(s_base.Base):
                 self.apptheap[heappos] = self.apptheap.pop()
                 heapq.heapify(self.apptheap)
 
-        del self.appts[iden]
-        self.apptdefs.delete(iden)
-
     def _getNowTick(self):
         return time.time() + self.tickoff
 
@@ -717,12 +719,23 @@ class Agenda(s_base.Base):
         for appt in list(self.appts.values()):
             if appt.isrunning:
                 logger.debug(f'Clearing the isrunning flag for {appt.iden}')
-                await self.core.addCronEdits(appt.iden, {'isrunning': False})
+
+                edits = {
+                    'isrunning': False,
+                    'lastfinishtime': self._getNowTick(),
+                    'lasterrs': ['aborted'] + appt.lasterrs[-4:]
+                }
+                await self.core.addCronEdits(appt.iden, edits)
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+
+                if appt.nexttime is None:
+                    self._delete_appt_from_heap(appt)
 
     async def runloop(self):
         '''
         Task loop to issue query tasks at the right times.
         '''
+        await self.clearRunningStatus()
         while not self.isfini:
 
             timeout = None

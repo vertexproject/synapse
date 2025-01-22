@@ -22,24 +22,22 @@ class PsModule(s_module.CoreModule):
                 }),
                 ('ps:name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'An arbitrary, lower spaced string with normalized whitespace.',
-                    'ex': 'robert grey'
-                }),
+                    'ex': 'robert grey'}),
+
                 ('ps:person', ('guid', {}), {
-                    'doc': 'A GUID for a person.',
-                }),
+                    'doc': 'A GUID for a person.'}),
+
                 ('ps:persona', ('guid', {}), {
                     'deprecated': True,
-                    'doc': 'A GUID for a suspected person.',
-                }),
+                    'doc': 'Deprecated. Please use ps:contact.'}),
+
                 ('ps:person:has', ('comp', {'fields': (('person', 'ps:person'), ('node', 'ndef'))}), {
                     'deprecated': True,
-                    'doc': 'A person owns, controls, or has exclusive use of an object or'
-                           ' resource, potentially during a specific period of time.'
-                }),
+                    'doc': 'Deprecated. Please use ps:person -(has)>.'}),
+
                 ('ps:persona:has', ('comp', {'fields': (('persona', 'ps:persona'), ('node', 'ndef'))}), {
                     'deprecated': True,
-                    'doc': 'A persona owns, controls, or has exclusive use of an object or'
-                           ' resource, potentially during a specific period of time.'}),
+                    'doc': 'Deprecated. Please use ps:contact -(has)>.'}),
 
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record.',
@@ -60,9 +58,11 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A GUID for a list of associated contacts.',
                 }),
                 ('ps:workhist', ('guid', {}), {
-                    'doc': "A GUID representing entry in a contact's work history.",
-                }),
+                    'doc': "An entry in a contact's work history."}),
+
                 ('ps:vitals', ('guid', {}), {
+                    'interfaces': ('phys:object',),
+                    'template': {'phys:object': 'person'},
                     'doc': 'Statistics and demographic data about a person or contact.'}),
 
                 ('ps:skill', ('guid', {}), {
@@ -254,6 +254,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The most recent known vitals for the person.',
                     }),
                     ('name', ('ps:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The localized name for the person.',
                     }),
                     ('name:sur', ('ps:tokn', {}), {
@@ -350,6 +351,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The most recent known vitals for the contact.',
                     }),
                     ('name', ('ps:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The person name listed for the contact.'}),
 
                     ('bio', ('str', {}), {
@@ -359,6 +361,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'A description of this contact.'}),
 
                     ('title', ('ou:jobtitle', {}), {
+                        'alts': ('titles',),
                         'doc': 'The job/org title listed for this contact.'}),
 
                     ('titles', ('array', {'type': 'ou:jobtitle', 'sorted': True, 'uniq': True}), {
@@ -368,12 +371,14 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The photo listed for this contact.',
                     }),
                     ('orgname', ('ou:name', {}), {
+                        'alts': ('orgnames',),
                         'doc': 'The listed org/company name for this contact.',
                     }),
                     ('orgfqdn', ('inet:fqdn', {}), {
                         'doc': 'The listed org/company FQDN for this contact.',
                     }),
                     ('user', ('inet:user', {}), {
+                        'alts': ('users',),
                         'doc': 'The username or handle for this contact.'}),
 
                     ('service:accounts', ('array', {'type': 'inet:service:account', 'sorted': True, 'uniq': True}), {
@@ -415,6 +420,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The home or main site for this contact.',
                     }),
                     ('email', ('inet:email', {}), {
+                        'alts': ('emails',),
                         'doc': 'The main email address for this contact.',
                     }),
                     ('email:work', ('inet:email', {}), {
@@ -443,6 +449,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The work phone number for this contact.',
                     }),
                     ('id:number', ('ou:id:number', {}), {
+                        'alts': ('id:numbers',),
                         'doc': 'An ID number issued by an org and associated with this contact.',
                     }),
                     ('adid', ('it:adid', {}), {
@@ -482,6 +489,7 @@ class PsModule(s_module.CoreModule):
                     }),
 
                     ('lang', ('lang:language', {}), {
+                        'alts': ('langs',),
                         'doc': 'The language specified for the contact.'}),
 
                     ('langs', ('array', {'type': 'lang:language'}), {

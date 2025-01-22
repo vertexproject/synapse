@@ -652,10 +652,9 @@ class ItModule(s_module.CoreModule):
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
                     'doc': 'The name of a host or system.'}),
 
-
                 ('it:host', ('guid', {}), {
-                    'interfaces': ('inet:service:object',),
-                    'template': {'service:base': 'host'},
+                    'interfaces': ('inet:service:object', 'phys:object'),
+                    'template': {'service:base': 'host', 'phys:object': 'physical host'},
                     'doc': 'A GUID that represents a host or system.'}),
 
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
@@ -2101,6 +2100,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'An ID for the software.'}),
 
                     ('name', ('it:prod:softname', {}), {
+                        'alts': ('names',),
                         'doc': 'Name of the software.',
                     }),
                     ('type', ('it:prod:soft:taxonomy', {}), {
@@ -2222,6 +2222,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Deprecated. Please use it:prod:softver:name.',
                     }),
                     ('name', ('it:prod:softname', {}), {
+                        'alts': ('names',),
                         'doc': 'Name of the software version.',
                     }),
                     ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
