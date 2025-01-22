@@ -1334,6 +1334,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             cdef = {
                 'creator': core.auth.rootuser.iden,
+                'user': core.auth.rootuser.iden,
                 'iden': s_common.guid(),
                 'storm': '$lib.log.info("test")',
                 'reqs': {},
