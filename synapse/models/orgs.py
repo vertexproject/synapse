@@ -526,6 +526,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:goal', {}, (
 
                     ('name', ('ou:goalname', {}), {
+                        'alts': ('names',),
                         'doc': 'A terse name for the goal.'}),
 
                     ('names', ('array', {'type': 'ou:goalname', 'sorted': True, 'uniq': True}), {
@@ -570,6 +571,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.'}),
 
                     ('goal', ('ou:goal', {}), {
+                        'alts': ('goals',),
                         'doc': 'The assessed primary goal of the campaign.'}),
 
                     ('slogan', ('lang:phrase', {}), {
@@ -585,6 +587,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Records the success/failure status of the campaign if known.'}),
 
                     ('name', ('ou:campname', {}), {
+                        'alts': ('names',),
                         'ex': 'operation overlord',
                         'doc': 'A terse name of the campaign.'}),
 
@@ -924,6 +927,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:industry', {}, (
 
                     ('name', ('ou:industryname', {}), {
+                        'alts': ('names',),
                         'doc': 'The name of the industry.'}),
 
                     ('type', ('ou:industry:type:taxonomy', {}), {
@@ -1176,6 +1180,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of contacts which sponsored the conference.',
                     }),
                     ('name', ('entity:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The full name of the conference.',
                         'ex': 'defcon 2017'}),
 

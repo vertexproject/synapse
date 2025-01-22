@@ -59,7 +59,7 @@ class AhaTest(s_test.SynTest):
                     self.len(ahacount, await proxy0.getAhaUrls())
                     self.len(ahacount, await proxy0.getAhaServers())
 
-                    purl = await proxy0.addAhaClone(zoinks)
+                    purl = await proxy0.addAhaClone(zoinks, port=0)
 
                 conf1 = {'clone': purl}
                 async with self.getTestAha(conf=conf1, dirn=dir1) as aha1:
@@ -574,7 +574,7 @@ class AhaTest(s_test.SynTest):
                 }
                 s_common.yamlsave(axonconf, axonpath, 'cell.yaml')
 
-                argv = (axonpath, '--auth-passwd', 'rootbeer')
+                argv = (axonpath, '--auth-passwd', 'rootbeer', '--https', '0')
                 async with await s_axon.Axon.initFromArgv(argv) as axon:
 
                     # opts were copied through successfully
@@ -1221,7 +1221,8 @@ class AhaTest(s_test.SynTest):
                     aconf = {
                         'aha:name': 'aha',
                         'aha:network': networkname,
-                        'provision:listen': f'ssl://aha.{networkname}:0'
+                        'dmon:listen': f'ssl://aha.{networkname}:0',
+                        'provision:listen': f'ssl://aha.{networkname}:0',
                     }
                     name = aconf.get('aha:name')
                     netw = aconf.get('aha:network')
@@ -1360,11 +1361,17 @@ class AhaTest(s_test.SynTest):
         conf = {
             'aha:network': 'synapse',
             'dns:name': 'here.loop.vertex.link',
+            'dmon:listen': 'ssl://0.0.0.0:0?hostname=here.loop.vertex.link&ca=synapse',
         }
-        mesg = 'provision listening: ssl://0.0.0.0:27272?hostname=here.loop.vertex.link'
-        with self.getAsyncLoggerStream('synapse.lib.aha', mesg) as stream:
+
+        orig = s_aha.AhaCell._getProvListen
+        def _getProvListen(_self):
+            ret = orig(_self)
+            self.eq(ret, 'ssl://0.0.0.0:27272?hostname=here.loop.vertex.link')
+            return 'ssl://0.0.0.0:0?hostname=here.loop.vertex.link'
+
+        with mock.patch('synapse.lib.aha.AhaCell._getProvListen', _getProvListen):
             async with self.getTestCell(s_aha.AhaCell, conf=conf) as aha:
-                self.true(await stream.wait(timeout=6))
                 # And the URL works with our listener :)
                 provurl = await aha.addAhaUserEnroll('bob.grey')
                 async with await s_telepath.openurl(provurl) as prox:
