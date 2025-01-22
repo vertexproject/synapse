@@ -485,6 +485,9 @@ class OuModelTest(s_t_utils.SynTest):
 
             iden = await core.callStorm('ou:id:type return($node.value())')
 
+            self.len(1, alts := await core.nodes('[ ou:id:type=({"name": "foobar"}) ]'))
+            self.eq(nodes[0].ndef, alts[0].ndef)
+
             opts = {'vars': {'type': iden}}
             nodes = await core.nodes('''
                 [ ou:id:number=($type, visi)
