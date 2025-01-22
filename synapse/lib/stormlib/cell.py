@@ -191,6 +191,7 @@ class CellLib(s_stormtypes.Lib):
             'uptime': self._uptime,
         }
 
+    @s_stormtypes.stormfunc(readonly=True)
     async def _getCellIden(self):
         return self.runt.snap.core.getCellIden()
 
