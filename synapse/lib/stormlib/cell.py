@@ -120,6 +120,9 @@ class CellLib(s_stormtypes.Lib):
     A Storm Library for interacting with the Cortex.
     '''
     _storm_locals = (
+        {'name': 'iden', 'desc': 'Return the Cortex iden for this Storm query.',
+         'type': {'type': 'gtor', '_gtorfunc': '_getCellIden',
+                  'returns': {'type': 'str', 'desc': 'The Cortex iden.'}}},
         {'name': 'getCellInfo', 'desc': 'Return metadata specific for the Cortex.',
          'type': {'type': 'function', '_funcname': '_getCellInfo', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing metadata.', }}},
