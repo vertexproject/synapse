@@ -488,7 +488,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The friendly name of the id number type.',
                     }),
                     ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True}), {
-                        'doc': 'An array of alternate names for the type.'}),
+                        'doc': 'An array of alternate names for the ID number type.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The official URL of the issuer.',
                     }),
