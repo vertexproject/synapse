@@ -174,6 +174,10 @@ class CellLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('cell',)
 
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name=name)
+        self.gtors['iden'] = self._getCellIden
+
     def getObjLocals(self):
         return {
             'getCellInfo': self._getCellInfo,
@@ -186,6 +190,9 @@ class CellLib(s_stormtypes.Lib):
             'trimNexsLog': self._trimNexsLog,
             'uptime': self._uptime,
         }
+
+    async def _getCellIden(self):
+        return self.runt.snap.core.getCellIden()
 
     async def _hotFixesApply(self):
         if not self.runt.isAdmin():

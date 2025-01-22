@@ -1,0 +1,7 @@
+---
+desc: Added ``$lib.cell.iden`` to retrieve the iden of the Cortex which the Storm
+  query is executing on. Unlike ``$lib.cell.getcellInfo().cell.iden``, this value
+  is available to non-admin users.
+prs: []
+type: feat
+...
