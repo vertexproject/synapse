@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where the deprecated types ``edge`` and ``timeedge`` were not annotated
+  as such by the ``getModelDict()`` API.
+prs: []
+type: bug
+...
