@@ -3,7 +3,6 @@ import copy
 import random
 import asyncio
 import logging
-import contextlib
 import collections
 
 import cryptography.x509 as c_x509
