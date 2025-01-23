@@ -120,6 +120,9 @@ class CellLib(s_stormtypes.Lib):
     A Storm Library for interacting with the Cortex.
     '''
     _storm_locals = (
+        {'name': 'iden', 'desc': 'The Cortex service identifier.',
+         'type': {'type': 'gtor', '_gtorfunc': '_getCellIden',
+                  'returns': {'type': 'str', 'desc': 'The Cortex service identifier.'}}},
         {'name': 'getCellInfo', 'desc': 'Return metadata specific for the Cortex.',
          'type': {'type': 'function', '_funcname': '_getCellInfo', 'args': (),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing metadata.', }}},
@@ -174,6 +177,10 @@ class CellLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('cell',)
 
+    def __init__(self, runt, name=()):
+        s_stormtypes.Lib.__init__(self, runt, name=name)
+        self.gtors['iden'] = self._getCellIden
+
     def getObjLocals(self):
         return {
             'getCellInfo': self._getCellInfo,
@@ -186,6 +193,10 @@ class CellLib(s_stormtypes.Lib):
             'trimNexsLog': self._trimNexsLog,
             'uptime': self._uptime,
         }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _getCellIden(self):
+        return self.runt.snap.core.getCellIden()
 
     async def _hotFixesApply(self):
         if not self.runt.isAdmin():
