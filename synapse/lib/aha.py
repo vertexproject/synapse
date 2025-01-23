@@ -1024,15 +1024,6 @@ class AhaCell(s_cell.Cell):
         await self.fire('aha:svcadd', svcinfo=svcinfo)
         await self.fire(f'aha:svcadd:{svcfull}', svcinfo=svcinfo)
 
-    async def reqAhaSvcProxy(self, svcdef, timeout=None):
-
-        proxy = await self.getAhaSvcProxy(svcdef, timeout=timeout)
-        if proxy is not None:
-            return proxy
-
-        mesg = f'The service is not ready {svcdef.get("name")}.'
-        raise s_exc.NotReady(mesg=mesg)
-
     async def getAhaSvcProxy(self, svcdef, timeout=None):
 
         client = await self.getAhaSvcClient(svcdef)

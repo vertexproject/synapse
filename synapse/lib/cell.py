@@ -4457,7 +4457,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Yield responses from our peers via the AHA gather call API.
         '''
         proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
-        if proxy is None:
+        if proxy is None: # pragma: no cover
             return
 
         async for item in proxy.callAhaPeerApi(self.iden, todo, timeout=timeout, skiprun=self.runid):
@@ -4468,7 +4468,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Yield responses from invoking a generator via the AHA gather API.
         '''
         proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
-        if proxy is None:
+        if proxy is None: # pragma: no cover
             return
 
         async for item in proxy.callAhaPeerGenr(self.iden, todo, timeout=timeout, skiprun=self.runid):
@@ -4490,7 +4490,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # we can ignore the yielded aha names because we embed it in the task
         async for (ahasvc, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
 
-            if not ok:
+            if not ok: # pragma: no cover
                 logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
                 continue
 
@@ -4510,7 +4510,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         todo = s_common.todo('getTask', iden, peers=False, timeout=timeout)
         async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
 
-            if not ok:
+            if not ok: # pragma: no cover
                 logger.warning(f'getTask() on {ahasvc} failed: {retn}')
                 continue
 
@@ -4530,7 +4530,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         todo = s_common.todo('killTask', iden, peers=False, timeout=timeout)
         async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
 
-            if not ok:
+            if not ok: # pragma: no cover
                 logger.warning(f'killTask() on {ahasvc} failed: {retn}')
                 continue
 
