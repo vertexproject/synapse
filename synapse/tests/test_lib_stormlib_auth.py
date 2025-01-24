@@ -320,6 +320,17 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('Controls access to add a new view including forks.', msgs)
             self.stormIsInPrint('default: false', msgs)
 
+            msgs = await core.stormlist('auth.perms.list --find macro.')
+            self.stormIsInPrint('storm.macro.add', msgs)
+            self.stormIsInPrint('storm.macro.admin', msgs)
+            self.stormIsInPrint('storm.macro.edit', msgs)
+            self.stormNotInPrint('node.add.<form>', msgs)
+
+            msgs = await core.stormlist('auth.perms.list --find url')
+            self.stormIsInPrint('storm.lib.telepath.open.<scheme>', msgs)
+            self.stormIsInPrint('Controls the ability to open a telepath URL with a specific URI scheme.', msgs)
+            self.stormNotInPrint('node.add.<form>', msgs)
+
     async def test_stormlib_auth_default_allow(self):
         async with self.getTestCore() as core:
 
@@ -1002,6 +1013,21 @@ class StormLibAuthTest(s_test.SynTest):
                 await core.callStorm('$lib.auth.roles.add(runners, iden=$iden)', opts=opts)
             with self.raises(s_exc.DupIden):
                 await core.callStorm('$lib.auth.roles.add(walkers, iden=$iden)', opts=opts)
+
+            # The role & user.authgates local is a passthrough to the getRoleDef & getUserDef
+            # results, which are a pack()'d structure. Modifying the results of that structure
+            # does not persist.
+            q = '$u = $lib.auth.users.byname(root) $u.authgates.newp = ({}) return ($u)'
+            udef = await core.callStorm(q)
+            self.notin('newp', udef.get('authgates'))
+            q = '$u = $lib.auth.users.byname(root) return ( $lib.dict.has($u.authgates, newp) )'
+            self.false(await core.callStorm(q))
+
+            q = '$r = $lib.auth.roles.byname(all) $r.authgates.newp = ({}) return ($r)'
+            rdef = await core.callStorm(q)
+            self.notin('newp', rdef.get('authgates'))
+            q = '$r = $lib.auth.roles.byname(all) return ( $lib.dict.has($r.authgates, newp) )'
+            self.false(await core.callStorm(q))
 
     async def test_stormlib_auth_gateadmin(self):
 

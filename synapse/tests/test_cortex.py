@@ -3048,7 +3048,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'infosec', 'cvss')]
             self.len(1, depr)
-            self.len(2, [x for x in depr[0]['locals'] if x.get('deprecated')])
+            self.len(4, [x for x in depr[0]['locals'] if x.get('deprecated')])
 
     async def test_cortex_model_dict(self):
 
@@ -3106,6 +3106,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.nn(model['univs'].get('.created'))
             self.nn(model['univs'].get('.seen'))
+
+            self.true(model['types']['edge']['info'].get('deprecated'))
+            self.true(model['types']['timeedge']['info'].get('deprecated'))
 
     async def test_storm_graph(self):
 

@@ -1127,8 +1127,18 @@ class CellTest(s_t_utils.SynTest):
                 await proxy.addUserRole(visi['iden'], ninjas['iden'])
                 await proxy.setUserEmail(visi['iden'], 'visi@vertex.link')
 
+                def1 = await core.getUserDef(visi['iden'])
+                def2 = await core.getUserDef(visi['iden'])
+                self.false(def1['authgates'] is def2['authgates'])
+                self.eq(def1, def2)
+
                 visi = await proxy.getUserDefByName('visi')
                 self.eq(visi['email'], 'visi@vertex.link')
+
+                def1 = await core.getRoleDef(ninjas['iden'])
+                def2 = await core.getRoleDef(ninjas['iden'])
+                self.false(def1['authgates'] is def2['authgates'])
+                self.eq(def1, def2)
 
                 self.true(await proxy.isUserAllowed(visi['iden'], ('foo', 'bar')))
                 self.true(await proxy.isUserAllowed(visi['iden'], ('hehe', 'haha')))
