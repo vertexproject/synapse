@@ -817,8 +817,8 @@ class ModelRev:
         await self._normFormSubs(layers, 'it:sec:cpe')
 
     async def revModel_0_2_32(self, layers):
-        await self._normPropValu(layers, 'transport:air:craft:make')
-        await self._normPropValu(layers, 'transport:sea:vessel:make')
+        await self._normPropValu(layers, 'transport:air:craft:model')
+        await self._normPropValu(layers, 'transport:sea:vessel:model')
 
     async def runStorm(self, text, opts=None):
         '''

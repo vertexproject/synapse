@@ -156,7 +156,7 @@ class TransportModule(s_module.CoreModule):
                         ('manufacturer:name', ('ou:name', {}), {
                             'doc': 'The name of the organization which manufactured the {phys:object}.'}),
 
-                        ('model', ('str', {'lower': True, 'strip': True}), {
+                        ('model', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The model of the {phys:object}.'}),
 
                         ('serial', ('str', {'strip': True}), {
