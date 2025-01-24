@@ -1003,6 +1003,21 @@ class StormLibAuthTest(s_test.SynTest):
             with self.raises(s_exc.DupIden):
                 await core.callStorm('$lib.auth.roles.add(walkers, iden=$iden)', opts=opts)
 
+            # The role & user.authgates local is a passthrough to the getRoleDef & getUserDef
+            # results, which are a pack()'d structure. Modifying the results of that structure
+            # does not persist.
+            q = '$u = $lib.auth.users.byname(root) $u.authgates.newp = ({}) return ($u)'
+            udef = await core.callStorm(q)
+            self.notin('newp', udef.get('authgates'))
+            q = '$u = $lib.auth.users.byname(root) return ( $lib.dict.has($u.authgates, newp) )'
+            self.false(await core.callStorm(q))
+
+            q = '$r = $lib.auth.roles.byname(all) $r.authgates.newp = ({}) return ($r)'
+            rdef = await core.callStorm(q)
+            self.notin('newp', rdef.get('authgates'))
+            q = '$r = $lib.auth.roles.byname(all) return ( $lib.dict.has($r.authgates, newp) )'
+            self.false(await core.callStorm(q))
+
     async def test_stormlib_auth_gateadmin(self):
 
         async with self.getTestCore() as core:
