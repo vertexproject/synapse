@@ -319,7 +319,7 @@ class ProtoNode:
 
         if prop.locked:
             mesg = f'Tagprop {name} is locked.'
-            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.name)
+            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=name)
 
         try:
             norm, info = prop.type.norm(valu)
@@ -356,7 +356,7 @@ class ProtoNode:
             arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=arrayform.full)
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
                 return False
 
         if norminfo is None:
@@ -376,7 +376,7 @@ class ProtoNode:
             ndefform = self.ctx.snap.core.model.form(valu[0])
             if ndefform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=ndefform.full)
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
                 return False
 
         curv = self.get(prop.name)
