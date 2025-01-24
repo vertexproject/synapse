@@ -128,6 +128,8 @@ _cpe23_regex = r'''(?P<valu>cpe:2\.3:[aho\*-]
 (?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){4})
 '''
 
+path_parts_limit = 1024
+
 linux_path_regex = r'''
 (?<![\w\d]+)
 (?P<valu>
@@ -158,7 +160,7 @@ def linux_path_check(match: regex.Match):
     if parts[0] != '/':
         return None, {}
 
-    if len(parts) < 2:
+    if len(parts) < 2 or len(parts) > path_parts_limit:
         return None, {}
 
     if parts[1] not in linux_path_rootdirs:
@@ -198,6 +200,9 @@ def windows_path_check(match: regex.Match):
     parts = path.parts
 
     if parts[0].lower() not in windows_drive_paths:
+        return None, {}
+
+    if len(parts) > path_parts_limit:
         return None, {}
 
     for part in parts:

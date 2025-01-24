@@ -446,7 +446,10 @@ var/run/foo/
 var/run/foo/bar
 but they not have a open SDK :/.
 '''
-linux_paths += '\n/bin' + '/long' * 1_000
+linux_paths += '\n' + '\n'.join([
+    '/bin' + '/long' * 1_024,
+    '/bin' + '/a' * 1_024,
+])
 
 windows_paths = '''
 # GOOD PATHS
@@ -473,7 +476,10 @@ c:\\windows\\LPT1
 c:\\foo.
 dc:\\foo\\bar
 '''
-windows_paths += '\nc:\\windows' + '\\long' * 7_000
+windows_paths += '\n' + '\n'.join([
+    'c:\\windows' + '\\long' * 7_000,
+    'c:\\windows' + '\\a' * 1_024,
+])
 
 good_uncs = [
     '\\\\foo\\bar\\baz',

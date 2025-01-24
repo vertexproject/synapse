@@ -1,6 +1,6 @@
 ---
-desc: Added character limits for scraping Linux and Windows file paths (``4,096`` and
-  ``32,767`` respectively).
+desc: Added limits for scraping file paths. The number of components in a path must not exceed
+  ``1,024``. Linux and Windows paths must not exceed ``4,096`` and ``32,767`` characters, respectively.
 prs: []
 type: bug
 ...
