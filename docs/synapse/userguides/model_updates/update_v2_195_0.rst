@@ -528,7 +528,7 @@ Updated Types
 
 
 ``it:host``
-  The type interface has been modified from ``inet:service:object'`` to
+  The type interface has been modified from ``inet:service:object`` to
   inherit from the ``inet:service:object`` and ``phys:object`` interfaces.
 
 
