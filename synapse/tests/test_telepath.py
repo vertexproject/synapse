@@ -19,6 +19,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.const as s_const
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
 import synapse.lib.version as s_version
@@ -67,6 +68,10 @@ class Foo:
 
     def echo(self, x):
         return x
+
+    def echosize(self, l: list[bytes]):
+        total = sum([len(bytz) for bytz in l])
+        return total
 
     def speed(self):
         return
@@ -1229,7 +1234,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.isin('synapse.tests.test_telepath.Foo', proxy._getClasses())
                 self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
 
-    async def test_tls_ciphers(self):
+    async def test_tls_support_and_ciphers(self):
 
         self.thisHostMustNot(platform='darwin')
 
@@ -1250,6 +1255,18 @@ class TeleTest(s_t_utils.SynTest):
             # Ensure tls listener is working before trying downgraded versions
             async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port) as prox:
                 self.eq(30, await prox.bar(10, 20))
+
+                # This will generate a large msgpack object which can cause
+                # openssl to have malloc failures. Prior to the write chunking
+                # changes, this would cause a generally fatal error to any
+                # processes which rely on the calls work, such as mirror loops.
+                blob = b'V' * s_const.mebibyte * 256
+                n = 8
+                t = n * len(blob)
+                l = []
+                for i in range(n):
+                    l.append(blob)
+                self.eq(await prox.echosize(l), t)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1)
             with self.raises((ssl.SSLError, ConnectionResetError)):
