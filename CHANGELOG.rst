@@ -18,7 +18,7 @@ Automatic Migrations
 
 Model Changes
 -------------
-- Added ``names`` property and ``alts`` definitions to the ``ou:id:type`` form.
+- Added ``names`` property to the ``ou:id:type``form and ``alts`` definition to the ``ou:id:type:name`` property.
   (`#4081 <https://github.com/vertexproject/synapse/pull/4081>`_)
 - See :ref:`userguide_model_v2_195_0` for more detailed model changes.
 
