@@ -142,9 +142,15 @@ linux_path_rootdirs = (
     'sys', 'tmp', 'usr', 'var'
 )
 
+# https://docs.kernel.org/filesystems/path-lookup.html#the-symlink-stack
+linux_path_limit = 4096
+
 def linux_path_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
+
+    if len(valu) > linux_path_limit:
+        return None, {}
 
     path = pathlib.PurePosixPath(valu)
     parts = path.parts
@@ -177,10 +183,16 @@ windows_path_reserved = (
 
 windows_drive_paths = [f'{letter}:\\' for letter in string.ascii_lowercase]
 
+# https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
+windows_path_limit = 32_767
+
 # https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
 def windows_path_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
+
+    if len(valu) > windows_path_limit:
+        return None, {}
 
     path = pathlib.PureWindowsPath(valu)
     parts = path.parts

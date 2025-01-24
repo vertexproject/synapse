@@ -1,0 +1,6 @@
+---
+desc: Added character limits for scraping Linux and Windows file paths (``4,096`` and
+  ``32,767`` respectively).
+prs: []
+type: bug
+...
