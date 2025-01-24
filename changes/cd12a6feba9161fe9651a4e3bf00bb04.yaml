@@ -1,5 +1,5 @@
 ---
-desc: Added ``--filter`` option to ``auth.perms.list`` to easily filter permission
+desc: Added ``--find`` option to ``auth.perms.list`` to easily filter permission
   results.
 prs: []
 type: feat

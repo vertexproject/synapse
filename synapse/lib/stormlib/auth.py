@@ -584,20 +584,20 @@ stormcmds = (
         'name': 'auth.perms.list',
         'descr': 'Display a list of the current permissions defined within the Cortex.',
         'cmdargs': (
-            ('--filter', {'type': 'str', 'help': 'A search string for filtering permissions.'}),
+            ('--find', {'type': 'str', 'help': 'A search string for permissions.'}),
         ),
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
                 $perm = $lib.str.join(".", $pdef.perm)
 
-                if $cmdopts.filter {
-                    $filter = $cmdopts.filter.lower()
+                if $cmdopts.find {
+                    $find = $cmdopts.find.lower()
                     $match = (
-                        $perm.lower().find($filter) != (null) or
-                        $pdef.desc.lower().find($filter) != (null) or
-                        $pdef.gate.lower().find($filter) != (null) or
-                        ($pdef.ex and $pdef.ex.lower().find($filter) != (null))
+                        $perm.lower().find($find) != (null) or
+                        $pdef.desc.lower().find($find) != (null) or
+                        $pdef.gate.lower().find($find) != (null) or
+                        ($pdef.ex and $pdef.ex.lower().find($find) != (null))
                     )
 
                     if (not $match) { continue }
