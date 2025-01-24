@@ -1,0 +1,5 @@
+---
+desc: Renormalized the ``:model`` property on ``transport:air:craft`` and ``transport:sea:vessel`` to normalize whitespace.
+prs: []
+type: migration
+...
