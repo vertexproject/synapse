@@ -69,8 +69,8 @@ class Foo:
     def echo(self, x):
         return x
 
-    def echosize(self, l: list[bytes]):
-        total = sum([len(bytz) for bytz in l])
+    def echosize(self, array: list[bytes]):
+        total = sum([len(bytz) for bytz in array])
         return total
 
     def speed(self):
