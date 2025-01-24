@@ -350,11 +350,11 @@ New Properties
 
 
   ``cargo:mass``
-    The cargo mass carried by the air craft on this flight.
+    The cargo mass carried by the aircraft on this flight.
 
 
   ``cargo:volume``
-    The cargo volume carried by the air craft on this flight.
+    The cargo volume carried by the aircraft on this flight.
 
 
   ``departed:place``
@@ -370,7 +370,7 @@ New Properties
 
 
   ``occupants``
-    The number of occupants of the air craft on this flight.
+    The number of occupants of the aircraft on this flight.
 
 
   ``operator``
@@ -402,7 +402,7 @@ New Properties
 
 
   ``vehicle``
-    The air craft which traveled the flight.
+    The aircraft which traveled the flight.
 
 
 ``transport:land:vehicle``
@@ -434,7 +434,7 @@ New Properties
 
 
   ``operator``
-    The contact information of operator of the vehicle.
+    The contact information of the operator of the vehicle.
 
 
   ``phys:height``
