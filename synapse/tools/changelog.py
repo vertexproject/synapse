@@ -227,12 +227,11 @@ class ModelDiffer:
 
                 if nkeys - okeys:
                     # We've added a key to the prop def.
-                    raise s_exc.NoSuchImpl(mesg='Have not implemented support for a prop def having a key added')
+                    updated_props[prop] = {'type': 'addkey', 'keys': list(nkeys - okeys)}
 
                 if okeys - nkeys:
                     # We've removed a key from the prop def.
                     updated_props[prop] = {'type': 'delkey', 'keys': list(okeys - nkeys)}
-                    continue
 
                 # Check if type change happened, we'll want to document that.
                 ctyp = cpinfo.get('type')
@@ -334,12 +333,11 @@ class ModelDiffer:
 
                 if nkeys - okeys:
                     # We've added a key to the prop def.
-                    raise s_exc.NoSuchImpl(mesg='Have not implemented support for a prop def having a key added')
+                    updated_props[prop] = {'type': 'addkey', 'keys': list(nkeys - okeys)}
 
                 if okeys - nkeys:
                     # We've removed a key from the prop def.
                     updated_props[prop] = {'type': 'delkey', 'keys': list(okeys - nkeys)}
-                    continue
 
                 # Check if type change happened, we'll want to document that.
                 ctyp = cpinfo.get('type')
@@ -660,6 +658,8 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
                                f' to {pnfo.get("new_type")}.'
                     elif ptyp == 'delkey':
                         mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys removed from its definition.'
+                    elif ptyp == 'addkey':
+                        mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys added to its definition.'
                     else:
                         raise s_exc.NoSuchImpl(mesg=f'pnfo.type={ptyp} not supported.')
                     lines = [
@@ -677,6 +677,8 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
                            f' to {pnfo.get("new_type")}.'
                 elif ptyp == 'delkey':
                     mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys removed from its definition.'
+                elif ptyp == 'addkey':
+                    mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys added to its definition.'
                 else:
                     raise s_exc.NoSuchImpl(mesg=f'pnfo.type={ptyp} not supported.')
 

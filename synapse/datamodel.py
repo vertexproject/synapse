@@ -583,11 +583,11 @@ class Model:
         item = s_types.Array(self, 'array', info, {'type': 'int'})
         self.addBaseType(item)
 
-        info = {'doc': 'An digraph edge base type.'}
+        info = {'doc': 'An digraph edge base type.', 'deprecated': True}
         item = s_types.Edge(self, 'edge', info, {})
         self.addBaseType(item)
 
-        info = {'doc': 'An digraph edge base type with a unique time.'}
+        info = {'doc': 'An digraph edge base type with a unique time.', 'deprecated': True}
         item = s_types.TimeEdge(self, 'timeedge', info, {})
         self.addBaseType(item)
 
@@ -1122,7 +1122,7 @@ class Model:
                 # warn but do not blow up. there may be extended model elements
                 # with {}s which are not used for templates...
                 if item.find('{') != -1: # pragma: no cover
-                    logger.warning(f'Missing template specifier in: {item}')
+                    logger.warning(f'Missing template specifier in: {item} on {form.name}')
 
                 return item
 
