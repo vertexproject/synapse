@@ -320,13 +320,13 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('Controls access to add a new view including forks.', msgs)
             self.stormIsInPrint('default: false', msgs)
 
-            msgs = await core.stormlist('auth.perms.list --filter macro.')
+            msgs = await core.stormlist('auth.perms.list --find macro.')
             self.stormIsInPrint('storm.macro.add', msgs)
             self.stormIsInPrint('storm.macro.admin', msgs)
             self.stormIsInPrint('storm.macro.edit', msgs)
             self.stormNotInPrint('node.add.<form>', msgs)
 
-            msgs = await core.stormlist('auth.perms.list --filter url')
+            msgs = await core.stormlist('auth.perms.list --find url')
             self.stormIsInPrint('storm.lib.telepath.open.<scheme>', msgs)
             self.stormIsInPrint('Controls the ability to open a telepath URL with a specific URI scheme.', msgs)
             self.stormNotInPrint('node.add.<form>', msgs)
