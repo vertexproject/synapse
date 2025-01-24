@@ -15,7 +15,8 @@ import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
-readsize = 10 * s_const.megabyte
+READSIZE = 10 * s_const.megabyte
+MAXWRITE = 256 * s_const.megabyte
 
 async def connect(host, port, ssl=None, hostname=None, linkinfo=None):
     '''
@@ -114,8 +115,8 @@ class Link(s_base.Base):
         self.sock = self.writer.get_extra_info('socket')
         self.peercert = self.writer.get_extra_info('peercert')
 
+        self._txlock = asyncio.Lock()
         self._forceclose = forceclose
-        self._drain_lock = asyncio.Lock()
 
         if info is None:
             info = {}
@@ -234,11 +235,18 @@ class Link(s_base.Base):
         return dict(self._addrinfo)
 
     async def send(self, byts):
-        self.writer.write(byts)
-        # Avoid Python bug.  See https://github.com/python/cpython/issues/74116
-        # TODO Remove drain lock in 3.10+
-        async with self._drain_lock:
-            await self.writer.drain()
+
+        offs = 0
+        size = len(byts)
+
+        async with self._txlock:
+
+            while offs < size:
+
+                self.writer.write(byts[offs:offs + MAXWRITE])
+                offs += MAXWRITE
+
+                await self.writer.drain()
 
     async def tx(self, mesg):
         '''
@@ -247,23 +255,29 @@ class Link(s_base.Base):
         if self.isfini:
             raise s_exc.IsFini()
 
+        offs = 0
         byts = s_msgpack.en(mesg)
-        try:
+        size = len(byts)
 
-            self.writer.write(byts)
-            # Avoid Python bug.  See https://github.com/python/cpython/issues/74116
-            # TODO Remove drain lock in 3.10+
-            async with self._drain_lock:
-                await self.writer.drain()
+        async with self._txlock:
 
-        except (asyncio.CancelledError, Exception) as e:
+            try:
 
-            await self.fini()
+                while offs < size:
 
-            einfo = s_common.retnexc(e)
-            logger.debug('link.tx connection trouble %s', einfo)
+                    self.writer.write(byts[offs:offs + MAXWRITE])
+                    offs += MAXWRITE
 
-            raise
+                    await self.writer.drain()
+
+            except (asyncio.CancelledError, Exception) as e:
+
+                await self.fini()
+
+                einfo = s_common.retnexc(e)
+                logger.debug('link.tx connection trouble %s', einfo)
+
+                raise
 
     def txfini(self):
         self.sock.shutdown(1)
@@ -294,7 +308,7 @@ class Link(s_base.Base):
 
             try:
 
-                byts = await self.reader.read(readsize)
+                byts = await self.reader.read(READSIZE)
                 if not byts:
                     await self.fini()
                     return None
