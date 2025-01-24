@@ -230,11 +230,13 @@ class TeleTest(s_t_utils.SynTest):
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
 
-            # check a standard return value
-            self.eq(30, await prox.bar(10, 20))
+            with mock.patch('synapse.lib.link.MAXWRITE', 2):
 
-            # check a coroutine return value
-            self.eq(25, await prox.corovalu(10, 5))
+                # check a standard return value
+                self.eq(30, await prox.bar(10, 20))
+
+                # check a coroutine return value
+                self.eq(25, await prox.corovalu(10, 5))
 
             # check a generator return channel
             genr = await prox.genr()
