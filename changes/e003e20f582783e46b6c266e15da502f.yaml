@@ -1,0 +1,5 @@
+---
+desc: Added ``names`` property and ``alts`` definitions to the ``ou:id:type`` form.
+prs: []
+type: model
+...
