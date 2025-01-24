@@ -485,7 +485,7 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('name', ('str', {}), {
                         'alts': ('names',),
-                        'doc': 'The friendly name of the id number type.',
+                        'doc': 'The friendly name of the ID number type.',
                     }),
                     ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of alternate names for the ID number type.'}),
