@@ -1,5 +1,0 @@
----
-desc: Deprecated ``$lib.infosec.cvss.calculate()`` and ``$lib.infosec.cvss.calculateFromProps()``.
-prs: []
-type: deprecation
-...

@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where exceptionally large telepath messages may cause OpenSSL malloc
-  failures.
-prs: []
-type: bug
-...

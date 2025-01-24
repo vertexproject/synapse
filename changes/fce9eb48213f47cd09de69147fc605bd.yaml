@@ -1,7 +1,0 @@
----
-desc: The ``forms`` key in Storm package command definitions has been deprecated. The
-  ``cmdinputs`` key may still be used to specify node forms that commands are intended
-  to accept as input.
-prs: []
-type: deprecation
-...

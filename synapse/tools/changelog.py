@@ -122,7 +122,11 @@ class ModelDiffer:
                 deprecated_edges[edge] = curinfo
                 continue
 
-            # TODO - Support changes to the edges?
+            if oldinfo.get('doc') != curinfo.get('doc'):
+                updated_edges[edge] = curinfo
+                continue
+
+            # TODO - Support additional changes to the edges?
             assert False, f'A change was found for the edge: {edge}'
 
         if updated_edges:
@@ -636,6 +640,9 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
     # Updated Forms
     # We don't really have a "updated forms" to display since the delta for forms data is really property
     # deltas covered elsewhere.
+
+    # Updated Edges
+    # TODO Add support for updated edges
 
     # Updated Properties
     upd_props = []
