@@ -15,7 +15,7 @@ import synapse.lib.base as s_base
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 
-READSIZE = 10 * s_const.megabyte
+READSIZE = 16 * s_const.mebibyte
 MAXWRITE = 64 * s_const.mebibyte
 
 async def connect(host, port, ssl=None, hostname=None, linkinfo=None):
