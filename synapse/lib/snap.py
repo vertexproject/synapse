@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import types
 import asyncio
 import logging
@@ -318,7 +319,7 @@ class ProtoNode:
 
         if prop.locked:
             mesg = f'Tagprop {name} is locked.'
-            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.name)
 
         try:
             norm, info = prop.type.norm(valu)
@@ -348,14 +349,14 @@ class ProtoNode:
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
-            await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
             return False
 
         if isinstance(prop.type, s_types.Array):
             arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=arrayform.full)
                 return False
 
         if norminfo is None:
@@ -375,7 +376,7 @@ class ProtoNode:
             ndefform = self.ctx.snap.core.model.form(valu[0])
             if ndefform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=ndefform.full)
                 return False
 
         curv = self.get(prop.name)
@@ -487,7 +488,7 @@ class SnapEditor:
 
         if form.locked:
             mesg = f'Form {form.full} is locked due to deprecation for valu={valu}.'
-            return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=form.full)
 
         if norminfo is None:
             try:
@@ -1615,6 +1616,10 @@ class Snap(s_base.Base):
         return tagnode
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
+        if __debug__:
+            if issubclass(ctor, s_exc.IsDeprLocked):
+                sys.audit('synapse.exc.IsDeprLocked', (mesg, info))
+
         if self.strict:
             raise ctor(mesg=mesg, **info)
         await self.warn(mesg)
