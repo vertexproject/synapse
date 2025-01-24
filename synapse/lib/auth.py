@@ -881,13 +881,14 @@ class Role(Ruler):
     set of rules can be applied to multiple users.
     '''
     def pack(self):
-        return {
+        ret = {
             'type': 'role',
             'iden': self.iden,
             'name': self.name,
             'rules': self.info.get('rules'),
             'authgates': self.authgates,
         }
+        return s_msgpack.deepcopy(ret)
 
     async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True, mesg=None):
         if nexs:
@@ -956,7 +957,7 @@ class User(Ruler):
                 _roles.append(role.pack())
             roles = _roles
 
-        return {
+        ret = {
             'type': 'user',
             'iden': self.iden,
             'name': self.name,
@@ -968,6 +969,7 @@ class User(Ruler):
             'archived': self.info.get('archived'),
             'authgates': self.authgates,
         }
+        return s_msgpack.deepcopy(ret)
 
     async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True, mesg=None):
         if nexs:
