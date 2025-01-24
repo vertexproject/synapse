@@ -1261,12 +1261,12 @@ class TeleTest(s_t_utils.SynTest):
                 # changes, this would cause a generally fatal error to any
                 # processes which rely on the calls work, such as mirror loops.
                 blob = b'V' * s_const.mebibyte * 256
-                n = 8
-                t = n * len(blob)
-                l = []
-                for i in range(n):
-                    l.append(blob)
-                self.eq(await prox.echosize(l), t)
+                nblobs = 8
+                total = nblobs * len(blob)
+                blobarray = []
+                for i in range(nblobs):
+                    blobarray.append(blob)
+                self.eq(await prox.echosize(blobarray), total)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1)
             with self.raises((ssl.SSLError, ConnectionResetError)):
