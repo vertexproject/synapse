@@ -1,3 +1,4 @@
+import os
 import bz2
 import copy
 import gzip
@@ -1484,6 +1485,8 @@ class LibBase(Lib):
         self.gtors['debug'] = self._getRuntDebug
 
         self.ctors.update({
+            'env': self._ctorEnvVars,
+            'vars': self._ctorRuntVars,
             'globals': self._ctorGlobalVars,
         })
 
@@ -1815,6 +1818,12 @@ class LibBase(Lib):
 
     def _ctorGlobalVars(self, path=None):
         return GlobalVars(path=path)
+
+    def _ctorEnvVars(self, path=None):
+        return EnvVars(path=path)
+
+    def _ctorRuntVars(self, path=None):
+        return RuntVars(path=path)
 
 @registry.registerLib
 class LibDict(Lib):
@@ -5410,74 +5419,83 @@ class GlobalVars(Prim):
         rval = ', '.join(reprs)
         return f'{{{rval}}}'
 
-@registry.registerLib
-class LibVars(Lib):
+@registry.registerType
+class EnvVars(Prim):
     '''
-    A Storm Library for interacting with runtime variables.
+    The Storm deref/iter convention on top of environment vars information.
     '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get the value of a variable from the current Runtime.',
-         'type': {'type': 'function', '_funcname': '_libVarsGet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable to get.', },
-                      {'name': 'defv', 'type': 'prim', 'default': None,
-                       'desc': 'The default value returned if the variable is not set in the runtime.', },
-                  ),
-                  'returns': {'type': 'any', 'desc': 'The value of the variable.', }}},
-        {'name': 'del', 'desc': 'Unset a variable in the current Runtime.',
-         'type': {'type': 'function', '_funcname': '_libVarsDel',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The variable name to remove.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'set', 'desc': 'Set the value of a variable in the current Runtime.',
-         'type': {'type': 'function', '_funcname': '_libVarsSet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the variable to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the variable too.', },
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'type', 'desc': 'Get the type of the argument value.',
-         'type': {'type': 'function', '_funcname': '_libVarsType',
-                  'args': (
-                     {'name': 'valu', 'type': 'any', 'desc': 'Value to inspect.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The type of the argument.'}}},
-        {'name': 'list', 'desc': 'Get a list of variables from the current Runtime.',
-         'type': {'type': 'function', '_funcname': '_libVarsList',
-                  'returns': {'type': 'list',
-                              'desc': 'A list of variable names and their values for the current Runtime.', }}},
-    )
-    _storm_lib_path = ('vars',)
+    _storm_typename = 'environment:vars'
 
-    def getObjLocals(self):
-        return {
-            'get': self._libVarsGet,
-            'set': self._libVarsSet,
-            'del': self._libVarsDel,
-            'list': self._libVarsList,
-            'type': self._libVarsType,
-        }
+    def __init__(self, path=None):
+        Prim.__init__(self, None, path=path)
 
     @stormfunc(readonly=True)
-    async def _libVarsGet(self, name, defv=None):
-        return self.runt.getVar(name, defv=defv)
+    async def deref(self, name):
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+        name = await tostr(name)
+
+        if not name.startswith('SYN_STORM_ENV_'):
+            mesg = f'Environment variable must start with SYN_STORM_ENV_ : {name}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return os.getenv(name)
 
     @stormfunc(readonly=True)
-    async def _libVarsSet(self, name, valu):
-        await self.runt.setVar(name, valu)
+    async def iter(self):
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+
+        for name, valu in list(os.environ.items()):
+            await asyncio.sleep(0)
+
+            if name.startswith('SYN_STORM_ENV_'):
+                yield name, valu
+
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) async for (k, v) in self.iter()]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
+
+@registry.registerType
+class RuntVars(Prim):
+    '''
+    The Storm deref/setitem/iter convention on top of reuntime vars information.
+    '''
+    _storm_typename = 'runtime:vars'
+    _ismutable = True
+
+    def __init__(self, path=None):
+        Prim.__init__(self, None, path=path)
 
     @stormfunc(readonly=True)
-    async def _libVarsDel(self, name):
-        await self.runt.popVar(name)
+    async def deref(self, name):
+        name = await tostr(name)
+        runt = s_scope.get('runt')
+        return runt.getVar(name)
 
     @stormfunc(readonly=True)
-    async def _libVarsList(self):
-        return list(self.runt.vars.items())
+    async def setitem(self, name, valu):
+        name = await tostr(name)
+        runt = s_scope.get('runt')
+
+        if valu is undef:
+            await runt.popVar(name)
+            return
+
+        await runt.setVar(name, valu)
 
     @stormfunc(readonly=True)
-    async def _libVarsType(self, valu):
-        return await totype(valu)
+    async def iter(self):
+        runt = s_scope.get('runt')
+        for name, valu in list(runt.vars.items()):
+            yield name, valu
+            await asyncio.sleep(0)
+
+    async def stormrepr(self):
+        reprs = ["{}: {}".format(await torepr(k), await torepr(v)) async for (k, v) in self.iter()]
+        rval = ', '.join(reprs)
+        return f'{{{rval}}}'
 
 @registry.registerType
 class Query(Prim):
@@ -5581,37 +5599,12 @@ class NodeProps(Prim):
     '''
     A Storm Primitive representing the properties on a Node.
     '''
-    _storm_locals = (
-        {'name': 'get', 'desc': 'Get a specific property value by name.',
-         'type': {'type': 'function', '_funcname': 'get',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'set', 'desc': 'Set a specific property value by name.',
-         'type': {'type': 'function', '_funcname': 'set',
-                  'args': (
-                      {'name': 'prop', 'type': 'str', 'desc': 'The name of the property to set.'},
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The value to set the property to.'}
-                  ),
-                  'returns': {'type': 'prim', 'desc': 'The set value.'}}},
-        {'name': 'list', 'desc': 'List the properties and their values from the ``$node``.',
-         'type': {'type': 'function', '_funcname': 'list',
-                  'returns': {'type': 'list', 'desc': 'A list of (name, value) tuples.', }}},
-    )
     _storm_typename = 'node:props'
     _ismutable = True
 
     def __init__(self, node, path=None):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
-
-    def getObjLocals(self):
-        return {
-            'get': self.get,
-            'set': self.set,
-            'list': self.list,
-        }
 
     async def _derefGet(self, name):
         return self.valu.get(name)
@@ -5651,17 +5644,6 @@ class NodeProps(Prim):
         items = tuple((key, copy.deepcopy(valu)) for key, valu in self.valu.getProps().items())
         for item in items:
             yield item
-
-    async def set(self, prop, valu):
-        return await self.setitem(prop, valu)
-
-    @stormfunc(readonly=True)
-    async def get(self, name):
-        return self.valu.get(name)
-
-    @stormfunc(readonly=True)
-    async def list(self):
-        return list(self.valu.getProps().items())
 
     @stormfunc(readonly=True)
     def value(self):

@@ -3245,12 +3245,12 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             opts = {'vars': {'testvar': 'test'}}
-            text = '$testkey=testvar [ test:str=$lib.vars.get($testkey) ]'
+            text = '$testkey=testvar [ test:str=$lib.vars.$testkey ]'
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test'))
 
-            text = '$testkey=testvar [ test:str=$lib.vars.get($testkey) ]'
+            text = '$testkey=testvar [ test:str=$lib.vars.$testkey ]'
             mesgs = await core.stormlist(text)
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
@@ -3259,13 +3259,13 @@ class StormTypesTest(s_test.SynTest):
             self.isin('no norm for type', err[1].get('mesg'))
 
             opts = {'vars': {'testkey': 'testvar'}}
-            text = '$lib.vars.set($testkey, test) [ test:str=$lib.vars.get(testvar) ]'
+            text = '$lib.vars.$testkey = test [ test:str=$lib.vars.testvar ]'
             nodes = await core.nodes(text, opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', 'test'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
-            text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
+            text = '$lib.vars.testvar = $lib.undef [ test:str=$lib.vars.$testkey ]'
             mesgs = await core.stormlist(text, opts=opts)
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
@@ -3274,7 +3274,7 @@ class StormTypesTest(s_test.SynTest):
             self.isin('no norm for type', err[1].get('mesg'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
-            text = '$lib.vars.del(testvar) [ test:str=$lib.vars.get($testkey) ]'
+            text = '$lib.vars.testvar = $lib.undef [ test:str=$lib.vars.$testkey ]'
             mesgs = await core.stormlist(text, opts=opts)
             errs = [m[1] for m in mesgs if m[0] == 'err']
             self.len(1, errs)
@@ -3283,62 +3283,62 @@ class StormTypesTest(s_test.SynTest):
             self.isin('no norm for type', err[1].get('mesg'))
 
             opts = {'vars': {'testvar': 'test', 'testkey': 'testvar'}}
-            text = '$lib.print($lib.vars.list())'
+            text = '$lib.print($lib.vars)'
             mesgs = await core.stormlist(text, opts=opts)
             mesgs = [m for m in mesgs if m[0] == 'print']
             self.len(1, mesgs)
-            self.stormIsInPrint("('testvar', 'test'), ('testkey', 'testvar')", mesgs)
+            self.stormIsInPrint("{'testvar': 'test', 'testkey': 'testvar', 'lib': Library $lib}", mesgs)
 
-    async def test_storm_lib_vars_type(self):
+    async def test_storm_lib_utils_type(self):
 
         async with self.getTestCore() as core:
 
-            # $lib.vars.type() results
-            self.eq('undef', await core.callStorm('return ($lib.vars.type($lib.undef))'))
-            self.eq('null', await core.callStorm('return ($lib.vars.type($lib.null))'))
-            self.eq('null', await core.callStorm('$foo=({}) return ($lib.vars.type($foo.key))'))
-            self.eq('boolean', await core.callStorm('return ($lib.vars.type($lib.true))'))
-            self.eq('boolean', await core.callStorm('return ($lib.vars.type($lib.false))'))
-            self.eq('str', await core.callStorm('return ($lib.vars.type(1))'))
-            self.eq('int', await core.callStorm('return ($lib.vars.type( (1) ))'))
-            self.eq('bytes', await core.callStorm('return ($lib.vars.type( $foo ))', {'vars': {'foo': b'hehe'}}))
-            self.eq('dict', await core.callStorm('return ( $lib.vars.type(({"hehe": "haha"})) )'))
-            self.eq('list', await core.callStorm('return ( $lib.vars.type((1, 2)) )'))
-            self.eq('list', await core.callStorm('return ( $lib.vars.type(()) )'))
-            self.eq('list', await core.callStorm('return ( $lib.vars.type(([])) )'))
-            self.eq('list', await core.callStorm('return ( $lib.vars.type(([1, 2])) )'))
-            self.eq('set', await core.callStorm('return ( $lib.vars.type($lib.set(hehe, haha)) )'))
-            self.eq('number', await core.callStorm('return ($lib.vars.type( $foo ))', {'vars': {'foo': 1.2345}}))
-            self.eq('number', await core.callStorm('return ( $lib.vars.type($lib.math.number(42.0)) )'))
+            # $lib.utils.type() results
+            self.eq('undef', await core.callStorm('return ($lib.utils.type($lib.undef))'))
+            self.eq('null', await core.callStorm('return ($lib.utils.type($lib.null))'))
+            self.eq('null', await core.callStorm('$foo=({}) return ($lib.utils.type($foo.key))'))
+            self.eq('boolean', await core.callStorm('return ($lib.utils.type($lib.true))'))
+            self.eq('boolean', await core.callStorm('return ($lib.utils.type($lib.false))'))
+            self.eq('str', await core.callStorm('return ($lib.utils.type(1))'))
+            self.eq('int', await core.callStorm('return ($lib.utils.type( (1) ))'))
+            self.eq('bytes', await core.callStorm('return ($lib.utils.type( $foo ))', {'vars': {'foo': b'hehe'}}))
+            self.eq('dict', await core.callStorm('return ( $lib.utils.type(({"hehe": "haha"})) )'))
+            self.eq('list', await core.callStorm('return ( $lib.utils.type((1, 2)) )'))
+            self.eq('list', await core.callStorm('return ( $lib.utils.type(()) )'))
+            self.eq('list', await core.callStorm('return ( $lib.utils.type(([])) )'))
+            self.eq('list', await core.callStorm('return ( $lib.utils.type(([1, 2])) )'))
+            self.eq('set', await core.callStorm('return ( $lib.utils.type($lib.set(hehe, haha)) )'))
+            self.eq('number', await core.callStorm('return ($lib.utils.type( $foo ))', {'vars': {'foo': 1.2345}}))
+            self.eq('number', await core.callStorm('return ( $lib.utils.type($lib.math.number(42.0)) )'))
 
-            self.eq('function', await core.callStorm('return ( $lib.vars.type($lib.print) )'))
-            self.eq('function', await core.callStorm('function foo() {} return ( $lib.vars.type($foo) )'))
-            self.eq('function', await core.callStorm('function foo() { emit bar }  return ( $lib.vars.type($foo  ) )'))
-            self.eq('generator', await core.callStorm('function foo() { emit bar } return ( $lib.vars.type($foo()) )'))
+            self.eq('function', await core.callStorm('return ( $lib.utils.type($lib.print) )'))
+            self.eq('function', await core.callStorm('function foo() {} return ( $lib.utils.type($foo) )'))
+            self.eq('function', await core.callStorm('function foo() { emit bar }  return ( $lib.utils.type($foo  ) )'))
+            self.eq('generator', await core.callStorm('function foo() { emit bar } return ( $lib.utils.type($foo()) )'))
 
-            self.eq('auth:role', await core.callStorm('return( $lib.vars.type($lib.auth.roles.byname(all)) )'))
-            self.eq('auth:user', await core.callStorm('return( $lib.vars.type($lib.auth.users.byname(root)) )'))
-            self.eq('auth:user:json', await core.callStorm('return( $lib.vars.type($lib.auth.users.byname(root).json) )'))
-            self.eq('auth:user:profile', await core.callStorm('return( $lib.vars.type($lib.auth.users.byname(root).profile) )'))
-            self.eq('auth:user:vars', await core.callStorm('return( $lib.vars.type($lib.auth.users.byname(root).vars) )'))
+            self.eq('auth:role', await core.callStorm('return( $lib.utils.type($lib.auth.roles.byname(all)) )'))
+            self.eq('auth:user', await core.callStorm('return( $lib.utils.type($lib.auth.users.byname(root)) )'))
+            self.eq('auth:user:json', await core.callStorm('return( $lib.utils.type($lib.auth.users.byname(root).json) )'))
+            self.eq('auth:user:profile', await core.callStorm('return( $lib.utils.type($lib.auth.users.byname(root).profile) )'))
+            self.eq('auth:user:vars', await core.callStorm('return( $lib.utils.type($lib.auth.users.byname(root).vars) )'))
             self.eq('auth:gate',
-                    await core.callStorm('return ( $lib.vars.type($lib.auth.gates.get($lib.view.get().iden)) )'))
+                    await core.callStorm('return ( $lib.utils.type($lib.auth.gates.get($lib.view.get().iden)) )'))
 
-            self.eq('view', await core.callStorm('return( $lib.vars.type($lib.view.get()) )'))
-            self.eq('layer', await core.callStorm('return( $lib.vars.type($lib.layer.get()) )'))
+            self.eq('view', await core.callStorm('return( $lib.utils.type($lib.view.get()) )'))
+            self.eq('layer', await core.callStorm('return( $lib.utils.type($lib.layer.get()) )'))
 
-            self.eq('storm:query', await core.callStorm('return( $lib.vars.type( ${test:str} ) )'))
+            self.eq('storm:query', await core.callStorm('return( $lib.utils.type( ${test:str} ) )'))
 
             url = core.getLocalUrl()
             opts = {'vars': {'url': url}}
-            self.eq('telepath:proxy', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url)) )', opts))
-            self.eq('telepath:proxy:method', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).getCellInfo) )', opts))
-            self.eq('telepath:proxy:genrmethod', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).storm) )', opts))
+            self.eq('telepath:proxy', await core.callStorm('return( $lib.utils.type($lib.telepath.open($url)) )', opts))
+            self.eq('telepath:proxy:method', await core.callStorm('return( $lib.utils.type($lib.telepath.open($url).getCellInfo) )', opts))
+            self.eq('telepath:proxy:genrmethod', await core.callStorm('return( $lib.utils.type($lib.telepath.open($url).storm) )', opts))
 
-            self.eq('node', await core.callStorm('[test:str=foo] return ($lib.vars.type($node))'))
-            self.eq('node:props', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.props))'))
-            self.eq('node:data', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.data))'))
-            self.eq('node:path', await core.callStorm('[test:str=foo] return ($lib.vars.type($path))'))
+            self.eq('node', await core.callStorm('[test:str=foo] return ($lib.utils.type($node))'))
+            self.eq('node:props', await core.callStorm('[test:str=foo] return ($lib.utils.type($node.props))'))
+            self.eq('node:data', await core.callStorm('[test:str=foo] return ($lib.utils.type($node.data))'))
+            self.eq('node:path', await core.callStorm('[test:str=foo] return ($lib.utils.type($path))'))
 
             # Coverage
             def foo():
@@ -5214,26 +5214,24 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, nodes)
 
             await core.nodes('[ inet:ip=1.2.3.4 :asn=20 ]')
-            self.eq(20, await core.callStorm('inet:ip=1.2.3.4 return($node.props.get(asn))'))
-            self.isin(('asn', 20), await core.callStorm('inet:ip=1.2.3.4 return($node.props.list())'))
+            self.eq(20, await core.callStorm('inet:ip=1.2.3.4 return($node.props.asn)'))
+            props = await core.callStorm('inet:ip=1.2.3.4 return($node.props)')
+            self.eq(20, props.get('asn'))
 
             fakeuser = await core.auth.addUser('fakeuser')
             opts = {'user': fakeuser.iden}
             with self.raises(s_exc.NoSuchProp):
-                await core.callStorm('inet:ip=1.2.3.4 return($node.props.set(lolnope, 42))')
-            with self.raises(s_exc.AuthDeny):
-                await core.callStorm('inet:ip=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
+                await core.callStorm('inet:ip=1.2.3.4 $node.props.lolnope = 42')
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('inet:ip=1.2.3.4 $node.props."dns:rev" = "vertex.link"', opts=opts)
 
             await fakeuser.addRule((True, ('node', 'prop', 'set')))
-            retn = await core.callStorm('inet:ip=1.2.3.4 return($node.props.set(dns:rev, "vertex.link"))', opts=opts)
-            self.true(retn)
+            await core.callStorm('inet:ip=1.2.3.4 $node.props."dns:rev" = "vertex.link"', opts=opts)
+
             node = await core.nodes('inet:ip=1.2.3.4')
             self.eq(node[0].get('dns:rev'), 'vertex.link')
 
-            retn = await core.callStorm('inet:ip=1.2.3.4 return($node.props.set(dns:rev, "foo.bar.com"))', opts=opts)
-            self.true(retn)
+            await core.callStorm('inet:ip=1.2.3.4 $node.props."dns:rev" = "foo.bar.com"', opts=opts)
             node = await core.nodes('inet:ip=1.2.3.4')
             self.eq(node[0].get('dns:rev'), 'foo.bar.com')
 

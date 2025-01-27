@@ -82,7 +82,7 @@ class TestLibStormRandom(s_test.SynTest):
             valu = await core.callStorm(q)
             self.eq(valu, (5, 5))
 
-            q = '''return($lib.vars.type($lib.random.generator(x)))'''
+            q = '''return($lib.utils.type($lib.random.generator(x)))'''
             valu = await core.callStorm(q)
             self.eq(valu, 'random')
 
