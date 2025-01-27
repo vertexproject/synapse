@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where edits to a layer which was in the process of being deleted
+  could potentially still be distributed to mirrors.
+prs: []
+type: bug
+...
