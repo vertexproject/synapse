@@ -13,7 +13,7 @@ import synapse.models.infotech as s_infotech
 
 logger = logging.getLogger(__name__)
 
-maxvers = (0, 2, 32)
+maxvers = (0, 2, 33)
 
 class ModelRev:
 
@@ -51,6 +51,7 @@ class ModelRev:
             ((0, 2, 30), self.revModel_0_2_30),
             ((0, 2, 31), self.revModel_0_2_31),
             ((0, 2, 32), self.revModel_0_2_32),
+            ((0, 2, 33), self.revModel_0_2_33),
         )
 
     async def _uniqSortArray(self, todoprops, layers):
@@ -819,6 +820,9 @@ class ModelRev:
     async def revModel_0_2_32(self, layers):
         await self._normPropValu(layers, 'transport:air:craft:model')
         await self._normPropValu(layers, 'transport:sea:vessel:model')
+
+    async def revModel_0_2_33(self, layers):
+        await self._propToForm(layers, 'transport:sea:vessel:name', 'entity:name')
 
     async def runStorm(self, text, opts=None):
         '''
