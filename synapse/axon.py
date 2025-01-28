@@ -1,5 +1,6 @@
 import csv
 import json
+import struct
 import asyncio
 import hashlib
 import logging
@@ -759,6 +760,41 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.jsonlines(sha256, errors=errors):
             yield item
 
+    async def read(self, sha256, size, offset=0):
+        '''
+        Read bytes from a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            size (int): The number of bytes to read.
+            offset (int): The offset to start reading from.
+
+        Returns:
+            bytes: The requested bytes from the file.
+
+        Raises:
+            synapse.exc.NoSuchFile: If the file does not exist.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        return await self.cell.read(sha256, size, offset=offset)
+
+    async def unpack(self, sha256, fmt, offset=0):
+        '''
+        Unpack bytes from a file in the Axon using struct.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            fmt (str): The struct format string.
+            offset (int): The offset to start reading from.
+
+        Returns:
+            tuple: The unpacked values.
+
+        Raises:
+            synapse.exc.NoSuchFile: If the file does not exist.
+        '''
+        await self._reqUserAllowed(('axon', 'get'))
+        return await self.cell.unpack(sha256, fmt, offset=offset)
 
 class Axon(s_cell.Cell):
 
@@ -1486,6 +1522,70 @@ class Axon(s_cell.Cell):
                 logger.exception(f'Bad json line encountered for {sha256}')
                 raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
                                         sha256=sha256) from None
+
+    async def read(self, sha256, size, offset=0):
+        '''
+        Read bytes from a file in the Axon.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            size (int): The number of bytes to read. Must be between 1 and 1MB.
+            offset (int): The offset to start reading from. Must be >= 0.
+
+        Returns:
+            bytes: The requested bytes from the file.
+
+        Raises:
+            synapse.exc.BadArg: If the size is not between 1 and 1MB, or if the offset is negative.
+            synapse.exc.NoSuchFile: If the file does not exist.
+        '''
+        if size < 1 or size > s_const.mebibyte:
+            raise s_exc.BadArg(mesg='Size must be between 1 and 1MB', size=size)
+
+        if offset < 0:
+            raise s_exc.BadArg(mesg='Offset must be >= 0', offset=offset)
+
+        fsize = await self._reqHas(sha256)
+        if offset >= fsize:
+            return b''
+
+        byts = b''
+        async for chunk in self._getBytsOffsSize(sha256, offset, size):
+            byts += chunk
+        return byts
+
+    async def unpack(self, sha256, fmt, offset=0):
+        '''
+        Unpack bytes from a file in the Axon using struct.
+
+        Args:
+            sha256 (bytes): The sha256 hash of the file in bytes.
+            fmt (str): The struct format string.
+            offset (int): The offset to start reading from.
+
+        Returns:
+            tuple: The unpacked values.
+
+        Raises:
+            synapse.exc.NoSuchFile: If the file does not exist.
+            synapse.exc.BadArg: If the struct format is invalid.
+        '''
+
+        if not isinstance(fmt, str):
+            raise s_exc.BadArg(mesg='Format string must be a string', fmt=fmt)
+
+        try:
+            size = struct.calcsize(fmt)
+        except struct.error as e:
+            raise s_exc.BadArg(mesg=f'Invalid struct format string: {str(e)}', fmt=fmt) from None
+
+        byts = await self.read(sha256, size, offset=offset)
+
+        try:
+            return struct.unpack(fmt, byts)
+        except struct.error as e:
+            mesg = f'Failed to unpack bytes with format {fmt}: {str(e)}'
+            raise s_exc.BadArg(mesg=mesg) from None
 
     async def postfiles(self, fields, url, params=None, headers=None, method='POST',
                         ssl=True, timeout=None, proxy=True, ssl_opts=None):

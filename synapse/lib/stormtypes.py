@@ -2381,6 +2381,49 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
+
+        {'name': 'read', 'desc': '''
+            Read bytes from a file stored in the Axon by its SHA256 hash.
+
+            Examples:
+                Read 100 bytes starting at offset 0::
+
+                    $byts = $lib.axon.read($sha256, size=100)
+
+                Read 50 bytes starting at offset 200::
+
+                    $byts = $lib.axon.read($sha256, size=50, offset=200)
+            ''',
+         'type': {'type': 'function', '_funcname': 'read',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
+                      {'name': 'size', 'type': 'int', 'desc': 'The number of bytes to read.'},
+                      {'name': 'offset', 'type': 'int', 'default': 0,
+                       'desc': 'The offset to start reading from.'},
+                  ),
+                  'returns': {'type': 'bytes', 'desc': 'The requested bytes from the file.'}}},
+
+        {'name': 'unpack', 'desc': '''
+            Unpack bytes from a file stored in the Axon into a struct using the specified format.
+
+            Examples:
+                Unpack two 32-bit integers from the start of a file::
+
+                    $nums = $lib.axon.unpack($sha256, '<II')
+
+                Unpack a 64-bit float starting at offset 100::
+
+                    $float = $lib.axon.unpack($sha256, '<d', offset=100)
+            ''',
+         'type': {'type': 'function', '_funcname': 'unpack',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
+                      {'name': 'fmt', 'type': 'str', 'desc': 'The struct format string.'},
+                      {'name': 'offset', 'type': 'int', 'default': 0,
+                       'desc': 'The offset to start reading from.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The unpacked values as a tuple.'}}},
+
         {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
@@ -2426,6 +2469,8 @@ class LibAxon(Lib):
             'size': self.size,
             'upload': self.upload,
             'hashset': self.hashset,
+            'read': self.read,
+            'unpack': self.unpack,
         }
 
     @stormfunc(readonly=True)
@@ -2711,6 +2756,36 @@ class LibAxon(Lib):
 
         await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
+
+    @stormfunc(readonly=True)
+    async def read(self, sha256, size, offset=0):
+        '''
+        Read bytes from a file in the Axon.
+        '''
+        sha256 = await tostr(sha256)
+        size = await toint(size)
+        offset = await toint(offset)
+
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.read(s_common.uhex(sha256), size, offset)
+
+    @stormfunc(readonly=True)
+    async def unpack(self, sha256, fmt, offset=0):
+        '''
+        Unpack bytes from a file in the Axon using struct.
+        '''
+        sha256 = await tostr(sha256)
+        fmt = await tostr(fmt)
+        offset = await toint(offset)
+
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.unpack(s_common.uhex(sha256), fmt, offset)
 
 @registry.registerLib
 class LibBytes(Lib):

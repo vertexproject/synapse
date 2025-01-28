@@ -4,6 +4,7 @@ import csv
 import sys
 import base64
 import shutil
+import struct
 import asyncio
 import hashlib
 import logging
@@ -1167,3 +1168,33 @@ bar baz",vv
 
             (size, sha256) = await axon01.put(b'vertex')
             self.eq(await axon00.size(sha256), await axon01.size(sha256))
+
+    async def test_axon_read_unpack(self):
+
+        async with self.getTestAxon() as axon:
+
+            data = b'vertex.link'
+            size, sha256 = await axon.put(data)
+            self.eq(b'tex', await axon.read(sha256, 3, offset=3))
+            self.eq(b'link', await axon.read(sha256, 4, offset=7))
+            self.eq(b'', await axon.read(sha256, 1, offset=11))
+
+            with self.raises(s_exc.BadArg):
+                await axon.read(sha256, 0)
+            with self.raises(s_exc.BadArg):
+                await axon.read(sha256, 1, -1)
+            with self.raises(s_exc.BadArg):
+                await axon.read(sha256, 2 * 1024 * 1024)
+
+            intdata = struct.pack('>QQQ', 1, 2, 3)
+            size, sha256 = await axon.put(intdata)
+            self.eq((1,), await axon.unpack(sha256, '>Q'))
+            self.eq((2,), await axon.unpack(sha256, '>Q', offset=8))
+            self.eq((3,), await axon.unpack(sha256, '>Q', offset=16))
+            self.eq((2, 3), await axon.unpack(sha256, '>QQ', offset=8))
+
+            with self.raises(s_exc.BadArg):
+                await axon.unpack(sha256, 'not a valid format')
+
+            with self.raises(s_exc.BadArg):
+                await axon.unpack(sha256, '>Q', offset=24)
