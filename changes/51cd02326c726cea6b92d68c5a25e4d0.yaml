@@ -1,5 +1,5 @@
 ---
-desc: Fixed an issue where pending nexus edits to an object which was in the process of
+desc: Fixed an issue where pending Nexus edits to an object which was in the process of
   being deleted could potentially still be distributed to mirrors.
 prs: []
 type: bug
