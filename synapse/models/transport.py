@@ -455,7 +455,7 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'The type of vessel.'}),
 
                     ('name', ('entity:name', {}), {
-                        'doc': 'The name of the vessel'}),
+                        'doc': 'The name of the vessel.'}),
 
                     ('length', ('geo:dist', {}), {
                         'deprecated': True,
