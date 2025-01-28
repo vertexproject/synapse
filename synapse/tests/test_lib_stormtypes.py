@@ -7121,7 +7121,7 @@ words\tword\twrd'''
 
             await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
-            await self.asyncraises(s_exc.AuthDeny,core.callStorm(q, opts=opts))
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=opts))
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
@@ -7134,7 +7134,7 @@ words\tword\twrd'''
             self.eq((2, 3), await core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.unpack($sha256, fmt="not a valid format"))'
-            await self.asyncraises(s_exc.BadArg,core.callStorm(q, opts=opts))
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q", offset=24))'
-            await self.asyncraises(s_exc.BadArg,core.callStorm(q, opts=opts))
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
