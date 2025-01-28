@@ -1418,44 +1418,35 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Deprecated. Please use risk:vuln:cve:references.'}),
 
                     ('nist:nvd:source', ('ou:name', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:source.'}),
+                        'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
 
                     ('nist:nvd:published', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:published.'}),
+                        'doc': 'The date the vulnerability was first published in the NVD.'}),
 
                     ('nist:nvd:modified', ('time', {"ismax": True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:modified.'}),
+                        'doc': 'The date the vulnerability was last modified in the NVD.'}),
 
                     ('cisa:kev:name', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:name.'}),
+                        'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
 
                     ('cisa:kev:desc', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:desc.'}),
+                        'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
 
                     ('cisa:kev:action', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:action.'}),
+                        'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
 
                     ('cisa:kev:vendor', ('ou:name', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:vendor.'}),
+                        'doc': 'The vendor name listed in the CISA KEV database.'}),
 
                     ('cisa:kev:product', ('it:prod:softname', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:product.'}),
+                        'doc': 'The product name listed in the CISA KEV database.'}),
 
                     ('cisa:kev:added', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:added.'}),
+                        'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
 
                     ('cisa:kev:duedate', ('time', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:duedate.'}),
+                        'doc': 'The date the action is due according to the CISA KEV database.'}),
+
 
                 )),
                 ('it:sec:cpe', {}, (
