@@ -318,7 +318,7 @@ class NexusTest(s_t_utils.SynTest):
                     cell01.nexsiden = 'newp'
                     with self.raises(s_exc.NoSuchIden) as cm:
                         await cell01.sync()
-                    self.eq(cm.exception.get('mesg'), 'No Nexus Pusher with iden newp.')
+                    self.eq(cm.exception.get('mesg'), "No Nexus Pusher with iden newp event='sync' args=() kwargs={}")
 
                     self.none(await cell00.nexsroot.nexslog.last())
                     self.none(await cell01.nexsroot.nexslog.last())
@@ -331,7 +331,7 @@ class NexusTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.NoSuchName) as cm:
                         await cell01._push('newp')
-                    self.eq(cm.exception.get('mesg'), 'No Nexus handler for event newp.')
+                    self.eq(cm.exception.get('mesg'), 'No event handler for event newp args=() kwargs={}')
 
                     self.eq(0, (await cell00.nexsroot.nexslog.last())[0])
                     self.eq(0, (await cell01.nexsroot.nexslog.last())[0])
