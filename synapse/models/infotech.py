@@ -1417,6 +1417,46 @@ class ItModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated. Please use risk:vuln:cve:references.'}),
 
+                    ('nist:nvd:source', ('ou:name', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:source.'}),
+
+                    ('nist:nvd:published', ('time', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:published.'}),
+
+                    ('nist:nvd:modified', ('time', {"ismax": True}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:modified.'}),
+
+                    ('cisa:kev:name', ('str', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:name.'}),
+
+                    ('cisa:kev:desc', ('str', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:desc.'}),
+
+                    ('cisa:kev:action', ('str', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:action.'}),
+
+                    ('cisa:kev:vendor', ('ou:name', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:vendor.'}),
+
+                    ('cisa:kev:product', ('it:prod:softname', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:product.'}),
+
+                    ('cisa:kev:added', ('time', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:added.'}),
+
+                    ('cisa:kev:duedate', ('time', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:duedate.'}),
+
                 )),
                 ('it:sec:cpe', {}, (
                     ('v2_2', ('it:sec:cpe:v2_2', {}), {
@@ -2248,29 +2288,34 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Software architecture.',
                     }),
                     ('released', ('time', {}), {
-                        'doc': 'Timestamp for when this version of the software was released.',
-                    }),
+                        'doc': 'Timestamp for when this version of the software was released.'}),
+
                     ('semver', ('it:semver', {}), {
-                        'doc': 'System normalized semantic version number.',
-                    }),
+                        'doc': 'System normalized semantic version number.'}),
+
                     ('semver:major', ('int', {}), {
-                        'doc': 'Version major number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:minor', ('int', {}), {
-                        'doc': 'Version minor number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:patch', ('int', {}), {
-                        'doc': 'Version patch number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:pre', ('str', {}), {
-                        'doc': 'Semver prerelease string.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('semver:build', ('str', {}), {
-                        'doc': 'Semver build string.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'URL where a specific version of the software is available from.',
-                    }),
+                        'doc': 'URL where a specific version of the software is available from.'}),
+
                 )),
 
                 ('it:prod:softlib', {}, (

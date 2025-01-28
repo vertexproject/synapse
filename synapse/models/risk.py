@@ -499,14 +499,17 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The CVE ID of the vulnerability.'}),
 
                     ('cve:desc', ('str', {}), {
+                        'deprecated': True,
                         'disp': {'hint': 'text'},
-                        'doc': 'The description of the vulnerability according to the CVE database.'}),
+                        'doc': 'Deprecatd. Please use it:sec:cve:desc.'}),
 
                     ('cve:url', ('inet:url', {}), {
-                        'doc': 'A URL linking this vulnerability to the CVE description.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecatd. Please use it:sec:cve:desc.'}),
 
                     ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of documentation URLs provided by the CVE database.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecatd. Please use it:sec:cve:references.'}),
 
                     ('nist:nvd:source', ('ou:name', {}), {
                         'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
