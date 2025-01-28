@@ -1447,7 +1447,6 @@ class ItModule(s_module.CoreModule):
                     ('cisa:kev:duedate', ('time', {}), {
                         'doc': 'The date the action is due according to the CISA KEV database.'}),
 
-
                 )),
                 ('it:sec:cpe', {}, (
                     ('v2_2', ('it:sec:cpe:v2_2', {}), {
