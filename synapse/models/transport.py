@@ -454,21 +454,26 @@ class TransportModule(s_module.CoreModule):
                     ('type', ('transport:sea:vessel:type:taxonomy', {}), {
                         'doc': 'The type of vessel.'}),
 
-                    # TODO: convert this to an entity:name
-                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                    ('name', ('entity:name', {}), {
                         'doc': 'The name of the vessel'}),
+
                     ('length', ('geo:dist', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use :phys:length.'}),
+
                     ('beam', ('geo:dist', {}), {
                         'doc': 'The official overall vessel beam'}),
+
                     ('flag', ('iso:3166:cc', {}), {
                         'doc': 'The country the vessel is flagged to.'}),
+
                     ('mmsi', ('transport:sea:mmsi', {}), {
                         'doc': 'The Maritime Mobile Service Identifier assigned to the vessel.'}),
+
                     ('make', ('str', {'lower': True, 'strip': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use :manufacturer:name.'}),
+
                     ('operator', ('ps:contact', {}), {
                         'doc': 'The contact information of the operator.'}),
                     # TODO tonnage / gross tonnage?
