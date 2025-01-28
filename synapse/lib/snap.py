@@ -426,7 +426,6 @@ class ProtoNode:
         return True
 
     async def getSetOps(self, name, valu, norminfo=None):
-
         prop = self.form.props.get(name)
         if prop is None:
             return ()
