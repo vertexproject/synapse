@@ -1766,3 +1766,9 @@ class ModelRevTest(s_tests.SynTest):
             self.eq('foo bar', nodes[0].get('model'))
             nodes = await core.nodes('transport:sea:vessel')
             self.eq('foo bar', nodes[0].get('model'))
+
+    async def test_modelrev_0_2_33(self):
+        async with self.getRegrCore('model-0.2.33') as core:
+            nodes = await core.nodes('entity:name')
+            self.len(1, nodes)
+            self.eq('foo bar', nodes[0].repr())
