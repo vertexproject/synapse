@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where certain User and Role properties could be modified via
-  Storm and adversely affect the in-memory representation of those objects.
-prs: []
-type: bug
-...

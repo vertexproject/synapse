@@ -5446,7 +5446,7 @@ class Number(Prim):
         try:
             valu = s_common.hugenum(valu)
         except (TypeError, decimal.DecimalException) as e:
-            mesg = f'Failed to make number from {valu!r}'
+            mesg = f'Failed to make number from {s_common.trimText(repr(valu))}'
             raise s_exc.BadCast(mesg=mesg) from e
 
         Prim.__init__(self, valu, path=path)
@@ -9813,7 +9813,7 @@ async def tostr(valu, noneok=False):
 
         return str(valu)
     except Exception as e:
-        mesg = f'Failed to make a string from {valu!r}.'
+        mesg = f'Failed to make a string from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def tobool(valu, noneok=False):
@@ -9827,7 +9827,7 @@ async def tobool(valu, noneok=False):
     try:
         return bool(valu)
     except Exception:
-        mesg = f'Failed to make a boolean from {valu!r}.'
+        mesg = f'Failed to make a boolean from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg)
 
 async def tonumber(valu, noneok=False):
@@ -9852,13 +9852,13 @@ async def toint(valu, noneok=False):
         try:
             return int(valu, 0)
         except ValueError as e:
-            mesg = f'Failed to make an integer from {valu!r}.'
+            mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
             raise s_exc.BadCast(mesg=mesg) from e
 
     try:
         return int(valu)
     except Exception as e:
-        mesg = f'Failed to make an integer from {valu!r}.'
+        mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
@@ -9877,7 +9877,7 @@ async def toiter(valu, noneok=False):
             async for item in agen:
                 yield item
     except TypeError as e:
-        mesg = f'Value is not iterable: {valu!r}'
+        mesg = f'Value is not iterable: {s_common.trimText(repr(valu))}'
         raise s_exc.StormRuntimeError(mesg=mesg) from e
 
 async def torepr(valu, usestr=False):

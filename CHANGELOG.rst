@@ -6,6 +6,60 @@
 Synapse Changelog
 *****************
 
+v2.195.0 - 2025-01-24
+=====================
+
+Automatic Migrations
+--------------------
+- Renormalized the ``:model`` property on ``transport:air:craft`` and
+  ``transport:sea:vessel`` to normalize whitespace.
+  (`#4090 <https://github.com/vertexproject/synapse/pull/4090>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``names`` property to the ``ou:id:type`` form and ``alts`` definition
+  to the ``ou:id:type:name`` property.
+  (`#4081 <https://github.com/vertexproject/synapse/pull/4081>`_)
+- See :ref:`userguide_model_v2_195_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.cell.iden`` to retrieve the iden of the Cortex which the Storm
+  query is executing on. Unlike ``$lib.cell.getCellInfo().cell.iden``, this
+  value is available to non-admin users.
+  (`#4082 <https://github.com/vertexproject/synapse/pull/4082>`_)
+- Added ``--find`` option to ``auth.perms.list`` to easily filter permission
+  results.
+  (`#4083 <https://github.com/vertexproject/synapse/pull/4083>`_)
+  (`#4087 <https://github.com/vertexproject/synapse/pull/4087>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the deprecated types ``edge`` and ``timeedge`` were not
+  annotated as such by the ``getModelDict()`` API.
+  (`#4079 <https://github.com/vertexproject/synapse/pull/4079>`_)
+- Fixed an issue where certain User and Role properties could be modified via
+  Storm and adversely affect the in-memory representation of those objects.
+  (`#4084 <https://github.com/vertexproject/synapse/pull/4084>`_)
+- Fixed an issue where exceptionally large telepath messages may cause OpenSSL
+  malloc failures.
+  (`#4088 <https://github.com/vertexproject/synapse/pull/4088>`_)
+- Added limits for scraping file paths. The number of components in a path must
+  not exceed ``1,024``. Linux and Windows paths must not exceed ``4,096`` and
+  ``32,767`` characters, respectively.
+  (`#4089 <https://github.com/vertexproject/synapse/pull/4089>`_)
+
+Deprecations
+------------
+- The ``forms`` key in Storm package command definitions has been deprecated.
+  The ``cmdinputs`` key may still be used to specify node forms that commands
+  are intended to accept as input.
+  (`#4076 <https://github.com/vertexproject/synapse/pull/4076>`_)
+- Deprecated ``$lib.infosec.cvss.calculate()`` and
+  ``$lib.infosec.cvss.calculateFromProps()``.
+  (`#4079 <https://github.com/vertexproject/synapse/pull/4079>`_)
+
 v2.194.0 - 2025-01-16
 =====================
 

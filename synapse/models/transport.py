@@ -82,7 +82,7 @@ class TransportModule(s_module.CoreModule):
                         'trip': 'flight',
                         'point': 'gate',
                         'place': 'airport',
-                        'vehicle': 'air craft'},
+                        'vehicle': 'aircraft'},
                     'doc': 'An individual instance of a flight.'}),
 
                 ('transport:air:occupant', ('guid', {}), {
@@ -156,7 +156,7 @@ class TransportModule(s_module.CoreModule):
                         ('manufacturer:name', ('ou:name', {}), {
                             'doc': 'The name of the organization which manufactured the {phys:object}.'}),
 
-                        ('model', ('str', {'lower': True, 'strip': True}), {
+                        ('model', ('str', {'lower': True, 'onespace': True}), {
                             'doc': 'The model of the {phys:object}.'}),
 
                         ('serial', ('str', {'strip': True}), {
@@ -183,7 +183,7 @@ class TransportModule(s_module.CoreModule):
                     'doc': 'Properties common to a vehicle.',
                     'props': (
                         ('operator', ('ps:contact', {}), {
-                            'doc': 'The contact information of operator of the {phys:object}.'}),
+                            'doc': 'The contact information of the operator of the {phys:object}.'}),
                     ),
                 }),
 
@@ -192,7 +192,7 @@ class TransportModule(s_module.CoreModule):
                     'template': {
                         'place': 'place',       # airport, seaport, starport
                         'point': 'point',       # gate, slip, stargate...
-                        'vehicle': 'vehicle',   # air craft, vessel, space ship...
+                        'vehicle': 'vehicle',   # aircraft, vessel, space ship...
                         'trip': 'trip'},        # flight, voyage...
 
                     'props': (

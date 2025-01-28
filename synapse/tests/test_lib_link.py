@@ -4,6 +4,8 @@ import socket
 import asyncio
 import multiprocessing
 
+import unittest.mock as mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -66,7 +68,10 @@ class LinkTest(s_test.SynTest):
         info = link.getAddrInfo()
         self.eq(info.get('family'), 'tcp')
         self.eq(info.get('ipver'), 'ipv4')
-        await link.send(b'visi')
+
+        with mock.patch('synapse.lib.link.MAXWRITE', 2):
+            await link.send(b'visi')
+
         self.eq(b'vert', await link.recvsize(4))
         self.none(await link.recvsize(1))
         await link.fini()
