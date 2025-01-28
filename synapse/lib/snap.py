@@ -414,7 +414,8 @@ class ProtoNode:
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
+                subprop = self.form.props.get(full)
+                if subprop is not None and not subprop.locked:
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
