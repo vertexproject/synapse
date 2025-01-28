@@ -318,7 +318,8 @@ class NexusTest(s_t_utils.SynTest):
                     cell01.nexsiden = 'newp'
                     with self.raises(s_exc.NoSuchIden) as cm:
                         await cell01.sync()
-                    self.eq(cm.exception.get('mesg'), 'No Nexus Pusher with iden newp.')
+                    self.eq(cm.exception.get('mesg'),
+                            'No Nexus Pusher with iden newp event='sync' args=() kwargs={}')
 
                     self.none(await cell00.nexsroot.nexslog.last())
                     self.none(await cell01.nexsroot.nexslog.last())
