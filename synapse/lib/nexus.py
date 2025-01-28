@@ -341,13 +341,17 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
-        if (nexus := self._nexskids.get(nexsiden)) is None:
-            raise s_exc.NoSuchIden(mesg=f'No Nexus Pusher with iden {nexsiden}.', iden=nexsiden)
-
-        if event not in nexus._nexshands:
-            raise s_exc.NoSuchName(mesg=f'No Nexus handler for event {event}.', name=event)
-
         async with self.cell.nexslock:
+            if (nexus := self._nexskids.get(nexsiden)) is None:
+                mesg = f'No Nexus Pusher with iden {nexsiden} {event=} args={s_common.trimText(repr(args))} ' \
+                       f'kwargs={s_common.trimText(repr(kwargs))}'
+                raise s_exc.NoSuchIden(mesg=mesg, iden=nexsiden, event=event)
+
+            if event not in nexus._nexshands:
+                mesg = f'No event handler for event {event} args={s_common.trimText(repr(args))} ' \
+                       f'kwargs={s_common.trimText(repr(kwargs))}'
+                raise s_exc.NoSuchName(mesg=mesg, iden=nexsiden, event=event)
+
             self.reqNotReadOnly()
             # Keep a reference to the shielded task to ensure it isn't GC'd
             self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
