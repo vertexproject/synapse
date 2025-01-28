@@ -508,19 +508,6 @@ class RiskModule(s_module.CoreModule):
                     ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of documentation URLs provided by the CVE database.'}),
 
-                    ('cve:desc', ('str', {}), {
-                        'deprecated': True,
-                        'disp': {'hint': 'text'},
-                        'doc': 'Deprecatd. Please use it:sec:cve:desc.'}),
-
-                    ('cve:url', ('inet:url', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecatd. Please use it:sec:cve:desc.'}),
-
-                    ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecatd. Please use it:sec:cve:references.'}),
-
                     ('nist:nvd:source', ('ou:name', {}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:source.'}),
