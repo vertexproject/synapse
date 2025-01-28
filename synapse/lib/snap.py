@@ -431,9 +431,6 @@ class ProtoNode:
         if prop is None:
             return ()
 
-        if prop.locked:
-            return ()
-
         retn = await self._set(prop, valu, norminfo=norminfo)
         if retn is False:
             return ()
