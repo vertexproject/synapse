@@ -610,6 +610,7 @@ workflows:
             branches:
               only:
                 - master
+                - visi-aha-gather
 
       - build_docker_tag:
           requires:
