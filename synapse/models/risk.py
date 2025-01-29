@@ -492,6 +492,9 @@ class RiskModule(s_module.CoreModule):
                     ('id', ('str', {'strip': True}), {
                         'doc': 'An identifier for the vulnerability.'}),
 
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'A tag used to annotate the presence or use of the vulnerability.'}),
+
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
 
