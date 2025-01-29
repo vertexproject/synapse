@@ -380,6 +380,13 @@ class Auth(s_nexus.Pusher):
 
         user = await self.reqUser(iden)
 
+        if name == 'locked' and not valu and user.isArchived():
+            mesg = 'Cannot unlock archived user.'
+            raise s_exc.BadArg(mesg=mesg, user=iden, username=user.name)
+
+        if name in ('locked', 'archived') and not valu:
+            self.checkUserLimit()
+
         if gateiden is not None:
             info = user.genGateInfo(gateiden)
             info[name] = s_msgpack.deepcopy(valu)
@@ -391,9 +398,6 @@ class Auth(s_nexus.Pusher):
         else:
             user.info[name] = s_msgpack.deepcopy(valu)
             self.userdefs.set(iden, user.info)
-
-        if name in ('locked', 'archived') and not valu:
-            self.checkUserLimit()
 
         if mesg is None:
             mesg = {

@@ -426,6 +426,22 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, )])
 
+            lowuser = await core.addUser('lowuser')
+            useriden = lowuser.get('iden')
+
+            await core.setUserArchived(useriden, True)
+
+            udef = await core.getUserDef(useriden)
+            self.true(udef.get('archived'))
+            self.true(udef.get('locked'))
+
+            # Unlocking an archived user is invalid
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserLocked(useriden, False)
+            self.eq(exc.exception.get('mesg'), 'Cannot unlock archived user.')
+            self.eq(exc.exception.get('user'), useriden)
+            self.eq(exc.exception.get('username'), 'lowuser')
+
     async def test_auth_password_policy(self):
         policy = {
             'complexity': {
