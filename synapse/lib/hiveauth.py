@@ -210,6 +210,7 @@ class Auth(s_nexus.Pusher):
         return self.usersbyiden.get(iden)
 
     async def reqUser(self, iden):
+        s_common.deprecated('hiveauth.reqUser()', curv='2.195.1', eolv='2.198.0')
 
         user = self.user(iden)
         if user is None:
@@ -218,6 +219,7 @@ class Auth(s_nexus.Pusher):
         return user
 
     async def reqRole(self, iden):
+        s_common.deprecated('hiveauth.reqRole()', curv='2.195.1', eolv='2.198.0')
 
         role = self.role(iden)
         if role is None:
@@ -226,6 +228,7 @@ class Auth(s_nexus.Pusher):
         return role
 
     async def reqUserByName(self, name):
+        s_common.deprecated('hiveauth.reqUserByName()', curv='2.195.1', eolv='2.198.0')
         user = await self.getUserByName(name)
         if user is None:
             mesg = f'No user named {name}.'
@@ -233,6 +236,7 @@ class Auth(s_nexus.Pusher):
         return user
 
     async def reqUserByNameOrIden(self, name):
+        s_common.deprecated('hiveauth.reqUserByNameOrIden()', curv='2.195.1', eolv='2.198.0')
         user = await self.getUserByName(name)
         if user is not None:
             return user
@@ -244,6 +248,7 @@ class Auth(s_nexus.Pusher):
         return user
 
     async def reqRoleByName(self, name):
+        s_common.deprecated('hiveauth.reqRoleByName()', curv='2.195.1', eolv='2.198.0')
         role = await self.getRoleByName(name)
         if role is None:
             mesg = f'No role named {name}.'
@@ -260,13 +265,16 @@ class Auth(s_nexus.Pusher):
         Returns:
             HiveUser: A Hive User.  May return None if there is no user by the requested name.
         '''
+        s_common.deprecated('hiveauth.getUserByName()', curv='2.195.1', eolv='2.198.0')
         return self.usersbyname.get(name)
 
     async def getUserIdenByName(self, name):
+        s_common.deprecated('hiveauth.getUserIdenByName()', curv='2.195.1', eolv='2.198.0')
         user = await self.getUserByName(name)
         return None if user is None else user.iden
 
     async def getRoleByName(self, name):
+        s_common.deprecated('hiveauth.getRoleByName()', curv='2.195.1', eolv='2.198.0')
         return self.rolesbyname.get(name)
 
     async def _addUserNode(self, node):
@@ -279,6 +287,7 @@ class Auth(s_nexus.Pusher):
         return user
 
     async def setUserName(self, iden, name):
+        s_common.deprecated('hiveauth.setUserName()', curv='2.195.1', eolv='2.198.0')
         if not isinstance(name, str):
             raise s_exc.BadArg(mesg='setUserName() name must be a string')
 
@@ -303,6 +312,7 @@ class Auth(s_nexus.Pusher):
         await self.feedBeholder('user:name', beheld)
 
     async def setRoleName(self, iden, name):
+        s_common.deprecated('hiveauth.setRoleName()', curv='2.195.1', eolv='2.198.0')
         if not isinstance(name, str):
             raise s_exc.BadArg(mesg='setRoleName() name must be a string')
 
@@ -346,6 +356,7 @@ class Auth(s_nexus.Pusher):
             await self.fire('cell:beholder', **behold)
 
     async def setUserInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
+        s_common.deprecated('hiveauth.setUserInfo()', curv='2.195.1', eolv='2.198.0')
 
         user = await self.reqUser(iden)
 
@@ -372,6 +383,7 @@ class Auth(s_nexus.Pusher):
         user.clearAuthCache()
 
     async def setRoleInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
+        s_common.deprecated('hiveauth.setRoleInfo()', curv='2.195.1', eolv='2.198.0')
         role = await self.reqRole(iden)
 
         info = role.info
@@ -414,6 +426,7 @@ class Auth(s_nexus.Pusher):
         Returns:
             (HiveAuthGate)
         '''
+        s_common.deprecated('hiveauth.addAuthGate()', curv='2.195.1', eolv='2.198.0')
         gate = self.getAuthGate(iden)
         if gate is not None:
             if gate.type != authgatetype:
@@ -432,6 +445,7 @@ class Auth(s_nexus.Pusher):
         Note:
             Not change distributed
         '''
+        s_common.deprecated('hiveauth.delAuthGate()', curv='2.195.1', eolv='2.198.0')
         gate = self.getAuthGate(iden)
         if gate is None:
             raise s_exc.NoSuchAuthGate(iden=iden)
@@ -443,12 +457,15 @@ class Auth(s_nexus.Pusher):
         del self.authgates[iden]
 
     def getAuthGate(self, iden):
+        s_common.deprecated('hiveauth.getAuthGate()', curv='2.195.1', eolv='2.198.0')
         return self.authgates.get(iden)
 
     def getAuthGates(self):
+        s_common.deprecated('hiveauth.getAuthGates()', curv='2.195.1', eolv='2.198.0')
         return list(self.authgates.values())
 
     def reqAuthGate(self, iden):
+        s_common.deprecated('hiveauth.reqAuthGate()', curv='2.195.1', eolv='2.198.0')
         gate = self.authgates.get(iden)
         if gate is None:
             mesg = f'No auth gate found with iden: ({iden}).'
@@ -463,6 +480,7 @@ class Auth(s_nexus.Pusher):
 
         Raises: s_exc.HitLimit if the number of active users is at the maximum.
         '''
+        s_common.deprecated('hiveauth.checkUserLimit()', curv='2.195.1', eolv='2.198.0')
         if self.maxusers == 0:
             return
 
@@ -495,6 +513,7 @@ class Auth(s_nexus.Pusher):
             HiveUser: A Hive User.
         '''
 
+        s_common.deprecated('hiveauth.addUser()', curv='2.195.1', eolv='2.198.0')
         self.checkUserLimit()
 
         if self.usersbyname.get(name) is not None:
@@ -540,6 +559,7 @@ class Auth(s_nexus.Pusher):
         await self.feedBeholder('user:add', user.pack())
 
     async def addRole(self, name, iden=None):
+        s_common.deprecated('hiveauth.addRole()', curv='2.195.1', eolv='2.198.0')
         if self.rolesbyname.get(name) is not None:
             raise s_exc.DupRoleName(name=name)
 
@@ -565,6 +585,7 @@ class Auth(s_nexus.Pusher):
         await self.feedBeholder('role:add', role.pack())
 
     async def delUser(self, iden):
+        s_common.deprecated('hiveauth.delUser()', curv='2.195.1', eolv='2.198.0')
 
         await self.reqUser(iden)
         return await self._push('user:del', iden)
@@ -599,6 +620,7 @@ class Auth(s_nexus.Pusher):
                 yield user
 
     async def delRole(self, iden):
+        s_common.deprecated('hiveauth.delRole()', curv='2.195.1', eolv='2.198.0')
         await self.reqRole(iden)
         return await self._push('role:del', iden)
 
