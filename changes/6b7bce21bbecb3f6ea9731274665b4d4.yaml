@@ -1,0 +1,5 @@
+---
+desc: Deprecated hiveauth.py::Auth and all public methods.
+prs: []
+type: deprecation
+...
