@@ -1,5 +1,5 @@
 ---
-desc: Added ``liftByData()`` API to the Storm ``layer`` type to allow lifting by node data
+desc: Added ``liftByNodeData()`` API to the Storm ``layer`` type to allow lifting by node data
   in a given layer.
 prs: []
 type: feat
