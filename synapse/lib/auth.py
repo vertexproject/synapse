@@ -381,8 +381,7 @@ class Auth(s_nexus.Pusher):
         user = await self.reqUser(iden)
 
         if name == 'locked' and not valu and user.isArchived():
-            mesg = 'Cannot unlock archived user.'
-            raise s_exc.BadArg(mesg=mesg, user=iden, username=user.name)
+            raise s_exc.BadArg(mesg='Cannot unlock archived user.', user=iden, username=user.name)
 
         if name in ('locked', 'archived') and not valu:
             self.checkUserLimit()

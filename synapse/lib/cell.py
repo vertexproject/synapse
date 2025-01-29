@@ -1302,6 +1302,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._bumpCellVers('cell:storage', (
             (2, self._storCellAuthMigration),
+            (3, self._storCellAuthLockArchivedUsers),
         ), nexs=False)
 
         self.auth = await self._initCellAuth()
@@ -1365,6 +1366,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.cellinfo.set(key, valu)
 
         logger.warning(f'...Cell ({self.getCellType()}) info migration complete!')
+
+    async def _storCellAuthLockArchivedUsers(self):
+        if self.conf.get('auth:ctor') is not None:
+            return
+
+        logger.warning(f'locking archived users on Cell ({self.getCellType()})')
+
+        authkv = self.slab.getSafeKeyVal('auth')
+        userkv = authkv.getSubKeyVal('user:info:')
+
+        for iden, info in userkv.items():
+            if info.get('archived') and not info.get('locked'):
+                info['locked'] = True
+                userkv.set(iden, info)
+
+        logger.warning(f'...Cell ({self.getCellType()}) lock archived users complete!')
 
     async def _storCellAuthMigration(self):
         if self.conf.get('auth:ctor') is not None:
