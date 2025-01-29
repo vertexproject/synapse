@@ -2399,7 +2399,7 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
                       {'name': 'offs', 'type': 'int', 'default': 0,
                        'desc': 'The offset to start reading from.'},
-                      {'name': 'size', 'type': 'int', 'default': 0,
+                      {'name': 'size', 'type': 'int', 'default': s_const.mebibyte,
                        'desc': 'The number of bytes to read. Max is 1 MiB.'},
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The requested bytes from the file.'}}},
