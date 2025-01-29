@@ -54,6 +54,9 @@ class Beep:
     def beep(self):
         return f'{self.path}: beep'
 
+    def genbeep(self):
+        yield self.beep()
+
 class Foo:
 
     def __init__(self):
@@ -138,6 +141,9 @@ class TeleApi:
     def getFooBar(self, x, y):
         return x - y
 
+    def genGetFooBar(self, x, y):
+        yield self.getFooBar(x, y)
+
     async def customshare(self):
         return await CustomShare.anit(self.link, 42)
 
@@ -159,6 +165,11 @@ class TeleAware(s_telepath.Aware):
             return TeleApi(self, link)
 
         return self._initBeep(path[0])
+
+    async def getTeleFeats(self):
+        return {
+            'aware': 1,
+        }
 
 class TeleAuth(s_telepath.Aware):
 
@@ -632,7 +643,15 @@ class TeleTest(s_t_utils.SynTest):
                 self.len(1, snfo)
                 self.eq(snfo[0].get('items'), {None: 'synapse.tests.test_telepath.TeleApi'})
 
+                self.true(proxy._hasTeleFeat('aware'))
+                self.false(proxy._hasTeleFeat('aware', vers=2))
+                self.false(proxy._hasTeleFeat('newp'))
+
+                self.true(proxy._hasTeleMeth('getFooBar'))
+                self.false(proxy._hasTeleMeth('getBarBaz'))
+
                 self.eq(10, await proxy.getFooBar(20, 10))
+                self.eq([10], [m async for m in await proxy.genGetFooBar(20, 10)])
 
                 # check a custom share works
                 obj = await proxy.customshare()
@@ -674,7 +693,15 @@ class TeleTest(s_t_utils.SynTest):
 
             # check that a dynamic share works
             async with await self.getTestProxy(dmon, 'woke/up') as proxy:
+                self.isin('synapse.tests.test_telepath.Beep', proxy._getClasses())
+                self.notin('synapse.tests.test_telepath.TeleApi', proxy._getClasses())
                 self.eq('up: beep', await proxy.beep())
+                self.eq(['up: beep'], [ m async for m in await proxy.genbeep()])
+                # Telepath features are a function of the base object, not the result of getTeleApi
+                self.true(proxy._hasTeleFeat('aware'))
+                self.false(proxy._hasTeleFeat('aware', vers=2))
+                self.false(proxy._hasTeleFeat('newp'))
+
 
     async def test_telepath_auth(self):
 
