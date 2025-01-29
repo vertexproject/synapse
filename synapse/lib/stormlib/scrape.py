@@ -71,7 +71,7 @@ class LibScrape(s_stormtypes.Lib):
                 $form="ps:name"
 
                 function scrape(text, form) {
-                        $ret = $lib.list()
+                        $ret = ()
                         for ($valu, $info) in $lib.scrape.genMatches($text, $re) {
                             $ret.append(($form, $valu, $info))
                         }
@@ -155,10 +155,7 @@ class LibScrape(s_stormtypes.Lib):
         if fangs:
             _fangs = {src: dst for (src, dst) in fangs}
             _fangre = s_scrape.genFangRegex(_fangs)
-            if len(text) < s_scrape.SCRAPE_SPAWN_LENGTH:
-                scrape_text, offsets = s_scrape.refang_text2(text, re=_fangre, fangs=_fangs)
-            else:
-                scrape_text, offsets = await s_coro.semafork(s_scrape.refang_text2, text, re=_fangre, fangs=_fangs)
+            scrape_text, offsets = await s_coro.semafork(s_scrape.refang_text2, text, re=_fangre, fangs=_fangs)
 
         async for info in s_scrape.genMatchesAsync(scrape_text, regx, opts=opts):
             valu = info.pop('valu')

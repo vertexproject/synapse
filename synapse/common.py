@@ -29,6 +29,8 @@ import traceback
 import contextlib
 import collections
 
+import http.cookies
+
 import yaml
 import regex
 
@@ -38,6 +40,8 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
+import synapse.vendor.cpython.lib.http.cookies as v_cookies
+
 
 try:
     from yaml import CSafeLoader as Loader
@@ -1218,6 +1222,17 @@ def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
     assert n > plen
     return f'{text[:mlen]}{placeholder}'
 
+def _patch_http_cookies():
+    '''
+    Patch stdlib http.cookies._unquote from the 3.11.10 implementation if
+    the interpreter we are using is not patched for CVE-2024-7592.
+    '''
+    if not hasattr(http.cookies, '_QuotePatt'):
+        return
+    http.cookies._unquote = v_cookies._unquote
+
+_patch_http_cookies()
+
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up
 # ignoring cancellation https://github.com/python/cpython/issues/86296
@@ -1368,3 +1383,12 @@ def _timeout(delay):
     """
     loop = asyncio.get_running_loop()
     return _Timeout(loop.time() + delay if delay is not None else None)
+
+def format(text, **kwargs):
+    '''
+    Similar to python str.format() but treats tokens as opaque.
+    '''
+    for name, valu in kwargs.items():
+        tokn = '{' + name + '}'
+        text = text.replace(tokn, valu)
+    return text

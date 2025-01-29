@@ -74,7 +74,7 @@ _DefaultConfig = {
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sectors': '''
-                            init { $list = $lib.list() }
+                            init { $list = () }
                             -> ou:industry +:name $list.append(:name)
                             fini { if $list { return($list) } }
                         ''',
@@ -88,7 +88,7 @@ _DefaultConfig = {
                         'first_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.0))',
                         'last_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.1))',
                         'goals': '''
-                            init { $goals = $lib.list() }
+                            init { $goals = () }
                             -> ou:campaign:org -> ou:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
@@ -183,7 +183,7 @@ _DefaultConfig = {
                     'props': {
                         'value': 'return($node.repr())',
                         'resolves_to_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
                             { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
                             { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
@@ -257,7 +257,7 @@ _DefaultConfig = {
                         ''',
                         'mime_type': '+:mime return(:mime)',
                         'contains_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -(refs)> *
                             $stixid = $bundle.add($node)
                             if $stixid { $refs.append($stixid) }
@@ -279,7 +279,7 @@ _DefaultConfig = {
                         'is_multipart': 'return($lib.false)',
                         'from_ref': ':from -> inet:email return($bundle.add($node))',
                         'to_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             { :to -> inet:email $refs.append($bundle.add($node)) }
                             fini { if $refs { return($refs) } }
                         ''',
@@ -311,7 +311,7 @@ _DefaultConfig = {
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sample_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -> file:bytes $refs.append($bundle.add($node))
                             fini { if $refs { return($refs) } }
                         ''',
@@ -393,7 +393,7 @@ _DefaultConfig = {
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list(({"source_name": "cve", "external_id": $cve})) return($list) }'
+                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() return(([{"source_name": "cve", "external_id": $cve}])) }'
                     },
                     'rels': (
 
@@ -439,7 +439,7 @@ _DefaultConfig = {
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'published': 'return($lib.stix.export.timestamp(:published))',
                         'object_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -(refs)> *
                             $stixid = $bundle.add($node)
                             if $stixid { $refs.append($stixid) }
@@ -486,7 +486,10 @@ _DefaultConfig = {
     },
 }
 
-def _validateConfig(core, config):
+perm_maxsize = ('storm', 'lib', 'stix', 'export', 'maxsize')
+def _validateConfig(runt, config):
+
+    core = runt.snap.core
 
     maxsize = config.get('maxsize', 10000)
 
@@ -506,9 +509,10 @@ def _validateConfig(core, config):
         mesg = f'STIX Bundle config maxsize option must be an integer.'
         raise s_exc.BadConfValu(mesg=mesg)
 
-    if maxsize > 10000:
-        mesg = f'STIX Bundle config maxsize option must be <= 10000.'
-        raise s_exc.BadConfValu(mesg=mesg)
+    if maxsize > 10000 and not runt.allowed(perm_maxsize):
+        permstr = '.'.join(perm_maxsize)
+        mesg = f'Setting STIX export maxsize > 10,000 requires permission: {permstr}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=permstr)
 
     formmaps = config.get('forms')
     if formmaps is None:
@@ -1040,6 +1044,11 @@ class LibStixExport(s_stormtypes.Lib):
     '''
     A Storm Library for exporting to STIX version 2.1 CS02.
     '''
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'stix', 'export', 'maxsize'), 'gate': 'cortex',
+         'desc': 'Controls the ability to specify a STIX export bundle maxsize of greater than 10,000.'},
+    )
+
     _storm_locals = (  # type: ignore
         {
             'name': 'bundle',
@@ -1172,7 +1181,7 @@ class LibStixExport(s_stormtypes.Lib):
             config = _DefaultConfig
 
         config = await s_stormtypes.toprim(config)
-        _validateConfig(self.runt.snap.core, config)
+        _validateConfig(self.runt, config)
 
         return StixBundle(self, self.runt, config)
 

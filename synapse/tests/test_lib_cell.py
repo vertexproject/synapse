@@ -8,7 +8,6 @@ import signal
 import socket
 import asyncio
 import tarfile
-import warnings
 import collections
 import multiprocessing
 
@@ -30,6 +29,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
+import synapse.lib.config as s_config
 import synapse.lib.certdir as s_certdir
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
@@ -115,8 +115,20 @@ class EchoAuthApi(s_cell.CellApi):
         await self._reqUserAllowed(path)
         return True
 
+    @s_cell.adminapi()
+    async def adminOnly(self):
+        return True
+
+    @s_cell.adminapi(log=True)
+    async def adminOnlyLog(self, arg1, arg2, **kwargs):
+        return arg1, arg2, kwargs
+
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
+    # non-default commit / version / verstring
+    COMMIT = 'mycommit'
+    VERSION = (1, 2, 3)
+    VERSTRING = '1.2.3'
 
     async def answer(self):
         return 42
@@ -161,8 +173,9 @@ testDataSchema_v0 = {
     'properties': {
         'type': {'type': 'string'},
         'size': {'type': 'number'},
+        'stuff': {'type': ['number', 'null'], 'default': None}
     },
-    'required': ['type', 'size'],
+    'required': ['type', 'size', 'stuff'],
     'additionalProperties': False,
 }
 
@@ -171,6 +184,7 @@ testDataSchema_v1 = {
     'properties': {
         'type': {'type': 'string'},
         'size': {'type': 'number'},
+        'stuff': {'type': ['number', 'null'], 'default': None},
         'woot': {'type': 'string'},
     },
     'required': ['type', 'size', 'woot'],
@@ -181,191 +195,210 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_drive(self):
 
-        async with self.getTestCell() as cell:
+        with self.getTestDir() as dirn:
+            async with self.getTestCell(dirn=dirn) as cell:
 
-            with self.raises(s_exc.BadName):
-                s_drive.reqValidName('A' * 512)
+                with self.raises(s_exc.BadName):
+                    s_drive.reqValidName('A' * 512)
 
-            info = {'name': 'users'}
-            pathinfo = await cell.addDriveItem(info)
+                info = {'name': 'users'}
+                pathinfo = await cell.addDriveItem(info)
 
-            info = {'name': 'root'}
-            pathinfo = await cell.addDriveItem(info, path='users')
+                info = {'name': 'root'}
+                pathinfo = await cell.addDriveItem(info, path='users')
 
-            with self.raises(s_exc.DupIden):
-                await cell.drive.addItemInfo(pathinfo[-1], path='users')
+                with self.raises(s_exc.DupIden):
+                    await cell.drive.addItemInfo(pathinfo[-1], path='users')
 
-            rootdir = pathinfo[-1].get('iden')
-            self.eq(0, pathinfo[-1].get('kids'))
+                rootdir = pathinfo[-1].get('iden')
+                self.eq(0, pathinfo[-1].get('kids'))
 
-            info = {'name': 'win32k.sys', 'type': 'hehe'}
-            with self.raises(s_exc.NoSuchType):
+                info = {'name': 'win32k.sys', 'type': 'hehe'}
+                with self.raises(s_exc.NoSuchType):
+                    info = await cell.addDriveItem(info, reldir=rootdir)
+
+                infos = [i async for i in cell.getDriveKids(s_drive.rootdir)]
+                self.len(1, infos)
+                self.eq(1, infos[0].get('kids'))
+                self.eq('users', infos[0].get('name'))
+
+                # TODO how to handle iden match with additional property mismatch
+
+                self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0))
+                self.true(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+                self.false(await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=1))
+
+                with self.raises(s_exc.BadVersion):
+                    await cell.drive.setTypeSchema('woot', testDataSchema_v0, vers=0)
+
+                info = {'name': 'win32k.sys', 'type': 'woot'}
                 info = await cell.addDriveItem(info, reldir=rootdir)
 
-            infos = [i async for i in cell.getDriveKids(s_drive.rootdir)]
-            self.len(1, infos)
-            self.eq(1, infos[0].get('kids'))
-            self.eq('users', infos[0].get('name'))
+                iden = info[-1].get('iden')
 
-            # TODO how to handle iden match with additional property mismatch
+                tick = s_common.now()
+                rootuser = cell.auth.rootuser.iden
 
-            await cell.drive.setTypeSchema('woot', testDataSchema_v0)
+                with self.raises(s_exc.SchemaViolation):
+                    versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
+                    await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
 
-            info = {'name': 'win32k.sys', 'type': 'woot'}
-            info = await cell.addDriveItem(info, reldir=rootdir)
+                versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
+                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 20, 'stuff': 12})
+                self.eq(info.get('version'), (1, 1, 0))
+                self.eq(versinfo.get('version'), (1, 1, 0))
 
-            iden = info[-1].get('iden')
-
-            tick = s_common.now()
-            rootuser = cell.auth.rootuser.iden
-
-            with self.raises(s_exc.SchemaViolation):
                 versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-                await cell.setDriveData(iden, versinfo, {'newp': 'newp'})
+                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0, 'stuff': 13})
+                self.eq(info.get('version'), (1, 1, 0))
+                self.eq(versinfo.get('version'), (1, 0, 0))
 
-            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
-            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 20})
-            self.eq(info.get('version'), (1, 1, 0))
-            self.eq(versinfo.get('version'), (1, 1, 0))
+                versinfo10, data10 = await cell.getDriveData(iden, vers=(1, 0, 0))
+                self.eq(versinfo10.get('updated'), tick)
+                self.eq(versinfo10.get('updater'), rootuser)
+                self.eq(versinfo10.get('version'), (1, 0, 0))
 
-            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
-            self.eq(info.get('version'), (1, 1, 0))
-            self.eq(versinfo.get('version'), (1, 0, 0))
+                versinfo11, data11 = await cell.getDriveData(iden, vers=(1, 1, 0))
+                self.eq(versinfo11.get('updated'), tick + 10)
+                self.eq(versinfo11.get('updater'), rootuser)
+                self.eq(versinfo11.get('version'), (1, 1, 0))
 
-            versinfo10, data10 = await cell.getDriveData(iden, vers=(1, 0, 0))
-            self.eq(versinfo10.get('updated'), tick)
-            self.eq(versinfo10.get('updater'), rootuser)
-            self.eq(versinfo10.get('version'), (1, 0, 0))
+                versions = [vers async for vers in cell.getDriveDataVersions(iden)]
+                self.len(2, versions)
+                self.eq(versions[0], versinfo11)
+                self.eq(versions[1], versinfo10)
 
-            versinfo11, data11 = await cell.getDriveData(iden, vers=(1, 1, 0))
-            self.eq(versinfo11.get('updated'), tick + 10)
-            self.eq(versinfo11.get('updater'), rootuser)
-            self.eq(versinfo11.get('version'), (1, 1, 0))
+                info = await cell.delDriveData(iden, vers=(0, 0, 0))
 
-            versions = [vers async for vers in cell.getDriveDataVersions(iden)]
-            self.len(2, versions)
-            self.eq(versions[0], versinfo11)
-            self.eq(versions[1], versinfo10)
+                versions = [vers async for vers in cell.getDriveDataVersions(iden)]
+                self.len(2, versions)
+                self.eq(versions[0], versinfo11)
+                self.eq(versions[1], versinfo10)
 
-            info = await cell.delDriveData(iden, vers=(0, 0, 0))
+                info = await cell.delDriveData(iden, vers=(1, 1, 0))
+                self.eq(info.get('updated'), tick)
+                self.eq(info.get('version'), (1, 0, 0))
 
-            versions = [vers async for vers in cell.getDriveDataVersions(iden)]
-            self.len(2, versions)
-            self.eq(versions[0], versinfo11)
-            self.eq(versions[1], versinfo10)
+                info = await cell.delDriveData(iden, vers=(1, 0, 0))
+                self.eq(info.get('size'), 0)
+                self.eq(info.get('version'), (0, 0, 0))
+                self.none(info.get('updated'))
+                self.none(info.get('updater'))
 
-            info = await cell.delDriveData(iden, vers=(1, 1, 0))
-            self.eq(info.get('updated'), tick)
-            self.eq(info.get('version'), (1, 0, 0))
+                # repopulate a couple data versions to test migration and delete
+                versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
+                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0, 'stuff': 14})
+                versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
+                info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17, 'stuff': 15})
+                self.eq(versinfo, (await cell.getDriveData(iden))[0])
 
-            info = await cell.delDriveData(iden, vers=(1, 0, 0))
-            self.eq(info.get('size'), 0)
-            self.eq(info.get('version'), (0, 0, 0))
-            self.none(info.get('updated'))
-            self.none(info.get('updater'))
+                # This will be done by the cell in a cell storage version migration...
+                async def migrate_v1(info, versinfo, data):
+                    data['woot'] = 'woot'
+                    return data
 
-            # repopulate a couple data versions to test migration and delete
-            versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
-            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'hehe', 'size': 0})
-            versinfo = {'version': (1, 1, 0), 'updated': tick + 10, 'updater': rootuser}
-            info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17})
-            self.eq(versinfo, (await cell.getDriveData(iden))[0])
+                await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
 
-            # This will be done by the cell in a cell storage version migration...
-            async def migrate_v1(info, versinfo, data):
-                data['woot'] = 'woot'
-                return data
+                versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
+                self.eq('woot', data.get('woot'))
 
-            await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
+                versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
+                self.eq('woot', data.get('woot'))
 
-            versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
-            self.eq('woot', data.get('woot'))
+                with self.raises(s_exc.NoSuchIden):
+                    await cell.reqDriveInfo('d7d6107b200e2c039540fc627bc5537d')
 
-            versinfo, data = await cell.getDriveData(iden, vers=(1, 1, 0))
-            self.eq('woot', data.get('woot'))
+                with self.raises(s_exc.TypeMismatch):
+                    await cell.getDriveInfo(iden, typename='newp')
 
-            self.nn(await cell.getDriveInfo(iden))
-            self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.nn(await cell.getDriveInfo(iden))
+                self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
 
-            await cell.delDriveData(iden)
-            self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
+                await cell.delDriveData(iden)
+                self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
 
-            await cell.delDriveInfo(iden)
+                await cell.delDriveInfo(iden)
 
-            self.none(await cell.getDriveInfo(iden))
-            self.len(0, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.none(await cell.getDriveInfo(iden))
+                self.len(0, [vers async for vers in cell.getDriveDataVersions(iden)])
 
-            with self.raises(s_exc.NoSuchPath):
-                await cell.getDrivePath('users/root/win32k.sys')
+                with self.raises(s_exc.NoSuchPath):
+                    await cell.getDrivePath('users/root/win32k.sys')
 
-            pathinfo = await cell.addDrivePath('foo/bar/baz')
-            self.len(3, pathinfo)
-            self.eq('foo', pathinfo[0].get('name'))
-            self.eq(1, pathinfo[0].get('kids'))
-            self.eq('bar', pathinfo[1].get('name'))
-            self.eq(1, pathinfo[1].get('kids'))
-            self.eq('baz', pathinfo[2].get('name'))
-            self.eq(0, pathinfo[2].get('kids'))
+                pathinfo = await cell.addDrivePath('foo/bar/baz')
+                self.len(3, pathinfo)
+                self.eq('foo', pathinfo[0].get('name'))
+                self.eq(1, pathinfo[0].get('kids'))
+                self.eq('bar', pathinfo[1].get('name'))
+                self.eq(1, pathinfo[1].get('kids'))
+                self.eq('baz', pathinfo[2].get('name'))
+                self.eq(0, pathinfo[2].get('kids'))
 
-            self.eq(pathinfo, await cell.addDrivePath('foo/bar/baz'))
+                self.eq(pathinfo, await cell.addDrivePath('foo/bar/baz'))
 
-            baziden = pathinfo[2].get('iden')
-            self.eq(pathinfo, await cell.drive.getItemPath(baziden))
+                baziden = pathinfo[2].get('iden')
+                self.eq(pathinfo, await cell.drive.getItemPath(baziden))
 
-            info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: 3}, 'roles': {}})
-            self.eq(3, info['perm']['users'][rootuser])
+                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: 3}, 'roles': {}})
+                self.eq(3, info['perm']['users'][rootuser])
 
-            with self.raises(s_exc.NoSuchIden):
-                # s_drive.rootdir is all 00s... ;)
-                await cell.setDriveInfoPerm(s_drive.rootdir, {'users': {}, 'roles': {}})
+                with self.raises(s_exc.NoSuchIden):
+                    # s_drive.rootdir is all 00s... ;)
+                    await cell.setDriveInfoPerm(s_drive.rootdir, {'users': {}, 'roles': {}})
 
-            await cell.addDrivePath('hehe/haha')
-            pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
+                await cell.addDrivePath('hehe/haha')
+                pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
 
-            self.eq('hoho', pathinfo[-1].get('name'))
-            self.eq(baziden, pathinfo[-1].get('iden'))
+                self.eq('hoho', pathinfo[-1].get('name'))
+                self.eq(baziden, pathinfo[-1].get('iden'))
 
-            self.true(await cell.drive.hasPathInfo('hehe/haha/hoho'))
-            self.false(await cell.drive.hasPathInfo('foo/bar/baz'))
+                self.true(await cell.drive.hasPathInfo('hehe/haha/hoho'))
+                self.false(await cell.drive.hasPathInfo('foo/bar/baz'))
 
-            pathinfo = await cell.getDrivePath('foo/bar')
-            self.eq(0, pathinfo[-1].get('kids'))
+                pathinfo = await cell.getDrivePath('foo/bar')
+                self.eq(0, pathinfo[-1].get('kids'))
 
-            pathinfo = await cell.getDrivePath('hehe/haha')
-            self.eq(1, pathinfo[-1].get('kids'))
+                pathinfo = await cell.getDrivePath('hehe/haha')
+                self.eq(1, pathinfo[-1].get('kids'))
 
-            with self.raises(s_exc.DupName):
-                iden = pathinfo[-2].get('iden')
-                name = pathinfo[-1].get('name')
-                cell.drive.reqFreeStep(iden, name)
+                with self.raises(s_exc.DupName):
+                    iden = pathinfo[-2].get('iden')
+                    name = pathinfo[-1].get('name')
+                    cell.drive.reqFreeStep(iden, name)
 
-            walks = [item async for item in cell.drive.walkPathInfo('hehe')]
-            self.len(3, walks)
-            # confirm walked paths are yielded depth first...
-            self.eq('hoho', walks[0].get('name'))
-            self.eq('haha', walks[1].get('name'))
-            self.eq('hehe', walks[2].get('name'))
+                walks = [item async for item in cell.drive.walkPathInfo('hehe')]
+                self.len(3, walks)
+                # confirm walked paths are yielded depth first...
+                self.eq('hoho', walks[0].get('name'))
+                self.eq('haha', walks[1].get('name'))
+                self.eq('hehe', walks[2].get('name'))
 
-            iden = walks[2].get('iden')
-            walks = [item async for item in cell.drive.walkItemInfo(iden)]
-            self.len(3, walks)
-            self.eq('hoho', walks[0].get('name'))
-            self.eq('haha', walks[1].get('name'))
-            self.eq('hehe', walks[2].get('name'))
+                iden = walks[2].get('iden')
+                walks = [item async for item in cell.drive.walkItemInfo(iden)]
+                self.len(3, walks)
+                self.eq('hoho', walks[0].get('name'))
+                self.eq('haha', walks[1].get('name'))
+                self.eq('hehe', walks[2].get('name'))
 
-            self.none(cell.drive.getTypeSchema('newp'))
+                self.none(cell.drive.getTypeSchema('newp'))
 
-            cell.drive.validators.pop('woot')
-            self.nn(cell.drive.getTypeValidator('woot'))
+                cell.drive.validators.pop('woot')
+                self.nn(cell.drive.getTypeValidator('woot'))
 
-            # move to root dir
-            pathinfo = await cell.setDriveInfoPath(baziden, 'zipzop')
-            self.len(1, pathinfo)
-            self.eq(s_drive.rootdir, pathinfo[-1].get('parent'))
+                # move to root dir
+                pathinfo = await cell.setDriveInfoPath(baziden, 'zipzop')
+                self.len(1, pathinfo)
+                self.eq(s_drive.rootdir, pathinfo[-1].get('parent'))
 
-            pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
-            self.len(3, pathinfo)
+                pathinfo = await cell.setDriveInfoPath(baziden, 'hehe/haha/hoho')
+                self.len(3, pathinfo)
+
+            async with self.getTestCell(dirn=dirn) as cell:
+                data = {'type': 'woot', 'size': 20, 'stuff': 12, 'woot': 'woot'}
+                # explicitly clear out the cache JsValidators, otherwise we get the cached, pre-msgpack
+                # version of the validator, which will be correct and skip the point of this test.
+                s_config._JsValidators.clear()
+                cell.drive.reqValidData('woot', data)
 
     async def test_cell_auth(self):
 
@@ -407,6 +440,16 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(info.get('user').get('name'), 'root')
                     self.eq(info.get('user').get('iden'), root.iden)
 
+                    # @adminApi methods are allowed
+                    self.true(await proxy.adminOnly())
+                    mesg = "Executing [EchoAuthApi.adminOnlyLog] as [root] with args [(1, 2)[{'three': 4}]"
+                    with self.getStructuredAsyncLoggerStream('synapse.lib.cell', mesg) as stream:
+                        self.eq(await proxy.adminOnlyLog(1, 2, three=4), (1, 2, {'three': 4}))
+                        self.true(await stream.wait(timeout=10))
+                    msgs = stream.jsonlines()
+                    self.len(1, msgs)
+                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0].get('wrapped_func'))
+
                 visi = await echo.auth.addUser('visi')
                 await visi.setPasswd('foo')
                 await visi.addRule((True, ('foo', 'bar')))
@@ -432,6 +475,15 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.getUserInfo('newp')
+
+                    # @adminApi methods are not allowed
+                    with self.raises(s_exc.AuthDeny) as cm:
+                        await proxy.adminOnly()
+                    self.eq(cm.exception.get('mesg'), 'User is not an admin [visi]')
+                    self.eq(cm.exception.get('user'), visi.iden)
+                    self.eq(cm.exception.get('username'), visi.name)
+                    with self.raises(s_exc.AuthDeny) as cm:
+                        await proxy.adminOnlyLog(1, 2, three=4)
 
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
@@ -751,6 +803,7 @@ class CellTest(s_t_utils.SynTest):
                 self.ge(cnfo.get('nexsindx'), 0)
                 self.true(cnfo.get('active'))
                 self.false(cnfo.get('uplink'))
+                self.none(cnfo.get('mirror', True))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
@@ -765,6 +818,37 @@ class CellTest(s_t_utils.SynTest):
                 netw = cnfo.get('network')
                 https = netw.get('https')
                 self.eq(https, http_info)
+
+        # Mirrors & ready flags
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'cell00')
+                cdr1 = s_common.genpath(dirn, 'cell01')
+                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', EchoAuth,
+                                                                  dirn=cdr0))  # type: EchoAuth
+                # Ensure we have a nexus transaction
+                await cell00.sync()
+                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', EchoAuth,
+                                                                  dirn=cdr1,
+                                                                  provinfo={'mirror': 'cell'}))  # type: EchoAuth
+
+                self.true(await asyncio.wait_for(cell01.nexsroot.ready.wait(), timeout=12))
+                await cell01.sync()
+
+                cnfo0 = await cell00.getCellInfo()
+                cnfo1 = await cell01.getCellInfo()
+                self.true(cnfo0['cell']['ready'])
+                self.false(cnfo0['cell']['uplink'])
+                self.none(cnfo0['cell']['mirror'])
+                self.eq(cnfo0['cell']['version'], (1, 2, 3))
+
+                self.true(cnfo1['cell']['ready'])
+                self.true(cnfo1['cell']['uplink'])
+                self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
+                self.eq(cnfo1['cell']['version'], (1, 2, 3))
+
+                self.eq(cnfo0['cell']['nexsindx'], cnfo1['cell']['nexsindx'])
 
     async def test_cell_dyncall(self):
 
@@ -1043,8 +1127,18 @@ class CellTest(s_t_utils.SynTest):
                 await proxy.addUserRole(visi['iden'], ninjas['iden'])
                 await proxy.setUserEmail(visi['iden'], 'visi@vertex.link')
 
+                def1 = await core.getUserDef(visi['iden'])
+                def2 = await core.getUserDef(visi['iden'])
+                self.false(def1['authgates'] is def2['authgates'])
+                self.eq(def1, def2)
+
                 visi = await proxy.getUserDefByName('visi')
                 self.eq(visi['email'], 'visi@vertex.link')
+
+                def1 = await core.getRoleDef(ninjas['iden'])
+                def2 = await core.getRoleDef(ninjas['iden'])
+                self.false(def1['authgates'] is def2['authgates'])
+                self.eq(def1, def2)
 
                 self.true(await proxy.isUserAllowed(visi['iden'], ('foo', 'bar')))
                 self.true(await proxy.isUserAllowed(visi['iden'], ('hehe', 'haha')))
@@ -1348,6 +1442,11 @@ class CellTest(s_t_utils.SynTest):
 
                         with mock.patch('os.stat', diffdev):
                             await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
+                user = await core.auth.getUserByName('root')
+                with self.raises(s_exc.SynErr) as cm:
+                    await core.iterNewBackupArchive(user)
+                self.isin('This API must be called via a CellApi', cm.exception.get('mesg'))
 
             async def err(*args, **kwargs):
                 raise RuntimeError('boom')
@@ -1899,7 +1998,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=lock_target, args=(dirn, evt1,))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             with self.raises(s_exc.FatalErr) as cm:
                 async with await s_cell.Cell.anit(dirn) as cell:
@@ -2214,11 +2313,13 @@ class CellTest(s_t_utils.SynTest):
                             # Backup the mirror (core01) which points to the core00
                             async with await axon00.upload() as upfd:
                                 async with core01.getLocalProxy() as prox:
+                                    tot_chunks = 0
                                     async for chunk in prox.iterNewBackupArchive():
                                         await upfd.write(chunk)
+                                        tot_chunks += len(chunk)
 
                                     size, sha256 = await upfd.save()
-                                    await asyncio.sleep(0)
+                                    self.eq(size, tot_chunks)
 
                     furl = f'{url}{s_common.ehex(sha256)}'
                     purl = await aha.addAhaSvcProv('00.mynewcortex')
@@ -2600,7 +2701,7 @@ class CellTest(s_t_utils.SynTest):
             proc = ctx.Process(target=reload_target, args=(dirn, evt1, evt2))
             proc.start()
 
-            self.true(evt1.wait(timeout=10))
+            self.true(evt1.wait(timeout=30))
 
             async with await s_telepath.openurl(f'cell://{dirn}') as prox:
                 cnfo = await prox.getCellInfo()
@@ -2982,7 +3083,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq('barprof', valu)
 
                 msgs = await core.stormlist('cron.list')
-                self.stormIsInPrint('visi       8437c35a', msgs)
+                self.stormIsInPrint(' visi                      8437c35a.. ', msgs)
                 self.stormIsInPrint('[tel:mob:telem=*]', msgs)
 
                 msgs = await core.stormlist('dmon.list')
@@ -3008,6 +3109,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(node.get('._woot'), 5)
                 self.nn(node.getTagProp('test', 'score'), 6)
 
+                self.maxDiff = None
                 roles = s_t_utils.deguidify('[{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}]')
                 users = s_t_utils.deguidify('[{"type": "user", "iden": "a357138db50780b62093a6ce0d057fd8", "name": "root", "rules": [], "roles": [], "admin": true, "email": null, "locked": false, "archived": false, "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"admin": true}, "4d50eb257549436414643a71e057091a": {"admin": true}}}, {"type": "user", "iden": "f77ac6744671a845c27e571071877827", "name": "visi", "rules": [[true, ["cron", "add"]], [true, ["dmon", "add"]], [true, ["trigger", "add"]]], "roles": [{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}], "admin": false, "email": null, "locked": false, "archived": false, "authgates": {"f21b7ae79c2dacb89484929a8409e5d8": {"admin": true}, "d7d0380dd4e743e35af31a20d014ed48": {"admin": true}}}]')
                 gates = s_t_utils.deguidify('[{"iden": "46cfde2c1682566602860f8df7d0cc83", "type": "layer", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["layer", "read"]]], "admin": false}]}, {"iden": "d7d0380dd4e743e35af31a20d014ed48", "type": "trigger", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "f21b7ae79c2dacb89484929a8409e5d8", "type": "cronjob", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "4d50eb257549436414643a71e057091a", "type": "view", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["view", "read"]]], "admin": false}]}, {"iden": "cortex", "type": "cortex", "users": [], "roles": []}]')
@@ -3016,7 +3118,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(users, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.users.list())'))))
                 self.eq(gates, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.gates.list())'))))
 
-                with self.raises(s_exc.BadTag):
+                with self.raises(s_exc.BadTypeValu):
                     await core.nodes('[ it:dev:str=foo +#test.newp ]')
 
         stream.seek(0)
@@ -3041,10 +3143,7 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCore(conf={'health:sysctl:checks': True}):
                     pass
 
-        stream.seek(0)
-        data = stream.getvalue()
-        raw_mesgs = [m for m in data.split('\n') if m]
-        msgs = [json.loads(m) for m in raw_mesgs]
+        msgs = stream.jsonlines()
 
         self.len(1, msgs)
 
@@ -3151,3 +3250,109 @@ class CellTest(s_t_utils.SynTest):
             self.isin(cell.long_lived_slab.fini, cell._fini_funcs)
             slabs = [s for s in cell.tofini if isinstance(s, s_lmdbslab.Slab) and s.lenv.path() == cell.short_slab_path]
             self.len(0, slabs)
+
+    async def test_lib_cell_promote_schism_prevent(self):
+
+        async with self.getTestAha() as aha:
+            async with await s_base.Base.anit() as base:
+                with self.getTestDir() as dirn:
+                    dirn00 = s_common.genpath(dirn, '00.cell')
+                    dirn01 = s_common.genpath(dirn, '01.cell')
+                    dirn02 = s_common.genpath(dirn, '02.cell')
+
+                    cell00 = await base.enter_context(self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=dirn00))
+                    cell01 = await base.enter_context(self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=dirn01,
+                                                                       provinfo={'mirror': 'cell'}))
+                    cell02 = await base.enter_context(self.addSvcToAha(aha, '02.cell', s_cell.Cell, dirn=dirn02,
+                                                                       provinfo={'mirror': 'cell'}))
+
+                    self.true(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.false(cell02.isactive)
+                    await cell02.sync()
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await cell01.handoff('some://url')
+                    self.isin('01.cell is not the current leader', cm.exception.get('mesg'))
+
+                    # Note: The following behavior may change when SYN-7659 is addressed and greater
+                    # control over the topology update is available during the promotion process.
+                    # Promote 02.cell -> Promote 01.cell -> Promote 00.cell -> BadState exception
+                    await cell02.promote(graceful=True)
+                    self.false(cell00.isactive)
+                    self.false(cell01.isactive)
+                    self.true(cell02.isactive)
+                    await cell02.sync()
+
+                    await cell01.promote(graceful=True)
+                    self.false(cell00.isactive)
+                    self.true(cell01.isactive)
+                    self.false(cell02.isactive)
+                    await cell02.sync()
+
+                    with self.raises(s_exc.BadState) as cm:
+                        await cell00.promote(graceful=True)
+                    self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
+
+    async def test_stream_backup_exception(self):
+
+        with self.getTestDir() as dirn:
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+
+                    await proxy.runBackup(name='bkup')
+
+                    mock_proc = mock.Mock()
+                    mock_proc.join = mock.Mock()
+
+                    async def mock_executor(func, *args, **kwargs):
+                        if isinstance(func, mock.Mock) and func is mock_proc.join:
+                            raise Exception('boom')
+                        return mock_proc
+
+                    with mock.patch('synapse.lib.cell.s_coro.executor', mock_executor):
+                        with self.getAsyncLoggerStream('synapse.lib.cell', 'Error during backup streaming') as stream:
+                            with self.raises(Exception) as cm:
+                                async for _ in proxy.iterBackupArchive('bkup'):
+                                    pass
+                            self.true(await stream.wait(timeout=6))
+
+    async def test_iter_new_backup_archive(self):
+
+        with self.getTestDir() as dirn:
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+
+                    async def mock_runBackup(*args, **kwargs):
+                        raise Exception('backup failed')
+
+                    with mock.patch.object(s_cell.Cell, 'runBackup', mock_runBackup):
+                        with self.getAsyncLoggerStream('synapse.lib.cell', 'Removing') as stream:
+                            with self.raises(s_exc.SynErr) as cm:
+                                async for _ in proxy.iterNewBackupArchive('failedbackup', remove=True):
+                                    pass
+
+                            self.isin('backup failed', str(cm.exception))
+                            self.true(await stream.wait(timeout=6))
+
+                            path = os.path.join(backdirn, 'failedbackup')
+                            self.false(os.path.exists(path))
+
+                    self.false(core.backupstreaming)
+
+                    core.backupstreaming = True
+                    with self.raises(s_exc.BackupAlreadyRunning):
+                        async for _ in proxy.iterNewBackupArchive('newbackup', remove=True):
+                            pass

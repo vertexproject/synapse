@@ -351,7 +351,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
                         await self.cell.auth._hndlsetUserProfileValu(iden, name, valu)
 
             elif full[0] == 'cellvers':
-                self.cell.setCellVers(full[-1], valu, nexs=False)
+                await self.cell.setCellVers(full[-1], valu, nexs=False)
 
         node = await self._getHiveNode(full)
 

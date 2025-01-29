@@ -378,7 +378,7 @@ class BaseTest(s_t_utils.SynTest):
         proc = ctx.Process(target=block_processing, args=(evt1,))
         proc.start()
 
-        self.true(evt1.wait(timeout=10))
+        self.true(evt1.wait(timeout=30))
         os.kill(proc.pid, signal.SIGTERM)
         proc.join(timeout=10)
         self.eq(proc.exitcode, 137)
@@ -396,7 +396,7 @@ class BaseTest(s_t_utils.SynTest):
         proc = ctx.Process(target=block_processing, args=(evt1,))
         proc.start()
 
-        self.true(evt1.wait(timeout=10))
+        self.true(evt1.wait(timeout=30))
         os.kill(proc.pid, signal.SIGINT)
 
         proc.join(timeout=10)

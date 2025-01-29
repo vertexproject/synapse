@@ -264,6 +264,19 @@ class Auth(s_nexus.Pusher):
     def _getRoleIden(self, name):
         return self.roleidenbyname.get(name)
 
+    # TODO convert getUserByName() and getRoleByName()
+    # back from async? These were plumbed to avoid infecting
+    # type norm/repr functions with async...
+    def _getRoleByName(self, name):
+        roleiden = self.roleidenbynamecache.get(name)
+        if roleiden is not None:
+            return self.role(roleiden)
+
+    def _getUserByName(self, name):
+        useriden = self.useridenbynamecache.get(name)
+        if useriden is not None:
+            return self.user(useriden)
+
     @s_nexus.Pusher.onPushAuto('user:profile:set')
     async def setUserProfileValu(self, iden, name, valu):
         user = await self.reqUser(iden)
@@ -480,6 +493,11 @@ class Auth(s_nexus.Pusher):
             raise s_exc.NoSuchAuthGate(iden=iden, mesg=mesg)
         return gate
 
+    def reqNoAuthGate(self, iden):
+        if self.authgates.get(iden) is not None:
+            mesg = f'An auth gate already exists with iden: ({iden}).'
+            raise s_exc.DupIden(iden=iden, mesg=mesg)
+
     def checkUserLimit(self):
         '''
         Check if we're at the specified user limit.
@@ -557,6 +575,8 @@ class Auth(s_nexus.Pusher):
         if user is not None:
             return
 
+        self.reqNoAuthGate(iden)
+
         info = {
             'iden': iden,
             'name': name,
@@ -612,6 +632,8 @@ class Auth(s_nexus.Pusher):
         role = self.roleidenbynamecache.get(name)
         if role is not None:
             return
+
+        self.reqNoAuthGate(iden)
 
         info = {
             'iden': iden,
@@ -859,13 +881,14 @@ class Role(Ruler):
     set of rules can be applied to multiple users.
     '''
     def pack(self):
-        return {
+        ret = {
             'type': 'role',
             'iden': self.iden,
             'name': self.name,
             'rules': self.info.get('rules'),
             'authgates': self.authgates,
         }
+        return s_msgpack.deepcopy(ret)
 
     async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True, mesg=None):
         if nexs:
@@ -934,7 +957,7 @@ class User(Ruler):
                 _roles.append(role.pack())
             roles = _roles
 
-        return {
+        ret = {
             'type': 'user',
             'iden': self.iden,
             'name': self.name,
@@ -946,6 +969,7 @@ class User(Ruler):
             'archived': self.info.get('archived'),
             'authgates': self.authgates,
         }
+        return s_msgpack.deepcopy(ret)
 
     async def _setRulrInfo(self, name, valu, gateiden=None, nexs=True, mesg=None):
         if nexs:
@@ -1523,6 +1547,7 @@ class User(Ruler):
         # Prevent empty string or non-string values
         if passwd is None:
             shadow = None
+            enforce_policy = False
         elif passwd and isinstance(passwd, str):
             shadow = await s_passwd.getShadowV2(passwd=passwd)
         else:

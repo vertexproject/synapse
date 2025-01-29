@@ -196,7 +196,7 @@ class StormTypesTest(s_test.SynTest):
 
             await core.callStorm('$lib.jsonstor.set(hi, hehe, prop=foo)')
             items = await core.callStorm('''
-            $list = $lib.list()
+            $list = ()
             for $item in $lib.jsonstor.iter(bye) { $list.append($item) }
             return($list)
             ''')
@@ -573,9 +573,9 @@ class StormTypesTest(s_test.SynTest):
             self.eq(2, await core.callStorm('$x = asdf return($x.find(d))'))
             self.eq(None, await core.callStorm('$x = asdf return($x.find(v))'))
 
-            self.eq(('f', 'o', 'o'), await core.callStorm('$x = $lib.list() $x.extend((f, o, o)) return($x)'))
-            self.eq(('o', 'o', 'b', 'a'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1, 5))'))
-            self.eq(('o', 'o', 'b', 'a', 'r'), await core.callStorm('$x = $lib.list(f, o, o, b, a, r) return($x.slice(1))'))
+            self.eq(('f', 'o', 'o'), await core.callStorm('$x = () $x.extend((f, o, o)) return($x)'))
+            self.eq(('o', 'o', 'b', 'a'), await core.callStorm('$x = (f, o, o, b, a, r) return($x.slice(1, 5))'))
+            self.eq(('o', 'o', 'b', 'a', 'r'), await core.callStorm('$x = (f, o, o, b, a, r) return($x.slice(1))'))
 
             self.true(await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).0)'))
             self.false(await core.callStorm('return($lib.trycast(inet:ipv4, asdf).0)'))
@@ -595,11 +595,11 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core.callStorm('$x=(foo,bar) return($x.has((foo,bar)))'))
 
             await core.addStormPkg(pdef)
-            nodes = await core.nodes('[ inet:asn=$lib.min(20, $lib.list(0x30)) ]')
+            nodes = await core.nodes('[ inet:asn=$lib.min(20, (0x30)) ]')
             self.len(1, nodes)
             self.eq(20, nodes[0].ndef[1])
 
-            nodes = await core.nodes('[ inet:asn=$lib.min(20, $lib.list(10, 30)) ]')
+            nodes = await core.nodes('[ inet:asn=$lib.min(20, (10, 30)) ]')
             self.len(1, nodes)
             self.eq(10, nodes[0].ndef[1])
 
@@ -744,7 +744,7 @@ class StormTypesTest(s_test.SynTest):
                 await core.nodes('$lib.print($lib.len($true))', opts=opts)
             self.eq(cm.exception.get('mesg'), 'Object builtins.bool does not have a length.')
 
-            mesgs = await core.stormlist('$lib.print($lib.list(1,(2),3))')
+            mesgs = await core.stormlist('$lib.print((1,(2),3))')
             self.stormIsInPrint("['1', 2, '3']", mesgs)
 
             mesgs = await core.stormlist('$lib.print(${ $foo=bar })')
@@ -768,7 +768,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist('$lib.print($lib.queue.add(testq))')
             self.stormIsInPrint("queue: testq", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.list(1,2,3))')
+            mesgs = await core.stormlist('$lib.pprint((1,2,3))')
             self.stormIsInPrint("('1', '2', '3')", mesgs)
 
             mesgs = await core.stormlist('$lib.pprint(({"foo": "1", "bar": "2"}))')
@@ -788,7 +788,7 @@ class StormTypesTest(s_test.SynTest):
             # lib.guid()
             opts = {'vars': {'x': {'foo': 'bar'}, 'y': ['foo']}}
             guid00 = await core.callStorm('return($lib.guid($x, $y))', opts=opts)
-            guid01 = await core.callStorm('$x=({"foo": "bar"}) $y=$lib.list(foo) return($lib.guid($x, $y))')
+            guid01 = await core.callStorm('$x=({"foo": "bar"}) $y=(foo,) return($lib.guid($x, $y))')
             self.eq(guid00, guid01)
 
             guid00 = await core.callStorm('return($lib.guid(foo))')
@@ -906,6 +906,17 @@ class StormTypesTest(s_test.SynTest):
             self.isin(('ddf7f87c0164d760e8e1e5cd2cae2fee96868a3cf184f6dab9154e31ad689528',
                        'refs',
                        '20153b758f9d5eaaa38e4f4a65c36da797c3e59e549620fa7c4895e1a920991f'), edges)
+
+            data = await core.callStorm('''
+                $data = ({})
+                inet:user=visi
+                for ($name, $valu) in $lib.layer.get().getNodeData($node.iden()) { $data.$name = $valu }
+                return($data)
+            ''')
+            foo = data.get('foo')
+            self.nn(foo)
+            self.nn(foo.get('asof'))
+            self.eq('bar', foo.get('data'))
 
             msgs = await core.stormlist('$lib.print($lib.null)')
             self.stormIsInPrint('$lib.null', msgs)
@@ -1508,8 +1519,8 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
             # Base List object behavior
-            q = '''// $lib.list ctor
-            $list=$lib.list(1,2,3)
+            q = '''
+            $list=(1,2,3)
             // __len__
             $lib.print('List size is {len}', len=$lib.len($list))
             // aiter/iter method
@@ -1530,7 +1541,7 @@ class StormTypesTest(s_test.SynTest):
             }
             $lib.print('Sum is now {sum}', sum=$sum)
             // Empty lists may also be made
-            $elst=$lib.list()
+            $elst=()
             $lib.print('elst size is {len}', len=$lib.len($elst))
             '''
             msgs = await core.stormlist(q)
@@ -1559,25 +1570,12 @@ class StormTypesTest(s_test.SynTest):
             ret = await core.callStorm(q)
             self.eq(ret, ('bar', 'baz', 'foo',))
 
-            # Sort a few text objects
-            q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $baz=$lib.text(baz) $v=($foo, $bar, $baz) $v.sort() return ($v)'
-            ret = await core.callStorm(q)
-            self.eq(ret, ('bar', 'baz', 'foo',))
-
             # incompatible sort types
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('$v=(foo,bar,(1)) $v.sort() return ($v)')
 
-            # mix Prims and heavy objects
-            with self.raises(s_exc.StormRuntimeError):
-                q = '$foo=$lib.text(foo) $bar=$lib.text(bar) $v=($foo, aString, $bar,) $v.sort() return ($v)'
-                await core.callStorm(q)
-
             q = '$l = (1, 2, (3), 4, 1, (3), 3, asdf) return ( $l.unique() )'
             self.eq(['1', '2', 3, '4', '3', 'asdf'], await core.callStorm(q))
-
-            q = '$a=$lib.text(hehe) $b=$lib.text(haha) $c=$lib.text(hehe) $foo=($a, $b, $c) return ($foo.unique())'
-            self.eq(['hehe', 'haha'], await core.callStorm(q))
 
             await core.addUser('lowuser1')
             await core.addUser('lowuser2')
@@ -1654,8 +1652,23 @@ class StormTypesTest(s_test.SynTest):
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.1)'))
             self.eq('foo', await core.callStorm('$foo = (foo, bar) return($foo."-2")'))
             self.eq('bar', await core.callStorm('$foo = (foo, bar) return($foo.pop())'))
-            with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('$lib.list().pop()')
+
+            self.eq(3, await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(2))'))
+            self.eq(2, await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(-3))'))
+            self.eq(4, await core.callStorm('$list = ([1, 2, 3, 4]) $list.pop(2) return($list.pop(2))'))
+            self.eq([1, 3, 4], await core.callStorm('$list = ([1, 2, 3, 4]) $list.pop(1) return($list)'))
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
+                await core.callStorm('$foo=() $foo.pop()')
+            self.eq(exc.exception.get('mesg'), 'pop from empty list')
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
+                await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(13))')
+            self.eq(exc.exception.get('mesg'), 'pop index out of range')
+
+            with self.raises(s_exc.StormRuntimeError) as exc:
+                await core.callStorm('$list = ([1, 2, 3, 4]) return($list.pop(-5))')
+            self.eq(exc.exception.get('mesg'), 'pop index out of range')
 
             somelist = ["foo", "bar", "baz", "bar"]
             q = '''
@@ -1675,6 +1688,9 @@ class StormTypesTest(s_test.SynTest):
             opts = {'vars': {'l': somelist.copy()}}
             out = await core.callStorm(q, opts=opts)
             self.eq(out, ["foo", "baz"])
+
+            msgs = await core.stormlist('$list = $lib.list(foo, bar)')
+            self.stormIsInWarn('$lib.list() is deprecated. Use ([]) instead.', msgs)
 
     async def test_storm_layer_getstornode(self):
 
@@ -1778,6 +1794,7 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_text(self):
         async with self.getTestCore() as core:
+            # $lib.text() is deprecated (SYN-8482); test ensures the object works as expected until removed
             nodes = await core.nodes('''
                 [ test:int=10 ] $text=$lib.text(hehe) { +test:int>=10 $text.add(haha) }
                 [ test:str=$text.str() ] +test:str''')
@@ -1790,6 +1807,10 @@ class StormTypesTest(s_test.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInPrint('8', msgs)
             self.stormIsInPrint('13', msgs)
+
+            msgs = await core.stormlist('help --verbose $lib.text')
+            self.stormIsInPrint('Warning', msgs)
+            self.stormIsInPrint('$lib.text`` has been deprecated and will be removed in version 3.0.0', msgs)
 
     async def test_storm_set(self):
 
@@ -2113,14 +2134,14 @@ class StormTypesTest(s_test.SynTest):
 
             # List
             q = '''
-                $list = $lib.list(1, 2, 3)
+                $list = (1, 2, 3)
                 $set = $lib.set($list)
             '''
             msgs = await core.stormlist(q)
             self.stormIsInErr('is mutable and cannot be used in a set', msgs)
 
             q = '''
-                $list = $lib.list(1, 2, 3, 1, 2, 3, 1, 2, 3)
+                $list = (1, 2, 3, 1, 2, 3, 1, 2, 3)
                 $set = $lib.set()
                 $set.adds($list)
                 $lib.print('There are {count} items in the set', count=$lib.len($set))
@@ -2129,7 +2150,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('There are 3 items in the set', msgs)
 
             q = '''
-                $list = $lib.list($lib.list(4, 5, 6, 7), $lib.list(1, 2, 3, 4))
+                $list = ((4, 5, 6, 7), (1, 2, 3, 4))
                 $set = $lib.set()
                 $set.adds($list)
                 $lib.print('There are {count} items in the set', count=$lib.len($set))
@@ -2186,7 +2207,7 @@ class StormTypesTest(s_test.SynTest):
 
             # text
             q = '''
-                $text = $lib.text(beepboopgetthejedi)
+                $text = () $text.append(beepboopgetthejedi)
                 $set = $lib.set($text)
             '''
             msgs = await core.stormlist(q)
@@ -2301,7 +2322,7 @@ class StormTypesTest(s_test.SynTest):
 
                 q = '''
                 inet:fqdn=vertex.link
-                $path.meta.foobar = $lib.list('neato', 'burrito')
+                $path.meta.foobar = ('neato', 'burrito')
                 '''
                 msgs = [mesg async for mesg in proxy.storm(q)]
                 pode = [m[1] for m in msgs if m[0] == 'node'][0]
@@ -2324,14 +2345,14 @@ class StormTypesTest(s_test.SynTest):
 
                 q = '''
                 inet:fqdn=vertex.link
-                $path.meta.$node = $lib.list('foo', 'bar')
+                $path.meta.$node = ('foo', 'bar')
                 '''
                 msgs = [mesg async for mesg in proxy.storm(q)]
                 pode = [m[1] for m in msgs if m[0] == 'node'][0]
                 path = pode[1]['path']
                 self.len(1, path)
                 key = list(path.keys())[0]
-                self.true(key.startswith("Node{(('inet:fqdn', 'vertex.link'), {'iden':"))
+                self.true(key.startswith('vertex.link'))
                 self.eq(('foo', 'bar'), path[key])
 
                 q = '''
@@ -3401,8 +3422,6 @@ class StormTypesTest(s_test.SynTest):
             self.eq('telepath:proxy:method', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).getCellInfo) )', opts))
             self.eq('telepath:proxy:genrmethod', await core.callStorm('return( $lib.vars.type($lib.telepath.open($url).storm) )', opts))
 
-            self.eq('text', await core.callStorm('return ( $lib.vars.type($lib.text(hehe)) )'))
-
             self.eq('node', await core.callStorm('[test:str=foo] return ($lib.vars.type($node))'))
             self.eq('node:props', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.props))'))
             self.eq('node:data', await core.callStorm('[test:str=foo] return ($lib.vars.type($node.data))'))
@@ -3814,7 +3833,7 @@ class StormTypesTest(s_test.SynTest):
             # Get the main view
             mainiden = await core.callStorm('return($lib.view.get().iden)')
             altview = await core.callStorm('''
-                $layers = $lib.list()
+                $layers = ()
                 for $layer in $lib.view.get().layers {
                     $layers.append($layer.iden)
                 }
@@ -3859,7 +3878,7 @@ class StormTypesTest(s_test.SynTest):
 
             # List the views in the cortex
             q = '''
-                $views = $lib.list()
+                $views = ()
                 for $view in $lib.view.list() {
                     $views.append($view.iden)
                 }
@@ -4284,7 +4303,7 @@ class StormTypesTest(s_test.SynTest):
                 view2['iden'],
             )
             self.eq(expect, await core.callStorm('''
-                $views = $lib.list()
+                $views = ()
                 for $view in $lib.view.list(deporder=$lib.true) {
                     $views.append($view.iden)
                 }
@@ -4894,8 +4913,7 @@ class StormTypesTest(s_test.SynTest):
                         unixtime += 7 * MINSECS
                         self.eq('m3', await getNextFoo())
                         self.true(await stream.wait(6))
-                    buf = stream.getvalue()
-                    mesg = json.loads(buf.split('\n')[0])
+                    mesg = stream.jsonlines()[0]
                     self.eq(mesg['message'], f'm3 cron {guid}')
                     self.eq(mesg['iden'], guid)
 
@@ -5420,7 +5438,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(valu['none'], None)
             self.eq(valu['bool'], True)
 
-            q = '$list = $lib.list() $list.append(foo) $list.append(bar) return($list)'
+            q = '$list = () $list.append(foo) $list.append(bar) return($list)'
             self.eq(('foo', 'bar'), await core.callStorm(q))
             self.eq({'foo': 'bar'}, await core.callStorm('$dict = ({}) $dict.foo = bar return($dict)'))
             q = '$tally = $lib.stats.tally() $tally.inc(foo) $tally.inc(foo) return($tally)'
@@ -5516,7 +5534,7 @@ class StormTypesTest(s_test.SynTest):
             await core.nodes('[inet:ipv4=1.2.3.4]')
 
             # TODO: should we asciify the buid here so it is json compatible?
-            q = '''$list = $lib.list()
+            q = '''$list = ()
             for ($offs, $edit) in $lib.layer.get().edits(wait=$lib.false) {
                 $list.append($edit)
             }
@@ -5929,7 +5947,7 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_ctrl.StormExit) as cm:
                 q = '[test:str=beep.sys] $lib.exit(foo)'
                 _ = await core.callStorm(q)
-            self.eq(cm.exception.args, ('foo',))
+            self.eq(cm.exception.get('mesg'), 'foo')
 
             # Remote tests
             async with core.getLocalProxy() as prox:
@@ -5943,7 +5961,7 @@ class StormTypesTest(s_test.SynTest):
                 q = '[test:str=beep.sys] $lib.exit()'
                 with self.raises(s_exc.SynErr) as cm:
                     _ = await prox.callStorm(q)
-                self.eq(cm.exception.get('mesg'), '')
+                self.eq(cm.exception.get('mesg'), 'StormExit: ')
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
                 # A warn is emitted
@@ -5955,7 +5973,7 @@ class StormTypesTest(s_test.SynTest):
                 q = '[test:str=beep.sys] $lib.exit("foo {bar}", bar=baz)'
                 with self.raises(s_exc.SynErr) as cm:
                     _ = await prox.callStorm(q)
-                self.eq(cm.exception.get('mesg'), 'foo baz')
+                self.eq(cm.exception.get('mesg'), "StormExit: mesg='foo baz'")
                 self.eq(cm.exception.get('errx'), 'StormExit')
 
     async def test_iter(self):
@@ -5978,7 +5996,7 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, nodes)
 
             # set adds
-            ret = await core.callStorm('$x=$lib.set() $y=$lib.list(1,2,3) $x.adds($y) return($x)')
+            ret = await core.callStorm('$x=$lib.set() $y=(1,2,3) $x.adds($y) return($x)')
             self.eq({'1', '2', '3'}, ret)
 
             ret = await core.callStorm('$x=$lib.set() $y=({"foo": "1", "bar": "2"}) $x.adds($y) return($x)')
@@ -5994,7 +6012,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'a', 'b', 'c', 'd'}, ret)
 
             # set rems
-            ret = await core.callStorm('$x=$lib.set(1,2,3) $y=$lib.list(1,2) $x.rems($y) return($x)')
+            ret = await core.callStorm('$x=$lib.set(1,2,3) $y=(1,2) $x.rems($y) return($x)')
             self.eq({'3'}, ret)
 
             scmd = '''
@@ -6018,7 +6036,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'d', 'c'}, ret)
 
             # str join
-            ret = await core.callStorm('$x=$lib.list(foo,bar,baz) $y=$lib.str.join("-", $x) return($y)')
+            ret = await core.callStorm('$x=(foo,bar,baz) $y=$lib.str.join("-", $x) return($y)')
             self.eq('foo-bar-baz', ret)
 
             ret = await core.callStorm('$y=$lib.str.join("-", (foo, bar, baz)) return($y)')
@@ -6068,7 +6086,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(nodes[0].ndef[0], 'file:bytes')
             sha256, size, created = nodes[0].get('sha256'), nodes[0].get('size'), nodes[0].get('.created')
 
-            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            items = await core.callStorm('$x=() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.eq([(0, sha256, size)], items)
 
             # test $lib.axon.del()
@@ -6083,21 +6101,21 @@ class StormTypesTest(s_test.SynTest):
             self.eq((True, False), await core.callStorm('return($lib.axon.dels(($sha256, $sha256)))', opts=delopts))
             self.false(await core.callStorm('return($lib.axon.del($sha256))', opts=delopts))
 
-            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            items = await core.callStorm('$x=() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.len(0, items)
 
             msgs = await core.stormlist(f'wget --no-ssl-verify https://127.0.0.1:{port}/api/v1/newp')
             self.stormIsInWarn('HTTP code 404', msgs)
 
-            self.len(1, await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
+            self.len(1, await core.callStorm('$x=() for $i in $lib.axon.list() { $x.append($i) } return($x)'))
 
             size, sha256 = await core.callStorm('return($lib.axon.put($buf))', opts={'vars': {'buf': b'foo'}})
 
-            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list() { $x.append($i) } return($x)')
+            items = await core.callStorm('$x=() for $i in $lib.axon.list() { $x.append($i) } return($x)')
             self.len(2, items)
             self.eq((2, sha256, size), items[1])
 
-            items = await core.callStorm('$x=$lib.list() for $i in $lib.axon.list(2) { $x.append($i) } return($x)')
+            items = await core.callStorm('$x=() for $i in $lib.axon.list(2) { $x.append($i) } return($x)')
             self.eq([(2, sha256, size)], items)
 
             # test request timeout
@@ -6119,28 +6137,28 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'vars': {'sha256': asdfitem[1]}}
             self.eq(('asdf',), await core.callStorm('''
-                $items = $lib.list()
+                $items = ()
                 for $item in $lib.axon.readlines($sha256) { $items.append($item) }
                 return($items)
             ''', opts=opts))
 
             opts = {'vars': {'sha256': linesitem[1]}}
             self.eq(('vertex.link', 'woot.com'), await core.callStorm('''
-                $items = $lib.list()
+                $items = ()
                 for $item in $lib.axon.readlines($sha256) { $items.append($item) }
                 return($items)
             ''', opts=opts))
 
             opts = {'vars': {'sha256': jsonsitem[1]}}
             self.eq(({'fqdn': 'vertex.link'}, {'fqdn': 'woot.com'}), await core.callStorm('''
-                $items = $lib.list()
+                $items = ()
                 for $item in $lib.axon.jsonlines($sha256) { $items.append($item) }
                 return($items)
             ''', opts=opts))
 
             async def waitlist():
                 items = await core.callStorm('''
-                    $x=$lib.list()
+                    $x=()
                     for $i in $lib.axon.list(2, wait=$lib.true, timeout=1) {
                         $x.append($i)
                     }
@@ -6210,7 +6228,7 @@ words\tword\twrd'''
             opts = {'vars': {'sha256': s_common.ehex(bin256)}}
             with self.raises(s_exc.BadDataValu):
                 self.eq('', await core.callStorm('''
-                    $items = $lib.list()
+                    $items = ()
                     for $item in $lib.axon.readlines($sha256, errors=$lib.null) {
                         $items.append($item)
                     }
@@ -6218,7 +6236,7 @@ words\tword\twrd'''
                 ''', opts=opts))
 
             self.eq(('/$A\x00_v4\x1b',), await core.callStorm('''
-                $items = $lib.list()
+                $items = ()
                 for $item in $lib.axon.readlines($sha256, errors=ignore) { $items.append($item) }
                 return($items)
             ''', opts=opts))
@@ -6614,7 +6632,7 @@ words\tword\twrd'''
                                                      'newname': 'oops'
                                                  }})
 
-            self.stormIsInErr('Function (_storUserName) is not marked readonly safe.', msgs)
+            self.stormIsInErr('Setting name on auth:user is not marked readonly safe.', msgs)
 
             mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
 
@@ -6644,6 +6662,10 @@ words\tword\twrd'''
             '''
             msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
             self.stormIsInErr(mesg, msgs)
+
+            q = '$lib.pkg.add(({}))'
+            msgs = await core.stormlist(q, opts={'readonly': True, 'vars': {'iden': user}})
+            self.stormIsInErr('$lib.pkg.add() is not marked readonly safe.', msgs)
 
     async def test_storm_view_counts(self):
 

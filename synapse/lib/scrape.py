@@ -24,8 +24,6 @@ ipaddress = s_common.ipaddress
 
 logger = logging.getLogger(__name__)
 
-SCRAPE_SPAWN_LENGTH = 5000
-
 tldlist = list(s_data.get('iana.tlds'))
 tldlist.extend([
     'bit',
@@ -130,6 +128,8 @@ _cpe23_regex = r'''(?P<valu>cpe:2\.3:[aho\*-]
 (?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){4})
 '''
 
+path_parts_limit = 1024
+
 linux_path_regex = r'''
 (?<![\w\d]+)
 (?P<valu>
@@ -144,9 +144,15 @@ linux_path_rootdirs = (
     'sys', 'tmp', 'usr', 'var'
 )
 
+# https://docs.kernel.org/filesystems/path-lookup.html#the-symlink-stack
+linux_path_limit = 4096
+
 def linux_path_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
+
+    if len(valu) > linux_path_limit:
+        return None, {}
 
     path = pathlib.PurePosixPath(valu)
     parts = path.parts
@@ -154,7 +160,7 @@ def linux_path_check(match: regex.Match):
     if parts[0] != '/':
         return None, {}
 
-    if len(parts) < 2:
+    if len(parts) < 2 or len(parts) > path_parts_limit:
         return None, {}
 
     if parts[1] not in linux_path_rootdirs:
@@ -179,15 +185,24 @@ windows_path_reserved = (
 
 windows_drive_paths = [f'{letter}:\\' for letter in string.ascii_lowercase]
 
+# https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
+windows_path_limit = 32_767
+
 # https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
 def windows_path_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
 
+    if len(valu) > windows_path_limit:
+        return None, {}
+
     path = pathlib.PureWindowsPath(valu)
     parts = path.parts
 
     if parts[0].lower() not in windows_drive_paths:
+        return None, {}
+
+    if len(parts) > path_parts_limit:
         return None, {}
 
     for part in parts:
@@ -445,6 +460,9 @@ def _rewriteRawValu(text: str, offsets: dict, info: dict):
     info['match'] = match
     info['offset'] = baseoff + offset
 
+def _genMatchList(text: str, regx: regex.Regex, opts: dict):
+    return [info for info in _genMatches(text, regx, opts)]
+
 def _genMatches(text: str, regx: regex.Regex, opts: dict):
 
     cb = opts.get('callback')
@@ -504,23 +522,9 @@ def genMatches(text: str, regx: regex.Regex, opts: dict):
     for match in _genMatches(text, regx, opts):
         yield match
 
-def _spawn_genmatches(sock, text, regx, opts): # pragma: no cover
-    '''
-    Multiprocessing target for generating matches.
-    '''
-    try:
-        for info in _genMatches(text, regx, opts):
-            sock.sendall(s_msgpack.en((True, info)))
-
-        sock.sendall(s_msgpack.en((True, None)))
-
-    except Exception as e:
-        mesg = s_common.retnexc(e)
-        sock.sendall(s_msgpack.en(mesg))
-
 async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
     '''
-    Generate regular expression matches for a blob of text, potentially in a spawned process.
+    Generate regular expression matches for a blob of text, using the shared forked process pool.
 
     Args:
         text (str): The text to generate matches for.
@@ -547,30 +551,9 @@ async def genMatchesAsync(text: str, regx: regex.Regex, opts: dict):
     Yields:
         dict: A dictionary of match results.
     '''
-    if len(text) < SCRAPE_SPAWN_LENGTH:
-        for match in _genMatches(text, regx, opts):
-            yield match
-        return
-
-    link00, sock00 = await s_link.linksock()
-
-    try:
-        async with link00:
-
-            todo = s_common.todo(_spawn_genmatches, sock00, text, regx, opts)
-            link00.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
-
-            while (mesg := await link00.rx()) is not None:
-
-                info = s_common.result(mesg)
-                if info is None:
-                    return
-
-                yield info
-
-    finally:
-        sock00.close()
-
+    matches = await s_coro.semafork(_genMatchList, text, regx, opts)
+    for info in matches:
+        yield info
 
 def _contextMatches(scrape_text, text, ruletype, refang, offsets):
 
@@ -585,6 +568,9 @@ def _contextMatches(scrape_text, text, ruletype, refang, offsets):
 
                 yield info
 
+def _contextScrapeList(text, form=None, refang=True, first=False):
+    return [info for info in _contextScrape(text, form=form, refang=refang, first=first)]
+
 def _contextScrape(text, form=None, refang=True, first=False):
     scrape_text = text
     offsets = {}
@@ -592,26 +578,6 @@ def _contextScrape(text, form=None, refang=True, first=False):
         scrape_text, offsets = refang_text2(text)
 
     for ruletype, blobs in _regexes.items():
-        if form and form != ruletype:
-            continue
-
-        for info in _contextMatches(scrape_text, text, ruletype, refang, offsets):
-
-            yield info
-
-            if first:
-                return
-
-async def _contextScrapeAsync(text, form=None, refang=True, first=False):
-    scrape_text = text
-    offsets = {}
-    if refang:
-        scrape_text, offsets = refang_text2(text)
-
-    for ruletype, blobs in _regexes.items():
-
-        await asyncio.sleep(0)
-
         if form and form != ruletype:
             continue
 
@@ -666,27 +632,12 @@ def scrape(text, ptype=None, refang=True, first=False):
     Returns:
         (str, object): Yield tuples of node ndef values.
     '''
-
-    for info in contextScrape(text, form=ptype, refang=refang, first=first):
+    for info in _contextScrape(text, form=ptype, refang=refang, first=first):
         yield info.get('form'), info.get('valu')
-
-def _spawn_scrape(sock, text, form=None, refang=True, first=False): # pragma: no cover
-    '''
-    Multiprocessing target for scraping text.
-    '''
-    try:
-        for info in _contextScrape(text, form=form, refang=refang, first=first):
-            sock.sendall(s_msgpack.en((True, info)))
-
-        sock.sendall(s_msgpack.en((True, None)))
-
-    except Exception as e:
-        mesg = s_common.retnexc(e)
-        sock.sendall(s_msgpack.en(mesg))
 
 async def contextScrapeAsync(text, form=None, refang=True, first=False):
     '''
-    Scrape types from a blob of text and yield info dictionaries, potentially in a spawned process.
+    Scrape types from a blob of text and yield info dictionaries, using the shared forked process pool.
 
     Args:
         text (str): Text to scrape.
@@ -712,33 +663,13 @@ async def contextScrapeAsync(text, form=None, refang=True, first=False):
     Returns:
         (dict): Yield info dicts of results.
     '''
-    if len(text) < SCRAPE_SPAWN_LENGTH:
-        async for info in _contextScrapeAsync(text, form=form, refang=refang, first=first):
-            yield info
-        return
-
-    link00, sock00 = await s_link.linksock()
-
-    try:
-        async with link00:
-
-            todo = s_common.todo(_spawn_scrape, sock00, text, form=form, refang=refang, first=first)
-            link00.schedCoro(s_coro.spawn(todo, log_conf=s_common._getLogConfFromEnv()))
-
-            while (mesg := await link00.rx()) is not None:
-
-                info = s_common.result(mesg)
-                if info is None:
-                    return
-
-                yield info
-
-    finally:
-        sock00.close()
+    matches = await s_coro.semafork(_contextScrapeList, text, form=form, refang=refang, first=first)
+    for info in matches:
+        yield info
 
 async def scrapeAsync(text, ptype=None, refang=True, first=False):
     '''
-    Scrape types from a blob of text and return node tuples, potentially in a spawned process.
+    Scrape types from a blob of text and return node tuples, using the shared forked process pool.
 
     Args:
         text (str): Text to scrape.
@@ -749,6 +680,6 @@ async def scrapeAsync(text, ptype=None, refang=True, first=False):
     Returns:
         (str, object): Yield tuples of node ndef values.
     '''
-
-    async for info in contextScrapeAsync(text, form=ptype, refang=refang, first=first):
+    matches = await s_coro.semafork(_contextScrapeList, text, form=ptype, refang=refang, first=first)
+    for info in matches:
         yield info.get('form'), info.get('valu')

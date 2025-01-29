@@ -122,7 +122,11 @@ class ModelDiffer:
                 deprecated_edges[edge] = curinfo
                 continue
 
-            # TODO - Support changes to the edges?
+            if oldinfo.get('doc') != curinfo.get('doc'):
+                updated_edges[edge] = curinfo
+                continue
+
+            # TODO - Support additional changes to the edges?
             assert False, f'A change was found for the edge: {edge}'
 
         if updated_edges:
@@ -222,13 +226,24 @@ class ModelDiffer:
                     deprecated_props_noiface[prop] = cpinfo
                     continue
 
+                okeys = set(opinfo.keys())
+                nkeys = set(cpinfo.keys())
+
+                if nkeys - okeys:
+                    # We've added a key to the prop def.
+                    updated_props[prop] = {'type': 'addkey', 'keys': list(nkeys - okeys)}
+
+                if okeys - nkeys:
+                    # We've removed a key from the prop def.
+                    updated_props[prop] = {'type': 'delkey', 'keys': list(okeys - nkeys)}
+
                 # Check if type change happened, we'll want to document that.
                 ctyp = cpinfo.get('type')
                 otyp = opinfo.get('type')
                 if ctyp == otyp:
                     continue
 
-                updated_props[prop] = {'new_type': ctyp, 'old_type': otyp}
+                updated_props[prop] = {'type': 'type_change', 'new_type': ctyp, 'old_type': otyp}
                 is_ifaceprop = False
                 for iface in self.cur_type2iface[form]:
                     upt_iface = self.changes.get('interfaces').get('updated_interfaces', {}).get(iface)
@@ -237,7 +252,7 @@ class ModelDiffer:
                         break
                 if is_ifaceprop:
                     continue
-                updated_props_noiface[prop] = {'new_type': ctyp, 'old_type': otyp}
+                updated_props_noiface[prop] = {'type': 'type_change', 'new_type': ctyp, 'old_type': otyp}
 
             if updated_props:
                 updated_forms[form]['updated_properties'] = updated_props
@@ -317,13 +332,24 @@ class ModelDiffer:
                     deprecated_props[prop] = cpinfo
                     continue
 
+                okeys = set(opinfo.keys())
+                nkeys = set(cpinfo.keys())
+
+                if nkeys - okeys:
+                    # We've added a key to the prop def.
+                    updated_props[prop] = {'type': 'addkey', 'keys': list(nkeys - okeys)}
+
+                if okeys - nkeys:
+                    # We've removed a key from the prop def.
+                    updated_props[prop] = {'type': 'delkey', 'keys': list(okeys - nkeys)}
+
                 # Check if type change happened, we'll want to document that.
                 ctyp = cpinfo.get('type')
                 otyp = opinfo.get('type')
                 if ctyp == otyp:
                     continue
 
-                updated_props[prop] = {'new_type': ctyp, 'old_type': otyp}
+                updated_props[prop] = {'type': 'type_change', 'new_type': ctyp, 'old_type': otyp}
             if updated_props:
                 updated_interfaces[iface]['updated_properties'] = updated_props
 
@@ -569,8 +595,14 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
                         lines.append('\n')
                 elif key == 'updated_properties':
                     for prop, pnfo in sorted(valu.items(), key=lambda x: x[0]):
-                        mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
-                               f' to {pnfo.get("new_type")}.'
+                        ptyp = pnfo.get('type')
+                        if ptyp == 'type_change':
+                            mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
+                                   f' to {pnfo.get("new_type")}.'
+                        elif ptyp == 'delkey':
+                            mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys removed from its definition.'
+                        else:
+                            raise s_exc.NoSuchImpl(mesg=f'pnfo.type={ptyp} not supported.')
                         lines.extend(textwrap.wrap(mesg, initial_indent='  ', subsequent_indent='  ',
                                                    width=width))
                         lines.append('\n')
@@ -609,6 +641,9 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
     # We don't really have a "updated forms" to display since the delta for forms data is really property
     # deltas covered elsewhere.
 
+    # Updated Edges
+    # TODO Add support for updated edges
+
     # Updated Properties
     upd_props = []
     for form, info in updated_forms.items():
@@ -621,11 +656,19 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
             rst.addLines(f'``{form}``')
             upd_form_props = list(info.get('updated_properties').items())
             if len(upd_form_props) > 1:
-                rst.addLines('  The form had the following updated properties:', '\n')
+                rst.addLines('  The form had the following properties updated:', '\n')
                 upd_form_props.sort(key=lambda x: x[0])
                 for prop, pnfo in upd_form_props:
-                    mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
-                           f' to {pnfo.get("new_type")}.'
+                    ptyp = pnfo.get('type')
+                    if ptyp == 'type_change':
+                        mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
+                               f' to {pnfo.get("new_type")}.'
+                    elif ptyp == 'delkey':
+                        mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys removed from its definition.'
+                    elif ptyp == 'addkey':
+                        mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys added to its definition.'
+                    else:
+                        raise s_exc.NoSuchImpl(mesg=f'pnfo.type={ptyp} not supported.')
                     lines = [
                         *textwrap.wrap(mesg, initial_indent='    ', subsequent_indent='    ',
                                        width=width),
@@ -635,8 +678,17 @@ def _gen_model_rst(version, model_ref, changes, current_model, outp: s_output.Ou
 
             else:
                 prop, pnfo = upd_form_props[0]
-                mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
-                       f' to {pnfo.get("new_type")}.'
+                ptyp = pnfo.get('type')
+                if ptyp == 'type_change':
+                    mesg = f'The property ``{prop}`` has been modified from {pnfo.get("old_type")}' \
+                           f' to {pnfo.get("new_type")}.'
+                elif ptyp == 'delkey':
+                    mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys removed from its definition.'
+                elif ptyp == 'addkey':
+                    mesg = f'The property ``{prop}`` had the ``{pnfo.get("keys")}`` keys added to its definition.'
+                else:
+                    raise s_exc.NoSuchImpl(mesg=f'pnfo.type={ptyp} not supported.')
+
                 lines = [
                     '  The form had the following property updated:',
                     '\n',
@@ -840,9 +892,17 @@ async def format(opts: argparse.Namespace,
             text = text + f'\n{header}\n{"-" * len(header)}'
             dataz.sort(key=lambda x: x.get('prs'))
             for data in dataz:
-                desc = data.get('desc')
-                for line in textwrap.wrap(desc, initial_indent='- ', subsequent_indent='  ', width=opts.width):
-                    text = f'{text}\n{line}'
+                desc = data.get('desc')  # type: str
+                desc_lines = desc.splitlines()
+                for i, chunk in enumerate(desc_lines):
+                    if i == 0:
+                        for line in textwrap.wrap(chunk, initial_indent='- ', subsequent_indent='  ', width=opts.width):
+                            text = f'{text}\n{line}'
+                    else:
+                        text = text + '\n'
+                        for line in textwrap.wrap(chunk, initial_indent='  ', subsequent_indent='  ', width=opts.width):
+                            text = f'{text}\n{line}'
+
                 if not opts.hide_prs:
                     for pr in data.get('prs'):
                         text = f'{text}\n  (`#{pr} <https://github.com/vertexproject/synapse/pull/{pr}>`_)'

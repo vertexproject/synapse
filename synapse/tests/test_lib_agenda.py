@@ -1,4 +1,4 @@
-import json
+import time
 import asyncio
 import hashlib
 import datetime
@@ -9,8 +9,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-import synapse.lib.hive as s_hive
-import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.tools.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
@@ -364,7 +362,9 @@ class AgendaTest(s_t_utils.SynTest):
 
                 appt = await agenda.get(guid)
                 self.eq(appt.isrunning, False)
-                self.eq(appt.lastresult, "raised exception StormRaise: errname='OmgWtfBbq' mesg='boom'")
+                self.isin("raised exception StormRaise: errname='OmgWtfBbq'", appt.lastresult)
+                self.isin("highlight={'hash': '6736b8252d9413221a9b693b2b19cf53'", appt.lastresult)
+                self.isin("mesg='boom'", appt.lastresult)
 
                 # Test setting the global enable/disable flag
                 await agenda.delete(guid)
@@ -401,9 +401,7 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq((12, 'bar'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
                 core.stormlog = False
 
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 msgs = [m for m in msgs if m['text'] == '$lib.queue.gen(visi).put(bar)']
                 self.gt(len(msgs), 0)
                 for m in msgs:
@@ -431,6 +429,19 @@ class AgendaTest(s_t_utils.SynTest):
                     await core.nexsroot.waitOffs(strt + 4)
 
                     self.eq(2, appt.startcount)
+
+                # Can't use an existing authgate iden
+                viewiden = core.getView().iden
+                cdef = {'creator': core.auth.rootuser.iden,
+                        'storm': '[test:str=bar]',
+                        'reqs': {'hour': 10},
+                        'incunit': 'dayofweek',
+                        'incvals': (2, 4),
+                        'iden': viewiden}
+                await self.asyncraises(s_exc.DupIden, core.addCronJob(cdef))
+                await core.delCronJob(viewiden)
+
+                self.nn(await core.getAuthGate(viewiden))
 
     async def test_agenda_persistence(self):
         ''' Test we can make/change/delete appointments and they are persisted to storage '''
@@ -816,6 +827,159 @@ class AgendaTest(s_t_utils.SynTest):
                 data = stream.read()
                 self.isin("_Appt.edits() Invalid attribute received: invalid = 'newp'", data)
 
+    async def test_agenda_promotions(self):
+        # Adjust this knob for the number of cron jobs you want to test. Below
+        # are some average run times from my dev box
+        # 100 -> ~15s
+        # 250 -> ~18s
+        # 500 -> ~22s
+        # 5000 -> ~88s
+        NUMJOBS = 100
+
+        async with self.getTestAha() as aha:
+
+            conf00 = {
+                'aha:provision': await aha.addAhaSvcProv('00.cortex')
+            }
+
+            async with self.getTestCore(conf=conf00) as core00:
+                self.false(core00.conf.get('mirror'))
+
+                msgs = await core00.stormlist('[it:dev:str=foo]')
+                self.stormHasNoWarnErr(msgs)
+
+                # Forward wind agenda to two minutes past the hour so we don't hit any weird timing windows
+                tick = core00.agenda._getNowTick()
+                now = time.gmtime(int(tick))
+                diff = (60 - now.tm_min) * 60
+                core00.agenda._addTickOff(diff + 120)
+
+                # Add NUMJOBS cron jobs that starts every hour
+                q = '''
+                for $ii in $lib.range($numjobs) {
+                    cron.add --name `CRON{$ii}` --hour +1 { $lib.time.sleep(90) }
+                }
+                '''
+                opts = {'vars': {'numjobs': NUMJOBS}}
+                await core00.callStorm(q, opts=opts)
+
+                prov01 = {'mirror': '00.cortex'}
+                conf01 = {
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                }
+
+                async with self.getTestCore(conf=conf01) as core01:
+                    # Advance the ticks so the cronjob starts sooner
+                    core00.agenda._addTickOff(3600)
+
+                    # Sync agenda ticks
+                    diff = core00.agenda._getNowTick() - core01.agenda._getNowTick()
+                    core01.agenda._addTickOff(diff)
+
+                    mesgs = []
+                    async for mesg in core00.behold():
+                        mesgs.append(mesg)
+                        if len(mesgs) >= NUMJOBS:
+                            break
+
+                    for mesg in mesgs:
+                        self.eq(mesg['event'], 'cron:start')
+
+                    # Inspect crons and tasks
+                    crons00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(NUMJOBS, crons00)
+                    # isrunning is synced via nexus so it should be true for both cortexes
+                    for cron in crons00:
+                        self.true(cron.get('isrunning'))
+
+                    cronidens = [k['iden'] for k in crons00]
+
+                    await core01.sync()
+
+                    crons01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(NUMJOBS, crons01)
+                    # isrunning is synced via nexus so it should be true for both cortexes
+                    for cron in crons01:
+                        self.true(cron.get('isrunning'))
+
+                    tasks00 = await core00.callStorm('return($lib.ps.list())')
+                    # 101 tasks: one for the main task and NUMJOBS for the cronjob instances
+                    self.len(NUMJOBS + 1, tasks00)
+                    self.eq(tasks00[0]['info']['query'], '[it:dev:str=foo]')
+                    for idx, task in enumerate(tasks00):
+                        if idx == 0:
+                            continue
+
+                        self.isin(task['info']['iden'], cronidens)
+                        self.eq(task['info']['query'], '$lib.time.sleep(90)')
+
+                    # No tasks running on the follower
+                    tasks01 = await core01.callStorm('return($lib.ps.list())')
+                    self.len(0, tasks01)
+
+                    with self.getLoggerStream('synapse.lib.agenda', mesg='name=CRON99') as stream:
+                        # Promote and inspect cortex status
+                        await core01.promote(graceful=True)
+                        self.false(core00.isactive)
+                        self.true(core01.isactive)
+
+                    stream.seek(0)
+                    data = stream.read()
+                    for ii in range(NUMJOBS):
+                        self.isin(f' name=CRON{ii} with result "cancelled" took ', data)
+
+                    # Sync the (now) follower so the isrunning status gets updated to false on both cortexes
+                    await core00.sync()
+
+                    crons00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(NUMJOBS, crons00)
+                    for cron in crons00:
+                        self.false(cron.get('isrunning'))
+
+                    crons01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(NUMJOBS, crons01)
+                    for cron in crons01:
+                        self.false(cron.get('isrunning'))
+
+                    # Bump the ticks on core01 so the cron jobs start
+                    core01.agenda._addTickOff(3600)
+
+                    mesgs = []
+                    async for mesg in core01.behold():
+                        mesgs.append(mesg)
+                        if len(mesgs) >= NUMJOBS:
+                            break
+
+                    for mesg in mesgs:
+                        self.eq(mesg['event'], 'cron:start')
+
+                    # Sync the follower to get the latest isrunning status
+                    await core00.sync()
+
+                    crons00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(NUMJOBS, crons00)
+                    # Cronjobs are running so true on both cortexes
+                    for cron in crons00:
+                        self.true(cron.get('isrunning'))
+
+                    crons01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(NUMJOBS, crons01)
+                    # Cronjobs are running so true on both cortexes
+                    for cron in crons01:
+                        self.true(cron.get('isrunning'))
+
+                    tasks00 = await core00.callStorm('return($lib.ps.list())')
+                    # This task is the main task from before promotion
+                    self.len(1, tasks00)
+                    self.eq(tasks00[0]['info']['query'], '[it:dev:str=foo]')
+
+                    tasks01 = await core01.callStorm('return($lib.ps.list())')
+                    # The cronjob instances are the only tasks
+                    self.len(NUMJOBS, tasks01)
+                    for task in tasks01:
+                        self.isin(task['info']['iden'], cronidens)
+                        self.eq(task['info']['query'], '$lib.time.sleep(90)')
+
     async def test_cron_kill(self):
         async with self.getTestCore() as core:
 
@@ -933,3 +1097,127 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq(cdef01.get('lastresult'), 'cancelled')
                     self.gt(cdef00['laststarttime'], 0)
                     self.eq(cdef00['laststarttime'], cdef01['laststarttime'])
+
+    async def test_agenda_graceful_promotion_with_running_cron(self):
+
+        async with self.getTestAha() as aha:
+
+            conf00 = {
+                'aha:provision': await aha.addAhaSvcProv('00.cortex')
+            }
+
+            async with self.getTestCore(conf=conf00) as core00:
+                self.false(core00.conf.get('mirror'))
+
+                q = '''
+                while((true)) {
+                    $lib.log.error('I AM A ERROR LOG MESSAGE')
+                    $lib.time.sleep(6)
+                }
+                '''
+                msgs = await core00.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
+                self.stormHasNoWarnErr(msgs)
+
+                crons00 = await core00.callStorm('return($lib.cron.list())')
+                self.len(1, crons00)
+
+                prov01 = {'mirror': '00.cortex'}
+                conf01 = {
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                }
+
+                async with self.getTestCore(conf=conf01) as core01:
+
+                    with self.getAsyncLoggerStream('synapse.storm.log', 'I AM A ERROR LOG MESSAGE') as stream:
+                        self.true(await stream.wait(timeout=6))
+
+                    cron = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, cron)
+                    self.true(cron[0].get('isrunning'))
+
+                    await core01.promote(graceful=True)
+
+                    self.false(core00.isactive)
+                    self.true(core01.isactive)
+
+                    await core00.sync()
+
+                    cron00 = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, cron00)
+                    self.false(cron00[0].get('isrunning'))
+                    self.eq(cron00[0].get('lasterrs')[0], 'aborted')
+
+                    cron01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(1, cron01)
+                    self.false(cron01[0].get('isrunning'))
+                    self.eq(cron01[0].get('lasterrs')[0], 'aborted')
+
+    async def test_agenda_force_promotion_with_running_cron(self):
+
+        async with self.getTestAha() as aha:
+
+            conf00 = {
+                'aha:provision': await aha.addAhaSvcProv('00.cortex')
+            }
+
+            async with self.getTestCore(conf=conf00) as core00:
+                self.false(core00.conf.get('mirror'))
+
+                q = '''
+                while((true)) {
+                    $lib.log.error('I AM A ERROR LOG MESSAGE')
+                    $lib.time.sleep(6)
+                }
+                '''
+                msgs = await core00.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
+                self.stormHasNoWarnErr(msgs)
+
+                crons00 = await core00.callStorm('return($lib.cron.list())')
+                self.len(1, crons00)
+
+                prov01 = {'mirror': '00.cortex'}
+                conf01 = {
+                    'aha:provision': await aha.addAhaSvcProv('01.cortex', provinfo=prov01),
+                }
+
+                async with self.getTestCore(conf=conf01) as core01:
+
+                    cron = await core00.callStorm('return($lib.cron.list())')
+                    self.len(1, cron)
+                    self.true(cron[0].get('isrunning'))
+
+                    await core01.promote(graceful=False)
+
+                    self.true(core00.isactive)
+                    self.true(core01.isactive)
+
+                    cron01 = await core01.callStorm('return($lib.cron.list())')
+                    self.len(1, cron01)
+                    self.false(cron01[0].get('isrunning'))
+                    self.eq(cron01[0].get('lasterrs')[0], 'aborted')
+
+    async def test_agenda_clear_running_none_nexttime(self):
+
+        async with self.getTestCore() as core:
+
+            cdef = {
+                'creator': core.auth.rootuser.iden,
+                'iden': s_common.guid(),
+                'storm': '$lib.log.info("test")',
+                'reqs': {},
+                'incunit': 'minute',
+                'incvals': 1
+            }
+            await core.addCronJob(cdef)
+
+            appt = core.agenda.appts[cdef['iden']]
+            self.true(appt in core.agenda.apptheap)
+
+            appt.isrunning = True
+            appt.nexttime = None
+
+            await core.agenda.clearRunningStatus()
+            self.false(appt in core.agenda.apptheap)
+
+            crons = await core.callStorm('return($lib.cron.list())')
+            self.len(1, crons)

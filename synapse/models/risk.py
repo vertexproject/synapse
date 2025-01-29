@@ -88,7 +88,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
                 ('risk:compromise', ('guid', {}), {
-                    'doc': 'An instance of a compromise and its aggregate impact.',
+                    'doc': 'A compromise and its aggregate impact. The compromise is the result of a successful attack.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
@@ -96,12 +96,17 @@ class RiskModule(s_module.CoreModule):
                         ),
                     },
                 }),
+                ('risk:mitigation:type:taxonomy', ('taxonomy', {}), {
+                    'interaces': ('taxonomy',),
+                    'doc': 'A taxonomy of mitigation types.',
+                }),
                 ('risk:mitigation', ('guid', {}), {
                     'doc': 'A mitigation for a specific risk:vuln.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
                             {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
                             {'type': 'prop', 'opts': {'name': 'tag'}},
                         ),
                     },
@@ -154,6 +159,27 @@ class RiskModule(s_module.CoreModule):
                 ('risk:extortion', ('guid', {}), {
                     'doc': 'An event where an attacker attempted to extort a victim.'}),
 
+                ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An outage cause taxonomy.'}),
+
+                ('risk:outage:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An outage type taxonomy.'}),
+
+                ('risk:outage', ('guid', {}), {
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'type'}},
+                            {'type': 'prop', 'opts': {'name': 'cause'}},
+                            {'type': 'prop', 'opts': {'name': 'period'}},
+                            {'type': 'prop', 'opts': {'name': 'provider:name'}},
+                            {'type': 'prop', 'opts': {'name': 'reporter:name'}},
+                        ),
+                    },
+                    'doc': 'An outage event which affected resource availability.'}),
+
                 ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of extortion event types.'}),
@@ -180,6 +206,8 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The threat cluster uses the vulnerability.'}),
                 (('risk:tool:software', 'uses', 'risk:vuln'), {
                     'doc': 'The tool uses the vulnerability.'}),
+                (('ou:technique', 'uses', 'risk:vuln'), {
+                    'doc': 'The technique uses the vulnerability.'}),
 
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
@@ -198,14 +226,45 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'The tool uses the target node.'}),
                 (('risk:compromise', 'stole', None), {
                     'doc': 'The target node was stolen or copied as a result of the compromise.'}),
+
                 (('risk:mitigation', 'addresses', 'ou:technique'), {
                     'doc': 'The mitigation addresses the technique.'}),
+
+                (('risk:mitigation', 'uses', 'meta:rule'), {
+                    'doc': 'The mitigation uses the rule.'}),
+
+                (('risk:mitigation', 'uses', 'it:app:yara:rule'), {
+                    'doc': 'The mitigation uses the YARA rule.'}),
+
+                (('risk:mitigation', 'uses', 'it:app:snort:rule'), {
+                    'doc': 'The mitigation uses the Snort rule.'}),
+
+                (('risk:mitigation', 'uses', 'inet:service:rule'), {
+                    'doc': 'The mitigation uses the service rule.'}),
+
+                (('risk:mitigation', 'uses', 'it:prod:softver'), {
+                    'doc': 'The mitigation uses the software version.'}),
+
+                (('risk:mitigation', 'uses', 'it:prod:hardware'), {
+                    'doc': 'The mitigation uses the hardware.'}),
 
                 (('risk:leak', 'leaked', None), {
                     'doc': 'The leak included the disclosure of the target node.'}),
 
+                (('risk:leak', 'enabled', 'risk:leak'), {
+                    'doc': 'The source leak enabled the target leak to occur.'}),
+
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
+
+                (('meta:event', 'caused', 'risk:outage'), {
+                    'doc': 'The event caused the outage.'}),
+
+                (('risk:attack', 'caused', 'risk:outage'), {
+                    'doc': 'The attack caused the outage.'}),
+
+                (('risk:outage', 'impacted', None), {
+                    'doc': 'The outage event impacted the availability of the target node.'}),
             ),
             'forms': (
 
@@ -229,6 +288,9 @@ class RiskModule(s_module.CoreModule):
                     ('active', ('ival', {}), {
                         'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
 
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'The most recently assessed activity level of the threat cluster.'}),
+
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the threat cluster.'}),
 
@@ -248,6 +310,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': "The reporting organization's assessed location of the threat cluster."}),
 
                     ('org:name', ('ou:name', {}), {
+                        'alts': ('org:names',),
                         'ex': 'apt1',
                         'doc': "The reporting organization's name for the threat cluster."}),
 
@@ -321,6 +384,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The authoritative software family for the tool.'}),
 
                     ('soft:name', ('it:prod:softname', {}), {
+                        'alts': ('soft:names',),
                         'doc': 'The reporting organization\'s name for the tool.'}),
 
                     ('soft:names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
@@ -333,7 +397,11 @@ class RiskModule(s_module.CoreModule):
                     ('mitre:attack:software', ('it:mitre:attack:software', {}), {
                         'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
 
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An ID for the tool.'}),
+
                 )),
+                ('risk:mitigation:type:taxonomy', {}, ()),
                 ('risk:mitigation', {}, (
 
                     ('vuln', ('risk:vuln', {}), {
@@ -342,15 +410,20 @@ class RiskModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A brief name for this risk mitigation.'}),
 
+                    ('type', ('risk:mitigation:type:taxonomy', {}), {
+                        'doc': 'A taxonomy type entry for the mitigation.'}),
+
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
 
                     ('software', ('it:prod:softver', {}), {
-                        'doc': 'A software version which implements a fix for the vulnerability.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:softver.'}),
 
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:hardware.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the mitigation.'}),
@@ -370,6 +443,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:vuln', {}, (
 
                     ('name', ('risk:vulnname', {}), {
+                        'alts': ('names',),
                         'doc': 'A user specified name for the vulnerability.'}),
 
                     ('names', ('array', {'type': 'risk:vulnname', 'sorted': True, 'uniq': True}), {
@@ -417,6 +491,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('id', ('str', {'strip': True}), {
                         'doc': 'An identifier for the vulnerability.'}),
+
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'A tag used to annotate the presence or use of the vulnerability.'}),
 
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
@@ -651,6 +728,9 @@ class RiskModule(s_module.CoreModule):
 
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
+
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The technique that the node is susceptible to.'}),
 
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
@@ -971,6 +1051,9 @@ class RiskModule(s_module.CoreModule):
                     ('leaker', ('ps:contact', {}), {
                         'doc': 'The identity which leaked the information.'}),
 
+                    ('recipient', ('ps:contact', {}), {
+                        'doc': 'The identity which received the leaked information.'}),
+
                     ('type', ('risk:leak:type:taxonomy', {}), {
                         'doc': 'A type taxonomy for the leak.'}),
 
@@ -999,6 +1082,42 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The total percent of the data leaked.'}),
 
                 )),
+
+                ('risk:outage:type:taxonomy', {}, ()),
+                ('risk:outage:cause:taxonomy', {}, ()),
+                ('risk:outage', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A name for the outage event.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time period where the outage impacted availability.'}),
+
+                    ('type', ('risk:outage:type:taxonomy', {}), {
+                        'ex': 'service.power',
+                        'doc': 'The type of outage.'}),
+
+                    ('cause', ('risk:outage:cause:taxonomy', {}), {
+                        'ex': 'nature.earthquake',
+                        'doc': 'The outage cause type.'}),
+
+                    ('attack', ('risk:attack', {}), {
+                        'doc': 'An attack which caused the outage.'}),
+
+                    ('provider', ('ou:org', {}), {
+                        'doc': 'The organization which experienced the outage event.'}),
+
+                    ('provider:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization which experienced the outage event.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the outage event.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the outage event.'}),
+                )),
+
+                # TODO risk:outage:vitals to track outage stats over time
 
                 ('risk:extortion:type:taxonomy', {}, ()),
                 ('risk:extortion', {}, (

@@ -45,6 +45,24 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
+                ('ou:asset:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An asset type taxonomy.'}),
+
+                ('ou:asset:status:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'An asset status taxonomy.'}),
+
+                ('ou:asset', ('guid', {}), {
+                    'doc': 'A node for tracking assets which belong to an organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'id'}},
+                            {'type': 'prop', 'opts': {'name': 'name'}},
+                            {'type': 'prop', 'opts': {'name': 'org::name'}},
+                        ),
+                    }}),
+
                 ('ou:orgtype', ('taxonomy', {}), {
                     'doc': 'An org type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
@@ -231,8 +249,24 @@ class OuModule(s_module.CoreModule):
                     'doc': 'Vital statistics about an org for a given time period.',
                 }),
                 ('ou:opening', ('guid', {}), {
-                    'doc': 'A job/work opening within an org.',
-                }),
+                    'doc': 'A job/work opening within an org.'}),
+
+                ('ou:candidate:method:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of methods by which a candidate came under consideration.'}),
+
+                ('ou:candidate', ('guid', {}), {
+                    'doc': 'A candidate being considered for a role within an organization.',
+                    'display': {
+                        'columns': (
+                            {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                            {'type': 'prop', 'opts': {'name': 'contact::email'}},
+                            {'type': 'prop', 'opts': {'name': 'submitted'}},
+                            {'type': 'prop', 'opts': {'name': 'org::name'}},
+                            {'type': 'prop', 'opts': {'name': 'opening::jobtitle'}},
+                        ),
+                    }}),
+
                 ('ou:jobtype', ('taxonomy', {}), {
                     'ex': 'it.dev.python',
                     'doc': 'A taxonomy of job types.',
@@ -244,16 +278,33 @@ class OuModule(s_module.CoreModule):
                     'interfaces': ('meta:taxonomy',),
                 }),
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A title for a position within an org.',
-                }),
+                    'doc': 'A title for a position within an org.'}),
+
+                ('ou:enacted:status:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of enacted statuses.'}),
+
+                ('ou:enacted', ('guid', {}), {
+                    'interfaces': ('proj:task',),
+                    'template': {
+                        'task': 'adoption task'},
+                    'doc': 'An organization enacting a document.'}),
+
+                ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of requirement types.'}),
+
                 ('ou:requirement', ('guid', {}), {
                     'doc': 'A specific requirement.'}),
+
             ),
             'edges': (
                 (('ou:campaign', 'uses', 'ou:technique'), {
                     'doc': 'The campaign used the technique.'}),
                 (('ou:org', 'uses', 'ou:technique'), {
                     'doc': 'The org uses the technique.'}),
+                (('risk:vuln', 'uses', 'ou:technique'), {
+                    'doc': 'The vulnerability uses the technique.'}),
 
                 (('ou:org', 'uses', None), {
                     'doc': 'The ou:org makes use of the target node.'}),
@@ -321,6 +372,44 @@ class OuModule(s_module.CoreModule):
                     }),
                     # TODO a way to encode/normalize requirements.
                 )),
+                ('ou:candidate:method:taxonomy', {}, ()),
+                ('ou:candidate', {}, (
+
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization considering the candidate.'}),
+
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'The contact information of the candidate.'}),
+
+                    ('method', ('ou:candidate:method:taxonomy', {}), {
+                        'doc': 'The method by which the candidate came under consideration.'}),
+
+                    ('submitted', ('time', {}), {
+                        'doc': 'The time the candidate was submitted for consideration.'}),
+
+                    ('intro', ('str', {'strip': True}), {
+                        'doc': 'An introduction or cover letter text submitted by the candidate.'}),
+
+                    ('resume', ('file:bytes', {}), {
+                        'doc': "The candidate's resume or CV."}),
+
+                    ('opening', ('ou:opening', {}), {
+                        'doc': 'The opening that the candidate is being considered for.'}),
+
+                    ('agent', ('ps:contact', {}), {
+                        'doc': 'The contact information of an agent who advocates for the candidate.'}),
+
+                    ('recruiter', ('ps:contact', {}), {
+                        'doc': 'The contact information of a recruiter who works on behalf of the organization.'}),
+
+                    ('attachments', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of additional files submitted by the candidate.'}),
+
+                    # TODO: doc:questionare / responses
+                    # TODO: :skills=[<ps:skill>]? vs :contact -> ps:proficiency?
+                    # TODO: proj:task to track evaluation of the candidate?
+
+                )),
                 ('ou:vitals', {}, (
 
                     ('asof', ('time', {}), {
@@ -341,8 +430,11 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The currency of the econ:price values.',
                     }),
                     ('costs', ('econ:price', {}), {
-                        'doc': 'The costs/expenditures over the period.',
-                    }),
+                        'doc': 'The costs/expenditures over the period.'}),
+
+                    ('budget', ('econ:price', {}), {
+                        'doc': 'The budget allocated for the period.'}),
+
                     ('revenue', ('econ:price', {}), {
                         'doc': 'The gross revenue over the period.',
                     }),
@@ -392,8 +484,11 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The org which issues id numbers of this type.',
                     }),
                     ('name', ('str', {}), {
-                        'doc': 'The friendly name of the id number type.',
+                        'alts': ('names',),
+                        'doc': 'The friendly name of the ID number type.',
                     }),
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the ID number type.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The official URL of the issuer.',
                     }),
@@ -401,10 +496,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:id:number', {}, (
 
                     ('type', ('ou:id:type', {}), {
-                        'doc': 'The type of org id', 'ro': True}),
+                        'doc': 'The type of org ID.', 'ro': True}),
 
                     ('value', ('ou:id:value', {}), {
-                        'doc': 'The value of org id', 'ro': True}),
+                        'doc': 'The value of the org ID.', 'ro': True}),
 
                     ('status', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A freeform status such as valid, suspended, expired.'}),
@@ -434,6 +529,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:goal', {}, (
 
                     ('name', ('ou:goalname', {}), {
+                        'alts': ('names',),
                         'doc': 'A terse name for the goal.'}),
 
                     ('names', ('array', {'type': 'ou:goalname', 'sorted': True, 'uniq': True}), {
@@ -478,6 +574,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.'}),
 
                     ('goal', ('ou:goal', {}), {
+                        'alts': ('goals',),
                         'doc': 'The assessed primary goal of the campaign.'}),
 
                     ('slogan', ('lang:phrase', {}), {
@@ -493,6 +590,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Records the success/failure status of the campaign if known.'}),
 
                     ('name', ('ou:campname', {}), {
+                        'alts': ('names',),
                         'ex': 'operation overlord',
                         'doc': 'A terse name of the campaign.'}),
 
@@ -728,6 +826,52 @@ class OuModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {}),
                     ('name', ('ou:name', {}), {}),
                 )),
+
+                ('ou:asset:type:taxonomy', {}, ()),
+                ('ou:asset:status:taxonomy', {}, ()),
+                ('ou:asset', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization which owns the asset.'}),
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'The ID of the asset.'}),
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'The name of the assset.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the asset was being tracked.'}),
+
+                    ('status', ('ou:asset:status:taxonomy', {}), {
+                        'doc': 'The current status of the asset.'}),
+
+                    ('type', ('ou:asset:type:taxonomy', {}), {
+                        'doc': 'The asset type.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The overall priority of protecting the asset.'}),
+
+                    ('priority:confidentiality', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the confidentiality of the asset.'}),
+
+                    ('priority:integrity', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the integrity of the asset.'}),
+
+                    ('priority:availability', ('meta:priority', {}), {
+                        'doc': 'The priority of protecting the availability of the asset.'}),
+
+                    ('node', ('ndef', {}), {
+                        'doc': 'The node which represents the asset.'}),
+
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place where the asset is deployed.'}),
+
+                    ('owner', ('ps:contact', {}), {
+                        'doc': 'The contact information of the owner or administrator of the asset.'}),
+
+                    ('operator', ('ps:contact', {}), {
+                        'doc': 'The contact information of the user or operator of the asset.'}),
+                )),
                 ('ou:position', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which has the position.',
@@ -786,6 +930,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:industry', {}, (
 
                     ('name', ('ou:industryname', {}), {
+                        'alts': ('names',),
                         'doc': 'The name of the industry.'}),
 
                     ('type', ('ou:industry:type:taxonomy', {}), {
@@ -793,6 +938,12 @@ class OuModule(s_module.CoreModule):
 
                     ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternative names for the industry.'}),
+
+                    ('reporter', ('ou:org', {}), {
+                        'doc': 'The organization reporting on the industry.'}),
+
+                    ('reporter:name', ('ou:name', {}), {
+                        'doc': 'The name of the organization reporting on the industry.'}),
 
                     ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'deprecated': True,
@@ -1032,6 +1183,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of contacts which sponsored the conference.',
                     }),
                     ('name', ('entity:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The full name of the conference.',
                         'ex': 'defcon 2017'}),
 
@@ -1194,29 +1346,48 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:contest:result', {}, (
+
                     ('contest', ('ou:contest', {}), {
                         'ro': True,
-                        'doc': 'The contest.',
-                    }),
+                        'doc': 'The contest that the participant took part in.'}),
+
                     ('participant', ('ps:contact', {}), {
                         'ro': True,
-                        'doc': 'The participant',
-                    }),
+                        'doc': 'The participant in the contest.'}),
+
                     ('rank', ('int', {}), {
-                        'doc': 'The rank order of the participant.',
-                    }),
+                        'doc': "The participant's rank order in the contest."}),
+
                     ('score', ('int', {}), {
-                        'doc': 'The score of the participant.',
-                    }),
+                        'doc': "The participant's final score in the contest."}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the participant competed in the contest.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The contest result website URL.',
-                    }),
-                    # TODO duration ('duration'
+                        'doc': 'The contest result website URL.'}),
+
                 )),
+                ('ou:enacted:status:taxonomy', {}, ()),
+                ('ou:enacted', {}, (
+                    ('org', ('ou:org', {}), {
+                        'doc': 'The organization which is enacting the document.'}),
+
+                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
+                        'doc': 'The document enacted by the organization.'}),
+
+                    ('scope', ('ndef', {}), {
+                        'doc': 'The scope of responsbility for the assignee to enact the document.'}),
+                )),
+
+                ('ou:requirement:type:taxonomy', {}, ()),
                 ('ou:requirement', {}, (
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for the requirement.'}),
+
+                    ('type', ('ou:requirement:type:taxonomy', {}), {
+                        'doc': 'The type of requirement.'}),
 
                     ('text', ('str', {}), {
                         'disp': {'hint': 'text'},

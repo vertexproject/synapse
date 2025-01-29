@@ -51,7 +51,7 @@ async def _main(argv, outp):
 
 def getArgParser():
     desc = 'CLI tool to generate simple x509 certificates from an Aha server.'
-    pars = argparse.ArgumentParser(prog='aha.easycert', description=desc)
+    pars = argparse.ArgumentParser(prog='synapse.tools.aha.easycert', description=desc)
 
     pars.add_argument('-a', '--aha', required=True,  # type=str,
                       help='Aha server to connect too.')
