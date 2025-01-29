@@ -342,6 +342,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :verdict=suspicious
                     :scanner={[ it:prod:softver=* :name="visi scan" ]}
                     :scanner:name="visi scan"
+                    :categories=("Foo  Bar", "baz faz")
                     :signame=omgwtfbbq
                     :target:file=*
                     :target:proc={[ it:exec:proc=* :cmd="foo.exe --bar" ]}
@@ -367,6 +368,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(0x01020304, nodes[0].get('target:ipv4'))
             self.eq('::1', nodes[0].get('target:ipv6'))
             self.eq('omgwtfbbq', nodes[0].get('signame'))
+            self.eq(('baz faz', 'foo bar'), nodes[0].get('categories'))
 
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:host'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> inet:url'))
