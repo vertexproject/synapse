@@ -2759,7 +2759,7 @@ class LibAxon(Lib):
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
-    async def read(self, sha256, offs=0, size=0):
+    async def read(self, sha256, offs=0, size=s_const.mebibyte):
         '''
         Read bytes from a file in the Axon.
         '''
