@@ -1,5 +1,8 @@
 ---
-desc: Deprecated hiveauth.py::Auth and all public methods.
+desc: Deprecated hiveauth. Deprecation messages were added to
+  ``synapse.lib.hiveauth.textFromRule()``, ``synapse.lib.hiveauth._allowedReason()``, and
+  ``synapse.lib.hiveauth.Auth.__anit__()``. The hiveauth module will be completely removed in
+  Synapse v2.198.0.
 prs: []
 type: deprecation
 ...
