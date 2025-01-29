@@ -380,8 +380,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     byts = b'\x00' * 256
                     for i in range(500_000):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-            data = stream.getvalue()
-            msgs = [json.loads(m) for m in data.split('\n') if m]
+            msgs = stream.jsonlines()
             self.gt(len(msgs), 0)
 
     async def test_lmdbslab_max_replay(self):
