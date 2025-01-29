@@ -135,7 +135,7 @@ class Auth(s_nexus.Pusher):
         Args:
             node (HiveNode): The root of the persistent storage for auth
         '''
-        s_common.deprecated('hiveauth.__anit__()', curv='2.195.1')
+        s_common.deprecated('hiveauth.__anit__()', curv='2.195.1', eolv='2.198.0')
         # Derive an iden from the parent
         iden = 'auth:' + ':'.join(node.full)
         await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)
