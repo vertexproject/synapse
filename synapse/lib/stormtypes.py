@@ -2777,7 +2777,7 @@ class LibAxon(Lib):
         await self.runt.snap.core.getAxon()
 
         byts = b''
-        async for chunk in self.runt.snap.core.axon.get(s_common.uhex(sha256), offs, size):
+        async for chunk in self.runt.snap.core.axon.get(s_common.uhex(sha256), offs=offs, size=size):
             byts += chunk
         return byts
 

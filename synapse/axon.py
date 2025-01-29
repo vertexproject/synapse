@@ -1535,7 +1535,7 @@ class Axon(s_cell.Cell):
                 raise s_exc.BadArg(mesg=f'Struct format would read too much data: {size} bytes', size=size)
 
             byts = b''
-            async for chunk in self.get(sha256, offs, size):
+            async for chunk in self.get(sha256, offs=offs, size=size):
                 byts += chunk
 
             if len(byts) != size:
