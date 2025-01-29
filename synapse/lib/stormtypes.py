@@ -7206,7 +7206,6 @@ class Layer(Prim):
 
         async for _, buid, sode in layr.liftByDataName(name):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
-            return
 
     @stormfunc(readonly=True)
     async def getMirrorStatus(self):
