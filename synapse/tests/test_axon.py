@@ -1189,11 +1189,16 @@ bar baz",vv
                 self.eq((3,), await prox.unpack(sha256, '>Q', offs=16))
                 self.eq((2, 3), await prox.unpack(sha256, '>QQ', offs=8))
 
+                fmt = 'Q' * 150_000
+                with self.raises(s_exc.BadArg) as cm:
+                    await prox.unpack(sha256, '>' + fmt)
+                self.isin('Struct format would read too much data', cm.exception.get('mesg'))
+
                 with self.raises(s_exc.BadArg):
                     await prox.unpack(sha256, 'not a valid format')
 
                 with self.raises(s_exc.BadArg):
                     await prox.unpack(sha256, 123)
 
-                with self.raises(s_exc.BadArg):
+                with self.raises(s_exc.BadDataValu):
                     await prox.unpack(sha256, '>Q', offs=24)

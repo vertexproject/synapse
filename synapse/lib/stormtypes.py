@@ -2392,14 +2392,15 @@ class LibAxon(Lib):
 
                 Read 50 bytes starting at offset 200::
 
-                    $byts = $lib.axon.read($sha256, size=50, offset=200)
+                    $byts = $lib.axon.read($sha256, offs=200, size=50)
             ''',
          'type': {'type': 'function', '_funcname': 'read',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
                       {'name': 'offs', 'type': 'int', 'default': 0,
                        'desc': 'The offset to start reading from.'},
-                      {'name': 'size', 'type': 'int', 'desc': 'The number of bytes to read.'},
+                      {'name': 'size', 'type': 'int', 'default': 0,
+                       'desc': 'The number of bytes to read. Max is 1 MiB.'},
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The requested bytes from the file.'}}},
 
@@ -2413,7 +2414,7 @@ class LibAxon(Lib):
 
                 Unpack a 64-bit float starting at offset 100::
 
-                    $float = $lib.axon.unpack($sha256, '<d', offset=100)
+                    $float = $lib.axon.unpack($sha256, '<d', offs=100)
             ''',
          'type': {'type': 'function', '_funcname': 'unpack',
                   'args': (
@@ -2758,7 +2759,7 @@ class LibAxon(Lib):
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
-    async def read(self, sha256, offs=0, size=s_const.mebibyte):
+    async def read(self, sha256, offs=0, size=0):
         '''
         Read bytes from a file in the Axon.
         '''
