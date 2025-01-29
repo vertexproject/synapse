@@ -234,7 +234,8 @@ class JsonStor(s_base.Base):
         step = item
         names = self._pathToTupl(prop)
         for name in names[:-1]:
-            step = step[name]
+            if (step := step.get(name)) is None:
+                return False
 
         step.pop(names[-1], None)
 
