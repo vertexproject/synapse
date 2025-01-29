@@ -6999,16 +6999,16 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
 
-        {'name': 'liftByData', 'desc': '''
+        {'name': 'liftByNodeData', 'desc': '''
             Lift and yield nodes with the given node data key set within the layer.
 
             Example:
                 Yield all nodes with the data key zootsuit set in the top layer::
 
-                    yield $lib.layer.get().liftByData(zootsuit)
+                    yield $lib.layer.get().liftByNodeData(zootsuit)
 
             ''',
-         'type': {'type': 'function', '_funcname': 'liftByData',
+         'type': {'type': 'function', '_funcname': 'liftByNodeData',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The node data name to lift by.'},
                   ),
@@ -7126,7 +7126,7 @@ class Layer(Prim):
             'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
-            'liftByData': self.liftByData,
+            'liftByNodeData': self.liftByNodeData,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getPropValues': self._methGetPropValues,
@@ -7195,7 +7195,7 @@ class Layer(Prim):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
     @stormfunc(readonly=True)
-    async def liftByData(self, name):
+    async def liftByNodeData(self, name):
 
         name = await tostr(name)
 

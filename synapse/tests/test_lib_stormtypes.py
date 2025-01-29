@@ -6478,7 +6478,7 @@ words\tword\twrd'''
 
             self.len(2, await core.nodes('ou:org +:name=foobar +#hehe', opts=opts))
 
-            nodes = await core.nodes('yield $lib.layer.get().liftByData(foo)', opts=opts)
+            nodes = await core.nodes('yield $lib.layer.get().liftByNodeData(foo)', opts=opts)
             self.len(1, nodes)
             self.eq(nodes[0].iden(), nodeiden)
 
