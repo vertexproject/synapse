@@ -2397,9 +2397,9 @@ class LibAxon(Lib):
          'type': {'type': 'function', '_funcname': 'read',
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
-                      {'name': 'size', 'type': 'int', 'desc': 'The number of bytes to read.'},
-                      {'name': 'offset', 'type': 'int', 'default': 0,
+                      {'name': 'offs', 'type': 'int', 'default': 0,
                        'desc': 'The offset to start reading from.'},
+                      {'name': 'size', 'type': 'int', 'desc': 'The number of bytes to read.'},
                   ),
                   'returns': {'type': 'bytes', 'desc': 'The requested bytes from the file.'}}},
 
@@ -2419,7 +2419,7 @@ class LibAxon(Lib):
                   'args': (
                       {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
                       {'name': 'fmt', 'type': 'str', 'desc': 'The struct format string.'},
-                      {'name': 'offset', 'type': 'int', 'default': 0,
+                      {'name': 'offs', 'type': 'int', 'default': 0,
                        'desc': 'The offset to start reading from.'},
                   ),
                   'returns': {'type': 'list', 'desc': 'The unpacked values as a tuple.'}}},
@@ -2758,34 +2758,42 @@ class LibAxon(Lib):
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
 
     @stormfunc(readonly=True)
-    async def read(self, sha256, size, offset=0):
+    async def read(self, sha256, offs=0, size=s_const.mebibyte):
         '''
         Read bytes from a file in the Axon.
         '''
         sha256 = await tostr(sha256)
         size = await toint(size)
-        offset = await toint(offset)
+        offs = await toint(offs)
+
+        if size > s_const.mebibyte:
+            mesg = f'Size must be between 1 and {s_const.mebibyte} bytes'
+            raise s_exc.BadArg(mesg=mesg)
 
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
 
         await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.read(s_common.uhex(sha256), size, offset)
+
+        byts = b''
+        async for chunk in self.runt.snap.core.axon.get(s_common.uhex(sha256), offs, size):
+            byts += chunk
+        return byts
 
     @stormfunc(readonly=True)
-    async def unpack(self, sha256, fmt, offset=0):
+    async def unpack(self, sha256, fmt, offs=0):
         '''
         Unpack bytes from a file in the Axon using struct.
         '''
         sha256 = await tostr(sha256)
         fmt = await tostr(fmt)
-        offset = await toint(offset)
+        offs = await toint(offs)
 
         if not self.runt.allowed(('axon', 'get')):
             self.runt.confirm(('storm', 'lib', 'axon', 'get'))
 
         await self.runt.snap.core.getAxon()
-        return await self.runt.snap.core.axon.unpack(s_common.uhex(sha256), fmt, offset)
+        return await self.runt.snap.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
 
 @registry.registerLib
 class LibBytes(Lib):

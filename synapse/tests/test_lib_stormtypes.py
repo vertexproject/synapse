@@ -7097,19 +7097,19 @@ words\tword\twrd'''
 
             opts = {'user': visi.iden, 'vars': {'sha256': sha256_s}}
             await self.asyncraises(s_exc.AuthDeny,
-                core.callStorm('return($lib.axon.read($sha256, size=3, offset=3))', opts=opts))
+                core.callStorm('return($lib.axon.read($sha256, offs=3, size=3))', opts=opts))
             await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
 
-            q = 'return($lib.axon.read($sha256, size=3, offset=3))'
+            q = 'return($lib.axon.read($sha256, offs=3, size=3))'
             self.eq(b'tex', await core.callStorm(q, opts=opts))
-            q = 'return($lib.axon.read($sha256, size=4, offset=7))'
+            q = 'return($lib.axon.read($sha256, offs=7, size=4))'
             self.eq(b'link', await core.callStorm(q, opts=opts))
-            q = 'return($lib.axon.read($sha256, size=1, offset=11))'
+            q = 'return($lib.axon.read($sha256, offs=11, size=1))'
             self.eq(b'', await core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.read($sha256, size=0))'
             await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
-            q = 'return($lib.axon.read($sha256, size=1, offset=-1))'
+            q = 'return($lib.axon.read($sha256, offs=-1, size=1))'
             await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
             q = 'return($lib.axon.read($sha256, size=2097152))'
             await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
@@ -7126,15 +7126,15 @@ words\tword\twrd'''
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
             self.eq((1,), await core.callStorm(q, opts=opts))
-            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offset=8))'
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=8))'
             self.eq((2,), await core.callStorm(q, opts=opts))
-            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offset=16))'
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=16))'
             self.eq((3,), await core.callStorm(q, opts=opts))
-            q = 'return($lib.axon.unpack($sha256, fmt=">QQ", offset=8))'
+            q = 'return($lib.axon.unpack($sha256, fmt=">QQ", offs=8))'
             self.eq((2, 3), await core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.unpack($sha256, fmt="not a valid format"))'
             await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
 
-            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offset=24))'
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=24))'
             await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))

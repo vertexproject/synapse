@@ -760,41 +760,41 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.jsonlines(sha256, errors=errors):
             yield item
 
-    async def read(self, sha256, size, offset=0):
-        '''
-        Read bytes from a file in the Axon.
-
-        Args:
-            sha256 (bytes): The sha256 hash of the file in bytes.
-            size (int): The number of bytes to read.
-            offset (int): The offset to start reading from.
-
-        Returns:
-            bytes: The requested bytes from the file.
-
-        Raises:
-            synapse.exc.NoSuchFile: If the file does not exist.
-        '''
-        await self._reqUserAllowed(('axon', 'get'))
-        return await self.cell.read(sha256, size, offset=offset)
-
-    async def unpack(self, sha256, fmt, offset=0):
+    async def unpack(self, sha256, fmt, offs=0):
         '''
         Unpack bytes from a file in the Axon using struct.
 
         Args:
             sha256 (bytes): The sha256 hash of the file in bytes.
             fmt (str): The struct format string.
-            offset (int): The offset to start reading from.
+            offs (int): The offset to start reading from.
 
         Returns:
             tuple: The unpacked values.
 
         Raises:
             synapse.exc.NoSuchFile: If the file does not exist.
+            synapse.exc.BadArg: If the struct format is invalid or reads too much data.
         '''
-        await self._reqUserAllowed(('axon', 'get'))
-        return await self.cell.unpack(sha256, fmt, offset=offset)
+        if not isinstance(fmt, str):
+            raise s_exc.BadArg(mesg='Format string must be a string', fmt=fmt)
+
+        try:
+            size = struct.calcsize(fmt)
+            if size > s_const.mebibyte:
+                raise s_exc.BadArg(mesg=f'Struct format would read too much data: {size} bytes', size=size)
+        except struct.error as e:
+            raise s_exc.BadArg(mesg=f'Invalid struct format string: {str(e)}', fmt=fmt) from None
+
+        byts = b''
+        async for chunk in self.get(sha256, offs, size):
+            byts += chunk
+
+        try:
+            return struct.unpack(fmt, byts)
+        except struct.error as e:
+            mesg = f'Failed to unpack bytes with format {fmt}: {str(e)}'
+            raise s_exc.BadArg(mesg=mesg) from None
 
 class Axon(s_cell.Cell):
 
@@ -1057,7 +1057,6 @@ class Axon(s_cell.Cell):
             sha256 (bytes): The sha256 hash of the file in bytes.
             offs (int): The offset to start reading from.
             size (int): The total number of bytes to read.
-
         Examples:
 
             Get the bytes from an Axon and process them::
@@ -1523,45 +1522,14 @@ class Axon(s_cell.Cell):
                 raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
                                         sha256=sha256) from None
 
-    async def read(self, sha256, size, offset=0):
-        '''
-        Read bytes from a file in the Axon.
-
-        Args:
-            sha256 (bytes): The sha256 hash of the file in bytes.
-            size (int): The number of bytes to read. Must be between 1 and 1MB.
-            offset (int): The offset to start reading from. Must be >= 0.
-
-        Returns:
-            bytes: The requested bytes from the file.
-
-        Raises:
-            synapse.exc.BadArg: If the size is not between 1 and 1MB, or if the offset is negative.
-            synapse.exc.NoSuchFile: If the file does not exist.
-        '''
-        if size < 1 or size > s_const.mebibyte:
-            raise s_exc.BadArg(mesg='Size must be between 1 and 1MB', size=size)
-
-        if offset < 0:
-            raise s_exc.BadArg(mesg='Offset must be >= 0', offset=offset)
-
-        fsize = await self._reqHas(sha256)
-        if offset >= fsize:
-            return b''
-
-        byts = b''
-        async for chunk in self._getBytsOffsSize(sha256, offset, size):
-            byts += chunk
-        return byts
-
-    async def unpack(self, sha256, fmt, offset=0):
+    async def unpack(self, sha256, fmt, offs=0):
         '''
         Unpack bytes from a file in the Axon using struct.
 
         Args:
             sha256 (bytes): The sha256 hash of the file in bytes.
             fmt (str): The struct format string.
-            offset (int): The offset to start reading from.
+            offs (int): The offset to start reading from.
 
         Returns:
             tuple: The unpacked values.
@@ -1579,7 +1547,9 @@ class Axon(s_cell.Cell):
         except struct.error as e:
             raise s_exc.BadArg(mesg=f'Invalid struct format string: {str(e)}', fmt=fmt) from None
 
-        byts = await self.read(sha256, size, offset=offset)
+        byts = b''
+        async for chunk in self.get(sha256, offs, size):
+            byts += chunk
 
         try:
             return struct.unpack(fmt, byts)

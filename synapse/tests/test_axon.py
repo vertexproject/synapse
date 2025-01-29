@@ -1178,30 +1178,16 @@ bar baz",vv
             _, port = await axon.dmon.listen('tcp://127.0.0.1:0')
             aurl = f'tcp://user:test@127.0.0.1:{port}/axon'
             async with await s_telepath.openurl(aurl) as prox:  # type: s_axon.AxonApi
-                await self.asyncraises(s_exc.AuthDeny, prox.read(asdfhash, 3))
                 await self.asyncraises(s_exc.AuthDeny, prox.unpack(asdfhash, '>Q'))
                 await user.addRule((True, ('axon', 'upload',)))
                 await user.addRule((True, ('axon', 'get',)))
 
-                data = b'vertex.link'
-                size, sha256 = await prox.put(data)
-                self.eq(b'tex', await prox.read(sha256, 3, offset=3))
-                self.eq(b'link', await prox.read(sha256, 4, offset=7))
-                self.eq(b'', await prox.read(sha256, 1, offset=11))
-
-                with self.raises(s_exc.BadArg):
-                    await prox.read(sha256, 0)
-                with self.raises(s_exc.BadArg):
-                    await prox.read(sha256, 1, -1)
-                with self.raises(s_exc.BadArg):
-                    await prox.read(sha256, 2 * 1024 * 1024)
-
                 intdata = struct.pack('>QQQ', 1, 2, 3)
                 size, sha256 = await prox.put(intdata)
                 self.eq((1,), await prox.unpack(sha256, '>Q'))
-                self.eq((2,), await prox.unpack(sha256, '>Q', offset=8))
-                self.eq((3,), await prox.unpack(sha256, '>Q', offset=16))
-                self.eq((2, 3), await prox.unpack(sha256, '>QQ', offset=8))
+                self.eq((2,), await prox.unpack(sha256, '>Q', offs=8))
+                self.eq((3,), await prox.unpack(sha256, '>Q', offs=16))
+                self.eq((2, 3), await prox.unpack(sha256, '>QQ', offs=8))
 
                 with self.raises(s_exc.BadArg):
                     await prox.unpack(sha256, 'not a valid format')
@@ -1210,4 +1196,4 @@ bar baz",vv
                     await prox.unpack(sha256, 123)
 
                 with self.raises(s_exc.BadArg):
-                    await prox.unpack(sha256, '>Q', offset=24)
+                    await prox.unpack(sha256, '>Q', offs=24)
