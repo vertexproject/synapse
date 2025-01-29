@@ -1766,8 +1766,13 @@ class Slab(s_base.Base):
         return self._xact_action(self.delete, lmdb.Transaction.delete, lkey, val, db=db)
 
     def put(self, lkey, lval, dupdata=False, overwrite=True, append=False, db=None):
-        return self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
+        retn = self._xact_action(self.put, lmdb.Transaction.put, lkey, lval, dupdata=dupdata, overwrite=overwrite,
                                  append=append, db=db)
+
+        if len(self.xactops) >= self.max_xactops_len:
+            self.forcecommit()
+
+        return retn
 
     def replace(self, lkey, lval, db=None):
         '''

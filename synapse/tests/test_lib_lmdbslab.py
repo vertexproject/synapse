@@ -374,7 +374,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
     async def test_lmdbslab_commit_over_max_xactops(self):
         with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1):
             path = os.path.join(dirn, 'test.lmdb')
-            with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with 10000') as stream:
+            with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
                 async with await s_lmdbslab.Slab.anit(path, map_size=100_000_000) as slab:
                     foo = slab.initdb('foo', dupsort=True)
                     byts = b'\x00' * 256
@@ -382,6 +382,10 @@ class LmdbSlabTest(s_t_utils.SynTest):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
             msgs = stream.jsonlines()
             self.gt(len(msgs), 0)
+            for msg in msgs:
+                if msg.get('message', '').startswith('Commit with'):
+                    items = int(msg.get('message').split()[2])
+                    self.le(items, 10000)
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
