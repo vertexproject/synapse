@@ -7137,4 +7137,4 @@ words\tword\twrd'''
             await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=24))'
-            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            await self.asyncraises(s_exc.BadDataValu, core.callStorm(q, opts=opts))

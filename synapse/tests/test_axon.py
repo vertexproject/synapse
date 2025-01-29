@@ -490,6 +490,28 @@ bar baz",vv
             with self.raises(s_exc.BadArg):
                 bytslist = [b async for b in axon.get(sha256, 0, size=0)]
 
+        # test unpack
+        intdata = struct.pack('>QQQ', 1, 2, 3)
+        size, sha256 = await axon.put(intdata)
+        self.eq((1,), await axon.unpack(sha256, '>Q'))
+        self.eq((2,), await axon.unpack(sha256, '>Q', offs=8))
+        self.eq((3,), await axon.unpack(sha256, '>Q', offs=16))
+        self.eq((2, 3), await axon.unpack(sha256, '>QQ', offs=8))
+
+        fmt = 'Q' * 150_000
+        with self.raises(s_exc.BadArg) as cm:
+            await axon.unpack(sha256, '>' + fmt)
+        self.isin('Struct format would read too much data', cm.exception.get('mesg'))
+
+        with self.raises(s_exc.BadArg):
+            await axon.unpack(sha256, 'not a valid format')
+
+        with self.raises(s_exc.BadArg):
+            await axon.unpack(sha256, 123)
+
+        with self.raises(s_exc.BadDataValu):
+            await axon.unpack(sha256, '>Q', offs=24)
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
@@ -1168,37 +1190,3 @@ bar baz",vv
 
             (size, sha256) = await axon01.put(b'vertex')
             self.eq(await axon00.size(sha256), await axon01.size(sha256))
-
-    async def test_axon_read_unpack(self):
-
-        async with self.getTestAxon() as axon:
-
-            user = await axon.auth.addUser('user')
-            await user.setPasswd('test')
-            _, port = await axon.dmon.listen('tcp://127.0.0.1:0')
-            aurl = f'tcp://user:test@127.0.0.1:{port}/axon'
-            async with await s_telepath.openurl(aurl) as prox:  # type: s_axon.AxonApi
-                await self.asyncraises(s_exc.AuthDeny, prox.unpack(asdfhash, '>Q'))
-                await user.addRule((True, ('axon', 'upload',)))
-                await user.addRule((True, ('axon', 'get',)))
-
-                intdata = struct.pack('>QQQ', 1, 2, 3)
-                size, sha256 = await prox.put(intdata)
-                self.eq((1,), await prox.unpack(sha256, '>Q'))
-                self.eq((2,), await prox.unpack(sha256, '>Q', offs=8))
-                self.eq((3,), await prox.unpack(sha256, '>Q', offs=16))
-                self.eq((2, 3), await prox.unpack(sha256, '>QQ', offs=8))
-
-                fmt = 'Q' * 150_000
-                with self.raises(s_exc.BadArg) as cm:
-                    await prox.unpack(sha256, '>' + fmt)
-                self.isin('Struct format would read too much data', cm.exception.get('mesg'))
-
-                with self.raises(s_exc.BadArg):
-                    await prox.unpack(sha256, 'not a valid format')
-
-                with self.raises(s_exc.BadArg):
-                    await prox.unpack(sha256, 123)
-
-                with self.raises(s_exc.BadDataValu):
-                    await prox.unpack(sha256, '>Q', offs=24)
