@@ -77,6 +77,30 @@ class DocModule(s_module.CoreModule):
                         'documents': 'standards',
                         'type': 'doc:standard:type:taxonomy'},
                     'doc': 'A group of requirements which define how to implement a policy or goal.'}),
+
+                ('doc:requirement:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of requirement types.'}),
+
+                ('doc:requirement', ('guid', {}), {
+                    'interfaces': ('doc:document',),
+                    'template': {
+                        'document': 'requirement',
+                        'documents': 'requirements',
+                        'type': 'doc:requirement:type:taxonomy'},
+                    'doc': 'A single requirement, often defined by a standard.'}),
+
+                ('doc:resume:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of resume types.'}),
+
+                ('doc:resume', ('guid', {}), {
+                    'interfaces': ('doc:document',),
+                    'template': {
+                        'document': 'resume',
+                        'documents': 'resumes',
+                        'type': 'doc:resume:type:taxonomy'},
+                    'doc': 'A cv/resume document.'),
             ),
             'forms': (
 
@@ -87,6 +111,44 @@ class DocModule(s_module.CoreModule):
                 ('doc:standard', {}, (
                     ('policy', ('doc:policy', {}), {
                         'doc': 'The policy which was used to derive the standard.'}),
+                )),
+
+                ('doc:requirement:type:taxonomy', {}, ()),
+                ('doc:requirement', {}, (
+
+                    ('summary', ('str', {}), {
+                        'hint': {'display': 'text'},
+                        'doc': 'A summary of the requirement definition.'}),
+
+                    ('optional', ('bool', {}), {
+                        'doc': 'Set to true if the requirement is optional as defined by the standard.'}),
+
+                    ('priority', ('meta:priority', {}), {
+                        'doc': 'The priority of the requirement as defined by the standard.'}),
+
+                    ('standard', ('doc:standard', {}), {
+                        'doc': 'The standard which defined the requirement.'}),
+                )),
+
+                ('doc:resume:type:taxonomy', {}, ()),
+                ('doc:resume', {}, (
+
+                    ('contact', ('ps:contact', {}), {
+                        'doc': 'Contact information for subject of the resume.'}),
+
+                    ('summary', ('str', {}), {
+                        'hint': {'display': 'text'},
+                        'doc': 'The summary of qualifications from the resume.'}),
+
+                    ('history', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
+                        'doc': 'Work history described in the resume.'}),
+
+                    ('education', ('array', {'type': 'ps:education', 'sorted': True, 'uniq': True}), {
+                        'doc': 'Education experience described in the resume.'}),
+
+                    ('achievements', ('array', {'type': 'ps:achievement', 'sorted': True, 'uniq': True}), {
+                        'doc': 'Achievements described in the resume.'}),
+
                 )),
             ),
             'edges': (),
