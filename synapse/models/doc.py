@@ -117,7 +117,7 @@ class DocModule(s_module.CoreModule):
                 ('doc:requirement', {}, (
 
                     ('summary', ('str', {}), {
-                        'hint': {'display': 'text'},
+                        'disp': {'hint': 'text'},
                         'doc': 'A summary of the requirement definition.'}),
 
                     ('optional', ('bool', {}), {
@@ -137,7 +137,7 @@ class DocModule(s_module.CoreModule):
                         'doc': 'Contact information for subject of the resume.'}),
 
                     ('summary', ('str', {}), {
-                        'hint': {'display': 'text'},
+                        'disp': {'hint': 'text'},
                         'doc': 'The summary of qualifications from the resume.'}),
 
                     ('history', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
