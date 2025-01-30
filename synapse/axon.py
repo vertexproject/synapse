@@ -1,5 +1,4 @@
 import csv
-import json
 import asyncio
 import hashlib
 import logging
@@ -8,6 +7,9 @@ import contextlib
 
 import aiohttp
 import aiohttp_socks
+
+import msgspec
+import msgspec.json as m_json
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -1481,8 +1483,8 @@ class Axon(s_cell.Cell):
                 continue
 
             try:
-                yield json.loads(line)
-            except json.JSONDecodeError as e:
+                yield m_json.decode(line)
+            except msgspec.DecodeError as e:
                 logger.exception(f'Bad json line encountered for {sha256}')
                 raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
                                         sha256=sha256) from None
@@ -1573,7 +1575,7 @@ class Axon(s_cell.Cell):
                     else:
                         valu = field.get('value')
                         if not isinstance(valu, (bytes, str)):
-                            valu = json.dumps(valu)
+                            valu = m_json.decode(valu)
 
                     data.add_field(name,
                                    valu,

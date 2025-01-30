@@ -1,9 +1,10 @@
 import csv
-import json
 import regex
 import base64
 import codecs
 import xml.etree.ElementTree as x_etree
+
+import msgspec.json as m_json
 
 import synapse.exc as s_exc
 import synapse.lib.msgpack as s_msgpack
@@ -176,11 +177,11 @@ def _fmt_lines(fd, gest):
         yield line
 
 def _fmt_json(fd, info):
-    yield json.loads(fd.read())
+    yield m_json.decode(fd.read())
 
 def _fmt_jsonl(fd, info):
     for line in fd:
-        yield json.loads(line)
+        yield m_json.decode(line)
 
 def _fmt_mpk(fd, info):
     yield from s_msgpack.iterfd(fd)

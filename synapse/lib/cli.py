@@ -1,5 +1,4 @@
 import os
-import json
 import signal
 import asyncio
 import logging
@@ -7,6 +6,7 @@ import traceback
 import collections
 
 import regex
+import msgspec.json as m_json
 
 from prompt_toolkit import PromptSession, print_formatted_text
 from prompt_toolkit.formatted_text import FormattedText
@@ -542,5 +542,5 @@ class CmdLocals(Cmd):
                 ret[k] = v
             else:
                 ret[k] = repr(v)
-        mesg = json.dumps(ret, indent=2, sort_keys=True)
+        mesg = m_json.format(m_json.encode(ret, order='sorted')).decode()
         self.printf(mesg)

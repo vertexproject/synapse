@@ -8,6 +8,9 @@ logger = logging.getLogger(__name__)
 import aiohttp
 import aiohttp_socks
 
+import msgspec
+import msgspec.json as m_json
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -56,7 +59,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
         try:
 
             mesg = await s_stormtypes.toprim(mesg)
-            await self.resp.send_bytes(json.dumps(mesg).encode())
+            await self.resp.send_bytes(m_json.encode(mesg))
             return (True, None)
 
         except asyncio.CancelledError:  # pragma: no cover
@@ -70,9 +73,9 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
         try:
             _type, data, extra = await s_common.wait_for(self.resp.receive(), timeout=timeout)
             if _type == aiohttp.WSMsgType.BINARY:
-                return (True, json.loads(data))
+                return (True, m_json.decode(data))
             if _type == aiohttp.WSMsgType.TEXT:
-                return (True, json.loads(data.encode()))
+                return (True, m_json.decode(data.encode()))
             if _type == aiohttp.WSMsgType.CLOSED:  # pragma: no cover
                 return (True, None)
             return (False, ('BadMesgFormat', {'mesg': f'WebSocket RX unhandled type: {_type.name}'}))  # pragma: no cover
@@ -563,16 +566,17 @@ class HttpResp(s_stormtypes.Prim):
             errors = await s_stormtypes.tostr(errors)
 
             if encoding is None:
+                # TODO Is there a msgspec api for this?
                 encoding = json.detect_encoding(valu)
             else:
                 encoding = await s_stormtypes.tostr(encoding)
 
-            return json.loads(valu.decode(encoding, errors))
+            return m_json.decode(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
 
-        except json.JSONDecodeError as e:
+        except msgspec.DecodeError as e:
             mesg = f'Unable to decode HTTP response as json: {e.args[0]}'
             raise s_exc.BadJsonText(mesg=mesg)
 

@@ -1,6 +1,7 @@
 import os
-import json
 import logging
+
+import msgspec.json as m_json
 
 import synapse.common as s_common
 import synapse.lib.datfile as s_datfile
@@ -26,7 +27,7 @@ def get(name, defval=None):
 
 def getJSON(name):
     with s_datfile.openDatFile(f'synapse.data/{name}.json') as fd:
-        return json.loads(fd.read())
+        return m_json.decode(fd.read())
 
 def path(*names):
     return s_common.genpath(dirname, *names)

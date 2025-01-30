@@ -1,6 +1,5 @@
 import os
 import copy
-import json
 import pprint
 import logging
 import contextlib
@@ -8,6 +7,8 @@ import collections
 
 import vcr
 import regex
+
+import msgspec.json as m_json
 
 from unittest import mock
 
@@ -104,7 +105,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
             body = resp.get('body')
 
             if isinstance(body, (dict, list)):
-                body = json.dumps(body)
+                body = m_json.encode(body)
 
             info = {
                 'code': resp.get('code', 200),

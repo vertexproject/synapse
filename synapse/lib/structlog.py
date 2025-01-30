@@ -1,6 +1,6 @@
-import json
-
 import logging
+
+import msgspec.json as m_json
 
 import synapse.common as s_common
 
@@ -37,4 +37,6 @@ class JsonFormatter(logging.Formatter):
         if extras:
             ret.update({k: v for k, v in extras.items() if k not in ret})
 
-        return json.dumps(ret, default=str)
+        # FIXME may need a custom encoder to handle the json.dumps default=str argument?
+        # return json.dumps(ret, default=str)
+        return m_json.encode(ret)

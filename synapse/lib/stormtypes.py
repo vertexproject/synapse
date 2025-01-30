@@ -1,10 +1,8 @@
 import bz2
 import copy
 import gzip
-import json
 import time
 
-import regex
 import types
 import base64
 import pprint
@@ -19,6 +17,9 @@ import calendar
 import functools
 import contextlib
 import collections
+
+import regex
+import msgspec.json as m_json
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -4701,7 +4702,7 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methStrJson(self):
         try:
-            return json.loads(self.valu, strict=True)
+            return m_json.decode(self.valu)
         except Exception as e:
             mesg = f'Text is not valid JSON: {self.valu}'
             raise s_exc.BadJsonText(mesg=mesg)

@@ -3,7 +3,6 @@ import os
 import ssl
 import sys
 import enum
-import json
 import http
 import stat
 import time
@@ -33,6 +32,7 @@ import http.cookies
 
 import yaml
 import regex
+import msgspec.json as m_json
 
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
@@ -522,12 +522,13 @@ def jsload(*paths):
 def jslines(*paths):
     with genfile(*paths) as fd:
         for line in fd:
-            yield json.loads(line)
+            yield m_json.decode(line)
 
 def jssave(js, *paths):
     path = genpath(*paths)
     with io.open(path, 'wb') as fd:
-        fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
+        # fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
+        fd.write(m_json.format(m_json.encode(js, order='sorted')))
 
 def yamlloads(data):
     return yaml.load(data, Loader)

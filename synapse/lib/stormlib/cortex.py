@@ -1,6 +1,7 @@
 import copy
-import json
 import logging
+
+import msgspec.json as m_json
 
 import synapse.exc as s_exc
 import synapse.telepath as s_telepath
@@ -990,7 +991,7 @@ class HttpReq(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     def _ctorJson(self, path=None):
         try:
-            return json.loads(self.rnfo.get('body'))
+            return m_json.decode(self.rnfo.get('body'))
         except (UnicodeDecodeError, json.JSONDecodeError) as e:
             raise s_exc.StormRuntimeError(mesg=f'Failed to decode request body as JSON: {e}') from None
 
@@ -1028,7 +1029,9 @@ class HttpReq(s_stormtypes.StormType):
         if body is not s_stormtypes.undef:
             if not isinstance(body, bytes):
                 body = await s_stormtypes.toprim(body)
-                body = json.dumps(body).encode('utf-8', 'surrogatepass')
+                # TODO handle data which has surrogate issues
+                # body = json.dumps(body).encode('utf-8', 'surrogatepass')
+                body = m_json.encode(body)
                 headers['Content-Type'] = 'application/json; charset=utf8"'
                 headers['Content-Length'] = len(body)
 
