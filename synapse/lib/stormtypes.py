@@ -2786,6 +2786,10 @@ class LibAxon(Lib):
         '''
         Unpack bytes from a file in the Axon using struct.
         '''
+        if self.runt.snap.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
+            mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
+            raise s_exc.FeatureNotSupported(mesg=mesg)
+
         sha256 = await tostr(sha256)
         fmt = await tostr(fmt)
         offs = await toint(offs)

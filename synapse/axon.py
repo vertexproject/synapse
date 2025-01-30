@@ -776,6 +776,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
             synapse.exc.NoSuchFile: If the file does not exist.
             synapse.exc.BadArg: If the struct format is invalid or reads too much data.
             synapse.exc.BadDataValu: If the file does not contain the expected number of bytes.
+            synapse.exc.FeatureNotSupported: Feature is not supported.
         '''
         await self._reqUserAllowed(('axon', 'get'))
         return await self.cell.unpack(sha256, fmt, offs=offs)
@@ -842,6 +843,7 @@ class Axon(s_cell.Cell):
         # out of the gate.
         self.features.update({
             'byterange': int(self.byterange),
+            'unpack': 1,
         })
 
     async def initServiceRuntime(self):
@@ -1526,7 +1528,12 @@ class Axon(s_cell.Cell):
             synapse.exc.NoSuchFile: If the file does not exist.
             synapse.exc.BadArg: If the struct format is invalid.
             synapse.exc.BadDataValu: If the expected number of bytes is not received.
+            synapse.exc.FeatureNotSupported: Feature is not supported.
         '''
+
+        if not self.features['unpack'] >= 1:
+            mesg = 'This Axon does not support unpack.'
+            raise s_exc.FeatureNotSupported(mesg=mesg)
 
         if not isinstance(fmt, str):
             raise s_exc.BadArg(mesg='Format string must be a string', fmt=fmt)
