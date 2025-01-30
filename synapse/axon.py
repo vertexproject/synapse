@@ -1575,7 +1575,7 @@ class Axon(s_cell.Cell):
                     else:
                         valu = field.get('value')
                         if not isinstance(valu, (bytes, str)):
-                            valu = m_json.encode(valu)
+                            valu = m_json.encode(valu).decode()
 
                     data.add_field(name,
                                    valu,

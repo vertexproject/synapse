@@ -102,7 +102,7 @@ class HttpPushFile(s_httpapi.StreamHandler):
         assert item['filename'] == 'bytes'
 
         assert args.get('zip_password') == [b'test']
-        assert args.get('dict') == [b'{"foo": "bar"}']
+        assert args.get('dict') == [b'{"foo":"bar"}']
         self.sendRestRetn(self.gotsize)
 
 class AxonTest(s_t_utils.SynTest):
