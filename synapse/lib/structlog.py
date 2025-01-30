@@ -4,6 +4,8 @@ import msgspec.json as m_json
 
 import synapse.common as s_common
 
+_cb = lambda x: s_common.trimText(repr(x))
+
 class JsonFormatter(logging.Formatter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,6 +39,5 @@ class JsonFormatter(logging.Formatter):
         if extras:
             ret.update({k: v for k, v in extras.items() if k not in ret})
 
-        # FIXME may need a custom encoder to handle the json.dumps default=str argument?
-        # return json.dumps(ret, default=str)
-        return m_json.encode(ret)
+        # TODO We have to scrub / control bytes here.
+        return m_json.encode(ret, enc_hook=_cb)

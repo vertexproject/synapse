@@ -960,11 +960,30 @@ def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
     warnings.warn(mesg, DeprecationWarning)
 
+def reqJsonPrimSafe(item):
+    if item is None:
+        return True
+    if isinstance(item, (str, int, float)):
+        return True
+    if isinstance(item, dict):
+        for key, valu in item.items():
+            if not isinstance(key, (int, str)):
+                raise s_exc.MustBeJsonSafe(
+                    mesg=f'Dictionary key is not jsonsafe, key={trimText(repr(key))}, type={key.__class__.__name__}')
+            reqJsonPrimSafe(valu)
+        return True
+    if isinstance(item, (list, tuple)):
+        for obj in item:
+            reqJsonPrimSafe(obj)
+        return True
+    raise s_exc.MustBeJsonSafe(mesg=f'Item is not jsonsafe, item={trimText(repr(item))}, type={item.__class__.__name__}')
+
 def reqjsonsafe(item):
     '''
     Returns None if item is json serializable, otherwise raises an exception.
     Uses default type coercion from built-in json.dumps.
     '''
+    reqJsonPrimSafe(item)
     try:
         m_json.encode(item)
     except TypeError as e:
