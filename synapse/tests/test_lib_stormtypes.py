@@ -7107,6 +7107,17 @@ words\tword\twrd'''
         async with self.getTestCore() as core:
 
             visi = await core.auth.addUser('visi')
+
+            orig_axoninfo = core.axoninfo
+            core.axoninfo = {'features': {}}
+            data = struct.pack('>Q', 1)
+            size, sha256 = await core.axon.put(data)
+            sha256_s = s_common.ehex(sha256)
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
+            await self.asyncraises(s_exc.FeatureNotSupported,
+                                   core.callStorm(q, opts={'vars': {'sha256': sha256_s}}))
+            core.axoninfo = orig_axoninfo
+
             data = b'vertex.link'
             size, sha256 = await core.axon.put(data)
             sha256_s = s_common.ehex(sha256)

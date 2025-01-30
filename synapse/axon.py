@@ -1531,10 +1531,6 @@ class Axon(s_cell.Cell):
             synapse.exc.FeatureNotSupported: Feature is not supported.
         '''
 
-        if not self.features['unpack'] >= 1:
-            mesg = 'This Axon does not support unpack.'
-            raise s_exc.FeatureNotSupported(mesg=mesg)
-
         if not isinstance(fmt, str):
             raise s_exc.BadArg(mesg='Format string must be a string', fmt=fmt)
 
