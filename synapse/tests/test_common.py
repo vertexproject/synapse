@@ -30,6 +30,16 @@ class CommonTest(s_t_utils.SynTest):
         rets = [retn async for retn in s_common.waitgenr(one(), timeout=1.0)]
         self.eq(rets, [(True, 'item')])
 
+        async def genr():
+            yield 1
+            await asyncio.sleep(60)
+            yield 2
+
+        rets = [retn async for retn in s_common.waitgenr(genr(), timeout=0.1)]
+        self.eq(rets[0], (True, 1))
+        self.false(rets[1][0])
+        self.eq(rets[1][1]['err'], 'TimeoutError')
+
     def test_tuplify(self):
         tv = ['node', [['test:str', 'test'],
                        {'tags': {
