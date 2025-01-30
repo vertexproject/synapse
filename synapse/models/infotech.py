@@ -2347,6 +2347,10 @@ class ItModule(s_module.CoreModule):
                     ('signame', ('it:av:signame', {}), {
                         'doc': 'The name of the signature returned by the scanner.'}),
 
+                    ('categories', ('array', {'sorted': True, 'uniq': True,
+                            'type': 'str', 'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'A list of categories for the result returned by the scanner.'}),
+
                     ('target:file', ('file:bytes', {}), {
                         'doc': 'The file that was scanned to produce the result.'}),
 

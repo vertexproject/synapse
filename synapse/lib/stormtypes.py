@@ -6999,6 +6999,22 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
 
+        {'name': 'liftByNodeData', 'desc': '''
+            Lift and yield nodes with the given node data key set within the layer.
+
+            Example:
+                Yield all nodes with the data key zootsuit set in the top layer::
+
+                    yield $lib.layer.get().liftByNodeData(zootsuit)
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'liftByNodeData',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The node data name to lift by.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes.', }}},
+
         {'name': 'getEdges', 'desc': '''
             Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
 
@@ -7110,6 +7126,7 @@ class Layer(Prim):
             'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
+            'liftByNodeData': self.liftByNodeData,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getPropValues': self._methGetPropValues,
@@ -7175,6 +7192,19 @@ class Layer(Prim):
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
         async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+
+    @stormfunc(readonly=True)
+    async def liftByNodeData(self, name):
+
+        name = await tostr(name)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+
+        await self.runt.reqUserCanReadLayer(iden)
+
+        async for _, buid, sode in layr.liftByDataName(name):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
     @stormfunc(readonly=True)

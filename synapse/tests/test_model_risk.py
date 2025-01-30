@@ -111,12 +111,14 @@ class RiskModelTest(s_t_utils.SynTest):
                 :cvss:v3 ?= "newp3.1"
                 :priority=high
                 :severity=high
+                :tag=cno.vuln.woot
             ]''')
 
             self.none(node.get('cvss:v2'))
             self.none(node.get('cvss:v3'))
             self.eq(40, node.get('severity'))
             self.eq(40, node.get('priority'))
+            self.eq('cno.vuln.woot', node.get('tag'))
 
             with self.raises(s_exc.BadTypeValu):
                 node = await addNode(f'''[
