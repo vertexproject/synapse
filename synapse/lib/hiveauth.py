@@ -1,3 +1,9 @@
+# pragma: no cover
+
+###
+### THIS WHOLE MODULE IS DEPRECATED AND EXPECTED TO BE REMOVED O/A v2.198.0
+###
+
 import logging
 import dataclasses
 

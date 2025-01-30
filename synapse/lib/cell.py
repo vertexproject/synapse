@@ -1369,7 +1369,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
     async def _storCellAuthLockArchivedUsers(self):
         if self.conf.get('auth:ctor') is not None:
-            return
+            return # pragma: no cover
 
         logger.warning(f'locking archived users on Cell ({self.getCellType()})')
 
