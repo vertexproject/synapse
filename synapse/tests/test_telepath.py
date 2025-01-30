@@ -696,12 +696,11 @@ class TeleTest(s_t_utils.SynTest):
                 self.isin('synapse.tests.test_telepath.Beep', proxy._getClasses())
                 self.notin('synapse.tests.test_telepath.TeleApi', proxy._getClasses())
                 self.eq('up: beep', await proxy.beep())
-                self.eq(['up: beep'], [ m async for m in await proxy.genbeep()])
+                self.eq(['up: beep'], [m async for m in await proxy.genbeep()])
                 # Telepath features are a function of the base object, not the result of getTeleApi
                 self.true(proxy._hasTeleFeat('aware'))
                 self.false(proxy._hasTeleFeat('aware', vers=2))
                 self.false(proxy._hasTeleFeat('newp'))
-
 
     async def test_telepath_auth(self):
 
