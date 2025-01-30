@@ -406,6 +406,9 @@ class Auth(s_nexus.Pusher):
             user.info[name] = s_msgpack.deepcopy(valu)
             self.userdefs.set(iden, user.info)
 
+        if name in ('locked', 'archived') and not valu:
+            self.checkUserLimit()
+
         if mesg is None:
             mesg = {
                 'iden': iden,

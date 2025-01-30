@@ -535,6 +535,21 @@ class AuthTest(s_test.SynTest):
 
         conf = {'auth:passwd:policy': policy}
         async with self.getTestCore(conf=conf) as core:
+
+            user = await core.auth.addUser('blackout@vertex.link')
+
+            self.none(user.info.get('policy:previous'))
+            await user.setPasswd(pass1, nexs=False)
+            await user.setPasswd(pass2, nexs=False)
+            await user.setPasswd(pass3, nexs=False)
+            self.len(2, user.info.get('policy:previous'))
+
+            await user.tryPasswd('newp')
+            self.eq(1, user.info.get('policy:attempts'))
+            await user.setLocked(False, logged=False)
+            self.eq(0, user.info.get('policy:attempts'))
+
+        async with self.getTestCore(conf=conf) as core:
             auth = core.auth
             self.nn(auth.policy)
 
