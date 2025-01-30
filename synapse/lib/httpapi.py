@@ -3,6 +3,8 @@ import base64
 import asyncio
 import logging
 
+import msgspec.json as m_json
+
 from urllib.parse import urlparse
 
 import tornado.web as t_web
@@ -132,7 +134,7 @@ class HandlerBase:
 
     def loadJsonMesg(self, byts, validator=None):
         try:
-            item = json.loads(byts)
+            item = m_json.decode(byts)
             if validator is not None:
                 validator(item)
             return item
@@ -418,7 +420,7 @@ class HandlerBase:
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def xmit(self, name, **info):
-        await self.write_message(json.dumps({'type': name, 'data': info}))
+        await self.write_message(m_json.encode({'type': name, 'data': info}))
 
     async def _reqUserAllow(self, perm):
 
@@ -513,7 +515,7 @@ class StormNodesV1(StormHandler):
         await self.cell.boss.promote('storm', user=user, info=taskinfo)
 
         async for pode in view.iterStormPodes(query, opts=opts):
-            self.write(json.dumps(pode))
+            self.write(m_json.encode(pode))
             if jsonlines:
                 self.write("\n")
             await self.flush()
@@ -545,7 +547,7 @@ class StormV1(StormHandler):
         opts.setdefault('editformat', 'nodeedits')
 
         async for mesg in self.getCore().storm(query, opts=opts):
-            self.write(json.dumps(mesg))
+            self.write(m_json.encode(mesg))
             if jsonlines:
                 self.write("\n")
             await self.flush()
@@ -640,7 +642,7 @@ class BeholdSockV1(WebSocket):
 
     async def onInitMessage(self, byts):
         try:
-            mesg = json.loads(byts)
+            mesg = m_json.decode(byts)
             if mesg.get('type') != 'call:init':
                 raise s_exc.BadMesgFormat('Invalid initial message')
 
@@ -1399,6 +1401,8 @@ class ExtApiHandler(StormHandler):
                         return await self.finish()
                     rbody = True
                     body = info['body']
+                    # TODO - monkey patch tornado.escape.json_encode with a custom function
+                    # that will use msgspec + script tag replacement.
                     self.write(body)
                     await self.flush()
 
