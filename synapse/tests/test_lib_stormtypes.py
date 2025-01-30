@@ -3,6 +3,7 @@ import bz2
 import gzip
 import json
 import base64
+import struct
 import asyncio
 import hashlib
 import binascii
@@ -7100,3 +7101,73 @@ words\tword\twrd'''
 
             with self.raises(s_exc.BadState):
                 await core.callStorm(merging)
+
+    async def test_storm_lib_axon_read_unpack(self):
+
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+
+            orig_axoninfo = core.axoninfo
+            core.axoninfo = {'features': {}}
+            data = struct.pack('>Q', 1)
+            size, sha256 = await core.axon.put(data)
+            sha256_s = s_common.ehex(sha256)
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
+            await self.asyncraises(s_exc.FeatureNotSupported,
+                                   core.callStorm(q, opts={'vars': {'sha256': sha256_s}}))
+            core.axoninfo = orig_axoninfo
+
+            data = b'vertex.link'
+            size, sha256 = await core.axon.put(data)
+            sha256_s = s_common.ehex(sha256)
+
+            _, emptyhash = await core.axon.put(b'')
+            emptyhash = s_common.ehex(emptyhash)
+
+            opts = {'user': visi.iden, 'vars': {'sha256': sha256_s, 'emptyhash': emptyhash}}
+            await self.asyncraises(s_exc.AuthDeny,
+                core.callStorm('return($lib.axon.read($sha256, offs=3, size=3))', opts=opts))
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+
+            q = 'return($lib.axon.read($sha256, offs=3, size=3))'
+            self.eq(b'tex', await core.callStorm(q, opts=opts))
+            q = 'return($lib.axon.read($sha256, offs=7, size=4))'
+            self.eq(b'link', await core.callStorm(q, opts=opts))
+            q = 'return($lib.axon.read($sha256, offs=11, size=1))'
+            self.eq(b'', await core.callStorm(q, opts=opts))
+
+            q = 'return($lib.axon.read($emptyhash))'
+            self.eq(b'', await core.callStorm(q, opts=opts))
+
+            q = 'return($lib.axon.read($sha256, size=0))'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            q = 'return($lib.axon.read($sha256, offs=-1, size=1))'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+            q = 'return($lib.axon.read($sha256, size=2097152))'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+
+            intdata = struct.pack('>QQQ', 1, 2, 3)
+            size, sha256 = await core.axon.put(intdata)
+            sha256_s = s_common.ehex(sha256)
+            opts = {'user': visi.iden, 'vars': {'sha256': sha256_s}}
+
+            await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
+            await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=opts))
+            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
+            self.eq((1,), await core.callStorm(q, opts=opts))
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=8))'
+            self.eq((2,), await core.callStorm(q, opts=opts))
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=16))'
+            self.eq((3,), await core.callStorm(q, opts=opts))
+            q = 'return($lib.axon.unpack($sha256, fmt=">QQ", offs=8))'
+            self.eq((2, 3), await core.callStorm(q, opts=opts))
+
+            q = 'return($lib.axon.unpack($sha256, fmt="not a valid format"))'
+            await self.asyncraises(s_exc.BadArg, core.callStorm(q, opts=opts))
+
+            q = 'return($lib.axon.unpack($sha256, fmt=">Q", offs=24))'
+            await self.asyncraises(s_exc.BadDataValu, core.callStorm(q, opts=opts))
