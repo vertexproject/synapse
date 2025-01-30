@@ -4457,7 +4457,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Yield responses from our peers via the AHA gather call API.
         '''
         proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
-        if proxy is None: # pragma: no cover
+        if proxy is None:
             return
 
         async for item in proxy.callAhaPeerApi(self.iden, todo, timeout=timeout, skiprun=self.runid):
@@ -4468,7 +4468,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Yield responses from invoking a generator via the AHA gather API.
         '''
         proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
-        if proxy is None: # pragma: no cover
+        if proxy is None:
             return
 
         async for item in proxy.callAhaPeerGenr(self.iden, todo, timeout=timeout, skiprun=self.runid):

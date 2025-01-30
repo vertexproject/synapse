@@ -3401,3 +3401,12 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BackupAlreadyRunning):
                         async for _ in proxy.iterNewBackupArchive('newbackup', remove=True):
                             pass
+
+    async def test_cell_peer_noaha(self):
+
+        todo = s_common.todo('newp')
+        async with self.getTestCell() as cell:
+            async for item in cell.callPeerApi(todo):
+                pass
+            async for item in cell.callPeerGenr(todo):
+                pass
