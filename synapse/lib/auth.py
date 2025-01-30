@@ -375,7 +375,6 @@ class Auth(s_nexus.Pusher):
 
             await self.fire('cell:beholder', **behold)
 
-    @s_nexus.Pusher.onPushAuto('user:info')
     async def setUserInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
 
         user = await self.reqUser(iden)
@@ -385,6 +384,15 @@ class Auth(s_nexus.Pusher):
 
         if name in ('locked', 'archived') and not valu:
             self.checkUserLimit()
+
+        await self._push('user:info', iden, name, valu, gateiden=gateiden, logged=logged, mesg=mesg)
+
+    @s_nexus.Pusher.onPush('user:info')
+    async def _setUserInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
+        user = await self.reqUser(iden)
+
+        if name == 'locked' and not valu and user.isArchived():
+            return
 
         if gateiden is not None:
             info = user.genGateInfo(gateiden)
@@ -978,7 +986,7 @@ class User(Ruler):
         if nexs:
             return await self.auth.setUserInfo(self.iden, name, valu, gateiden=gateiden, mesg=mesg)
         else:
-            return await self.auth._hndlsetUserInfo(self.iden, name, valu, gateiden=gateiden, logged=nexs, mesg=mesg)
+            return await self.auth._setUserInfo(self.iden, name, valu, gateiden=gateiden, logged=nexs, mesg=mesg)
 
     async def setName(self, name):
         return await self.auth.setUserName(self.iden, name)
@@ -1292,7 +1300,7 @@ class User(Ruler):
         if nexs:
             await self.auth.setUserInfo(self.iden, 'roles', roles, mesg=mesg)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'roles', roles, logged=nexs, mesg=mesg)
+            await self.auth._setUserInfo(self.iden, 'roles', roles, logged=nexs, mesg=mesg)
 
     def isLocked(self):
         return self.info.get('locked')
@@ -1335,7 +1343,7 @@ class User(Ruler):
         if logged:
             await self.auth.setUserInfo(self.iden, 'admin', admin, gateiden=gateiden)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'admin', admin, gateiden=gateiden, logged=logged)
+            await self.auth._setUserInfo(self.iden, 'admin', admin, gateiden=gateiden, logged=logged)
 
     async def setLocked(self, locked, logged=True):
         if not isinstance(locked, bool):
@@ -1355,9 +1363,9 @@ class User(Ruler):
                 await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
 
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'locked', locked, logged=logged)
+            await self.auth._setUserInfo(self.iden, 'locked', locked, logged=logged)
             if resetAttempts:
-                await self.auth._hndlsetUserInfo(self.iden, 'policy:attempts', 0)
+                await self.auth._setUserInfo(self.iden, 'policy:attempts', 0)
 
     async def setArchived(self, archived):
         if not isinstance(archived, bool):
@@ -1544,7 +1552,7 @@ class User(Ruler):
             if nexs:
                 await self.auth.setUserInfo(self.iden, 'policy:previous', previous[:prevvalu])
             else:
-                await self.auth._hndlsetUserInfo(self.iden, 'policy:previous', previous[:prevvalu], logged=nexs)
+                await self.auth._setUserInfo(self.iden, 'policy:previous', previous[:prevvalu], logged=nexs)
 
     async def setPasswd(self, passwd, nexs=True, enforce_policy=True):
         # Prevent empty string or non-string values
@@ -1562,4 +1570,4 @@ class User(Ruler):
         if nexs:
             await self.auth.setUserInfo(self.iden, 'passwd', shadow)
         else:
-            await self.auth._hndlsetUserInfo(self.iden, 'passwd', shadow, logged=nexs)
+            await self.auth._setUserInfo(self.iden, 'passwd', shadow, logged=nexs)
