@@ -49,3 +49,14 @@ class DocModelTest(s_tests.SynTest):
             self.eq('V-99', nodes[0].get('id'))
             self.nn(nodes[0].get('policy'))
             self.len(1, await core.nodes('doc:standard -> doc:policy'))
+
+            nodes = await core.nodes('''
+                [ doc:requirement=*
+                    :id=V-99
+                    :summary="Some requirement text."
+                    :standard={doc:standard}
+                ]
+            ''')
+            self.eq('V-99', nodes[0].get('id'))
+            self.nn(nodes[0].get('standard'))
+            self.len(1, await core.nodes('doc:requirement -> doc:standard'))
