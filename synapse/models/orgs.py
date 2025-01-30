@@ -484,8 +484,11 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The org which issues id numbers of this type.',
                     }),
                     ('name', ('str', {}), {
-                        'doc': 'The friendly name of the id number type.',
+                        'alts': ('names',),
+                        'doc': 'The friendly name of the ID number type.',
                     }),
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the ID number type.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The official URL of the issuer.',
                     }),
@@ -1343,23 +1346,27 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:contest:result', {}, (
+
                     ('contest', ('ou:contest', {}), {
                         'ro': True,
-                        'doc': 'The contest.',
-                    }),
+                        'doc': 'The contest that the participant took part in.'}),
+
                     ('participant', ('ps:contact', {}), {
                         'ro': True,
-                        'doc': 'The participant',
-                    }),
+                        'doc': 'The participant in the contest.'}),
+
                     ('rank', ('int', {}), {
-                        'doc': 'The rank order of the participant.',
-                    }),
+                        'doc': "The participant's rank order in the contest."}),
+
                     ('score', ('int', {}), {
-                        'doc': 'The score of the participant.',
-                    }),
+                        'doc': "The participant's final score in the contest."}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the participant competed in the contest.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The contest result website URL.',
-                    }),
+                        'doc': 'The contest result website URL.'}),
+
                 )),
                 ('ou:enacted:status:taxonomy', {}, ()),
                 ('ou:enacted', {}, (

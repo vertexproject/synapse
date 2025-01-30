@@ -1,0 +1,5 @@
+---
+desc: Fixed an issue where ``JsonStor.delPathObjProp()`` could raise a KeyError.
+prs: []
+type: bug
+...

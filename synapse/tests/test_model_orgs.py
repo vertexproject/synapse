@@ -477,13 +477,20 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('departed'), 1519945200000)
             self.eq(node.get('roles'), ('speaker', 'staff'))
 
-            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :url="http://foobar.com/ids"]')
+            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :names=(alt1,alt2) :url="http://foobar.com/ids"]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
             self.eq('foobar', nodes[0].get('name'))
+            self.eq(('alt1', 'alt2'), nodes[0].get('names'))
             self.eq('http://foobar.com/ids', nodes[0].get('url'))
 
             iden = await core.callStorm('ou:id:type return($node.value())')
+
+            self.len(1, alts := await core.nodes('[ ou:id:type=({"name": "foobar"}) ]'))
+            self.eq(nodes[0].ndef, alts[0].ndef)
+
+            self.len(1, alts := await core.nodes('[ ou:id:type=({"name": "alt1"}) ]'))
+            self.eq(nodes[0].ndef, alts[0].ndef)
 
             opts = {'vars': {'type': iden}}
             nodes = await core.nodes('''
@@ -633,6 +640,7 @@ class OuModelTest(s_t_utils.SynTest):
                 ou:contest:result=(*, *)
                     :rank=1
                     :score=20
+                    :period=(20250101, 20250102)
                     :url=http://vertex.link/contest/result
             ]''')
             self.len(1, nodes)
@@ -640,6 +648,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('participant'))
             self.eq(1, nodes[0].get('rank'))
             self.eq(20, nodes[0].get('score'))
+            self.eq((1735689600000, 1735776000000), nodes[0].get('period'))
             self.eq('http://vertex.link/contest/result', nodes[0].get('url'))
             self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
