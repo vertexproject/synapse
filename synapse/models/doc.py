@@ -140,7 +140,7 @@ class DocModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                         'doc': 'The summary of qualifications from the resume.'}),
 
-                    ('history', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
+                    ('workhist', ('array', {'type': 'ps:workhist', 'sorted': True, 'uniq': True}), {
                         'doc': 'Work history described in the resume.'}),
 
                     ('education', ('array', {'type': 'ps:education', 'sorted': True, 'uniq': True}), {
