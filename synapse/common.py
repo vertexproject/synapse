@@ -517,7 +517,7 @@ def jsload(*paths):
         if not byts:
             return None
 
-        return json.loads(byts.decode('utf8'))
+        return m_json.decode(byts)
 
 def jslines(*paths):
     with genfile(*paths) as fd:
@@ -966,7 +966,7 @@ def reqjsonsafe(item):
     Uses default type coercion from built-in json.dumps.
     '''
     try:
-        json.dumps(item)
+        m_json.encode(item)
     except TypeError as e:
         raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
 
