@@ -784,6 +784,10 @@ class CellTest(s_t_utils.SynTest):
             cell.VERSION = (1, 2, 3)
             cell.VERSTRING = '1.2.3'
 
+            cell.features.update({
+                'testvalu': 2
+            })
+
             http_info = []
             host, port = await cell.addHttpsPort(0)
             http_info.append({'host': host, 'port': port})
@@ -806,6 +810,9 @@ class CellTest(s_t_utils.SynTest):
                 self.none(cnfo.get('mirror', True))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
+
+                self.eq(info.get('features'), cell.features)
+                self.eq(info.get('features', {}).get('testvalu'), 2)
 
                 # Defaults aha data is
                 self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
