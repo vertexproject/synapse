@@ -1,5 +1,5 @@
 ---
-desc: Added ``$lib.axon.read`` and ``$lib.axon.unpack`` Storm APIs.
+desc: Added ``$lib.axon.read()`` and ``$lib.axon.unpack()`` Storm APIs.
 prs: []
 type: feat
 ...
