@@ -1,0 +1,6 @@
+---
+desc: Added automatic commit in ``Slab.put()`` when transaction operations reach ``max_replay_log``
+  size to reduce hotspots and improve performance.
+prs: []
+type: feat
+...
