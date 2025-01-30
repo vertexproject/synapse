@@ -6467,12 +6467,28 @@ words\tword\twrd'''
         async with self.getTestCore() as core:
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')
-            await core.nodes('[ ou:org=* :name=foobar +#hehe ]')
+            q = '[ ou:org=* :name=foobar +#hehe ] $node.data.set(foo, bar) return($node.iden())'
+            basenode = await core.callStorm(q)
 
             opts = {'view': viewiden}
-            nodeiden = await core.callStorm('[ ou:org=* :name=foobar +#hehe ] return($node.iden())', opts=opts)
+            nodeiden = await core.callStorm('''
+                [ ou:org=* :name=foobar +#hehe ]
+                $node.data.set(foo, bar)
+                return($node.iden())
+            ''', opts=opts)
+
+            nodeiden2 = await core.callStorm('[test:str=yup] $node.data.set(foo, yup) return ($node.iden())',
+                                             opts=opts)
 
             self.len(2, await core.nodes('ou:org +:name=foobar +#hehe', opts=opts))
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByNodeData(foo)', opts=opts)
+            self.len(2, nodes)
+            self.eq(set((nodeiden, nodeiden2)), {node.iden() for node in nodes})
+
+            nodes = await core.nodes('yield $lib.layer.get().liftByNodeData(foo)')
+            self.len(1, nodes)
+            self.eq(nodes[0].iden(), basenode)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByProp(ou:org)', opts=opts)
             self.len(1, nodes)
@@ -6487,7 +6503,7 @@ words\tword\twrd'''
             self.eq(nodes[0].iden(), nodeiden)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByProp(".created")', opts=opts)
-            self.len(1, nodes)
+            self.len(2, nodes)
             self.eq(nodes[0].iden(), nodeiden)
 
             nodes = await core.nodes('yield $lib.layer.get().liftByTag(hehe)', opts=opts)
