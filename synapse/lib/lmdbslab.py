@@ -1035,15 +1035,17 @@ class Slab(s_base.Base):
             opts['maxsize'] = self.maxsize
         s_common.yamlmod(opts, self.optspath)
 
-    async def sync(self):
+    def _sync(self):
         try:
-            # do this from the loop thread only to avoid recursion
-            await self.fire('commit')
             self.forcecommit()
-
         except lmdb.MapFullError:
             self._handle_mapfull()
             # There's no need to re-try self.forcecommit as _growMapSize does it
+
+    async def sync(self):
+        # do this from the loop thread only to avoid recursion
+        await self.fire('commit')
+        self._sync()
 
     async def fini(self):
         await self.fire('commit')
@@ -1770,7 +1772,7 @@ class Slab(s_base.Base):
                                  append=append, db=db)
 
         if len(self.xactops) >= self.max_xactops_len:
-            self.forcecommit()
+            self._sync()
 
         return retn
 
