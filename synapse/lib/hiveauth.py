@@ -42,7 +42,7 @@ def getShadow(passwd):  # pragma: no cover
     return (salt, hashed)
 
 def textFromRule(rule):
-    s_common.deprecated('hiveauth.textFromRule()', curv='2.195.1', eolv='2.198.0')
+    s_common.deprecated('hiveauth.textFromRule()', curv='2.195.1', eolv='2.198.0') # pragma: no cover
     text = '.'.join(rule[1])
     if not rule[0]:
         text = '!' + text
