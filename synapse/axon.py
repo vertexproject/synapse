@@ -816,6 +816,14 @@ class Axon(s_cell.Cell):
         # modularize blob storage
         await self._initBlobStor()
 
+        # Set the byterange flag as an integer AFTER we've called
+        # _initBlobStor which may set it to true. That will allow
+        # downstream implementations to continue working as expected
+        # out of the gate.
+        self.features.update({
+            'byterange': int(self.byterange),
+        })
+
     async def initServiceRuntime(self):
 
         # share ourself via the cell dmon as "axon"
@@ -824,11 +832,6 @@ class Axon(s_cell.Cell):
 
         self._initAxonHttpApi()
         self.addHealthFunc(self._axonHealth)
-
-    async def getCellInfo(self):
-        info = await s_cell.Cell.getCellInfo(self)
-        info['features']['byterange'] = self.byterange
-        return info
 
     @contextlib.asynccontextmanager
     async def holdHashLock(self, hashbyts):
