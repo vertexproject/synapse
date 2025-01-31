@@ -6,6 +6,36 @@
 Synapse Changelog
 *****************
 
+v2.196.0 - 2025-01-31
+=====================
+
+Automatic Migrations
+--------------------
+- Generated ``entity:name`` nodes for existing ``transport:sea:vessel:name``
+  properties.
+  (`#4096 <https://github.com/vertexproject/synapse/pull/4096>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_196_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.axon.read()`` and ``$lib.axon.unpack()`` Storm APIs.
+  (`#4097 <https://github.com/vertexproject/synapse/pull/4097>`_)
+- Added ``liftByNodeData()`` API to the Storm ``layer`` type to allow lifting
+  by node data in a given layer.
+  (`#4099 <https://github.com/vertexproject/synapse/pull/4099>`_)
+
+Bugfixes
+--------
+- Fixed issue where sub-properties were being assigned when the sub-property
+  was deprecated and locked.
+  (`#4098 <https://github.com/vertexproject/synapse/pull/4098>`_)
+- Fixed an issue where ``JsonStor.delPathObjProp()`` could raise a KeyError.
+  (`#4101 <https://github.com/vertexproject/synapse/pull/4101>`_)
+
 v2.195.1 - 2025-01-28
 =====================
 
