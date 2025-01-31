@@ -619,11 +619,36 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('it:dev:int', 1640531528))
 
-            nodes = await core.nodes('[it:sec:cve=CVE-2013-9999 :desc="Some words."]')
+            nodes = await core.nodes('''[
+                it:sec:cve=CVE-2013-9999
+                    :desc="Some words."
+
+                    :nist:nvd:source=NistSource
+                    :nist:nvd:published=2021-10-11
+                    :nist:nvd:modified=2021-10-11
+
+                    :cisa:kev:name=KevName
+                    :cisa:kev:desc=KevDesc
+                    :cisa:kev:action=KevAction
+                    :cisa:kev:vendor=KevVendor
+                    :cisa:kev:product=KevProduct
+                    :cisa:kev:added=2022-01-02
+                    :cisa:kev:duedate=2022-01-02
+            ]''')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:sec:cve', 'cve-2013-9999'))
             self.eq(node.get('desc'), 'Some words.')
+            self.eq(node.get('nist:nvd:source'), 'nistsource')
+            self.eq(node.get('nist:nvd:published'), 1633910400000)
+            self.eq(node.get('nist:nvd:modified'), 1633910400000)
+            self.eq(node.get('cisa:kev:name'), 'KevName')
+            self.eq(node.get('cisa:kev:desc'), 'KevDesc')
+            self.eq(node.get('cisa:kev:action'), 'KevAction')
+            self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
+            self.eq(node.get('cisa:kev:product'), 'kevproduct')
+            self.eq(node.get('cisa:kev:added'), 1641081600000)
+            self.eq(node.get('cisa:kev:duedate'), 1641081600000)
 
             nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20122013\u20131138'}})
             self.len(1, nodes)

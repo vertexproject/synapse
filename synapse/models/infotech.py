@@ -1417,6 +1417,36 @@ class ItModule(s_module.CoreModule):
                         'deprecated': True,
                         'doc': 'Deprecated. Please use risk:vuln:cve:references.'}),
 
+                    ('nist:nvd:source', ('ou:name', {}), {
+                        'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
+
+                    ('nist:nvd:published', ('time', {}), {
+                        'doc': 'The date the vulnerability was first published in the NVD.'}),
+
+                    ('nist:nvd:modified', ('time', {"ismax": True}), {
+                        'doc': 'The date the vulnerability was last modified in the NVD.'}),
+
+                    ('cisa:kev:name', ('str', {}), {
+                        'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:desc', ('str', {}), {
+                        'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:action', ('str', {}), {
+                        'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:vendor', ('ou:name', {}), {
+                        'doc': 'The vendor name listed in the CISA KEV database.'}),
+
+                    ('cisa:kev:product', ('it:prod:softname', {}), {
+                        'doc': 'The product name listed in the CISA KEV database.'}),
+
+                    ('cisa:kev:added', ('time', {}), {
+                        'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
+
+                    ('cisa:kev:duedate', ('time', {}), {
+                        'doc': 'The date the action is due according to the CISA KEV database.'}),
+
                 )),
                 ('it:sec:cpe', {}, (
                     ('v2_2', ('it:sec:cpe:v2_2', {}), {
@@ -2248,29 +2278,34 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Software architecture.',
                     }),
                     ('released', ('time', {}), {
-                        'doc': 'Timestamp for when this version of the software was released.',
-                    }),
+                        'doc': 'Timestamp for when this version of the software was released.'}),
+
                     ('semver', ('it:semver', {}), {
-                        'doc': 'System normalized semantic version number.',
-                    }),
+                        'doc': 'System normalized semantic version number.'}),
+
                     ('semver:major', ('int', {}), {
-                        'doc': 'Version major number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:minor', ('int', {}), {
-                        'doc': 'Version minor number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:patch', ('int', {}), {
-                        'doc': 'Version patch number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:pre', ('str', {}), {
-                        'doc': 'Semver prerelease string.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('semver:build', ('str', {}), {
-                        'doc': 'Semver build string.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'URL where a specific version of the software is available from.',
-                    }),
+                        'doc': 'URL where a specific version of the software is available from.'}),
+
                 )),
 
                 ('it:prod:softlib', {}, (
