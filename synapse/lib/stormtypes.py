@@ -5460,7 +5460,7 @@ class EnvVars(Prim):
 @registry.registerType
 class RuntVars(Prim):
     '''
-    The Storm deref/setitem/iter convention on top of reuntime vars information.
+    The Storm deref/setitem/iter convention on top of runtime vars information.
     '''
     _storm_typename = 'runtime:vars'
     _ismutable = True
