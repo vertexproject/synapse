@@ -39,5 +39,5 @@ class JsonFormatter(logging.Formatter):
         if extras:
             ret.update({k: v for k, v in extras.items() if k not in ret})
 
-        # TODO We have to scrub / control bytes here.
-        return m_json.encode(ret, enc_hook=_cb)
+        # TODO We have to scrub / control bytes here?
+        return m_json.encode(ret, enc_hook=_cb).decode()

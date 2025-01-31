@@ -962,20 +962,20 @@ def deprdate(name, date):  # pragma: no cover
 
 def reqJsonPrimSafe(item):
     if item is None:
-        return True
+        return
     if isinstance(item, (str, int, float)):
-        return True
+        return
     if isinstance(item, dict):
         for key, valu in item.items():
             if not isinstance(key, (int, str)):
                 raise s_exc.MustBeJsonSafe(
                     mesg=f'Dictionary key is not jsonsafe, key={trimText(repr(key))}, type={key.__class__.__name__}')
             reqJsonPrimSafe(valu)
-        return True
+        return
     if isinstance(item, (list, tuple)):
         for obj in item:
             reqJsonPrimSafe(obj)
-        return True
+        return
     raise s_exc.MustBeJsonSafe(mesg=f'Item is not jsonsafe, item={trimText(repr(item))}, type={item.__class__.__name__}')
 
 def reqjsonsafe(item):
