@@ -163,9 +163,9 @@ Deprecated Properties
 
 
   ``nist:nvd:published``
-    Deprecated. Please use it:sec:cve:nist:nvd:published.
+    Deprecated. Please use ``it:sec:cve:nist:nvd:published``.
 
 
   ``nist:nvd:source``
-    Deprecated. Please use it:sec:cve:nist:nvd:source.
+    Deprecated. Please use ``it:sec:cve:nist:nvd:source``.
 
