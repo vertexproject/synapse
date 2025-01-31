@@ -591,6 +591,7 @@ class AhaCell(s_cell.Cell):
     async def initServiceStorage(self):
 
         self.features['callpeers'] = 1
+        self.features['leadterms'] = 1
 
         dirn = s_common.gendir(self.dirn, 'slabs', 'jsonstor')
 
@@ -1430,14 +1431,11 @@ class AhaCell(s_cell.Cell):
         if byts is not None:
             return s_msgpack.un(byts)
 
+    @s_cell.from_lead()
     async def setLeadTerm(self, termdef):
         '''
         Set the current leader term for the specified service cluster.
         '''
-        if not self.isactive:
-            mesg = 'setLeadTerm() may only be called on the leader.'
-            raise s_exc.BadState(mesg=mesg)
-
         termdef['time'] = s_common.now()
         s_schema.reqValidLeadTerm(termdef)
         return await self._push('aha:lead:set', termdef)

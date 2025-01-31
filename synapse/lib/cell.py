@@ -1753,10 +1753,16 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def _askAhaToLead(self, proxy):
 
         while not self.isfini:
+
             try:
                 proxy = self.ahaclient.proxy(timeout=4)
             except Exception as e:
                 logger.error(f'Error getting AHA proxy to check leadership: {e}')
+                continue
+
+            if not proxy._hasTeleFeat('leadterms'):
+                logger.warning('AHA Server does not support tracking leadership terms. Please update!')
+                return
 
             async with self.nexslock:
 
@@ -1782,6 +1788,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                 if state == s_aha.STATE_INVALID:
                     await self._termStateInvalid()
+                    return
 
     async def _termStateInvalid(self):
         # hook point for enterprise behavior
