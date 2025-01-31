@@ -183,6 +183,13 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(t.norm('HAHA1')[0], 'haha1')
             self.eq(t.norm('GOV_MFA')[0], 'gov_mfa')
 
+            # ou:org:alias (unicode test)
+            nodes = await core.nodes('''
+                [ ou:org=* :alias="ÅÆØåæø" ]
+            ''')
+            self.len(1, nodes)
+            self.eq(nodes[0].get('alias'), 'åæøåæø')
+
             # ou:position / ou:org:subs
             orgiden = s_common.guid()
             contact = s_common.guid()
