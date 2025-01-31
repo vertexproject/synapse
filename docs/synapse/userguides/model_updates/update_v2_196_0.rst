@@ -151,15 +151,15 @@ Deprecated Properties
 
 
   ``cisa:kev:product``
-    Deprecated. Please use it:sec:cve:cisa:kev:product.
+    Deprecated. Please use ``it:sec:cve:cisa:kev:product``.
 
 
   ``cisa:kev:vendor``
-    Deprecated. Please use it:sec:cve:cisa:kev:vendor.
+    Deprecated. Please use ``it:sec:cve:cisa:kev:vendor``.
 
 
   ``nist:nvd:modified``
-    Deprecated. Please use it:sec:cve:nist:nvd:modified.
+    Deprecated. Please use ``it:sec:cve:nist:nvd:modified``.
 
 
   ``nist:nvd:published``
