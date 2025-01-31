@@ -85,7 +85,7 @@ class StructLogTest(s_test.SynTest):
 
         mesg = mesgs[4]
         rawm = raw_mesgs[4]
-        self.isin(r'Unicode is cool for \u7a0b\u5e8f\u5458!', rawm)
+        self.isin('"message":"Unicode is cool for 程序员!"', rawm)
         self.eq(mesg.get('message'), 'Unicode is cool for 程序员!')
 
         logger.removeHandler(handler)
