@@ -1838,10 +1838,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     self.setAhaRegistry(newurls)
 
                 if self.conf.get('mirror') is None:
-
-                    # if i think i'm the leader, lets check with AHA
-                    ahainfo = await proxy.getCellInfo()
-                    if ahainfo['features'].get('aha:leadterm'):
+                    await self._askAhaToLead()
 
             self.ahaclient = await s_telepath.Client.anit(ahaurls, onlink=onlink)
             self.onfini(self.ahaclient)
