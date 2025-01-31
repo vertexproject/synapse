@@ -886,34 +886,8 @@ async def format(opts: argparse.Namespace,
     modeldiff = False
     clean_vers_ref = opts.version.replace(".", "_")
     model_rst_ref = f'userguide_model_{clean_vers_ref}'
-    for key, header in s_schemas._changelogTypes.items():
-        dataz = entries.get(key)
-        if dataz:
-            text = text + f'\n{header}\n{"-" * len(header)}'
-            dataz.sort(key=lambda x: x.get('prs'))
-            for data in dataz:
-                desc = data.get('desc')  # type: str
-                desc_lines = desc.splitlines()
-                for i, chunk in enumerate(desc_lines):
-                    if i == 0:
-                        for line in textwrap.wrap(chunk, initial_indent='- ', subsequent_indent='  ', width=opts.width):
-                            text = f'{text}\n{line}'
-                    else:
-                        text = text + '\n'
-                        for line in textwrap.wrap(chunk, initial_indent='  ', subsequent_indent='  ', width=opts.width):
-                            text = f'{text}\n{line}'
 
-                if not opts.hide_prs:
-                    for pr in data.get('prs'):
-                        text = f'{text}\n  (`#{pr} <https://github.com/vertexproject/synapse/pull/{pr}>`_)'
-            if key == 'migration':
-                text = text + '\n- See :ref:`datamigration` for more information about automatic migrations.'
-            elif key == 'model':
-                text = text + f'\n- See :ref:`{model_rst_ref}` for more detailed model changes.'
-                modeldiff = True
-            text = text + '\n'
-
-    if modeldiff and opts.model_ref:
+    if opts.model_ref:
         # TODO find previous model file automatically?
         if opts.verbose:
             outp.printf(f'Getting reference model from {opts.model_ref}')
@@ -934,6 +908,8 @@ async def format(opts: argparse.Namespace,
         changes = differ.diffModl(outp)
         has_changes = sum([len(v) for v in changes.values()])
         if has_changes:
+            entries['model'].append({'prs': [], 'type': 'skip'})
+            modeldiff = True
             rst = _gen_model_rst(opts.version, model_rst_ref, changes, cur_modl, outp, width=opts.width)
             model_text = rst.getRstText()
             if opts.verbose:
@@ -954,6 +930,35 @@ async def format(opts: argparse.Namespace,
                 ret.check_returncode()
         else:
             outp.printf(f'No model changes detected.')
+
+    for key, header in s_schemas._changelogTypes.items():
+        dataz = entries.get(key)
+        if dataz:
+            text = text + f'\n{header}\n{"-" * len(header)}'
+            dataz.sort(key=lambda x: x.get('prs'))
+            for data in dataz:
+                desc = data.get('desc')  # type: str
+                if desc is None and data.get('type') == 'skip':
+                    continue
+                desc_lines = desc.splitlines()
+                for i, chunk in enumerate(desc_lines):
+                    if i == 0:
+                        for line in textwrap.wrap(chunk, initial_indent='- ', subsequent_indent='  ', width=opts.width):
+                            text = f'{text}\n{line}'
+                    else:
+                        text = text + '\n'
+                        for line in textwrap.wrap(chunk, initial_indent='  ', subsequent_indent='  ', width=opts.width):
+                            text = f'{text}\n{line}'
+
+                if not opts.hide_prs:
+                    for pr in data.get('prs'):
+                        text = f'{text}\n  (`#{pr} <https://github.com/vertexproject/synapse/pull/{pr}>`_)'
+            if key == 'migration':
+                text = text + '\n- See :ref:`datamigration` for more information about automatic migrations.'
+            elif key == 'model':
+                if modeldiff:
+                    text = text + f'\n- See :ref:`{model_rst_ref}` for more detailed model changes.'
+            text = text + '\n'
 
     if opts.rm:
         if opts.verbose:
