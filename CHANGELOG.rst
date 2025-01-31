@@ -22,6 +22,18 @@ Model Changes
 
 Features and Enhancements
 -------------------------
+- Added new AHA APIs that may be used to dispatch functions on service
+  clusters.
+  (`#3795 <https://github.com/vertexproject/synapse/pull/3795>`_)
+- Added new ``getTasks()`` API which can include gathering tasks from peers
+  via AHA.
+  (`#3795 <https://github.com/vertexproject/synapse/pull/3795>`_)
+- Added a new aha.svc.mirror Storm command to query the status of the
+  mirror clusters managed by the AHA server.
+  (`#4019 <https://github.com/vertexproject/synapse/pull/4019>`_)
+- Added a new command-line tool synapse.tools.aha.mirror for querying the
+  status of service mirror clusters managed by the AHA server.
+  (`#4019 <https://github.com/vertexproject/synapse/pull/4019>`_)
 - Added ``$lib.axon.read()`` and ``$lib.axon.unpack()`` Storm APIs.
   (`#4097 <https://github.com/vertexproject/synapse/pull/4097>`_)
 - Added ``liftByNodeData()`` API to the Storm ``layer`` type to allow lifting
