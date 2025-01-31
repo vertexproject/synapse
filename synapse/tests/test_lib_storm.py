@@ -4184,7 +4184,6 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('[ test:str=uniq ] | help $node.props')
             self.stormIsInPrint('A Storm Primitive representing the properties on a Node.', msgs)
-            self.stormIsInPrint('set(prop, valu)\nSet a specific property value by name.', msgs)
 
             msgs = await core.stormlist('[ test:str=uniq ] | help $node')
             self.stormIsInPrint('Implements the Storm api for a node instance.', msgs)
@@ -5408,7 +5407,7 @@ class StormTest(s_t_utils.SynTest):
             await core.nodes('''
                 function dostuff(mesg) {
                     $query = ${
-                        $lib.queue.gen(haha).put($lib.vars.get(mesg))
+                        $lib.queue.gen(haha).put($lib.vars.mesg)
                         $lib.dmon.del($auto.iden)
                     }
                     $lib.dmon.add($query)
