@@ -69,6 +69,7 @@ class PolModule(s_module.CoreModule):
                         ('tld', ('inet:fqdn', {}), {}),
 
                         ('name', ('geo:name', {}), {
+                            'alts': ('names',),
                             'doc': 'The name of the country.'}),
 
                         ('names', ('array', {'type': 'geo:name', 'uniq': True, 'sorted': True}), {
@@ -139,6 +140,7 @@ class PolModule(s_module.CoreModule):
                             'doc': 'The date of the election.'}),
                     )),
                     # TODO jurisdiction / districts
+                    # TODO oversight authority
                     ('pol:race', {}, (
                         ('election', ('pol:election', {}), {
                             'doc': 'The election that includes the race.'}),
@@ -175,6 +177,8 @@ class PolModule(s_module.CoreModule):
                             'doc': 'The political party of the person who held office during the term.'}),
                     )),
                     ('pol:candidate', {}, (
+                        ('id', ('str', {'strip': True}), {
+                            'doc': 'A unique ID for the candidate issued by an election authority.'}),
                         ('contact', ('ps:contact', {}), {
                             'doc': 'The contact information of the candidate.'}),
                         ('race', ('pol:race', {}), {

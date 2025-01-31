@@ -1,5 +1,4 @@
 import os
-import json
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -253,8 +252,8 @@ class TrigTest(s_t_utils.SynTest):
             with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:
                 await core.nodes('[ test:str=logit ]')
                 self.true(await stream.wait(6))
-            buf = stream.getvalue()
-            mesg = json.loads(buf.split('\n')[-2])
+            msgs = stream.jsonlines()
+            mesg = [m for m in msgs if m.get('iden') == tdef.get('iden')][0]
             self.eq(mesg['message'], f'test trigger {tdef.get("iden")}')
             self.eq(mesg['iden'], tdef.get('iden'))
 
@@ -263,6 +262,14 @@ class TrigTest(s_t_utils.SynTest):
                 tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': iden}
                 await view.addTrigger(tdef)
             self.eq(pdef0.get('storm'), (await view.getTrigger(iden)).tdef.get('storm'))
+
+            with self.raises(s_exc.DupIden):
+                tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': view.iden}
+                await view.addTrigger(tdef)
+
+            with self.raises(s_exc.NoSuchIden):
+                await view.delTrigger(view.iden)
+            self.nn(core.auth.getAuthGate(view.iden))
 
             # Bad trigger parms
             with self.raises(s_exc.SchemaViolation):

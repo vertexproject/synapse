@@ -2,9 +2,66 @@ import logging
 
 import synapse.exc as s_exc
 
+import synapse.lib.types as s_types
 import synapse.lib.module as s_module
 
 logger = logging.getLogger(__name__)
+
+class SynUser(s_types.Guid):
+
+    def _normPyStr(self, text):
+
+        core = self.modl.core
+        if core is not None:
+
+            # direct use of an iden takes precedence...
+            user = core.auth.user(text)
+            if user is not None:
+                return user.iden, {}
+
+            user = core.auth._getUserByName(text)
+            if user is not None:
+                return user.iden, {}
+
+        return s_types.Guid._normPyStr(self, text)
+
+    def repr(self, iden):
+
+        core = self.modl.core
+        if core is not None:
+            user = core.auth.user(iden)
+            if user is not None:
+                return user.name
+
+        return iden
+
+class SynRole(s_types.Guid):
+
+    def _normPyStr(self, text):
+
+        core = self.modl.core
+        if core is not None:
+
+            # direct use of an iden takes precedence...
+            role = core.auth.role(text)
+            if role is not None:
+                return role.iden, {}
+
+            role = core.auth._getRoleByName(text)
+            if role is not None:
+                return role.iden, {}
+
+        return s_types.Guid._normPyStr(self, text)
+
+    def repr(self, iden):
+
+        core = self.modl.core
+        if core is not None:
+            role = core.auth.role(iden)
+            if role is not None:
+                return role.name
+
+        return iden
 
 class SynModule(s_module.CoreModule):
 
@@ -26,23 +83,28 @@ class SynModule(s_module.CoreModule):
 
     async def _liftRuntSynCmd(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.core.stormcmds.values
+        def iterStormCmds():
+            for item in self.core.getStormCmds():
+                yield item[1]
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(iterStormCmds, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynCron(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.core.agenda.appts.values
+        def iterAppts():
+            for item in self.core.agenda.list():
+                yield item[1]
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(iterAppts, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynForm(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.model.forms.values
+        def getForms():
+            return list(self.model.forms.values())
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(getForms, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynProp(self, full, valu=None, cmpr=None, view=None):
@@ -54,24 +116,29 @@ class SynModule(s_module.CoreModule):
 
     async def _liftRuntSynType(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.model.types.values
+        def getTypes():
+            return list(self.model.types.values())
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(getTypes, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.model.tagprops.values
+        def getTagProps():
+            return list(self.model.tagprops.values())
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(getTagProps, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None, view=None):
 
         view = self.core.getView(iden=view)
-        genr = view.triggers.triggers.values
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        def iterTriggers():
+            for item in view.triggers.list():
+                yield item[1]
+
+        async for node in self._doRuntLift(iterTriggers, full, valu, cmpr):
             yield node
 
     async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
@@ -105,6 +172,13 @@ class SynModule(s_module.CoreModule):
 
         return (('syn', {
 
+            'ctors': (
+                ('syn:user', 'synapse.models.syn.SynUser', {}, {
+                    'doc': 'A Synapse user.'}),
+
+                ('syn:role', 'synapse.models.syn.SynRole', {}, {
+                    'doc': 'A Synapse role.'}),
+            ),
             'types': (
                 ('syn:type', ('str', {'strip': True}), {
                     'doc': 'A Synapse type used for normalizing nodes and properties.',
@@ -129,12 +203,6 @@ class SynModule(s_module.CoreModule):
                 }),
                 ('syn:nodedata', ('comp', {'fields': (('key', 'str'), ('form', 'syn:form'))}), {
                     'doc': 'A nodedata key and the form it may be present on.',
-                }),
-                ('syn:user', ('guid', {'strip': True}), {
-                    'doc': 'A Synapse user GUID.'
-                }),
-                ('syn:role', ('guid', {'strip': True}), {
-                    'doc': 'A Synapse role GUID.'
                 }),
             ),
 
@@ -273,10 +341,13 @@ class SynModule(s_module.CoreModule):
                     ('svciden', ('guid', {'strip': True}), {
                         'doc': 'Storm service iden which provided the package.'}),
                     ('input', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
                         'doc': 'The list of forms accepted by the command as input.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('output', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
                         'doc': 'The list of forms produced by the command as output.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('nodedata', ('array', {'type': 'syn:nodedata'}), {
+                        'deprecated': True,
                         'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
                 )),
             ),

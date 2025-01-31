@@ -56,9 +56,14 @@ class SynErr(Exception):
         self.errinfo[name] = valu
         self._setExcMesg()
 
+    def update(self, items: dict):
+        '''Update multiple items in the errinfo dict at once.'''
+        self.errinfo.update(items)
+        self._setExcMesg()
+
 class StormRaise(SynErr):
     '''
-    This represents a user provided exception inside of a Storm runtime. It requires a errname key.
+    This represents a user provided exception raised in the Storm runtime. It requires a errname key.
     '''
     def __init__(self, *args, **info):
         SynErr.__init__(self, *args, **info)
@@ -77,6 +82,7 @@ class BackupAlreadyRunning(SynErr):
 class StormPkgRequires(SynErr): pass
 class StormPkgConflicts(SynErr): pass
 
+class BadName(SynErr): pass
 class BadPkgDef(SynErr): pass
 class BadCmdName(SynErr): pass
 class BadCmprValu(SynErr): pass
@@ -140,6 +146,8 @@ class BadTag(SynErr): pass
 class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
+class TypeMismatch(SynErr): pass
+
 class CantDelCmd(SynErr): pass
 class CantDelNode(SynErr): pass
 class CantDelForm(SynErr): pass
@@ -189,6 +197,13 @@ class DupRoleName(SynErr): pass
 class DupTagPropName(SynErr): pass
 class DupUserName(SynErr): pass
 class DupStormSvc(SynErr): pass
+
+class DupTypeName(SynErr):
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'Type already exists: {name}.'
+        return DupTypeName(mesg=mesg, name=name)
 
 class DupEdgeType(SynErr):
 
@@ -242,6 +257,13 @@ class NoSuchForm(SynErr):
             mesg = f'No form named {name}.'
         return NoSuchForm(mesg=mesg, name=name)
 
+class NoSuchType(SynErr):
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No type named {name}.'
+        return NoSuchType(mesg=mesg, name=name)
+
 class NoSuchProp(SynErr):
 
     @classmethod
@@ -286,7 +308,6 @@ class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
-class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass

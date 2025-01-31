@@ -547,7 +547,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=0 | delnode')
 
             edits = await core.callStorm('''
-                $nodeedits = $lib.list()
+                $nodeedits = ()
                 for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
                     $nodeedits.extend($edits)
                 }
@@ -905,3 +905,27 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().insertParentFork().iden)')
+
+    async def test_view_children(self):
+
+        async with self.getTestCore() as core:
+
+            view00 = core.getView()
+            view01 = core.getView((await view00.fork())['iden'])
+            view02 = core.getView((await view01.fork())['iden'])
+            view03 = core.getView((await view01.fork())['iden'])
+
+            q = '''
+            $kids = ([])
+            for $child in $lib.view.get($iden).children() { $kids.append($child.iden) }
+            return($kids)
+            '''
+
+            opts = {'vars': {'iden': view00.iden}}
+            self.eq([view01.iden], await core.callStorm(q, opts=opts))
+
+            opts['vars']['iden'] = view01.iden
+            self.eq([view02.iden, view03.iden], await core.callStorm(q, opts=opts))
+
+            opts['vars']['iden'] = view02.iden
+            self.eq([], await core.callStorm(q, opts=opts))

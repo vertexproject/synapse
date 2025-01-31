@@ -11,6 +11,7 @@ import synapse.common as s_common
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -73,7 +74,7 @@ _DefaultConfig = {
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sectors': '''
-                            init { $list = $lib.list() }
+                            init { $list = () }
                             -> ou:industry +:name $list.append(:name)
                             fini { if $list { return($list) } }
                         ''',
@@ -87,7 +88,7 @@ _DefaultConfig = {
                         'first_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.0))',
                         'last_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.1))',
                         'goals': '''
-                            init { $goals = $lib.list() }
+                            init { $goals = () }
                             -> ou:campaign:org -> ou:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
@@ -182,7 +183,7 @@ _DefaultConfig = {
                     'props': {
                         'value': 'return($node.repr())',
                         'resolves_to_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
                             { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
                             { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
@@ -256,7 +257,7 @@ _DefaultConfig = {
                         ''',
                         'mime_type': '+:mime return(:mime)',
                         'contains_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -(refs)> *
                             $stixid = $bundle.add($node)
                             if $stixid { $refs.append($stixid) }
@@ -278,7 +279,7 @@ _DefaultConfig = {
                         'is_multipart': 'return($lib.false)',
                         'from_ref': ':from -> inet:email return($bundle.add($node))',
                         'to_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             { :to -> inet:email $refs.append($bundle.add($node)) }
                             fini { if $refs { return($refs) } }
                         ''',
@@ -310,7 +311,7 @@ _DefaultConfig = {
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sample_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -> file:bytes $refs.append($bundle.add($node))
                             fini { if $refs { return($refs) } }
                         ''',
@@ -392,7 +393,7 @@ _DefaultConfig = {
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list(({"source_name": "cve", "external_id": $cve})) return($list) }'
+                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() return(([{"source_name": "cve", "external_id": $cve}])) }'
                     },
                     'rels': (
 
@@ -438,7 +439,7 @@ _DefaultConfig = {
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'published': 'return($lib.stix.export.timestamp(:published))',
                         'object_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -(refs)> *
                             $stixid = $bundle.add($node)
                             if $stixid { $refs.append($stixid) }
@@ -485,7 +486,10 @@ _DefaultConfig = {
     },
 }
 
-def _validateConfig(core, config):
+perm_maxsize = ('storm', 'lib', 'stix', 'export', 'maxsize')
+def _validateConfig(runt, config):
+
+    core = runt.snap.core
 
     maxsize = config.get('maxsize', 10000)
 
@@ -505,9 +509,10 @@ def _validateConfig(core, config):
         mesg = f'STIX Bundle config maxsize option must be an integer.'
         raise s_exc.BadConfValu(mesg=mesg)
 
-    if maxsize > 10000:
-        mesg = f'STIX Bundle config maxsize option must be <= 10000.'
-        raise s_exc.BadConfValu(mesg=mesg)
+    if maxsize > 10000 and not runt.allowed(perm_maxsize):
+        permstr = '.'.join(perm_maxsize)
+        mesg = f'Setting STIX export maxsize > 10,000 requires permission: {permstr}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=permstr)
 
     formmaps = config.get('forms')
     if formmaps is None:
@@ -875,14 +880,19 @@ class LibStixImport(s_stormtypes.Lib):
         bundle = await s_stormtypes.toprim(bundle)
         config = await s_stormtypes.toprim(config)
 
+        if not isinstance(config, dict):
+            mesg = 'STIX ingest config must be a dictionary.'
+            raise s_exc.BadArg(mesg=mesg)
+
         config.setdefault('bundle', {})
         config.setdefault('objects', {})
         config.setdefault('relationships', [])
 
-        rellook = {r['type']: r for r in config.get('relationships', ())}
-
-        nodesbyid = {}
-        relationships = []
+        try:
+            rellook = {r['type']: r for r in config.get('relationships', ())}
+        except Exception as e:
+            mesg = f'Error processing relationships in STIX bundle ingest config: {e}.'
+            raise s_exc.BadArg(mesg=mesg)
 
         bundlenode = None
 
@@ -890,13 +900,44 @@ class LibStixImport(s_stormtypes.Lib):
         if bundleconf is None:
             bundleconf = {}
 
+        if not isinstance(bundleconf, dict):
+            mesg = 'STIX ingest config bundle value must be a dictionary.'
+            raise s_exc.BadArg(mesg=mesg)
+
         bundlestorm = bundleconf.get('storm')
         if bundlestorm:
+            if not isinstance(bundlestorm, str):
+                mesg = 'STIX ingest config storm query must be a string.'
+                raise s_exc.BadArg(mesg=mesg)
+
             bundlenode = await self._callStorm(bundlestorm, {'bundle': bundle})
 
         self.runt.layerConfirm(('node', 'edge', 'add', 'refs'))
 
-        for obj in bundle.get('objects'):
+        config = s_schemas.reqValidStixIngestConfig(config)
+        bundle = s_schemas.reqValidStixIngestBundle(bundle)
+
+        try:
+            nodesbyid = await self._ingestObjects(bundle, config, rellook)
+        except Exception as e:
+            mesg = f'Error processing objects in STIX bundle ingest: {e}.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if bundlenode is not None:
+            for node in nodesbyid.values():
+                await bundlenode.addEdge('refs', node.iden())
+                await asyncio.sleep(0)
+            yield bundlenode
+
+        for node in nodesbyid.values():
+            yield node
+
+    async def _ingestObjects(self, bundle, config, rellook):
+
+        nodesbyid = {}
+        relationships = []
+
+        for obj in bundle.get('objects', ()):
 
             objtype = obj.get('type')
 
@@ -971,7 +1012,7 @@ class LibStixImport(s_stormtypes.Lib):
                 await self.runt.snap.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
 
         # attempt to resolve object_refs
-        for obj in bundle.get('objects'):
+        for obj in bundle.get('objects', ()):
 
             node = nodesbyid.get(obj.get('id'))
             if node is None:
@@ -984,17 +1025,7 @@ class LibStixImport(s_stormtypes.Lib):
 
                 await node.addEdge('refs', refsnode.iden())
 
-        if bundlenode is not None:
-            for node in nodesbyid.values():
-                await bundlenode.addEdge('refs', node.iden())
-                await asyncio.sleep(0)
-            yield bundlenode
-
-        for node in nodesbyid.values():
-            yield node
-
-        if bundlenode:
-            yield bundlenode
+        return nodesbyid
 
     async def _callStorm(self, text, varz):
 
@@ -1013,6 +1044,11 @@ class LibStixExport(s_stormtypes.Lib):
     '''
     A Storm Library for exporting to STIX version 2.1 CS02.
     '''
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'stix', 'export', 'maxsize'), 'gate': 'cortex',
+         'desc': 'Controls the ability to specify a STIX export bundle maxsize of greater than 10,000.'},
+    )
+
     _storm_locals = (  # type: ignore
         {
             'name': 'bundle',
@@ -1145,7 +1181,7 @@ class LibStixExport(s_stormtypes.Lib):
             config = _DefaultConfig
 
         config = await s_stormtypes.toprim(config)
-        _validateConfig(self.runt.snap.core, config)
+        _validateConfig(self.runt, config)
 
         return StixBundle(self, self.runt, config)
 

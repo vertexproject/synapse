@@ -21,9 +21,11 @@ import io
 import os
 import sys
 import copy
+import json
 import math
 import types
 import shutil
+import typing
 import asyncio
 import hashlib
 import inspect
@@ -70,6 +72,7 @@ import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
+import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
 import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
@@ -95,6 +98,10 @@ def norm(z):
 
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
+
+def jsonlines(text: str):
+    lines = [k for k in text.split('\n') if k]
+    return [json.loads(line) for line in lines]
 
 async def waitForBehold(core, events):
     async for mesg in core.behold():
@@ -156,6 +163,7 @@ class LibTst(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'beep',
+         'deprecated': {'eoldate': '8080-08-08'},
          'desc': '''
         Example storm func.
 
@@ -168,6 +176,7 @@ class LibTst(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
         {'name': 'someargs',
          'desc': '''Example storm func with args.''',
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'This is a test library was deprecated from the day it was made.'},
          'type': {'type': 'function', '_funcname': 'someargs',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
@@ -197,6 +206,32 @@ class LibTst(s_stormtypes.Lib):
         '''
         ret = f'A {valu} beep which {bar} the {faz}!'
         return ret
+
+class LibDepr(s_stormtypes.Lib):
+    '''
+    Deprecate me!
+    '''
+    _storm_locals = (
+        {'name': 'boop',
+         'desc': '''
+         An example storm function that's not deprecated on its own, but the entire library is.
+         ''',
+         'type': {'type': 'function', '_funcname': 'boop',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'What to boop.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The booped.', }}},
+    )
+    _storm_lib_path = ('depr',)
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
+
+    def addLibFuncs(self):  # pragma: no cover
+        self.locls.update({
+            'boop': self.boop,
+        })
+
+    async def boop(self, valu):  # pragma: no cover
+        return f'You have been booped, {valu}!'
 
 class TestType(s_types.Type):
 
@@ -760,6 +795,10 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
+    def jsonlines(self) -> typing.List[dict]:
+        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
+        return jsonlines(self.getvalue())
+
 class AsyncStreamEvent(io.StringIO, asyncio.Event):
     '''
     A combination of a io.StringIO object and an asyncio.Event object.
@@ -791,6 +830,10 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
         if timeout is None:
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
+
+    def jsonlines(self) -> typing.List[dict]:
+        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
+        return jsonlines(self.getvalue())
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''
@@ -962,8 +1005,6 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
-        self._NextBuid = 0
-        self._NextGuid = 0
 
         for s in dir(self):
             attr = getattr(self, s, None)
@@ -1015,11 +1056,23 @@ class SynTest(unittest.TestCase):
             yield regrdir
 
     @contextlib.asynccontextmanager
-    async def getRegrCore(self, vers, conf=None):
+    async def getRegrCore(self, vers, conf=None, maxvers=None):
         with self.withNexusReplay():
             with self.getRegrDir('cortexes', vers) as dirn:
-                async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    yield core
+                if maxvers is not None:
+
+                    orig = s_modelrev.ModelRev
+                    class ModelRev(orig):
+                        def __init__(self, core):
+                            orig.__init__(self, core)
+                            self.revs = [k for k in self.revs if k[0] <= maxvers]
+
+                    with mock.patch.object(s_modelrev, 'ModelRev', ModelRev):
+                        async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                            yield core
+                else:
+                    async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                        yield core
 
     @contextlib.asynccontextmanager
     async def getRegrAxon(self, vers, conf=None):
@@ -1084,6 +1137,28 @@ class SynTest(unittest.TestCase):
             TstOutPut: A TstOutPut instance.
         '''
         return TstOutPut()
+
+    def thisEnvMust(self, *envvars):
+        '''
+        Requires a host must have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being present.
+        '''
+        for envar in envvars:
+            if not s_common.envbool(envar):
+                self.skip(f'Envar {envar} is not set to a truthy value.')
+
+    def thisEnvMustNot(self, *envvars):
+        '''
+        Requires a host must not have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being absent or set to falsey values.
+        '''
+        for envar in envvars:
+            if s_common.envbool(envar):
+                self.skip(f'Envar {envar} is set to a truthy value.')
 
     def thisHostMust(self, **props):  # pragma: no cover
         '''
@@ -1390,22 +1465,9 @@ class SynTest(unittest.TestCase):
         '''
         Get a test Cell.
         '''
-        if conf is None:
-            conf = {
-                'health:sysctl:checks': False,
-            }
-
-        conf = copy.deepcopy(conf)
-
+        conf = self.getCellConf(conf=conf)
         with self.withNexusReplay():
-            if dirn is not None:
-
-                async with await ctor.anit(dirn, conf=conf) as cell:
-                    yield cell
-
-                return
-
-            with self.getTestDir() as dirn:
+            with self.mayTestDir(dirn) as dirn:
                 async with await ctor.anit(dirn, conf=conf) as cell:
                     yield cell
 
@@ -1504,7 +1566,7 @@ class SynTest(unittest.TestCase):
     async def addSvcToAha(self, aha, svcname, ctor,
                           conf=None, dirn=None, provinfo=None):
         '''
-        Creates as service and provision it in a Aha network via the provisioning API.
+        Creates a service and provisions it in an Aha network via the provisioning API.
 
         This assumes the Aha cell has a provision:listen and aha:urls set.
 
@@ -1514,7 +1576,7 @@ class SynTest(unittest.TestCase):
             ctor: Service class to add.
             conf (dict): Optional service conf.
             dirn (str): Optional directory.
-            provinfo (dict)): Optional provisioning info.
+            provinfo (dict): Optional provisioning info.
 
         Notes:
             The config data for the cell is pushed into dirn/cell.yaml.
@@ -1691,7 +1753,7 @@ class SynTest(unittest.TestCase):
             slogger.setLevel(level)
 
     @contextlib.contextmanager
-    def getAsyncLoggerStream(self, logname, mesg=''):
+    def getAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[StreamEvent, None, None]:
         '''
         Async version of getLoggerStream.
 
@@ -1736,7 +1798,7 @@ class SynTest(unittest.TestCase):
             slogger.setLevel(level)
 
     @contextlib.contextmanager
-    def getStructuredAsyncLoggerStream(self, logname, mesg=''):
+    def getStructuredAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[AsyncStreamEvent, None, None]:
         '''
         Async version of getLoggerStream which uses structured logging.
 
@@ -1759,9 +1821,7 @@ class SynTest(unittest.TestCase):
                     # Wait for the mesg to be written to the stream
                     await stream.wait(timeout=10)
 
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 # Do something with messages
 
         Returns:
@@ -2314,39 +2374,6 @@ class SynTest(unittest.TestCase):
             async with await s_hive.openurl(turl) as hive:
 
                 yield hive
-
-    def stablebuid(self, valu=None):
-        '''
-        A stable buid generation for testing purposes
-        '''
-        if valu is None:
-            retn = self._NextBuid.to_bytes(32, 'big')
-            self._NextBuid += 1
-            return retn
-
-        byts = s_msgpack.en(valu)
-        return hashlib.sha256(byts).digest()
-
-    def stableguid(self, valu=None):
-        '''
-        A stable guid generation for testing purposes
-        '''
-        if valu is None:
-            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
-            self._NextGuid += 1
-            return retn
-
-        byts = s_msgpack.en(valu)
-        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
-
-    @contextlib.contextmanager
-    def withStableUids(self):
-        '''
-        A context manager that generates guids and buids in sequence so that successive test runs use the same
-        data
-        '''
-        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
-            yield
 
     async def runCoreNodes(self, core, query, opts=None):
         '''

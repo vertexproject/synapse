@@ -515,6 +515,7 @@ class CvssLib(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'calculate', 'desc': 'Calculate the CVSS score values for an input risk:vuln node.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': 'calculate',
                   'args': (
                       {'name': 'node', 'type': 'node',
@@ -527,6 +528,7 @@ class CvssLib(s_stormtypes.Lib):
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing the computed score and subscores.', }
         }},
         {'name': 'calculateFromProps', 'desc': 'Calculate the CVSS score values from a props dict.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': 'calculateFromProps',
                   'args': (
                       {'name': 'props', 'type': 'dict',
@@ -537,6 +539,7 @@ class CvssLib(s_stormtypes.Lib):
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing the computed score and subscores.', }
         }},
         {'name': 'vectToProps', 'desc': 'Parse a CVSS v3.1 vector and return a dictionary of risk:vuln props.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': 'vectToProps',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'A CVSS vector string.'},
@@ -544,6 +547,7 @@ class CvssLib(s_stormtypes.Lib):
                   'returns': {'type': 'dict', 'desc': 'A dictionary of risk:vuln secondary props.', }
         }},
         {'name': 'saveVectToNode', 'desc': 'Parse a CVSS v3.1 vector and record properties on a risk:vuln node.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': 'saveVectToNode',
                   'args': (
                       {'name': 'node', 'type': 'node',

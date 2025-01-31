@@ -2,7 +2,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 import synapse.lib.module as s_module
 
@@ -250,12 +249,18 @@ class GeoTest(s_t_utils.SynTest):
                      'bbox': '2.11, 2.12, -4.88, -4.9',
                      'radius': '1.337km'}
             opts = {'vars': {'valu': guid, 'p': props}}
-            q = '[(geo:place=$valu :name=$p.name :desc=$p.desc :address=$p.address :parent=$p.parent :loc=$p.loc ' \
-                ':photo=$p.photo :latlong=$p.latlong :bbox=$p.bbox :radius=$p.radius)]'
+            q = '''
+                [ geo:place=$valu
+                    :id=IAD
+                    :name=$p.name :desc=$p.desc :address=$p.address :parent=$p.parent :loc=$p.loc
+                    :photo=$p.photo :latlong=$p.latlong :bbox=$p.bbox :radius=$p.radius
+                ]
+            '''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], guid)
+            self.eq(node.get('id'), 'IAD')
             self.eq(node.get('name'), 'vertex hq')
             self.eq(node.get('loc'), 'us.hehe.haha')
             self.eq(node.get('latlong'), (34.1341, -118.3215))
@@ -281,6 +286,12 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('latlong'), (11.38, 20.01))
             nodes = await core.nodes('[ geo:place=(hehe, haha) :names=("Foo  Bar ", baz) ] -> geo:name')
             self.eq(('baz', 'foo bar'), [n.ndef[1] for n in nodes])
+
+            nodes = await core.nodes('geo:place=(hehe, haha)')
+            node = nodes[0]
+
+            self.len(1, nodes := await core.nodes('[ geo:place=({"name": "baz"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
 
     async def test_eq(self):
 
@@ -496,9 +507,24 @@ class GeoTest(s_t_utils.SynTest):
                     :time=20220618
                     :latlong=(10.1, 3.0)
                     :desc=foobar
-                    :place:name=woot
-                    :place={[geo:place=* :name=woot]}
                     :accuracy=10m
+                    :node=(test:int, 1234)
+
+                    :place={[ geo:place=({"name": "Woot"}) ]}
+                    :place:loc=us.ny.woot
+                    :place:name=Woot
+                    :place:country={[ pol:country=({"iso2": "us"}) ]}
+                    :place:country:code=us
+                    :place:address="123 main street"
+
+                    :place:latlong=(10.1, 3.0)
+                    :place:latlong:accuracy=10m
+
+                    :phys:mass=10kg
+                    :phys:width=5m
+                    :phys:height=10m
+                    :phys:length=20m
+                    :phys:volume=1000m
                 ]
             ''')
             self.eq(1655510400000, nodes[0].get('time'))
@@ -507,6 +533,21 @@ class GeoTest(s_t_utils.SynTest):
             self.eq('woot', nodes[0].get('place:name'))
             self.eq(10000, nodes[0].get('accuracy'))
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
+            self.eq(('test:int', 1234), nodes[0].get('node'))
+            self.len(1, await core.nodes('test:int=1234'))
+
+            self.nn(nodes[0].get('place'))
+            self.nn('us.ny.woot', nodes[0].get('place:loc'))
+            self.nn('woot', nodes[0].get('place:name'))
+            self.nn('123 main street', nodes[0].get('place:address'))
+            self.eq((10.1, 3.0), nodes[0].get('place:latlong'))
+            self.eq(10000, nodes[0].get('place:latlong:accuracy'))
+
+            self.eq('10000', nodes[0].get('phys:mass'))
+            self.eq(5000, nodes[0].get('phys:width'))
+            self.eq(10000, nodes[0].get('phys:height'))
+            self.eq(20000, nodes[0].get('phys:length'))
+            self.eq(1000000, nodes[0].get('phys:volume'))
 
     async def test_model_geospace_area(self):
 

@@ -1,5 +1,0 @@
----
-desc: Update deployment guide to clarify ``aha:network`` selection vs ``dns:name`` selection.
-prs: []
-type: doc
-...

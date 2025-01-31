@@ -1,8 +1,9 @@
-import synapse.common as s_common
-import synapse.tests.utils as s_t_utils
+import unittest
 
-class VendorTest(s_t_utils.SynTest):
+import synapse.common as s_common
+
+class VendorTest(unittest.TestCase):
 
     def setUp(self) -> None:
         if not s_common.envbool('SYN_VENDOR_TEST'):  # pragma: no cover
-            self.skip('Skipping vendored test.')
+            raise unittest.SkipTest('Skipping vendored test.')

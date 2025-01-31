@@ -54,7 +54,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[1][0], 'NoPropIndex')
 
             errors = await core.callStorm('''
-                $retn = $lib.list()
+                $retn = ()
                 for $mesg in $lib.layer.get().verify() {
                     $retn.append($mesg)
                 }
@@ -2216,3 +2216,60 @@ class LayerTest(s_t_utils.SynTest):
 
             self.notin('pulls', dst_tree)
             self.notin('pushs', dst_tree)
+
+    async def test_layer_readahead(self):
+
+        async with self.getTestCore() as core:
+
+            layr = core.getLayer()
+            self.true(layr.layrslab.readahead)
+            self.true(layr.layrslab.lenv.flags()['readahead'])
+            self.false(layr.nodeeditslab.readahead)
+            self.false(layr.nodeeditslab.lenv.flags()['readahead'])
+            self.false(layr.dataslab.readahead)
+            self.false(layr.dataslab.lenv.flags()['readahead'])
+
+            with self.setTstEnvars(SYNDEV_CORTEX_LAYER_READAHEAD='false'):
+                iden = await core.callStorm('return($lib.layer.add().iden)')
+                layr = core.getLayer(iden)
+                self.false(layr.layrslab.readahead)
+                self.false(layr.layrslab.lenv.flags()['readahead'])
+                self.false(layr.nodeeditslab.readahead)
+                self.false(layr.nodeeditslab.lenv.flags()['readahead'])
+                self.false(layr.dataslab.readahead)
+                self.false(layr.dataslab.lenv.flags()['readahead'])
+
+    async def test_layer_delete_with_nodedata(self):
+
+        async with self.getTestCore() as core:
+
+            fork00 = await core.view.fork()
+            infork00 = {'view': fork00['iden']}
+            layr00 = core.getLayer(fork00['layers'][0]['iden'])
+
+            iden = await core.callStorm('[ inet:ipv4=1.2.3.4 ] return($node.iden())')
+
+            sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ipv4'))
+            self.len(0, sodes)
+
+            q = '''
+                inet:ipv4=1.2.3.4
+                $node.data.set("key", "valu")
+            '''
+            await core.callStorm(q, opts=infork00)
+
+            sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ipv4'))
+            self.len(1, sodes)
+
+            q = '''
+                view.exec $fork00 {
+                    yield $iden
+                    $lib.print($node)
+                    delnode --deledges --force
+                }
+            '''
+            opts = {'vars': {'iden': iden, 'fork00': fork00['iden']}}
+            await core.callStorm(q, opts=opts)
+
+            sodes = await s_t_utils.alist(layr00.getStorNodesByForm('inet:ipv4'))
+            self.len(0, sodes)

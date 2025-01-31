@@ -131,7 +131,7 @@ class AstTest(s_test.SynTest):
             self.stormIsInWarn('Storm search interface is not enabled!', msgs)
 
         async with self.getTestCore() as core:
-            await core.loadStormPkg({
+            core.loadStormPkg({
                 'name': 'testsearch',
                 'modules': [
                     {'name': 'testsearch', 'interfaces': ['search'], 'storm': '''
@@ -292,11 +292,11 @@ class AstTest(s_test.SynTest):
         async with self.getTestCore() as core:
             q = '''
                 [test:str=another :hehe=asdf]
-                $s = $lib.text("Foo")
+                $s = ("Foo",)
                 $newvar=:hehe
                 -.created
-                $s.add("yar {x}", x=$newvar)
-                $lib.print($s.str())
+                $s.append("yar {x}", x=$newvar)
+                $lib.print($lib.str.join('', $s))
             '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
@@ -404,6 +404,93 @@ class AstTest(s_test.SynTest):
 
             q = 'test:str=foo $newp=($node.repr(), bar) [*$newp=foo]'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+    async def test_ast_condsetoper(self):
+        async with self.getTestCore() as core:
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*unset=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*unset=newp]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*$foo=newp]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=always [test:str=foo :$var*$foo=yep]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('yep', nodes[0].get('hehe'))
+
+            q = '[test:str=foo -:hehe]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=never [test:str=foo :$var*$foo=yep]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('hehe'))
+
+            q = '$var=hehe $foo=unset [test:str=foo :$var*$foo=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('heval', nodes[0].get('hehe'))
+
+            with self.raises(s_exc.BadTypeValu):
+                q = '$var=tick $foo=always [test:str=foo :$var*$foo=heval]'
+                nodes = await core.nodes(q)
+
+            q = '$var=tick $foo=always [test:str=foo :$var*$foo?=heval]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.none(nodes[0].get('tick'))
+
+            q = '''
+            $opts=({"tick": "unset", "hehe": "always"})
+            [ test:str=foo
+                :hehe*$opts.hehe=newv
+                :tick*$opts.tick?=2020]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('newv', nodes[0].get('hehe'))
+            tick = nodes[0].get('tick')
+            self.nn(tick)
+
+            q = '''
+            $opts=({"tick": "never", "hehe": "unset"})
+            [ test:str=foo
+                :hehe*$opts.hehe=newp
+                :tick*$opts.tick?=2020]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq('newv', nodes[0].get('hehe'))
+            self.eq(tick, nodes[0].get('tick'))
+
+            q = '$foo=always [test:str=foo :tick*$foo?=2021]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.ne(tick, nodes[0].get('tick'))
+
+            with self.raises(s_exc.IsReadOnly):
+                q = '[test:str=foo :hehe*unset=heval]'
+                nodes = await core.nodes(q, opts={'readonly': True})
+
+            with self.raises(s_exc.NoSuchProp):
+                q = '[test:str=foo :newp*unset=heval]'
+                nodes = await core.nodes(q)
+
+            with self.raises(s_exc.StormRuntimeError):
+                q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
+                nodes = await core.nodes(q)
 
     async def test_ast_editparens(self):
 
@@ -1070,10 +1157,10 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(1, 2, 3) ]')
             nodes = await core.nodes('[ test:arrayprop="*" :ints=(100, 101, 102) ]')
-            nodes = await core.nodes('test:arrayprop +:ints=$lib.list(1,2,3)')
+            nodes = await core.nodes('test:arrayprop +:ints=([1,2,3])')
             self.len(1, nodes)
 
-            nodes = await core.nodes('test:arrayprop:ints=$lib.list(1,2,3)')
+            nodes = await core.nodes('test:arrayprop:ints=([1,2,3])')
             self.len(1, nodes)
 
             with self.raises(s_exc.NoSuchProp):
@@ -1232,7 +1319,7 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            nodes = await core.nodes('[ test:arrayprop=* :strs={return ($lib.list(a,b,c,d))} ]')
+            nodes = await core.nodes('[ test:arrayprop=* :strs={return ((a,b,c,d))} ]')
             self.len(1, nodes)
             self.len(4, nodes[0].get('strs'))
 
@@ -1351,7 +1438,7 @@ class AstTest(s_test.SynTest):
                     {n.ndef for n in nodes})
 
             msgs = await core.stormlist('pkg.list')
-            self.stormIsInPrint('foo                             : 0.0.1', msgs)
+            self.stormIsInPrint('foo 0.0.1', msgs, whitespace=False)
 
             msgs = await core.stormlist('pkg.del asdf')
             self.stormIsInPrint('No package names match "asdf". Aborting.', msgs)
@@ -1870,7 +1957,7 @@ class AstTest(s_test.SynTest):
             self.len(0, await core.nodes('init { function x() { return((0)) } }'))
 
             # Can't use a mutable variable as a default
-            q = '$var=$lib.list(1,2,3) function badargs(x=foo, y=$var) {} $badargs()'
+            q = '$var=([1,2,3]) function badargs(x=foo, y=$var) {} $badargs()'
             msgs = await core.stormlist(q)
             erfo = [m for m in msgs if m[0] == 'err'][0]
             self.eq(erfo[1][0], 'StormRuntimeError')
@@ -2648,12 +2735,12 @@ class AstTest(s_test.SynTest):
 
             q = 'function func(arg) { auth.user.addrule root $arg | return () } $func(hehe.haha)'
             msgs = await core.stormlist(q, opts={'readonly': True})
-            self.stormIsInErr('Function (_methUserAddRule) is not marked readonly safe.', msgs)
+            self.stormIsInErr('auth:user.addRule() is not marked readonly safe.', msgs)
 
     async def test_ast_yield(self):
 
         async with self.getTestCore() as core:
-            q = '$nodes = $lib.list() [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes'
+            q = '$nodes = () [ inet:asn=10 inet:asn=20 ] $nodes.append($node) | spin | yield $nodes'
             nodes = await core.nodes(q)
             self.len(2, nodes)
 
@@ -3112,6 +3199,54 @@ class AstTest(s_test.SynTest):
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('haha', text[off:end])
+
+            text = '$lib.newp'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('newp', text[off:end])
+
+            visi = (await core.addUser('visi'))['iden']
+            text = '$users=$lib.auth.users.list() $lib.print($users.0.profile)'
+            msgs = await core.stormlist(text, opts={'user': visi})
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.print($users.0.profile)', text[off:end])
+
+            text = '$lib.len(foo, bar)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.len(foo, bar)', text[off:end])
+            self.stormIsInErr('$lib.len()', msgs)
+
+            text = '$foo=$lib.pkg.get $foo()'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('foo()', text[off:end])
+            self.stormIsInErr('$lib.pkg.get()', msgs)
+
+            text = '$obj = $lib.pipe.gen(${ $obj.put() }) $obj.put(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('obj.put(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('pipe.put()', msgs)
+
+            text = '$lib.gen.campaign(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('lib.gen.campaign(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.gen.campaign()', msgs)
+
+            text = '$gen = $lib.gen.campaign $gen(foo, bar, baz)'
+            msgs = await core.stormlist(text)
+            errm = [m for m in msgs if m[0] == 'err'][0]
+            off, end = errm[1][1]['highlight']['offsets']
+            self.eq('gen(foo, bar, baz)', text[off:end])
+            self.stormIsInErr('$lib.gen.campaign()', msgs)
 
     async def test_ast_bulkedges(self):
 
@@ -4100,3 +4235,454 @@ class AstTest(s_test.SynTest):
             q = 'media:news=(m0,) [-:published]'
             msgs = await core.stormlist(q, opts=aslow)
             self.stormIsInErr('must have permission node.prop.del.media:news.published', msgs)
+
+    async def test_ast_path_links(self):
+
+        async with self.getTestCore() as core:  # type: s_cortex.Cortex
+            guid = s_common.guid()
+            opts = {'vars': {'guid': guid}}
+
+            burr = (await core.nodes('[test:comp=(1234, burrito)]'))[0]
+            guid = (await core.nodes('[test:guid=$guid :size=176 :tick=now]', opts=opts))[0]
+            edge = (await core.nodes('[test:edge=(("test:guid", $guid), ("test:str", abcd))]', opts=opts))[0]
+            comp = (await core.nodes('[test:complexcomp=(1234, STUFF) +#foo.bar]'))[0]
+            tstr = (await core.nodes('[test:str=foobar :bar=(test:ro, "ackbar") :ndefs=((test:guid, $guid), (test:auto, "auto"))]', opts=opts))[0]
+            arry = (await core.nodes('[test:arrayprop=* :ints=(3245, 678) :strs=("foo", "bar", "foobar")]'))[0]
+            ostr = (await core.nodes('test:str=foo [ :bar=(test:ro, "ackbar") :ndefs=((test:int, 176), )]'))[0]
+            pstr = (await core.nodes('test:str=bar [ :ndefs=((test:guid, $guid), (test:auto, "auto"), (test:ro, "ackbar"))]', opts=opts))[0]
+            (await core.nodes('[test:arrayform=(1234, 176)]'))[0]
+            (await core.nodes('[test:arrayform=(3245, 678)]'))[0]
+
+            await core.nodes('test:int=176 [ <(seen)+ { test:guid } ]')
+            await core.nodes('test:int=176 [ <(someedge)+ { test:guid } ]')
+            await core.nodes('test:complexcomp [ <(refs)+ { test:arrayprop } ]')
+            await core.nodes('test:complexcomp [ +(concerns)> { test:ro } ]')
+            await core.nodes('test:edge [ <(seen)+ { test:guid } ]')
+
+            small = (await core.nodes('test:int=176'))[0]
+            large = (await core.nodes('test:int=1234'))[0]
+            auto = (await core.nodes('test:auto'))[0]
+            basetag = (await core.nodes('syn:tag=foo'))[0]
+            tag = (await core.nodes('syn:tag=foo.bar'))[0]
+            ro = (await core.nodes('test:ro'))[0]
+
+            def _assert_edge(msgs, src, edge, nidx=0, eidx=0):
+                nodes = [m[1] for m in msgs if m[0] == 'node']
+                links = nodes[nidx][1].get('links')
+                self.nn(links)
+                self.lt(eidx, len(links))
+                self.eq(links[eidx], (src.iden(), edge))
+
+            opts = {'links': True}
+
+            # non-runtsafe lift could be anything
+            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts={'links': True, 'vars': {'form': 'inet:ipv4'}})
+            _assert_edge(msgs, tstr, {'type': 'runtime'}, nidx=1)
+
+            # FormPivot
+            # -> baz:ndef
+            msgs = await core.stormlist('test:guid -> test:edge:n1', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'n1', 'reverse': True})
+
+            # plain old pivot
+            msgs = await core.stormlist('test:int=176 -> test:guid:size', opts=opts)
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
+
+            # graph edge dest form uses n1 automagically
+            msgs = await core.stormlist('test:guid -> test:edge', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'n1', 'reverse': True})
+
+            # <syn:tag> -> <form>
+            msgs = await core.stormlist('syn:tag=foo.bar -> test:complexcomp', opts=opts)
+            _assert_edge(msgs, tag, {'type': 'tag', 'tag': 'foo.bar', 'reverse': True})
+
+            # source node is a graph edge, use n2
+            msgs = await core.stormlist('test:edge -> test:str', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n2'})
+
+            # refs out - prop
+            msgs = await core.stormlist('test:complexcomp -> test:int', opts=opts)
+            _assert_edge(msgs, comp, {'type': 'prop', 'prop': 'foo'})
+
+            # refs out - array
+            msgs = await core.stormlist('test:arrayprop -> test:int', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
+
+            # refs out - ndef
+            msgs = await core.stormlist('test:str -> test:ro', opts=opts)
+            _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
+            _assert_edge(msgs, ostr, {'type': 'prop', 'prop': 'bar'}, nidx=1)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'}, nidx=2)
+
+            # refs out - ndefarray
+            msgs = await core.stormlist('test:str -> test:auto', opts=opts)
+            _assert_edge(msgs, pstr, {'type': 'prop', 'prop': 'ndefs'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
+
+            # reverse prop refs
+            msgs = await core.stormlist('test:int -> test:complexcomp', opts=opts)
+            _assert_edge(msgs, large, {'type': 'prop', 'prop': 'foo', 'reverse': True})
+
+            # reverse array refs
+            msgs = await core.stormlist('test:int -> test:arrayprop', opts=opts)
+            sixer = (await core.nodes('test:int=678'))[0]
+            thou = (await core.nodes('test:int=3245'))[0]
+            _assert_edge(msgs, sixer, {'type': 'prop', 'prop': 'ints', 'reverse': True})
+            _assert_edge(msgs, thou, {'type': 'prop', 'prop': 'ints', 'reverse': True}, nidx=1)
+
+            # reverse ndef refs
+            msgs = await core.stormlist('test:ro -> test:str', opts=opts)
+            _assert_edge(msgs, ro, {'type': 'prop', 'prop': 'bar', 'reverse': True})
+
+            # reverse ndefarray refs
+            msgs = await core.stormlist('test:auto -> test:str', opts=opts)
+            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs', 'reverse': True})
+
+            # PivotOut syn:tag
+            msgs = await core.stormlist('syn:tag -> *', opts=opts)
+            _assert_edge(msgs, basetag, {'type': 'tag', 'tag': 'foo', 'reverse': True})
+            _assert_edge(msgs, tag, {'type': 'tag', 'tag': 'foo.bar', 'reverse': True}, nidx=1)
+
+            # PivotOut edge uses n2 automatically
+            msgs = await core.stormlist('test:edge -> *', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n2'})
+
+            # PivotOut prop
+            msgs = await core.stormlist('test:guid -> *', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
+
+            # PivotOut prop array
+            msgs = await core.stormlist('test:arrayprop -> *', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'strs'}, nidx=2)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'strs'}, nidx=3)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'strs'}, nidx=4)
+
+            # PivotOut prop ndef and ndef array
+            msgs = await core.stormlist('test:str=foobar -> *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=2)
+
+            # PivotToTags
+            msgs = await core.stormlist('test:complexcomp -> #', opts=opts)
+            _assert_edge(msgs, comp, {'type': 'tag', 'tag': 'foo.bar'})
+
+            # PivotIn prop
+            msgs = await core.stormlist('test:int=176 <- *', opts=opts)
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
+
+            # PivotIn array prop
+            msgs = await core.stormlist('test:str=foobar <- *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'strs', 'reverse': True})
+
+            # PivotIn edge uses n1 automatically
+            msgs = await core.stormlist('test:edge <- *', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n1', 'reverse': True})
+
+            # PivotIn ndef
+            msgs = await core.stormlist('test:ro <- *', opts=opts)
+            _assert_edge(msgs, ro, {'type': 'prop', 'prop': 'bar', 'reverse': True})
+
+            # PivotIn array ndef
+            msgs = await core.stormlist('test:auto <- *', opts=opts)
+            _assert_edge(msgs, auto, {'type': 'prop', 'prop': 'ndefs', 'reverse': True})
+
+            # PivotInFrom "<- edge"
+            abcd = (await core.nodes('test:str=abcd'))[0]
+            msgs = await core.stormlist('test:str <- test:edge', opts=opts)
+            _assert_edge(msgs, abcd, {'type': 'prop', 'prop': 'n2', 'reverse': True})
+
+            # PivotInFrom "edge <- form"
+            msgs = await core.stormlist('test:edge <- test:guid', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'prop', 'prop': 'n1', 'reverse': True})
+
+            # PropPivotOut prop
+            msgs = await core.stormlist('test:guid :size -> *', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
+
+            # PropPivotOut ndef
+            msgs = await core.stormlist('test:str=foobar :bar -> *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'})
+
+            # PropPivotOut array
+            msgs = await core.stormlist('test:arrayprop :ints -> *', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
+
+            # PropPivotOut array ndef
+            msgs = await core.stormlist('test:str=foobar :ndefs -> *', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'}, nidx=1)
+
+            # PropPivot prop to form
+            msgs = await core.stormlist('test:guid :size -> test:int', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
+
+            # PropPivot ndef prop
+            msgs = await core.stormlist('test:str :bar -> test:ro', opts=opts)
+            _assert_edge(msgs, ostr, {'type': 'prop', 'prop': 'bar'})
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'bar'}, nidx=1)
+
+            # PropPivot array
+            msgs = await core.stormlist('test:arrayprop :ints -> test:int', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'}, nidx=1)
+
+            # PropPivot dst array primary prop
+            msgs = await core.stormlist('test:guid :size -> test:arrayform', opts=opts)
+            _assert_edge(msgs, guid, {'type': 'prop', 'prop': 'size'})
+
+            # PropPivot oops all arrays
+            msgs = await core.stormlist('test:arrayprop :ints -> test:arrayform', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'prop', 'prop': 'ints'})
+
+            # PropPivot src ndef array
+            msgs = await core.stormlist('test:str=foobar :ndefs -> test:guid', opts=opts)
+            _assert_edge(msgs, tstr, {'type': 'prop', 'prop': 'ndefs'})
+
+            # prop to prop
+            msgs = await core.stormlist('test:comp :hehe -> test:complexcomp:foo', opts=opts)
+            _assert_edge(msgs, burr, {'type': 'prop', 'prop': 'hehe', 'dest': 'test:complexcomp:foo'})
+
+            # N1Walk
+            msgs = await core.stormlist('test:arrayprop -(*)> *', opts=opts)
+            _assert_edge(msgs, arry, {'type': 'edge', 'verb': 'refs'})
+
+            # N2Walk
+            msgs = await core.stormlist('test:edge <(*)- *', opts=opts)
+            _assert_edge(msgs, edge, {'type': 'edge', 'verb': 'seen', 'reverse': True})
+
+            # N1WalkNPivo
+            msgs = await core.stormlist('test:complexcomp --> *', opts=opts)
+            _assert_edge(msgs, comp, {'type': 'prop', 'prop': 'foo'})
+            _assert_edge(msgs, comp, {'type': 'edge', 'verb': 'concerns'}, nidx=1)
+
+            # N2WalNkPivo
+            msgs = await core.stormlist('test:int=176 <-- *', opts=opts)
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'size', 'reverse': True})
+            _assert_edge(msgs, small, {'type': 'prop', 'prop': 'ndefs', 'reverse': True}, nidx=1)
+            _assert_edge(msgs, small, {'type': 'edge', 'verb': 'seen', 'reverse': True}, nidx=2)
+            _assert_edge(msgs, small, {'type': 'edge', 'verb': 'someedge', 'reverse': True}, nidx=3)
+
+    async def test_ast_varlistset(self):
+
+        async with self.getTestCore() as core:
+
+            opts = {'vars': {'blob': ('vertex.link', '9001')}}
+            text = '($fqdn, $crap) = $blob [ inet:fqdn=$fqdn ]'
+
+            nodes = await core.nodes(text, opts=opts)
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq(node.ndef, ('inet:fqdn', 'vertex.link'))
+
+            now = s_common.now()
+            ret = await core.callStorm('($foo, $bar)=$lib.cast(ival, $lib.time.now()) return($foo)')
+            self.ge(ret, now)
+
+            # The runtsafe invocation of the VarListSetOper is done per node.
+            q = '''
+            init { $count = ({ 'c': (0) }) }
+            function foo(){
+                $count.c = ( $count.c + (1) )
+                return((a, b))
+            }
+            inet:fqdn=vertex.link
+            ($a, $b) = $foo()
+            fini { return ( $count ) }
+            '''
+            valu = await core.callStorm(q)
+            self.eq(valu, {'c': 1})
+
+            text = '.created ($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
+            text = '($foo, $bar, $baz) = $blob'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text, opts)
+
+            text = 'for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = 'for ($x, $y) in ($lib.layer.get(),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormVarListError):
+                await core.nodes(text)
+
+            text = '[test:str=foo] for ($x, $y) in ((1),) { $lib.print($x) }'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+            text = '($x, $y) = (1)'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(text)
+
+    async def test_ast_functypes(self):
+
+        async with self.getTestCore() as core:
+
+            async def verify(q, isin=False):
+                msgs = await core.stormlist(q)
+                if isin:
+                    self.stormIsInPrint('yep', msgs)
+                else:
+                    self.stormNotInPrint('newp', msgs)
+                self.len(1, [m for m in msgs if m[0] == 'node'])
+                self.stormHasNoErr(msgs)
+
+            q = '''
+            function foo() {
+                for $n in { return((newp,)) } { $lib.print($n) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                while { return((newp,)) } { $lib.print(newp) break }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                switch $lib.print({ return(newp) }) { *: { $lib.print(newp) } }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                switch $foo { *: { $lib.print(yep) return() } }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q, isin=True)
+
+            q = '''
+            function foo() {
+                if { return(newp) } { $lib.print(newp) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif { return(newp) } { $lib.print(newp) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif (true) { $lib.print(yep) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif (false) { $lib.print(newp) }
+                else { $lib.print(yep) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q, isin=True)
+
+            q = '''
+            function foo() {
+                [ it:dev:str=foo +(refs)> { $lib.print(newp) return() } ]
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $lib.print({ return(newp) })
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $x = { $lib.print(newp) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                ($x, $y) = { $lib.print(newp) return((foo, bar)) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                $x = ({})
+                $x.y = { $lib.print(newp) return((foo, bar)) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                .created -({$lib.print(newp) return(refs)})> *
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                try { $lib.raise(boom) } catch { $lib.print(newp) return(newp) } as e {}
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)
+
+            q = '''
+            function foo() {
+                it:dev:str={ $lib.print(newp) return(test) }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            await verify(q)

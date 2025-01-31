@@ -617,7 +617,8 @@ async def processStormModules(rst, pkgname, modules):
 
             callsig = s_autodoc.genCallsig(apitype)
             rst.addHead(f'{apiname}{callsig}', lvl=4)
-
+            if depr := apidef.get('deprecated'):
+                rst.addLines(*s_autodoc.genDeprecationWarning(apiname, depr, True))
             rst.addLines(*s_autodoc.prepareRstLines(apidesc))
             rst.addLines(*s_autodoc.getArgLines(apitype))
             rst.addLines(*s_autodoc.getReturnLines(apitype))

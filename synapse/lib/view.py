@@ -1,20 +1,17 @@
 import shutil
 import asyncio
-import hashlib
 import logging
-import itertools
 import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.snap as s_snap
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.scope as s_scope
-import synapse.lib.config as s_config
+import synapse.lib.storm as s_storm
 import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
@@ -638,7 +635,6 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
-
         '''
         We spent a lot of time thinking/talking about this so some hefty
         comments are in order:
@@ -824,6 +820,53 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return count
 
+    async def iterPropValues(self, propname):
+        prop = self.core.model.reqProp(propname)
+
+        formname = None
+        propname = None
+
+        if prop.isform:
+            formname = prop.name
+        else:
+            propname = prop.name
+            if not prop.isuniv:
+                formname = prop.form.name
+
+        async def wrapgenr(lidx, genr):
+            async for indx, valu in genr:
+                yield indx, valu, lidx
+
+        genrs = []
+        for lidx, layr in enumerate(self.layers):
+            genr = layr.iterPropValues(formname, propname, prop.type.stortype)
+            genrs.append(wrapgenr(lidx, genr))
+
+        lastvalu = None
+        async for indx, valu, lidx in s_common.merggenr2(genrs):
+            if valu == lastvalu:
+                continue
+
+            if lidx == 0 or propname is None:
+                lastvalu = valu
+                yield valu
+            else:
+                valid = False
+                async for buid in self.layers[lidx].iterPropIndxBuids(formname, propname, indx):
+                    for layr in self.layers[0:lidx]:
+                        if (sode := layr._getStorNode(buid)) is None:
+                            continue
+
+                        if sode['props'].get(propname) is not None:
+                            break
+                    else:
+                        valid = True
+
+                    if valid:
+                        lastvalu = valu
+                        yield valu
+                        break
+
     async def getEdgeVerbs(self):
 
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as vset:
@@ -909,6 +952,15 @@ class View(s_nexus.Pusher):  # type: ignore
                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
             raise
 
+        except (s_stormctrl.StormLoopCtrl, s_stormctrl.StormGenrCtrl) as e:
+            if isinstance(e, s_stormctrl.StormLoopCtrl):
+                mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
+            else:
+                mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
+            logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
+            logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
+
         except Exception:
             logger.exception(f'Error during callStorm execution for {{ {text} }}',
                              extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
@@ -957,7 +1009,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'count', 'none'):
             raise s_exc.BadConfValu(mesg=f'invalid edit format, got {editformat}', name='editformat', valu=editformat)
 
-        texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+        texthash = s_storm.queryhash(text)
 
         async def runStorm():
             cancelled = False
@@ -1011,8 +1063,17 @@ class View(s_nexus.Pusher):  # type: ignore
                 raise
 
             except Exception as e:
-                logger.exception(f'Error during storm execution for {{ {text} }}',
-                                 extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+                mesg = ''
+                if isinstance(e, s_stormctrl.StormLoopCtrl):
+                    mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
+                    e = s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight'))
+                elif isinstance(e, s_stormctrl.StormGenrCtrl):
+                    mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
+                    e = s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight'))
+                logmesg = f'Error during storm execution for {{ {text} }}'
+                if mesg:
+                    logmesg = f'{logmesg} - {mesg}'
+                logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
@@ -1267,6 +1328,14 @@ class View(s_nexus.Pusher):  # type: ignore
                 await self.core.feedBeholder('view:setlayers', {'iden': child.iden, 'layers': lids}, gates=[child.iden, lids[0]])
 
                 todo.append(child)
+
+    async def children(self):
+        for view in list(self.core.views.values()):
+            if view.parent != self:
+                await asyncio.sleep(0)
+                continue
+
+            yield view
 
     async def insertParentFork(self, useriden, name=None):
         '''
@@ -1567,9 +1636,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if trig is not None:
             return self.triggers.get(tdef['iden']).pack()
 
-        gate = self.core.auth.getAuthGate(tdef['iden'])
-        if gate is not None:
-            raise s_exc.DupIden(mesg='An AuthGate with this iden already exists')
+        self.core.auth.reqNoAuthGate(tdef['iden'])
 
         user = self.core.auth.user(tdef['user'])
         await self.core.getStormQuery(tdef['storm'])

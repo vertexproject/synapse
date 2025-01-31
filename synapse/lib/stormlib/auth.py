@@ -583,11 +583,25 @@ stormcmds = (
     {
         'name': 'auth.perms.list',
         'descr': 'Display a list of the current permissions defined within the Cortex.',
-        'cmdargs': (),
+        'cmdargs': (
+            ('--find', {'type': 'str', 'help': 'A search string for permissions.'}),
+        ),
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
                 $perm = $lib.str.join(".", $pdef.perm)
+
+                if $cmdopts.find {
+                    $find = $cmdopts.find.lower()
+                    $match = (
+                        $perm.lower().find($find) != (null) or
+                        $pdef.desc.lower().find($find) != (null) or
+                        $pdef.gate.lower().find($find) != (null) or
+                        ($pdef.ex and $pdef.ex.lower().find($find) != (null))
+                    )
+
+                    if (not $match) { continue }
+                }
 
                 $lib.print($perm)
                 $lib.print(`    {$pdef.desc}`)
@@ -877,7 +891,7 @@ class User(s_stormtypes.Prim):
         ''',
          'type': {'type': 'function', '_funcname': '_methUserSetRoles',
                   'args': (
-                      {'name': 'idens', 'type': 'list', 'desc': 'The idens to  of the Role.', },
+                      {'name': 'idens', 'type': 'list', 'desc': 'The idens of the Roles to set on the User.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'revoke', 'desc': 'Remove a Role from the User',
@@ -1969,6 +1983,7 @@ class LibRoles(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_methRolesAdd',
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the role.', },
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden to assign to the new role.', 'default': None},
                   ),
                   'returns': {'type': 'auth:role', 'desc': 'The new role object.', }}},
         {'name': 'del', 'desc': 'Delete a Role from the Cortex.',
@@ -2028,10 +2043,11 @@ class LibRoles(s_stormtypes.Lib):
         if rdef is not None:
             return Role(self.runt, rdef['iden'])
 
-    async def _methRolesAdd(self, name):
+    async def _methRolesAdd(self, name, iden=None):
         if not self.runt.allowed(('auth', 'role', 'add')):
             self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'add'))
-        rdef = await self.runt.snap.core.addRole(name)
+        iden = await s_stormtypes.tostr(iden, noneok=True)
+        rdef = await self.runt.snap.core.addRole(name, iden=iden)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):

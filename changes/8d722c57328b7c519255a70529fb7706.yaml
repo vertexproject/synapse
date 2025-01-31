@@ -1,0 +1,5 @@
+---
+desc: Generated ``entity:name`` nodes for existing ``transport:sea:vessel:name`` properties.
+prs: []
+type: migration
+...

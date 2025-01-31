@@ -1,5 +1,7 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.stormsvc as s_stormsvc
 
@@ -45,6 +47,47 @@ class TestService(s_stormsvc.StormSvc):
     )
 
 class SynModelTest(s_t_utils.SynTest):
+
+    async def test_syn_userrole(self):
+
+        async with self.getTestCore() as core:
+
+            (ok, iden) = await core.callStorm('return($lib.trycast(syn:user, root))')
+            self.true(ok)
+            self.eq(iden, core.auth.rootuser.iden)
+
+            # coverage for iden taking precedence
+            (ok, iden) = await core.callStorm(f'return($lib.trycast(syn:user, {iden}))')
+            self.true(ok)
+            self.eq(iden, core.auth.rootuser.iden)
+
+            self.eq('root', await core.callStorm(f'return($lib.repr(syn:user, {iden}))'))
+
+            (ok, iden) = await core.callStorm('return($lib.trycast(syn:role, all))')
+            self.true(ok)
+            self.eq(iden, core.auth.allrole.iden)
+
+            # coverage for iden taking precedence
+            (ok, iden) = await core.callStorm(f'return($lib.trycast(syn:role, {iden}))')
+            self.true(ok)
+            self.eq(iden, core.auth.allrole.iden)
+
+            self.eq('all', await core.callStorm(f'return($lib.repr(syn:role, {iden}))'))
+
+            # coverage for DataModel without a cortex reference
+            iden = s_common.guid()
+
+            model = core.model
+            model.core = None
+
+            synuser = model.type('syn:user')
+            synrole = model.type('syn:user')
+
+            self.eq(iden, synuser.repr(iden))
+            self.eq(iden, synrole.repr(iden))
+
+            self.eq(iden, synuser.norm(iden)[0])
+            self.eq(iden, synrole.norm(iden)[0])
 
     async def test_syn_tag(self):
 
@@ -319,6 +362,93 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:tagprop')
                 self.len(0, nodes)
 
+        async with self.getTestCore() as core:
+                # Check we can iterate runt nodes while changing the underlying dictionary
+
+                numforms = len(core.model.forms)
+
+                q = '''
+                init {
+                    $forms = ()
+                    $count = (0)
+                }
+
+                syn:form
+
+                $forms.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $info = ({"doc": "test taxonomy", "interfaces": ["meta:taxonomy"]})
+                    $lib.model.ext.addForm(_test:taxonomy, taxonomy, ({}), $info)
+                }
+
+                spin |
+
+                fini { return($forms) }
+                '''
+
+                forms = await core.callStorm(q)
+                self.len(numforms, forms)
+                self.len(numforms + 1, core.model.forms)
+
+                numtypes = len(core.model.types)
+                q = '''
+                init {
+                    $types = ()
+                    $count = (0)
+                }
+
+                syn:type
+
+                $types.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $typeopts = ({"lower": true, "onespace": true})
+                    $typeinfo = ({"doc": "A test type doc."})
+                    $lib.model.ext.addType(_test:type, str, $typeopts, $typeinfo)
+                }
+
+                spin |
+
+                fini { return($types) }
+                '''
+
+                types = await core.callStorm(q)
+                self.len(numtypes, types)
+                self.len(numtypes + 1, core.model.types)
+
+                q = '''
+                init {
+                    $tagprops = ()
+                    $count = (0)
+                    $lib.model.ext.addTagProp(cypher, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(trinity, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(morpheus, (str, ({})), ({}))
+                }
+
+                syn:tagprop
+
+                $tagprops.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $lib.model.ext.addTagProp(neo, (str, ({})), ({}))
+                }
+
+                spin |
+
+                fini { return($tagprops) }
+                '''
+
+                tagprops = await core.callStorm(q)
+                self.len(3, tagprops)
+                self.len(4, core.model.tagprops)
+
     async def test_syn_trigger_runts(self):
         async with self.getTestCore() as core:
             nodes = await core.nodes('syn:trigger')
@@ -340,10 +470,21 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(f'syn:trigger={iden}')
             self.len(1, nodes)
 
+            indx = await core.getNexsIndx()
+
             # set the trigger doc
             nodes = await core.nodes(f'syn:trigger={iden} [ :doc=hehe ]')
             self.len(1, nodes)
             self.eq('hehe', nodes[0].get('doc'))
+
+            self.eq(await core.getNexsIndx(), indx + 1)
+
+            # set the trigger name
+            nodes = await core.nodes(f'syn:trigger={iden} [ :name=trigname ]')
+            self.len(1, nodes)
+            self.eq('trigname', nodes[0].get('name'))
+
+            self.eq(await core.getNexsIndx(), indx + 2)
 
             # Trigger reloads and make some more triggers to play with
             tdef = {'cond': 'prop:set', 'prop': 'inet:ipv4:asn', 'storm': '[inet:user=1] | testcmd'}
@@ -411,6 +552,42 @@ class SynModelTest(s_t_utils.SynTest):
             pode = nodes[0].pack()
             self.eq(pode[0][1], iden)
 
+        async with self.getTestCore() as core:
+                # Check we can iterate runt nodes while changing the underlying dictionary
+
+                tdef = {'cond': 'node:add', 'form': 'it:dev:str', 'storm': '[inet:user=1] | testcmd'}
+                await core.view.addTrigger(tdef)
+
+                tdef = {'cond': 'node:add', 'form': 'it:dev:str', 'storm': '[inet:user=2] | testcmd'}
+                await core.view.addTrigger(tdef)
+
+                q = '''
+                init {
+                    $trigs = ()
+                    $count = (0)
+                }
+
+                syn:trigger
+
+                $trigs.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $lib.trigger.add($tdef)
+                }
+
+                spin |
+
+                fini { return($trigs) }
+                '''
+
+                tdef = {'cond': 'node:add', 'form': 'it:dev:str', 'storm': '[inet:user=3] | testcmd'}
+                opts = {'vars': {'tdef': tdef}}
+                triggers = await core.callStorm(q, opts=opts)
+                self.len(2, triggers)
+                self.len(3, core.view.triggers.triggers)
+
     async def test_syn_cmd_runts(self):
 
         async with self.getTestDmon() as dmon:
@@ -435,10 +612,16 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
 
-                await core.nodes(f'service.add test {url}')
-                iden = core.getStormSvcs()[0].iden
+                with self.getLoggerStream('synapse.cortex') as stream:
+                    await core.nodes(f'service.add test {url}')
+                    iden = core.getStormSvcs()[0].iden
 
-                await core.nodes('$lib.service.wait(test)')
+                    await core.nodes('$lib.service.wait(test)')
+
+                stream.seek(0)
+                warn = "Storm command definition 'forms' key is deprecated and will be removed " \
+                       "in 3.0.0 (command foobar in package foo)"
+                self.isin(warn, stream.read())
 
                 # check that runt nodes for new commands are created
                 nodes = await core.nodes('syn:cmd +:package')
@@ -500,6 +683,49 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('output'), ('inet:fqdn',))
                 self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
 
+        async with self.getTestCore() as core:
+                # Check we can iterate runt nodes while changing the underlying dictionary
+
+                numcmds = len(core.stormcmds)
+
+                stormpkg = {
+                    'name': 'stormpkg',
+                    'version': '1.2.3',
+                    'synapse_version': '>=2.8.0,<3.0.0',
+                    'commands': (
+                        {
+                         'name': 'pkgcmd.old',
+                         'storm': '$lib.print(hi)',
+                        },
+                    ),
+                }
+
+                q = '''
+                init {
+                    $cmds = ()
+                    $count = (0)
+                }
+
+                syn:cmd
+
+                $cmds.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $lib.pkg.add($pkgdef)
+                }
+
+                spin |
+
+                fini { return($cmds) }
+                '''
+
+                opts = {'vars': {'pkgdef': stormpkg}}
+                cmds = await core.callStorm(q, opts=opts)
+                self.len(numcmds, cmds)
+                self.len(numcmds + 1, core.stormcmds)
+
     async def test_syn_cron_runts(self):
 
         async with self.getTestCore() as core:
@@ -528,3 +754,35 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('syn:cron', iden))
             self.eq(nodes[0].get('doc'), 'hehe')
             self.eq(nodes[0].get('name'), 'haha')
+
+        async with self.getTestCore() as core:
+                # Check we can iterate runt nodes while changing the underlying dictionary
+
+                q = '''
+                init {
+                    $appts = ()
+                    $count = (0)
+
+                    cron.add --hour 1 --day 1 {#foo} |
+                    cron.add --hour 2 --day 1 {#foo} |
+                    cron.add --hour 3 --day 1 {#foo}
+                }
+
+                syn:cron
+
+                $appts.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    cron.add  --hour 4 --day 1 {#foo}
+                }
+
+                spin |
+
+                fini { return($appts) }
+                '''
+
+                appts = await core.callStorm(q)
+                self.len(3, appts)
+                self.len(4, core.agenda.appts)

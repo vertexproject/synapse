@@ -18,6 +18,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
+            node = nodes[0]
             self.eq('visiland', nodes[0].get('name'))
             self.eq(('visitopia',), nodes[0].get('names'))
             self.eq(1640995200000, nodes[0].get('founded'))
@@ -28,6 +29,9 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq(('pesos', 'usd', 'vcoins'), nodes[0].get('currencies'))
             self.len(2, await core.nodes('pol:country -> geo:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
+
+            self.len(1, nodes := await core.nodes('[ pol:country=({"name": "visitopia"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''
                     [ pol:vitals=*
@@ -108,6 +112,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ pol:candidate=*
+                    :id=" P00009423"
                     :race={pol:race}
                     :contact={[ps:contact=* :name=whippit]}
                     :winner=$lib.true
@@ -116,6 +121,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.eq(1, nodes[0].get('winner'))
+            self.eq('P00009423', nodes[0].get('id'))
             self.len(1, await core.nodes('pol:candidate -> pol:race'))
             self.len(1, await core.nodes('pol:candidate -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('pol:candidate -> ps:contact +:name=whippit'))

@@ -63,6 +63,12 @@ class DataModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadFormDef):
                 core.model.addForm('woot:two', {}, ())
 
+            with self.raises(s_exc.NoSuchForm):
+                core.model.reqForm('newp:newp')
+
+            with self.raises(s_exc.NoSuchProp):
+                core.model.reqForm('inet:asn').reqProp('newp')
+
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
         mods = (
@@ -328,3 +334,11 @@ class DataModelTest(s_t_utils.SynTest):
             self.none(core.model.edge(('meta:rule', 'matches', None)))
 
             core.model.delEdge(('meta:rule', 'matches', None))
+
+    async def test_datamodel_locked_subs(self):
+
+        async with self.getTestCore() as core:
+            await core.setDeprLock('it:prod:softver:semver:major', True)
+            nodes = await core.nodes('[ it:prod:softver=* :semver=3.1.0 ]')
+            self.none(nodes[0].get('semver:major'))
+            self.eq(1, nodes[0].get('semver:minor'))

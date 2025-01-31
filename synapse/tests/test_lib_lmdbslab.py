@@ -1,5 +1,4 @@
 import os
-import json
 import asyncio
 import pathlib
 import multiprocessing
@@ -15,7 +14,6 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 def getFileMapCount(filename):
     filename = str(filename)
@@ -295,8 +293,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
             self.eq(items, ((b'\x00\x02', b'haha'), (b'\x00\x01', b'hehe')))
 
             # Copy a database inside the same slab
-            self.raises(s_exc.DataAlreadyExists, slab.copydb, foo, slab, 'bar')
-            self.eq(3, slab.copydb(foo, slab, 'foo2'))
+            with self.raises(s_exc.DataAlreadyExists):
+                await slab.copydb(foo, slab, 'bar')
+            self.eq(3, await slab.copydb(foo, slab, 'foo2'))
 
             # Increase the size of the new source DB to trigger a resize on the next copydb
             foo2 = slab.initdb('foo2')
@@ -312,7 +311,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path2, map_size=512 * 1024) as slab2:
                 with patch('synapse.lib.lmdbslab.PROGRESS_PERIOD', 2):
 
-                    self.eq(4, slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
+                    self.eq(4, await slab.copydb(foo2, slab2, destdbname='foo2', progresscb=progfunc))
                     self.gt(vardict.get('prog', 0), 0)
 
             # Test slab.drop and slab.dbexists
@@ -339,9 +338,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # Ensure that our envar override for memory locking is acknowledged
             with self.setTstEnvars(SYN_LOCKMEM_DISABLE='1'):
-                slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
-                self.false(slab.lockmemory)
-                self.none(slab.memlocktask)
+                async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab:
+                    self.false(slab.lockmemory)
+                    self.none(slab.memlocktask)
 
     def simplenow(self):
         self._nowtime += 1000
@@ -359,8 +358,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
                 self.true(await stream.wait(timeout=1))
 
-            data = stream.getvalue()
-            msgs = [json.loads(m) for m in data.split('\\n') if m]
+            msgs = stream.jsonlines()
             self.gt(len(msgs), 0)
             self.nn(msgs[0].get('delta'))
             self.nn(msgs[0].get('path'))
@@ -808,7 +806,8 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 self.raises(s_exc.IsReadOnly, newdb.replace, b'1234', b'3456')
                 self.raises(s_exc.IsReadOnly, newdb.pop, b'1234')
                 self.raises(s_exc.IsReadOnly, newdb.delete, b'1234')
-                self.raises(s_exc.IsReadOnly, newdb.putmulti, ((b'1234', b'3456'),))
+                with self.raises(s_exc.IsReadOnly):
+                    await newdb.putmulti((b'1234', b'3456'))
 
                 # While we have the DB open in readonly, have another process write a bunch of data to cause the
                 # map size to be increased
@@ -836,7 +835,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 # A putmulti across a grow
                 before_mapsize = slab.mapsize
                 kvpairs = [(x, x) for x in data]
-                retn = slab.putmulti(kvpairs)
+                retn = await slab.putmulti(kvpairs)
                 self.eq(retn, (1000, 1000))
 
                 after_mapsize1 = slab.mapsize
@@ -844,7 +843,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 # A putmulti across a grow with a generator passed in
                 kvpairs = ((b' ' + x, x) for x in data)
-                retn = slab.putmulti(kvpairs)
+                retn = await slab.putmulti(kvpairs)
                 self.eq(retn, (1000, 1000))
                 after_mapsize2 = slab.mapsize
                 self.gt(after_mapsize2, after_mapsize1)
@@ -1011,7 +1010,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
                 slab.initdb('foo')
                 kvpairs = [(x, x) for x in data]
-                slab.putmulti(kvpairs)
+                await slab.putmulti(kvpairs)
                 slab.forcecommit()
                 before_mapsize = slab.mapsize
                 slab.dropdb('foo')
@@ -1029,7 +1028,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
             async with await s_lmdbslab.Slab.anit(path, map_size=32000, growsize=5000) as slab:
                 slab.initdb('foo')
                 kvpairs = [(x, x) for x in data]
-                slab.putmulti(kvpairs)
+                await slab.putmulti(kvpairs)
                 slab.forcecommit()
 
         asyncio.run(workloop())
@@ -1047,7 +1046,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
                 proc = mpctx.Process(target=self.make_slab, args=(path,))
                 proc.start()
-                proc.join(10)
+                proc.join(20)
                 self.nn(proc.exitcode)
                 slab.initdb('foo')
                 self.true(True)

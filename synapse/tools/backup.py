@@ -148,7 +148,7 @@ def txnbackup(lmdbinfo, srcdir, dstdir, skipdirs=None):
     logger.debug(f'Backup complete. Took [{tock-tick:.2f}] for [{srcdir}]')
     return
 
-def backup_lmdb(env, dstdir, txn=None):
+def backup_lmdb(env: lmdb.Environment, dstdir: str, txn=None):
 
     tick = time.time()
 
@@ -157,7 +157,7 @@ def backup_lmdb(env, dstdir, txn=None):
     env.copy(dstdir, compact=True, txn=txn)
 
     tock = time.time()
-    logger.info(f'backup took: {tock-tick:.2f} seconds')
+    logger.info(f'backup of: {env.path()} took: {tock-tick:.2f} seconds')
 
 def main(argv):
     args = parse_args(argv)
