@@ -4,8 +4,6 @@ import msgspec.json as m_json
 
 import synapse.common as s_common
 
-_cb = lambda x: s_common.trimText(repr(x))
-
 class JsonFormatter(logging.Formatter):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,4 +38,4 @@ class JsonFormatter(logging.Formatter):
             ret.update({k: v for k, v in extras.items() if k not in ret})
 
         # TODO We have to scrub / control bytes here?
-        return m_json.encode(ret, enc_hook=_cb).decode()
+        return m_json.encode(s_common.makeJsonPrimSafe(ret)).decode()

@@ -141,7 +141,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 resp = await sess.head(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, 206)
                 self.eq(resp.headers.get('Secret-Header'), 'Head')
-                self.eq(resp.headers.get('Content-Length'), '14')
+                self.eq(resp.headers.get('Content-Length'), '13')
                 # HEAD had no body in its response
                 self.eq(await resp.read(), b'')
 
@@ -804,11 +804,11 @@ $request.reply(200, headers=$headers, body=$body)
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/raw')
                 self.eq(resp.status, 200)
                 self.eq(resp.headers.get('Content-Type'), 'application/json')
-                self.eq(resp.headers.get('Content-Length'), '12')
+                self.eq(resp.headers.get('Content-Length'), '11')
                 self.eq(resp.headers.get('Secret-Header'), 'OhBoy!')
 
                 buf = await resp.read()
-                self.len(12, buf)
+                self.len(11, buf)
                 self.eq(json.loads(buf), {'oh': 'my'})
 
     async def test_libcortex_httpapi_jsonlines(self):
@@ -1357,7 +1357,7 @@ for $i in $values {
                     self.eq(resp.status, 500)
                     data = await resp.json()
                     self.eq(data.get('code'), 'StormRuntimeError')
-                    self.isin('Failed to decode request body as JSON: Expecting value', data.get('mesg'))
+                    self.isin('Failed to decode request body as JSON: Input data was truncated', data.get('mesg'))
 
     async def test_cortex_httpapi_dynamic(self):
 

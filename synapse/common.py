@@ -989,6 +989,32 @@ def reqjsonsafe(item):
     except TypeError as e:
         raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
 
+_safe = lambda x: trimText(repr(x))
+def _makeJsonPrimSafe(item, func=_safe):
+    if item is None:
+        return item
+    if isinstance(item, (str, int, float)):
+        return item
+    if isinstance(item, dict):
+        newv = {}
+        for key, valu in item.items():
+            if not isinstance(key, (int, str)):
+                raise s_exc.MustBeJsonSafe(
+                    mesg=f'Dictionary key is not jsonsafe, key={trimText(repr(key))}, type={key.__class__.__name__}')
+            newv[key] = _makeJsonPrimSafe(valu, func=func)
+        return newv
+    if isinstance(item, (list, tuple)):
+        return [_makeJsonPrimSafe(obj) for obj in item]
+    return func(item)
+
+def makeJsonPrimSafe(item, func=_safe):
+    try:
+        reqJsonPrimSafe(item)
+    except s_exc.MustBeJsonSafe:
+        return _makeJsonPrimSafe(item, func=func)
+    else:
+        return item
+
 def jsonsafe_nodeedits(nodeedits):
     '''
     Hexlify the buid of each node:edits
