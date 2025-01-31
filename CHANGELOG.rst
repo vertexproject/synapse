@@ -28,10 +28,10 @@ Features and Enhancements
 - Added new ``getTasks()`` API which can include gathering tasks from peers
   via AHA.
   (`#3795 <https://github.com/vertexproject/synapse/pull/3795>`_)
-- Added a new aha.svc.mirror Storm command to query the status of the
+- Added a new ``aha.svc.mirror`` Storm command to query the status of the
   mirror clusters managed by the AHA server.
   (`#4019 <https://github.com/vertexproject/synapse/pull/4019>`_)
-- Added a new command-line tool synapse.tools.aha.mirror for querying the
+- Added a new command-line tool ``synapse.tools.aha.mirror`` for querying the
   status of service mirror clusters managed by the AHA server.
   (`#4019 <https://github.com/vertexproject/synapse/pull/4019>`_)
 - Added ``$lib.axon.read()`` and ``$lib.axon.unpack()`` Storm APIs.
