@@ -188,7 +188,7 @@ class OuModelTest(s_t_utils.SynTest):
                 [ ou:org=* :alias="ÅÆØåæø" ]
             ''')
             self.len(1, nodes)
-            self.eq(nodes[0].get('alias'), 'åæøåæø')
+            self.eq(t.norm('ÅÆØåæø')[0], 'åæøåæø')
 
             # ou:position / ou:org:subs
             orgiden = s_common.guid()
