@@ -2463,10 +2463,14 @@ class Runtime(s_base.Base):
 
 class Parser:
 
-    def __init__(self, prog=None, descr=None, root=None):
+    def __init__(self, prog=None, descr=None, root=None, model=None):
 
         if root is None:
             root = self
+
+        if model is None:
+            model = s_datamodel.Model()
+        self.model = model
 
         self.prog = prog
         self.descr = descr
@@ -2643,7 +2647,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
+                    valu = self.model.type(argtype).norm(valu)[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2666,7 +2670,7 @@ class Parser:
                 valu = todo.popleft()
                 if argtype is not None:
                     try:
-                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
+                        valu = self.model.type(argtype).norm(valu)[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2689,7 +2693,7 @@ class Parser:
 
                 if argtype is not None:
                     try:
-                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
+                        valu = self.model.type(argtype).norm(valu)[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2718,7 +2722,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
+                    valu = self.model.type(argtype).norm(valu)[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2945,7 +2949,7 @@ class Cmd:
         return self.__class__.__doc__
 
     def getArgParser(self):
-        return Parser(prog=self.getName(), descr=self.getDescr())
+        return Parser(prog=self.getName(), descr=self.getDescr(), model=self.runt.model)
 
     async def setArgv(self, argv):
 
