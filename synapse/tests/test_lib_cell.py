@@ -3442,8 +3442,8 @@ class CellTest(s_t_utils.SynTest):
             tasks = [task async for task in cell00.getTasks(timeout=6)]
 
             self.len(2, tasks)
-            self.eq(tasks[0]['service'], '0.cell.synapse')
-            self.eq(tasks[1]['service'], '1.cell.synapse')
+            self.eq(tasks[0]['service'], '00.cell.synapse')
+            self.eq(tasks[1]['service'], '01.cell.synapse')
             self.eq(('sleep99', 'sleep99'), [task.get('name') for task in tasks])
             self.eq(('root', 'root'), [task.get('username') for task in tasks])
 
