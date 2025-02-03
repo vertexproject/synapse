@@ -1035,8 +1035,17 @@ class Slab(s_base.Base):
             opts['maxsize'] = self.maxsize
         s_common.yamlmod(opts, self.optspath)
 
-    def _sync(self):
+    def _sync(self, coordinate=False):
+
         try:
+            if coordinate:
+                for slab in self.allslabs.values():
+                    if slab != self:
+                        try:
+                            slab.forcecommit()
+                        except lmdb.MapFullError:
+                            slab._handle_mapfull()
+
             self.forcecommit()
         except lmdb.MapFullError:
             self._handle_mapfull()
@@ -1772,7 +1781,7 @@ class Slab(s_base.Base):
                                  append=append, db=db)
 
         if len(self.xactops) >= self.max_xactops_len:
-            self._sync()
+            self._sync(coordinate=True)
 
         return retn
 
