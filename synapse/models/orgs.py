@@ -94,8 +94,9 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The name of an industry.',
                 }),
                 ('ou:alias', ('str', {'lower': True, 'regex': r'^[\w0-9_]+$'}), {
-                    'doc': 'An alias for the org GUID.',
+                    'deprecated': True,
                     'ex': 'vertexproject',
+                    'doc': 'Deprecated. Please use ou:name.',
                 }),
                 ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
                     'deprecated': True,
@@ -762,7 +763,8 @@ class OuModule(s_module.CoreModule):
                        'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
-                        'doc': 'The default alias for an organization.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:org:names.',
                     }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
