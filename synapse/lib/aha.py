@@ -1431,7 +1431,7 @@ class AhaCell(s_cell.Cell):
         if byts is not None:
             return s_msgpack.un(byts)
 
-    @s_cell.from_lead()
+    @s_cell.from_leader
     async def setLeadTerm(self, termdef):
         '''
         Set the current leader term for the specified service cluster.
@@ -1446,7 +1446,7 @@ class AhaCell(s_cell.Cell):
         lkey = s_common.uhex(termdef.get('iden'))
         self.slab.put(b'\x00' + lkey, s_msgpack.en(termdef), db='aha:leadterms')
 
-    @s_cell.from_leader()
+    @s_cell.from_leader
     async def nextLeadTerm(self, iden, name, nexs):
         '''
         Force a change in leadership for the given cluster iden.
@@ -1466,7 +1466,7 @@ class AhaCell(s_cell.Cell):
             }
             return await self.setLeadTerm(leadterm)
 
-    @s_cell.from_leader()
+    @s_cell.from_leader
     async def mayLeadTerm(self, iden, name, term, nexs):
         '''
         Determine if the caller is still the valid leader.
