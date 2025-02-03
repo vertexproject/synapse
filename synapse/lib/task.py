@@ -115,6 +115,17 @@ class Task(s_base.Base):
 
         return pask
 
+    def packv2(self):
+        return {
+            'iden': self.iden,
+            'name': self.name,
+            'info': copy.deepcopy(self.info),
+            'tick': self.tick,
+            'user': self.user.iden,
+            'username': self.user.name,
+            'kids': {i: k.pack() for i, k in self.kids.items()},
+        }
+
 def loop():
     try:
         return asyncio.get_running_loop()
