@@ -34,7 +34,7 @@ class TaskTest(s_test.SynTest):
             ret = synt.pack()
             self.nn(ret.pop('iden'))
             self.nn(ret.pop('tick'))
-            self.eq(ret,{ 'name': 'test', 'info': {'hehe': 'haha'},
+            self.eq(ret, {'name': 'test', 'info': {'hehe': 'haha'},
                           'user': 'root', 'kids': {}})
 
             ret = synt.packv2()
