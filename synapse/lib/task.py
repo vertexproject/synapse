@@ -123,7 +123,7 @@ class Task(s_base.Base):
             'tick': self.tick,
             'user': self.user.iden,
             'username': self.user.name,
-            'kids': {i: k.pack() for i, k in self.kids.items()},
+            'kids': {i: k.packv2() for i, k in self.kids.items()},
         }
 
 def loop():
