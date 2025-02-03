@@ -1373,7 +1373,7 @@ class OuModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization which is enacting the document.'}),
 
-                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
+                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
                         'doc': 'The document enacted by the organization.'}),
 
                     ('scope', ('ndef', {}), {
