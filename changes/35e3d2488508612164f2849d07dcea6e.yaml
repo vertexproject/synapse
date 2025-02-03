@@ -1,5 +1,5 @@
 ---
-desc: Move Storm Package JSON schema to `synapse.lib.schemas`.
+desc: Move Storm Package JSON schema to ``synapse.lib.schemas``.
 prs: []
 type: feat
 ...
