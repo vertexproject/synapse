@@ -345,5 +345,7 @@ class DataModelTest(s_t_utils.SynTest):
             self.eq(1, nodes[0].get('semver:minor'))
 
     def test_datamodel_schema_basetypes(self):
+        # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
+        # in sync with the default s_datamodel.Datamodel().types
         basetypes = list(s_datamodel.Model().types)
         self.eq(s_schemas.datamodel_basetypes, basetypes)
