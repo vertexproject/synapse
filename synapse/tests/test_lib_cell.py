@@ -784,6 +784,10 @@ class CellTest(s_t_utils.SynTest):
             cell.VERSION = (1, 2, 3)
             cell.VERSTRING = '1.2.3'
 
+            cell.features.update({
+                'testvalu': 2
+            })
+
             http_info = []
             host, port = await cell.addHttpsPort(0)
             http_info.append({'host': host, 'port': port})
@@ -806,6 +810,9 @@ class CellTest(s_t_utils.SynTest):
                 self.none(cnfo.get('mirror', True))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
+
+                self.eq(info.get('features'), cell.features)
+                self.eq(info.get('features', {}).get('testvalu'), 2)
 
                 # Defaults aha data is
                 self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
@@ -3294,6 +3301,51 @@ class CellTest(s_t_utils.SynTest):
                         await cell00.promote(graceful=True)
                     self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
 
+    async def test_cell_get_aha_proxy(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+
+            class MockAhaClient:
+                def __init__(self, proxy=None):
+                    self._proxy = proxy
+
+                async def proxy(self, timeout=None):
+                    return self._proxy
+
+            with self.getAsyncLoggerStream('synapse.lib.cell', 'AHA client connection failed.') as stream:
+                cell.ahaclient = MockAhaClient()
+                self.none(await cell.getAhaProxy())
+                self.true(await stream.wait(timeout=1))
+
+            class MockProxyHasNot:
+                def _hasTeleFeat(self, name, vers):
+                    return False
+
+            cell.ahaclient = MockAhaClient(proxy=MockProxyHasNot())
+            self.none(await cell.getAhaProxy(feats=(('test', 1),)))
+
+            class MockProxyHas:
+                def _hasTeleFeat(self, name, vers):
+                    return True
+
+            mock_proxy = MockProxyHas()
+            cell.ahaclient = MockAhaClient(proxy=mock_proxy)
+            self.eq(await cell.getAhaProxy(), mock_proxy)
+            self.eq(await cell.getAhaProxy(feats=(('test', 1),)), mock_proxy)
+
+    async def test_lib_cell_sadaha(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
+
+            # coverage for failure of aha client to connect
+            with self.raises(TimeoutError):
+                self.none(await cell.getAhaProxy(timeout=0.1))
+
     async def test_stream_backup_exception(self):
 
         with self.getTestDir() as dirn:
@@ -3356,3 +3408,12 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BackupAlreadyRunning):
                         async for _ in proxy.iterNewBackupArchive('newbackup', remove=True):
                             pass
+
+    async def test_cell_peer_noaha(self):
+
+        todo = s_common.todo('newp')
+        async with self.getTestCell() as cell:
+            async for item in cell.callPeerApi(todo):
+                pass
+            async for item in cell.callPeerGenr(todo):
+                pass
