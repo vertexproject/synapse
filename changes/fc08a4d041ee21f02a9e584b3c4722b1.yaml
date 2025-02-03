@@ -1,6 +1,0 @@
----
-desc: Fixed issue where sub-properties were being assigned when the sub-property was
-  deprecated and locked.
-prs: []
-type: bug
-...
