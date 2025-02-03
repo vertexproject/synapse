@@ -18,8 +18,6 @@ class Task(s_base.Base):
 
         await s_base.Base.__anit__(self)
 
-        assert user is not None
-
         if info is None:
             info = {}
 
