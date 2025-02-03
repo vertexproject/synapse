@@ -12,10 +12,10 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
-import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.schemas as s_schemas
 
 logger = logging.getLogger(__name__)
 
@@ -221,7 +221,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
         pkgdef['optic'].setdefault('files', {})
         loadOpticFiles(pkgdef, opticdir)
 
-    s_storm.reqValidPkgdef(pkgdef)
+    s_schemas.reqValidPkgdef(pkgdef)
 
     # Ensure the package is json safe and tuplify it.
     s_common.reqJsonSafeStrict(pkgdef)

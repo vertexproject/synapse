@@ -5,67 +5,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
 
-gdefSchema = {
-    'type': 'object',
-    'properties': {
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string', 'minLength': 1},
-        'desc': {'type': 'string', 'default': ''},
-        'scope': {'type': 'string', 'enum': ['user', 'power-up']},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'power-up': {'type': 'string', 'minLength': 1},
-        'maxsize': {'type': 'number', 'minimum': 0},
-        'existing': {'type': 'array', 'items': {'type': 'string'}},
-        'created': {'type': 'number'},
-        'updated': {'type': 'number'},
-        'refs': {'type': 'boolean', 'default': False},
-        'edges': {'type': 'boolean', 'default': True},
-        'edgelimit': {'type': 'number', 'default': 3000},
-        'degrees': {'type': ['integer', 'null'], 'minimum': 0},
-        'filterinput': {'type': 'boolean', 'default': True},
-        'yieldfiltered': {'type': 'boolean', 'default': False},
-        'filters': {
-            'type': ['array', 'null'],
-            'items': {'type': 'string'}
-        },
-        'pivots': {
-            'type': ['array', 'null'],
-            'items': {'type': 'string'}
-        },
-        'forms': {
-            'type': 'object',
-            'patternProperties': {
-                '^.*$': {
-                    'type': 'object',
-                    'properties': {
-                        'filters': {
-                            'type': ['array', 'null'],
-                            'items': {'type': 'string'}
-                        },
-                        'pivots': {
-                            'type': ['array', 'null'],
-                            'items': {'type': 'string'}
-                        }
-                    },
-                    'additionalProperties': False,
-                }
-            }
-        },
-        'permissions': s_msgpack.deepcopy(s_schemas.easyPermSchema)
-    },
-    'additionalProperties': False,
-    'required': ['iden', 'name', 'scope'],
-    'allOf': [
-        {
-            'if': {'properties': {'scope': {'const': 'power-up'}}},
-            'then': {'required': ['power-up']},
-            'else': {'required': ['creator']},
-        }
-    ]
-}
-
-reqValidGdef = s_config.getJsValidator(gdefSchema)
-
 USER_EDITABLE = {
     'desc',
     'name',
