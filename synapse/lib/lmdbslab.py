@@ -1044,7 +1044,7 @@ class Slab(s_base.Base):
         if not self.syncevnt.is_set():
             self.syncevnt.set()
             if self.syncevntdone.wait(timeout=0.1):
-                return
+                return # pragma: no cover
 
         try:
             self.forcecommit()
