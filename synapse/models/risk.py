@@ -1075,7 +1075,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The physical place where the theft took place. Do not use for digital/information theft.'}),
 
                     ('compromise', ('risk:compromise', {}), {
-                        'doc': 'The compromise which faciliated the theft.'}),
+                        'doc': 'The compromise which facilitated the theft.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the theft event.'}),
