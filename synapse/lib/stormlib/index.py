@@ -8,7 +8,7 @@ stormcmds = (
 
             Examples:
 
-                # display the number of file:path:ext properties in the view.
+                // Display the number of file:path:ext properties in the view.
                 index.count.prop file:path:ext
 
                 # display the number of file:path:ext properties with the value
