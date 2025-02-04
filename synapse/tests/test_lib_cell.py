@@ -3417,3 +3417,46 @@ class CellTest(s_t_utils.SynTest):
                 pass
             async for item in cell.callPeerGenr(todo):
                 pass
+
+    async def test_cell_task_apis(self):
+        async with self.getTestAha() as aha:
+
+            # test some of the gather API implementations...
+            purl00 = await aha.addAhaSvcProv('00.cell')
+            purl01 = await aha.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'})
+
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+
+            await cell01.sync()
+
+            async def sleep99(cell):
+                await cell.boss.promote('sleep99', cell.auth.rootuser)
+                await cell00.fire('sleep99')
+                await asyncio.sleep(99)
+
+            async with cell00.waiter(2, 'sleep99', timeout=6):
+                task00 = cell00.schedCoro(sleep99(cell00))
+                task01 = cell01.schedCoro(sleep99(cell01))
+
+            tasks = [task async for task in cell00.getTasks(timeout=6)]
+
+            self.len(2, tasks)
+            self.eq(tasks[0]['service'], '00.cell.synapse')
+            self.eq(tasks[1]['service'], '01.cell.synapse')
+            self.eq(('sleep99', 'sleep99'), [task.get('name') for task in tasks])
+            self.eq(('root', 'root'), [task.get('username') for task in tasks])
+
+            self.eq(tasks[0], await cell00.getTask(tasks[0].get('iden')))
+            self.eq(tasks[1], await cell00.getTask(tasks[1].get('iden')))
+            self.none(await cell00.getTask(tasks[1].get('iden'), peers=False))
+
+            self.true(await cell00.killTask(tasks[0].get('iden')))
+
+            task01 = tasks[1].get('iden')
+            self.false(await cell00.killTask(task01, peers=False))
+
+            self.true(await cell00.killTask(task01))
+
+            self.none(await cell00.getTask(task01))
+            self.false(await cell00.killTask(task01))
