@@ -1322,8 +1322,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._bumpCellVers('cell:storage', (
             (2, self._storCellAuthMigration),
-            # cell:storage v3 runs below in configNexsVers. This is a placeholder for the version
-            # (3, self._storCellAuthLockArchivedUsers),
         ), nexs=False)
 
         self.auth = await self._initCellAuth()
@@ -1676,8 +1674,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             ])
 
         if self.nexsvers < (2, 197):
-            await self._bumpCellVers('cell:storage', (
-                (3, self._storCellAuthLockArchivedUsers),
+            await self._bumpCellVers('cell:nexus:storage', (
+                (1, self._storCellAuthLockArchivedUsers),
             ), nexs=False)
 
         self.nexspatches = []
