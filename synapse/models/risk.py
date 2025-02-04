@@ -150,6 +150,10 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'A taxonomy of threat types.'}),
 
                 ('risk:theft', ('guid', {}), {
+                    'interfaces': ('geo:locatable',),
+                    'template': {
+                        'geo:locatable': 'theft',
+                        'geo:locatable:verb': 'occurred'},
                     'doc': 'An event where items were stolen.'}),
 
                 ('risk:theft:type:taxonomy', ('taxonomy', {}), {
@@ -1070,9 +1074,6 @@ class RiskModule(s_module.CoreModule):
 
                     ('time', ('time', {}), {
                         'doc': 'The time when the theft occurred.'}),
-
-                    ('place', ('geo:place', {}), {
-                        'doc': 'The physical place where the theft took place. Do not use for digital/information theft.'}),
 
                     ('compromise', ('risk:compromise', {}), {
                         'doc': 'The compromise which facilitated the theft.'}),
