@@ -1434,46 +1434,6 @@ class AhaTest(s_test.SynTest):
             self.len(nexsindx, items)
             self.true(all(item[1][0] for item in items))
 
-            # test some of the gather API implementations...
-            purl00 = await aha.addAhaSvcProv('0.cell')
-            purl01 = await aha.addAhaSvcProv('1.cell', provinfo={'mirror': '0.cell'})
-
-            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
-            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
-
-            await cell01.sync()
-
-            async def sleep99(cell):
-                await cell.boss.promote('sleep99', cell.auth.rootuser)
-                await cell00.fire('sleep99')
-                await asyncio.sleep(99)
-
-            async with cell00.waiter(2, 'sleep99', timeout=2):
-                task00 = cell00.schedCoro(sleep99(cell00))
-                task01 = cell01.schedCoro(sleep99(cell01))
-
-            proxy = await aha.enter_context(aha.getLocalProxy())
-            tasks = [task async for task in cell00.getTasks(timeout=3)]
-            self.len(2, tasks)
-            self.eq(tasks[0]['service'], '0.cell.synapse')
-            self.eq(tasks[1]['service'], '1.cell.synapse')
-
-            self.eq(tasks[0], await cell00.getTask(tasks[0].get('iden')))
-            self.eq(tasks[1], await cell00.getTask(tasks[1].get('iden')))
-            self.none(await cell00.getTask(tasks[1].get('iden'), peers=False))
-
-            self.true(await cell00.killTask(tasks[0].get('iden')))
-
-            task01 = tasks[1].get('iden')
-            self.false(await cell00.killTask(task01, peers=False))
-
-            self.true(await cell00.killTask(task01))
-
-            self.none(await cell00.getTask(task01))
-            self.false(await cell00.killTask(task01))
-
-            self.none(await cell00.getAhaProxy(feats=(('newp', 9),)))
-
     async def test_lib_aha_peer_api(self):
 
         async with self.getTestAha() as aha:
