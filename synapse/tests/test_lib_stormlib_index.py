@@ -13,7 +13,7 @@ count_prop_01 = '''
 ==============|==================================|============
  16           | 9782c920718d3059b8806fddaf917bd8 |
  0            | 511122a9b2d576c5be2cdfcaef541bb9 | default
-total: 16
+Total: 16
 '''
 
 class StormIndexTest(s_test.SynTest):
