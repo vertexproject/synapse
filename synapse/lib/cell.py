@@ -1631,11 +1631,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPush('nexs:vers:set')
     async def _setNexsVers(self, vers):
         if vers > self.nexsvers:
-            # Run configNexsVers() before updating the nexus version so it has a chance to configure
-            # itself based on the current version, not the new version.
-            await self.configNexsVers()
+            await self._migrNexsVers(vers)
             self.cellinfo.set('nexus:version', vers)
             self.nexsvers = vers
+            await self.configNexsVers()
+
+    async def _migrNexsVers(self, newvers):
+        if self.nexsvers < (2, 197) and newvers >= (2, 197) and self.conf.get('auth:ctor') is None:
+            # This "migration" will lock all archived users. Once the nexus version is bumped to
+            # >=2.197, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
+            # begin rejecting unlock requests for archived users.
+
+            authkv = self.slab.getSafeKeyVal('auth')
+            userkv = authkv.getSubKeyVal('user:info:')
+
+            for iden, info in userkv.items():
+                if info.get('archived') and not info.get('locked'):
+                    info['locked'] = True
+                    userkv.set(iden, info)
+
+            # Clear the auth caches so the changes get picked up by the already running auth subsystem
+            self.auth.userbyidencache.clear()
+            self.auth.useridenbynamecache.clear()
 
     async def configNexsVers(self):
         for meth, orig in self.nexspatches:
@@ -1652,23 +1669,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 ('popUserProfInfo', self._popUserProfInfoV0),
                 ('setUserProfInfo', self._setUserProfInfoV0),
             ])
-
-        if self.nexsvers < (2, 197) and self.conf.get('auth:ctor') is None:
-            # This "migration" will lock all archived users. Once the nexus version is bumped to
-            # >=2.197, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
-            # begin rejecting unlock requests for archived users.
-
-            authkv = self.slab.getSafeKeyVal('auth')
-            userkv = authkv.getSubKeyVal('user:info:')
-
-            for iden, info in userkv.items():
-                if info.get('archived') and not info.get('locked'):
-                    info['locked'] = True
-                    userkv.set(iden, info)
-
-            # Clear the auth caches so the changes get picked up by the already running auth subsystem
-            self.auth.userbyidencache.clear()
-            self.auth.useridenbynamecache.clear()
 
         self.nexspatches = []
         for meth, repl in patches:
