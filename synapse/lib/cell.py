@@ -1386,26 +1386,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'...Cell ({self.getCellType()}) info migration complete!')
 
-    async def _storCellAuthLockArchivedUsers(self):
-        if self.conf.get('auth:ctor') is not None:
-            return # pragma: no cover
-
-        logger.warning(f'locking archived users on Cell ({self.getCellType()})')
-
-        authkv = self.slab.getSafeKeyVal('auth')
-        userkv = authkv.getSubKeyVal('user:info:')
-
-        for iden, info in userkv.items():
-            if info.get('archived') and not info.get('locked'):
-                info['locked'] = True
-                userkv.set(iden, info)
-
-        # Clear the auth caches so the changes get picked up by the already running auth subsystem
-        self.auth.userbyidencache.clear()
-        self.auth.useridenbynamecache.clear()
-
-        logger.warning(f'...Cell ({self.getCellType()}) lock archived users complete!')
-
     async def _storCellAuthMigration(self):
         if self.conf.get('auth:ctor') is not None:
             return
@@ -1673,10 +1653,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 ('setUserProfInfo', self._setUserProfInfoV0),
             ])
 
-        if self.nexsvers < (2, 197):
-            await self._bumpCellVers('cell:nexus:storage', (
-                (1, self._storCellAuthLockArchivedUsers),
-            ), nexs=False)
+        if self.nexsvers < (2, 197) and self.conf.get('auth:ctor') is None:
+            # This "migration" will lock all archived users. Once the nexus version is bumped to
+            # >=2.197, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
+            # begin rejecting unlock requests for archived users.
+
+            authkv = self.slab.getSafeKeyVal('auth')
+            userkv = authkv.getSubKeyVal('user:info:')
+
+            for iden, info in userkv.items():
+                if info.get('archived') and not info.get('locked'):
+                    info['locked'] = True
+                    userkv.set(iden, info)
+
+            # Clear the auth caches so the changes get picked up by the already running auth subsystem
+            self.auth.userbyidencache.clear()
+            self.auth.useridenbynamecache.clear()
 
         self.nexspatches = []
         for meth, repl in patches:
