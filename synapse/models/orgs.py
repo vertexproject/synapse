@@ -93,7 +93,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
-                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
+                ('ou:alias', ('str', {'lower': True, 'regex': r'^[\w0-9_]+$'}), {
                     'doc': 'An alias for the org GUID.',
                     'ex': 'vertexproject',
                 }),
@@ -1373,7 +1373,7 @@ class OuModule(s_module.CoreModule):
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization which is enacting the document.'}),
 
-                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
+                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
                         'doc': 'The document enacted by the organization.'}),
 
                     ('scope', ('ndef', {}), {
