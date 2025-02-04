@@ -341,13 +341,17 @@ class NexsRoot(s_base.Base):
         if meta is None:
             meta = {}
 
-        if (nexus := self._nexskids.get(nexsiden)) is None:
-            raise s_exc.NoSuchIden(mesg=f'No Nexus Pusher with iden {nexsiden}.', iden=nexsiden)
-
-        if event not in nexus._nexshands:
-            raise s_exc.NoSuchName(mesg=f'No Nexus handler for event {event}.', name=event)
-
         async with self.cell.nexslock:
+            if (nexus := self._nexskids.get(nexsiden)) is None:
+                mesg = f'No Nexus Pusher with iden {nexsiden} {event=} args={s_common.trimText(repr(args))} ' \
+                       f'kwargs={s_common.trimText(repr(kwargs))}'
+                raise s_exc.NoSuchIden(mesg=mesg, iden=nexsiden, event=event)
+
+            if event not in nexus._nexshands:
+                mesg = f'No event handler for event {event} args={s_common.trimText(repr(args))} ' \
+                       f'kwargs={s_common.trimText(repr(kwargs))}'
+                raise s_exc.NoSuchName(mesg=mesg, iden=nexsiden, event=event)
+
             self.reqNotReadOnly()
             # Keep a reference to the shielded task to ensure it isn't GC'd
             self.applytask = asyncio.create_task(self._eat((nexsiden, event, args, kwargs, meta)))
@@ -409,7 +413,7 @@ class NexsRoot(s_base.Base):
 
         return await func(nexus, *args, **kwargs)
 
-    async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
+    async def iter(self, offs: int, tellready=False, wait=True) -> AsyncIterator[Any]:
         '''
         Returns an iterator of change entries in the log
         '''
@@ -429,6 +433,9 @@ class NexsRoot(s_base.Base):
 
         if tellready:
             yield None
+
+        if not wait:
+            return
 
         async with self.getChangeDist(maxoffs) as dist:
             async for item in dist:
@@ -505,6 +512,7 @@ class NexsRoot(s_base.Base):
             if features.get('dynmirror'):
                 await proxy.readyToMirror()
 
+            synvers = cellinfo['synapse']['version']
             cellvers = cellinfo['cell']['version']
             if cellvers > self.cell.VERSION:
                 logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
@@ -537,7 +545,7 @@ class NexsRoot(s_base.Base):
                 offs = self.nexslog.index()
 
                 opts = {}
-                if cellvers >= (2, 95, 0):
+                if synvers >= (2, 95, 0):
                     opts['tellready'] = True
 
                 genr = proxy.getNexusChanges(offs, **opts)

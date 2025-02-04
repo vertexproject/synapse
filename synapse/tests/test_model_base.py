@@ -222,13 +222,25 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[meta:source="*" :name="FOO Bar" :type=osint :url="https://foo.bar/index.html"]')
+            nodes = await core.nodes('''
+                [meta:source="*"
+                    :name="FOO Bar"
+                    :type=osint
+                    :url="https://foo.bar/index.html"
+                    :ingest:cursor="Woot Woot "
+                    :ingest:latest=20241205
+                    :ingest:offset=17
+                ]
+            ''')
             self.len(1, nodes)
             sorc = nodes[0]
 
             self.eq(sorc.get('type'), 'osint')
             self.eq(sorc.get('name'), 'foo bar')
             self.eq(sorc.get('url'), 'https://foo.bar/index.html')
+            self.eq(sorc.get('ingest:offset'), 17)
+            self.eq(sorc.get('ingest:cursor'), 'Woot Woot ')
+            self.eq(sorc.get('ingest:latest'), 1733356800000)
 
             valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
             nodes = await core.nodes('[meta:seen=$valu]', opts={'vars': {'valu': valu}})
@@ -328,9 +340,8 @@ class BaseTest(s_t_utils.SynTest):
                 'tel:mob:telem:cell:carrier', 'tel:mob:telem:imsi', 'tel:mob:telem:imei',
                 'tel:mob:telem:phone', 'tel:mob:telem:mac', 'tel:mob:telem:ipv4',
                 'tel:mob:telem:ipv6', 'tel:mob:telem:wifi', 'tel:mob:telem:wifi:ssid',
-                'tel:mob:telem:wifi:bssid', 'tel:mob:telem:adid', 'tel:mob:telem:aaid',
-                'tel:mob:telem:idfa', 'tel:mob:telem:name', 'tel:mob:telem:email',
-                'tel:mob:telem:acct', 'tel:mob:telem:app', 'tel:mob:telem:data',
+                'tel:mob:telem:wifi:bssid', 'tel:mob:telem:name', 'tel:mob:telem:email',
+                'tel:mob:telem:app', 'tel:mob:telem:data',
                 'inet:http:request:response:time', 'inet:http:request:response:code',
                 'inet:http:request:response:reason', 'inet:http:request:response:body',
                 'gov:us:cage:street', 'gov:us:cage:city', 'gov:us:cage:state', 'gov:us:cage:zip',

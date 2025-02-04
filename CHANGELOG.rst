@@ -6,6 +6,286 @@
 Synapse Changelog
 *****************
 
+v2.196.0 - 2025-01-31
+=====================
+
+Automatic Migrations
+--------------------
+- Generated ``entity:name`` nodes for existing ``transport:sea:vessel:name``
+  properties.
+  (`#4096 <https://github.com/vertexproject/synapse/pull/4096>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_196_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added new AHA APIs that may be used to dispatch functions on service
+  clusters.
+  (`#3795 <https://github.com/vertexproject/synapse/pull/3795>`_)
+- Added new ``getTasks()`` API which can include gathering tasks from peers
+  via AHA.
+  (`#3795 <https://github.com/vertexproject/synapse/pull/3795>`_)
+- Added a new ``aha.svc.mirror`` Storm command to query the status of the
+  mirror clusters managed by the AHA server.
+  (`#4019 <https://github.com/vertexproject/synapse/pull/4019>`_)
+- Added a new command-line tool ``synapse.tools.aha.mirror`` for querying the
+  status of service mirror clusters managed by the AHA server.
+  (`#4019 <https://github.com/vertexproject/synapse/pull/4019>`_)
+- Added ``$lib.axon.read()`` and ``$lib.axon.unpack()`` Storm APIs.
+  (`#4097 <https://github.com/vertexproject/synapse/pull/4097>`_)
+- Added ``liftByNodeData()`` API to the Storm ``layer`` type to allow lifting
+  by node data in a given layer.
+  (`#4099 <https://github.com/vertexproject/synapse/pull/4099>`_)
+
+Bugfixes
+--------
+- Fixed issue where sub-properties were being assigned when the sub-property
+  was deprecated and locked.
+  (`#4098 <https://github.com/vertexproject/synapse/pull/4098>`_)
+- Fixed an issue where ``JsonStor.delPathObjProp()`` could raise a KeyError.
+  (`#4101 <https://github.com/vertexproject/synapse/pull/4101>`_)
+
+v2.195.1 - 2025-01-28
+=====================
+
+Bugfixes
+--------
+- Fixed an issue with unbound text values being included in some
+  ``StormRuntimeError`` exceptions raised when interacting with Storm APIs.
+  (`#4092 <https://github.com/vertexproject/synapse/pull/4092>`_)
+- Fixed an issue where pending Nexus edits to an object which was in the
+  process of being deleted could potentially still be distributed to mirrors.
+  (`#4094 <https://github.com/vertexproject/synapse/pull/4094>`_)
+
+v2.195.0 - 2025-01-24
+=====================
+
+Automatic Migrations
+--------------------
+- Renormalized the ``:model`` property on ``transport:air:craft`` and
+  ``transport:sea:vessel`` to normalize whitespace.
+  (`#4090 <https://github.com/vertexproject/synapse/pull/4090>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``names`` property to the ``ou:id:type`` form and ``alts`` definition
+  to the ``ou:id:type:name`` property.
+  (`#4081 <https://github.com/vertexproject/synapse/pull/4081>`_)
+- See :ref:`userguide_model_v2_195_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.cell.iden`` to retrieve the iden of the Cortex which the Storm
+  query is executing on. Unlike ``$lib.cell.getCellInfo().cell.iden``, this
+  value is available to non-admin users.
+  (`#4082 <https://github.com/vertexproject/synapse/pull/4082>`_)
+- Added ``--find`` option to ``auth.perms.list`` to easily filter permission
+  results.
+  (`#4083 <https://github.com/vertexproject/synapse/pull/4083>`_)
+  (`#4087 <https://github.com/vertexproject/synapse/pull/4087>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the deprecated types ``edge`` and ``timeedge`` were not
+  annotated as such by the ``getModelDict()`` API.
+  (`#4079 <https://github.com/vertexproject/synapse/pull/4079>`_)
+- Fixed an issue where certain User and Role properties could be modified via
+  Storm and adversely affect the in-memory representation of those objects.
+  (`#4084 <https://github.com/vertexproject/synapse/pull/4084>`_)
+- Fixed an issue where exceptionally large telepath messages may cause OpenSSL
+  malloc failures.
+  (`#4088 <https://github.com/vertexproject/synapse/pull/4088>`_)
+- Added limits for scraping file paths. The number of components in a path must
+  not exceed ``1,024``. Linux and Windows paths must not exceed ``4,096`` and
+  ``32,767`` characters, respectively.
+  (`#4089 <https://github.com/vertexproject/synapse/pull/4089>`_)
+
+Deprecations
+------------
+- The ``forms`` key in Storm package command definitions has been deprecated.
+  The ``cmdinputs`` key may still be used to specify node forms that commands
+  are intended to accept as input.
+  (`#4076 <https://github.com/vertexproject/synapse/pull/4076>`_)
+- Deprecated ``$lib.infosec.cvss.calculate()`` and
+  ``$lib.infosec.cvss.calculateFromProps()``.
+  (`#4079 <https://github.com/vertexproject/synapse/pull/4079>`_)
+
+v2.194.0 - 2025-01-16
+=====================
+
+Model Changes
+-------------
+- Added ``alts`` definitions to the following forms: ``geo:place``,
+  ``it:prod:soft``, ``it:prod:softver``, ``ou:campaign``, ``ou:conference``,
+  ``ou:goal``, ``ou:industry``, ``pol:country``, ``ps:contact``, ``ps:person``,
+  ``risk:threat``, ``risk:tool:software``, and ``risk:vuln``.
+  (`#4064 <https://github.com/vertexproject/synapse/pull/4064>`_)
+- See :ref:`userguide_model_v2_194_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added syntax for conditional node property edit operators in Storm.
+  (`#4046 <https://github.com/vertexproject/synapse/pull/4046>`_)
+- Updated the ``pkg.load`` Storm command to include an ``X-Synapse-Version``
+  HTTP header in requests.
+  (`#4074 <https://github.com/vertexproject/synapse/pull/4074>`_)
+
+Bugfixes
+--------
+- Fixed an issue with the Storm loop and generator keywords, ``continue``,
+  ``break``, and ``stop``. Using these keywords outside of a loop or generator
+  function will now raise a ``StormRuntimeError`` exception. Using these
+  keywords to tear down the Storm runtime will now emit an ``err`` message with
+  the type ``StormRuntimeError`` and a message indicating the invalid use of
+  the keywords. The use of these keywords or ``$lib.exit()`` in
+  ``$lib.cache.fixed`` callbacks will now raise a ``StormRuntimeError``.
+  (`#4025 <https://github.com/vertexproject/synapse/pull/4025>`_)
+  (`#4073 <https://github.com/vertexproject/synapse/pull/4073>`_)
+- Fixed a Cortex cron scheduler loop error during a mirror promotion.
+  (`#4058 <https://github.com/vertexproject/synapse/pull/4058>`_)
+- Fixed bug in password complexity rules where setting a password to (null) or
+  None would fail.
+  (`#4059 <https://github.com/vertexproject/synapse/pull/4059>`_)
+- Fixed an issue in Storm where attempting to iterate a non-iterable object
+  would raise a Python exception rather than a ``StormRuntimeError``.
+  (`#4066 <https://github.com/vertexproject/synapse/pull/4066>`_)
+- Fixed an issue in Storm functions where using the return keyword in a
+  subquery used as a value could incorrectly change the function type.
+  (`#4066 <https://github.com/vertexproject/synapse/pull/4066>`_)
+- Fixed an issue where invalid dictionary constructor values would result in
+  unhandled Python ``AttributeError`` exceptions leaking into the Storm
+  runtime.
+  (`#4068 <https://github.com/vertexproject/synapse/pull/4068>`_)
+- Fixed an issue where the dictionary based guid constructor could raise
+  unclear Python ``IndexError`` exceptions. It now raises ``BadTypeValu``
+  exceptions detailing the problem.
+  (`#4068 <https://github.com/vertexproject/synapse/pull/4068>`_)
+
+Deprecations
+------------
+- The Storm function ``$lib.list()`` has been deprecated, in favor of using the
+  ``()`` or ``([])`` style syntax for directly declaring a list in Storm.
+  (`#4071 <https://github.com/vertexproject/synapse/pull/4071>`_)
+- Deprecated ``$lib.text()``. Please use a list to append strings to, and then
+  use ``$lib.str.join()`` to join them on demand.
+  (`#4072 <https://github.com/vertexproject/synapse/pull/4072>`_)
+
+v2.193.0 - 2025-01-06
+=====================
+
+Model Changes
+-------------
+- Updated the ``infotech``, ``inet``, and ``risk`` models.
+  (`#4047 <https://github.com/vertexproject/synapse/pull/4047>`_)
+- See :ref:`userguide_model_v2_193_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated the Storm ``parallel`` command behavior to avoid creating empty
+  pipelines when there are fewer inbound nodes than the number of pipelines
+  specified by the ``--size`` argument.
+  (`#4041 <https://github.com/vertexproject/synapse/pull/4041>`_)
+- Refactored backup streaming logic and error handling.
+  (`#4042 <https://github.com/vertexproject/synapse/pull/4042>`_)
+- Added ``indent`` kwarg to ``$lib.json.save()`` to indent serialized json with
+  a number of spaces.
+  (`#4052 <https://github.com/vertexproject/synapse/pull/4052>`_)
+
+Bugfixes
+--------
+- Relaxed ``inet:web:hashtag`` regex.
+  (`#4033 <https://github.com/vertexproject/synapse/pull/4033>`_)
+- Fixed an issue where certain exceptions raised while calling a function in
+  Storm were not providing appropriate details about the origin of the
+  exception.
+  (`#4038 <https://github.com/vertexproject/synapse/pull/4038>`_)
+- Added a patch for Python ``http.cookies`` module to address CVE-2024-7592
+  exposure.
+  (`#4045 <https://github.com/vertexproject/synapse/pull/4045>`_)
+- Fixed SIGINT handling in the ``synapse.tools.storm`` CLI tool.
+  (`#4048 <https://github.com/vertexproject/synapse/pull/4048>`_)
+
+v2.192.0 - 2024-12-13
+=====================
+
+Features and Enhancements
+-------------------------
+- Added the user-agent string to the structured log information captured by the
+  HTTP API handlers.
+  (`#4026 <https://github.com/vertexproject/synapse/pull/4026>`_)
+- Added support for passing ``$lib.true`` to Storm HTTP APIs that accept a
+  proxy argument to indicate that the configured proxy should be used if set.
+  (`#4030 <https://github.com/vertexproject/synapse/pull/4030>`_)
+- Added support for passing ``True`` as a proxy argument to the ``wget``,
+  ``wput``, and ``postfiles`` Axon APIs to indicate that the configured proxy
+  should be used if set.
+  (`#4030 <https://github.com/vertexproject/synapse/pull/4030>`_)
+- Added ``synapse.tools.apikey`` tool for managing user API keys via telepath.
+  (`#4032 <https://github.com/vertexproject/synapse/pull/4032>`_)
+
+Bugfixes
+--------
+- Fixed an issue where mirrors of Synapse services may fail to indicate that
+  they have entered into realtime change windows.
+  (`#4028 <https://github.com/vertexproject/synapse/pull/4028>`_)
+- Fixed a bug that skipped global and form pivots when validating graph
+  projection Storm queries.
+  (`#4031 <https://github.com/vertexproject/synapse/pull/4031>`_)
+- Fixed an issue where line number information was not added to exceptions
+  raised while dereferencing a Storm variable.
+  (`#4035 <https://github.com/vertexproject/synapse/pull/4035>`_)
+
+Deprecations
+------------
+- Deprecated passing ``None`` as a proxy argument to the ``wget``, ``wput``,
+  and ``postfiles`` Axon APIs.
+  (`#4030 <https://github.com/vertexproject/synapse/pull/4030>`_)
+- Deprecated passing ``$lib.null`` to Storm HTTP APIs that accept a proxy
+  argument.
+  (`#4030 <https://github.com/vertexproject/synapse/pull/4030>`_)
+
+v2.191.0 - 2024-12-06
+=====================
+
+Model Changes
+-------------
+- Added ``econ:pay:instrument`` interface and type to create an abstraction for
+  payment instruments.
+  (`#3995 <https://github.com/vertexproject/synapse/pull/3995>`_)
+- Added ``inet:service:tenant``, ``inet:service:subscriber``, and
+  ``inet:service:subscription`` to model service tenants, subscribers, and
+  subscriptions.
+  (`#3995 <https://github.com/vertexproject/synapse/pull/3995>`_)
+- See :ref:`userguide_model_v2_191_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated the allowed versions of the ``msgpack`` and ``pycryptodome``
+  libraries. Updated the pinned version of the ``lark`` library to ``1.2.2``.
+  (`#4011 <https://github.com/vertexproject/synapse/pull/4011>`_)
+- Added ``$lib.model.migration.s.inetServiceMessageClientAddress()`` migration
+  helper to migrate deprecated ``inet:service:message:client:address``
+  properties.
+  (`#4022 <https://github.com/vertexproject/synapse/pull/4022>`_)
+
+Bugfixes
+--------
+- Fixed a bug which causes an error when the contents change while lifting
+  runtime nodes such as syn:cron et. al.
+  (`#4018 <https://github.com/vertexproject/synapse/pull/4018>`_)
+
+Deprecations
+------------
+- Deprecated ``inet:web:acct`` secondary properties.
+  (`#4001 <https://github.com/vertexproject/synapse/pull/4001>`_)
+- Deprecated ``inet:service:message:client:address``.
+  (`#4022 <https://github.com/vertexproject/synapse/pull/4022>`_)
+
+
 v2.190.0 - 2024-11-29
 =====================
 
@@ -160,6 +440,9 @@ Features and Enhancements
   migration: ``$lib.model.migration.s.model_0_2_31.listNodes()``,
   ``$lib.model.migration.s.model_0_2_31.printNode()``, and
   ``$lib.model.migration.s.model_0_2_31.repairNode()``
+  (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
+- Added a ``getNodeData()`` API to the Storm Layer object for yielding
+  node data by node iden.
   (`#3918 <https://github.com/vertexproject/synapse/pull/3918>`_)
 
 v2.186.0 - 2024-10-29

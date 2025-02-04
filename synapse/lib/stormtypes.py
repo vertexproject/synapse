@@ -3,6 +3,7 @@ import copy
 import gzip
 import json
 import time
+
 import regex
 import types
 import base64
@@ -39,6 +40,7 @@ import synapse.lib.stormctrl as s_stormctrl
 logger = logging.getLogger(__name__)
 
 AXON_MINVERS_PROXY = (2, 97, 0)
+AXON_MINVERS_PROXYTRUE = (2, 192, 0)
 AXON_MINVERS_SSLOPTS = '>=2.162.0'
 
 class Undef:
@@ -72,6 +74,79 @@ def strifyHttpArg(item, multi=False):
                 retn[str(name)] = str(valu)
         return retn
     return item
+
+async def resolveCoreProxyUrl(valu):
+    '''
+    Resolve a proxy value to a proxy URL.
+
+    Args:
+        valu (str|None|bool): The proxy value.
+
+    Returns:
+        (str|None): A proxy URL string or None.
+    '''
+    runt = s_scope.get('runt')
+
+    match valu:
+        case None:
+            s_common.deprecated('Setting the HTTP proxy argument $lib.null', curv='2.192.0')
+            await runt.snap.warnonce('Setting the HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
+            return await runt.snap.core.getConfOpt('http:proxy')
+
+        case True:
+            return await runt.snap.core.getConfOpt('http:proxy')
+
+        case False:
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return None
+
+        case str():
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return valu
+
+        case _:
+            raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
+
+async def resolveAxonProxyArg(valu):
+    '''
+    Resolve a proxy value to the kwarg to set for an Axon HTTP call.
+
+    Args:
+        valu (str|null|bool): The proxy value.
+
+    Returns:
+        tuple: A retn tuple where the proxy kwarg should not be set if ok=False, otherwise a proxy URL or None.
+    '''
+    runt = s_scope.get('runt')
+
+    axonvers = runt.snap.core.axoninfo['synapse']['version']
+    if axonvers < AXON_MINVERS_PROXY:
+        await runt.snap.warnonce(f'Axon version does not support proxy argument: {axonvers} < {AXON_MINVERS_PROXY}')
+        return False, None
+
+    match valu:
+        case None:
+            s_common.deprecated('Setting the Storm HTTP proxy argument $lib.null', curv='2.192.0')
+            await runt.snap.warnonce('Setting the Storm HTTP proxy argument to $lib.null is deprecated. Use $lib.true instead.')
+            if axonvers >= AXON_MINVERS_PROXYTRUE:
+                return True, True
+            return True, None
+
+        case True:
+            if axonvers < AXON_MINVERS_PROXYTRUE:
+                return True, None
+            return True, True
+
+        case False:
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return True, False
+
+        case str():
+            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            return True, valu
+
+        case _:
+            raise s_exc.BadArg(mesg='HTTP proxy argument must be a string or bool.')
 
 class StormTypesRegistry:
     # The following types are currently undefined.
@@ -126,11 +201,29 @@ class StormTypesRegistry:
             raise Exception('no key!')
         self.addStormLib(path, ctor)
 
+        for info in ctor._storm_locals:
+            rtype = info.get('type')
+            if isinstance(rtype, dict) and rtype.get('type') == 'function':
+                if (fname := rtype.get('_funcname')) == '_storm_query':
+                    continue
+
+                if (func := getattr(ctor, fname, None)) is not None:
+                    funcpath = '.'.join(('lib',) + ctor._storm_lib_path + (info['name'],))
+                    func._storm_funcpath = f"${funcpath}"
+
         return ctor
 
     def registerType(self, ctor):
         '''Decorator to register a StormPrim'''
         self.addStormType(ctor.__name__, ctor)
+
+        for info in ctor._storm_locals:
+            rtype = info.get('type')
+            if isinstance(rtype, dict) and rtype.get('type') == 'function':
+                fname = rtype.get('_funcname')
+                if (func := getattr(ctor, fname, None)) is not None:
+                    func._storm_funcpath = f"{ctor._storm_typename}.{info['name']}"
+
         return ctor
 
     def iterLibs(self):
@@ -482,7 +575,7 @@ class StormType:
             raise s_exc.NoSuchName(name=name, mesg=mesg)
 
         if s_scope.get('runt').readonly and not getattr(stor, '_storm_readonly', False):
-            mesg = f'Function ({stor.__name__}) is not marked readonly safe.'
+            mesg = f'Setting {name} on {self._storm_typename} is not marked readonly safe.'
             raise s_exc.IsReadOnly(mesg=mesg, name=name, valu=valu)
 
         await s_coro.ornot(stor, valu)
@@ -553,6 +646,7 @@ class Lib(StormType):
                 if callable(v) and v.__name__ == 'realfunc':
                     v._storm_runtime_lib = self
                     v._storm_runtime_lib_func = k
+                    v._storm_funcpath = f'${".".join(("lib",) + self.name + (k,))}'
 
                 self.locls[k] = v
 
@@ -1153,7 +1247,8 @@ class LibBase(Lib):
                        'desc': 'Additional keyword arguments containing data to add to the event.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'list', 'desc': 'Get a Storm List object.',
+        {'name': 'list', 'desc': 'Get a Storm List object. This is deprecated, use ([]) to declare a list instead.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_list',
                   'args': (
                       {'name': '*vals', 'type': 'any', 'desc': 'Initial values to place in the list.', },
@@ -1213,7 +1308,8 @@ class LibBase(Lib):
                     cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
-        {'name': 'text', 'desc': 'Get a Storm Text object.',
+        {'name': 'text', 'desc': 'Get a Storm Text object. This is deprecated; please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.',
+         'deprecated': {'eolvers': '3.0.0'},
          'type': {'type': 'function', '_funcname': '_text',
                   'args': (
                       {'name': '*args', 'type': 'str',
@@ -1569,7 +1665,7 @@ class LibBase(Lib):
         if mesg:
             mesg = await self._get_mesg(mesg, **kwargs)
             await self.runt.warn(mesg, log=False)
-            raise s_stormctrl.StormExit(mesg)
+            raise s_stormctrl.StormExit(mesg=mesg)
         raise s_stormctrl.StormExit()
 
     @stormfunc(readonly=True)
@@ -1586,10 +1682,16 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _list(self, *vals):
+        s_common.deprecated('$lib.list()', curv='2.194.0')
+        await self.runt.snap.warnonce('$lib.list() is deprecated. Use ([]) instead.')
         return List(list(vals))
 
     @stormfunc(readonly=True)
     async def _text(self, *args):
+        s_common.deprecated('$lib.text()', curv='2.194.0')
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce('$lib.text() is deprecated. Please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.')
         valu = ''.join(args)
         return Text(valu)
 
@@ -1993,11 +2095,18 @@ class LibAxon(Lib):
 
     For APIs that accept an ssl_opts argument, the dictionary may contain the following values::
 
-        {
+        ({
             'verify': <bool> - Perform SSL/TLS verification. Is overridden by the ssl argument.
             'client_cert': <str> - PEM encoded full chain certificate for use in mTLS.
             'client_key': <str> - PEM encoded key for use in mTLS. Alternatively, can be included in client_cert.
-        }
+        })
+
+    For APIs that accept a proxy argument, the following values are supported::
+
+        $lib.null: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+        $lib.true: Use the proxy defined by the http:proxy configuration option if set.
+        $lib.false: Do not use the proxy defined by the http:proxy configuration option if set.
+        <str>: A proxy URL string.
     '''
     _storm_locals = (
         {'name': 'wget', 'desc': """
@@ -2031,8 +2140,8 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
-                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'str'],
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
                        'default': None},
@@ -2054,8 +2163,8 @@ class LibAxon(Lib):
                        'desc': 'Set to False to disable SSL/TLS certificate verification.', 'default': True},
                       {'name': 'timeout', 'type': 'int', 'desc': 'Timeout for the download operation.',
                        'default': None},
-                      {'name': 'proxy', 'type': ['boolean', 'null', 'str'],
-                       'desc': 'Set to a proxy URL string or $lib.false to disable proxy use.', 'default': None},
+                      {'name': 'proxy', 'type': ['bool', 'str'],
+                       'desc': 'Configure proxy usage. See $lib.axon help for additional details.', 'default': True},
                       {'name': 'ssl_opts', 'type': 'dict',
                        'desc': 'Optional SSL/TLS options. See $lib.axon help for additional details.',
                        'default': None},
@@ -2272,6 +2381,50 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
+
+        {'name': 'read', 'desc': '''
+            Read bytes from a file stored in the Axon by its SHA256 hash.
+
+            Examples:
+                Read 100 bytes starting at offset 0::
+
+                    $byts = $lib.axon.read($sha256, size=100)
+
+                Read 50 bytes starting at offset 200::
+
+                    $byts = $lib.axon.read($sha256, offs=200, size=50)
+            ''',
+         'type': {'type': 'function', '_funcname': 'read',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
+                      {'name': 'offs', 'type': 'int', 'default': 0,
+                       'desc': 'The offset to start reading from.'},
+                      {'name': 'size', 'type': 'int', 'default': s_const.mebibyte,
+                       'desc': 'The number of bytes to read. Max is 1 MiB.'},
+                  ),
+                  'returns': {'type': 'bytes', 'desc': 'The requested bytes from the file.'}}},
+
+        {'name': 'unpack', 'desc': '''
+            Unpack bytes from a file stored in the Axon into a struct using the specified format.
+
+            Examples:
+                Unpack two 32-bit integers from the start of a file::
+
+                    $nums = $lib.axon.unpack($sha256, '<II')
+
+                Unpack a 64-bit float starting at offset 100::
+
+                    $float = $lib.axon.unpack($sha256, '<d', offs=100)
+            ''',
+         'type': {'type': 'function', '_funcname': 'unpack',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
+                      {'name': 'fmt', 'type': 'str', 'desc': 'The struct format string.'},
+                      {'name': 'offs', 'type': 'int', 'default': 0,
+                       'desc': 'The offset to start reading from.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The unpacked values as a tuple.'}}},
+
         {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
@@ -2317,6 +2470,8 @@ class LibAxon(Lib):
             'size': self.size,
             'upload': self.upload,
             'hashset': self.hashset,
+            'read': self.read,
+            'unpack': self.unpack,
         }
 
     @stormfunc(readonly=True)
@@ -2370,7 +2525,7 @@ class LibAxon(Lib):
         return await axon.del_(sha256b)
 
     async def wget(self, url, headers=None, params=None, method='GET', json=None, body=None,
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wget')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wget'))
@@ -2387,20 +2542,19 @@ class LibAxon(Lib):
         proxy = await toprim(proxy)
         ssl_opts = await toprim(ssl_opts)
 
-        if proxy is not None:
-            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
-
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
         await self.runt.snap.core.getAxon()
 
         kwargs = {}
-        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= AXON_MINVERS_PROXY:
+
+        ok, proxy = await resolveAxonProxyArg(proxy)
+        if ok:
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
+            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
@@ -2413,7 +2567,7 @@ class LibAxon(Lib):
         return resp
 
     async def wput(self, sha256, url, headers=None, params=None, method='PUT',
-                   ssl=True, timeout=None, proxy=None, ssl_opts=None):
+                   ssl=True, timeout=None, proxy=True, ssl_opts=None):
 
         if not self.runt.allowed(('axon', 'wput')):
             self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
@@ -2432,22 +2586,23 @@ class LibAxon(Lib):
         params = strifyHttpArg(params, multi=True)
         headers = strifyHttpArg(headers)
 
-        if proxy is not None:
-            self.runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
-
-        axon = self.runt.snap.core.axon
-        sha256byts = s_common.uhex(sha256)
+        await self.runt.snap.core.getAxon()
 
         kwargs = {}
-        axonvers = self.runt.snap.core.axoninfo['synapse']['version']
-        if axonvers >= AXON_MINVERS_PROXY:
+
+        ok, proxy = await resolveAxonProxyArg(proxy)
+        if ok:
             kwargs['proxy'] = proxy
 
         if ssl_opts is not None:
+            axonvers = self.runt.snap.core.axoninfo['synapse']['version']
             mesg = f'The ssl_opts argument requires an Axon Synapse version {AXON_MINVERS_SSLOPTS}, ' \
                    f'but the Axon is running {axonvers}'
             s_version.reqVersion(axonvers, AXON_MINVERS_SSLOPTS, mesg=mesg)
             kwargs['ssl_opts'] = ssl_opts
+
+        axon = self.runt.snap.core.axon
+        sha256byts = s_common.uhex(sha256)
 
         return await axon.wput(sha256byts, url, headers=headers, params=params, method=method,
                                ssl=ssl, timeout=timeout, **kwargs)
@@ -2602,6 +2757,48 @@ class LibAxon(Lib):
 
         await self.runt.snap.core.getAxon()
         return await self.runt.snap.core.axon.hashset(s_common.uhex(sha256))
+
+    @stormfunc(readonly=True)
+    async def read(self, sha256, offs=0, size=s_const.mebibyte):
+        '''
+        Read bytes from a file in the Axon.
+        '''
+        sha256 = await tostr(sha256)
+        size = await toint(size)
+        offs = await toint(offs)
+
+        if size > s_const.mebibyte:
+            mesg = f'Size must be between 1 and {s_const.mebibyte} bytes'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
+        await self.runt.snap.core.getAxon()
+
+        byts = b''
+        async for chunk in self.runt.snap.core.axon.get(s_common.uhex(sha256), offs=offs, size=size):
+            byts += chunk
+        return byts
+
+    @stormfunc(readonly=True)
+    async def unpack(self, sha256, fmt, offs=0):
+        '''
+        Unpack bytes from a file in the Axon using struct.
+        '''
+        if self.runt.snap.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
+            mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
+            raise s_exc.FeatureNotSupported(mesg=mesg)
+
+        sha256 = await tostr(sha256)
+        fmt = await tostr(fmt)
+        offs = await toint(offs)
+
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
+        await self.runt.snap.core.getAxon()
+        return await self.runt.snap.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
 
 @registry.registerLib
 class LibBytes(Lib):
@@ -5076,7 +5273,7 @@ class List(Prim):
             Examples:
                 Populate a list by extending it with to other lists::
 
-                    $list = $lib.list()
+                    $list = ()
 
                     $foo = (f, o, o)
                     $bar = (b, a, r)
@@ -5337,7 +5534,7 @@ class Number(Prim):
         try:
             valu = s_common.hugenum(valu)
         except (TypeError, decimal.DecimalException) as e:
-            mesg = f'Failed to make number from {valu!r}'
+            mesg = f'Failed to make number from {s_common.trimText(repr(valu))}'
             raise s_exc.BadCast(mesg=mesg) from e
 
         Prim.__init__(self, valu, path=path)
@@ -6890,6 +7087,22 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
 
+        {'name': 'liftByNodeData', 'desc': '''
+            Lift and yield nodes with the given node data key set within the layer.
+
+            Example:
+                Yield all nodes with the data key zootsuit set in the top layer::
+
+                    yield $lib.layer.get().liftByNodeData(zootsuit)
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'liftByNodeData',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The node data name to lift by.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes.', }}},
+
         {'name': 'getEdges', 'desc': '''
             Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
 
@@ -7001,6 +7214,7 @@ class Layer(Prim):
             'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
+            'liftByNodeData': self.liftByNodeData,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getPropValues': self._methGetPropValues,
@@ -7066,6 +7280,19 @@ class Layer(Prim):
         norm, info = prop.type.norm(propvalu)
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
         async for _, buid, sode in layr.liftByPropValu(liftform, liftprop, cmprvals):
+            yield await self.runt.snap._joinStorNode(buid, {iden: sode})
+
+    @stormfunc(readonly=True)
+    async def liftByNodeData(self, name):
+
+        name = await tostr(name)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.snap.core.getLayer(iden)
+
+        await self.runt.reqUserCanReadLayer(iden)
+
+        async for _, buid, sode in layr.liftByDataName(name):
             yield await self.runt.snap._joinStorNode(buid, {iden: sode})
 
     @stormfunc(readonly=True)
@@ -9704,7 +9931,7 @@ async def tostr(valu, noneok=False):
 
         return str(valu)
     except Exception as e:
-        mesg = f'Failed to make a string from {valu!r}.'
+        mesg = f'Failed to make a string from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def tobool(valu, noneok=False):
@@ -9718,7 +9945,7 @@ async def tobool(valu, noneok=False):
     try:
         return bool(valu)
     except Exception:
-        mesg = f'Failed to make a boolean from {valu!r}.'
+        mesg = f'Failed to make a boolean from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg)
 
 async def tonumber(valu, noneok=False):
@@ -9743,13 +9970,13 @@ async def toint(valu, noneok=False):
         try:
             return int(valu, 0)
         except ValueError as e:
-            mesg = f'Failed to make an integer from {valu!r}.'
+            mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
             raise s_exc.BadCast(mesg=mesg) from e
 
     try:
         return int(valu)
     except Exception as e:
-        mesg = f'Failed to make an integer from {valu!r}.'
+        mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
@@ -9768,7 +9995,7 @@ async def toiter(valu, noneok=False):
             async for item in agen:
                 yield item
     except TypeError as e:
-        mesg = f'Value is not iterable: {valu!r}'
+        mesg = f'Value is not iterable: {s_common.trimText(repr(valu))}'
         raise s_exc.StormRuntimeError(mesg=mesg) from e
 
 async def torepr(valu, usestr=False):

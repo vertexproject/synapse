@@ -369,14 +369,22 @@ class TelcoModule(s_module.CoreModule):
                     ('wifi:bssid', ('inet:mac', {}), {}),
 
                     # host specific data
-                    ('adid', ('it:adid', {}), {}),
-                    ('aaid', ('it:os:android:aaid', {}), {}),
-                    ('idfa', ('it:os:ios:idfa', {}), {}),
+                    ('adid', ('it:adid', {}), {
+                        'doc': 'The advertising ID of the mobile telemetry sample.'}),
+
+                    ('aaid', ('it:os:android:aaid', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :adid.'}),
+
+                    ('idfa', ('it:os:ios:idfa', {}), {
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :adid.'}),
 
                     # User related data
                     ('name', ('ps:name', {}), {}),
                     ('email', ('inet:email', {}), {}),
                     ('acct', ('inet:web:acct', {}), {
+                        'doc': 'Deprecated, use :account.',
                         'deprecated': True}),
 
                     ('account', ('inet:service:account', {}), {

@@ -24,7 +24,7 @@ class StormScrapeTest(s_test.SynTest):
                     The helper does require a named match for valu this is extracted.
                     */
                     function scrape(text) {
-                        $ret = $lib.list()
+                        $ret = ()
                         for ($valu, $info) in $lib.scrape.genMatches($text, $modRe) {
                             $ret.append(($modForm, $valu, $info))
                         }
@@ -49,7 +49,7 @@ class StormScrapeTest(s_test.SynTest):
                     Example of an storm module that scraps and matches on hzzp enfanged urls.
                     */
                     function scrape(text) {
-                        $ret = $lib.list()
+                        $ret = ()
                         for ($valu, $info) in $lib.scrape.genMatches($text, $modRe, fangs=$modFangs) {
                             $ret.append(($modForm, $valu, $info))
                         }
@@ -92,7 +92,7 @@ class StormScrapeTest(s_test.SynTest):
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('scrape'))
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
             self.len(2, mods)
@@ -105,7 +105,7 @@ class StormScrapeTest(s_test.SynTest):
             self.stormIsInPrint('inet:url=https://giggles.com/mallory.html', msgs)
             self.stormIsInPrint("'match': 'hzzps[:]\\\\giggles.com/mallory.html'", msgs)
 
-            cq = '''$ret=$lib.list()
+            cq = '''$ret=()
             for ($form, $valu) in $lib.scrape.ndefs($text) {
                 $ret.append(($form, $valu))
             }
@@ -131,7 +131,7 @@ class StormScrapeTest(s_test.SynTest):
         conf = {'storm:interface:scrape': False, }
         async with self.getTestCore(conf=conf) as core:
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('scrape')
             self.len(2, mods)
@@ -180,7 +180,7 @@ class StormScrapeTest(s_test.SynTest):
             self.eq(result, {'inet:ipv4=16909060': 1, 'inet:fqdn=foo.bar': 1, 'inet:fqdn=woot.com': 1})
 
             # $lib.scrape.context() - this is currently just wrapping s_scrape.contextscrape
-            query = '''$list = $lib.list() for $info in $lib.scrape.context($text)
+            query = '''$list = () for $info in $lib.scrape.context($text)
             { $list.append($info) }
             fini { return ( $list ) }
             '''

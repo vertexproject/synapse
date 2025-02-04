@@ -95,6 +95,7 @@ terminalEnglishMap = {
     'TRYSETPLUS': '?+=',
     'TRYSETMINUS': '?-=',
     'UNIVNAME': 'universal property',
+    'UNSET': 'unset',
     'EXPRUNIVNAME': 'universal property',
     'VARTOKN': 'variable',
     'EXPRVARTOKN': 'variable',
@@ -507,7 +508,7 @@ class Parser:
             origexc = e.orig_exc
             if not isinstance(origexc, s_exc.SynErr):
                 raise e.orig_exc # pragma: no cover
-            origexc.errinfo['text'] = self.text
+            origexc.set('text', self.text)
             return s_exc.BadSyntax(**origexc.errinfo)
 
         elif isinstance(e, lark.exceptions.UnexpectedCharacters):  # pragma: no cover
@@ -642,6 +643,8 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'baresubquery': s_ast.SubQuery,
     'catchblock': s_ast.CatchBlock,
+    'condsetoper': s_ast.CondSetOper,
+    'condtrysetoper': lambda astinfo, kids: s_ast.CondSetOper(astinfo, kids, errok=True),
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
     'edgeaddn1': s_ast.EditEdgeAdd,
@@ -657,6 +660,7 @@ ruleClassMap = {
     'formname': s_ast.FormName,
     'editpropdel': lambda astinfo, kids: s_ast.EditPropDel(astinfo, kids[1:]),
     'editpropset': s_ast.EditPropSet,
+    'editcondpropset': s_ast.EditCondPropSet,
     'edittagadd': s_ast.EditTagAdd,
     'edittagdel': lambda astinfo, kids: s_ast.EditTagDel(astinfo, kids[1:]),
     'edittagpropset': s_ast.EditTagPropSet,

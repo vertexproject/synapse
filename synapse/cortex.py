@@ -83,6 +83,7 @@ import synapse.lib.stormlib.model as s_stormlib_model
 import synapse.lib.stormlib.oauth as s_stormlib_oauth  # NOQA
 import synapse.lib.stormlib.stats as s_stormlib_stats  # NOQA
 import synapse.lib.stormlib.storm as s_stormlib_storm  # NOQA
+import synapse.lib.stormlib.utils as s_stormlib_utils  # NOQA
 import synapse.lib.stormlib.vault as s_stormlib_vault  # NOQA
 import synapse.lib.stormlib.backup as s_stormlib_backup  # NOQA
 import synapse.lib.stormlib.cortex as s_stormlib_cortex  # NOQA
@@ -1495,7 +1496,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to remove a file from the Axon.'},
         ))
         for pdef in self._cortex_permdefs:
-            s_storm.reqValidPermDef(pdef)
+            s_schemas.reqValidPermDef(pdef)
 
     def _getPermDefs(self):
 
@@ -1556,7 +1557,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def initServiceActive(self):
 
         await self.stormdmons.start()
-        await self.agenda.clearRunningStatus()
 
         async def _runMigrations():
             # Run migrations when this cortex becomes active. This is to prevent
@@ -1739,7 +1739,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for filt in gdef.get('filters', ()):
             await self.getStormQuery(filt)
 
-        for pivo in gdef.get('filters', ()):
+        for pivo in gdef.get('pivots', ()):
             await self.getStormQuery(pivo)
 
         for form, rule in gdef.get('forms', {}).items():
@@ -1749,7 +1749,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for filt in rule.get('filters', ()):
                 await self.getStormQuery(filt)
 
-            for pivo in rule.get('filters', ()):
+            for pivo in rule.get('pivots', ()):
                 await self.getStormQuery(pivo)
 
     async def addStormGraph(self, gdef, user=None):
@@ -1770,7 +1770,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         gdef['updated'] = now
         gdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
 
-        s_stormlib_graph.reqValidGdef(gdef)
+        s_schemas.reqValidGdef(gdef)
 
         await self.reqValidStormGraph(gdef)
 
@@ -1778,7 +1778,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:graph:add')
     async def _addStormGraph(self, gdef):
-        s_stormlib_graph.reqValidGdef(gdef)
+        s_schemas.reqValidGdef(gdef)
 
         await self.reqValidStormGraph(gdef)
 
@@ -1857,7 +1857,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         gdef = copy.deepcopy(gdef)
         gdef.update(info)
 
-        s_stormlib_graph.reqValidGdef(gdef)
+        s_schemas.reqValidGdef(gdef)
 
         await self.reqValidStormGraph(gdef)
 
@@ -1879,7 +1879,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._setEasyPerm(gdef, scope, iden, level)
 
-        s_stormlib_graph.reqValidGdef(gdef)
+        s_schemas.reqValidGdef(gdef)
 
         self.graphs.set(gden, gdef)
 
@@ -2240,7 +2240,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         '''
         name = cdef.get('name')
-        await self._setStormCmd(cdef)
+        self._setStormCmd(cdef)
         self.cmddefs.set(name, cdef)
 
     async def _reqStormCmd(self, cdef):
@@ -2483,7 +2483,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
                 yield sodes
 
-    async def _setStormCmd(self, cdef):
+    def _setStormCmd(self, cdef):
         '''
         Note:
             No change control or persistence
@@ -2543,12 +2543,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = cdef.get('name')
         self.stormcmds[name] = ctor
 
-        await self.fire('core:cmd:change', cmd=name, act='add')
-
-    async def _popStormCmd(self, name):
+    def _popStormCmd(self, name):
         self.stormcmds.pop(name, None)
-
-        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def delStormCmd(self, name):
         '''
@@ -2574,8 +2570,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.cmddefs.pop(name)
         self.stormcmds.pop(name, None)
-
-        await self.fire('core:cmd:change', cmd=name, act='del')
 
     async def addStormPkg(self, pkgdef, verify=False):
         '''
@@ -2630,11 +2624,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         olddef = self.pkgdefs.get(name, None)
         if olddef is not None:
             if s_hashitem.hashitem(pkgdef) != s_hashitem.hashitem(olddef):
-                await self._dropStormPkg(olddef)
+                self._dropStormPkg(olddef)
             else:
                 return
 
-        await self.loadStormPkg(pkgdef)
+        self.loadStormPkg(pkgdef)
         self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
@@ -2664,7 +2658,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pkgdef is None:
             return
 
-        await self._dropStormPkg(pkgdef)
+        self._dropStormPkg(pkgdef)
 
         self._clearPermDefs()
 
@@ -2713,7 +2707,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _tryLoadStormPkg(self, pkgdef):
         try:
             await self._normStormPkg(pkgdef, validstorm=False)
-            await self.loadStormPkg(pkgdef)
+            self.loadStormPkg(pkgdef)
 
         except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
             raise
@@ -2867,6 +2861,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 cmdtext = cdef.get('storm')
                 await self.getStormQuery(cmdtext)
 
+            if cdef.get('forms') is not None:
+                name = cdef.get('name')
+                mesg = f"Storm command definition 'forms' key is deprecated and will be removed " \
+                       f"in 3.0.0 (command {name} in package {pkgname})"
+                logger.warning(mesg, extra=await self.getLogExtra(name=name, pkgname=pkgname))
+
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
             gdef['scope'] = 'power-up'
@@ -2876,12 +2876,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self.reqValidStormGraph(gdef)
 
         # Validate package def (post normalization)
-        s_storm.reqValidPkgdef(pkgdef)
+        s_schemas.reqValidPkgdef(pkgdef)
 
         for configvar in pkgdef.get('configvars', ()):
             self._reqStormPkgVarType(pkgname, configvar.get('type'))
 
-    async def loadStormPkg(self, pkgdef):
+    # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
+    # executing outside of the nexus lock.
+    def loadStormPkg(self, pkgdef):
         '''
         Load a storm package into the storm library for this cortex.
 
@@ -2911,7 +2913,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.stormmods = stormmods
 
         for cdef in cmds:
-            await self._setStormCmd(cdef)
+            self._setStormCmd(cdef)
 
         for gdef in pkgdef.get('graphs', ()):
             gdef = copy.deepcopy(gdef)
@@ -2937,7 +2939,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self.fire('core:pkg:onload:complete', pkg=name)
             self.schedCoro(_onload())
 
-    async def _dropStormPkg(self, pkgdef):
+    # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
+    # executing outside of the nexus lock.
+    def _dropStormPkg(self, pkgdef):
         '''
         Reverse the process of loadStormPkg()
         '''
@@ -2948,7 +2952,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for cdef in pkgdef.get('commands', ()):
             name = cdef.get('name')
-            await self._popStormCmd(name)
+            self._popStormCmd(name)
 
         pkgname = pkgdef.get('name')
 
@@ -4435,7 +4439,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _trySetStormCmd(self, name, cdef):
         try:
-            await self._setStormCmd(cdef)
+            self._setStormCmd(cdef)
         except (asyncio.CancelledError, Exception):
             logger.exception(f'Storm command load failed: {name}')
 
@@ -4447,7 +4451,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for path, ctor in s_stormtypes.registry.iterLibs():
             # Ensure each ctor's permdefs are valid
             for pdef in ctor._storm_lib_perms:
-                s_storm.reqValidPermDef(pdef)
+                s_schemas.reqValidPermDef(pdef)
             # Skip libbase which is registered as a default ctor in the storm Runtime
             if path:
                 self.addStormLib(path, ctor)
@@ -5668,7 +5672,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def runStormDmon(self, iden, ddef):
 
         # validate ddef before firing task
-        s_storm.reqValidDdef(ddef)
+        s_schemas.reqValidDdef(ddef)
 
         dmon = self.stormdmons.getDmon(iden)
         if dmon is not None:
@@ -5912,7 +5916,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):
-            extra = await self.getLogExtra(text=text)
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
@@ -5932,7 +5935,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 except s_exc.TimeOut:
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
+                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
@@ -5947,7 +5950,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):
-            extra = await self.getLogExtra(text=text)
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
@@ -5964,7 +5966,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return await proxy.callStorm(text, opts=mirropts)
                 except s_exc.TimeOut:
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
+                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
@@ -5977,7 +5979,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         opts = self._initStormOpts(opts)
 
         if self.stormpool is not None and opts.get('mirror', True):
-            extra = await self.getLogExtra(text=text)
             proxy = await self._getMirrorProxy(opts)
 
             if proxy is not None:
@@ -5997,7 +5998,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 except s_exc.TimeOut:
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
+                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):

@@ -93,9 +93,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
-                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
-                    'doc': 'An alias for the org GUID.',
+                ('ou:alias', ('str', {'lower': True, 'regex': r'^[\w0-9_]+$'}), {
+                    'deprecated': True,
                     'ex': 'vertexproject',
+                    'doc': 'Deprecated. Please use ou:name.',
                 }),
                 ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
                     'deprecated': True,
@@ -484,8 +485,11 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The org which issues id numbers of this type.',
                     }),
                     ('name', ('str', {}), {
-                        'doc': 'The friendly name of the id number type.',
+                        'alts': ('names',),
+                        'doc': 'The friendly name of the ID number type.',
                     }),
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the ID number type.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The official URL of the issuer.',
                     }),
@@ -493,10 +497,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:id:number', {}, (
 
                     ('type', ('ou:id:type', {}), {
-                        'doc': 'The type of org id', 'ro': True}),
+                        'doc': 'The type of org ID.', 'ro': True}),
 
                     ('value', ('ou:id:value', {}), {
-                        'doc': 'The value of org id', 'ro': True}),
+                        'doc': 'The value of the org ID.', 'ro': True}),
 
                     ('status', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'A freeform status such as valid, suspended, expired.'}),
@@ -526,6 +530,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:goal', {}, (
 
                     ('name', ('ou:goalname', {}), {
+                        'alts': ('names',),
                         'doc': 'A terse name for the goal.'}),
 
                     ('names', ('array', {'type': 'ou:goalname', 'sorted': True, 'uniq': True}), {
@@ -570,6 +575,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The FQDN of the org responsible for the campaign. Used for entity resolution.'}),
 
                     ('goal', ('ou:goal', {}), {
+                        'alts': ('goals',),
                         'doc': 'The assessed primary goal of the campaign.'}),
 
                     ('slogan', ('lang:phrase', {}), {
@@ -585,6 +591,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Records the success/failure status of the campaign if known.'}),
 
                     ('name', ('ou:campname', {}), {
+                        'alts': ('names',),
                         'ex': 'operation overlord',
                         'doc': 'A terse name of the campaign.'}),
 
@@ -756,7 +763,8 @@ class OuModule(s_module.CoreModule):
                        'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
-                        'doc': 'The default alias for an organization.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:org:names.',
                     }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
@@ -924,6 +932,7 @@ class OuModule(s_module.CoreModule):
                 ('ou:industry', {}, (
 
                     ('name', ('ou:industryname', {}), {
+                        'alts': ('names',),
                         'doc': 'The name of the industry.'}),
 
                     ('type', ('ou:industry:type:taxonomy', {}), {
@@ -1176,6 +1185,7 @@ class OuModule(s_module.CoreModule):
                         'doc': 'An array of contacts which sponsored the conference.',
                     }),
                     ('name', ('entity:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The full name of the conference.',
                         'ex': 'defcon 2017'}),
 
@@ -1338,30 +1348,34 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:contest:result', {}, (
+
                     ('contest', ('ou:contest', {}), {
                         'ro': True,
-                        'doc': 'The contest.',
-                    }),
+                        'doc': 'The contest that the participant took part in.'}),
+
                     ('participant', ('ps:contact', {}), {
                         'ro': True,
-                        'doc': 'The participant',
-                    }),
+                        'doc': 'The participant in the contest.'}),
+
                     ('rank', ('int', {}), {
-                        'doc': 'The rank order of the participant.',
-                    }),
+                        'doc': "The participant's rank order in the contest."}),
+
                     ('score', ('int', {}), {
-                        'doc': 'The score of the participant.',
-                    }),
+                        'doc': "The participant's final score in the contest."}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the participant competed in the contest.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The contest result website URL.',
-                    }),
+                        'doc': 'The contest result website URL.'}),
+
                 )),
                 ('ou:enacted:status:taxonomy', {}, ()),
                 ('ou:enacted', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization which is enacting the document.'}),
 
-                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
+                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
                         'doc': 'The document enacted by the organization.'}),
 
                     ('scope', ('ndef', {}), {
