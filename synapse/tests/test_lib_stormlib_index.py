@@ -34,3 +34,6 @@ class StormIndexTest(s_test.SynTest):
 
             msgs = await core.stormlist('index.count.prop inet:ipv4:asn --value 42', opts=viewopts)
             self.stormIsInPrint(count_prop_01, msgs, deguid=True, whitespace=False)
+
+            msgs = await core.stormlist('index.count.prop inet:ipv4:newp', opts=viewopts)
+            self.stormIsInErr('No property named inet:ipv4:newp', msgs)
