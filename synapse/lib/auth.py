@@ -391,8 +391,12 @@ class Auth(s_nexus.Pusher):
     async def _setUserInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
         user = await self.reqUser(iden)
 
-        if name == 'locked' and not valu and user.isArchived():
-            return
+        if self.nexsroot and self.nexsroot.cell.nexsvers >= (2, 197):
+            # If the nexus version is less than 2.197 then the leader hasn't been upgraded yet and
+            # we don't want to get into a schism because we're bouncing edits and the leader is
+            # applying them.
+            if name == 'locked' and not valu and user.isArchived():
+                return
 
         if gateiden is not None:
             info = user.genGateInfo(gateiden)

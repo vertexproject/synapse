@@ -1,6 +1,8 @@
 import string
 import pathlib
 
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
@@ -458,6 +460,39 @@ class AuthTest(s_test.SynTest):
                 self.true(user.get('archived'))
                 self.true(user.get('locked'))
 
+        # Check behavior of upgraded mirrors and non-upgraded leader
+        async with self.getTestAha() as aha:
+
+            with self.getTestDir() as dirn:
+                path00 = s_common.gendir(dirn, 'cell00')
+                path01 = s_common.gendir(dirn, 'cell01')
+
+                with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 177)):
+                    async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=path00) as cell00:
+                        lowuser = await cell00.addUser('lowuser')
+                        useriden = lowuser.get('iden')
+                        await cell00.setUserArchived(useriden, True)
+
+                        with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 197)):
+                            async with self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=path01, provinfo={'mirror': 'cell'}) as cell01:
+                                await cell01.sync()
+                                udef = await cell01.getUserDef(useriden)
+                                self.true(udef.get('locked'))
+                                self.true(udef.get('archived'))
+
+                                # Simulate a call to cell00.setUserLocked(useriden, False) to bypass
+                                # the check in cell00.auth.setUserInfo()
+                                await cell00.auth._push('user:info', useriden, 'locked', False)
+                                await cell01.sync()
+
+                                udef00 = await cell00.getUserDef(useriden)
+                                self.true(udef00.get('archived'))
+                                self.false(udef00.get('locked'))
+
+                                udef01 = await cell01.getUserDef(useriden)
+                                self.true(udef01.get('archived'))
+                                self.false(udef01.get('locked'))
+
         # Check that we don't blowup/schism if an upgraded mirror is behind a leader with a pending
         # user:info event that unlocks an archived user
         async with self.getTestAha() as aha:
@@ -513,6 +548,9 @@ class AuthTest(s_test.SynTest):
                         udef = await cell01.getUserDef(useriden)
                         self.true(udef.get('archived'))
                         self.true(udef.get('locked'))
+
+                        self.ge(cell00.nexsvers, (2, 197))
+                        self.ge(cell01.nexsvers, (2, 197))
 
     async def test_auth_password_policy(self):
         policy = {

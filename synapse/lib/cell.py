@@ -62,7 +62,7 @@ import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 177)
+NEXUS_VERSION = (2, 197)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -1302,7 +1302,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         await self._bumpCellVers('cell:storage', (
             (2, self._storCellAuthMigration),
-            (3, self._storCellAuthLockArchivedUsers),
+            # cell:storage v3 runs below in configNexsVers. This is a placeholder for the version
+            # (3, self._storCellAuthLockArchivedUsers),
         ), nexs=False)
 
         self.auth = await self._initCellAuth()
@@ -1380,6 +1381,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if info.get('archived') and not info.get('locked'):
                 info['locked'] = True
                 userkv.set(iden, info)
+
+        # Clear the auth caches so the changes get picked up by the already running auth subsystem
+        self.auth.userbyidencache.clear()
+        self.auth.useridenbynamecache.clear()
 
         logger.warning(f'...Cell ({self.getCellType()}) lock archived users complete!')
 
@@ -1622,15 +1627,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def setNexsVers(self, vers):
-        if self.nexsvers < NEXUS_VERSION:
-            await self._push('nexs:vers:set', NEXUS_VERSION)
+        if self.nexsvers < vers:
+            await self._push('nexs:vers:set', vers)
 
     @s_nexus.Pusher.onPush('nexs:vers:set')
     async def _setNexsVers(self, vers):
         if vers > self.nexsvers:
-            self.cellvers.set('nexus:version', vers)
-            self.nexsvers = vers
+            # Run configNexsVers() before updating the nexus version so it has a chance to configure
+            # itself based on the current version, not the new version.
             await self.configNexsVers()
+            self.cellinfo.set('nexus:version', vers)
+            self.nexsvers = vers
 
     async def configNexsVers(self):
         for meth, orig in self.nexspatches:
@@ -1647,6 +1654,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 ('popUserProfInfo', self._popUserProfInfoV0),
                 ('setUserProfInfo', self._setUserProfInfoV0),
             ])
+
+        if self.nexsvers < (2, 197):
+            await self._bumpCellVers('cell:storage', (
+                (3, self._storCellAuthLockArchivedUsers),
+            ), nexs=False)
 
         self.nexspatches = []
         for meth, repl in patches:
