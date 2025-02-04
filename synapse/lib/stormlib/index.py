@@ -46,7 +46,7 @@ stormcmds = (
 
             $lib.print($printer.row(($count, $layer.iden, $layer.name)))
         }
-        $lib.print(`total: {$total}`)
+        $lib.print(`Total: {$total}`)
         ''',
     },
 )
