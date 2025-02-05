@@ -17,7 +17,7 @@ New Forms
 
 
 ``doc:resume``
-  A cv/resume document.
+  A CV/resume document.
 
 
 ``doc:resume:type:taxonomy``
