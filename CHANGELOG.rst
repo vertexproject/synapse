@@ -6,6 +6,28 @@
 Synapse Changelog
 *****************
 
+v2.197.0 - 2025-02-05
+=====================
+
+Model Changes
+-------------
+- Added ``doc:resume`` and ``doc:requirement`` to the data model.
+  (`#4104 <https://github.com/vertexproject/synapse/pull/4104>`_)
+- See :ref:`userguide_model_v2_197_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added Unicode word character support for the ``ou:org:alias`` property.
+  (`#4108 <https://github.com/vertexproject/synapse/pull/4108>`_)
+- Increased the performance of executing Storm commands which have type
+  annotations.
+  (`#4111 <https://github.com/vertexproject/synapse/pull/4111>`_)
+- Move Storm Package JSON schema to ``synapse.lib.schemas``.
+  (`#4112 <https://github.com/vertexproject/synapse/pull/4112>`_)
+- Added ``index.count.prop`` command to make it easier to count properties
+  stored in the view and layers.
+  (`#4113 <https://github.com/vertexproject/synapse/pull/4113>`_)
+
 v2.196.0 - 2025-01-31
 =====================
 
