@@ -391,7 +391,7 @@ class Auth(s_nexus.Pusher):
     async def _setUserInfo(self, iden, name, valu, gateiden=None, logged=True, mesg=None):
         user = await self.reqUser(iden)
 
-        if self.nexsroot and self.nexsroot.cell.nexsvers >= (2, 197):
+        if self.nexsroot and self.nexsroot.cell.nexsvers >= (2, 198):
             # If the nexus version is less than 2.197 then the leader hasn't been upgraded yet and
             # we don't want to get into a schism because we're bouncing edits and the leader is
             # applying them.

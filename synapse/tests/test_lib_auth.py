@@ -473,7 +473,7 @@ class AuthTest(s_test.SynTest):
                         useriden = lowuser.get('iden')
                         await cell00.setUserArchived(useriden, True)
 
-                        with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 197)):
+                        with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 198)):
                             async with self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=path01, provinfo={'mirror': 'cell'}) as cell01:
                                 await cell01.sync()
                                 udef = await cell01.getUserDef(useriden)
@@ -549,8 +549,8 @@ class AuthTest(s_test.SynTest):
                         self.true(udef.get('archived'))
                         self.true(udef.get('locked'))
 
-                        self.ge(cell00.nexsvers, (2, 197))
-                        self.ge(cell01.nexsvers, (2, 197))
+                        self.ge(cell00.nexsvers, (2, 198))
+                        self.ge(cell01.nexsvers, (2, 198))
 
     async def test_auth_password_policy(self):
         policy = {

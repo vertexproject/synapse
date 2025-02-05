@@ -62,7 +62,7 @@ import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 197)
+NEXUS_VERSION = (2, 198)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -1637,9 +1637,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.configNexsVers()
 
     async def _migrNexsVers(self, newvers):
-        if self.nexsvers < (2, 197) and newvers >= (2, 197) and self.conf.get('auth:ctor') is None:
+        if self.nexsvers < (2, 198) and newvers >= (2, 198) and self.conf.get('auth:ctor') is None:
             # This "migration" will lock all archived users. Once the nexus version is bumped to
-            # >=2.197, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
+            # >=2.198, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
             # begin rejecting unlock requests for archived users.
 
             authkv = self.slab.getSafeKeyVal('auth')
