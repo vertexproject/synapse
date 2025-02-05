@@ -1651,8 +1651,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     userkv.set(iden, info)
 
             # Clear the auth caches so the changes get picked up by the already running auth subsystem
-            self.auth.userbyidencache.clear()
-            self.auth.useridenbynamecache.clear()
+            self.auth.clearAuthCache()
 
     async def configNexsVers(self):
         for meth, orig in self.nexspatches:

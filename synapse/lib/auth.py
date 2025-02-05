@@ -738,6 +738,16 @@ class Auth(s_nexus.Pusher):
         self.roleidenbyname.delete(role.name)
         await self.feedBeholder('role:del', {'iden': iden})
 
+    def clearAuthCache(self):
+        '''
+        Clear all auth caches.
+        '''
+        self.userbyidencache.clear()
+        self.useridenbynamecache.clear()
+        self.rolebyidencache.clear()
+        self.roleidenbynamecache.clear()
+        self.authgates.clear()
+
 class AuthGate():
     '''
     The storage object for object specific rules for users/roles.
