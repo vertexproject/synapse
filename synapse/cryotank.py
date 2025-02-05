@@ -8,7 +8,7 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
-import synapse.lib.storm as s_storm
+import synapse.lib.schemas as s_schemas
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.slabseqn as s_slabseqn
 import synapse.lib.slaboffs as s_slaboffs
@@ -314,7 +314,7 @@ class CryoCell(s_cell.Cell):
         ))
 
         for pdef in self._cryo_permdefs:
-            s_storm.reqValidPermDef(pdef)
+            s_schemas.reqValidPermDef(pdef)
 
     def _getPermDefs(self):
         permdefs = list(s_cell.Cell._getPermDefs(self))
