@@ -1,0 +1,6 @@
+---
+desc: Added ``index.count.prop`` command to make it easier to count
+  properties stored in the view and layers.
+prs: []
+type: feat
+...
