@@ -796,7 +796,6 @@ class Slab(s_base.Base):
             return
 
         clas.syncevnt = asyncio.Event()
-        clas.syncevntdone = threading.Event()
 
         coro = clas.syncLoopTask()
         loop = asyncio.get_running_loop()
@@ -812,9 +811,6 @@ class Slab(s_base.Base):
                 clas.syncevnt.clear()
 
                 await clas.syncLoopOnce()
-
-                clas.syncevntdone.set()
-                clas.syncevntdone.clear()
 
             except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
                 raise
@@ -1043,7 +1039,7 @@ class Slab(s_base.Base):
 
         if not self.syncevnt.is_set():
             self.syncevnt.set()
-            if self.syncevntdone.wait(timeout=0.1):
+            if not self.syncevnt.is_set():
                 return # pragma: no cover
 
         try:
