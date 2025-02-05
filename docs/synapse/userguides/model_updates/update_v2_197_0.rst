@@ -37,7 +37,7 @@ Updated Properties
   The form had the following property updated:
 
 
-    The property ``doc`` has been modified to allow the ``doc:standard`` form.
+    The property ``doc`` has been modified to allow the ``doc:requirement`` form.
 
 
 ****************
