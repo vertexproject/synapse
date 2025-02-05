@@ -6839,7 +6839,8 @@ class Layer(Prim):
     Implements the Storm api for a layer instance.
     '''
     _storm_locals = (
-        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
+        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Layer.', 'type': 'str'},
         {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
@@ -7194,6 +7195,7 @@ class Layer(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+        self.locls['name'] = self.valu.get('name')
 
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
