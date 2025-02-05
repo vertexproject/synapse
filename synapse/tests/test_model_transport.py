@@ -110,6 +110,7 @@ class TransportTest(s_test.SynTest):
             self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
+            self.len(1, await core.nodes('transport:sea:vessel :name -> entity:name'))
             self.len(1, await core.nodes('transport:sea:vessel -> transport:sea:vessel:type:taxonomy'))
 
             seatelem = (await core.nodes('''[

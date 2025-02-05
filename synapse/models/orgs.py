@@ -93,9 +93,10 @@ class OuModule(s_module.CoreModule):
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
-                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
-                    'doc': 'An alias for the org GUID.',
+                ('ou:alias', ('str', {'lower': True, 'regex': r'^[\w0-9_]+$'}), {
+                    'deprecated': True,
                     'ex': 'vertexproject',
+                    'doc': 'Deprecated. Please use ou:name.',
                 }),
                 ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
                     'deprecated': True,
@@ -762,7 +763,8 @@ class OuModule(s_module.CoreModule):
                        'doc': 'A list of alternate names for the organization.',
                     }),
                     ('alias', ('ou:alias', {}), {
-                        'doc': 'The default alias for an organization.'
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use ou:org:names.',
                     }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
@@ -1346,30 +1348,34 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:contest:result', {}, (
+
                     ('contest', ('ou:contest', {}), {
                         'ro': True,
-                        'doc': 'The contest.',
-                    }),
+                        'doc': 'The contest that the participant took part in.'}),
+
                     ('participant', ('ps:contact', {}), {
                         'ro': True,
-                        'doc': 'The participant',
-                    }),
+                        'doc': 'The participant in the contest.'}),
+
                     ('rank', ('int', {}), {
-                        'doc': 'The rank order of the participant.',
-                    }),
+                        'doc': "The participant's rank order in the contest."}),
+
                     ('score', ('int', {}), {
-                        'doc': 'The score of the participant.',
-                    }),
+                        'doc': "The participant's final score in the contest."}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the participant competed in the contest.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The contest result website URL.',
-                    }),
+                        'doc': 'The contest result website URL.'}),
+
                 )),
                 ('ou:enacted:status:taxonomy', {}, ()),
                 ('ou:enacted', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization which is enacting the document.'}),
 
-                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
+                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
                         'doc': 'The document enacted by the organization.'}),
 
                     ('scope', ('ndef', {}), {

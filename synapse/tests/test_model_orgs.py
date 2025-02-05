@@ -183,6 +183,13 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(t.norm('HAHA1')[0], 'haha1')
             self.eq(t.norm('GOV_MFA')[0], 'gov_mfa')
 
+            # ou:org:alias (unicode test)
+            nodes = await core.nodes('''
+                [ ou:org=* :alias="ÅÆØåæø" ]
+            ''')
+            self.len(1, nodes)
+            self.eq(t.norm('ÅÆØåæø')[0], 'åæøåæø')
+
             # ou:position / ou:org:subs
             orgiden = s_common.guid()
             contact = s_common.guid()
@@ -640,6 +647,7 @@ class OuModelTest(s_t_utils.SynTest):
                 ou:contest:result=(*, *)
                     :rank=1
                     :score=20
+                    :period=(20250101, 20250102)
                     :url=http://vertex.link/contest/result
             ]''')
             self.len(1, nodes)
@@ -647,6 +655,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('participant'))
             self.eq(1, nodes[0].get('rank'))
             self.eq(20, nodes[0].get('score'))
+            self.eq((1735689600000, 1735776000000), nodes[0].get('period'))
             self.eq('http://vertex.link/contest/result', nodes[0].get('url'))
             self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))

@@ -1,6 +1,0 @@
----
-desc: Fixed an issue with unbound text values being included in some ``StormRuntimeError``
-  exceptions raised when interacting with Storm APIs.
-prs: []
-type: bug
-...

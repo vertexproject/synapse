@@ -1,0 +1,5 @@
+---
+desc: Increased the performance of executing Storm commands which have type annotations.
+prs: []
+type: feat
+...
