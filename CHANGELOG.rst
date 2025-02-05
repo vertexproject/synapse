@@ -17,8 +17,6 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Added Unicode word character support for the ``ou:org:alias`` property.
-  (`#4108 <https://github.com/vertexproject/synapse/pull/4108>`_)
 - Increased the performance of executing Storm commands which have type
   annotations.
   (`#4111 <https://github.com/vertexproject/synapse/pull/4111>`_)
