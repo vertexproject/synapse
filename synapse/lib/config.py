@@ -41,6 +41,7 @@ def localSchemaRefHandler(uri):
         raise s_exc.BadArg(mesg=f'Path traversal in schema URL: {uri}.')
 
     if not os.path.exists(filename) or not os.path.isfile(filename):
+        s_data.walk()
         raise s_exc.NoSuchFile(mesg=f'Local JSON schema not found for {uri}.')
 
     with open(filename, 'r') as fp:

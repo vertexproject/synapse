@@ -30,3 +30,12 @@ def getJSON(name):
 
 def path(*names):
     return s_common.genpath(dirname, *names)
+
+def walk():
+    print(f'Walking {dirname}')
+    for (dirpath, dirnames, filenames) in os.walk(dirname):
+        for dirn in dirnames:
+            print(f'{dirpath}/{dirn}')
+        for fn in filenames:
+            print(f'{dirpath}/{fn}')
+    print('Walking fin')
