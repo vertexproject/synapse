@@ -1028,3 +1028,80 @@ _reqValidDdefSchema = {
     }
 }
 reqValidDdef = s_config.getJsValidator(_reqValidDdefSchema)
+
+_client_assertion_schema = {
+    'type': 'object',
+    'oneOf': [
+        {
+            'required': ['cortex:callstorm'],
+            'properties': {
+                'cortex:callstorm': {
+                    'type': 'object',
+                    'properties': {
+                        'query': {'type': 'string'},
+                        'vars': {'type': 'object'},
+                        'view': {'type': 'string', 'pattern': s_config.re_iden},
+                    },
+                    'required': ['query', 'view'],
+                    'additionalProperties': False,
+                },
+            },
+            'additionalProperties': False,
+            'not': {
+                'required': ['msft:azure:workloadidentity'],
+            }
+        },
+        {
+            'required': ['msft:azure:workloadidentity'],
+            'properties': {
+                'msft:azure:workloadidentity': {'type': 'boolean'}
+            },
+            'additionalProperties': False,
+            'not': {
+                'required': ['cortex:callstorm'],
+            }
+        }
+    ]
+}
+_reqValidOauth2ProviderSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string'},
+        'flow_type': {'type': 'string', 'default': 'authorization_code', 'enum': ['authorization_code']},
+        'auth_scheme': {'type': 'string', 'default': 'basic', 'enum': ['basic']},
+        'client_id': {'type': 'string'},
+        'client_secret': {'type': 'string'},
+        'client_assertion': _client_assertion_schema,
+        'scope': {'type': 'string'},
+        'ssl_verify': {'type': 'boolean', 'default': True},
+        'auth_uri': {'type': 'string'},
+        'token_uri': {'type': 'string'},
+        'redirect_uri': {'type': 'string'},
+        'extensions': {
+            'type': 'object',
+            'properties': {
+                'pkce': {'type': 'boolean'},
+            },
+            'additionalProperties': False,
+        },
+        'extra_auth_params': {
+            'type': 'object',
+            'additionalProperties': {'type': 'string'},
+        },
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'name', 'client_id', 'scope', 'auth_uri', 'token_uri', 'redirect_uri'],
+}
+reqValidOauth2Provider = s_config.getJsValidator(_reqValidOauth2ProviderSchema)
+
+_reqValidOauth2TokenResponseSchema = {
+    'type': 'object',
+    'properties': {
+        'access_token': {'type': 'string'},
+        'expires_in': {'type': 'number', 'exclusiveMinimum': 0},
+    },
+    'additionalProperties': True,
+    'required': ['access_token', 'expires_in'],
+}
+reqValidOauth2TokenResponse = s_config.getJsValidator(_reqValidOauth2TokenResponseSchema)

@@ -3,6 +3,7 @@ from oauthlib import oauth1
 
 import synapse.exc as s_exc
 
+import synapse.lib.oauth as s_oauth
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -153,6 +154,85 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         // Optionally provide additional key-val parameters
                         // to include when calling the auth URI
                         $conf.extra_auth_params = ({"customparam": "foo"})
+
+                        $lib.inet.http.oauth.v2.addProvider($conf)
+
+                    Add a new provider which uses the Microsfot Azure Federated Workflow Identify token credentials.::
+
+                        $iden = $lib.guid(azureexample, provider, oauth)
+                        $authority_id = 'f70e4be6-bd47-2263-a1ba-d7141cd7faeb'
+                        $conf = ({
+                            "iden": $iden,
+                            "name": "example_provider",
+                            "client_id": "yourclientid",
+                            "client_assertion": {
+                                "msft:azure:workloadidentity": true,
+                            },
+                            "scope": "first_scope second_scope",
+                            "auth_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/authorize`,
+                            "token_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/token`,
+                            "redirect_uri": "https://local.redirect.com/oauth",
+                        })
+
+                        // Optionally enable PKCE
+                        $conf.extensions = ({"pkce": $lib.true})
+
+                        // Optionally disable SSL verification
+                        $conf.ssl_verify = $lib.false
+
+                        // Optionally provide additional key-val parameters
+                        // to include when calling the auth URI
+                        $conf.extra_auth_params = ({"customparam": "foo"})
+
+                        $lib.inet.http.oauth.v2.addProvider($conf)
+
+                    Add a new provider which uses a custom Storm callback to obtain the client_assertion data. These
+                    callbacks are executed as the user who is performing the authorization_code workflow. The Storm
+                    callback must return data in a tuple of ``bool`` and a dictionary containing the assertion in the
+                    key ``token``. Error messagess should be in the key ``error``.::
+
+                        $iden = $lib.guid(callstormexample, provider, oauth)
+
+                        // Example callback
+                        $callbackQuery = ${
+                            $url = `{$baseurl}/api/oauth/getAssertion`
+                            $resp = $lib.inet.http.get($url, ssl_verify=$ssl_verify)
+                            if ($resp.code = 200) {
+                                $resp = ( (true), ({'token': $resp.json().assertion}))
+                            } else {
+                                $resp = ( (false), ({"error": `Failed to get assertion from {$url}`}) )
+                            }
+                            return ( $resp )
+                        }
+
+                        // Specify any variables that need to be provided to $callbackQuery
+                        $myCallbackVars = ({
+                            'baseurl': 'https://local.assertion.provider.corp',
+                            'ssl_verify': true,
+                        })
+
+                        // Specify the view the callback is run in.
+                        $view = $lib.view.get().iden
+
+                        $conf = ({
+                            "iden": $iden,
+                            "name": "example_provider",
+                            "client_id": "yourclientid",
+                            "client_assertion": {
+                                "cortex:callstorm": {
+                                    "query": $callbackQuery,
+                                    "view": $view,
+                                    "vars": $myCallbackVars,
+                                },
+                            },
+                            "scope": "first_scope second_scope",
+                            "auth_uri": "https://provider.com/auth",
+                            "token_uri": "https://provider.com/token",
+                            "redirect_uri": "https://local.redirect.com/oauth",
+                        })
+
+                        // Optionally enable PKCE
+                        $conf.extensions = ({"pkce": $lib.true})
 
                         $lib.inet.http.oauth.v2.addProvider($conf)
             ''',

@@ -1,3 +1,4 @@
+import os
 import copy
 import heapq
 import asyncio
@@ -10,7 +11,7 @@ import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
 import synapse.lib.nexus as s_nexus
-import synapse.lib.config as s_config
+import synapse.lib.schemas as s_schemas
 import synapse.lib.lmdbslab as s_lmdbslab
 
 logger = logging.getLogger(__name__)
@@ -19,51 +20,11 @@ KEY_LEN = 32          # length of a provider/user iden in a key
 REFRESH_WINDOW = 0.5  # refresh in REFRESH_WINDOW * expires_in
 DEFAULT_TIMEOUT = 10  # secs
 
-reqValidProvider = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string'},
-        'flow_type': {'type': 'string', 'default': 'authorization_code', 'enum': ['authorization_code']},
-        'auth_scheme': {'type': 'string', 'default': 'basic', 'enum': ['basic']},
-        'client_id': {'type': 'string'},
-        'client_secret': {'type': 'string'},
-        'scope': {'type': 'string'},
-        'ssl_verify': {'type': 'boolean', 'default': True},
-        'auth_uri': {'type': 'string'},
-        'token_uri': {'type': 'string'},
-        'redirect_uri': {'type': 'string'},
-        'extensions': {
-            'type': 'object',
-            'properties': {
-                'pkce': {'type': 'boolean'},
-            },
-            'additionalProperties': False,
-        },
-        'extra_auth_params': {
-            'type': 'object',
-            'additionalProperties': {'type': 'string'},
-        },
-    },
-    'additionalProperties': False,
-    'required': ['iden', 'name', 'client_id', 'client_secret', 'scope', 'auth_uri', 'token_uri', 'redirect_uri'],
-})
-
-reqValidTokenResponse = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'access_token': {'type': 'string'},
-        'expires_in': {'type': 'number', 'exclusiveMinimum': 0},
-    },
-    'additionalProperties': True,
-    'required': ['access_token', 'expires_in'],
-})
-
 def normOAuthTokenData(issued_at, data):
     '''
     Normalize timestamps to be in epoch millis and set expires_at/refresh_at.
     '''
-    reqValidTokenResponse(data)
+    s_schemas.reqValidOauth2TokenResponse(data)
     expires_in = data['expires_in']
     return {
         'access_token': data['access_token'],
@@ -72,6 +33,18 @@ def normOAuthTokenData(issued_at, data):
         'refresh_at': issued_at + (expires_in * REFRESH_WINDOW) * 1000,
         'refresh_token': data.get('refresh_token'),
     }
+
+az_tfile_envar = 'AZURE_FEDERATED_TOKEN_FILE'
+def _getAzureTokenFile():
+    fp = os.getenv(az_tfile_envar, None)
+    if not fp:
+        return False, {'error': f'{az_tfile_envar} environment variable is not set.'}
+    if os.path.exists(fp):
+        with open(fp, 'r') as fd:
+            assertion = fd.read()
+            return True, {'token': assertion}
+    else:
+        return False, {'error': f'{az_tfile_envar} file does not exist {fp}'}
 
 class OAuthMixin(s_nexus.Pusher):
     '''
@@ -175,7 +148,7 @@ class OAuthMixin(s_nexus.Pusher):
                     logger.debug(f'OAuth V2 client does not exist for provider={provideriden} user={useriden}')
                     continue
 
-                ok, data = await self._refreshOAuthAccessToken(providerconf, clientconf)
+                ok, data = await self._refreshOAuthAccessToken(providerconf, clientconf, useriden)
                 if not ok:
                     logger.warning(f'OAuth V2 token refresh failed provider={provideriden} user={useriden} data={data}')
 
@@ -185,12 +158,22 @@ class OAuthMixin(s_nexus.Pusher):
             self._oauth_sched_empty.set()
             await s_coro.event_wait(self._oauth_sched_wake)
             self._oauth_sched_wake.clear()
+            self._oauth_sched_ran.clear()
 
-    async def _getOAuthAccessToken(self, providerconf, authcode, code_verifier=None):
+    async def _getOAuthAccessToken(self, providerconf, useriden, authcode, code_verifier=None):
+        formdata = aiohttp.FormData()
         token_uri = providerconf['token_uri']
         ssl_verify = providerconf['ssl_verify']
+        client_assertion = providerconf.get('client_assertion')
 
-        formdata = aiohttp.FormData()
+        if client_assertion:
+            auth = None
+            ok, info = await self._getClientAssertionData(providerconf, formdata, useriden)
+            if not ok:
+                return ok, info
+        else:
+            auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
+
         formdata.add_field('grant_type', 'authorization_code')
         formdata.add_field('scope', providerconf['scope'])
         formdata.add_field('redirect_uri', providerconf['redirect_uri'])
@@ -198,25 +181,63 @@ class OAuthMixin(s_nexus.Pusher):
         if code_verifier is not None:
             formdata.add_field('code_verifier', code_verifier)
 
-        auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
         return await self._fetchOAuthToken(token_uri, auth, formdata, ssl_verify=ssl_verify)
 
-    async def _refreshOAuthAccessToken(self, providerconf, clientconf):
+    async def _refreshOAuthAccessToken(self, providerconf, clientconf, useriden):
+        formdata = aiohttp.FormData()
         token_uri = providerconf['token_uri']
         ssl_verify = providerconf['ssl_verify']
         refresh_token = clientconf['refresh_token']
+        client_assertion = providerconf.get('client_assertion')
 
-        formdata = aiohttp.FormData()
         formdata.add_field('grant_type', 'refresh_token')
         formdata.add_field('refresh_token', refresh_token)
 
-        auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
+        if client_assertion:
+            auth = None
+            ok, info = await self._getClientAssertionData(providerconf, formdata, useriden)
+            if not ok:
+                return ok, info
+        else:
+            auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
+
         ok, data = await self._fetchOAuthToken(token_uri, auth, formdata, ssl_verify=ssl_verify, retries=3)
         if ok and not data.get('refresh_token'):
             # if a refresh_token is not provided in the response persist the existing token
             data['refresh_token'] = refresh_token
 
         return ok, data
+
+    async def _getClientAssertionData(self, providerconf, formdata, useriden):
+
+        client_id = providerconf['client_id']
+        client_assertion = providerconf['client_assertion']
+
+        if (info := client_assertion.get('cortex:callstorm')):
+            opts = {
+                'view': info['view'],
+                'vars': info.get('vars', {}),
+                'user': useriden,
+            }
+            try:
+                ok, info = await self.callStorm(info['query'], opts=opts)
+            except Exception as e:
+                return False, {'error': f'Error executing callStorm: {e}'}
+            if not ok:
+                return ok, info
+            assertion = info.get('token')
+        elif client_assertion.get('msft:azure:workloadidentity'):
+            ok, info = _getAzureTokenFile()
+            if not ok:
+                return ok, info
+            assertion = info.get('token')
+        else:  # pragma: no cover
+            return False, {'error': f'unknown client_assertions data: {client_assertion=}'}
+
+        formdata.add_field('client_assertion_type', 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer')
+        formdata.add_field('client_assertion', assertion)
+        formdata.add_field('client_id', client_id)
+        return True, {}
 
     async def _fetchOAuthToken(self, url, auth, formdata, ssl_verify=True, retries=1):
 
@@ -269,11 +290,36 @@ class OAuthMixin(s_nexus.Pusher):
                 return retn
 
     async def addOAuthProvider(self, conf):
-        conf = reqValidProvider(conf)
-
+        conf = s_schemas.reqValidOauth2Provider(conf)
         iden = conf['iden']
         if self._getOAuthProvider(iden) is not None:
             raise s_exc.DupIden(mesg=f'Duplicate OAuth V2 client iden ({iden})', iden=iden)
+
+        client_secret = conf.get('client_secret')
+        client_assertion = conf.get('client_assertion', {})
+        if (client_assertion and client_secret):
+            mesg = 'client_assertion and client_secret provided. These are mutually exclusive options.'
+            raise s_exc.BadArg(mesg=mesg)
+        if not client_assertion and not client_secret:
+            mesg = 'client_assertion and client_secret missing. These are mutually exclusive options and one must be provided.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if (info := client_assertion.get('cortex:callstorm')) is not None:
+            if not hasattr(self, 'callStorm'):
+                mesg = f'cortex:callstorm client assertion not supported by {self.__class__.__name__}'
+                raise s_exc.BadArg(mesg=mesg)
+            text = info['query']
+            # Validate the query text
+            try:
+                await self.reqValidStorm(text)
+            except s_exc.BadSyntax as e:
+                raise s_exc.BadArg(mesg=f'Bad storm query: {e.get("mesg")}') from None
+            view = self.getView(info['view'])
+            if view is None:
+                raise s_exc.BadArg(mesg=f'View {info["view"]} does not exist.')
+        elif (valu := client_assertion.get('msft:azure:workloadidentity')) is not None:
+            if not valu:
+                raise s_exc.BadArg(mesg='msft:azure:workloadidentity valu must be true')
 
         await self._push('oauth:provider:add', conf)
 
@@ -291,7 +337,7 @@ class OAuthMixin(s_nexus.Pusher):
     async def getOAuthProvider(self, iden):
         conf = self._getOAuthProvider(iden)
         if conf is not None:
-            conf.pop('client_secret')
+            conf.pop('client_secret', None)
         return conf
 
     async def listOAuthProviders(self):
@@ -309,7 +355,7 @@ class OAuthMixin(s_nexus.Pusher):
 
         conf = self._oauth_providers.pop(iden)
         if conf is not None:
-            conf.pop('client_secret')
+            conf.pop('client_secret', None)
 
         return conf
 
@@ -374,10 +420,9 @@ class OAuthMixin(s_nexus.Pusher):
 
         await self.clearOAuthAccessToken(provideriden, useriden)
 
-        ok, data = await self._getOAuthAccessToken(providerconf, authcode, code_verifier=code_verifier)
+        ok, data = await self._getOAuthAccessToken(providerconf, useriden, authcode, code_verifier=code_verifier)
         if not ok:
             raise s_exc.SynErr(mesg=f'Failed to get OAuth v2 token: {data["error"]}')
-
         await self._setOAuthTokenData(provideriden, useriden, data)
 
     @s_nexus.Pusher.onPushAuto('oauth:client:data:set')
