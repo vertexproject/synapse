@@ -62,7 +62,7 @@ import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 177)
+NEXUS_VERSION = (2, 198)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -1625,15 +1625,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def setNexsVers(self, vers):
-        if self.nexsvers < NEXUS_VERSION:
-            await self._push('nexs:vers:set', NEXUS_VERSION)
+        if self.nexsvers < vers:
+            await self._push('nexs:vers:set', vers)
 
     @s_nexus.Pusher.onPush('nexs:vers:set')
     async def _setNexsVers(self, vers):
         if vers > self.nexsvers:
-            self.cellvers.set('nexus:version', vers)
+            await self._migrNexsVers(vers)
+            self.cellinfo.set('nexus:version', vers)
             self.nexsvers = vers
             await self.configNexsVers()
+
+    async def _migrNexsVers(self, newvers):
+        if self.nexsvers < (2, 198) and newvers >= (2, 198) and self.conf.get('auth:ctor') is None:
+            # This "migration" will lock all archived users. Once the nexus version is bumped to
+            # >=2.198, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
+            # begin rejecting unlock requests for archived users.
+
+            authkv = self.slab.getSafeKeyVal('auth')
+            userkv = authkv.getSubKeyVal('user:info:')
+
+            for iden, info in userkv.items():
+                if info.get('archived') and not info.get('locked'):
+                    info['locked'] = True
+                    userkv.set(iden, info)
+
+            # Clear the auth caches so the changes get picked up by the already running auth subsystem
+            self.auth.clearAuthCache()
 
     async def configNexsVers(self):
         for meth, orig in self.nexspatches:

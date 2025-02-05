@@ -1,0 +1,6 @@
+---
+desc: Added a migration to lock any service users which are marked as archived but
+  are not locked.
+prs: []
+type: migration
+...

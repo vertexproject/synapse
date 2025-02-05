@@ -1,0 +1,5 @@
+---
+desc: Deprecated hiveauth and added deprecation messages to APIs.
+prs: []
+type: deprecation
+...
