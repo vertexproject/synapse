@@ -735,6 +735,12 @@ Queries = [
     '[test:str=foo :$foo*$bar.baz=heval]',
     '[test:str=foo :$foo*$bar.("baz")=heval]',
     '[test:str=foo :$foo*$bar.baz()=heval]',
+    '[test:str=foo +(refs)> $n]',
+    '[test:str=foo +(refs)> $n.baz()]',
+    '[test:str=foo -(refs)> $n]',
+    '[test:str=foo <(refs)+ $n]',
+    '[test:str=foo <(refs)+ $n.baz()]',
+    '[test:str=foo <(refs)- $n]',
 ]
 
 # Generated with print_parse_list below
@@ -1372,6 +1378,12 @@ _ParseResults = [
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarDeref: [VarValue: [Const: bar], Const: baz]], Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarDeref: [VarValue: [Const: bar], DollarExpr: [Const: baz]]], Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [FuncCall: [VarDeref: [VarValue: [Const: bar], Const: baz], CallArgs: [], CallKwargs: []]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeAdd: [Const: refs, VarValue: [Const: n]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeAdd: [Const: refs, FuncCall: [VarDeref: [VarValue: [Const: n], Const: baz], CallArgs: [], CallKwargs: []]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeDel: [Const: refs, VarValue: [Const: n]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeAdd: [Const: refs, VarValue: [Const: n]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeAdd: [Const: refs, FuncCall: [VarDeref: [VarValue: [Const: n], Const: baz], CallArgs: [], CallKwargs: []]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeDel: [Const: refs, VarValue: [Const: n]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

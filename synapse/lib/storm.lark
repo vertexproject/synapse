@@ -226,10 +226,10 @@ _EDGEN2JOININIT: "<+("
 // comparisons to an expression like '<(2)'
 _EDGEN2INIT: /\<\((?=(?>(?<EDGEN2INITRECUR>\(((?>[^()"'`]+|(?&EDGEN2INITRECUR)|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'''.*?'''|'[^']*'(?!'))*)\))|'''.*?'''|`(?:[^`\\]|\\.)*`|"(?:[^"\\]|\\.)*"|'[^']*'(?!')|[^)])*\)[\-\+])/
 
-edgeaddn1: _EDGEADDN1INIT _valu _EDGEN1FINI baresubquery
-edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI baresubquery
-edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI baresubquery
-edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI baresubquery
+edgeaddn1: _EDGEADDN1INIT _valu _EDGEN1FINI (baresubquery | _varvalu)
+edgedeln1: _EDGEN1INIT _valu _EDGEN1FINI (baresubquery | _varvalu)
+edgeaddn2: _EDGEN2INIT _valu _EDGEADDN2FINI (baresubquery | _varvalu)
+edgedeln2: _EDGEN2INIT _valu _EDGEN2FINI (baresubquery | _varvalu)
 
 _REVERSE: /reverse(?=[\s\(])/
 liftreverse: _REVERSE "(" (liftformtag | liftpropby | liftprop | liftbyarray | lifttagtag | liftbytag | liftbytagprop | liftbyformtagprop) ")"

@@ -497,15 +497,15 @@ Nodes can be deleted from a Cortex using the Storm :ref:`storm-delnode` command.
 Add Light Edges
 ---------------
 
-Operation that links the specified node(s) to another node or set of nodes (as specified by a Storm expression) using a lightweight edge (light edge).
+Operation that links the specified node(s) to another node or set of nodes (as specified by a Storm expression or variable) using a lightweight edge (light edge).
 
 See :ref:`data-light-edge` for details on light edges.
 
 **Syntax:**
 
-*<query>* **[ +(** *<verb>* **)> {** *<storm>* **} ]**
+*<query>* **[ +(** *<verb>* **)> {** *<storm>* **} | *<valu>* ]**
 
-*<query>* **[ <(** *<verb>* **)+ {** *<storm>* **} ]**
+*<query>* **[ <(** *<verb>* **)+ {** *<storm>* **} | *<valu>* ]**
 
 .. NOTE::
   
@@ -531,10 +531,10 @@ See :ref:`data-light-edge` for details on light edges.
 *Link the specified media:news node to the set of indicators tagged APT1 (#rep.mandiant.apt1) using a "refs" (references) light edge:*
 
 
-.. storm-pre:: media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { +#rep.mandiant.apt1 } ]
+.. storm-pre:: media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
 ::
 
-    media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { +#rep.mandiant.apt1 } ]
+    media:news=a3759709982377809f28fc0555a38193 [ +(refs)> { #rep.mandiant.apt1 } ]
 
 
 *Link the inet:whois:iprec netblock registration (whois) record to any IP address within the specified netblock range (as referenced by the Storm expression) that already exists in Synapse using an "ipwhois" light edge:*
@@ -554,6 +554,15 @@ See :ref:`data-light-edge` for details on light edges.
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ +(ipwhois)> { [ inet:ipv4=198.50.240.220-198.50.240.223 ] } ]
+
+
+*Link the specified media:news node to a node contained in a variable using a  "refs" light edge:*
+
+
+.. storm-pre:: $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
+::
+
+    $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ +(refs)> $fqdn ]
 
 
 **Usage Notes:**
@@ -581,7 +590,7 @@ See :ref:`data-light-edge` for details on light edges.
 Delete Light Edges
 ------------------
 
-Operation that deletes the light edge linking the specified node(s) to the set of nodes specified by a given Storm expression.
+Operation that deletes the light edge linking the specified node(s) to the set of nodes specified by a given Storm expression or variable.
 
 See :ref:`data-light-edge` for details on light edges.
 
@@ -593,9 +602,9 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Syntax:**
 
-*<query>* **[ -(** *<verb>* **)> {** *<storm>* **} ]**
+*<query>* **[ -(** *<verb>* **)> {** *<storm>* **} | *<valu>* ]**
 
-*<query>* **[ <(** *<verb>* **)- {** *<storm>* **} ]**
+*<query>* **[ <(** *<verb>* **)- {** *<storm>* **} | *<valu>* ]**
 
 .. CAUTION::
   
@@ -621,6 +630,15 @@ See :ref:`data-light-edge` for details on light edges.
 ::
 
     inet:whois:iprec:name=OVH-CUST-3399212 [ -(ipwhois)> { inet:ipv4=1.2.3.4 } ]
+
+
+*Delete the "refs" light edge linking the specified media:news and a node contained in a variable:*
+
+
+.. storm-pre:: $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
+::
+
+    $fqdn = { inet:fqdn=woot.com } media:news=a3759709982377809f28fc0555a38193 [ -(refs)> $fqdn ]
 
 
 **Usage Notes:**
