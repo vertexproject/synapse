@@ -542,6 +542,7 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq('syn:deleted', node.ndef[0])
                 self.eq('inet:ip', node.ndef[1][0])
                 self.eq(('inet:ip', (4, 16909060)), node.valu())
+                self.gt(node.intnid(), 0)
                 sodes = node.get('sodes')
                 self.len(2, sodes)
                 self.eq({'antivalu': True, 'form': 'inet:ip'}, sodes[0])
