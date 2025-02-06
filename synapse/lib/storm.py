@@ -4328,6 +4328,7 @@ class MergeCmd(Cmd):
             if node.hasvalu():
                 yield node, path
 
+        runt.view.clearCache()
         if doapply and self.opts.wipe:
             await runt.view.swapLayer()
 

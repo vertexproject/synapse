@@ -541,6 +541,7 @@ class SynModelTest(s_t_utils.SynTest):
             for node in nodes:
                 self.eq('syn:deleted', node.ndef[0])
                 self.eq('inet:ip', node.ndef[1][0])
+                self.eq(('inet:ip', (4, 16909060)), node.valu())
                 sodes = node.get('sodes')
                 self.len(2, sodes)
                 self.eq({'antivalu': True, 'form': 'inet:ip'}, sodes[0])
@@ -556,3 +557,13 @@ class SynModelTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('it:dev:str=foo inet:ip=1.2.3.4'))
             self.len(0, await core.nodes('diff', opts=viewopts2))
+
+            with self.raises(s_exc.BadArg):
+                await view2.getDeletedRuntNode(s_common.int64en(9001))
+
+            await core.nodes('[ it:dev:str=bar ]')
+            await core.nodes('it:dev:str=bar delnode', opts=viewopts2)
+
+            task = core.schedCoro(core.nodes('$q=$lib.queue.gen(wait) diff | $q.put(1) $q.get(1) | merge', opts=viewopts2))
+            await core.nodes('$q=$lib.queue.gen(wait) $q.get() diff | merge --apply | $q.put(2)', opts=viewopts2)
+            await task
