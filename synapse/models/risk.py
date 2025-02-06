@@ -242,9 +242,6 @@ class RiskModule(s_module.CoreModule):
                 (('risk:theft', 'stole', None), {
                     'doc': 'The target node was stolen during the theft event.'}),
 
-                (('risk:theft', 'source', None), {
-                    'doc': 'The stolen items were contained within the target node when they were taken.'}),
-
                 (('risk:mitigation', 'addresses', 'ou:technique'), {
                     'doc': 'The mitigation addresses the technique.'}),
 
