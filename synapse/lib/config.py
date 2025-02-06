@@ -47,7 +47,7 @@ def localSchemaRefHandler(uri):
     with open(filename, 'r') as fd:
         buf = fd.read()
         try:
-            obj = json.load(fp)
+            obj = json.loads(buf)
         except:
             print(f'ERROR READING {filename}')
             print(buf)
