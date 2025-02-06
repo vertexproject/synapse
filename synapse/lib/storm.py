@@ -3668,9 +3668,10 @@ class DiffCmd(Cmd):
 
         async for nid, sode in runt.view.wlyr.getStorNodes():
             if sode.get('antivalu') is not None:
-                continue
+                node = await runt.view.getDeletedRuntNode(nid)
+            else:
+                node = await runt.view.getNodeByNid(nid)
 
-            node = await runt.view.getNodeByNid(nid)
             if node is not None:
                 yield node, runt.initPath(node)
 
@@ -4062,6 +4063,11 @@ class MergeCmd(Cmd):
 
         async for node, path in genr:
 
+            if node.ndef[0] == 'syn:deleted':
+                node = await runt.view.getNodeByNid(node.nid, tombs=True)
+                if node is None:
+                    continue
+
             # the timestamp for the adds/subs of each node merge will match
             nodeiden = node.iden()
             meta = {'user': runt.user.iden, 'time': s_common.now()}
@@ -4322,8 +4328,8 @@ class MergeCmd(Cmd):
             if node.hasvalu():
                 yield node, path
 
-            if doapply and self.opts.wipe:
-                await runt.view.swapLayer()
+        if doapply and self.opts.wipe:
+            await runt.view.swapLayer()
 
 class MoveNodesCmd(Cmd):
     '''

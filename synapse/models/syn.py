@@ -161,6 +161,9 @@ class SynModule(s_module.CoreModule):
                 ('syn:cmd', ('str', {'strip': True}), {
                     'doc': 'A Synapse storm command.'
                 }),
+                ('syn:deleted', ('ndef', {}), {
+                    'doc': 'A node present below the write layer which has been deleted.'
+                }),
             ),
 
             'forms': (
@@ -240,6 +243,10 @@ class SynModule(s_module.CoreModule):
                         'doc': 'Storm package which provided the command.'}),
                     ('svciden', ('guid', {'strip': True}), {
                         'doc': 'Storm service iden which provided the package.'}),
+                )),
+                ('syn:deleted', {'runt': True}, (
+                    ('sodes', ('data', {}), {
+                        'doc': 'The layer storage nodes for node the which was deleted.', 'ro': True}),
                 )),
             ),
         }),)
