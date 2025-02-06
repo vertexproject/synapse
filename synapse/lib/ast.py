@@ -4667,7 +4667,6 @@ class EditEdgeDel(Edit):
         if not isinstance(vkid, SubQuery):
             isvar = True
         else:
-            # SubQuery -> Query
             query = vkid.kids[0]
 
         constverb = False

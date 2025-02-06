@@ -503,9 +503,9 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Syntax:**
 
-*<query>* **[ +(** *<verb>* **)> {** *<storm>* **} | *<valu>* ]**
+*<query>* **[ +(** *<verb>* **)> {** *<storm>* **}** | *<valu>* **]**
 
-*<query>* **[ <(** *<verb>* **)+ {** *<storm>* **} | *<valu>* ]**
+*<query>* **[ <(** *<verb>* **)+ {** *<storm>* **}** | *<valu>* **]**
 
 .. NOTE::
   
@@ -602,9 +602,9 @@ See :ref:`data-light-edge` for details on light edges.
 
 **Syntax:**
 
-*<query>* **[ -(** *<verb>* **)> {** *<storm>* **} | *<valu>* ]**
+*<query>* **[ -(** *<verb>* **)> {** *<storm>* **}** | *<valu>* **]**
 
-*<query>* **[ <(** *<verb>* **)- {** *<storm>* **} | *<valu>* ]**
+*<query>* **[ <(** *<verb>* **)- {** *<storm>* **}** | *<valu>* **]**
 
 .. CAUTION::
   
