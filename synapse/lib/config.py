@@ -44,8 +44,16 @@ def localSchemaRefHandler(uri):
         s_data.walk()
         raise s_exc.NoSuchFile(mesg=f'Local JSON schema not found for {uri}.')
 
-    with open(filename, 'r') as fp:
-        return json.load(fp)
+    with open(filename, 'r') as fd:
+        buf = fd.read()
+        try:
+            obj = json.load(fp)
+        except:
+            print(f'ERROR READING {filename}')
+            print(buf)
+            raise
+        else:
+            return obj
 
 # This handlers dictionary is used by the jsonschema validator to attempt to
 # resolve schema '$ref' values locally from disk and will raise an exception
