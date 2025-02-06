@@ -1095,6 +1095,20 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('media:news <(refs)- it:dev:int')
             self.len(0, nodes)
 
+            await core.nodes('[media:news=*]')
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} $edge=refs media:news [ +($edge)> $n ]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} $edge=refs media:news [ -($edge)> $n ]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(0, nodes)
+
     async def test_cortex_callstorm(self):
 
         async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:
