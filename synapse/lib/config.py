@@ -49,8 +49,8 @@ def localSchemaRefHandler(uri):
         try:
             obj = json.loads(buf)
         except:
-            print(f'ERROR READING {filename}')
-            print(buf)
+            logger.warning(f'ERROR READING {filename}')
+            logger.warning(buf)
             raise
         else:
             return obj

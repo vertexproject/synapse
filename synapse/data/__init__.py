@@ -32,10 +32,10 @@ def path(*names):
     return s_common.genpath(dirname, *names)
 
 def walk():
-    print(f'Walking {dirname}')
+    logger.warning(f'Walking {dirname}')
     for (dirpath, dirnames, filenames) in os.walk(dirname):
         for dirn in dirnames:
-            print(f'{dirpath}/{dirn}')
+            logger.warning(f'{dirpath}/{dirn}')
         for fn in filenames:
-            print(f'{dirpath}/{fn}')
-    print('Walking fin')
+            logger.warning(f'{dirpath}/{fn}')
+    logger.warning('Walking fin')
