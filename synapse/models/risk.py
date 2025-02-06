@@ -227,14 +227,21 @@ class RiskModule(s_module.CoreModule):
 
                 (('risk:threat', 'targets', None), {
                     'doc': 'The threat cluster targeted the target node.'}),
+
                 (('risk:threat', 'uses', None), {
                     'doc': 'The threat cluster uses the target node.'}),
+
                 (('risk:attack', 'targets', None), {
                     'doc': 'The attack targeted the target node.'}),
+
                 (('risk:attack', 'uses', None), {
                     'doc': 'The attack used the target node to facilitate the attack.'}),
+
                 (('risk:tool:software', 'uses', None), {
                     'doc': 'The tool uses the target node.'}),
+
+                (('risk:compromise', 'uses', None), {
+                    'doc': 'The attacker used the target node in the compromise.'}),
 
                 (('risk:compromise', 'stole', None), {
                     'doc': 'Deprecated. Please use risk:theft -(stole)> *.'}),
