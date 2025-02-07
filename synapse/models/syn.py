@@ -20,8 +20,11 @@ class SynUser(s_types.Guid):
                 return user.iden, {}
 
             user = core.auth._getUserByName(text)
-            if user is not None:
-                return user.iden, {}
+            if user is None:
+                mesg = f'No user named {text}.'
+                raise s_exc.NoSuchUser(mesg=mesg, username=text)
+
+            return user.iden, {}
 
         return s_types.Guid._normPyStr(self, text)
 

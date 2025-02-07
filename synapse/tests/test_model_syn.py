@@ -63,6 +63,11 @@ class SynModelTest(s_t_utils.SynTest):
 
             self.eq('root', await core.callStorm(f'return($lib.repr(syn:user, {iden}))'))
 
+            with self.raises(s_exc.NoSuchUser) as exc:
+                await core.callStorm('return($lib.cast(syn:user, newp))')
+            self.eq(exc.exception.get('mesg'), 'No user named newp.')
+            self.eq(exc.exception.get('username'), 'newp')
+
             (ok, iden) = await core.callStorm('return($lib.trycast(syn:role, all))')
             self.true(ok)
             self.eq(iden, core.auth.allrole.iden)
