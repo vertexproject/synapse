@@ -63,10 +63,11 @@ class SynModelTest(s_t_utils.SynTest):
 
             self.eq('root', await core.callStorm(f'return($lib.repr(syn:user, {iden}))'))
 
-            with self.raises(s_exc.NoSuchUser) as exc:
+            with self.raises(s_exc.BadTypeValu) as exc:
                 await core.callStorm('return($lib.cast(syn:user, newp))')
-            self.eq(exc.exception.get('mesg'), 'No user named newp.')
-            self.eq(exc.exception.get('username'), 'newp')
+            self.eq(exc.exception.get('mesg'), 'No user named newp and value is not a guid.')
+            self.eq(exc.exception.get('valu'), 'newp')
+            self.eq(exc.exception.get('name'), 'syn:user')
 
             (ok, iden) = await core.callStorm('return($lib.trycast(syn:role, all))')
             self.true(ok)
@@ -79,9 +80,11 @@ class SynModelTest(s_t_utils.SynTest):
 
             self.eq('all', await core.callStorm(f'return($lib.repr(syn:role, {iden}))'))
 
-            with self.raises(s_exc.NoSuchRole) as exc:
+            with self.raises(s_exc.BadTypeValu) as exc:
                 await core.callStorm('return($lib.cast(syn:role, newp))')
-            self.eq(exc.exception.get('mesg'), 'No role named newp.')
+            self.eq(exc.exception.get('mesg'), 'No role named newp and value is not a guid.')
+            self.eq(exc.exception.get('valu'), 'newp')
+            self.eq(exc.exception.get('name'), 'syn:role')
 
             # coverage for DataModel without a cortex reference
             iden = s_common.guid()
