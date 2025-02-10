@@ -1,5 +1,5 @@
 ---
-desc: Fixed bug with ``syn:user`` nodes when queried user does not exist.
+desc: Fixed bug with ``syn:user`` and ``syn:role`` nodes when queried name does not exist.
 prs: []
 type: bug
 ...

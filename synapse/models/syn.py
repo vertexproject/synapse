@@ -20,13 +20,14 @@ class SynUser(s_types.Guid):
                 return user.iden, {}
 
             user = core.auth._getUserByName(text)
-            if user is None:
-                mesg = f'No user named {text}.'
-                raise s_exc.NoSuchUser(mesg=mesg, username=text)
+            if user is not None:
+                return user.iden, {}
 
-            return user.iden, {}
-
-        return s_types.Guid._normPyStr(self, text)
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No user named {text}.'
+            raise s_exc.NoSuchUser(mesg=mesg, username=text) from None
 
     def repr(self, iden):
 
@@ -54,7 +55,11 @@ class SynRole(s_types.Guid):
             if role is not None:
                 return role.iden, {}
 
-        return s_types.Guid._normPyStr(self, text)
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No role named {text}.'
+            raise s_exc.NoSuchRole(mesg=mesg)
 
     def repr(self, iden):
 
