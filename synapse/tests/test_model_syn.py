@@ -63,6 +63,12 @@ class SynModelTest(s_t_utils.SynTest):
 
             self.eq('root', await core.callStorm(f'return($lib.repr(syn:user, {iden}))'))
 
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('return($lib.cast(syn:user, newp))')
+            self.eq(exc.exception.get('mesg'), 'No user named newp and value is not a guid.')
+            self.eq(exc.exception.get('valu'), 'newp')
+            self.eq(exc.exception.get('name'), 'syn:user')
+
             (ok, iden) = await core.callStorm('return($lib.trycast(syn:role, all))')
             self.true(ok)
             self.eq(iden, core.auth.allrole.iden)
@@ -73,6 +79,12 @@ class SynModelTest(s_t_utils.SynTest):
             self.eq(iden, core.auth.allrole.iden)
 
             self.eq('all', await core.callStorm(f'return($lib.repr(syn:role, {iden}))'))
+
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('return($lib.cast(syn:role, newp))')
+            self.eq(exc.exception.get('mesg'), 'No role named newp and value is not a guid.')
+            self.eq(exc.exception.get('valu'), 'newp')
+            self.eq(exc.exception.get('name'), 'syn:role')
 
             # coverage for DataModel without a cortex reference
             iden = s_common.guid()
@@ -88,6 +100,40 @@ class SynModelTest(s_t_utils.SynTest):
 
             self.eq(iden, synuser.norm(iden)[0])
             self.eq(iden, synrole.norm(iden)[0])
+
+    async def test_synuser_merge_failure(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.addUser('visi')
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            q = '[proj:project=(p1,) :creator=visi ]'
+            msgs = await core.stormlist(q, opts={'view': view})
+            self.stormHasNoWarnErr(msgs)
+
+            q = 'proj:project=(p1,)'
+            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
+            self.stormHasNoWarnErr(msgs)
+
+            await core.delUser(visi.get('iden'))
+
+            q = 'proj:project=(p1,)'
+            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
+            self.stormHasNoWarnErr(msgs)
+
+            # this works
+            q = '$lib.view.get($view).merge()'
+            msgs = await core.stormlist(q, opts={'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
+
+            # this fails
+            q = 'proj:project | merge --apply'
+            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
+            self.stormHasNoWarnErr(msgs)
+
+            q = 'proj:project=(p1,)'
+            msgs = await core.stormlist(q, opts={'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
 
     async def test_syn_tag(self):
 
