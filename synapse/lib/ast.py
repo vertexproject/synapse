@@ -4621,7 +4621,12 @@ class EditEdgeAdd(Edit):
                         async with node.snap.getEditor() as editor:
                             proto = editor.loadNode(node)
                             async for subn in agen:
-                                await self.addEdgeN1(editor, proto, verb, subn)
+                                if subn.form.isrunt:
+                                    mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                    raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
+                                await proto.addEdge(verb, subn.iden())
+                                await asyncio.sleep(0)
 
             else:
                 async with runt.getSubRuntime(query) as subr:
@@ -4633,23 +4638,14 @@ class EditEdgeAdd(Edit):
                         async with node.snap.getEditor() as editor:
                             proto = editor.loadNode(node)
                             async for subn, subp in subr.execute():
-                                await self.addEdgeN1(editor, proto, verb, subn)
+                                if subn.form.isrunt:
+                                    mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                    raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
+                                await proto.addEdge(verb, subn.iden())
+                                await asyncio.sleep(0)
 
             yield node, path
-
-    async def addEdgeN1(self, editor, proto, verb, subn):
-        if subn.form.isrunt:
-            mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
-            raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-
-        await proto.addEdge(verb, subn.iden())
-        await asyncio.sleep(0)
-
-        if len(proto.edges) >= 1000:
-            nodeedits = editor.getNodeEdits()
-            if nodeedits:
-                await proto.ctx.snap.applyNodeEdits(nodeedits)
-            proto.edges.clear()
 
 class EditEdgeDel(Edit):
 
@@ -4704,7 +4700,12 @@ class EditEdgeDel(Edit):
                         async with node.snap.getEditor() as editor:
                             proto = editor.loadNode(node)
                             async for subn in agen:
-                                await self.delEdgeN1(editor, proto, verb, subn)
+                                if subn.form.isrunt:
+                                    mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                    raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
+                                await proto.delEdge(verb, subn.iden())
+                                await asyncio.sleep(0)
 
             else:
                 async with runt.getSubRuntime(query) as subr:
@@ -4716,23 +4717,14 @@ class EditEdgeDel(Edit):
                         async with node.snap.getEditor() as editor:
                             proto = editor.loadNode(node)
                             async for subn, subp in subr.execute():
-                                await self.delEdgeN1(editor, proto, verb, subn)
+                                if subn.form.isrunt:
+                                    mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                    raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+
+                                await proto.delEdge(verb, subn.iden())
+                                await asyncio.sleep(0)
 
             yield node, path
-
-    async def delEdgeN1(self, editor, proto, verb, subn):
-        if subn.form.isrunt:
-            mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
-            raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-
-        await proto.delEdge(verb, subn.iden())
-        await asyncio.sleep(0)
-
-        if len(proto.edgedels) >= 1000:
-            nodeedits = editor.getNodeEdits()
-            if nodeedits:
-                await proto.ctx.snap.applyNodeEdits(nodeedits)
-            proto.edgedels.clear()
 
 class EditTagAdd(Edit):
 
