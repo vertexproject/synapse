@@ -4478,7 +4478,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         for task in self.boss.ps():
 
-            item = task.pack()
+            item = task.packv2()
             item['service'] = self.ahasvcname
 
             yield item
@@ -4500,7 +4500,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         task = self.boss.get(iden)
         if task is not None:
-            item = task.pack()
+            item = task.packv2()
             item['service'] = self.ahasvcname
             return item
 
