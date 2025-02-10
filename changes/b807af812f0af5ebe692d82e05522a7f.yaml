@@ -1,6 +1,6 @@
 ---
-desc: Added automatic commit in ``Slab.put()`` when transaction operations reach ``max_replay_log``
-  size to reduce hotspots and improve performance.
+desc: Added brief IO yields for `Slab.put()` and `Slab.delete()` operations to help improve
+      performance when handling multiple transactions.
 prs: []
 type: feat
 ...
