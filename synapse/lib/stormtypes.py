@@ -3490,7 +3490,11 @@ class LibRegx(Lib):
         lkey = (pattern, flags)
         regx = self.compiled.get(lkey)
         if regx is None:
-            regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+            try:
+                regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+            except (regex.error, ValueError) as e:
+                mesg = f'Error compiling regex pattern: {e}: pattern="{s_common.trimText(pattern)}"'
+                raise s_exc.BadArg(mesg=mesg) from None
         return regx
 
     @stormfunc(readonly=True)
@@ -3500,7 +3504,12 @@ class LibRegx(Lib):
         pattern = await tostr(pattern)
         replace = await tostr(replace)
         regx = await self._getRegx(pattern, flags)
-        return regx.sub(replace, text)
+
+        try:
+            return regx.sub(replace, text)
+        except (regex.error, IndexError) as e:
+            mesg = f'$lib.regex.replace() error: {e}'
+            raise s_exc.BadArg(mesg=mesg) from None
 
     @stormfunc(readonly=True)
     async def matches(self, pattern, text, flags=0):
@@ -6839,7 +6848,8 @@ class Layer(Prim):
     Implements the Storm api for a layer instance.
     '''
     _storm_locals = (
-        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
+        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Layer.', 'type': 'str'},
         {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
@@ -7194,6 +7204,7 @@ class Layer(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+        self.locls['name'] = self.valu.get('name')
 
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))

@@ -1,3 +1,9 @@
+# pragma: no cover
+
+###
+### THIS WHOLE MODULE IS DEPRECATED AND EXPECTED TO BE REMOVED O/A v2.198.0
+###
+
 import logging
 import dataclasses
 
@@ -30,12 +36,13 @@ reqValidRules = s_config.getJsValidator({
 
 def getShadow(passwd):  # pragma: no cover
     '''This API is deprecated.'''
-    s_common.deprecated('hiveauth.getShadow()', curv='2.110.0')
+    s_common.deprecated('hiveauth.getShadow()', curv='2.110.0', eolv='2.199.0')
     salt = s_common.guid()
     hashed = s_common.guid((salt, passwd))
     return (salt, hashed)
 
 def textFromRule(rule):
+    s_common.deprecated('hiveauth.textFromRule()', curv='2.198.0', eolv='2.199.0') # pragma: no cover
     text = '.'.join(rule[1])
     if not rule[0]:
         text = '!' + text
@@ -43,6 +50,7 @@ def textFromRule(rule):
 
 @dataclasses.dataclass(slots=True)
 class _allowedReason:
+    s_common.deprecated('hiveauth._allowedReason()', curv='2.198.0', eolv='2.199.0')
     value: Union[bool | None]
     default: bool = False
     isadmin: bool = False
@@ -135,6 +143,7 @@ class Auth(s_nexus.Pusher):
         Args:
             node (HiveNode): The root of the persistent storage for auth
         '''
+        s_common.deprecated('Auth.__anit__()', curv='2.198.0', eolv='2.199.0')
         # Derive an iden from the parent
         iden = 'auth:' + ':'.join(node.full)
         await s_nexus.Pusher.__anit__(self, iden, nexsroot=nexsroot)

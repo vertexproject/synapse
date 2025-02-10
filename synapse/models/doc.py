@@ -100,7 +100,7 @@ class DocModule(s_module.CoreModule):
                         'document': 'resume',
                         'documents': 'resumes',
                         'type': 'doc:resume:type:taxonomy'},
-                    'doc': 'A cv/resume document.'}),
+                    'doc': 'A CV/resume document.'}),
             ),
             'forms': (
 
