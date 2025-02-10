@@ -3544,8 +3544,10 @@ class Layer(s_nexus.Pusher):
             self.nodeDelHook()
 
         self._wipeNodeData(buid)
-        # TODO edits to become async so we can sleep(0) on large deletes?
+        await asyncio.sleep(0)
+
         self._delNodeEdges(buid)
+        await asyncio.sleep(0)
 
         self.buidcache.pop(buid, None)
 

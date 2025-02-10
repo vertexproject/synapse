@@ -89,8 +89,10 @@ class JsonStor(s_base.Base):
         oldb = self.slab.replace(pkey, buid, db=self.pathdb)
         if oldb is not None:
             self._incRefObj(oldb, -1)
+            await asyncio.sleep(0)
 
         self.slab.put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
+        await asyncio.sleep(0)
 
         self.dirty[buid] = item
 
@@ -125,6 +127,7 @@ class JsonStor(s_base.Base):
         buid = self.slab.pop(pkey, db=self.pathdb)
         if buid is not None:
             self._incRefObj(buid, valu=-1)
+            await asyncio.sleep(0)
 
     async def setPathLink(self, srcpath, dstpath):
         '''
@@ -141,9 +144,11 @@ class JsonStor(s_base.Base):
         oldb = self.slab.pop(srcpkey, db=self.pathdb)
         if oldb is not None:
             self._incRefObj(oldb, valu=-1)
+            await asyncio.sleep(0)
 
         self._incRefObj(buid, valu=1)
         self.slab.put(srcpkey, buid, db=self.pathdb)
+        await asyncio.sleep(0)
 
     async def getPathObjProp(self, path, prop):
 

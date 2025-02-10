@@ -380,6 +380,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                     byts = b'\x00' * 256
                     for i in range(500_000):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+                        await asyncio.sleep(0)
             msgs = stream.jsonlines()
             self.gt(len(msgs), 0)
             for msg in msgs:
