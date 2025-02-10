@@ -6,6 +6,7 @@ import lark  # type: ignore
 import regex  # type: ignore
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
@@ -158,7 +159,7 @@ class AstConverter(lark.Transformer):
 
         # Keep the original text for error printing and weird subquery argv parsing
         self.text = text
-        self.texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+        self.texthash = s_common.queryhash(text)
 
     def metaToAstInfo(self, meta, isterm=False):
         if isinstance(meta, lark.tree.Meta) and meta.empty:
@@ -533,9 +534,8 @@ class Parser:
             sline = eline = e.line
             scol = ecol = e.column
 
-        texthash = hashlib.md5(self.text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
         highlight = {
-            'hash': texthash,
+            'hash': s_common.queryhash(self.text),
             'lines': (sline, eline),
             'columns': (scol, ecol),
             'offsets': (soff, eoff),
