@@ -1130,6 +1130,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if update:
                 await role.setRules(rules)
 
+    async def _migrateCronView(self):
+
+        logger.warning('migrating cron jobs which have no view set')
+
+        for iden, cron in self.agenda.list():
+
+            if cron.view is not None:
+                continue
+
+            user = self.auth.user(cron.user)
+            if user is None:
+                logger.warning(f'cron job ({iden}) has no user or view set and will be removed!')
+                await self.delCronJob(iden)
+                continue
+
+            viewiden = user.profile.get('cortex:view')
+            if viewiden is None:
+                viewiden = self.view.iden
+
+            await self._push('cron:move', iden, viewiden)
+
+        logger.warning('...cron job migration complete!')
+
     @s_nexus.Pusher.onPushAuto('cortex:migr:trigger:creator')
     async def _migrateTriggerCreator(self):
         for view in self.views.values():
@@ -1571,6 +1594,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             (2, self._viewNomergeToProtected),
             (3, self._migrateCronUser),
             (4, self._migrateTriggerCreator),
+            (5, self._migrateCronView),
         ))
 
     async def _addAllLayrRead(self):
@@ -6622,7 +6646,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if appt.view == view.iden:
             return croniden
 
-        return await self._push('cron:move', croniden, viewiden)
+        return await self._push('cron:move', croniden, view.iden)
 
     @s_nexus.Pusher.onPush('cron:move')
     async def _onMoveCronJob(self, croniden, viewiden):

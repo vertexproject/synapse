@@ -1354,3 +1354,28 @@ class AgendaTest(s_t_utils.SynTest):
 
             crons = await core.callStorm('return($lib.cron.list())')
             self.len(1, crons)
+
+    async def test_cron_view_migration(self):
+        async with self.getRegrCore('cron-noview') as core:
+
+            crons = core.agenda.list()
+            self.len(3, crons)
+
+            cron = crons[0][1]
+            self.eq('$foo=userview', cron.query)
+            userview = core.auth.user(cron.user).profile.get('cortex:view')
+            self.nn(cron.view)
+            self.eq(cron.view, userview)
+
+            cron = crons[1][1]
+            self.eq('$foo=ok', cron.query)
+            self.eq(cron.user, core.auth.rootuser.iden)
+            self.nn(cron.view)
+            self.ne(cron.view, core.view.iden)
+
+            cron = crons[2][1]
+            self.eq('$foo=coreview', cron.query)
+            userview = core.auth.user(cron.user).profile.get('cortex:view')
+            self.none(userview)
+            self.nn(cron.view)
+            self.eq(cron.view, core.view.iden)

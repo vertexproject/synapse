@@ -1,0 +1,6 @@
+---
+desc: Updated cron jobs with no specified view to use the default view of the user
+  the job runs as. If the user no longer exists, the cron job is removed.
+prs: []
+type: migration
+...
