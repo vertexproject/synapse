@@ -544,11 +544,17 @@ class StormV1(StormHandler):
 
         opts.setdefault('editformat', 'nodeedits')
 
-        async for mesg in self.getCore().storm(query, opts=opts):
-            self.write(json.dumps(mesg))
-            if jsonlines:
-                self.write("\n")
-            await self.flush()
+        try:
+
+            async for mesg in self.getCore().storm(query, opts=opts):
+                self.write(json.dumps(mesg))
+                if jsonlines:
+                    self.write("\n")
+                await self.flush()
+
+        except s_exc.NoSuchView as e:
+            self.set_status(400)
+            self.sendRestExc(e)
 
 class StormCallV1(StormHandler):
 
