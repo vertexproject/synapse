@@ -1,5 +1,5 @@
 ---
-desc: Added a 'user' value to cronjob definitions, which is now used to control the
+desc: Added a 'user' value to cron job definitions, which is now used to control the
   user the job will be run as rather than the 'creator' value. The 'creator' value
   may no longer be modified.
 prs: []

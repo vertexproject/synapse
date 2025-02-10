@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where not specifying a view when moving a cron job would use the
+  user's default view but not persist that value.
+prs: []
+type: bug
+...
