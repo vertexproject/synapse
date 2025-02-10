@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where certain BadSyntax exceptions had incomplete error highlighting
+  information.
+prs: []
+type: bug
+...

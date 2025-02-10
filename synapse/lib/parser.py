@@ -489,18 +489,28 @@ class Parser:
         Convert lark exception to synapse BadSyntax exception
         '''
         mesg = regex.split('[\n]', str(e))[0]
-        at = len(self.text)
-        line = None
-        column = None
+        soff = eoff = len(self.text)
+        sline = eline = None
+        scol = ecol = None
         token = None
         if isinstance(e, lark.exceptions.UnexpectedToken):
             expected = sorted(set(terminalEnglishMap[t] for t in e.expected))
-            at = e.pos_in_stream
-            line = e.line
-            column = e.column
             token = e.token.value
-            valu = terminalEnglishMap.get(e.token.type, e.token.value)
-            mesg = f"Unexpected token '{valu}' at line {line}, column {column}," \
+            soff = e.pos_in_stream
+            eoff = soff + len(token)
+
+            lines = token.splitlines()
+            sline = e.line
+            eline = sline + len(lines) - 1
+
+            scol = e.column
+            if len(lines) > 1:
+                ecol = len(lines[-1])
+            else:
+                ecol = scol + len(token)
+
+            valu = terminalEnglishMap.get(e.token.type, token)
+            mesg = f"Unexpected token '{valu}' at line {sline}, column {scol}," \
                    f' expecting one of: {", ".join(expected)}'
 
         elif isinstance(e, lark.exceptions.VisitError):
@@ -514,16 +524,24 @@ class Parser:
         elif isinstance(e, lark.exceptions.UnexpectedCharacters):  # pragma: no cover
             expected = sorted(set(terminalEnglishMap[t] for t in e.allowed))
             mesg += f'.  Expecting one of: {", ".join(expected)}'
-            at = e.pos_in_stream
-            line = e.line
-            column = e.column
+            soff = eoff = e.pos_in_stream
+            sline = eline = e.line
+            scol = ecol = e.column
         elif isinstance(e, lark.exceptions.UnexpectedEOF):  # pragma: no cover
             expected = sorted(set(terminalEnglishMap[t] for t in e.expected))
             mesg += ' ' + ', '.join(expected)
-            line = e.line
-            column = e.column
+            sline = eline = e.line
+            scol = ecol = e.column
 
-        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg, line=line, column=column, token=token)
+        texthash = hashlib.md5(self.text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+        highlight = {
+            'hash': texthash,
+            'lines': (sline, eline),
+            'columns': (scol, ecol),
+            'offsets': (soff, eoff),
+        }
+        return s_exc.BadSyntax(at=soff, text=self.text, mesg=mesg, line=sline,
+                               column=scol, token=token, highlight=highlight)
 
     def eval(self):
         try:
