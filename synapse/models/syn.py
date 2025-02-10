@@ -59,7 +59,7 @@ class SynRole(s_types.Guid):
             return s_types.Guid._normPyStr(self, text)
         except s_exc.BadTypeValu:
             mesg = f'No role named {text}.'
-            raise s_exc.NoSuchRole(mesg=mesg)
+            raise s_exc.NoSuchRole(mesg=mesg) from None
 
     def repr(self, iden):
 
