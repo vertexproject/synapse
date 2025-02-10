@@ -3490,7 +3490,11 @@ class LibRegx(Lib):
         lkey = (pattern, flags)
         regx = self.compiled.get(lkey)
         if regx is None:
-            regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+            try:
+                regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+            except (regex.error, ValueError) as e:
+                mesg = f'Error compiling regex pattern: {e}: pattern="{s_common.trimText(pattern)}"'
+                raise s_exc.BadArg(mesg=mesg) from None
         return regx
 
     @stormfunc(readonly=True)
@@ -3500,7 +3504,12 @@ class LibRegx(Lib):
         pattern = await tostr(pattern)
         replace = await tostr(replace)
         regx = await self._getRegx(pattern, flags)
-        return regx.sub(replace, text)
+
+        try:
+            return regx.sub(replace, text)
+        except (regex.error, IndexError) as e:
+            mesg = f'$lib.regex.replace() error: {e}'
+            raise s_exc.BadArg(mesg=mesg) from None
 
     @stormfunc(readonly=True)
     async def matches(self, pattern, text, flags=0):

@@ -1409,6 +1409,18 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return(("foo").json())')
 
+            with self.raises(s_exc.BadArg):
+                await core.nodes("$lib.regex.search('?id=([0-9]+)', 'foo')")
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes("$lib.regex.search('(?au)\\w', 'foo')")
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes("$lib.regex.replace('(?P<a>x)', '\\g<ab>', 'xx')")
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes("$lib.regex.replace('(?P<a>x)', '(?au)\\w', 'xx')")
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             hstr = 'ohhai'
