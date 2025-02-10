@@ -11,6 +11,10 @@ class SynUser(s_types.Guid):
 
     def _normPyStr(self, text):
 
+        if text == '*':
+            mesg = f'{self.name} values must be a valid username or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
         core = self.modl.core
         if core is not None:
 
@@ -42,6 +46,10 @@ class SynUser(s_types.Guid):
 class SynRole(s_types.Guid):
 
     def _normPyStr(self, text):
+
+        if text == '*':
+            mesg = f'{self.name} values must be a valid rolename or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         core = self.modl.core
         if core is not None:
