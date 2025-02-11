@@ -24,7 +24,7 @@ def load(fp):
         mesg = 'Cannot read empty file.'
         raise s_exc.BadJsonText(mesg=mesg)
 
-def dumps(obj, sort_keys=False, indent=False, default=None, use_bytes=False, append_newline=False):
+def dumps(obj, sort_keys=False, indent=False, default=None, asbytes=False, append_newline=False):
     # Encode obj as a json string
     opts = 0
 
@@ -39,7 +39,7 @@ def dumps(obj, sort_keys=False, indent=False, default=None, use_bytes=False, app
 
     try:
         ret = orjson.dumps(obj, option=opts, default=default)
-        if not use_bytes:
+        if not asbytes:
             ret = ret.decode()
         return ret
     except orjson.JSONEncodeError as exc:
@@ -47,8 +47,8 @@ def dumps(obj, sort_keys=False, indent=False, default=None, use_bytes=False, app
 
 def dump(obj, fp, sort_keys=False, indent=False, default=None, append_newline=False):
     # Encode obj as json into fp
-    use_bytes = 'b' in fp.mode
-    data = dumps(obj, sort_keys=sort_keys, indent=indent, default=default, use_bytes=use_bytes, append_newline=append_newline)
+    asbytes = 'b' in fp.mode
+    data = dumps(obj, sort_keys=sort_keys, indent=indent, default=default, asbytes=asbytes, append_newline=append_newline)
     fp.write(data)
 
 def jsload(*paths):

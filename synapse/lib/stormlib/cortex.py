@@ -1030,7 +1030,7 @@ class HttpReq(s_stormtypes.StormType):
                 body = await s_stormtypes.toprim(body)
                 # FIXME: handle data which has surrogate issues
                 # body = json.dumps(body).encode('utf-8', 'surrogatepass')
-                body = s_json.dumps(body, use_bytes=True)
+                body = s_json.dumps(body, asbytes=True)
                 headers['Content-Type'] = 'application/json; charset=utf8"'
                 headers['Content-Length'] = len(body)
 

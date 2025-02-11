@@ -57,7 +57,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
         try:
 
             mesg = await s_stormtypes.toprim(mesg)
-            await self.resp.send_bytes(s_json.dumps(mesg, use_bytes=True))
+            await self.resp.send_bytes(s_json.dumps(mesg, asbytes=True))
             return (True, None)
 
         except asyncio.CancelledError:  # pragma: no cover

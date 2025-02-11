@@ -29,6 +29,7 @@ import contextlib
 import collections
 
 import http.cookies
+import tornado.escape
 
 import yaml
 import regex
@@ -1226,7 +1227,20 @@ def _patch_http_cookies():
         return
     http.cookies._unquote = v_cookies._unquote
 
+def _patch_tornado_json():
+    import synapse.lib.json as s_json
+
+    if hasattr(tornado.escape, 'json_encode'):
+        def _tornado_json_encode(value):
+            return s_json.dumps(value).replace("</", "<\\/")
+
+        tornado.escape.json_encode = _tornado_json_encode
+
+    if hasattr(tornado.escape, 'json_decode'):
+        tornado.escape.json_decode = s_json.loads
+
 _patch_http_cookies()
+_patch_tornado_json()
 
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up
