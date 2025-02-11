@@ -116,7 +116,7 @@ class JsonLib(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _jsonSave(self, item, indent=None):
+    async def _jsonSave(self, item, indent=False):
         try:
             # A little bit of hackery for backwards compatibility with the old indent parameter being an integer/None
             indent = bool(await s_stormtypes.toint(indent, noneok=True))
