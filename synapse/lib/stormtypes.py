@@ -2356,6 +2356,50 @@ class LibAxon(Lib):
                       {'name': 'sha256', 'type': 'str', 'desc': 'The sha256 value to calculate hashes for.', },
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary of additional hashes.', }}},
+
+        {'name': 'read', 'desc': '''
+            Read bytes from a file stored in the Axon by its SHA256 hash.
+
+            Examples:
+                Read 100 bytes starting at offset 0::
+
+                    $byts = $lib.axon.read($sha256, size=100)
+
+                Read 50 bytes starting at offset 200::
+
+                    $byts = $lib.axon.read($sha256, offs=200, size=50)
+            ''',
+         'type': {'type': 'function', '_funcname': 'read',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
+                      {'name': 'offs', 'type': 'int', 'default': 0,
+                       'desc': 'The offset to start reading from.'},
+                      {'name': 'size', 'type': 'int', 'default': s_const.mebibyte,
+                       'desc': 'The number of bytes to read. Max is 1 MiB.'},
+                  ),
+                  'returns': {'type': 'bytes', 'desc': 'The requested bytes from the file.'}}},
+
+        {'name': 'unpack', 'desc': '''
+            Unpack bytes from a file stored in the Axon into a struct using the specified format.
+
+            Examples:
+                Unpack two 32-bit integers from the start of a file::
+
+                    $nums = $lib.axon.unpack($sha256, '<II')
+
+                Unpack a 64-bit float starting at offset 100::
+
+                    $float = $lib.axon.unpack($sha256, '<d', offs=100)
+            ''',
+         'type': {'type': 'function', '_funcname': 'unpack',
+                  'args': (
+                      {'name': 'sha256', 'type': 'str', 'desc': 'The SHA256 hash of the file to read.'},
+                      {'name': 'fmt', 'type': 'str', 'desc': 'The struct format string.'},
+                      {'name': 'offs', 'type': 'int', 'default': 0,
+                       'desc': 'The offset to start reading from.'},
+                  ),
+                  'returns': {'type': 'list', 'desc': 'The unpacked values as a tuple.'}}},
+
         {'name': 'upload', 'desc': '''
             Upload a stream of bytes to the Axon as a file.
 
@@ -2389,6 +2433,8 @@ class LibAxon(Lib):
             'size': self.size,
             'upload': self.upload,
             'hashset': self.hashset,
+            'read': self.read,
+            'unpack': self.unpack,
         }
 
     @stormfunc(readonly=True)
@@ -2665,6 +2711,48 @@ class LibAxon(Lib):
 
         await self.runt.view.core.getAxon()
         return await self.runt.view.core.axon.hashset(s_common.uhex(sha256))
+
+    @stormfunc(readonly=True)
+    async def read(self, sha256, offs=0, size=s_const.mebibyte):
+        '''
+        Read bytes from a file in the Axon.
+        '''
+        sha256 = await tostr(sha256)
+        size = await toint(size)
+        offs = await toint(offs)
+
+        if size > s_const.mebibyte:
+            mesg = f'Size must be between 1 and {s_const.mebibyte} bytes'
+            raise s_exc.BadArg(mesg=mesg)
+
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
+        await self.runt.view.core.getAxon()
+
+        byts = b''
+        async for chunk in self.runt.view.core.axon.get(s_common.uhex(sha256), offs=offs, size=size):
+            byts += chunk
+        return byts
+
+    @stormfunc(readonly=True)
+    async def unpack(self, sha256, fmt, offs=0):
+        '''
+        Unpack bytes from a file in the Axon using struct.
+        '''
+        if self.runt.view.core.axoninfo.get('features', {}).get('unpack', 0) < 1:
+            mesg = 'The connected Axon does not support the the unpack API. Please update your Axon.'
+            raise s_exc.FeatureNotSupported(mesg=mesg)
+
+        sha256 = await tostr(sha256)
+        fmt = await tostr(fmt)
+        offs = await toint(offs)
+
+        if not self.runt.allowed(('axon', 'get')):
+            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+
+        await self.runt.view.core.getAxon()
+        return await self.runt.view.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
 
 @registry.registerLib
 class LibLift(Lib):
@@ -3189,7 +3277,11 @@ class LibRegx(Lib):
         lkey = (pattern, flags)
         regx = self.compiled.get(lkey)
         if regx is None:
-            regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+            try:
+                regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+            except (regex.error, ValueError) as e:
+                mesg = f'Error compiling regex pattern: {e}: pattern="{s_common.trimText(pattern)}"'
+                raise s_exc.BadArg(mesg=mesg) from None
         return regx
 
     @stormfunc(readonly=True)
@@ -3199,7 +3291,12 @@ class LibRegx(Lib):
         pattern = await tostr(pattern)
         replace = await tostr(replace)
         regx = await self._getRegx(pattern, flags)
-        return regx.sub(replace, text)
+
+        try:
+            return regx.sub(replace, text)
+        except (regex.error, IndexError) as e:
+            mesg = f'$lib.regex.replace() error: {e}'
+            raise s_exc.BadArg(mesg=mesg) from None
 
     @stormfunc(readonly=True)
     async def matches(self, pattern, text, flags=0):
@@ -5210,7 +5307,7 @@ class Number(Prim):
         try:
             valu = s_common.hugenum(valu)
         except (TypeError, decimal.DecimalException) as e:
-            mesg = f'Failed to make number from {valu!r}'
+            mesg = f'Failed to make number from {s_common.trimText(repr(valu))}'
             raise s_exc.BadCast(mesg=mesg) from e
 
         Prim.__init__(self, valu, path=path)
@@ -6328,7 +6425,8 @@ class Layer(Prim):
     Implements the Storm api for a layer instance.
     '''
     _storm_locals = (
-        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
+        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Layer.', 'type': 'str'},
         {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
@@ -6581,6 +6679,22 @@ class Layer(Prim):
                   'returns': {'name': 'Yields', 'type': 'node',
                               'desc': 'Yields nodes.', }}},
 
+        {'name': 'liftByNodeData', 'desc': '''
+            Lift and yield nodes with the given node data key set within the layer.
+
+            Example:
+                Yield all nodes with the data key zootsuit set in the top layer::
+
+                    yield $lib.layer.get().liftByNodeData(zootsuit)
+
+            ''',
+         'type': {'type': 'function', '_funcname': 'liftByNodeData',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'desc': 'The node data name to lift by.'},
+                  ),
+                  'returns': {'name': 'Yields', 'type': 'node',
+                              'desc': 'Yields nodes.', }}},
+
         {'name': 'getEdges', 'desc': '''
             Yield (n1iden, verb, n2iden) tuples for any light edges in the layer.
 
@@ -6689,6 +6803,7 @@ class Layer(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+        self.locls['name'] = self.valu.get('name')
 
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
@@ -6709,6 +6824,7 @@ class Layer(Prim):
             'getEdges': self.getEdges,
             'liftByTag': self.liftByTag,
             'liftByProp': self.liftByProp,
+            'liftByNodeData': self.liftByNodeData,
             'getTagCount': self._methGetTagCount,
             'getPropCount': self._methGetPropCount,
             'getPropValues': self._methGetPropValues,
@@ -6778,6 +6894,20 @@ class Layer(Prim):
         cmprvals = prop.type.getStorCmprs(propcmpr, norm)
         async for _, nid, _ in layr.liftByPropValu(liftform, liftprop, cmprvals):
             yield await self.runt.view._joinStorNode(nid)
+
+    @stormfunc(readonly=True)
+    async def liftByNodeData(self, name):
+
+        name = await tostr(name)
+
+        iden = self.valu.get('iden')
+        layr = self.runt.view.core.getLayer(iden)
+
+        await self.runt.reqUserCanReadLayer(iden)
+
+        async for nid, _, tomb in layr.liftByDataName(name):
+            if not tomb:
+                yield await self.runt.view._joinStorNode(nid)
 
     @stormfunc(readonly=True)
     async def getMirrorStatus(self):
@@ -9482,7 +9612,7 @@ async def tostr(valu, noneok=False):
 
         return str(valu)
     except Exception as e:
-        mesg = f'Failed to make a string from {valu!r}.'
+        mesg = f'Failed to make a string from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def tobool(valu, noneok=False):
@@ -9496,7 +9626,7 @@ async def tobool(valu, noneok=False):
     try:
         return bool(valu)
     except Exception:
-        mesg = f'Failed to make a boolean from {valu!r}.'
+        mesg = f'Failed to make a boolean from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg)
 
 async def tonumber(valu, noneok=False):
@@ -9521,13 +9651,13 @@ async def toint(valu, noneok=False):
         try:
             return int(valu, 0)
         except ValueError as e:
-            mesg = f'Failed to make an integer from {valu!r}.'
+            mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
             raise s_exc.BadCast(mesg=mesg) from e
 
     try:
         return int(valu)
     except Exception as e:
-        mesg = f'Failed to make an integer from {valu!r}.'
+        mesg = f'Failed to make an integer from {s_common.trimText(repr(valu))}.'
         raise s_exc.BadCast(mesg=mesg) from e
 
 async def toiter(valu, noneok=False):
@@ -9546,7 +9676,7 @@ async def toiter(valu, noneok=False):
             async for item in agen:
                 yield item
     except TypeError as e:
-        mesg = f'Value is not iterable: {valu!r}'
+        mesg = f'Value is not iterable: {s_common.trimText(repr(valu))}'
         raise s_exc.StormRuntimeError(mesg=mesg) from e
 
 async def torepr(valu, usestr=False):

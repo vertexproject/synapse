@@ -1316,7 +1316,7 @@ class AstTest(s_test.SynTest):
 
             # test property assignment with subquery value
             await core.nodes('[(ou:industry=* :name=foo)] [(ou:industry=* :name=bar)] [+#sqa]')
-            nodes = await core.nodes('[ ou:org=* :alias=visiacme :industries={ou:industry#sqa}]')
+            nodes = await core.nodes('[ ou:org=* :name=visiacme :industries={ou:industry#sqa}]')
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
@@ -1327,24 +1327,24 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('name'))
 
-            nodes = await core.nodes('[ ps:contact=* :org={ou:org:alias=visiacme}]')
+            nodes = await core.nodes('[ ps:contact=* :org={ou:org:name=visiacme}]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
 
-            nodes = await core.nodes('ou:org:alias=visiacme')
+            nodes = await core.nodes('ou:org:name=visiacme')
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries-={ou:industry:name=foo} ]')
+            nodes = await core.nodes('ou:org:name=visiacme [ :industries-={ou:industry:name=foo} ]')
             self.len(1, nodes)
             self.len(1, nodes[0].get('industries'))
 
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries+={ou:industry:name=foo} ]')
+            nodes = await core.nodes('ou:org:name=visiacme [ :industries+={ou:industry:name=foo} ]')
             self.len(1, nodes)
             self.len(2, nodes[0].get('industries'))
 
             await core.nodes('[ it:dev:str=a it:dev:str=b ]')
-            q = "ou:org:alias=visiacme [ :name={it:dev:str if ($node='b') {return(penetrode)}} ]"
+            q = "ou:org:name=visiacme [ :motto={it:dev:str if ($node='b') {return(penetrode)}} ]"
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
@@ -1357,56 +1357,53 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={if (0) {return(penetrode)}} ]')
+                await core.nodes('ou:org:name=visiacme [ :name={if (0) {return(penetrode)}} ]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :name={} ]')
+                await core.nodes('ou:org:name=visiacme [ :name={} ]')
 
             with self.raises(s_exc.BadTypeValu) as cm:
-                await core.nodes('ou:org:alias=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
+                await core.nodes('ou:org:name=visiacme [ :name={[it:dev:str=hehe it:dev:str=haha]} ]')
             self.eq(cm.exception.get('text'), '[it:dev:str=hehe it:dev:str=haha]')
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:org:alias=visiacme [ :industries={[inet:ip=1.2.3.0/24]} ]')
+                await core.nodes('ou:org:name=visiacme [ :industries={[inet:ip=1.2.3.0/24]} ]')
 
-            await core.nodes('ou:org:alias=visiacme [ -:name]')
-            nodes = await core.nodes('ou:org:alias=visiacme [ :name?={} ]')
-            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
+            await core.nodes('ou:org:name=visiacme [ -:motto]')
+            nodes = await core.nodes('ou:org:name=visiacme [ :motto?={} ]')
+            self.eq(s_common.novalu, nodes[0].get('motto', defv=s_common.novalu))
 
-            nodes = await core.nodes('ou:org:alias=visiacme [ :name?={[it:dev:str=hehe it:dev:str=haha]} ]')
-            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
-
-            nodes = await core.nodes('ou:org:alias=visiacme [ :industries?={[inet:ip=1.2.3.0/24]} ]')
-            self.eq(s_common.novalu, nodes[0].get('name', defv=s_common.novalu))
+            nodes = await core.nodes('ou:org:name=visiacme [ :motto?={[it:dev:str=hehe it:dev:str=haha]} ]')
+            self.eq(s_common.novalu, nodes[0].get('motto', defv=s_common.novalu))
 
             # Filter by Subquery value
 
             await core.nodes('[it:dev:str=visiacme]')
-            nodes = await core.nodes('ou:org +:alias={it:dev:str=visiacme}')
+            nodes = await core.nodes('ou:org +:name={it:dev:str=visiacme}')
             self.len(1, nodes)
 
-            nodes = await core.nodes('ou:org +:alias={return(visiacme)}')
+            nodes = await core.nodes('ou:org +:name={return(visiacme)}')
             self.len(1, nodes)
 
             nodes = await core.nodes('test:arrayprop +:strs={return ((a,b,c,d))}')
             self.len(1, nodes)
 
             with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('ou:org +:alias={it:dev:str}')
+                nodes = await core.nodes('ou:org +:name={it:dev:str}')
 
             # Lift by Subquery value
 
-            nodes = await core.nodes('ou:org:alias={it:dev:str=visiacme}')
+            nodes = await core.nodes('ou:org:name={it:dev:str=visiacme}')
             self.len(1, nodes)
 
             nodes = await core.nodes('test:arrayprop:strs={return ((a,b,c,d))}')
             self.len(1, nodes)
 
-            nodes = await core.nodes('ou:org:alias={return(visiacme)}')
+            nodes = await core.nodes('ou:org:name={return(visiacme)}')
             self.len(1, nodes)
 
             with self.raises(s_exc.BadTypeValu):
-                nodes = await core.nodes('ou:org:alias={it:dev:str}')
+                nodes = await core.nodes('ou:org:name={it:dev:str}')
 
     async def test_lib_ast_module(self):
 

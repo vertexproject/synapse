@@ -19,6 +19,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.const as s_const
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
 import synapse.lib.version as s_version
@@ -53,6 +54,9 @@ class Beep:
     def beep(self):
         return f'{self.path}: beep'
 
+    def genbeep(self):
+        yield self.beep()
+
 class Foo:
 
     def __init__(self):
@@ -67,6 +71,10 @@ class Foo:
 
     def echo(self, x):
         return x
+
+    def echosize(self, array: list[bytes]):
+        total = sum([len(bytz) for bytz in array])
+        return total
 
     def speed(self):
         return
@@ -133,6 +141,9 @@ class TeleApi:
     def getFooBar(self, x, y):
         return x - y
 
+    def genGetFooBar(self, x, y):
+        yield self.getFooBar(x, y)
+
     async def customshare(self):
         return await CustomShare.anit(self.link, 42)
 
@@ -154,6 +165,11 @@ class TeleAware(s_telepath.Aware):
             return TeleApi(self, link)
 
         return self._initBeep(path[0])
+
+    async def getTeleFeats(self):
+        return {
+            'aware': 1,
+        }
 
 class TeleAuth(s_telepath.Aware):
 
@@ -230,11 +246,13 @@ class TeleTest(s_t_utils.SynTest):
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
 
-            # check a standard return value
-            self.eq(30, await prox.bar(10, 20))
+            with mock.patch('synapse.lib.link.MAXWRITE', 2):
 
-            # check a coroutine return value
-            self.eq(25, await prox.corovalu(10, 5))
+                # check a standard return value
+                self.eq(30, await prox.bar(10, 20))
+
+                # check a coroutine return value
+                self.eq(25, await prox.corovalu(10, 5))
 
             # check a generator return channel
             genr = await prox.genr()
@@ -564,7 +582,15 @@ class TeleTest(s_t_utils.SynTest):
                 self.len(1, snfo)
                 self.eq(snfo[0].get('items'), {None: 'synapse.tests.test_telepath.TeleApi'})
 
+                self.true(proxy._hasTeleFeat('aware'))
+                self.false(proxy._hasTeleFeat('aware', vers=2))
+                self.false(proxy._hasTeleFeat('newp'))
+
+                self.true(proxy._hasTeleMeth('getFooBar'))
+                self.false(proxy._hasTeleMeth('getBarBaz'))
+
                 self.eq(10, await proxy.getFooBar(20, 10))
+                self.eq([10], [m async for m in await proxy.genGetFooBar(20, 10)])
 
                 # check a custom share works
                 obj = await proxy.customshare()
@@ -606,7 +632,14 @@ class TeleTest(s_t_utils.SynTest):
 
             # check that a dynamic share works
             async with await self.getTestProxy(dmon, 'woke/up') as proxy:
+                self.isin('synapse.tests.test_telepath.Beep', proxy._getClasses())
+                self.notin('synapse.tests.test_telepath.TeleApi', proxy._getClasses())
                 self.eq('up: beep', await proxy.beep())
+                self.eq(['up: beep'], [m async for m in await proxy.genbeep()])
+                # Telepath features are a function of the base object, not the result of getTeleApi
+                self.true(proxy._hasTeleFeat('aware'))
+                self.false(proxy._hasTeleFeat('aware', vers=2))
+                self.false(proxy._hasTeleFeat('newp'))
 
     async def test_telepath_auth(self):
 
@@ -1166,7 +1199,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.isin('synapse.tests.test_telepath.Foo', proxy._getClasses())
                 self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
 
-    async def test_tls_ciphers(self):
+    async def test_tls_support_and_ciphers(self):
 
         self.thisHostMustNot(platform='darwin')
 
@@ -1187,6 +1220,18 @@ class TeleTest(s_t_utils.SynTest):
             # Ensure tls listener is working before trying downgraded versions
             async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port) as prox:
                 self.eq(30, await prox.bar(10, 20))
+
+                # This will generate a large msgpack object which can cause
+                # openssl to have malloc failures. Prior to the write chunking
+                # changes, this would cause a generally fatal error to any
+                # processes which rely on the calls work, such as mirror loops.
+                blob = b'V' * s_const.mebibyte * 256
+                nblobs = 8
+                total = nblobs * len(blob)
+                blobarray = []
+                for i in range(nblobs):
+                    blobarray.append(blob)
+                self.eq(await prox.echosize(blobarray), total)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1)
             with self.raises((ssl.SSLError, ConnectionResetError)):

@@ -1,7 +1,9 @@
+import copy
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.module as s_module
+import synapse.lib.schemas as s_schemas
 
 import synapse.cortex as s_cortex
 
@@ -359,3 +361,18 @@ class DataModelTest(s_t_utils.SynTest):
             self.none(core.model.edge(('meta:rule', 'matches', None)))
 
             core.model.delEdge(('meta:rule', 'matches', None))
+
+    async def test_datamodel_locked_subs(self):
+
+        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
+        async with self.getTestCore(conf=copy.deepcopy(conf)) as core:
+            await core.setDeprLock('test:deprsub:imei:tac', True)
+            nodes = await core.nodes('[ test:deprsub=foo :imei=490154203237518 ]')
+            self.none(nodes[0].get('imei:tac'))
+            self.eq('323751', nodes[0].get('imei:serial'))
+
+    def test_datamodel_schema_basetypes(self):
+        # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
+        # in sync with the default s_datamodel.Datamodel().types
+        basetypes = list(s_datamodel.Model().types)
+        self.eq(s_schemas.datamodel_basetypes, basetypes)

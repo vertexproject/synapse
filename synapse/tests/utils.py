@@ -524,6 +524,7 @@ deprmodel = {
         ('test:deprform', ('test:str', {}), {}),
         ('test:deprndef', ('ndef', {}), {}),
         ('test:deprform2', ('test:str', {}), {'deprecated': True}),
+        ('test:deprsub', ('str', {}), {}),
     ),
     'forms': (
         ('test:deprprop', {}, ()),
@@ -534,6 +535,11 @@ deprmodel = {
             ('deprprop2', ('test:str', {}), {'deprecated': True}),
         )),
         ('test:deprform2', {}, ()),
+        ('test:deprsub', {}, (
+            ('imei', ('tel:mob:imei', {}), {}),
+            ('imei:tac', ('str', {}), {'deprecated': True}),
+            ('imei:serial', ('str', {}), {}),
+        ))
     ),
 
 }

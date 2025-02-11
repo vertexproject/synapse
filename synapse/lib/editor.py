@@ -598,7 +598,7 @@ class ProtoNode(s_node.NodeBase):
             raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.')
 
         if prop.locked:
-            raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.')
+            raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.', prop=name)
 
         norm, info = prop.type.norm(valu)
 
@@ -666,12 +666,12 @@ class ProtoNode(s_node.NodeBase):
     async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
 
         if prop.locked:
-            raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
+            raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
 
         if isinstance(prop.type, s_types.Array):
             arrayform = self.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
-                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
+                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
 
         if norminfo is None:
             try:
@@ -686,7 +686,7 @@ class ProtoNode(s_node.NodeBase):
         if isinstance(prop.type, s_types.Ndef):
             ndefform = self.model.form(valu[0])
             if ndefform.locked:
-                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
+                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
 
         curv = self.get(prop.name)
         if curv == valu:
@@ -724,7 +724,8 @@ class ProtoNode(s_node.NodeBase):
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
+                subprop = self.form.props.get(full)
+                if subprop is not None and not subprop.locked:
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
@@ -779,7 +780,8 @@ class ProtoNode(s_node.NodeBase):
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
+                subprop = self.form.props.get(full)
+                if subprop is not None and not subprop.locked:
                     ops.append(self.getSetOps(full, subvalu))
 
         propadds = norminfo.get('adds')
@@ -845,7 +847,7 @@ class NodeEditor:
             raise s_exc.IsRuntForm(mesg=f'Cannot make runt nodes: {form.name}.')
 
         if form.locked:
-            raise s_exc.IsDeprLocked(mesg=f'Form {form.full} is locked due to deprecation for valu={valu}.')
+            raise s_exc.IsDeprLocked(mesg=f'Form {form.full} is locked due to deprecation for valu={valu}.', prop=form.full)
 
         if norminfo is None:
             try:

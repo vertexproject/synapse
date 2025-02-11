@@ -163,12 +163,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, 'newp')
             self.raises(s_exc.BadTypeValu, t.norm, 1000000)
 
-            # ou:alias
-            t = core.model.type('ou:alias')
-            self.raises(s_exc.BadTypeValu, t.norm, 'asdf.asdf.asfd')
-            self.eq(t.norm('HAHA1')[0], 'haha1')
-            self.eq(t.norm('GOV_MFA')[0], 'gov_mfa')
-
             # ou:position / ou:org:subs
             orgiden = s_common.guid()
             contact = s_common.guid()
@@ -218,7 +212,6 @@ class OuModelTest(s_t_utils.SynTest):
                 'type': 'corp',
                 'names': altnames,
                 'logo': '*',
-                'alias': 'arrow',
                 'phone': '+15555555555',
                 'url': 'http://www.arrowinc.link',
                 'us:cage': '7qe71',
@@ -227,7 +220,7 @@ class OuModelTest(s_t_utils.SynTest):
                 'goals': (goal,),
             }
             q = '''[(ou:org=$valu :loc=$p.loc :name=$p.name :type=$p.type :names=$p.names
-                :logo=$p.logo :alias=$p.alias :phone=$p.phone :url=$p.url
+                :logo=$p.logo :phone=$p.phone :url=$p.url
                 :us:cage=$p."us:cage" :founded=$p.founded :dissolved=$p.dissolved
                 :goals=$p.goals
                 :ext:id=Foo :motto="DONT BE EVIL"
@@ -240,7 +233,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('type'), 'corp.')
             self.eq(node.get('name'), normname)
             self.eq(node.get('names'), altnames)
-            self.eq(node.get('alias'), 'arrow')
             self.eq(node.get('phone'), '15555555555')
             self.eq(node.get('url'), 'http://www.arrowinc.link')
             self.eq(node.get('us:cage'), '7qe71')
@@ -387,13 +379,20 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('place'), place0)
             self.eq(node.get('url'), 'http://arrowcon.org/2018/dinner')
 
-            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :url="http://foobar.com/ids"]')
+            nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :names=(alt1,alt2) :url="http://foobar.com/ids"]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
             self.eq('foobar', nodes[0].get('name'))
+            self.eq(('alt1', 'alt2'), nodes[0].get('names'))
             self.eq('http://foobar.com/ids', nodes[0].get('url'))
 
             iden = await core.callStorm('ou:id:type return($node.value())')
+
+            self.len(1, alts := await core.nodes('[ ou:id:type=({"name": "foobar"}) ]'))
+            self.eq(nodes[0].ndef, alts[0].ndef)
+
+            self.len(1, alts := await core.nodes('[ ou:id:type=({"name": "alt1"}) ]'))
+            self.eq(nodes[0].ndef, alts[0].ndef)
 
             opts = {'vars': {'type': iden}}
             nodes = await core.nodes('''
@@ -543,6 +542,7 @@ class OuModelTest(s_t_utils.SynTest):
                 ou:contest:result=(*, *)
                     :rank=1
                     :score=20
+                    :period=(20250101, 20250102)
                     :url=http://vertex.link/contest/result
             ]''')
             self.len(1, nodes)
@@ -550,6 +550,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('participant'))
             self.eq(1, nodes[0].get('rank'))
             self.eq(20, nodes[0].get('score'))
+            self.eq((1735689600000, 1735776000000), nodes[0].get('period'))
             self.eq('http://vertex.link/contest/result', nodes[0].get('url'))
             self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))

@@ -387,6 +387,7 @@ class Daemon(s_base.Base):
             link.set('sess', sess)
 
             if isinstance(item, s_telepath.Aware):
+                reply[1]['features'] = await item.getTeleFeats()
                 item = await s_coro.ornot(item.getTeleApi, link, mesg, path)
                 if isinstance(item, s_base.Base):
                     link.onfini(item)

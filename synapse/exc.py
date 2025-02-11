@@ -1,6 +1,7 @@
 '''
 Exceptions used by synapse, all inheriting from SynErr
 '''
+import sys
 
 class SynErr(Exception):
 
@@ -224,7 +225,13 @@ class InconsistentStorage(SynErr):
 
 class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
-class IsDeprLocked(SynErr): pass
+
+class IsDeprLocked(SynErr):
+    def __init__(self, *args, **info):
+        if __debug__:
+            sys.audit('synapse.exc.IsDeprLocked', (args, info))
+        super().__init__(*args, **info)
+
 class IsRuntForm(SynErr): pass
 
 class LayerInUse(SynErr): pass

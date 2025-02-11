@@ -6,6 +6,134 @@
 Synapse Changelog
 *****************
 
+v2.197.0 - 2025-02-05
+=====================
+
+Model Changes
+-------------
+- Added ``doc:resume`` and ``doc:requirement`` to the data model.
+  (`#4104 <https://github.com/vertexproject/synapse/pull/4104>`_)
+- See :ref:`userguide_model_v2_197_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Increased the performance of executing Storm commands which have type
+  annotations.
+  (`#4111 <https://github.com/vertexproject/synapse/pull/4111>`_)
+- Move Storm Package JSON schema to ``synapse.lib.schemas``.
+  (`#4112 <https://github.com/vertexproject/synapse/pull/4112>`_)
+- Added ``index.count.prop`` command to make it easier to count properties
+  stored in the view and layers.
+  (`#4113 <https://github.com/vertexproject/synapse/pull/4113>`_)
+
+v2.196.0 - 2025-01-31
+=====================
+
+Automatic Migrations
+--------------------
+- Generated ``entity:name`` nodes for existing ``transport:sea:vessel:name``
+  properties.
+  (`#4096 <https://github.com/vertexproject/synapse/pull/4096>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_196_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added new AHA APIs that may be used to dispatch functions on service
+  clusters.
+  (`#3795 <https://github.com/vertexproject/synapse/pull/3795>`_)
+- Added new ``getTasks()`` API which can include gathering tasks from peers
+  via AHA.
+  (`#3795 <https://github.com/vertexproject/synapse/pull/3795>`_)
+- Added a new ``aha.svc.mirror`` Storm command to query the status of the
+  mirror clusters managed by the AHA server.
+  (`#4019 <https://github.com/vertexproject/synapse/pull/4019>`_)
+- Added a new command-line tool ``synapse.tools.aha.mirror`` for querying the
+  status of service mirror clusters managed by the AHA server.
+  (`#4019 <https://github.com/vertexproject/synapse/pull/4019>`_)
+- Added ``$lib.axon.read()`` and ``$lib.axon.unpack()`` Storm APIs.
+  (`#4097 <https://github.com/vertexproject/synapse/pull/4097>`_)
+- Added ``liftByNodeData()`` API to the Storm ``layer`` type to allow lifting
+  by node data in a given layer.
+  (`#4099 <https://github.com/vertexproject/synapse/pull/4099>`_)
+
+Bugfixes
+--------
+- Fixed issue where sub-properties were being assigned when the sub-property
+  was deprecated and locked.
+  (`#4098 <https://github.com/vertexproject/synapse/pull/4098>`_)
+- Fixed an issue where ``JsonStor.delPathObjProp()`` could raise a KeyError.
+  (`#4101 <https://github.com/vertexproject/synapse/pull/4101>`_)
+
+v2.195.1 - 2025-01-28
+=====================
+
+Bugfixes
+--------
+- Fixed an issue with unbound text values being included in some
+  ``StormRuntimeError`` exceptions raised when interacting with Storm APIs.
+  (`#4092 <https://github.com/vertexproject/synapse/pull/4092>`_)
+- Fixed an issue where pending Nexus edits to an object which was in the
+  process of being deleted could potentially still be distributed to mirrors.
+  (`#4094 <https://github.com/vertexproject/synapse/pull/4094>`_)
+
+v2.195.0 - 2025-01-24
+=====================
+
+Automatic Migrations
+--------------------
+- Renormalized the ``:model`` property on ``transport:air:craft`` and
+  ``transport:sea:vessel`` to normalize whitespace.
+  (`#4090 <https://github.com/vertexproject/synapse/pull/4090>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- Added ``names`` property to the ``ou:id:type`` form and ``alts`` definition
+  to the ``ou:id:type:name`` property.
+  (`#4081 <https://github.com/vertexproject/synapse/pull/4081>`_)
+- See :ref:`userguide_model_v2_195_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added ``$lib.cell.iden`` to retrieve the iden of the Cortex which the Storm
+  query is executing on. Unlike ``$lib.cell.getCellInfo().cell.iden``, this
+  value is available to non-admin users.
+  (`#4082 <https://github.com/vertexproject/synapse/pull/4082>`_)
+- Added ``--find`` option to ``auth.perms.list`` to easily filter permission
+  results.
+  (`#4083 <https://github.com/vertexproject/synapse/pull/4083>`_)
+  (`#4087 <https://github.com/vertexproject/synapse/pull/4087>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the deprecated types ``edge`` and ``timeedge`` were not
+  annotated as such by the ``getModelDict()`` API.
+  (`#4079 <https://github.com/vertexproject/synapse/pull/4079>`_)
+- Fixed an issue where certain User and Role properties could be modified via
+  Storm and adversely affect the in-memory representation of those objects.
+  (`#4084 <https://github.com/vertexproject/synapse/pull/4084>`_)
+- Fixed an issue where exceptionally large telepath messages may cause OpenSSL
+  malloc failures.
+  (`#4088 <https://github.com/vertexproject/synapse/pull/4088>`_)
+- Added limits for scraping file paths. The number of components in a path must
+  not exceed ``1,024``. Linux and Windows paths must not exceed ``4,096`` and
+  ``32,767`` characters, respectively.
+  (`#4089 <https://github.com/vertexproject/synapse/pull/4089>`_)
+
+Deprecations
+------------
+- The ``forms`` key in Storm package command definitions has been deprecated.
+  The ``cmdinputs`` key may still be used to specify node forms that commands
+  are intended to accept as input.
+  (`#4076 <https://github.com/vertexproject/synapse/pull/4076>`_)
+- Deprecated ``$lib.infosec.cvss.calculate()`` and
+  ``$lib.infosec.cvss.calculateFromProps()``.
+  (`#4079 <https://github.com/vertexproject/synapse/pull/4079>`_)
+
 v2.194.0 - 2025-01-16
 =====================
 

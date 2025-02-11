@@ -61,7 +61,7 @@ import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 177)
+NEXUS_VERSION = (2, 198)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -81,6 +81,8 @@ permnames = {
     PERM_EDIT: 'edit',
     PERM_ADMIN: 'admin',
 }
+
+feat_aha_callpeers_v1 = ('callpeers', 1)
 
 diskspace = "Insufficient free space on disk."
 
@@ -434,6 +436,19 @@ class CellApi(s_base.Base):
     async def kill(self, iden):
         return await self.cell.kill(self.user, iden)
 
+    @adminapi()
+    async def getTasks(self, peers=True, timeout=None):
+        async for task in self.cell.getTasks(peers=peers, timeout=timeout):
+            yield task
+
+    @adminapi()
+    async def getTask(self, iden, peers=True, timeout=None):
+        return await self.cell.getTask(iden, peers=peers, timeout=timeout)
+
+    @adminapi()
+    async def killTask(self, iden, peers=True, timeout=None):
+        return await self.cell.killTask(iden, peers=peers, timeout=timeout)
+
     @adminapi(log=True)
     async def behold(self):
         '''
@@ -691,8 +706,8 @@ class CellApi(s_base.Base):
         return await self.cell.getDmonSessions()
 
     @adminapi()
-    async def getNexusChanges(self, offs, tellready=False):
-        async for item in self.cell.getNexusChanges(offs, tellready=tellready):
+    async def getNexusChanges(self, offs, tellready=False, wait=True):
+        async for item in self.cell.getNexusChanges(offs, tellready=tellready, wait=wait):
             yield item
 
     @adminapi()
@@ -1091,6 +1106,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.netready = asyncio.Event()
 
         self.conf = self._initCellConf(conf)
+        self.features = {
+            'tellready': 1,
+            'dynmirror': 1,
+            'tasks': 1,
+        }
 
         self.minfree = self.conf.get('limit:disk:free')
         if self.minfree is not None:
@@ -1400,15 +1420,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def setNexsVers(self, vers):
-        if self.nexsvers < NEXUS_VERSION:
-            await self._push('nexs:vers:set', NEXUS_VERSION)
+        if self.nexsvers < vers:
+            await self._push('nexs:vers:set', vers)
 
     @s_nexus.Pusher.onPush('nexs:vers:set')
     async def _setNexsVers(self, vers):
         if vers > self.nexsvers:
-            self.cellvers.set('nexus:version', vers)
+            await self._migrNexsVers(vers)
+            self.cellinfo.set('nexus:version', vers)
             self.nexsvers = vers
             await self.configNexsVers()
+
+    async def _migrNexsVers(self, newvers):
+        if self.nexsvers < (2, 198) and newvers >= (2, 198) and self.conf.get('auth:ctor') is None:
+            # This "migration" will lock all archived users. Once the nexus version is bumped to
+            # >=2.198, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
+            # begin rejecting unlock requests for archived users.
+
+            authkv = self.slab.getSafeKeyVal('auth')
+            userkv = authkv.getSubKeyVal('user:info:')
+
+            for iden, info in userkv.items():
+                if info.get('archived') and not info.get('locked'):
+                    info['locked'] = True
+                    userkv.set(iden, info)
+
+            # Clear the auth caches so the changes get picked up by the already running auth subsystem
+            self.auth.clearAuthCache()
 
     async def configNexsVers(self):
         for meth, orig in self.nexspatches:
@@ -2177,8 +2215,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initServicePassive(self):  # pragma: no cover
         pass
 
-    async def getNexusChanges(self, offs, tellready=False):
-        async for item in self.nexsroot.iter(offs, tellready=tellready):
+    async def getNexusChanges(self, offs, tellready=False, wait=True):
+        async for item in self.nexsroot.iter(offs, tellready=tellready, wait=wait):
             yield item
 
     def _reqBackDirn(self, name):
@@ -4126,6 +4164,111 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return retn
 
+    async def getAhaProxy(self, timeout=None, feats=None):
+
+        if self.ahaclient is None:
+            return
+
+        proxy = await self.ahaclient.proxy(timeout=timeout)
+        if proxy is None:
+            logger.warning('AHA client connection failed.')
+            return
+
+        if feats is not None:
+            for name, vers in feats:
+                if not proxy._hasTeleFeat(name, vers):
+                    logger.warning(f'AHA server does not support feature: {name} >= {vers}')
+                    return None
+
+        return proxy
+
+    async def callPeerApi(self, todo, timeout=None):
+        '''
+        Yield responses from our peers via the AHA gather call API.
+        '''
+        proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
+        if proxy is None:
+            return
+
+        async for item in proxy.callAhaPeerApi(self.iden, todo, timeout=timeout, skiprun=self.runid):
+            yield item
+
+    async def callPeerGenr(self, todo, timeout=None):
+        '''
+        Yield responses from invoking a generator via the AHA gather API.
+        '''
+        proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
+        if proxy is None:
+            return
+
+        async for item in proxy.callAhaPeerGenr(self.iden, todo, timeout=timeout, skiprun=self.runid):
+            yield item
+
+    async def getTasks(self, peers=True, timeout=None):
+
+        for task in self.boss.ps():
+
+            item = task.packv2()
+            item['service'] = self.ahasvcname
+
+            yield item
+
+        if not peers:
+            return
+
+        todo = s_common.todo('getTasks', peers=False)
+        # we can ignore the yielded aha names because we embed it in the task
+        async for (ahasvc, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
+
+            if not ok: # pragma: no cover
+                logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
+                continue
+
+            yield retn
+
+    async def getTask(self, iden, peers=True, timeout=None):
+
+        task = self.boss.get(iden)
+        if task is not None:
+            item = task.packv2()
+            item['service'] = self.ahasvcname
+            return item
+
+        if not peers:
+            return
+
+        todo = s_common.todo('getTask', iden, peers=False, timeout=timeout)
+        async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
+
+            if not ok: # pragma: no cover
+                logger.warning(f'getTask() on {ahasvc} failed: {retn}')
+                continue
+
+            if retn is not None:
+                return retn
+
+    async def killTask(self, iden, peers=True, timeout=None):
+
+        task = self.boss.get(iden)
+        if task is not None:
+            await task.kill()
+            return True
+
+        if not peers:
+            return False
+
+        todo = s_common.todo('killTask', iden, peers=False, timeout=timeout)
+        async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
+
+            if not ok: # pragma: no cover
+                logger.warning(f'killTask() on {ahasvc} failed: {retn}')
+                continue
+
+            if retn:
+                return True
+
+        return False
+
     async def kill(self, user, iden):
         perm = ('task', 'del')
         isallowed = await self.isUserAllowed(user.iden, perm)
@@ -4200,12 +4343,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'https': self.https_listeners,
                 }
             },
-            'features': {
-                'tellready': True,
-                'dynmirror': True,
-            },
+            'features': self.features,
         }
         return ret
+
+    async def getTeleFeats(self):
+        return dict(self.features)
 
     async def getSystemInfo(self):
         '''

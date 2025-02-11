@@ -74,6 +74,7 @@ import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
 import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
 import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
+import synapse.lib.stormlib.index as s_stormlib_index  # NOQA
 import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
@@ -1270,7 +1271,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls the ability to remove a file from the Axon.'},
         ))
         for pdef in self._cortex_permdefs:
-            s_storm.reqValidPermDef(pdef)
+            s_schemas.reqValidPermDef(pdef)
 
     def _getPermDefs(self):
 
@@ -1526,7 +1527,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         gdef['updated'] = now
         gdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
 
-        s_stormlib_graph.reqValidGdef(gdef)
+        s_schemas.reqValidGdef(gdef)
 
         await self.reqValidStormGraph(gdef)
 
@@ -1534,7 +1535,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     @s_nexus.Pusher.onPush('storm:graph:add')
     async def _addStormGraph(self, gdef):
-        s_stormlib_graph.reqValidGdef(gdef)
+        s_schemas.reqValidGdef(gdef)
 
         await self.reqValidStormGraph(gdef)
 
@@ -1613,7 +1614,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         gdef = copy.deepcopy(gdef)
         gdef.update(info)
 
-        s_stormlib_graph.reqValidGdef(gdef)
+        s_schemas.reqValidGdef(gdef)
 
         await self.reqValidStormGraph(gdef)
 
@@ -1635,7 +1636,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._setEasyPerm(gdef, scope, iden, level)
 
-        s_stormlib_graph.reqValidGdef(gdef)
+        s_schemas.reqValidGdef(gdef)
 
         self.graphs.set(gden, gdef)
 
@@ -2425,7 +2426,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self.reqValidStormGraph(gdef)
 
         # Validate package def (post normalization)
-        s_storm.reqValidPkgdef(pkgdef)
+        s_schemas.reqValidPkgdef(pkgdef)
 
         for configvar in pkgdef.get('configvars', ()):
             self._reqStormPkgVarType(pkgname, configvar.get('type'))
@@ -3907,6 +3908,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cdef in s_stormlib_vault.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
+        for cdef in s_stormlib_index.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
     async def _initPureStormCmds(self):
         oldcmds = []
         for name, cdef in self.cmddefs.items():
@@ -3937,7 +3941,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for path, ctor in s_stormtypes.registry.iterLibs():
             # Ensure each ctor's permdefs are valid
             for pdef in ctor._storm_lib_perms:
-                s_storm.reqValidPermDef(pdef)
+                s_schemas.reqValidPermDef(pdef)
 
             self.addStormLib(path, ctor)
 
@@ -5161,7 +5165,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def runStormDmon(self, iden, ddef):
 
         # validate ddef before firing task
-        s_storm.reqValidDdef(ddef)
+        s_schemas.reqValidDdef(ddef)
 
         dmon = self.stormdmons.getDmon(iden)
         if dmon is not None:

@@ -23,7 +23,11 @@ class SynUser(s_types.Guid):
             if user is not None:
                 return user.iden, {}
 
-        return s_types.Guid._normPyStr(self, text)
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No user named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
     def repr(self, iden):
 
@@ -51,7 +55,11 @@ class SynRole(s_types.Guid):
             if role is not None:
                 return role.iden, {}
 
-        return s_types.Guid._normPyStr(self, text)
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No role named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
     def repr(self, iden):
 

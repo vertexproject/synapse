@@ -84,7 +84,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
                 ('risk:compromise', ('guid', {}), {
-                    'doc': 'An instance of a compromise and its aggregate impact.',
+                    'doc': 'A compromise and its aggregate impact. The compromise is the result of a successful attack.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
@@ -475,6 +475,9 @@ class RiskModule(s_module.CoreModule):
                     ('id', ('str', {'strip': True}), {
                         'doc': 'An identifier for the vulnerability.'}),
 
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'A tag used to annotate the presence or use of the vulnerability.'}),
+
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
 
@@ -487,36 +490,6 @@ class RiskModule(s_module.CoreModule):
 
                     ('cve:references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of documentation URLs provided by the CVE database.'}),
-
-                    ('nist:nvd:source', ('ou:name', {}), {
-                        'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
-
-                    ('nist:nvd:published', ('time', {}), {
-                        'doc': 'The date the vulnerability was first published in the NVD.'}),
-
-                    ('nist:nvd:modified', ('time', {"ismax": True}), {
-                        'doc': 'The date the vulnerability was last modified in the NVD.'}),
-
-                    ('cisa:kev:name', ('str', {}), {
-                        'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
-
-                    ('cisa:kev:desc', ('str', {}), {
-                        'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
-
-                    ('cisa:kev:action', ('str', {}), {
-                        'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
-
-                    ('cisa:kev:vendor', ('ou:name', {}), {
-                        'doc': 'The vendor name listed in the CISA KEV database.'}),
-
-                    ('cisa:kev:product', ('it:prod:softname', {}), {
-                        'doc': 'The product name listed in the CISA KEV database.'}),
-
-                    ('cisa:kev:added', ('time', {}), {
-                        'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
-
-                    ('cisa:kev:duedate', ('time', {}), {
-                        'doc': 'The date the action is due according to the CISA KEV database.'}),
 
                     ('cvss:v2', ('cvss:v2', {}), {
                         'doc': 'The CVSS v2 vector for the vulnerability.'}),

@@ -89,10 +89,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
-                ('ou:alias', ('str', {'lower': True, 'regex': r'^[0-9a-z_]+$'}), {
-                    'doc': 'An alias for the org GUID.',
-                    'ex': 'vertexproject',
-                }),
                 ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
                     'doc': "An organization's IPv4 netblock.",
                 }),
@@ -462,8 +458,11 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The org which issues id numbers of this type.',
                     }),
                     ('name', ('str', {}), {
-                        'doc': 'The friendly name of the id number type.',
+                        'alts': ('names',),
+                        'doc': 'The friendly name of the ID number type.',
                     }),
+                    ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of alternate names for the ID number type.'}),
                     ('url', ('inet:url', {}), {
                         'doc': 'The official URL of the issuer.',
                     }),
@@ -711,9 +710,6 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
                        'doc': 'A list of alternate names for the organization.',
-                    }),
-                    ('alias', ('ou:alias', {}), {
-                        'doc': 'The default alias for an organization.'
                     }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
@@ -1166,30 +1162,34 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:contest:result', {}, (
+
                     ('contest', ('ou:contest', {}), {
                         'ro': True,
-                        'doc': 'The contest.',
-                    }),
+                        'doc': 'The contest that the participant took part in.'}),
+
                     ('participant', ('ps:contact', {}), {
                         'ro': True,
-                        'doc': 'The participant',
-                    }),
+                        'doc': 'The participant in the contest.'}),
+
                     ('rank', ('int', {}), {
-                        'doc': 'The rank order of the participant.',
-                    }),
+                        'doc': "The participant's rank order in the contest."}),
+
                     ('score', ('int', {}), {
-                        'doc': 'The score of the participant.',
-                    }),
+                        'doc': "The participant's final score in the contest."}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The period of time when the participant competed in the contest.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'The contest result website URL.',
-                    }),
+                        'doc': 'The contest result website URL.'}),
+
                 )),
                 ('ou:enacted:status:taxonomy', {}, ()),
                 ('ou:enacted', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The organization which is enacting the document.'}),
 
-                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard')}), {
+                    ('doc', ('ndef', {'forms': ('doc:policy', 'doc:standard', 'doc:requirement')}), {
                         'doc': 'The document enacted by the organization.'}),
 
                     ('scope', ('ndef', {}), {

@@ -1,7 +1,8 @@
 import synapse.lib.const as s_const
 import synapse.lib.config as s_config
+import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
-
+import synapse.lib.version as s_version
 
 easyPermSchema = {
     'type': 'object',
@@ -551,3 +552,477 @@ stixIngestBundleSchema = {
     },
 }
 reqValidStixIngestBundle = s_config.getJsValidator(stixIngestBundleSchema)
+
+_reqValidGdefSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'name': {'type': 'string', 'minLength': 1},
+        'desc': {'type': 'string', 'default': ''},
+        'scope': {'type': 'string', 'enum': ['user', 'power-up']},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'power-up': {'type': 'string', 'minLength': 1},
+        'maxsize': {'type': 'number', 'minimum': 0},
+        'existing': {'type': 'array', 'items': {'type': 'string'}},
+        'created': {'type': 'number'},
+        'updated': {'type': 'number'},
+        'refs': {'type': 'boolean', 'default': False},
+        'edges': {'type': 'boolean', 'default': True},
+        'edgelimit': {'type': 'number', 'default': 3000},
+        'degrees': {'type': ['integer', 'null'], 'minimum': 0},
+        'filterinput': {'type': 'boolean', 'default': True},
+        'yieldfiltered': {'type': 'boolean', 'default': False},
+        'filters': {
+            'type': ['array', 'null'],
+            'items': {'type': 'string'}
+        },
+        'pivots': {
+            'type': ['array', 'null'],
+            'items': {'type': 'string'}
+        },
+        'forms': {
+            'type': 'object',
+            'patternProperties': {
+                '^.*$': {
+                    'type': 'object',
+                    'properties': {
+                        'filters': {
+                            'type': ['array', 'null'],
+                            'items': {'type': 'string'}
+                        },
+                        'pivots': {
+                            'type': ['array', 'null'],
+                            'items': {'type': 'string'}
+                        }
+                    },
+                    'additionalProperties': False,
+                }
+            }
+        },
+        'permissions': s_msgpack.deepcopy(easyPermSchema)
+    },
+    'additionalProperties': False,
+    'required': ['iden', 'name', 'scope'],
+    'allOf': [
+        {
+            'if': {'properties': {'scope': {'const': 'power-up'}}},
+            'then': {'required': ['power-up']},
+            'else': {'required': ['creator']},
+        }
+    ]
+}
+reqValidGdef = s_config.getJsValidator(_reqValidGdefSchema)
+
+_reqValidPermDefSchema = {
+    'type': 'object',
+    'properties': {
+        'perm': {'type': 'array', 'items': {'type': 'string'}},
+        'desc': {'type': 'string'},
+        'gate': {'type': 'string'},
+        'ex': {'type': 'string'},  # Example string
+        'workflowconfig': {'type': 'boolean'},
+        'default': {'type': 'boolean', 'default': False},
+    },
+    'required': ['perm', 'desc', 'gate'],
+}
+
+reqValidPermDef = s_config.getJsValidator(_reqValidPermDefSchema)
+
+# N.B. This is kept in sync with s_datamodel.Datamodel().types
+# with the DatamodelTest.test_datamodel_schema_basetypes test.
+datamodel_basetypes = [
+    'int',
+    'float',
+    'range',
+    'str',
+    'hex',
+    'bool',
+    'time',
+    'duration',
+    'ival',
+    'guid',
+    'syn:tag:part',
+    'syn:tag',
+    'comp',
+    'loc',
+    'ndef',
+    'array',
+    'data',
+    'nodeprop',
+    'hugenum',
+    'taxon',
+    'taxonomy',
+    'velocity',
+]
+
+_reqValidPkgdefSchema = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'version': {
+            'type': 'string',
+            'pattern': s_version.semverstr,
+        },
+        'build': {
+            'type' 'object'
+            'properties': {
+                'time': {'type': 'number'},
+            },
+            'required': ['time'],
+        },
+        'codesign': {
+            'type': 'object',
+            'properties': {
+                'sign': {'type': 'string'},
+                'cert': {'type': 'string'},
+            },
+            'required': ['cert', 'sign'],
+        },
+        # TODO: Remove me after Synapse 3.0.0.
+        'synapse_minversion': {
+            'type': ['array', 'null'],
+            'items': {'type': 'number'}
+        },
+        'synapse_version': {
+            'type': 'string',
+        },
+        'modules': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/module'}
+        },
+        'docs': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/doc'},
+        },
+        'logo': {
+            'type': 'object',
+            'properties': {
+                'mime': {'type': 'string'},
+                'file': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['mime', 'file'],
+        },
+        'commands': {
+            'type': ['array', 'null'],
+            'items': {'$ref': '#/definitions/command'},
+        },
+        'graphs': {
+            'type': ['array', 'null'],
+            'items': s_msgpack.deepcopy(_reqValidGdefSchema, use_list=True),
+        },
+        'desc': {'type': 'string'},
+        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
+        'onload': {'type': 'string'},
+        'author': {
+            'type': 'object',
+            'properties': {
+                'url': {'type': 'string'},
+                'name': {'type': 'string'},
+            },
+            'required': ['name', 'url'],
+        },
+        'depends': {
+            'properties': {
+                'requires': {'type': 'array', 'items': {'$ref': '#/definitions/require'}},
+                'conflicts': {'type': 'array', 'items': {'$ref': '#/definitions/conflict'}},
+            },
+            'additionalProperties': True,
+        },
+        'perms': {
+            'type': 'array',
+            'items': s_msgpack.deepcopy(_reqValidPermDefSchema),
+        },
+        'configvars': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'properties': {
+                    'name': {'type': 'string'},
+                    'varname': {'type': 'string'},
+                    'desc': {'type': 'string'},
+                    'default': {},
+                    'workflowconfig': {'type': 'boolean'},
+                    'type': {'$ref': '#/definitions/configvartype'},
+                    'scopes': {
+                        'type': 'array',
+                        'items': {
+                            'type': 'string',
+                            'enum': ['global', 'self']
+                        },
+                    },
+                },
+                'required': ['name', 'varname', 'desc', 'type', 'scopes'],
+            },
+        },
+    },
+    'additionalProperties': True,
+    'required': ['name', 'version'],
+    'definitions': {
+        'doc': {
+            'type': 'object',
+            'properties': {
+                'title': {'type': 'string'},
+                'content': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['title', 'content'],
+        },
+        'module': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'storm': {'type': 'string'},
+                'modconf': {'type': 'object'},
+                'apidefs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/apidef'},
+                },
+                'asroot': {'type': 'boolean'},
+                'asroot:perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        },
+        'apidef': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
+                'type': {
+                    'type': 'object',
+                    'properties': {
+                        'type': {
+                            'type': 'string',
+                            'enum': ['function']
+                        },
+                        'args': {
+                            'type': 'array',
+                            'items': {'$ref': '#/definitions/apiarg'},
+                        },
+                        'returns': {
+                            'type': 'object',
+                            'properties': {
+                                'name': {
+                                    'type': 'string',
+                                    'enum': ['yields'],
+                                },
+                                'desc': {'type': 'string'},
+                                'type': {
+                                    'oneOf': [
+                                        {'$ref': '#/definitions/apitype'},
+                                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                                    ],
+                                },
+                            },
+                            'additionalProperties': False,
+                            'required': ['type', 'desc']
+                        },
+                    },
+                    'additionalProperties': False,
+                    'required': ['type', 'returns'],
+                },
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'apiarg': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'type': {
+                    'oneOf': [
+                        {'$ref': '#/definitions/apitype'},
+                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
+                    ],
+                },
+                'default': {'type': ['boolean', 'integer', 'string', 'null']},
+            },
+            'additionalProperties': False,
+            'required': ['name', 'desc', 'type']
+        },
+        'deprecatedItem': {
+            'type': 'object',
+            'properties': {
+                'eolvers': {'type': 'string', 'minLength': 1,
+                            'description': "The version which will not longer support the item."},
+                'eoldate': {'type': 'string', 'minLength': 1,
+                            'description': 'Optional string indicating Synapse releases after this date may no longer support the item.'},
+                'mesg': {'type': ['string', 'null'], 'default': None,
+                         'description': 'Optional message to include in the warning text.'}
+            },
+            'oneOf': [
+                {
+                    'required': ['eolvers'],
+                    'not': {'required': ['eoldate']}
+                },
+                {
+                    'required': ['eoldate'],
+                    'not': {'required': ['eolvers']}
+                }
+            ],
+            'additionalProperties': False,
+        },
+        'apitype': {
+            'type': 'string',
+        },
+        'command': {
+            'type': 'object',
+            'properties': {
+                'name': {
+                    'type': 'string',
+                    'pattern': s_grammar.re_scmd
+                },
+                'cmdargs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/cmdarg'},
+                },
+                'cmdinputs': {
+                    'type': ['array', 'null'],
+                    'items': {'$ref': '#/definitions/cmdinput'},
+                },
+                'storm': {'type': 'string'},
+                'forms': {'$ref': '#/definitions/cmdformhints'},
+                'perms': {'type': 'array',
+                    'items': {'type': 'array',
+                        'items': {'type': 'string'}},
+                },
+            },
+            'additionalProperties': True,
+            'required': ['name', 'storm']
+        },
+        'cmdarg': {
+            'type': 'array',
+            'items': [
+                {'type': 'string'},
+                {
+                    'type': 'object',
+                    'properties': {
+                        'help': {'type': 'string'},
+                        'default': {},
+                        'dest': {'type': 'string'},
+                        'required': {'type': 'boolean'},
+                        'action': {'type': 'string'},
+                        'nargs': {'type': ['string', 'integer']},
+                        'choices': {
+                            'type': 'array',
+                            'uniqueItems': True,
+                            'minItems': 1,
+                        },
+                        'type': {
+                            'type': 'string',
+                            'enum': s_msgpack.deepcopy(datamodel_basetypes),
+                        },
+                    },
+                }
+            ],
+            'additionalItems': False,
+        },
+        'cmdinput': {
+            'type': 'object',
+            'properties': {
+                'form': {'type': 'string'},
+                'help': {'type': 'string'},
+            },
+            'additionalProperties': True,
+            'required': ['form'],
+        },
+        'configvartype': {
+            'anyOf': [
+                {'type': 'array', 'items': {'$ref': '#/definitions/configvartype'}},
+                {'type': 'string'},
+            ]
+        },
+        # deprecated
+        'cmdformhints': {
+            'type': 'object',
+            'properties': {
+                'input': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'string',
+                    }
+                },
+                'output': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'string',
+                    }
+                },
+                'nodedata': {
+                    'type': 'array',
+                    'uniqueItems': True,
+                    'items': {
+                        'type': 'array',
+                        'items': [
+                            {'type': 'string'},
+                            {'type': 'string'},
+                        ],
+                        'additionalItems': False,
+                    },
+                },
+            }
+        },
+        'require': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'version': {'type': 'string'},
+                'desc': {'type': 'string'},
+                'optional': {'type': 'boolean'},
+            },
+            'additionalItems': True,
+            'required': ('name', 'version'),
+        },
+        'conflict': {
+            'type': 'object',
+            'properties': {
+                'name': {'type': 'string'},
+                'version': {'type': 'string'},
+                'desc': {'type': 'string'},
+            },
+            'additionalItems': True,
+            'required': ('name',),
+        },
+    }
+}
+reqValidPkgdef = s_config.getJsValidator(_reqValidPkgdefSchema)
+
+_reqValidDdefSchema = {
+    'type': 'object',
+    'properties': {
+        'name': {'type': 'string'},
+        'storm': {'type': 'string'},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'enabled': {'type': 'boolean', 'default': True},
+        'stormopts': {
+            'oneOf': [
+                {'type': 'null'},
+                {'$ref': '#/definitions/stormopts'}
+            ]
+        }
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'user', 'storm'],
+    'definitions': {
+        'stormopts': {
+            'type': 'object',
+            'properties': {
+                'repr': {'type': 'boolean'},
+                'path': {'type': 'string'},
+                'show': {'type': 'array', 'items': {'type': 'string'}}
+            },
+            'additionalProperties': True,
+        },
+    }
+}
+reqValidDdef = s_config.getJsValidator(_reqValidDdefSchema)

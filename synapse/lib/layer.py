@@ -3029,6 +3029,10 @@ class Layer(s_nexus.Pusher):
             return indx, changes
 
         async with self.core.nexsroot.cell.nexslock:
+            if self.isdeleted:
+                mesg = f'Layer {self.iden} has been deleted!'
+                raise s_exc.NoSuchLayer(mesg=mesg)
+
             if (realedits := await self.calcEdits(edits, meta)):
                 return await self.saveToNexs('edits', realedits, meta)
             return None, ()

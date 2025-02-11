@@ -22,11 +22,10 @@ class PsModule(s_module.CoreModule):
                 }),
                 ('ps:name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'An arbitrary, lower spaced string with normalized whitespace.',
-                    'ex': 'robert grey'
-                }),
+                    'ex': 'robert grey'}),
+
                 ('ps:person', ('guid', {}), {
-                    'doc': 'A GUID for a person.',
-                }),
+                    'doc': 'A GUID for a person.'}),
 
                 ('ps:contact', ('guid', {}), {
                     'doc': 'A GUID for a contact info record.',
@@ -47,9 +46,11 @@ class PsModule(s_module.CoreModule):
                     'doc': 'A GUID for a list of associated contacts.',
                 }),
                 ('ps:workhist', ('guid', {}), {
-                    'doc': "A GUID representing entry in a contact's work history.",
-                }),
+                    'doc': "An entry in a contact's work history."}),
+
                 ('ps:vitals', ('guid', {}), {
+                    'interfaces': ('phys:object',),
+                    'template': {'phys:object': 'person'},
                     'doc': 'Statistics and demographic data about a person or contact.'}),
 
                 ('ps:skill', ('guid', {}), {

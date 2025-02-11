@@ -303,6 +303,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :econ:currency=usd
                     :econ:net:worth=100
                     :econ:annual:income=1000
+                    :phys:mass=100lbs
                 ]
                 { -> ps:person [ :vitals={ps:vitals} ] }
                 { -> ps:contact [ :vitals={ps:vitals} ] }
@@ -311,6 +312,8 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(1660521600000, nodes[0].get('asof'))
             self.eq(1828, nodes[0].get('height'))
             self.eq('90718.4', nodes[0].get('weight'))
+
+            self.eq('45359.2', nodes[0].get('phys:mass'))
 
             self.eq('usd', nodes[0].get('econ:currency'))
             self.eq('100', nodes[0].get('econ:net:worth'))

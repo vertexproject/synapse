@@ -317,6 +317,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :verdict=suspicious
                     :scanner={[ it:prod:softver=* :name="visi scan" ]}
                     :scanner:name="visi scan"
+                    :categories=("Foo  Bar", "baz faz")
                     :signame=omgwtfbbq
                     :target:file=*
                     :target:proc={[ it:exec:proc=* :cmd="foo.exe --bar" ]}
@@ -340,6 +341,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('https://vertex.link', nodes[0].get('target:url'))
             self.eq((4, 0x01020304), nodes[0].get('target:ip'))
             self.eq('omgwtfbbq', nodes[0].get('signame'))
+            self.eq(('baz faz', 'foo bar'), nodes[0].get('categories'))
 
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:host'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> inet:url'))
@@ -490,11 +492,29 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'ext:id': 'foo123',
                 'image': image.ndef[1],
             }
-            q = '''[(it:host=$valu :name=$p.name :desc=$p.desc :ip=$p.ip :place=$p.place :latlong=$p.latlong
-                :os=$p.os :serial=$p.serial :loc=$p.loc :operator=$p.operator
-                :org=$p.org :ext:id=$p."ext:id" :image=$p.image)]'''
+            q = '''
+                [ it:host=$valu
+
+                    :phys:mass=10kg
+                    :phys:width=5m
+                    :phys:height=10m
+                    :phys:length=20m
+                    :phys:volume=1000m
+
+                    :name=$p.name :desc=$p.desc :ip=$p.ip :place=$p.place :latlong=$p.latlong
+                    :os=$p.os :serial=$p.serial :loc=$p.loc :operator=$p.operator
+                    :org=$p.org :ext:id=$p."ext:id" :image=$p.image
+                ]
+            '''
             nodes = await core.nodes(q, opts={'vars': {'valu': host0, 'p': props}})
             self.len(1, nodes)
+
+            self.eq('10000', nodes[0].get('phys:mass'))
+            self.eq(5000, nodes[0].get('phys:width'))
+            self.eq(10000, nodes[0].get('phys:height'))
+            self.eq(20000, nodes[0].get('phys:length'))
+            self.eq(1000000, nodes[0].get('phys:volume'))
+
             node = nodes[0]
             self.eq(node.ndef[1], host0)
             self.eq(node.get('name'), 'bobs laptop')
@@ -555,10 +575,33 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('it:dev:int', 1640531528))
 
-            nodes = await core.nodes('[it:sec:cve=CVE-2013-9999]')
+            nodes = await core.nodes('''[
+                it:sec:cve=CVE-2013-9999
+                    :nist:nvd:source=NistSource
+                    :nist:nvd:published=2021-10-11
+                    :nist:nvd:modified=2021-10-11
+
+                    :cisa:kev:name=KevName
+                    :cisa:kev:desc=KevDesc
+                    :cisa:kev:action=KevAction
+                    :cisa:kev:vendor=KevVendor
+                    :cisa:kev:product=KevProduct
+                    :cisa:kev:added=2022-01-02
+                    :cisa:kev:duedate=2022-01-02
+            ]''')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:sec:cve', 'cve-2013-9999'))
+            self.eq(node.get('nist:nvd:source'), 'nistsource')
+            self.eq(node.get('nist:nvd:published'), 1633910400000)
+            self.eq(node.get('nist:nvd:modified'), 1633910400000)
+            self.eq(node.get('cisa:kev:name'), 'KevName')
+            self.eq(node.get('cisa:kev:desc'), 'KevDesc')
+            self.eq(node.get('cisa:kev:action'), 'KevAction')
+            self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
+            self.eq(node.get('cisa:kev:product'), 'kevproduct')
+            self.eq(node.get('cisa:kev:added'), 1641081600000)
+            self.eq(node.get('cisa:kev:duedate'), 1641081600000)
 
             nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20122013\u20131138'}})
             self.len(1, nodes)
@@ -755,11 +798,6 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')
             self.eq(node.get('vers:norm'), 'v1.0.1-beta+exp.sha.5114f85')
             self.eq(node.get('semver'), 0x000010000000001)
-            self.eq(node.get('semver:major'), 1)
-            self.eq(node.get('semver:minor'), 0)
-            self.eq(node.get('semver:patch'), 1)
-            self.eq(node.get('semver:pre'), 'beta')
-            self.eq(node.get('semver:build'), 'exp.sha.5114f85')
             self.eq(node.get('url'), url1)
             self.eq(node.get('name'), 'balloonmaker')
             self.eq(node.get('desc'), 'makes balloons')
@@ -816,26 +854,23 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             # Test 'vers' semver brute forcing
             testvectors = [
-                ('1', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
-                ('2.0A1', 0x000020000000000, {'major': 2, 'minor': 0, 'patch': 0}),
-                ('2016-03-01', 0x007e00000300001, {'major': 2016, 'minor': 3, 'patch': 1}),
-                ('1.2.windows-RC1', 0x000010000200000, {'major': 1, 'minor': 2, 'patch': 0}),
-                ('3.4', 0x000030000400000, {'major': 3, 'minor': 4, 'patch': 0}),
-                ('1.3a2.dev12', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
-                ('v2.4.0.0-1', 0x000020000400000, {'major': 2, 'minor': 4, 'patch': 0}),
-                ('v2.4.1.0-0.3.rc1', 0x000020000400001, {'major': 2, 'minor': 4, 'patch': 1}),
-                ('0.18rc2', 0, {'major': 0, 'minor': 0, 'patch': 0}),
-                ('OpenSSL_1_0_2l', 0x000010000000000, {'major': 1, 'minor': 0, 'patch': 0}),
+                ('1', 0x000010000000000),
+                ('2.0A1', 0x000020000000000),
+                ('2016-03-01', 0x007e00000300001),
+                ('1.2.windows-RC1', 0x000010000200000),
+                ('3.4', 0x000030000400000),
+                ('1.3a2.dev12', 0x000010000000000),
+                ('v2.4.0.0-1', 0x000020000400000),
+                ('v2.4.1.0-0.3.rc1', 0x000020000400001),
+                ('0.18rc2', 0),
+                ('OpenSSL_1_0_2l', 0x000010000000000),
             ]
 
-            for tv, te, subs in testvectors:
+            for tv, te in testvectors:
                 nodes = await core.nodes('[it:prod:softver=* :vers=$valu]', opts={'vars': {'valu': tv}})
                 self.len(1, nodes)
                 node = nodes[0]
                 self.eq(node.get('semver'), te)
-                self.eq(node.get('semver:major'), subs.get('major'))
-                self.eq(node.get('semver:minor'), subs.get('minor'))
-                self.eq(node.get('semver:patch'), subs.get('patch'))
 
             nodes = await core.nodes('[it:prod:softver=* :vers=$valu]', opts={'vars': {'valu': ''}})
             self.len(1, nodes)

@@ -67,12 +67,14 @@ class RiskModelTest(s_t_utils.SynTest):
                 :cvss:v3 ?= "newp3.1"
                 :priority=high
                 :severity=high
+                :tag=cno.vuln.woot
             ]''')
 
             self.none(node.get('cvss:v2'))
             self.none(node.get('cvss:v3'))
             self.eq(40, node.get('severity'))
             self.eq(40, node.get('priority'))
+            self.eq('cno.vuln.woot', node.get('tag'))
 
             with self.raises(s_exc.BadTypeValu):
                 node = await addNode(f'''[
@@ -123,18 +125,6 @@ class RiskModelTest(s_t_utils.SynTest):
                     :cve:desc="Woot Woot"
                     :cve:references=(http://vertex.link,)
 
-                    :nist:nvd:source=NistSource
-                    :nist:nvd:published=2021-10-11
-                    :nist:nvd:modified=2021-10-11
-
-                    :cisa:kev:name=KevName
-                    :cisa:kev:desc=KevDesc
-                    :cisa:kev:action=KevAction
-                    :cisa:kev:vendor=KevVendor
-                    :cisa:kev:product=KevProduct
-                    :cisa:kev:added=2022-01-02
-                    :cisa:kev:duedate=2022-01-02
-
                     :cvss:v2 = AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M
                     :cvss:v2_0:score=1.0
                     :cvss:v2_0:score:base=1.1
@@ -176,10 +166,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('cve:desc'), 'Woot Woot')
             self.eq(node.get('cve:references'), ('http://vertex.link',))
 
-            self.eq(node.get('nist:nvd:source'), 'nistsource')
-            self.eq(node.get('nist:nvd:published'), 1633910400000)
-            self.eq(node.get('nist:nvd:modified'), 1633910400000)
-
             self.eq(node.get('cvss:v2'), 'AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M')
             cvssv3 = 'AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MS:C/MC:N/MI:N/MA:N'
             self.eq(node.get('cvss:v3'), cvssv3)
@@ -199,13 +185,6 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(node.get('cvss:v3_1:score:temporal'), 3.2)
             self.eq(node.get('cvss:v3_1:score:environmental'), 3.3)
 
-            self.eq(node.get('cisa:kev:name'), 'KevName')
-            self.eq(node.get('cisa:kev:desc'), 'KevDesc')
-            self.eq(node.get('cisa:kev:action'), 'KevAction')
-            self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
-            self.eq(node.get('cisa:kev:product'), 'kevproduct')
-            self.eq(node.get('cisa:kev:added'), 1641081600000)
-            self.eq(node.get('cisa:kev:duedate'), 1641081600000)
             self.len(1, await core.nodes('risk:attack :attacker -> ps:contact'))
 
             self.len(1, nodes := await core.nodes('[ risk:vuln=({"name": "hehe"}) ]'))

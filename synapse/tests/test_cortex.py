@@ -1599,15 +1599,15 @@ class CortexTest(s_t_utils.SynTest):
             await core.nodes('for $x in $lib.range(5) {[ inet:flow=* :raw=`bar{$x}` ]}')
             await buidRevEq('inet:flow:raw~=bar')
 
-            await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :latlong=(90, 90) ]}')
-            await buidRevEq('geo:telem:latlong=(90, 90)')
+            await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :place:latlong=(90, 90) ]}')
+            await buidRevEq('geo:telem:place:latlong=(90, 90)')
 
-            await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :latlong=($x, $x) ]}')
+            await core.nodes('for $x in $lib.range(5) {[ geo:telem=* :place:latlong=($x, $x) ]}')
 
             self.eq([(0.0, 0.0), (1.0, 1.0), (2.0, 2.0)],
-                    await nodeVals('geo:telem:latlong*near=((0, 0), 400km)', prop='latlong'))
+                    await nodeVals('geo:telem:place:latlong*near=((0, 0), 400km)', prop='place:latlong'))
             self.eq([(2.0, 2.0), (1.0, 1.0), (0.0, 0.0)],
-                    await nodeVals('reverse(geo:telem:latlong*near=((0, 0), 400km))', prop='latlong'))
+                    await nodeVals('reverse(geo:telem:place:latlong*near=((0, 0), 400km))', prop='place:latlong'))
 
             await core.nodes('[ inet:dns:a=(foo.com, 0.0.0.0) inet:dns:a=(bar.com, 0.0.0.0) ]')
 

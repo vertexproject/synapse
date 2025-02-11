@@ -159,6 +159,9 @@ class BaseModule(s_module.CoreModule):
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the meta source.'}),
 
+                    ('ingest:cursor', ('str', {}), {
+                        'doc': 'Used by ingest logic to capture the current ingest cursor within a feed.'}),
+
                     ('ingest:latest', ('time', {}), {
                         'doc': 'Used by ingest logic to capture the last time a feed ingest ran.'}),
 

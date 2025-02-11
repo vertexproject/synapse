@@ -156,7 +156,7 @@ class BizModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ biz:stake=*
                     :vitals = *
-                    :org = {[ ou:org=* :alias=vertex ]}
+                    :org = {[ ou:org=* ]}
                     :orgname = vertex_project
                     :orgfqdn = vertex.link
                     :name = LoL

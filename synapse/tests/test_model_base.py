@@ -87,6 +87,7 @@ class BaseTest(s_t_utils.SynTest):
                     :name="FOO Bar"
                     :type=osint
                     :url="https://foo.bar/index.html"
+                    :ingest:cursor="Woot Woot "
                     :ingest:latest=20241205
                     :ingest:offset=17
                 ]
@@ -98,6 +99,7 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(sorc.get('name'), 'foo bar')
             self.eq(sorc.get('url'), 'https://foo.bar/index.html')
             self.eq(sorc.get('ingest:offset'), 17)
+            self.eq(sorc.get('ingest:cursor'), 'Woot Woot ')
             self.eq(sorc.get('ingest:latest'), 1733356800000)
 
             valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))

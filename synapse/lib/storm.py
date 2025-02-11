@@ -26,13 +26,12 @@ import synapse.lib.editor as s_editor
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
-
-import synapse.lib.stormlib.graph as s_stormlib_graph
 
 logger = logging.getLogger(__name__)
 
@@ -188,353 +187,6 @@ Examples:
     # Download multiple URL targets without inbound nodes
     wget https://vertex.link https://vtx.lk
 '''
-
-permdef_schema = {
-    'type': 'object',
-    'properties': {
-        'perm': {'type': 'array', 'items': {'type': 'string'}},
-        'desc': {'type': 'string'},
-        'gate': {'type': 'string'},
-        'ex': {'type': 'string'},  # Example string
-        'workflowconfig': {'type': 'boolean'},
-        'default': {'type': 'boolean', 'default': False},
-    },
-    'required': ['perm', 'desc', 'gate'],
-}
-
-reqValidPermDef = s_config.getJsValidator(permdef_schema)
-
-reqValidPkgdef = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'name': {'type': 'string'},
-        'version': {
-            'type': 'string',
-            'pattern': s_version.semverstr,
-        },
-        'build': {
-            'type' 'object'
-            'properties': {
-                'time': {'type': 'number'},
-            },
-            'required': ['time'],
-        },
-        'codesign': {
-            'type': 'object',
-            'properties': {
-                'sign': {'type': 'string'},
-                'cert': {'type': 'string'},
-            },
-            'required': ['cert', 'sign'],
-        },
-        'synapse_version': {
-            'type': 'string',
-        },
-        'modules': {
-            'type': ['array', 'null'],
-            'items': {'$ref': '#/definitions/module'}
-        },
-        'docs': {
-            'type': ['array', 'null'],
-            'items': {'$ref': '#/definitions/doc'},
-        },
-        'logo': {
-            'type': 'object',
-            'properties': {
-                'mime': {'type': 'string'},
-                'file': {'type': 'string'},
-            },
-            'additionalProperties': True,
-            'required': ['mime', 'file'],
-        },
-        'commands': {
-            'type': ['array', 'null'],
-            'items': {'$ref': '#/definitions/command'},
-        },
-        'graphs': {
-            'type': ['array', 'null'],
-            'items': s_stormlib_graph.gdefSchema,
-        },
-        'desc': {'type': 'string'},
-        'svciden': {'type': ['string', 'null'], 'pattern': s_config.re_iden},
-        'onload': {'type': 'string'},
-        'author': {
-            'type': 'object',
-            'properties': {
-                'url': {'type': 'string'},
-                'name': {'type': 'string'},
-            },
-            'required': ['name', 'url'],
-        },
-        'depends': {
-            'properties': {
-                'requires': {'type': 'array', 'items': {'$ref': '#/definitions/require'}},
-                'conflicts': {'type': 'array', 'items': {'$ref': '#/definitions/conflict'}},
-            },
-            'additionalProperties': True,
-        },
-        'perms': {
-            'type': 'array',
-            'items': permdef_schema,
-        },
-        'configvars': {
-            'type': 'array',
-            'items': {
-                'type': 'object',
-                'properties': {
-                    'name': {'type': 'string'},
-                    'varname': {'type': 'string'},
-                    'desc': {'type': 'string'},
-                    'default': {},
-                    'workflowconfig': {'type': 'boolean'},
-                    'type': {'$ref': '#/definitions/configvartype'},
-                    'scopes': {
-                        'type': 'array',
-                        'items': {
-                            'type': 'string',
-                            'enum': ['global', 'self']
-                        },
-                    },
-                },
-                'required': ['name', 'varname', 'desc', 'type', 'scopes'],
-            },
-        },
-    },
-    'additionalProperties': True,
-    'required': ['name', 'version'],
-    'definitions': {
-        'doc': {
-            'type': 'object',
-            'properties': {
-                'title': {'type': 'string'},
-                'content': {'type': 'string'},
-            },
-            'additionalProperties': True,
-            'required': ['title', 'content'],
-        },
-        'module': {
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string'},
-                'storm': {'type': 'string'},
-                'modconf': {'type': 'object'},
-                'apidefs': {
-                    'type': ['array', 'null'],
-                    'items': {'$ref': '#/definitions/apidef'},
-                },
-                'asroot': {'type': 'boolean'},
-                'asroot:perms': {'type': 'array',
-                    'items': {'type': 'array',
-                        'items': {'type': 'string'}},
-                },
-            },
-            'additionalProperties': True,
-            'required': ['name', 'storm']
-        },
-        'apidef': {
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string'},
-                'desc': {'type': 'string'},
-                'deprecated': {'$ref': '#/definitions/deprecatedItem'},
-                'type': {
-                    'type': 'object',
-                    'properties': {
-                        'type': {
-                            'type': 'string',
-                            'enum': ['function']
-                        },
-                        'args': {
-                            'type': 'array',
-                            'items': {'$ref': '#/definitions/apiarg'},
-                        },
-                        'returns': {
-                            'type': 'object',
-                            'properties': {
-                                'name': {
-                                    'type': 'string',
-                                    'enum': ['yields'],
-                                },
-                                'desc': {'type': 'string'},
-                                'type': {
-                                    'oneOf': [
-                                        {'$ref': '#/definitions/apitype'},
-                                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
-                                    ],
-                                },
-                            },
-                            'additionalProperties': False,
-                            'required': ['type', 'desc']
-                        },
-                    },
-                    'additionalProperties': False,
-                    'required': ['type', 'returns'],
-                },
-            },
-            'additionalProperties': False,
-            'required': ['name', 'desc', 'type']
-        },
-        'apiarg': {
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string'},
-                'desc': {'type': 'string'},
-                'type': {
-                    'oneOf': [
-                        {'$ref': '#/definitions/apitype'},
-                        {'type': 'array', 'items': {'$ref': '#/definitions/apitype'}},
-                    ],
-                },
-                'default': {'type': ['boolean', 'integer', 'string', 'null']},
-            },
-            'additionalProperties': False,
-            'required': ['name', 'desc', 'type']
-        },
-        'deprecatedItem': {
-            'type': 'object',
-            'properties': {
-                'eolvers': {'type': 'string', 'minLength': 1,
-                            'description': "The version which will not longer support the item."},
-                'eoldate': {'type': 'string', 'minLength': 1,
-                            'description': 'Optional string indicating Synapse releases after this date may no longer support the item.'},
-                'mesg': {'type': ['string', 'null'], 'default': None,
-                         'description': 'Optional message to include in the warning text.'}
-            },
-            'oneOf': [
-                {
-                    'required': ['eolvers'],
-                    'not': {'required': ['eoldate']}
-                },
-                {
-                    'required': ['eoldate'],
-                    'not': {'required': ['eolvers']}
-                }
-            ],
-            'additionalProperties': False,
-        },
-        'apitype': {
-            'type': 'string',
-        },
-        'command': {
-            'type': 'object',
-            'properties': {
-                'name': {
-                    'type': 'string',
-                    'pattern': s_grammar.re_scmd
-                },
-                'cmdargs': {
-                    'type': ['array', 'null'],
-                    'items': {'$ref': '#/definitions/cmdarg'},
-                },
-                'cmdinputs': {
-                    'type': ['array', 'null'],
-                    'items': {'$ref': '#/definitions/cmdinput'},
-                },
-                'storm': {'type': 'string'},
-                'perms': {'type': 'array',
-                    'items': {'type': 'array',
-                        'items': {'type': 'string'}},
-                },
-            },
-            'additionalProperties': True,
-            'required': ['name', 'storm']
-        },
-        'cmdarg': {
-            'type': 'array',
-            'items': [
-                {'type': 'string'},
-                {
-                    'type': 'object',
-                    'properties': {
-                        'help': {'type': 'string'},
-                        'default': {},
-                        'dest': {'type': 'string'},
-                        'required': {'type': 'boolean'},
-                        'action': {'type': 'string'},
-                        'nargs': {'type': ['string', 'integer']},
-                        'choices': {
-                            'type': 'array',
-                            'uniqueItems': True,
-                            'minItems': 1,
-                        },
-                        'type': {
-                            'type': 'string',
-                            'enum': list(s_datamodel.Model().types)
-                        },
-                    },
-                }
-            ],
-            'additionalItems': False,
-        },
-        'cmdinput': {
-            'type': 'object',
-            'properties': {
-                'form': {'type': 'string'},
-                'help': {'type': 'string'},
-            },
-            'additionalProperties': True,
-            'required': ['form'],
-        },
-        'configvartype': {
-            'anyOf': [
-                {'type': 'array', 'items': {'$ref': '#/definitions/configvartype'}},
-                {'type': 'string'},
-            ]
-        },
-        'require': {
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string'},
-                'version': {'type': 'string'},
-                'desc': {'type': 'string'},
-                'optional': {'type': 'boolean'},
-            },
-            'additionalItems': True,
-            'required': ('name', 'version'),
-        },
-        'conflict': {
-            'type': 'object',
-            'properties': {
-                'name': {'type': 'string'},
-                'version': {'type': 'string'},
-                'desc': {'type': 'string'},
-            },
-            'additionalItems': True,
-            'required': ('name',),
-        },
-    }
-})
-
-reqValidDdef = s_config.getJsValidator({
-    'type': 'object',
-    'properties': {
-        'name': {'type': 'string'},
-        'storm': {'type': 'string'},
-        'view': {'type': 'string', 'pattern': s_config.re_iden},
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'enabled': {'type': 'boolean', 'default': True},
-        'stormopts': {
-            'oneOf': [
-                {'type': 'null'},
-                {'$ref': '#/definitions/stormopts'}
-            ]
-        }
-    },
-    'additionalProperties': True,
-    'required': ['iden', 'user', 'storm'],
-    'definitions': {
-        'stormopts': {
-            'type': 'object',
-            'properties': {
-                'repr': {'type': 'boolean'},
-                'path': {'type': 'string'},
-                'show': {'type': 'array', 'items': {'type': 'string'}}
-            },
-            'additionalProperties': True,
-        },
-    }
-})
 
 stormcmds = (
     {
@@ -2493,10 +2145,14 @@ class Runtime(s_base.Base):
 
 class Parser:
 
-    def __init__(self, prog=None, descr=None, root=None):
+    def __init__(self, prog=None, descr=None, root=None, model=None):
 
         if root is None:
             root = self
+
+        if model is None:
+            model = s_datamodel.Model()
+        self.model = model
 
         self.prog = prog
         self.descr = descr
@@ -2525,7 +2181,7 @@ class Parser:
         assert len(names)
 
         argtype = opts.get('type')
-        if argtype is not None and argtype not in s_datamodel.Model().types:
+        if argtype is not None and argtype not in s_schemas.datamodel_basetypes:
             mesg = f'Argument type "{argtype}" is not a valid model type name'
             raise s_exc.BadArg(mesg=mesg, argtype=str(argtype))
 
@@ -2673,7 +2329,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
+                    valu = self.model.type(argtype).norm(valu)[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2696,7 +2352,7 @@ class Parser:
                 valu = todo.popleft()
                 if argtype is not None:
                     try:
-                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
+                        valu = self.model.type(argtype).norm(valu)[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2719,7 +2375,7 @@ class Parser:
 
                 if argtype is not None:
                     try:
-                        valu = s_datamodel.Model().type(argtype).norm(valu)[0]
+                        valu = self.model.type(argtype).norm(valu)[0]
                     except Exception:
                         mesg = f'Invalid value for type ({argtype}): {valu}'
                         return self.help(mesg=mesg)
@@ -2748,7 +2404,7 @@ class Parser:
             valu = todo.popleft()
             if argtype is not None:
                 try:
-                    valu = s_datamodel.Model().type(argtype).norm(valu)[0]
+                    valu = self.model.type(argtype).norm(valu)[0]
                 except Exception:
                     mesg = f'Invalid value for type ({argtype}): {valu}'
                     return self.help(mesg=mesg)
@@ -2950,7 +2606,7 @@ class Cmd:
         return self.__class__.__doc__
 
     def getArgParser(self):
-        return Parser(prog=self.getName(), descr=self.getDescr())
+        return Parser(prog=self.getName(), descr=self.getDescr(), model=self.runt.model)
 
     async def setArgv(self, argv):
 
