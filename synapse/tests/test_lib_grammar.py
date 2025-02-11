@@ -1655,6 +1655,27 @@ class GrammarTest(s_t_utils.SynTest):
         errinfo = cm.exception.errinfo
         self.eq(1, errinfo.get('mesg').count('#'))
 
+        query = '$q = ${ /* secret comment */ $lib.print([hello) } $lib.macro.set(hehe, $q)'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        info = cm.exception.errinfo.get('highlight')
+        self.eq((40, 41), info['offsets'])
+        self.eq((1, 1), info['lines'])
+        self.eq((41, 42), info['columns'])
+
+        query = """function test(hello) {
+                    +'''asdf
+                    asdfasdf'''
+        }"""
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        info = cm.exception.errinfo.get('highlight')
+        self.eq((44, 83), info['offsets'])
+        self.eq((2, 3), info['lines'])
+        self.eq((22, 31), info['columns'])
+
     async def test_quotes(self):
 
         # Test vectors
