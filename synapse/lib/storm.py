@@ -1299,7 +1299,7 @@ stormcmds = (
 
 @s_cache.memoize(size=1024)
 def queryhash(text):
-    return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+    return s_common.queryhash(text)
 
 class DmonManager(s_base.Base):
     '''
