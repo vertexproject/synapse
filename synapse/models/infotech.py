@@ -1252,6 +1252,15 @@ class ItModule(s_module.CoreModule):
                     ('product', ('it:prod:softver', {}), {
                         'doc': 'The software which produced the log entry.'}),
 
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which generated the log event.'}),
+
+                    ('service:instance', ('inet:service:instance', {}), {
+                        'doc': 'The service instance which generated the log event.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which generated the log event.'}),
+
                 )),
                 ('it:domain', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -2587,6 +2596,15 @@ class ItModule(s_module.CoreModule):
 
                     ('synuser', ('syn:user', {}), {
                         'doc': 'The synapse user who executed the query.'}),
+
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which was queried.'}),
+
+                    ('service:instance', ('inet:service:instance', {}), {
+                        'doc': 'The service instance which was queried.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which ran the query.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {
