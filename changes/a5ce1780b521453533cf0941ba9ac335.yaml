@@ -1,0 +1,6 @@
+---
+desc: Added additional context to TimeOut exceptions raised when waiting for nexus
+  offsets during storm query execution in a pool.
+prs: []
+type: feat
+...
