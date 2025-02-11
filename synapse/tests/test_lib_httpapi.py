@@ -665,6 +665,7 @@ class HttpApiTest(s_tests.SynTest):
 
                 podes = []
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
+                    self.eq(resp.status, 200)
 
                     async for byts, x in resp.content.iter_chunks():
 
@@ -679,7 +680,7 @@ class HttpApiTest(s_tests.SynTest):
                 data = {'query': '[ inet:ipv4=5.5.5.5 ]', 'opts': opts}
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=data) as resp:
-
+                    self.eq(resp.status, 200)
                     async for byts, x in resp.content.iter_chunks():
 
                         if not byts:
@@ -688,6 +689,15 @@ class HttpApiTest(s_tests.SynTest):
                         msgs.append(json.loads(byts))
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.eq(podes[0][0], ('inet:ipv4', 0x05050505))
+
+                # No such user
+                newpuser = s_common.guid()
+                opts['user'] = newpuser
+                async with sess.get(f'https://localhost:{port}/api/v1/storm', json=data) as resp:
+                    self.eq(resp.status, 400)
+                    data = await resp.json()
+                    self.eq(data, {'status': 'err', 'code': 'NoSuchUser',
+                                   'mesg': f'No user found with iden: {newpuser}'})
 
     async def test_http_coreinfo(self):
         async with self.getTestCore() as core:

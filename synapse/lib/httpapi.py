@@ -123,8 +123,12 @@ class HandlerBase:
         return self.write({'status': 'err', 'code': code, 'mesg': mesg})
 
     def sendRestExc(self, e):
+        if isinstance(e, s_exc.SynErr):
+            mesg = e.get('mesg', str(e))
+        else:
+            mesg = str(e)
         self.set_header('Content-Type', 'application/json')
-        return self.sendRestErr(e.__class__.__name__, str(e))
+        return self.sendRestErr(e.__class__.__name__, mesg)
 
     def sendRestRetn(self, valu):
         self.set_header('Content-Type', 'application/json')
@@ -543,12 +547,15 @@ class StormV1(StormHandler):
             return
 
         opts.setdefault('editformat', 'nodeedits')
-
-        async for mesg in self.getCore().storm(query, opts=opts):
-            self.write(json.dumps(mesg))
-            if jsonlines:
-                self.write("\n")
-            await self.flush()
+        try:
+            async for mesg in self.getCore().storm(query, opts=opts):
+                self.write(json.dumps(mesg))
+                if jsonlines:
+                    self.write("\n")
+                await self.flush()
+        except (s_exc.NoSuchView, s_exc.NoSuchUser, s_exc.AuthDeny) as e:
+            self.set_status(400)
+            return self.sendRestExc(e)
 
 class StormCallV1(StormHandler):
 
@@ -612,6 +619,7 @@ class StormExportV1(StormHandler):
                 await self.flush()
 
         except Exception as e:
+            self.set_status(400)
             return self.sendRestExc(e)
 
 class ReqValidStormV1(StormHandler):
@@ -631,8 +639,7 @@ class ReqValidStormV1(StormHandler):
         try:
             valid = await self.cell.reqValidStorm(query, opts)
         except s_exc.SynErr as e:
-            mesg = e.get('mesg', str(e))
-            return self.sendRestErr(e.__class__.__name__, mesg)
+            return self.sendRestExc(e)
         else:
             return self.sendRestRetn(valid)
 
