@@ -1,4 +1,3 @@
-import json
 import base64
 import asyncio
 import logging
@@ -12,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -132,7 +132,7 @@ class HandlerBase:
 
     def loadJsonMesg(self, byts, validator=None):
         try:
-            item = json.loads(byts)
+            item = s_json.loads(byts)
             if validator is not None:
                 validator(item)
             return item
@@ -418,7 +418,7 @@ class HandlerBase:
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def xmit(self, name, **info):
-        await self.write_message(json.dumps({'type': name, 'data': info}))
+        await self.write_message(s_json.dumps({'type': name, 'data': info}))
 
     async def _reqUserAllow(self, perm):
 
@@ -513,9 +513,7 @@ class StormNodesV1(StormHandler):
         await self.cell.boss.promote('storm', user=user, info=taskinfo)
 
         async for pode in view.iterStormPodes(query, opts=opts):
-            self.write(json.dumps(pode))
-            if jsonlines:
-                self.write("\n")
+            self.write(s_json.dumps(pode, append_newline=jsonlines))
             await self.flush()
 
 class StormV1(StormHandler):
@@ -545,9 +543,7 @@ class StormV1(StormHandler):
         opts.setdefault('editformat', 'nodeedits')
 
         async for mesg in self.getCore().storm(query, opts=opts):
-            self.write(json.dumps(mesg))
-            if jsonlines:
-                self.write("\n")
+            self.write(s_json.dumps(mesg, append_newline=jsonlines))
             await self.flush()
 
 class StormCallV1(StormHandler):
@@ -640,7 +636,7 @@ class BeholdSockV1(WebSocket):
 
     async def onInitMessage(self, byts):
         try:
-            mesg = json.loads(byts)
+            mesg = s_json.loads(byts)
             if mesg.get('type') != 'call:init':
                 raise s_exc.BadMesgFormat('Invalid initial message')
 

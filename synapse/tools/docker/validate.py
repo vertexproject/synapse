@@ -1,7 +1,6 @@
 import os
 import re
 import sys
-import json
 import base64
 import pprint
 import argparse
@@ -11,6 +10,7 @@ import synapse.exc as s_exc
 import synapse.data as s_data
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.output as s_outp
 import synapse.lib.certdir as s_certdir
 
@@ -50,8 +50,8 @@ def getCosignSignature(outp, image):
 
     blob = proc.stdout
     try:
-        sigd = json.loads(blob)
-    except json.JSONDecodeError as e:
+        sigd = s_json.loads(blob)
+    except s_exc.MustBeJsonSafe as e:
         outp.printf(f'Error decoding blob: {blob}: {e}')
         return None
     if not isinstance(sigd, dict):
@@ -104,8 +104,8 @@ def checkCosignSignature(outp, pubk_byts, image_to_verify):
         except subprocess.CalledProcessError as e:  # pragma: no cover
             outp.printf(f'Error calling {" ".join(args)}: {e}')
             return None
-        blob = json.loads(proc.stdout.decode())
-        outp.printf(f'Cosign output:')
+        blob = s_json.loads(proc.stdout)
+        outp.printf('Cosign output:')
         outp.printf(pprint.pformat(blob))
         return True
 

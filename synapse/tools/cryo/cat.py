@@ -1,5 +1,4 @@
 import sys
-import json
 import pprint
 import asyncio
 import argparse
@@ -7,6 +6,7 @@ import logging
 
 import synapse.telepath as s_telepath
 
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 
@@ -50,14 +50,14 @@ async def main(argv, outp=s_output.stdout):
                     await tank.puts(items)
                     return 0
 
-                items = [json.loads(line) for line in sys.stdin]
+                items = [s_json.loads(line) for line in sys.stdin]
                 await tank.puts(items)
                 return 0
 
             async for item in tank.slice(opts.offset, opts.size):
 
                 if opts.jsonl:
-                    outp.printf(json.dumps(item[1], sort_keys=True))
+                    outp.printf(s_json.dumps(item[1], sort_keys=True))
 
                 elif opts.msgpack:
                     sys.stdout.buffer.write(s_msgpack.en(item[1]))

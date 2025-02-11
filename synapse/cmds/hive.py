@@ -1,5 +1,4 @@
 import os
-import json
 import shlex
 import pprint
 import asyncio
@@ -12,6 +11,7 @@ import synapse.common as s_common
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.cli as s_cli
+import synapse.lib.json as s_json
 
 ListHelp = '''
 Lists all the keys underneath a particular key in the hive.
@@ -140,7 +140,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             return
 
         if opts.json:
-            prend = json.dumps(valu, indent=4, sort_keys=True)
+            prend = s_json.dumps(valu, indent=True, sort_keys=True)
             rend = prend.encode()
         elif isinstance(valu, str):
             rend = valu.encode()
@@ -149,7 +149,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             rend = valu
             prend = pprint.pformat(valu)
         else:
-            rend = json.dumps(valu, indent=4, sort_keys=True).encode()
+            rend = s_json.dumps(valu, indent=True, sort_keys=True).encode()
             prend = pprint.pformat(valu)
 
         if opts.file:
@@ -172,7 +172,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             if opts.value[0] not in '([{"':
                 data = opts.value
             else:
-                data = json.loads(opts.value)
+                data = s_json.loads(opts.value)
             await core.setHiveKey(path, data)
             return
         elif opts.file is not None:
@@ -181,7 +181,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                 if len(s) == 0:
                     self.printf('Empty file.  Not writing key.')
                     return
-                data = s if opts.string else json.loads(s)
+                data = s if opts.string else s_json.loads(s)
                 await core.setHiveKey(path, data)
                 return
 
@@ -201,8 +201,8 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                         data = old_valu
                     else:
                         try:
-                            data = json.dumps(old_valu, indent=4, sort_keys=True)
-                        except (ValueError, TypeError):
+                            data = s_json.dumps(old_valu, indent=True, sort_keys=True)
+                        except s_exc.MustBeJsonSafe:
                             self.printf('Value is not JSON-encodable, therefore not editable.')
                             return
                     fh.write(data)
@@ -218,8 +218,8 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
                         self.printf('Empty file.  Not writing key.')
                         return
                     try:
-                        valu = rawval if opts.string else json.loads(rawval)
-                    except json.JSONDecodeError as e:  # pragma: no cover
+                        valu = rawval if opts.string else s_json.loads(rawval)
+                    except s_exc.BadJsonText as e:  # pragma: no cover
                         self.printf(f'JSON decode failure: [{e}].  Reopening.')
                         await asyncio.sleep(1)
                         continue

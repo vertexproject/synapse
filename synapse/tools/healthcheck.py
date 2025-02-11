@@ -1,5 +1,4 @@
 import sys
-import json
 import socket
 import asyncio
 
@@ -8,13 +7,13 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.health as s_health
 import synapse.lib.urlhelp as s_urlhelp
 
 def serialize(ret):
-    s = json.dumps(ret, separators=(',', ':'))
-    return s
+    return s_json.dumps(ret)
 
 def format_component(e, mesg: str) -> dict:
     d = {

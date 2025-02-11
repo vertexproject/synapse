@@ -1,8 +1,9 @@
 import os
-import json
 import logging
 
 import synapse.common as s_common
+
+import synapse.lib.json as s_json
 import synapse.lib.datfile as s_datfile
 import synapse.lib.msgpack as s_msgpack
 
@@ -26,7 +27,7 @@ def get(name, defval=None):
 
 def getJSON(name):
     with s_datfile.openDatFile(f'synapse.data/{name}.json') as fd:
-        return json.loads(fd.read())
+        return s_json.load(fd)
 
 def path(*names):
     return s_common.genpath(dirname, *names)

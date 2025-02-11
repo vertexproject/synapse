@@ -3,7 +3,6 @@ import os
 import ssl
 import sys
 import enum
-import json
 import http
 import stat
 import time
@@ -512,22 +511,19 @@ def getDirSize(*paths):
     return realsum, apprsum
 
 def jsload(*paths):
-    with genfile(*paths) as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-
-        return json.loads(byts.decode('utf8'))
+    deprecated('jsload', curv='2.197.0')
+    import synapse.lib.json as s_json
+    return s_json.jsload(*paths)
 
 def jslines(*paths):
-    with genfile(*paths) as fd:
-        for line in fd:
-            yield json.loads(line)
+    deprecated('jsload', curv='2.197.0')
+    import synapse.lib.json as s_json
+    return s_json.jslines(*paths)
 
 def jssave(js, *paths):
-    path = genpath(*paths)
-    with io.open(path, 'wb') as fd:
-        fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
+    deprecated('jsload', curv='2.197.0')
+    import synapse.lib.json as s_json
+    return s_json.jssave(js, *paths)
 
 def yamlloads(data):
     return yaml.load(data, Loader)
@@ -962,12 +958,11 @@ def deprdate(name, date):  # pragma: no cover
 def reqjsonsafe(item):
     '''
     Returns None if item is json serializable, otherwise raises an exception.
-    Uses default type coercion from built-in json.dumps.
+    Uses default type coercion from synapse.lib.json.dumps.
     '''
-    try:
-        json.dumps(item)
-    except TypeError as e:
-        raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
+    deprecated('reqjsonsafe', curv='2.197.0')
+    import synapse.lib.json as s_json
+    s_json.reqjsonsafe(item)
 
 def jsonsafe_nodeedits(nodeedits):
     '''

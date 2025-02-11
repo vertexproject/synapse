@@ -1,11 +1,11 @@
 import copy
-import json
 import asyncio
 import logging
 
 import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -93,7 +93,7 @@ class JsonLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_jsonSave',
                   'args': (
                       {'name': 'item', 'type': 'any', 'desc': 'The item to be serialized as a JSON string.', },
-                      {'name': 'indent', 'type': 'int', 'desc': 'Specify a number of spaces to indent with.', 'default': None},
+                      {'name': 'indent', 'type': 'boolean', 'desc': 'Specify if the serialized JSON should be indented.', 'default': False},
                   ),
                   'returns': {'type': 'str', 'desc': 'The JSON serialized object.', }}},
         {'name': 'schema', 'desc': 'Get a JS schema validation object.',
@@ -117,23 +117,24 @@ class JsonLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonSave(self, item, indent=None):
-        indent = await s_stormtypes.toint(indent, noneok=True)
+        try:
+            # A little bit of hackery for backwards compatibility with the old indent parameter being an integer/None
+            indent = bool(await s_stormtypes.toint(indent, noneok=True))
+        except s_exc.BadCast:
+            indent = await s_stormtypes.tobool(indent)
 
         try:
             item = await s_stormtypes.toprim(item)
-            return json.dumps(item, indent=indent)
-        except Exception as e:
+        except Exception:
             mesg = f'Argument is not JSON compatible: {item}'
             raise s_exc.MustBeJsonSafe(mesg=mesg)
+
+        return s_json.dumps(item, indent=indent)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonLoad(self, text):
         text = await s_stormtypes.tostr(text)
-        try:
-            return json.loads(text, strict=True)
-        except Exception as e:
-            mesg = f'Text is not valid JSON: {text}'
-            raise s_exc.BadJsonText(mesg=mesg)
+        return s_json.loads(text)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonSchema(self, schema, use_default=True):

@@ -12,6 +12,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.stormtypes as s_stormtypes
@@ -56,7 +57,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
         try:
 
             mesg = await s_stormtypes.toprim(mesg)
-            await self.resp.send_bytes(json.dumps(mesg).encode())
+            await self.resp.send_bytes(s_json.dumps(mesg, use_bytes=True))
             return (True, None)
 
         except asyncio.CancelledError:  # pragma: no cover
@@ -69,10 +70,8 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
 
         try:
             _type, data, extra = await s_common.wait_for(self.resp.receive(), timeout=timeout)
-            if _type == aiohttp.WSMsgType.BINARY:
-                return (True, json.loads(data))
-            if _type == aiohttp.WSMsgType.TEXT:
-                return (True, json.loads(data.encode()))
+            if _type in (aiohttp.WSMsgType.BINARY, aiohttp.WSMsgType.TEXT):
+                return (True, s_json.loads(data))
             if _type == aiohttp.WSMsgType.CLOSED:  # pragma: no cover
                 return (True, None)
             return (False, ('BadMesgFormat', {'mesg': f'WebSocket RX unhandled type: {_type.name}'}))  # pragma: no cover
@@ -567,13 +566,13 @@ class HttpResp(s_stormtypes.Prim):
             else:
                 encoding = await s_stormtypes.tostr(encoding)
 
-            return json.loads(valu.decode(encoding, errors))
+            return s_json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
 
-        except json.JSONDecodeError as e:
-            mesg = f'Unable to decode HTTP response as json: {e.args[0]}'
+        except s_exc.BadJsonText as e:
+            mesg = f'Unable to decode HTTP response as json: {e.get("mesg")}'
             raise s_exc.BadJsonText(mesg=mesg)
 
     async def _httpRespMsgpack(self):

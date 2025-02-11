@@ -1,6 +1,5 @@
 import os
 import copy
-import json
 import pprint
 import logging
 import contextlib
@@ -15,6 +14,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.stormhttp as s_stormhttp
@@ -104,7 +104,7 @@ class StormOutput(s_cmds_cortex.StormCmd):
             body = resp.get('body')
 
             if isinstance(body, (dict, list)):
-                body = json.dumps(body)
+                body = s_json.dumps(body)
 
             info = {
                 'code': resp.get('code', 200),
@@ -126,8 +126,8 @@ class StormOutput(s_cmds_cortex.StormCmd):
             # in any of those cases, default to using vcr
             try:
                 with open(path, 'r') as fd:
-                    byts = json.load(fd)
-            except (FileNotFoundError, json.decoder.JSONDecodeError):
+                    byts = s_json.load(fd)
+            except (FileNotFoundError, s_exc.BadJsonText):
                 byts = None
 
             if not byts:
@@ -247,7 +247,7 @@ class StormCliOutput(s_storm.StormCli):
             body = resp.get('body')
 
             if isinstance(body, (dict, list)):
-                body = json.dumps(body)
+                body = s_json.dumps(body)
 
             info = {
                 'code': resp.get('code', 200),
@@ -269,8 +269,8 @@ class StormCliOutput(s_storm.StormCli):
             # in any of those cases, default to using vcr
             try:
                 with open(path, 'r') as fd:
-                    byts = json.load(fd)
-            except (FileNotFoundError, json.decoder.JSONDecodeError):
+                    byts = s_json.load(fd)
+            except (FileNotFoundError, s_exc.BadJsonText):
                 byts = None
 
             if not byts:
@@ -459,7 +459,7 @@ class StormRst(s_base.Base):
 
         splts = text.split(' ', 2)
         ctor, svcname = splts[:2]
-        svcconf = json.loads(splts[2].strip()) if len(splts) == 3 else {}
+        svcconf = s_json.loads(splts[2].strip()) if len(splts) == 3 else {}
 
         svc = await self._getCell(ctor, conf=svcconf)
 
@@ -480,7 +480,7 @@ class StormRst(s_base.Base):
             raise s_exc.SynErr(mesg=f'Package onload failed to run for service {svcname}')
 
     async def _handleStormFail(self, text):
-        valu = json.loads(text)
+        valu = s_json.loads(text)
         assert valu in (True, False), f'storm-fail must be a boolean: {text}'
         self.context['storm-fail'] = valu
 
@@ -497,7 +497,7 @@ class StormRst(s_base.Base):
     async def _handleStormMultiline(self, text):
         key, valu = text.split('=', 1)
         assert key.isupper()
-        valu = json.loads(valu)
+        valu = s_json.loads(valu)
         assert isinstance(valu, str)
         multi = self.context.get('multiline', {})
         multi[key] = valu
@@ -510,7 +510,7 @@ class StormRst(s_base.Base):
         Args:
             text (str): JSON string, e.g. {"vars": {"foo": "bar"}}
         '''
-        item = json.loads(text)
+        item = s_json.loads(text)
         self.context['storm-opts'] = item
 
     async def _handleStormClearHttp(self, text):
@@ -578,7 +578,7 @@ class StormRst(s_base.Base):
         Args:
             text (str): JSON string, e.g. {"filter_query_args": true}
         '''
-        item = json.loads(text)
+        item = s_json.loads(text)
         self.context['storm-vcr-opts'] = item
 
     async def _handleStormVcrCallback(self, text):

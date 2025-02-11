@@ -1,5 +1,4 @@
 import os
-import json
 import queue
 import shlex
 import pprint
@@ -10,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.msgpack as s_msgpack
@@ -118,7 +118,7 @@ Examples:
 
         fmt = self.locs.get('log:fmt')
         if fmt == 'jsonl':
-            s = json.dumps(mesg, sort_keys=True) + '\n'
+            s = s_json.dumps(mesg, sort_keys=True) + '\n'
             buf = s.encode()
             return buf
 
@@ -218,7 +218,7 @@ class StormCmd(s_cli.Cmd):
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma-separated list.
         --file <path>: Run the storm query specified in the given file path.
-        --optsfile <path>: Run the query with the given options from a JSON/YAML file.
+        --optsfile <path>: Run the query with the given options from a s_JSON/YAML file.
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -430,7 +430,7 @@ class StormCmd(s_cli.Cmd):
                 if mesg[0] == 'node':
 
                     if nodesfd is not None:
-                        byts = json.dumps(mesg[1]).encode()
+                        byts = s_json.dumps(mesg[1]).encode()
                         nodesfd.write(byts + b'\n')
 
                 try:

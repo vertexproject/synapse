@@ -33,3 +33,4 @@ beautifulsoup4[html5lib]>=4.11.1,<5.0.0
 # have a minimum version bumped in the event of a OpenSSL vulnerability that
 # needs to be patched.
 cryptography>=43.0.1,<44.0.0
+orjson>=3.10.15,<4.0
