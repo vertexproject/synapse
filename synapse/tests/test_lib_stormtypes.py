@@ -749,7 +749,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint("['1', 2, '3']", mesgs)
 
             mesgs = await core.stormlist('$lib.print(${ $foo=bar })')
-            self.stormIsInPrint('storm:query: "$foo=bar"', mesgs)
+            self.stormIsInPrint('storm:query: " $foo=bar "', mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.set(1,2,3))')
             self.stormIsInPrint("'1'", mesgs)
@@ -1168,7 +1168,7 @@ class StormTypesTest(s_test.SynTest):
             fires = [m for m in msgs if m[0] == 'storm:fire']
             self.len(1, fires)
             self.eq(fires[0][1].get('data').get('q'),
-                    "$lib.print('fire in the hole')")
+                    " $lib.print('fire in the hole') ")
 
             q = '''
             $q=${ [test:int=1 test:int=2] }
