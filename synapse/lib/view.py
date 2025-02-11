@@ -2921,6 +2921,15 @@ class View(s_nexus.Pusher):  # type: ignore
             async for pode in liftfunc(self, prop, cmprvalu=cmprvalu):
                 yield pode
 
+    async def getDeletedRuntNode(self, nid):
+        if (ndef := self.core.getNidNdef(nid)) is None:
+            raise s_exc.BadArg(f'getDeletedRuntNode() got an invalid nid: {nid}')
+
+        sodes = await self.getStorNodes(nid)
+        pode = (('syn:deleted', ndef), {'props': {'sodes': sodes}})
+
+        return s_node.RuntNode(self, pode, nid=nid)
+
     async def _genSrefList(self, nid, smap, filtercmpr=None):
         srefs = []
         filt = True

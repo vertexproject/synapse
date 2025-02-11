@@ -121,6 +121,12 @@ class NodeBase:
     def getTagNames(self):
         return ()
 
+    async def getStorNodes(self):
+        return ()
+
+    def getByLayer(self):
+        return {}
+
 class Node(NodeBase):
     '''
     A Cortex hypergraph node.
@@ -978,14 +984,14 @@ class RuntNode(NodeBase):
     Runtime node instances are a separate class to minimize isrunt checking in
     real node code.
     '''
-    def __init__(self, view, pode):
+    def __init__(self, view, pode, nid=None):
         self.view = view
         self.ndef = pode[0]
         self.pode = pode
         self.buid = s_common.buid(self.ndef)
         self.form = view.core.model.form(self.ndef[0])
 
-        self.nid = None
+        self.nid = nid
 
     def get(self, name, defv=None, virts=None):
         return self.pode[1]['props'].get(name, defv)
@@ -997,13 +1003,24 @@ class RuntNode(NodeBase):
         return s_common.ehex(s_common.buid(self.ndef))
 
     def intnid(self):
-        return None
+        if self.nid is None:
+            return None
+        return s_common.int64un(self.nid)
 
     def pack(self, dorepr=False):
         pode = s_msgpack.deepcopy(self.pode)
         if dorepr:
             self._addPodeRepr(pode)
         return pode
+
+    def valu(self, defv=None, virts=None):
+        valu = self.ndef[1]
+        if virts is None:
+            return valu
+
+        for virt in virts:
+            valu = virt((valu,))
+        return valu
 
     async def set(self, name, valu):
         prop = self._reqValidProp(name)

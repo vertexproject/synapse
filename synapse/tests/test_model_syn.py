@@ -565,3 +565,52 @@ class SynModelTest(s_t_utils.SynTest):
                 cmds = await core.callStorm(q, opts=opts)
                 self.len(numcmds, cmds)
                 self.len(numcmds + 1, core.stormcmds)
+
+    async def test_syn_deleted(self):
+
+        async with self.getTestCore() as core:
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            await core.nodes('[ it:dev:str=foo .seen=2020 (inet:ip=1.2.3.4 :asn=10) ]')
+            await core.nodes('it:dev:str=foo inet:ip=1.2.3.4 delnode', opts=viewopts2)
+
+            nodes = await core.nodes('diff', opts=viewopts2)
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('syn:deleted', node.ndef[0])
+
+            nodes = await core.nodes('diff | +syn:deleted*form=inet:ip', opts=viewopts2)
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('syn:deleted', node.ndef[0])
+                self.eq('inet:ip', node.ndef[1][0])
+                self.eq(('inet:ip', (4, 16909060)), node.valu())
+                self.gt(node.intnid(), 0)
+                sodes = node.get('sodes')
+                self.len(2, sodes)
+                self.eq({'antivalu': True, 'form': 'inet:ip'}, sodes[0])
+                self.eq((10, 9, None), sodes[1]['props']['asn'])
+
+            q = 'diff | +syn:deleted*form=inet:ip return($node.getStorNodes())'
+            self.eq((), await core.callStorm(q, opts=viewopts2))
+
+            q = 'diff | +syn:deleted*form=inet:ip return($node.getByLayer())'
+            self.eq({}, await core.callStorm(q, opts=viewopts2))
+
+            await core.nodes('diff | merge --apply', opts=viewopts2)
+
+            self.len(0, await core.nodes('it:dev:str=foo inet:ip=1.2.3.4'))
+            self.len(0, await core.nodes('diff', opts=viewopts2))
+
+            with self.raises(s_exc.BadArg):
+                await view2.getDeletedRuntNode(s_common.int64en(9001))
+
+            await core.nodes('[ it:dev:str=bar ]')
+            await core.nodes('it:dev:str=bar delnode', opts=viewopts2)
+
+            task = core.schedCoro(core.nodes('$q=$lib.queue.gen(wait) diff | $q.put(1) $q.get(1) | merge', opts=viewopts2))
+            await core.nodes('$q=$lib.queue.gen(wait) $q.get() diff | merge --apply | $q.put(2)', opts=viewopts2)
+            await task
