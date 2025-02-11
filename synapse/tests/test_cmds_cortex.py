@@ -4,6 +4,7 @@ import asyncio
 import synapse.common as s_common
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.json as s_json
 import synapse.lib.encoding as s_encoding
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -352,7 +353,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             await cmdr.runCmdLine(f'storm --save-nodes {path} test:int')
             outp.expect('2 nodes')
 
-            jsdata = [item for item in s_common.jslines(path)]
+            jsdata = [item for item in s_json.jslines(path)]
             self.len(2, jsdata)
             self.eq({tuple(n[0]) for n in jsdata},
                     {('test:int', 20), ('test:int', 30)})
@@ -371,7 +372,7 @@ class CmdCoreTest(s_t_utils.SynTest):
             with s_common.genfile(stormfile) as fd:
                 fd.write(b'[ inet:fqdn=$hehe ]')
 
-            s_common.jssave(test_opts, optsfile)
+            s_json.jssave(test_opts, optsfile)
             s_common.yamlsave(test_opts, optsfile_yaml)
 
             outp = self.getTestOutp()

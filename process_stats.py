@@ -8,6 +8,8 @@ import matplotlib.pyplot as m_plt
 
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
+
 def get_fn_prefix(bn):
     l, r = bn.rsplit('_', 1)
 
@@ -193,7 +195,7 @@ def main(argv):
         fn = os.path.basename(fp)
         pref = get_fn_prefix(fn)
         prefs.add(pref)
-        ldta = s_common.jsload(fp)
+        ldta = s_json.jsload(fp)
         ldta.setdefault('prefix', pref)
         raw_data.append(ldta)
 

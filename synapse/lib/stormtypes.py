@@ -1783,7 +1783,7 @@ class LibBase(Lib):
         name = await tostr(name)
         mesg = await tostr(mesg)
         info = await toprim(info)
-        s_common.reqjsonsafe(info)
+        s_json.reqjsonsafe(info)
 
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
@@ -1842,7 +1842,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _fire(self, name, **info):
         info = await toprim(info)
-        s_common.reqjsonsafe(info)
+        s_json.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
 @registry.registerLib
@@ -6255,7 +6255,7 @@ class NodeData(Prim):
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
-        s_common.reqjsonsafe(valu)
+        s_json.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):

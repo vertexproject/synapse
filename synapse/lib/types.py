@@ -11,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
@@ -1601,7 +1602,7 @@ class Data(Type):
 
     def norm(self, valu):
         try:
-            s_common.reqjsonsafe(valu)
+            s_json.reqjsonsafe(valu)
             if self.validator is not None:
                 self.validator(valu)
         except (s_exc.MustBeJsonSafe, s_exc.SchemaViolation) as e:

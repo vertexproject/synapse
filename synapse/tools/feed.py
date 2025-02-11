@@ -11,6 +11,7 @@ import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
@@ -24,7 +25,7 @@ def getItems(*paths):
     items = []
     for path in paths:
         if path.endswith('.json'):
-            item = s_common.jsload(path)
+            item = s_json.jsload(path)
             if not isinstance(item, list):
                 item = [item]
             items.append((path, item))

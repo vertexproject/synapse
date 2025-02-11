@@ -12,14 +12,13 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
@@ -199,7 +198,7 @@ class ProtoNode:
             return
 
         try:
-            s_common.reqjsonsafe(valu)
+            s_json.reqjsonsafe(valu)
         except s_exc.MustBeJsonSafe as e:
             if self.ctx.snap.strict:
                 raise e
