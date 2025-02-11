@@ -867,7 +867,6 @@ class CellTest(s_t_utils.SynTest):
 
             conf = {
                 'nexslog:en': True,
-                'nexslog:async': True,
                 'dmon:listen': 'tcp://127.0.0.1:0/',
                 'https:port': 0,
             }
@@ -1184,8 +1183,7 @@ class CellTest(s_t_utils.SynTest):
                     s_common.yamlsave({'dmon:listen': 'tcp://0.0.0.0:0/',
                                        'aha:name': 'some:cell'},
                                       dirn, 'cell.yaml')
-                    s_common.yamlsave({'nexslog:async': True},
-                                      dirn, 'cell.mods.yaml')
+                    s_common.yamlsave({}, dirn, 'cell.mods.yaml')
                     async with await s_cell.Cell.initFromArgv([dirn, '--auth-passwd', 'secret']) as cell:
                         # config order for booting from initArgV
                         # 0) cell.mods.yaml
@@ -1193,7 +1191,6 @@ class CellTest(s_t_utils.SynTest):
                         # 2) envars
                         # 3) cell.yaml
                         self.true(cell.conf.req('nexslog:en'))
-                        self.true(cell.conf.req('nexslog:async'))
                         self.none(cell.conf.req('dmon:listen'))
                         self.none(cell.conf.req('https:port'))
                         self.eq(cell.conf.req('aha:name'), 'some:cell')

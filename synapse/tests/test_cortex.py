@@ -2884,11 +2884,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCoreAndProxy() as (core, prox):
 
-            coreinfo = await prox.getCoreInfo()
-
-            for field in ('version', 'modeldef', 'stormcmds'):
-                self.isin(field, coreinfo)
-
             coreinfo = await prox.getCoreInfoV2()
 
             for field in ('version', 'modeldict', 'stormdocs'):
@@ -3768,7 +3763,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             q = '[inet:ip=([4, 0]) inet:ip=([4, 1]) inet:ip=([4, 2]) :asn=1138 +#deathstar]'
             await core.nodes(q)
 
-            q = '#deathstar | graph --degrees 2 --refs'
+            q = '#deathstar | graph --degrees 2'
             ndefs = set()
             async for node in core.view.iterStormPodes(q):
                 ndefs.add(node[0])

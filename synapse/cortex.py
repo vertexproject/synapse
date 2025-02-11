@@ -690,20 +690,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
         },
-        'layer:lmdb:map_async': {
-            'default': True,
-            'description': 'Deprecated. This value is ignored.',
-            'type': 'boolean',
-            'hidecmdl': True,
-            'hideconf': True,
-        },
-        'layer:lmdb:max_replay_log': {
-            'default': 10000,
-            'description': 'Deprecated. This value is ignored.',
-            'type': 'integer',
-            'hidecmdl': True,
-            'hideconf': True,
-        },
         'layers:lockmemory': {
             'default': False,
             'description': 'Should new layers lock memory for performance by default.',
@@ -2411,12 +2397,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 cmdtext = cdef.get('storm')
                 await self.getStormQuery(cmdtext)
 
-            if cdef.get('forms') is not None:
-                name = cdef.get('name')
-                mesg = f"Storm command definition 'forms' key is deprecated and will be removed " \
-                       f"in 3.0.0 (command {name} in package {pkgname})"
-                logger.warning(mesg, extra=await self.getLogExtra(name=name, pkgname=pkgname))
-
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
             gdef['scope'] = 'power-up'
@@ -3952,7 +3932,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/feed', s_httpapi.FeedV1, {'cell': self})
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
-        self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
 
@@ -5640,15 +5619,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             info['hash'] = s_storm.queryhash(text)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra={'synapse': info})
-
-    def getCoreInfo(self):
-        '''This API is deprecated.'''
-        s_common.deprecated('Cortex.getCoreInfo')
-        return {
-            'version': synapse.version,
-            'modeldef': self.model.getModelDefs(),
-            'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
-        }
 
     async def getCoreInfoV2(self):
         return {

@@ -715,10 +715,6 @@ class HttpPermsList(s_stormtypes.List):
                       {'name': 'valu', 'type': 'int', 'desc': 'The list index value.', },
                   ),
                   'returns': {'type': 'any', 'desc': 'The permission present in the list at the index position.', }}},
-        {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methListLength',
-                  'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'append', 'desc': 'Append a permission to the list.',
          'type': {'type': 'function', '_funcname': '_methListAppend',
                   'args': (

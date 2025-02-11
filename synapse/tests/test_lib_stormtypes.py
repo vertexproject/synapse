@@ -1562,12 +1562,10 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('elst size is 0', msgs)
 
             # Convert primitive python objects to List objects
-            q = '$v=(foo,bar,baz) [ test:str=$v.index(1) test:int=$v.length() ]'
+            q = '$v=(foo,bar,baz) [ test:str=$v.index(1) test:int=$v.size() ]'
             nodes = await core.nodes(q)
             self.eq(nodes[0].ndef, ('test:str', 'bar'))
             self.eq(nodes[1].ndef, ('test:int', 3))
-            msgs = await core.stormlist(q)
-            self.stormIsInWarn('StormType List.length() is deprecated', msgs)
 
             # Reverse a list
             q = '$v=(foo,bar,baz) $v.reverse() return ($v)'

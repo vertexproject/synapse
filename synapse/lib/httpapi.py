@@ -68,7 +68,6 @@ class HandlerBase:
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
-        self._web_user = None  # Deprecated for new handlers
         self.web_useriden = None  # The user iden at the time of authentication.
         self.web_username = None  # The user name at the time of authentication.
 
@@ -483,40 +482,6 @@ class StormHandler(Handler):
         # add an abstraction to allow subclasses to dictate how
         # a reference to the cortex is returned from the handler.
         return self.cell
-
-class StormNodesV1(StormHandler):
-
-    async def post(self):
-        return await self.get()
-
-    async def get(self):
-
-        user, body = await self.getUseridenBody()
-        if body is s_common.novalu:
-            return
-
-        s_common.deprecated('HTTP API /api/v1/storm/nodes', curv='2.110.0')
-
-        # dont allow a user to be specified
-        opts = body.get('opts')
-        query = body.get('query')
-        stream = body.get('stream')
-        jsonlines = stream == 'jsonlines'
-
-        opts = await self._reqValidOpts(opts)
-        if opts is None:
-            return
-
-        view = self.cell._viewFromOpts(opts)
-
-        taskinfo = {'query': query, 'view': view.iden}
-        await self.cell.boss.promote('storm', user=user, info=taskinfo)
-
-        async for pode in view.iterStormPodes(query, opts=opts):
-            self.write(json.dumps(pode))
-            if jsonlines:
-                self.write("\n")
-            await self.flush()
 
 class StormV1(StormHandler):
 

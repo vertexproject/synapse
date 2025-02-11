@@ -5006,10 +5006,6 @@ class List(Prim):
                       {'name': 'valu', 'type': 'int', 'desc': 'The list index value.', },
                   ),
                   'returns': {'type': 'any', 'desc': 'The item present in the list at the index position.', }}},
-        {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methListLength',
-                  'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'append', 'desc': 'Append a value to the list.',
          'type': {'type': 'function', '_funcname': '_methListAppend',
                   'args': (
@@ -5087,7 +5083,6 @@ class List(Prim):
             'size': self._methListSize,
             'sort': self._methListSort,
             'index': self._methListIndex,
-            'length': self._methListLength,
             'append': self._methListAppend,
             'reverse': self._methListReverse,
             'slice': self._methListSlice,
@@ -5158,14 +5153,6 @@ class List(Prim):
     @stormfunc(readonly=True)
     async def _methListReverse(self):
         self.valu.reverse()
-
-    @stormfunc(readonly=True)
-    async def _methListLength(self):
-        s_common.deprecated('StormType List.length()')
-        runt = s_scope.get('runt')
-        if runt:
-            await runt.warnonce('StormType List.length() is deprecated. Use the size() method.')
-        return len(self)
 
     @stormfunc(readonly=True)
     async def _methListSort(self, reverse=False):
@@ -7473,10 +7460,6 @@ class View(Prim):
                 parent (str)
                     The parent View iden.
 
-                nomerge (bool)
-                    Deprecated - use protected. Updates to this option will be redirected to
-                    the protected option (below) until this option is removed.
-
                 protected (bool)
                     Setting to $lib.true will prevent the layer from being merged or deleted.
 
@@ -7923,8 +7906,6 @@ class View(Prim):
 
     @stormfunc(readonly=True)
     async def _methViewGet(self, name, defv=None):
-        if name == 'nomerge':
-            name = 'protected'
         return self.valu.get(name, defv)
 
     def _reqView(self):
@@ -7949,10 +7930,6 @@ class View(Prim):
 
         elif name == 'quorum':
             valu = await toprim(valu)
-
-        elif name == 'nomerge':
-            name = 'protected'
-            valu = await tobool(valu)
 
         elif name == 'protected':
             valu = await tobool(valu)
@@ -8327,12 +8304,6 @@ class LibTrigger(Lib):
             viewiden = self.runt.view.iden
 
         tdef['view'] = viewiden
-        # query is kept to keep this API backwards compatible.
-        query = tdef.pop('query', None)
-        if query is not None:  # pragma: no cover
-            s_common.deprecated('$lib.trigger.add() with "query" argument instead of "storm"', curv='2.95.0')
-            await self.runt.warn('$lib.trigger.add() called with query argument, this is deprecated. Use storm instead.')
-            tdef['storm'] = query
 
         cond = tdef.pop('condition', None)
         if cond is not None:

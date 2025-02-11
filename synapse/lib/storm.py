@@ -5228,9 +5228,6 @@ class GraphCmd(Cmd):
         pars.add_argument('--form-filter', default=[], nargs=2, action='append',
                           help='Specify a <form> <filter> form specific filter.')
 
-        pars.add_argument('--refs', default=False, action='store_true',
-                          help='Deprecated. This is now enabled by default.')
-
         pars.add_argument('--no-refs', default=False, action='store_true',
                           help='Disable automatic in-model pivoting with node.getNodeRefs().')
 

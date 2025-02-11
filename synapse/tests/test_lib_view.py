@@ -35,39 +35,6 @@ class ViewTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOptValu):
                 await core.view.setViewInfo('hehe', 10)
 
-        async with self.getTestCore() as core:
-            # Delete this block when nomerge is removed
-            view = await core.callStorm('return($lib.view.get().fork().iden)')
-            opts = {'view': view}
-
-            # Setting/getting nomerge should be redirected to protected
-            getnomerge = 'return($lib.view.get().get(nomerge))'
-            setnomerge = '$lib.view.get().set(nomerge, $valu)'
-
-            getprotected = 'return($lib.view.get().get(protected))'
-            setprotected = '$lib.view.get().set(protected, $valu)'
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.false(nomerge)
-            self.false(protected)
-
-            opts['vars'] = {'valu': True}
-            await core.callStorm(setnomerge, opts=opts)
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.true(nomerge)
-            self.true(protected)
-
-            opts['vars'] = {'valu': False}
-            await core.callStorm(setprotected, opts=opts)
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.false(nomerge)
-            self.false(protected)
-
     async def test_view_set_parent(self):
 
         async with self.getTestCore() as core:

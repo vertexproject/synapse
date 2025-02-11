@@ -896,13 +896,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'description': 'Record all changes to a stream file on disk.  Required for mirroring (on both sides).',
             'type': 'boolean',
         },
-        'nexslog:async': {
-            'default': True,
-            'description': 'Deprecated. This option ignored.',
-            'type': 'boolean',
-            'hidedocs': True,
-            'hidecmdl': True,
-        },
         'dmon:listen': {
             'description': 'A config-driven way to specify the telepath bind URL.',
             'type': ['string', 'null'],

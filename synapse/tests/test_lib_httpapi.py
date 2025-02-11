@@ -425,13 +425,6 @@ class HttpApiTest(s_tests.SynTest):
                     newcookie = resp.headers.get('Set-Cookie')
                     self.isin('sess=""', newcookie)
 
-                # session no longer works
-                data = {'query': '[ inet:ip=1.2.3.4 ]'}
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
-                    item = await resp.json()
-                    self.eq('err', item.get('status'))
-                    self.eq('NotAuthenticated', item.get('code'))
-
                 async with sess.get(f'https://localhost:{port}/api/v1/auth/users') as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
@@ -574,10 +567,6 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('SchemaViolation', item.get('code'))
 
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', data=b'asdf') as resp:
-                    item = await resp.json()
-                    self.eq('SchemaViolation', item.get('code'))
-
                 rules = [(True, ('node', 'add',))]
                 info = {'name': 'derpuser', 'passwd': 'derpuser', 'rules': rules}
                 async with sess.post(f'https://localhost:{port}/api/v1/auth/adduser', json=info) as resp:
@@ -660,20 +649,6 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/login', json={'user': 'visi', 'passwd': 'secret'}) as resp:
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
-
-                data = {'query': '[ inet:ip=1.2.3.4 ]', 'opts': opts}
-
-                podes = []
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
-
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        podes.append(json.loads(byts))
-
-                self.eq(podes[0][0], ('inet:ip', (4, 0x01020304)))
 
                 msgs = []
                 data = {'query': '[ inet:ip=5.5.5.5 ]', 'opts': opts}
@@ -1294,10 +1269,6 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     self.eq(resp.status, 403)
 
-                body = {'query': 'inet:ip', 'opts': {'user': core.auth.rootuser.iden}}
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-                    self.eq(resp.status, 403)
-
                 await visi.setAdmin(True)
 
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', data=b'asdf') as resp:
@@ -1336,53 +1307,7 @@ class HttpApiTest(s_tests.SynTest):
 
                     self.eq((4, 0x01020304), node[0][1])
 
-                node = None
-                body = {'query': '[ inet:ip=1.2.3.4 ]'}
-
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        node = json.loads(byts)
-
-                    self.eq((4, 0x01020304), node[0][1])
-
-                async with sess.post(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        node = json.loads(byts)
-
-                    self.eq((4, 0x01020304), node[0][1])
-
                 body['stream'] = 'jsonlines'
-
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-                    bufr = b''
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        bufr += byts
-                        for jstr in bufr.split(b'\n'):
-                            if not jstr:
-                                bufr = b''
-                                break
-
-                            try:
-                                node = json.loads(byts)
-                            except json.JSONDecodeError:
-                                bufr = jstr
-                                break
-
-                    self.eq((4, 0x01020304), node[0][1])
 
                 async with sess.post(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
 
@@ -1424,23 +1349,6 @@ class HttpApiTest(s_tests.SynTest):
                             task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
                             self.eq(core.view.iden, task.info.get('view'))
                             break
-
-                self.nn(task)
-                self.true(await task.waitfini(6))
-                self.len(0, core.boss.tasks)
-
-                task = None
-                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=body) as resp:
-
-                    async for byts, x in resp.content.iter_chunks():
-
-                        if not byts:
-                            break
-
-                        mesg = json.loads(byts)
-                        self.len(2, mesg)  # Is if roughly shaped like a node?
-                        task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
-                        break
 
                 self.nn(task)
                 self.true(await task.waitfini(6))
