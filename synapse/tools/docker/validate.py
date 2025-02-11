@@ -51,7 +51,7 @@ def getCosignSignature(outp, image):
     blob = proc.stdout
     try:
         sigd = s_json.loads(blob)
-    except s_exc.MustBeJsonSafe as e:
+    except s_exc.BadJsonText as e:
         outp.printf(f'Error decoding blob: {blob}: {e}')
         return None
     if not isinstance(sigd, dict):

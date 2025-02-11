@@ -16,9 +16,13 @@ def loads(s):
 
 def load(fp):
     # Decode json in fp
-    with mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ) as mm:
-        with memoryview(mm) as mv:
-            return loads(mv)
+    try:
+        with mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ) as mm:
+            with memoryview(mm) as mv:
+                return loads(mv)
+    except ValueError:
+        mesg = 'Cannot read empty file.'
+        raise s_exc.BadJsonText(mesg=mesg)
 
 def dumps(obj, sort_keys=False, indent=False, default=None, use_bytes=False, append_newline=False):
     # Encode obj as a json string

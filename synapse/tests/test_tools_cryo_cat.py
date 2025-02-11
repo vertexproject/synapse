@@ -5,6 +5,8 @@ import msgpack
 
 import unittest.mock as mock
 
+import synapse.exc as s_exc
+
 import synapse.lib.msgpack as s_msgpack
 import synapse.tests.utils as s_t_utils
 import synapse.tools.cryo.cat as s_cryocat
@@ -34,7 +36,7 @@ class CryoCatTest(s_t_utils.SynTest):
             argv = ['--ingest', '--jsonl', cryourl]
             inp = io.StringIO('{"foo: "bar"}\n[]\n')
             with self.redirectStdin(inp):
-                with self.raises(json.decoder.JSONDecodeError):
+                with self.raises(s_exc.BadJsonText):
                     retn, outp = await self.execToolMain(s_cryocat.main, argv)
 
             # Happy path msgpack ingest
@@ -74,7 +76,7 @@ class CryoCatTest(s_t_utils.SynTest):
 
             argv = ['--offset', '0', '--jsonl', '--size', '2', '--omit-offset', cryourl]
             retn, outp = await self.execToolMain(s_cryocat.main, argv)
-            self.true(outp.expect('[null, {"key": 0}]\n[null, {"key": 1}]\n'))
+            self.true(outp.expect('[null,{"key":0}]\n[null,{"key":1}]\n'))
 
             argv = ['--offset', '0', '--size', '20', cryourl]
             retn, outp = await self.execToolMain(s_cryocat.main, argv)
