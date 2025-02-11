@@ -5854,13 +5854,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 try:
                     return await proxy.count(text, opts=mirropts)
 
-                except s_exc.TimeOut:
+                except s_exc.TimeOut as e:
+                    extra.update(e.errinfo)
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
+                    logger.warning(mesg, extra=extra)
 
-        if (nexsoffs := opts.get('nexsoffs')) is not None:
-            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in count()')
+        await self._mayWaitNexsOffs(opts)
 
         view = self._viewFromOpts(opts)
 
@@ -5869,6 +5868,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             i += 1
 
         return i
+
+    async def _mayWaitNexsOffs(self, opts):
+
+        if (nexsoffs := opts.get('nexsoffs')) is None:
+            return
+
+        timeout = opts.get('nexstimeout')
+
+        if not await self.waitNexsOffs(nexsoffs, timeout=timeout):
+            raise s_exc.TimeOut(
+                service=self.ahasvcname,
+                offset=(await self.getNexsIndx() - 1),
+                waitoffset=nexsoffs,
+                timeout=timeout,
+                mesg=f'Timeout waiting for nexus offset {nexsoffs} in storm().')
 
     async def _getMirrorOpts(self, opts):
         assert 'nexsoffs' in opts
@@ -5937,13 +5951,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         yield mesg
                     return
 
-                except s_exc.TimeOut:
+                except s_exc.TimeOut as e:
+                    extra.update(e.errinfo)
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
                     logger.warning(mesg, extra=extra)
 
-        if (nexsoffs := opts.get('nexsoffs')) is not None:
-            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in storm().')
+        await self._mayWaitNexsOffs(opts)
 
         view = self._viewFromOpts(opts)
         async for mesg in view.storm(text, opts=opts):
@@ -5968,13 +5981,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 try:
                     return await proxy.callStorm(text, opts=mirropts)
-                except s_exc.TimeOut:
+                except s_exc.TimeOut as e:
+                    extra.update(e.errinfo)
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
                     logger.warning(mesg, extra=extra)
 
-        if (nexsoffs := opts.get('nexsoffs')) is not None:
-            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in callStorm().')
+        await self._mayWaitNexsOffs(opts)
 
         view = self._viewFromOpts(opts)
         return await view.callStorm(text, opts=opts)
@@ -6000,13 +6012,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         yield mesg
                     return
 
-                except s_exc.TimeOut:
+                except s_exc.TimeOut as e:
+                    extra.update(e.errinfo)
                     mesg = 'Timeout waiting for query mirror, running locally instead.'
                     logger.warning(mesg, extra=extra)
 
-        if (nexsoffs := opts.get('nexsoffs')) is not None:
-            if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
-                raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in exportStorm().')
+        await self._mayWaitNexsOffs(opts)
 
         user = self._userFromOpts(opts)
         view = self._viewFromOpts(opts)
