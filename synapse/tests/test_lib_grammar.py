@@ -778,7 +778,7 @@ _ParseResults = [
     'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: TypeError, Const: err, Query: []]]]',
     'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: FooBar, Const: err, Query: []], CatchBlock: [Const: *, Const: err, Query: []]]]',
     'Query: [LiftByArray: [Const: test:array, Const: =, Const: 1.2.3.4]]',
-    'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery: inet:ipv4]]]',
+    'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ipv4 ]]]',
     'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',
     'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, VarDeref: [VarValue: [Const: lib], Const: null]]]]',
     'Query: [CmdOper: [Const: tee, Const: ()]]',
@@ -1364,7 +1364,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: p, Const: names], LiftPropBy: [Const: ps:contact:name, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: p]], Const: ?-=, Const: bar]]',
     'Query: [SetVarOper: [Const: pvar, Const: stuff], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Const: =, Const: neato]]]',
     'Query: [SetVarOper: [Const: pvar, Const: ints], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Const: =, VarValue: [Const: othervar]]]]',
-    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: foo, EmbedQuery: inet:fqdn]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: foo, EmbedQuery:  inet:fqdn ]]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [Const: hehe], CondSetOper: [Const: unset], Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [Const: hehe], CondSetOper: [VarValue: [Const: foo]], Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [Const: unset], Const: heval]]',
@@ -1663,6 +1663,27 @@ class GrammarTest(s_t_utils.SynTest):
         errinfo = cm.exception.errinfo
         self.eq(1, errinfo.get('mesg').count('#'))
 
+        query = '$q = ${ /* secret comment */ $lib.print([hello) } $lib.macro.set(hehe, $q)'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        info = cm.exception.errinfo.get('highlight')
+        self.eq((40, 41), info['offsets'])
+        self.eq((1, 1), info['lines'])
+        self.eq((41, 42), info['columns'])
+
+        query = """function test(hello) {
+                    +'''asdf
+                    asdfasdf'''
+        }"""
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        info = cm.exception.errinfo.get('highlight')
+        self.eq((44, 83), info['offsets'])
+        self.eq((2, 3), info['lines'])
+        self.eq((22, 31), info['columns'])
+
     async def test_quotes(self):
 
         # Test vectors
@@ -1765,6 +1786,15 @@ class GrammarTest(s_t_utils.SynTest):
         self.false(s_grammar.isPropName('2t:str'))
         self.false(s_grammar.isPropName('.hehe'))
         self.false(s_grammar.isPropName('testcmd'))
+
+    async def test_embed_offsets(self):
+
+        embq = ' /* secret comment */ $lib.print(hello) /* haha */ $lib.print(goodbye) /*foo */ '
+        query = f'$q = ${{{embq}}} $lib.print($q)'
+        parser = s_parser.Parser(query)
+        q = parser.query()
+        embed = q.kids[0].kids[1]
+        self.eq(embq, embed.getAstText())
 
 def gen_parse_list():
     '''

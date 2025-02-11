@@ -767,6 +767,9 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                     :host={it:host | limit 1}
                     :sandbox:file=*
+                    :service:platform=*
+                    :service:instance=*
+                    :service:account=*
             ]''')
             self.len(1, nodes)
             self.eq(10, nodes[0].get('severity'))
@@ -775,6 +778,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             # check that the host activity model was inherited
             self.nn(nodes[0].get('host'))
             self.len(1, await core.nodes('it:log:event :sandbox:file -> file:bytes'))
+            self.len(1, await core.nodes('it:log:event :service:account -> inet:service:account'))
+            self.len(1, await core.nodes('it:log:event :service:platform -> inet:service:platform'))
+            self.len(1, await core.nodes('it:log:event :service:instance -> inet:service:instance'))
 
             nodes = await core.nodes('it:host | limit 1 | [ :keyboard:layout=qwerty :keyboard:language=$lib.gen.langByCode(en.us) ]')
             self.len(1, nodes)
@@ -2034,6 +2040,9 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :offset=99
                     :synuser=$root
                     // we can assume the rest of the interface props work
+                    :service:platform = *
+                    :service:instance = *
+                    :service:account = *
                 ]
             ''', opts=opts)
             self.eq(1658275200000, nodes[0].get('time'))
@@ -2043,6 +2052,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('SELECT * FROM threats', nodes[0].get('text'))
             self.eq(core.auth.rootuser.iden, nodes[0].get('synuser'))
             self.len(1, await core.nodes('it:exec:query -> it:query +it:query="SELECT * FROM threats"'))
+
+            self.len(1, await core.nodes('it:exec:query :service:account -> inet:service:account'))
+            self.len(1, await core.nodes('it:exec:query :service:platform -> inet:service:platform'))
+            self.len(1, await core.nodes('it:exec:query :service:instance -> inet:service:instance'))
 
     async def test_infotech_softid(self):
 
