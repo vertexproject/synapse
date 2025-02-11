@@ -1420,7 +1420,7 @@ or with a wildcard to represent any / all edges (e.g., ``-(*)+>`` ).
 *Join a threat cluster (risk:threat node) with any nodes used or targeted by the cluster:*
 
 .. storm-pre:: [ ( risk:threat=* :org:name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
-.. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:alias=vertex } ]
+.. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
 .. storm-pre:: risk:threat -( (uses, targets) )+> *
 
 ::

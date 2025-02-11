@@ -396,16 +396,16 @@ a more "human friendly" method.
 
 *Use a subquery to assign an organization's (ou:org) guid as the secondary property of a ps:contact node:*
 
-.. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :alias=usgovdoj :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
+.. storm-pre:: [ ou:org=0fa690c06970d2d2ae74e43a18f46c2a :url=https://www.justice.gov/ :name="U.S. Department of Justice" ]
 .. storm-pre:: [ ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname="U.S. Department of Justice" :address="950 Pennsylvania Avenue NW, Washington, DC, 20530-0001" :phone="+1 202-514-2000" :loc="us.dc.washington" ]
-.. storm-cli:: ps:contact:orgname="U.S. Department of Justice" [ :org={ ou:org:alias=usgovdoj } ]
+.. storm-cli:: ps:contact:orgname="U.S. Department of Justice" [ :org={ ou:org:name="U.S. Department of Justice" } ]
 
-In the example above, the subquery ``ou:org:alias=usgovdoj`` is used to lift the organization node with that ``:alias``
-property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``ps:contact`` node.
+In the example above, the subquery ``ou:org:name="U.S. Department of Justice"`` is used to lift the organization node with
+that ``:name`` property value and assign the ``ou:org`` node's guid value to the ``:org`` property of the ``ps:contact`` node.
 
 *Use a subquery to assign one or more industries (ou:industry) to an organization (ou:org):*
 
-.. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :alias=apple :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :loc=us.ca.cupertino]
+.. storm-pre:: [ ou:org=2848b564bf1e68563e3fea4ce27299f3 :name=apple :names=(apple, "apple, inc.") :phone="+1 408-996-1010" :loc=us.ca.cupertino]
 .. storm-pre:: [ps:contact="*" :orgname="Apple" :address="1 Apple Park Way, Cupertino, CA 95014" :phone="+1 202-514-2000" :loc="us.ca.cupertino"]
 .. storm-pre:: [ ou:industry="*" :name="Computers and Electronics" ]
 .. storm-pre:: [ ou:industry="*" :name="Telecommunications" ]

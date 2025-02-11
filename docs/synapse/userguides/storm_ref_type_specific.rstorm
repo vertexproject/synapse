@@ -756,10 +756,10 @@ is often easier to lift guid nodes by a unique secondary property.
 
 **Examples:**
 
-Lift an org node by its alias:
+Lift an org node by its name:
 
-.. storm-pre:: [ ou:org = * :alias = choam :name = 'combine honnete ober advancer mercantiles' ]
-.. storm-cli:: ou:org:alias = choam
+.. storm-pre:: [ ou:org = * :name = foocorp ]
+.. storm-cli:: ou:org:name = foocorp
 
 Lift a DNS request node by the name used in the DNS query:
 
