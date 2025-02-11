@@ -887,7 +887,7 @@ _reqValidPkgdefSchema = {
                         'properties': {
                             'path': {'type': 'string'},
                             'host': {'type': 'string'},
-                            'descr': {'type': 'string'},
+                            'desc': {'type': 'string'},
                         },
                         'required': ['path'],
                         'additionalProperties': False
