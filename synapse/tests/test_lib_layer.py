@@ -1148,9 +1148,10 @@ class LayerTest(s_t_utils.SynTest):
 
             await core.nodes(addq)
             await core.nodes('inet:ip=1.2.3.4 | delnode --force', opts=viewopts2)
-            self.len(0, await core.nodes('diff', opts=viewopts2))
+            self.len(1, await core.nodes('diff', opts=viewopts2))
             await core.nodes('merge --diff --apply', opts=viewopts2)
 
+            self.len(0, await core.nodes('diff', opts=viewopts2))
             self.len(0, await core.nodes('inet:ip=1.2.3.4'))
             await notombs(opts=viewopts2)
 
