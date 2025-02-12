@@ -143,6 +143,26 @@ class StormTest(s_t_utils.SynTest):
             self.eq(props.get('name'), 'org name 77')
             self.eq(props.get('desc'), 'an org desc')
 
+            nodes = await core.nodes('ou:org=({"name": "the vertex project", "type": "lulz"})')
+            self.len(1, nodes)
+            orgn = nodes[0].ndef
+            self.eq(orgn, nodes11[0].ndef)
+
+            q = '[ ps:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            cont = nodes[0]
+            self.eq(cont.get('org'), orgn[1])
+
+            nodes = await core.nodes('ps:contact:org=({"name": "the vertex project", "type": "lulz"})')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, cont.ndef)
+
+            self.len(0, await core.nodes('ps:contact:org=({"name": "vertex", "type": "newp"})'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
