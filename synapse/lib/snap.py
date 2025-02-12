@@ -1472,40 +1472,6 @@ class Snap(s_base.Base):
 
         return await self.getNodeByBuid(proto.buid)
 
-    async def _getPropAltCount(self, prop, valu):
-        count = 0
-        proptype = prop.type
-        for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
-                count += await self.view.getPropArrayCount(prop.full, valu=valu)
-            else:
-                count += await self.view.getPropCount(prop.full, valu=valu)
-        return count
-
-    def _filtByPropAlts(self, node, prop, valu):
-        # valu must be normalized in advance
-        proptype = prop.type
-        for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
-                if valu in node.get(prop.name):
-                    return True
-            else:
-                if node.get(prop.name) == valu:
-                    return True
-
-        return False
-
-    async def _nodesByPropAlts(self, prop, valu):
-        # valu must be normalized in advance
-        proptype = prop.type
-        for prop in prop.getAlts():
-            if prop.type.isarray and prop.type.arraytype == proptype:
-                async for node in self.nodesByPropArray(prop.full, '=', valu, norm=False):
-                    yield node
-            else:
-                async for node in self.nodesByPropValu(prop.full, '=', valu, norm=False):
-                    yield node
-
     def _normGuidNodeDict(self, form, props):
 
         norms = {}
@@ -1578,6 +1544,40 @@ class Snap(s_base.Base):
                 return node
 
         return None
+
+    async def _getPropAltCount(self, prop, valu):
+        count = 0
+        proptype = prop.type
+        for prop in prop.getAlts():
+            if prop.type.isarray and prop.type.arraytype == proptype:
+                count += await self.view.getPropArrayCount(prop.full, valu=valu)
+            else:
+                count += await self.view.getPropCount(prop.full, valu=valu)
+        return count
+
+    def _filtByPropAlts(self, node, prop, valu):
+        # valu must be normalized in advance
+        proptype = prop.type
+        for prop in prop.getAlts():
+            if prop.type.isarray and prop.type.arraytype == proptype:
+                if valu in node.get(prop.name):
+                    return True
+            else:
+                if node.get(prop.name) == valu:
+                    return True
+
+        return False
+
+    async def _nodesByPropAlts(self, prop, valu):
+        # valu must be normalized in advance
+        proptype = prop.type
+        for prop in prop.getAlts():
+            if prop.type.isarray and prop.type.arraytype == proptype:
+                async for node in self.nodesByPropArray(prop.full, '=', valu, norm=False):
+                    yield node
+            else:
+                async for node in self.nodesByPropValu(prop.full, '=', valu, norm=False):
+                    yield node
 
     async def addFeedNodes(self, name, items):
         '''
