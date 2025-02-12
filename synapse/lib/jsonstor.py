@@ -57,7 +57,6 @@ class JsonStor(s_base.Base):
         refs += valu
         if refs > 0:
             self.slab.put(buid + b'refs', s_msgpack.en(refs), db=self.metadb)
-            await asyncio.sleep(0)
             return refs
 
         # remove the meta entries
@@ -92,7 +91,6 @@ class JsonStor(s_base.Base):
             await self._incRefObj(oldb, -1)
 
         self.slab.put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
-        await asyncio.sleep(0)
 
         self.dirty[buid] = item
 
@@ -146,7 +144,6 @@ class JsonStor(s_base.Base):
 
         await self._incRefObj(buid, valu=1)
         self.slab.put(srcpkey, buid, db=self.pathdb)
-        await asyncio.sleep(0)
 
     async def getPathObjProp(self, path, prop):
 
