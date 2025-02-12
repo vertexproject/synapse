@@ -3543,11 +3543,8 @@ class Layer(s_nexus.Pusher):
         if self.nodeDelHook is not None:
             self.nodeDelHook()
 
-        self._wipeNodeData(buid)
-        await asyncio.sleep(0)
-
-        self._delNodeEdges(buid)
-        await asyncio.sleep(0)
+        await self._wipeNodeData(buid)
+        await self._delNodeEdges(buid)
 
         self.buidcache.pop(buid, None)
 
@@ -3959,13 +3956,14 @@ class Layer(s_nexus.Pusher):
         for _, lval in self.layrslab.scanByDups(verb.encode(), db=self.byverb):
             yield (s_common.ehex(lval[:32]), verb, s_common.ehex(lval[32:]))
 
-    def _delNodeEdges(self, buid):
+    async def _delNodeEdges(self, buid):
         for lkey, n2buid in self.layrslab.scanByPref(buid, db=self.edgesn1):
             venc = lkey[32:]
             self.layrslab.delete(venc, buid + n2buid, db=self.byverb)
             self.layrslab.delete(lkey, n2buid, db=self.edgesn1)
             self.layrslab.delete(n2buid + venc, buid, db=self.edgesn2)
             self.layrslab.delete(buid + n2buid, venc, db=self.edgesn1n2)
+            await asyncio.sleep(0)
 
     def getStorIndx(self, stortype, valu):
 
@@ -4475,7 +4473,7 @@ class Layer(s_nexus.Pusher):
 
             await self.waitfini(1)
 
-    def _wipeNodeData(self, buid):
+    async def _wipeNodeData(self, buid):
         '''
         Remove all node data for a buid
         '''
@@ -4484,6 +4482,7 @@ class Layer(s_nexus.Pusher):
             buid = lkey[:32]
             self.dataslab.delete(lkey, db=self.nodedata)
             self.dataslab.delete(abrv, buid, db=self.dataname)
+            await asyncio.sleep(0)
 
     async def getModelVers(self):
         return self.layrinfo.get('model:version', (-1, -1, -1))

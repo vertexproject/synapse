@@ -46,7 +46,7 @@ class JsonStor(s_base.Base):
             self.dirty.pop(buid, None)
             await asyncio.sleep(0)
 
-    def _incRefObj(self, buid, valu=1):
+    async def _incRefObj(self, buid, valu=1):
 
         refs = 0
 
@@ -57,12 +57,13 @@ class JsonStor(s_base.Base):
         refs += valu
         if refs > 0:
             self.slab.put(buid + b'refs', s_msgpack.en(refs), db=self.metadb)
+            await asyncio.sleep(0)
             return refs
 
         # remove the meta entries
         for lkey, byts in self.slab.scanByPref(buid, db=self.metadb):
             self.slab.pop(lkey, db=self.metadb)
-
+            await asyncio.sleep(0)
         # remove the item data
         self.slab.pop(buid, db=self.itemdb)
         self.dirty.pop(buid, None)
@@ -88,8 +89,7 @@ class JsonStor(s_base.Base):
 
         oldb = self.slab.replace(pkey, buid, db=self.pathdb)
         if oldb is not None:
-            self._incRefObj(oldb, -1)
-            await asyncio.sleep(0)
+            await self._incRefObj(oldb, -1)
 
         self.slab.put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
         await asyncio.sleep(0)
@@ -126,8 +126,7 @@ class JsonStor(s_base.Base):
         pkey = self._pathToPkey(path)
         buid = self.slab.pop(pkey, db=self.pathdb)
         if buid is not None:
-            self._incRefObj(buid, valu=-1)
-            await asyncio.sleep(0)
+            await self._incRefObj(buid, valu=-1)
 
     async def setPathLink(self, srcpath, dstpath):
         '''
@@ -143,10 +142,9 @@ class JsonStor(s_base.Base):
 
         oldb = self.slab.pop(srcpkey, db=self.pathdb)
         if oldb is not None:
-            self._incRefObj(oldb, valu=-1)
-            await asyncio.sleep(0)
+            await self._incRefObj(oldb, valu=-1)
 
-        self._incRefObj(buid, valu=1)
+        await self._incRefObj(buid, valu=1)
         self.slab.put(srcpkey, buid, db=self.pathdb)
         await asyncio.sleep(0)
 
