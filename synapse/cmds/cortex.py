@@ -118,7 +118,7 @@ Examples:
 
         fmt = self.locs.get('log:fmt')
         if fmt == 'jsonl':
-            s = s_json.dumps(mesg, sort_keys=True) + '\n'
+            s = s_json.dumps(mesg, sort_keys=True, append_newline=True)
             buf = s.encode()
             return buf
 
@@ -218,7 +218,7 @@ class StormCmd(s_cli.Cmd):
         --path: Get path information about returned nodes.
         --show <names>: Limit storm events (server-side) to the comma-separated list.
         --file <path>: Run the storm query specified in the given file path.
-        --optsfile <path>: Run the query with the given options from a s_JSON/YAML file.
+        --optsfile <path>: Run the query with the given options from a JSON/YAML file.
 
     Examples:
         storm inet:ipv4=1.2.3.4
@@ -430,8 +430,8 @@ class StormCmd(s_cli.Cmd):
                 if mesg[0] == 'node':
 
                     if nodesfd is not None:
-                        byts = s_json.dumps(mesg[1]).encode()
-                        nodesfd.write(byts + b'\n')
+                        byts = s_json.dumps(mesg[1], asbytes=True, append_newline=True)
+                        nodesfd.write(byts)
 
                 try:
                     func = self.cmdmeths[mesg[0]]

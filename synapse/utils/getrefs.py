@@ -57,11 +57,11 @@ async def _download_refs_handler(uri):
             resp.raise_for_status()
             buf = await resp.read()
 
-    data = s_json.loads(buf.decode())
+    data = s_json.loads(buf)
 
     # Save the json schema to disk
     with filepath.open('w') as fp:
-        s_json.dump(data, fp, indent=2)
+        s_json.dump(data, fp, indent=True)
 
     # Return the schema to satisfy fastjsonschema
     return data

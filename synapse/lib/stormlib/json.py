@@ -93,7 +93,8 @@ class JsonLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_jsonSave',
                   'args': (
                       {'name': 'item', 'type': 'any', 'desc': 'The item to be serialized as a JSON string.', },
-                      {'name': 'indent', 'type': 'boolean', 'desc': 'Specify if the serialized JSON should be indented.', 'default': False},
+                      {'name': 'indent', 'type': 'boolean', 'default': False,
+                       'desc': 'Specify if the serialized JSON should be indented 2 spaces.'}
                   ),
                   'returns': {'type': 'str', 'desc': 'The JSON serialized object.', }}},
         {'name': 'schema', 'desc': 'Get a JS schema validation object.',
