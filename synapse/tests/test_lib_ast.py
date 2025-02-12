@@ -513,7 +513,7 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('test:arrayprop [ :ints--=(["newp", 5, 6]) ]')
 
-            nodes = await core.nodes('test:arrayprop [ :ints?--=(["newp", 5, 6]) ]')
+            nodes = await core.nodes('test:arrayprop [ :ints?--=(["newp", 5, 6, 7]) ]')
             self.eq(nodes[0].get('ints'), (1, 3, 4))
 
             nodes = await core.nodes('[ test:str=foo :ndefs++={[ test:str=bar ]} ]')
