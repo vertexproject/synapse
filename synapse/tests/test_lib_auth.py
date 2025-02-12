@@ -1,9 +1,15 @@
 import string
 import pathlib
 
+from unittest import mock
+
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.telepath as s_telepath
-import synapse.lib.hiveauth as s_hiveauth
+
+import synapse.lib.auth as s_auth
+import synapse.lib.cell as s_cell
+import synapse.lib.lmdbslab as s_lmdbslab
 
 import synapse.tests.utils as s_test
 
@@ -426,6 +432,126 @@ class AuthTest(s_test.SynTest):
             with self.raises(s_exc.SchemaViolation):
                 await core.auth.allrole.setRules([(True, )])
 
+    async def test_auth_archived_locked_interaction(self):
+
+        # Check that we can't unlock an archived user
+        async with self.getTestCore() as core:
+            lowuser = await core.addUser('lowuser')
+            useriden = lowuser.get('iden')
+
+            await core.setUserArchived(useriden, True)
+
+            udef = await core.getUserDef(useriden)
+            self.true(udef.get('archived'))
+            self.true(udef.get('locked'))
+
+            # Unlocking an archived user is invalid
+            with self.raises(s_exc.BadArg) as exc:
+                await core.setUserLocked(useriden, False)
+            self.eq(exc.exception.get('mesg'), 'Cannot unlock archived user.')
+            self.eq(exc.exception.get('user'), useriden)
+            self.eq(exc.exception.get('username'), 'lowuser')
+
+        # Check our cell migration that locks archived users
+        async with self.getRegrCore('unlocked-archived-users') as core:
+            for ii in range(10):
+                user = await core.getUserDefByName(f'lowuser{ii:02d}')
+                self.nn(user)
+                self.true(user.get('archived'))
+                self.true(user.get('locked'))
+
+        # Check behavior of upgraded mirrors and non-upgraded leader
+        async with self.getTestAha() as aha:
+
+            with self.getTestDir() as dirn:
+                path00 = s_common.gendir(dirn, 'cell00')
+                path01 = s_common.gendir(dirn, 'cell01')
+
+                with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 177)):
+                    async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=path00) as cell00:
+                        lowuser = await cell00.addUser('lowuser')
+                        useriden = lowuser.get('iden')
+                        await cell00.setUserArchived(useriden, True)
+
+                        with mock.patch('synapse.lib.cell.NEXUS_VERSION', (2, 198)):
+                            async with self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=path01, provinfo={'mirror': 'cell'}) as cell01:
+                                await cell01.sync()
+                                udef = await cell01.getUserDef(useriden)
+                                self.true(udef.get('locked'))
+                                self.true(udef.get('archived'))
+
+                                # Simulate a call to cell00.setUserLocked(useriden, False) to bypass
+                                # the check in cell00.auth.setUserInfo()
+                                await cell00.auth._push('user:info', useriden, 'locked', False)
+                                await cell01.sync()
+
+                                udef00 = await cell00.getUserDef(useriden)
+                                self.true(udef00.get('archived'))
+                                self.false(udef00.get('locked'))
+
+                                udef01 = await cell01.getUserDef(useriden)
+                                self.true(udef01.get('archived'))
+                                self.false(udef01.get('locked'))
+
+        # Check that we don't blowup/schism if an upgraded mirror is behind a leader with a pending
+        # user:info event that unlocks an archived user
+        async with self.getTestAha() as aha:
+
+            with self.getTestDir() as dirn:
+                path00 = s_common.gendir(dirn, 'cell00')
+                path01 = s_common.gendir(dirn, 'cell01')
+
+                async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=path00) as cell00:
+                    lowuser = await cell00.addUser('lowuser')
+                    useriden = lowuser.get('iden')
+                    await cell00.setUserLocked(useriden, True)
+
+                    async with self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=path01, provinfo={'mirror': 'cell'}) as cell01:
+                        await cell01.sync()
+                        udef = await cell01.getUserDef(useriden)
+                        self.true(udef.get('locked'))
+                        self.false(udef.get('archived'))
+
+                    # Set user locked while cell01 is offline so it will get the edit when it comes
+                    # back
+                    await cell00.setUserLocked(useriden, False)
+                    await cell00.sync()
+
+                # Edit the slabs on both cells directly to archive the user
+                lmdb00 = s_common.genpath(path00, 'slabs', 'cell.lmdb')
+                lmdb01 = s_common.genpath(path01, 'slabs', 'cell.lmdb')
+
+                slab00 = await s_lmdbslab.Slab.anit(lmdb00, map_size=s_cell.SLAB_MAP_SIZE)
+                slab01 = await s_lmdbslab.Slab.anit(lmdb01, map_size=s_cell.SLAB_MAP_SIZE)
+
+                # Simulate the cell migration which locks archived users
+                for slab in (slab00, slab01):
+                    authkv = slab.getSafeKeyVal('auth')
+                    userkv = authkv.getSubKeyVal('user:info:')
+
+                    info = userkv.get(useriden)
+                    info['archived'] = True
+                    info['locked'] = True
+                    userkv.set(useriden, info)
+
+                await slab00.fini()
+                await slab01.fini()
+
+                # Spin the cells back up and wait for the edit to sync to cell01
+                async with self.addSvcToAha(aha, '00.cell', s_cell.Cell, dirn=path00) as cell00:
+                    udef = await cell00.getUserDef(useriden)
+                    self.true(udef.get('archived'))
+                    self.true(udef.get('locked'))
+
+                    async with self.addSvcToAha(aha, '01.cell', s_cell.Cell, dirn=path01, provinfo={'mirror': 'cell'}) as cell01:
+                        await cell01.sync()
+                        udef = await cell01.getUserDef(useriden)
+                        self.true(udef.get('archived'))
+                        self.true(udef.get('locked'))
+
+                        self.ge(cell00.nexsvers, (2, 198))
+                        self.ge(cell01.nexsvers, (2, 198))
+
     async def test_auth_password_policy(self):
         policy = {
             'complexity': {
@@ -446,6 +572,21 @@ class AuthTest(s_test.SynTest):
         pass3 = 'ZXN-pyv7ber-kzq2kgh'
 
         conf = {'auth:passwd:policy': policy}
+        async with self.getTestCore(conf=conf) as core:
+
+            user = await core.auth.addUser('blackout@vertex.link')
+
+            self.none(user.info.get('policy:previous'))
+            await user.setPasswd(pass1, nexs=False)
+            await user.setPasswd(pass2, nexs=False)
+            await user.setPasswd(pass3, nexs=False)
+            self.len(2, user.info.get('policy:previous'))
+
+            await user.tryPasswd('newp')
+            self.eq(1, user.info.get('policy:attempts'))
+            await user.setLocked(False, logged=False)
+            self.eq(0, user.info.get('policy:attempts'))
+
         async with self.getTestCore(conf=conf) as core:
             auth = core.auth
             self.nn(auth.policy)
@@ -495,7 +636,7 @@ class AuthTest(s_test.SynTest):
             ])
 
             # Check sequences
-            seqmsg = f'Password must not contain forward/reverse sequences longer than 3 characters.'
+            seqmsg = 'Password must not contain forward/reverse sequences longer than 3 characters.'
             passwords = [
                 # letters
                 'abcA', 'dcbA', 'Abcd', 'Acba',
@@ -531,12 +672,8 @@ class AuthTest(s_test.SynTest):
                 'Password must contain at least 2 digit characters, 0 found.'
             ])
 
-            with self.raises(s_exc.BadArg) as exc:
-                await core.setUserPasswd(user.iden, None)
-            self.isin(
-                'Password must be at least 12 characters.',
-                exc.exception.get('failures')
-            )
+            # Setting password to None should work also
+            await core.setUserPasswd(user.iden, None)
 
             # Attempting to add a user with a bad passwd will add the user and fail to set the password
             with self.raises(s_exc.BadArg):
@@ -581,6 +718,9 @@ class AuthTest(s_test.SynTest):
             await core.setUserPasswd(user.iden, pass1)
             await core.setUserPasswd(user.iden, pass2)
             await core.setUserPasswd(user.iden, pass3)
+
+            # Setting password to None should work also
+            await core.setUserPasswd(user.iden, None)
 
             with self.raises(s_exc.BadArg) as exc:
                 await core.setUserPasswd(user.iden, pass1)
@@ -709,7 +849,7 @@ class AuthTest(s_test.SynTest):
             await core.callStorm('auth.role.addrule ninjas --gate $gate another.rule',
                                  opts={'vars': {'gate': fork}})
 
-            user = await core.auth.getUserByName('lowuser')  # type: s_hiveauth.HiveUser
+            user = await core.auth.getUserByName('lowuser')  # type: s_auth.User
             self.false(user.allowed(('hehe',)))
             self.false(user.allowed(('hehe',), deepdeny=True))
             self.true(user.allowed(('hehe', 'haha')))

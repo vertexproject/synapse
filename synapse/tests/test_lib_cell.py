@@ -784,6 +784,10 @@ class CellTest(s_t_utils.SynTest):
             cell.VERSION = (1, 2, 3)
             cell.VERSTRING = '1.2.3'
 
+            cell.features.update({
+                'testvalu': 2
+            })
+
             http_info = []
             host, port = await cell.addHttpsPort(0)
             http_info.append({'host': host, 'port': port})
@@ -806,6 +810,9 @@ class CellTest(s_t_utils.SynTest):
                 self.none(cnfo.get('mirror', True))
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
+
+                self.eq(info.get('features'), cell.features)
+                self.eq(info.get('features', {}).get('testvalu'), 2)
 
                 # Defaults aha data is
                 self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
@@ -1127,8 +1134,18 @@ class CellTest(s_t_utils.SynTest):
                 await proxy.addUserRole(visi['iden'], ninjas['iden'])
                 await proxy.setUserEmail(visi['iden'], 'visi@vertex.link')
 
+                def1 = await core.getUserDef(visi['iden'])
+                def2 = await core.getUserDef(visi['iden'])
+                self.false(def1['authgates'] is def2['authgates'])
+                self.eq(def1, def2)
+
                 visi = await proxy.getUserDefByName('visi')
                 self.eq(visi['email'], 'visi@vertex.link')
+
+                def1 = await core.getRoleDef(ninjas['iden'])
+                def2 = await core.getRoleDef(ninjas['iden'])
+                self.false(def1['authgates'] is def2['authgates'])
+                self.eq(def1, def2)
 
                 self.true(await proxy.isUserAllowed(visi['iden'], ('foo', 'bar')))
                 self.true(await proxy.isUserAllowed(visi['iden'], ('hehe', 'haha')))
@@ -3284,6 +3301,51 @@ class CellTest(s_t_utils.SynTest):
                         await cell00.promote(graceful=True)
                     self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
 
+    async def test_cell_get_aha_proxy(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+
+            class MockAhaClient:
+                def __init__(self, proxy=None):
+                    self._proxy = proxy
+
+                async def proxy(self, timeout=None):
+                    return self._proxy
+
+            with self.getAsyncLoggerStream('synapse.lib.cell', 'AHA client connection failed.') as stream:
+                cell.ahaclient = MockAhaClient()
+                self.none(await cell.getAhaProxy())
+                self.true(await stream.wait(timeout=1))
+
+            class MockProxyHasNot:
+                def _hasTeleFeat(self, name, vers):
+                    return False
+
+            cell.ahaclient = MockAhaClient(proxy=MockProxyHasNot())
+            self.none(await cell.getAhaProxy(feats=(('test', 1),)))
+
+            class MockProxyHas:
+                def _hasTeleFeat(self, name, vers):
+                    return True
+
+            mock_proxy = MockProxyHas()
+            cell.ahaclient = MockAhaClient(proxy=mock_proxy)
+            self.eq(await cell.getAhaProxy(), mock_proxy)
+            self.eq(await cell.getAhaProxy(feats=(('test', 1),)), mock_proxy)
+
+    async def test_lib_cell_sadaha(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
+
+            # coverage for failure of aha client to connect
+            with self.raises(TimeoutError):
+                self.none(await cell.getAhaProxy(timeout=0.1))
+
     async def test_stream_backup_exception(self):
 
         with self.getTestDir() as dirn:
@@ -3346,3 +3408,55 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BackupAlreadyRunning):
                         async for _ in proxy.iterNewBackupArchive('newbackup', remove=True):
                             pass
+
+    async def test_cell_peer_noaha(self):
+
+        todo = s_common.todo('newp')
+        async with self.getTestCell() as cell:
+            async for item in cell.callPeerApi(todo):
+                pass
+            async for item in cell.callPeerGenr(todo):
+                pass
+
+    async def test_cell_task_apis(self):
+        async with self.getTestAha() as aha:
+
+            # test some of the gather API implementations...
+            purl00 = await aha.addAhaSvcProv('00.cell')
+            purl01 = await aha.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'})
+
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+
+            await cell01.sync()
+
+            async def sleep99(cell):
+                await cell.boss.promote('sleep99', cell.auth.rootuser)
+                await cell00.fire('sleep99')
+                await asyncio.sleep(99)
+
+            async with cell00.waiter(2, 'sleep99', timeout=6):
+                task00 = cell00.schedCoro(sleep99(cell00))
+                task01 = cell01.schedCoro(sleep99(cell01))
+
+            tasks = [task async for task in cell00.getTasks(timeout=6)]
+
+            self.len(2, tasks)
+            self.eq(tasks[0]['service'], '00.cell.synapse')
+            self.eq(tasks[1]['service'], '01.cell.synapse')
+            self.eq(('sleep99', 'sleep99'), [task.get('name') for task in tasks])
+            self.eq(('root', 'root'), [task.get('username') for task in tasks])
+
+            self.eq(tasks[0], await cell00.getTask(tasks[0].get('iden')))
+            self.eq(tasks[1], await cell00.getTask(tasks[1].get('iden')))
+            self.none(await cell00.getTask(tasks[1].get('iden'), peers=False))
+
+            self.true(await cell00.killTask(tasks[0].get('iden')))
+
+            task01 = tasks[1].get('iden')
+            self.false(await cell00.killTask(task01, peers=False))
+
+            self.true(await cell00.killTask(task01))
+
+            self.none(await cell00.getTask(task01))
+            self.false(await cell00.killTask(task01))

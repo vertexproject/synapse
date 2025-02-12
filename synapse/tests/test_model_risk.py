@@ -111,12 +111,14 @@ class RiskModelTest(s_t_utils.SynTest):
                 :cvss:v3 ?= "newp3.1"
                 :priority=high
                 :severity=high
+                :tag=cno.vuln.woot
             ]''')
 
             self.none(node.get('cvss:v2'))
             self.none(node.get('cvss:v3'))
             self.eq(40, node.get('severity'))
             self.eq(40, node.get('priority'))
+            self.eq('cno.vuln.woot', node.get('tag'))
 
             with self.raises(s_exc.BadTypeValu):
                 node = await addNode(f'''[
@@ -253,6 +255,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:attack :target -> ps:contact'))
             self.len(1, await core.nodes('risk:attack :attacker -> ps:contact'))
 
+            self.len(1, nodes := await core.nodes('[ risk:vuln=({"name": "hehe"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
+
             node = await addNode(f'''[
                 risk:hasvuln={hasv}
                 :vuln={vuln}
@@ -294,6 +299,9 @@ class RiskModelTest(s_t_utils.SynTest):
                     :host=*
                     :priority=high
                     :severity=highest
+                    :service:platform=*
+                    :service:instance=*
+                    :service:account=*
                 ]
             ''')
             self.len(1, nodes)
@@ -313,6 +321,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
             self.len(1, await core.nodes('risk:alert :engine -> it:prod:softver'))
+            self.len(1, await core.nodes('risk:alert :service:account -> inet:service:account'))
+            self.len(1, await core.nodes('risk:alert :service:platform -> inet:service:platform'))
+            self.len(1, await core.nodes('risk:alert :service:instance -> inet:service:instance'))
 
             nodes = await core.nodes('''[
                     risk:compromise=*
@@ -399,6 +410,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
+            node = nodes[0]
             self.eq('vtx-apt1', nodes[0].get('name'))
             self.eq('VTX-APT1', nodes[0].get('desc'))
             self.eq(40, nodes[0].get('activity'))
@@ -423,6 +435,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, nodes[0].get('techniques'))
             self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
             self.len(1, await core.nodes('risk:threat -> it:mitre:attack:group'))
+
+            self.len(1, nodes := await core.nodes('[ risk:threat=({"org:name": "comment crew"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''[ risk:leak=*
                 :name="WikiLeaks ACME      Leak"
@@ -618,6 +633,7 @@ class RiskModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
+            node = nodes[0]
             self.nn(nodes[0].get('soft'))
 
             self.nn(nodes[0].get('reporter'))
@@ -639,6 +655,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:tool:software -> ou:technique'))
             self.len(1, await core.nodes('risk:tool:software -> syn:tag'))
             self.len(1, await core.nodes('risk:tool:software -> it:mitre:attack:software'))
+
+            self.len(1, nodes := await core.nodes('[ risk:tool:software=({"soft:name": "beacon"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''
                 [ risk:vuln:soft:range=*

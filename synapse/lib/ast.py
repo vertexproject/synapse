@@ -28,6 +28,16 @@ import synapse.lib.stormtypes as s_stormtypes
 
 from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmprvalu, undef
 
+SET_ALWAYS = 0
+SET_UNSET = 1
+SET_NEVER = 2
+
+COND_EDIT_SET = {
+    'always': SET_ALWAYS,
+    'unset': SET_UNSET,
+    'never': SET_NEVER,
+}
+
 logger = logging.getLogger(__name__)
 
 def parseNumber(x):
@@ -52,7 +62,7 @@ class AstNode:
 
     def getPosInfo(self):
         return {
-            'hash': hashlib.md5(self.astinfo.text.encode(), usedforsecurity=False).hexdigest(),
+            'hash': s_common.queryhash(self.astinfo.text),
             'lines': (self.astinfo.sline, self.astinfo.eline),
             'columns': (self.astinfo.scol, self.astinfo.ecol),
             'offsets': (self.astinfo.soff, self.astinfo.eoff),
@@ -60,7 +70,7 @@ class AstNode:
 
     def addExcInfo(self, exc):
         if 'highlight' not in exc.errinfo:
-            exc.errinfo['highlight'] = self.getPosInfo()
+            exc.set('highlight', self.getPosInfo())
         return exc
 
     def repr(self):
@@ -124,27 +134,27 @@ class AstNode:
         pass
 
     def hasAstClass(self, clss):
-        hasast = self.hasast.get(clss)
-        if hasast is not None:
+        if (hasast := self.hasast.get(clss)) is not None:
             return hasast
 
-        retn = False
+        retn = self._hasAstClass(clss)
+        self.hasast[clss] = retn
+        return retn
+
+    def _hasAstClass(self, clss):
 
         for kid in self.kids:
 
             if isinstance(kid, clss):
-                retn = True
-                break
+                return True
 
-            if isinstance(kid, (EditPropSet, Function, CmdOper)):
+            if isinstance(kid, (Edit, Function, CmdOper, SetVarOper, SetItemOper, VarListSetOper, Value, N1Walk, LiftOper)):
                 continue
 
             if kid.hasAstClass(clss):
-                retn = True
-                break
+                return True
 
-        self.hasast[clss] = retn
-        return retn
+        return False
 
     def optimize(self):
         [k.optimize() for k in self.kids]
@@ -178,6 +188,12 @@ class AstNode:
                 continue
 
             todo.extend(nkid.kids)
+
+    def reqNotReadOnly(self, runt, mesg=None):
+        if runt.readonly:
+            if mesg is None:
+                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
+            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
     def hasVarName(self, name):
         return any(k.hasVarName(name) for k in self.kids)
@@ -238,9 +254,8 @@ class Lookup(Query):
 
     async def run(self, runt, genr):
 
-        if runt.readonly and self.autoadd:
-            mesg = 'Autoadd may not be executed in readonly Storm runtime.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        if self.autoadd:
+            self.reqNotReadOnly(runt)
 
         async def getnode(form, valu):
             try:
@@ -915,6 +930,9 @@ class TryCatch(AstNode):
 
 class CatchBlock(AstNode):
 
+    def _hasAstClass(self, clss):
+        return self.kids[1].hasAstClass(clss)
+
     async def run(self, runt, genr):
         async for item in self.kids[2].run(runt, genr):
             yield item
@@ -947,6 +965,9 @@ class CatchBlock(AstNode):
         raise self.kids[0].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=etyp))
 
 class ForLoop(Oper):
+
+    def _hasAstClass(self, clss):
+        return self.kids[2].hasAstClass(clss)
 
     def getRuntVars(self, runt):
 
@@ -983,6 +1004,14 @@ class ForLoop(Oper):
                 valu = ()
 
             async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+
+                try:
+                    agen, _ = await pullone(agen)
+                except TypeError:
+                    styp = await s_stormtypes.totype(valu, basetypes=True)
+                    mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
+                    raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
+
                 async for item in agen:
 
                     if isinstance(name, (list, tuple)):
@@ -1020,13 +1049,13 @@ class ForLoop(Oper):
                             yield item
 
                     except s_stormctrl.StormBreak as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         break
 
                     except s_stormctrl.StormContinue as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         continue
 
                     finally:
@@ -1049,6 +1078,13 @@ class ForLoop(Oper):
                 valu = ()
 
             async with contextlib.aclosing(s_coro.agen(valu)) as agen:
+                try:
+                    agen, _ = await pullone(agen)
+                except TypeError:
+                    styp = await s_stormtypes.totype(valu, basetypes=True)
+                    mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
+                    raise self.kids[1].addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
+
                 async for item in agen:
 
                     if isinstance(name, (list, tuple)):
@@ -1079,13 +1115,13 @@ class ForLoop(Oper):
                             yield jtem
 
                     except s_stormctrl.StormBreak as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         break
 
                     except s_stormctrl.StormContinue as e:
-                        if e.item is not None:
-                            yield e.item
+                        if (eitem := e.get('item')) is not None:
+                            yield eitem
                         continue
 
                     finally:
@@ -1093,6 +1129,9 @@ class ForLoop(Oper):
                         await asyncio.sleep(0)
 
 class WhileLoop(Oper):
+
+    def _hasAstClass(self, clss):
+        return self.kids[1].hasAstClass(clss)
 
     async def run(self, runt, genr):
         subq = self.kids[1]
@@ -1109,13 +1148,13 @@ class WhileLoop(Oper):
                         await asyncio.sleep(0)
 
                 except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     break
 
                 except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     continue
 
                 finally:
@@ -1133,13 +1172,13 @@ class WhileLoop(Oper):
                         await asyncio.sleep(0)
 
                 except s_stormctrl.StormBreak as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     break
 
                 except s_stormctrl.StormContinue as e:
-                    if e.item is not None:
-                        yield e.item
+                    if (eitem := e.get('item')) is not None:
+                        yield eitem
                     continue
 
                 finally:
@@ -1147,20 +1186,21 @@ class WhileLoop(Oper):
                     await asyncio.sleep(0)
 
 async def pullone(genr):
-    gotone = None
-    async for gotone in genr:
-        break
+    empty = False
+    try:
+        gotone = await genr.__anext__()
+    except StopAsyncIteration:
+        empty = True
 
     async def pullgenr():
-
-        if gotone is None:
+        if empty:
             return
 
         yield gotone
         async for item in genr:
             yield item
 
-    return pullgenr(), gotone is None
+    return pullgenr(), empty
 
 class CmdOper(Oper):
 
@@ -1269,15 +1309,17 @@ class SetItemOper(Oper):
             item = s_stormtypes.fromprim(await self.kids[0].compute(runt, path), basetypes=False)
 
             if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
-                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-                raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+                self.kids[0].reqNotReadOnly(runt)
 
             name = await self.kids[1].compute(runt, path)
             valu = await self.kids[2].compute(runt, path)
 
             # TODO: ditch this when storm goes full heavy object
             with s_scope.enter({'runt': runt}):
-                await item.setitem(name, valu)
+                try:
+                    await item.setitem(name, valu)
+                except s_exc.SynErr as e:
+                    raise self.kids[0].addExcInfo(e)
 
             yield node, path
 
@@ -1289,12 +1331,14 @@ class SetItemOper(Oper):
             valu = await self.kids[2].compute(runt, None)
 
             if runt.readonly and not getattr(item.setitem, '_storm_readonly', False):
-                mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-                raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+                self.kids[0].reqNotReadOnly(runt)
 
             # TODO: ditch this when storm goes full heavy object
             with s_scope.enter({'runt': runt}):
-                await item.setitem(name, valu)
+                try:
+                    await item.setitem(name, valu)
+                except s_exc.SynErr as e:
+                    raise self.kids[0].addExcInfo(e)
 
 class VarListSetOper(Oper):
 
@@ -1365,6 +1409,14 @@ class VarEvalOper(Oper):
                     await asyncio.sleep(0)
 
 class SwitchCase(Oper):
+
+    def _hasAstClass(self, clss):
+
+        for kid in self.kids[1:]:
+            if kid.hasAstClass(clss):
+                return True
+
+        return False
 
     def prepare(self):
         self.cases = {}
@@ -3572,7 +3624,8 @@ class FuncCall(Value):
             raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
         if runt.readonly and not getattr(func, '_storm_readonly', False):
-            mesg = f'Function ({func.__name__}) is not marked readonly safe.'
+            funcname = getattr(func, '_storm_funcpath', func.__name__)
+            mesg = f'{funcname}() is not marked readonly safe.'
             raise self.kids[0].addExcInfo(s_exc.IsReadOnly(mesg=mesg))
 
         argv = await self.kids[1].compute(runt, path)
@@ -3998,9 +4051,7 @@ class EditParens(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         nodeadd = self.kids[0]
         assert isinstance(nodeadd, EditNodeAdd)
@@ -4093,9 +4144,7 @@ class EditNodeAdd(Edit):
         # case 2: <query> [ foo:bar=($node, 20) ]
         # case 2: <query> $blah=:baz [ foo:bar=($blah, 20) ]
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         runtsafe = self.isRuntSafe(runt)
 
@@ -4103,7 +4152,6 @@ class EditNodeAdd(Edit):
 
             if not runtsafe:
 
-                first = True
                 async for node, path in genr:
 
                     # must reach back first to trigger sudo / etc
@@ -4161,13 +4209,79 @@ class EditNodeAdd(Edit):
             async for item in agen:
                 yield item
 
+class CondSetOper(Oper):
+    def __init__(self, astinfo, kids, errok=False):
+        Value.__init__(self, astinfo, kids=kids)
+        self.errok = errok
+
+    def prepare(self):
+        self.isconst = False
+        if isinstance(self.kids[0], Const):
+            self.isconst = True
+            self.valu = COND_EDIT_SET.get(self.kids[0].value())
+
+    async def compute(self, runt, path):
+        if self.isconst:
+            return self.valu
+
+        valu = await self.kids[0].compute(runt, path)
+        if (retn := COND_EDIT_SET.get(valu)) is not None:
+            return retn
+
+        mesg = f'Invalid conditional set operator ({valu}).'
+        exc = s_exc.StormRuntimeError(mesg=mesg)
+        raise self.addExcInfo(exc)
+
+class EditCondPropSet(Edit):
+
+    async def run(self, runt, genr):
+
+        self.reqNotReadOnly(runt)
+
+        excignore = (s_exc.BadTypeValu,) if self.kids[1].errok else ()
+        rval = self.kids[2]
+
+        async for node, path in genr:
+
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
+
+            prop = node.form.reqProp(name, extra=self.kids[0].addExcInfo)
+
+            oper = await self.kids[1].compute(runt, path)
+            if oper == SET_NEVER or (oper == SET_UNSET and (oldv := node.get(name)) is not None):
+                yield node, path
+                await asyncio.sleep(0)
+                continue
+
+            if not node.form.isrunt:
+                # runt node property permissions are enforced by the callback
+                runt.confirmPropSet(prop)
+
+            isndef = isinstance(prop.type, s_types.Ndef)
+
+            try:
+                valu = await rval.compute(runt, path)
+                valu = await s_stormtypes.tostor(valu, isndef=isndef)
+
+                if isinstance(prop.type, s_types.Ival) and oldv is not None:
+                    valu, _ = prop.type.norm(valu)
+                    valu = prop.type.merge(oldv, valu)
+
+                await node.set(name, valu)
+
+            except excignore:
+                pass
+
+            yield node, path
+
+            await asyncio.sleep(0)
+
 class EditPropSet(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         oper = await self.kids[1].compute(runt, None)
         excignore = (s_exc.BadTypeValu,) if oper in ('?=', '?+=', '?-=') else ()
@@ -4212,7 +4326,7 @@ class EditPropSet(Edit):
 
                     if not isarray:
                         mesg = f'Property set using ({oper}) is only valid on arrays.'
-                        exc = s_exc.StormRuntimeError(mesg)
+                        exc = s_exc.StormRuntimeError(mesg=mesg)
                         raise self.kids[0].addExcInfo(exc)
 
                     arry = node.get(name)
@@ -4260,9 +4374,7 @@ class EditPropDel(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         async for node, path in genr:
             propname = await self.kids[0].compute(runt, path)
@@ -4288,9 +4400,7 @@ class EditUnivDel(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         univprop = self.kids[0]
         assert isinstance(univprop, UnivProp)
@@ -4466,9 +4576,7 @@ class EditEdgeAdd(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         # SubQuery -> Query
         query = self.kids[1].kids[0]
@@ -4531,9 +4639,7 @@ class EditEdgeDel(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         query = self.kids[1].kids[0]
 
@@ -4589,9 +4695,7 @@ class EditTagAdd(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         if len(self.kids) > 1 and isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
             oper_offset = 1
@@ -4635,9 +4739,7 @@ class EditTagDel(Edit):
 
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         async for node, path in genr:
 
@@ -4661,9 +4763,7 @@ class EditTagPropSet(Edit):
     '''
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         oper = await self.kids[1].compute(runt, None)
         excignore = s_exc.BadTypeValu if oper == '?=' else ()
@@ -4697,9 +4797,7 @@ class EditTagPropDel(Edit):
     '''
     async def run(self, runt, genr):
 
-        if runt.readonly:
-            mesg = 'Storm runtime is in readonly mode, cannot create or edit nodes and other graph data.'
-            raise self.addExcInfo(s_exc.IsReadOnly(mesg=mesg))
+        self.reqNotReadOnly(runt)
 
         async for node, path in genr:
 
@@ -4724,9 +4822,9 @@ class BreakOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise s_stormctrl.StormBreak(item=(node, path))
+            raise self.addExcInfo(s_stormctrl.StormBreak(item=(node, path)))
 
-        raise s_stormctrl.StormBreak()
+        raise self.addExcInfo(s_stormctrl.StormBreak())
 
 class ContinueOper(AstNode):
 
@@ -4737,14 +4835,30 @@ class ContinueOper(AstNode):
             yield _
 
         async for node, path in genr:
-            raise s_stormctrl.StormContinue(item=(node, path))
+            raise self.addExcInfo(s_stormctrl.StormContinue(item=(node, path)))
 
-        raise s_stormctrl.StormContinue()
+        raise self.addExcInfo(s_stormctrl.StormContinue())
 
 class IfClause(AstNode):
     pass
 
 class IfStmt(Oper):
+
+    def _hasAstClass(self, clss):
+
+        clauses = self.kids
+
+        if not isinstance(clauses[-1], IfClause):
+            if clauses[-1].hasAstClass(clss):
+                return True
+
+            clauses = clauses[:-1]
+
+        for clause in clauses:
+            if clause.kids[1].hasAstClass(clss):
+                return True
+
+        return False
 
     def prepare(self):
         if isinstance(self.kids[-1], IfClause):
@@ -4830,20 +4944,26 @@ class Emit(Oper):
         count = 0
         async for node, path in genr:
             count += 1
-            await runt.emit(await self.kids[0].compute(runt, path))
+            try:
+                await runt.emit(await self.kids[0].compute(runt, path))
+            except s_exc.StormRuntimeError as e:
+                raise self.addExcInfo(e)
             yield node, path
 
         # no items in pipeline and runtsafe. execute once.
         if count == 0 and self.isRuntSafe(runt):
-            await runt.emit(await self.kids[0].compute(runt, None))
+            try:
+                await runt.emit(await self.kids[0].compute(runt, None))
+            except s_exc.StormRuntimeError as e:
+                raise self.addExcInfo(e)
 
 class Stop(Oper):
 
     async def run(self, runt, genr):
         for _ in (): yield _
         async for node, path in genr:
-            raise s_stormctrl.StormStop()
-        raise s_stormctrl.StormStop()
+            raise self.addExcInfo(s_stormctrl.StormStop())
+        raise self.addExcInfo(s_stormctrl.StormStop())
 
 class FuncArgs(AstNode):
     '''
@@ -4987,9 +5107,16 @@ class Function(AstNode):
                         await asyncio.sleep(0)
 
                     return None
-
                 except s_stormctrl.StormReturn as e:
                     return e.item
+                except s_stormctrl.StormLoopCtrl as e:
+                    mesg = f'function {self.name} - Loop control statement "{e.statement}" used outside of a loop.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e.statement)) from e
+                except s_stormctrl.StormGenrCtrl as e:
+                    mesg = f'function {self.name} - Generator control statement "{e.statement}" used outside of a generator function.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e.statement)) from e
 
         async def genr():
             async with runt.getSubRuntime(self.kids[2], opts=opts) as subr:
@@ -5009,5 +5136,9 @@ class Function(AstNode):
                                 yield node, path
                 except s_stormctrl.StormStop:
                     return
+                except s_stormctrl.StormLoopCtrl as e:
+                    mesg = f'function {self.name} - Loop control statement "{e.statement}" used outside of a loop.'
+                    raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, function=self.name,
+                                                                  statement=e.statement)) from e
 
         return genr()

@@ -89,7 +89,7 @@ class MacroTest(s_test.SynTest):
             name = 'v' * 491
             q = '$lib.macro.set($name, ${ help }) return ( $lib.macro.get($name) )'
             mdef = await core.callStorm(q, opts={'vars': {'name': name}})
-            self.eq(mdef.get('storm'), 'help')
+            self.eq(mdef.get('storm'), ' help ')
 
             badname = 'v' * 492
             with self.raises(s_exc.BadArg):
@@ -381,7 +381,7 @@ class MacroTest(s_test.SynTest):
                     self.eq('storm:macro:add', addmesg['data']['event'])
                     macro = addmesg['data']['info']['macro']
                     self.eq(macro['name'], 'foobar')
-                    self.eq(macro['storm'], 'file:bytes | [+#neato]')
+                    self.eq(macro['storm'], ' file:bytes | [+#neato] ')
                     self.ne(visi.iden, macro['user'])
                     self.ne(visi.iden, macro['creator'])
                     self.nn(macro['iden'])
@@ -390,7 +390,7 @@ class MacroTest(s_test.SynTest):
                     self.eq('storm:macro:mod', setmesg['data']['event'])
                     event = setmesg['data']['info']
                     self.nn(event['macro'])
-                    self.eq(event['info']['storm'], 'inet:ipv4 | [+#burrito]')
+                    self.eq(event['info']['storm'], ' inet:ipv4 | [+#burrito] ')
                     self.nn(event['info']['updated'])
 
                     modmesg = await sock.receive_json()

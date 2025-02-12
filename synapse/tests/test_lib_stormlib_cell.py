@@ -13,6 +13,9 @@ class StormCellTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
+            ret = await core.callStorm('return ( $lib.cell.iden )')
+            self.eq(ret, core.getCellIden())
+
             ret = await core.callStorm('return ( $lib.cell.getCellInfo() )')
             self.eq(ret, await core.getCellInfo())
 

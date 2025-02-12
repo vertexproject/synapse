@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import types
 import asyncio
 import logging
@@ -318,7 +319,7 @@ class ProtoNode:
 
         if prop.locked:
             mesg = f'Tagprop {name} is locked.'
-            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=name)
 
         try:
             norm, info = prop.type.norm(valu)
@@ -348,24 +349,24 @@ class ProtoNode:
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
-            await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
             return False
 
         if isinstance(prop.type, s_types.Array):
             arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
                 return False
 
         if norminfo is None:
             try:
                 valu, norminfo = prop.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                oldm = e.errinfo.get('mesg')
-                e.errinfo['prop'] = prop.name
-                e.errinfo['form'] = prop.form.name
-                e.errinfo['mesg'] = f'Bad prop value {prop.full}={valu!r} : {oldm}'
+                oldm = e.get('mesg')
+                e.update({'prop': prop.name,
+                          'form': prop.form.name,
+                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 if self.ctx.snap.strict:
                     raise e
                 await self.ctx.snap.warn(e)
@@ -375,7 +376,7 @@ class ProtoNode:
             ndefform = self.ctx.snap.core.model.form(valu[0])
             if ndefform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
                 return False
 
         curv = self.get(prop.name)
@@ -414,7 +415,8 @@ class ProtoNode:
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
+                subprop = self.form.props.get(full)
+                if subprop is not None and not subprop.locked:
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
@@ -445,7 +447,8 @@ class ProtoNode:
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
+                subprop = self.form.props.get(full)
+                if subprop is not None and not subprop.locked:
                     ops.append(self.getSetOps(full, subvalu))
 
         propadds = norminfo.get('adds')
@@ -487,13 +490,13 @@ class SnapEditor:
 
         if form.locked:
             mesg = f'Form {form.full} is locked due to deprecation for valu={valu}.'
-            return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=form.full)
 
         if norminfo is None:
             try:
                 valu, norminfo = form.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                e.errinfo['form'] = form.name
+                e.set('form', form.name)
                 if self.snap.strict: raise e
                 await self.snap.warn(f'addNode() BadTypeValu {form.name}={valu} {e}')
                 return None
@@ -1404,25 +1407,54 @@ class Snap(s_base.Base):
 
         trycast = vals.pop('$try', False)
         addprops = vals.pop('$props', None)
-        if addprops is not None:
-            props.update(addprops)
 
-        try:
-            for name, valu in list(props.items()):
+        if not vals:
+            mesg = f'No values provided for form {form.full}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        for name, valu in list(props.items()):
+            try:
                 props[name] = form.reqProp(name).type.norm(valu)
+            except s_exc.BadTypeValu as e:
+                mesg = e.get('mesg')
+                e.update({
+                    'prop': name,
+                    'form': form.name,
+                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                })
+                raise e
 
-            for name, valu in vals.items():
+        if addprops is not None:
+            for name, valu in addprops.items():
+                try:
+                    props[name] = form.reqProp(name).type.norm(valu)
+                except s_exc.BadTypeValu as e:
+                    mesg = e.get("mesg")
+                    if not trycast:
+                        e.update({
+                            'prop': name,
+                            'form': form.name,
+                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}'
+                        })
+                        raise e
+                    await self.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
+        for name, valu in vals.items():
+
+            try:
                 prop = form.reqProp(name)
                 norm, norminfo = prop.type.norm(valu)
 
                 norms[name] = (prop, norm, norminfo)
                 proplist.append((name, norm))
-        except s_exc.BadTypeValu as e:
-            if not trycast: raise
-            mesg = e.errinfo.get('mesg')
-            await self.warn(f'Bad value for prop {name}: {mesg}')
-            return
+            except s_exc.BadTypeValu as e:
+                mesg = e.get('mesg')
+                e.update({
+                    'prop': name,
+                    'form': form.name,
+                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                })
+                raise e
 
         proplist.sort()
 
@@ -1586,6 +1618,10 @@ class Snap(s_base.Base):
         return tagnode
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
+        if __debug__:
+            if issubclass(ctor, s_exc.IsDeprLocked):
+                sys.audit('synapse.exc.IsDeprLocked', (mesg, info))
+
         if self.strict:
             raise ctor(mesg=mesg, **info)
         await self.warn(mesg)

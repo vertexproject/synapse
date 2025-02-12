@@ -38,10 +38,5 @@ commands:
           help: Specify a timeout in seconds.
     cmdconf:
       srcguid: f751f9ad20e75547be230ae1a425fb9f
-    forms:
-      input:
-        - inet:ipv4
-      output:
-        - inet:ipv4
-      nodedata:
-        - [ foodata, file:bytes ]
+    cmdinputs:
+      - form: inet:ipv4

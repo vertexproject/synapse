@@ -23,7 +23,15 @@ class SynUser(s_types.Guid):
             if user is not None:
                 return user.iden, {}
 
-        return s_types.Guid._normPyStr(self, text)
+        if text == '*':
+            mesg = f'{self.name} values must be a valid username or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No user named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
     def repr(self, iden):
 
@@ -51,7 +59,15 @@ class SynRole(s_types.Guid):
             if role is not None:
                 return role.iden, {}
 
-        return s_types.Guid._normPyStr(self, text)
+        if text == '*':
+            mesg = f'{self.name} values must be a valid rolename or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No role named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
     def repr(self, iden):
 
@@ -341,10 +357,13 @@ class SynModule(s_module.CoreModule):
                     ('svciden', ('guid', {'strip': True}), {
                         'doc': 'Storm service iden which provided the package.'}),
                     ('input', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
                         'doc': 'The list of forms accepted by the command as input.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('output', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
                         'doc': 'The list of forms produced by the command as output.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('nodedata', ('array', {'type': 'syn:nodedata'}), {
+                        'deprecated': True,
                         'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
                 )),
             ),
