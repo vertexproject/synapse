@@ -1,9 +1,9 @@
-import json
 import hashlib
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.scrape as s_scrape
 
@@ -1954,7 +1954,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             # Test 2.2->2.3 and 2.3->2.2 conversions
             filename = s_t_files.getAssetPath('cpedata.json')
             with open(filename, 'r') as fp:
-                cpedata = json.load(fp)
+                cpedata = s_json.load(fp)
 
             for (_cpe22, _cpe23) in cpedata:
                 # Convert cpe22 -> cpe23

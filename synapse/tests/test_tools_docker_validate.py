@@ -1,10 +1,12 @@
 import base64
-import json
+
 import unittest.mock as mock
 
 import cryptography.hazmat.primitives.serialization as c_serialization
 
+import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
+
 import synapse.tests.utils as s_t_utils
 import synapse.tools.docker.validate as s_t_d_validate
 
@@ -48,7 +50,7 @@ class TestDockerValidate(s_t_utils.SynTest):
             # getCosignSignature
             outp = self.getTestOutp()
             with mock.patch('subprocess.run') as patch:
-                test_stdout = json.dumps(test_resp).encode()
+                test_stdout = s_json.dumps(test_resp, asbytes=True)
                 mock_stdout = mock.MagicMock(stdout=test_stdout)
                 patch.return_value = mock_stdout
                 ret = s_t_d_validate.getCosignSignature(outp, 'hehe/haha:tag')

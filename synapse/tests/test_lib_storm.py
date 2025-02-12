@@ -1,5 +1,4 @@
 import copy
-import json
 import asyncio
 import datetime
 import itertools
@@ -13,6 +12,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -2354,7 +2354,7 @@ class StormTest(s_t_utils.SynTest):
             async for bytz in core.axon.get(s_common.uhex(sha)):
                 buf += bytz
 
-            resp = json.loads(buf.decode('utf8'))
+            resp = s_json.loads(buf)
             return resp
 
         async with self.getTestCore() as core:

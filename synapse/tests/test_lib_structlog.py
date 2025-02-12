@@ -1,9 +1,10 @@
 import io
-import json
 import time
 import logging
 
 import synapse.common as s_common
+
+import synapse.lib.json as s_json
 import synapse.lib.structlog as s_structlog
 
 import synapse.tests.utils as s_test
@@ -46,7 +47,7 @@ class StructLogTest(s_test.SynTest):
 
         # There is a trailing \n on the stream
         raw_mesgs = [m for m in data.split('\n') if m]
-        mesgs = [json.loads(m) for m in raw_mesgs]
+        mesgs = [s_json.loads(m) for m in raw_mesgs]
         self.len(5, mesgs)
 
         mesg = mesgs[0]
@@ -103,7 +104,7 @@ class StructLogTest(s_test.SynTest):
 
         # There is a trailing \n on the stream
         raw_mesgs = [m for m in data.split('\n') if m]
-        mesgs = [json.loads(m) for m in raw_mesgs]
+        mesgs = [s_json.loads(m) for m in raw_mesgs]
         self.len(1, mesgs)
         ptime = time.strptime(mesgs[0].get('time'), datefmt)
         self.eq(now.tm_year, ptime.tm_year)

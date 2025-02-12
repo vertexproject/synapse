@@ -1,5 +1,4 @@
 import ssl
-import json
 
 import aiohttp
 import aiohttp.client_exceptions as a_exc
@@ -8,6 +7,7 @@ import synapse.common as s_common
 import synapse.tools.backup as s_backup
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.link as s_link
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.version as s_version
@@ -671,7 +671,7 @@ class HttpApiTest(s_tests.SynTest):
                         if not byts:
                             break
 
-                        podes.append(json.loads(byts))
+                        podes.append(s_json.loads(byts))
 
                 self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
 
@@ -685,7 +685,7 @@ class HttpApiTest(s_tests.SynTest):
                         if not byts:
                             break
 
-                        msgs.append(json.loads(byts))
+                        msgs.append(s_json.loads(byts))
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.eq(podes[0][0], ('inet:ipv4', 0x05050505))
 
@@ -1322,7 +1322,7 @@ class HttpApiTest(s_tests.SynTest):
                         if not byts:
                             break
 
-                        mesg = json.loads(byts)
+                        mesg = s_json.loads(byts)
 
                         if mesg[0] == 'node':
                             node = mesg[1]
@@ -1337,7 +1337,7 @@ class HttpApiTest(s_tests.SynTest):
                         if not byts:
                             break
 
-                        mesg = json.loads(byts)
+                        mesg = s_json.loads(byts)
 
                         if mesg[0] == 'node':
                             node = mesg[1]
@@ -1354,7 +1354,7 @@ class HttpApiTest(s_tests.SynTest):
                         if not byts:
                             break
 
-                        node = json.loads(byts)
+                        node = s_json.loads(byts)
 
                     self.eq(0x01020304, node[0][1])
 
@@ -1365,7 +1365,7 @@ class HttpApiTest(s_tests.SynTest):
                         if not byts:
                             break
 
-                        node = json.loads(byts)
+                        node = s_json.loads(byts)
 
                     self.eq(0x01020304, node[0][1])
 
@@ -1385,8 +1385,8 @@ class HttpApiTest(s_tests.SynTest):
                                 break
 
                             try:
-                                node = json.loads(byts)
-                            except json.JSONDecodeError:
+                                node = s_json.loads(byts)
+                            except s_exc.BadJsonText:
                                 bufr = jstr
                                 break
 
@@ -1407,8 +1407,8 @@ class HttpApiTest(s_tests.SynTest):
                                 break
 
                             try:
-                                mesg = json.loads(byts)
-                            except json.JSONDecodeError:
+                                mesg = s_json.loads(byts)
+                            except s_exc.BadJsonText:
                                 bufr = jstr
                                 break
 
@@ -1427,7 +1427,7 @@ class HttpApiTest(s_tests.SynTest):
                         if not byts:
                             break
 
-                        mesg = json.loads(byts)
+                        mesg = s_json.loads(byts)
                         if mesg[0] == 'node':
                             task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
                             self.eq(core.view.iden, task.info.get('view'))
@@ -1445,7 +1445,7 @@ class HttpApiTest(s_tests.SynTest):
                         if not byts:
                             break
 
-                        mesg = json.loads(byts)
+                        mesg = s_json.loads(byts)
                         self.len(2, mesg)  # Is if roughly shaped like a node?
                         task = core.boss.tasks.get(list(core.boss.tasks.keys())[0])
                         break

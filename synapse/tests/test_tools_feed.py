@@ -1,4 +1,3 @@
-import json
 import hashlib
 
 from unittest import mock
@@ -6,6 +5,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.feed as s_feed
@@ -33,7 +33,7 @@ class FeedTest(s_t_utils.SynTest):
                 with s_common.genfile(jsonlfp) as fd:
                     for i in range(20):
                         pode = (('test:int', i), {})
-                        _ = fd.write(json.dumps(pode).encode() + b'\n')
+                        _ = fd.write(s_json.dumps(pode, append_newline=True, asbytes=True))
 
                 argv = ['--cortex', curl,
                         '--format', 'syn.nodes',

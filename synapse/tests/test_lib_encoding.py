@@ -1,8 +1,8 @@
 import io
-import json
 
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.encoding as s_encoding
 
@@ -190,7 +190,7 @@ class EncTest(s_t_utils.SynTest):
 
         }
 
-        buf = io.BytesIO(json.dumps(data).encode())
+        buf = io.BytesIO(s_json.dumps(data, asbytes=True))
 
         lines = list(s_encoding.iterdata(buf, format='json'))
         self.len(1, lines)

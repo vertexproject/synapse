@@ -1,7 +1,6 @@
-import json
-
 import synapse.exc as s_exc
 
+import synapse.lib.json as s_json
 import synapse.lib.time as s_time
 import synapse.lib.msgpack as s_msgpack
 
@@ -505,7 +504,7 @@ class InfoSecTest(s_test.SynTest):
 
     async def test_stormlib_infosec_attack_flow(self):
 
-        flow = json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
+        flow = s_json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
         async with self.getTestCore() as core:
             opts = {'vars': {'flow': flow}}
             msgs = await core.stormlist('$lib.infosec.mitre.attack.flow.ingest($flow)', opts=opts)

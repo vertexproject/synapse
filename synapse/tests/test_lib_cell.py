@@ -1,7 +1,6 @@
 import os
 import ssl
 import sys
-import json
 import time
 import base64
 import signal
@@ -26,6 +25,7 @@ import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.link as s_link
 import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
@@ -3117,13 +3117,13 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(node.getTagProp('test', 'score'), 6)
 
                 self.maxDiff = None
-                roles = s_t_utils.deguidify('[{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}]')
-                users = s_t_utils.deguidify('[{"type": "user", "iden": "a357138db50780b62093a6ce0d057fd8", "name": "root", "rules": [], "roles": [], "admin": true, "email": null, "locked": false, "archived": false, "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"admin": true}, "4d50eb257549436414643a71e057091a": {"admin": true}}}, {"type": "user", "iden": "f77ac6744671a845c27e571071877827", "name": "visi", "rules": [[true, ["cron", "add"]], [true, ["dmon", "add"]], [true, ["trigger", "add"]]], "roles": [{"type": "role", "iden": "e1ef725990aa62ae3c4b98be8736d89f", "name": "all", "rules": [], "authgates": {"46cfde2c1682566602860f8df7d0cc83": {"rules": [[true, ["layer", "read"]]]}, "4d50eb257549436414643a71e057091a": {"rules": [[true, ["view", "read"]]]}}}], "admin": false, "email": null, "locked": false, "archived": false, "authgates": {"f21b7ae79c2dacb89484929a8409e5d8": {"admin": true}, "d7d0380dd4e743e35af31a20d014ed48": {"admin": true}}}]')
-                gates = s_t_utils.deguidify('[{"iden": "46cfde2c1682566602860f8df7d0cc83", "type": "layer", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["layer", "read"]]], "admin": false}]}, {"iden": "d7d0380dd4e743e35af31a20d014ed48", "type": "trigger", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "f21b7ae79c2dacb89484929a8409e5d8", "type": "cronjob", "users": [{"iden": "f77ac6744671a845c27e571071877827", "rules": [], "admin": true}], "roles": []}, {"iden": "4d50eb257549436414643a71e057091a", "type": "view", "users": [{"iden": "a357138db50780b62093a6ce0d057fd8", "rules": [], "admin": true}], "roles": [{"iden": "e1ef725990aa62ae3c4b98be8736d89f", "rules": [[true, ["view", "read"]]], "admin": false}]}, {"iden": "cortex", "type": "cortex", "users": [], "roles": []}]')
+                roles = s_t_utils.deguidify('[{"type":"role","iden":"e1ef725990aa62ae3c4b98be8736d89f","name":"all","rules":[],"authgates":{"46cfde2c1682566602860f8df7d0cc83":{"rules":[[true,["layer","read"]]]},"4d50eb257549436414643a71e057091a":{"rules":[[true,["view","read"]]]}}}]')
+                users = s_t_utils.deguidify('[{"type":"user","iden":"a357138db50780b62093a6ce0d057fd8","name":"root","rules":[],"roles":[],"admin":true,"email":null,"locked":false,"archived":false,"authgates":{"46cfde2c1682566602860f8df7d0cc83":{"admin":true},"4d50eb257549436414643a71e057091a":{"admin":true}}},{"type":"user","iden":"f77ac6744671a845c27e571071877827","name":"visi","rules":[[true,["cron","add"]],[true,["dmon","add"]],[true,["trigger","add"]]],"roles":[{"type":"role","iden":"e1ef725990aa62ae3c4b98be8736d89f","name":"all","rules":[],"authgates":{"46cfde2c1682566602860f8df7d0cc83":{"rules":[[true,["layer","read"]]]},"4d50eb257549436414643a71e057091a":{"rules":[[true,["view","read"]]]}}}],"admin":false,"email":null,"locked":false,"archived":false,"authgates":{"f21b7ae79c2dacb89484929a8409e5d8":{"admin":true},"d7d0380dd4e743e35af31a20d014ed48":{"admin":true}}}]')
+                gates = s_t_utils.deguidify('[{"iden":"46cfde2c1682566602860f8df7d0cc83","type":"layer","users":[{"iden":"a357138db50780b62093a6ce0d057fd8","rules":[],"admin":true}],"roles":[{"iden":"e1ef725990aa62ae3c4b98be8736d89f","rules":[[true,["layer","read"]]],"admin":false}]},{"iden":"d7d0380dd4e743e35af31a20d014ed48","type":"trigger","users":[{"iden":"f77ac6744671a845c27e571071877827","rules":[],"admin":true}],"roles":[]},{"iden":"f21b7ae79c2dacb89484929a8409e5d8","type":"cronjob","users":[{"iden":"f77ac6744671a845c27e571071877827","rules":[],"admin":true}],"roles":[]},{"iden":"4d50eb257549436414643a71e057091a","type":"view","users":[{"iden":"a357138db50780b62093a6ce0d057fd8","rules":[],"admin":true}],"roles":[{"iden":"e1ef725990aa62ae3c4b98be8736d89f","rules":[[true,["view","read"]]],"admin":false}]},{"iden":"cortex","type":"cortex","users":[],"roles":[]}]')
 
-                self.eq(roles, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.roles.list())'))))
-                self.eq(users, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.users.list())'))))
-                self.eq(gates, s_t_utils.deguidify(json.dumps(await core.callStorm('return($lib.auth.gates.list())'))))
+                self.eq(roles, s_t_utils.deguidify(s_json.dumps(await core.callStorm('return($lib.auth.roles.list())'))))
+                self.eq(users, s_t_utils.deguidify(s_json.dumps(await core.callStorm('return($lib.auth.users.list())'))))
+                self.eq(gates, s_t_utils.deguidify(s_json.dumps(await core.callStorm('return($lib.auth.gates.list())'))))
 
                 with self.raises(s_exc.BadTypeValu):
                     await core.nodes('[ it:dev:str=foo +#test.newp ]')

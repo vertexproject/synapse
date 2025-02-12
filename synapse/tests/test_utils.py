@@ -1,12 +1,12 @@
 import os
 import time
-import json
 import logging
 import unittest
 
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 
@@ -126,7 +126,7 @@ class TestUtils(s_t_utils.SynTest):
         self.notin('notthere', mesgs)
 
         with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
-            thr = logathing(json.dumps({'mesg': 'Test Message'}))
+            thr = logathing(s_json.dumps({'mesg': 'Test Message'}))
             self.true(stream.wait(10))
             thr.join()
 

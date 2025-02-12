@@ -1,11 +1,9 @@
-import json
-
 import unittest.mock as mock
 
-import aiohttp
-
-import synapse.common as s_common
 import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.json as s_json
 
 import synapse.tests.utils as s_test
 
@@ -809,7 +807,7 @@ $request.reply(200, headers=$headers, body=$body)
 
                 buf = await resp.read()
                 self.len(11, buf)
-                self.eq(json.loads(buf), {'oh': 'my'})
+                self.eq(s_json.loads(buf), {'oh': 'my'})
 
     async def test_libcortex_httpapi_jsonlines(self):
         async with self.getTestCore() as core:
@@ -851,8 +849,8 @@ for $i in $values {
                             break
 
                         try:
-                            mesg = json.loads(byts)
-                        except json.JSONDecodeError:
+                            mesg = s_json.loads(byts)
+                        except s_exc.BadJsonText:
                             bufr = jstr
                             break
                         else:
