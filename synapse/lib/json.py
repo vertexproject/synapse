@@ -132,7 +132,7 @@ def jsload(*paths):
             deserializing the provided data.
     '''
     with s_common.genfile(*paths) as fd:
-        if os.fstat(fd).st_size == 0:
+        if os.fstat(fd.fileno()).st_size == 0:
             return None
 
         return load(fd)
@@ -171,7 +171,7 @@ def jssave(js, *paths):
     '''
     path = s_common.genpath(*paths)
     with io.open(path, 'wb') as fd:
-        dump(js, fd, sort_keys=True, indent=2)
+        dump(js, fd, sort_keys=True, indent=True)
 
 def reqjsonsafe(item):
     '''

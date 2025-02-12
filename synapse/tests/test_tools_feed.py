@@ -138,3 +138,31 @@ class FeedTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('test:int', opts={'view': oldview})
             self.len(0, nodes)
+
+    async def test_synnodes_json(self):
+        async with self.getTestCore() as core:
+
+            await self.addCreatorDeleterRoles(core)
+
+            host, port = await core.dmon.listen('tcp://127.0.0.1:0/')
+
+            curl = f'tcp://icanadd:secret@{host}:{port}/'
+
+            with self.getTestDir() as dirn:
+
+                jsonfp = s_common.genpath(dirn, 'podes.json')
+                with s_common.genfile(jsonfp) as fd:
+                    podes = [(('test:int', ii), {}) for ii in range(20)]
+                    s_json.dump(podes, fd)
+
+                argv = ['--cortex', curl,
+                        '--format', 'syn.nodes',
+                        '--modules', 'synapse.tests.utils.TestModule',
+                        '--chunksize', '3',
+                        jsonfp]
+
+                outp = self.getTestOutp()
+                self.eq(await s_feed.main(argv, outp=outp), 0)
+
+            nodes = await core.nodes('test:int')
+            self.len(20, nodes)

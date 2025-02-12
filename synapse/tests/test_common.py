@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import warnings
 import subprocess
 
 import yaml
@@ -425,6 +426,47 @@ class CommonTest(s_t_utils.SynTest):
 
         retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], reverse=True)
         self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
+
+    def test_jsload(self):
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'jsload.json') as fp:
+                fp.write(b'{"a":"b"}')
+
+            with warnings.catch_warnings(record=True) as msgs:
+                obj = s_common.jsload(dirn, 'jsload.json')
+                self.eq({'a': 'b'}, obj)
+
+            self.len(1, msgs)
+            self.true(issubclass(msgs[0].category, DeprecationWarning))
+            self.eq(str(msgs[0].message), '"jsload" is deprecated in 2.197.0 and will be removed in 3.0.0')
+
+    def test_jslines(self):
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'jslines.json') as fp:
+                fp.write(b'{"a":"b"}\n{"c":"d"}')
+
+            with warnings.catch_warnings(record=True) as msgs:
+                objs = [k for k in s_common.jslines(dirn, 'jslines.json')]
+                self.len(2, objs)
+                self.eq([{'a': 'b'}, {'c': 'd'}], objs)
+
+            self.len(1, msgs)
+            self.true(issubclass(msgs[0].category, DeprecationWarning))
+            self.eq(str(msgs[0].message), '"jslines" is deprecated in 2.197.0 and will be removed in 3.0.0')
+
+    def test_jssave(self):
+        with self.getTestDir() as dirn:
+            with warnings.catch_warnings(record=True) as msgs:
+                s_common.jssave({'a': 'b'}, dirn, 'jssave.json')
+
+            self.len(1, msgs)
+            self.true(issubclass(msgs[0].category, DeprecationWarning))
+            self.eq(str(msgs[0].message), '"jssave" is deprecated in 2.197.0 and will be removed in 3.0.0')
+
+            with s_common.genfile(dirn, 'jssave.json') as fd:
+                data = fd.read()
+
+            self.eq(data, b'{\n  "a": "b"\n}')
 
     def test_jsonsafe(self):
         items = (

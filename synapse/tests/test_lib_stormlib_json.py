@@ -38,6 +38,14 @@ class JsonTest(s_test.SynTest):
   }
 }'''), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=(true)))'))
 
+            self.eq((
+'''{
+  "foo": 1,
+  "bar": {
+    "baz": "hello"
+  }
+}'''), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=NotABool))'))
+
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return($lib.json.load(foo))')
 

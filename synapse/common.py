@@ -517,12 +517,12 @@ def jsload(*paths):
     return s_json.jsload(*paths)
 
 def jslines(*paths):
-    deprecated('jsload', curv='2.197.0')
+    deprecated('jslines', curv='2.197.0')
     import synapse.lib.json as s_json
     return s_json.jslines(*paths)
 
 def jssave(js, *paths):
-    deprecated('jsload', curv='2.197.0')
+    deprecated('jssave', curv='2.197.0')
     import synapse.lib.json as s_json
     return s_json.jssave(js, *paths)
 
