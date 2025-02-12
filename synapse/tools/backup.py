@@ -11,6 +11,7 @@ import contextlib
 import lmdb
 
 import synapse.common as s_common
+import synapse.lib.logging as s_logging
 
 logger = logging.getLogger(__name__)
 
@@ -174,9 +175,6 @@ def parse_args(argv):
     args = parser.parse_args(argv)
     return args
 
-def _main(argv):  # pragma: no cover
-    s_common.setlogging(logger, defval='DEBUG')
-    return main(argv)
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(_main(sys.argv[1:]))
+    s_logging.setup(level=logging.DEBUG)
+    sys.exit(main(sys.argv[1:]))

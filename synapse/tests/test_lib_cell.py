@@ -448,7 +448,7 @@ class CellTest(s_t_utils.SynTest):
                         self.true(await stream.wait(timeout=10))
                     msgs = stream.jsonlines()
                     self.len(1, msgs)
-                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0].get('wrapped_func'))
+                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0]['synapse']['wrapped_func'])
 
                 visi = await echo.auth.addUser('visi')
                 await visi.setPasswd('foo')
@@ -3158,7 +3158,7 @@ class CellTest(s_t_utils.SynTest):
         mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
         mesg += 'for information about these sysctl parameters.'
         self.eq(msgs[0]['message'], mesg)
-        self.eq(msgs[0]['sysctls'], [
+        self.eq(msgs[0]['synapse']['sysctls'], [
             {'name': 'vm.dirty_expire_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_expire_centisecs']},
             {'name': 'vm.dirty_writeback_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_writeback_centisecs']},
         ])

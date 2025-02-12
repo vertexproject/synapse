@@ -12,6 +12,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.output as s_output
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.encoding as s_encoding
@@ -149,5 +150,5 @@ def makeargparser():
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
+    s_logging.setup(level=logging.DEBUG)
     asyncio.run(main(sys.argv[1:]))

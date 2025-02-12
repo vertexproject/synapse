@@ -36,6 +36,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.schemas as s_schemas
@@ -927,7 +928,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCorePerms()
 
         # Reset the storm:log:level from the config value to an int for internal use.
-        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
+        self.conf['storm:log:level'] = s_logging.normLogLevel(self.conf.get('storm:log:level'))
         self.stormlog = self.conf.get('storm:log')
         self.stormloglvl = self.conf.get('storm:log:level')
 

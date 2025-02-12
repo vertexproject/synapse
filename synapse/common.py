@@ -37,7 +37,6 @@ import regex
 import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.structlog as s_structlog
 
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
 import synapse.vendor.cpython.lib.http.cookies as v_cookies
@@ -780,83 +779,6 @@ def makedirs(path, mode=0o777):
 
 def iterzip(*args, fillvalue=None):
     return itertools.zip_longest(*args, fillvalue=fillvalue)
-
-def _getLogConfFromEnv(defval=None, structlog=None, datefmt=None):
-    if structlog:
-        structlog = 'true'
-    else:
-        structlog = 'false'
-    defval = os.getenv('SYN_LOG_LEVEL', defval)
-    datefmt = os.getenv('SYN_LOG_DATEFORMAT', datefmt)
-    structlog = envbool('SYN_LOG_STRUCT', structlog)
-    ret = {'defval': defval, 'structlog': structlog, 'datefmt': datefmt}
-    return ret
-
-def normLogLevel(valu):
-    '''
-    Norm a log level value to a integer.
-
-    Args:
-        valu: The value to norm ( a string or integer ).
-
-    Returns:
-        int: A valid Logging log level.
-    '''
-    if isinstance(valu, int):
-        if valu not in s_const.LOG_LEVEL_INVERSE_CHOICES:
-            raise s_exc.BadArg(mesg=f'Invalid log level provided: {valu}', valu=valu)
-        return valu
-    if isinstance(valu, str):
-        valu = valu.strip()
-        try:
-            valu = int(valu)
-        except ValueError:
-            valu = valu.upper()
-            ret = s_const.LOG_LEVEL_CHOICES.get(valu)
-            if ret is None:
-                raise s_exc.BadArg(mesg=f'Invalid log level provided: {valu}', valu=valu) from None
-            return ret
-        else:
-            return normLogLevel(valu)
-    raise s_exc.BadArg(mesg=f'Unknown log level type: {type(valu)} {valu}', valu=valu)
-
-def setlogging(mlogger, defval=None, structlog=None, log_setup=True, datefmt=None):
-    '''
-    Configure synapse logging.
-
-    Args:
-        mlogger (logging.Logger): Reference to a logging.Logger()
-        defval (str): Default log level. May be an integer.
-        structlog (bool): Enabled structured (jsonl) logging output.
-        datefmt (str): Optional strftime format string.
-
-    Notes:
-        This calls logging.basicConfig and should only be called once per process.
-
-    Returns:
-        None
-    '''
-    ret = _getLogConfFromEnv(defval, structlog, datefmt)
-
-    datefmt = ret.get('datefmt')
-    log_level = ret.get('defval')
-    log_struct = ret.get('structlog')
-
-    if log_level:  # pragma: no cover
-
-        log_level = normLogLevel(log_level)
-
-        if log_struct:
-            handler = logging.StreamHandler()
-            formatter = s_structlog.JsonFormatter(datefmt=datefmt)
-            handler.setFormatter(formatter)
-            logging.basicConfig(level=log_level, handlers=(handler,))
-        else:
-            logging.basicConfig(level=log_level, format=s_const.LOG_FORMAT, datefmt=datefmt)
-        if log_setup:
-            mlogger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(log_level))
-
-    return ret
 
 syndir_default = '~/.syn'
 syndir = os.getenv('SYN_DIR')
