@@ -4370,6 +4370,81 @@ class EditPropSet(Edit):
 
             await asyncio.sleep(0)
 
+class EditPropSetMulti(Edit):
+
+    async def run(self, runt, genr):
+
+        self.reqNotReadOnly(runt)
+
+        oper = await self.kids[1].compute(runt, None)
+
+        excignore = (s_exc.BadTypeValu,) if '?' in oper else ()
+        isadd = '+' in oper
+
+        rval = self.kids[2]
+
+        async for node, path in genr:
+
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
+
+            prop = node.form.props.get(name)
+            if prop is None:
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    mesg = f'No property named {name}.'
+                    exc = s_exc.NoSuchProp(mesg=mesg, name=name, form=node.form.name)
+
+                raise self.kids[0].addExcInfo(exc)
+
+            runt.confirmPropSet(prop)
+
+            if not prop.type.isarray:
+                mesg = f'Property set using ({oper}) is only valid on arrays.'
+                exc = s_exc.StormRuntimeError(mesg=mesg)
+                raise self.kids[0].addExcInfo(exc)
+
+            if isinstance(rval, SubQuery):
+                valu = await rval.compute_array(runt, path)
+            else:
+                valu = await rval.compute(runt, path)
+
+            atyp = prop.type.arraytype
+            isndef = isinstance(atyp, s_types.Ndef)
+            valu = await s_stormtypes.tostor(valu, isndef=isndef)
+
+            arry = node.get(name)
+            if arry is None:
+                arry = ()
+
+            arry = list(arry)
+
+            try:
+                for v in valu:
+                    await asyncio.sleep(0)
+
+                    try:
+                        norm, info = atyp.norm(v)
+                    except excignore:
+                        continue
+
+                    if isadd:
+                        arry.append(norm)
+                    else:
+                        try:
+                            arry.remove(norm)
+                        except ValueError:
+                            pass
+
+            except TypeError:
+                styp = await s_stormtypes.totype(valu, basetypes=True)
+                mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
+                raise rval.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
+
+            await node.set(name, arry)
+
+            yield node, path
+            await asyncio.sleep(0)
+
 class EditPropDel(Edit):
 
     async def run(self, runt, genr):
