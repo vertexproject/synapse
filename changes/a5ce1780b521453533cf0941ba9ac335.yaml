@@ -1,6 +1,6 @@
 ---
-desc: Added additional context to TimeOut exceptions raised when waiting for nexus
-  offsets during storm query execution in a pool.
+desc: Added additional context to ``TimeOut`` exceptions raised when waiting for Nexus
+  offsets during Storm query execution in a pool.
 prs: []
 type: feat
 ...
