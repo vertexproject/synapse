@@ -32,37 +32,51 @@ async def connect(host, port, ssl=None, hostname=None, linkinfo=None):
     reader, writer = await asyncio.open_connection(host, port, ssl=ssl, server_hostname=hostname)
     return await Link.anit(reader, writer, info=info)
 
-async def listen(host, port, onlink, ssl=None):
+async def listen(host, port, onlink, ssl=None, linkinfo=None):
     '''
     Listen on the given host/port and fire onlink(Link).
 
     Returns a server object that contains the listening sockets
     '''
+    info = {
+        'ssl': ssl,
+        'tls': bool(ssl),
+        'host': host,
+        'port': port,
+    }
+
+    if linkinfo is not None:
+        info.udpate(linkinfo)
+
     async def onconn(reader, writer):
-        info = {'tls': bool(ssl)}
         link = await Link.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
 
     server = await asyncio.start_server(onconn, host=host, port=port, ssl=ssl)
     return server
 
-async def unixlisten(path, onlink):
+async def unixlisten(path, onlink, linkinfo=None):
     '''
     Start an PF_UNIX server listening on the given path.
     '''
     info = {'path': path, 'unix': True}
+    if linkinfo is not None:
+        info.update(linkinfo)
 
     async def onconn(reader, writer):
         link = await Link.anit(reader, writer, info=info)
         link.schedCoro(onlink(link))
     return await asyncio.start_unix_server(onconn, path=path)
 
-async def unixconnect(path):
+async def unixconnect(path, linkinfo=None):
     '''
     Connect to a PF_UNIX server listening on the given path.
     '''
-    reader, writer = await asyncio.open_unix_connection(path=path)
     info = {'path': path, 'unix': True}
+    if linkinfo is not None:
+        info.update(linkinfo)
+
+    reader, writer = await asyncio.open_unix_connection(path=path)
     return await Link.anit(reader, writer, info=info)
 
 async def linkfile(mode='wb'):
@@ -270,7 +284,7 @@ class Link(s_base.Base):
 
                     await self.writer.drain()
 
-            except (asyncio.CancelledError, Exception) as e:
+            except Exception as e:
 
                 await self.fini()
 

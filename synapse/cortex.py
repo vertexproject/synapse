@@ -5883,37 +5883,46 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
 
         if self.stormpool.size() == 0:
-            logger.warning('Storm query mirror pool is empty, running query locally.')
+            await self.logWarn('Storm query mirror pool is empty.')
             return None
 
-        proxy = None
+        timeout = self.stormpoolopts.get('timeout:connection')
 
         try:
-            timeout = self.stormpoolopts.get('timeout:connection')
             proxy = await self.stormpool.proxy(timeout=timeout)
-            proxyname = proxy._ahainfo.get('name')
-            if proxyname is not None and proxyname == self.ahasvcname:
-                # we are part of the pool and were selected. Convert to local use.
-                return None
-
-            curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
-            miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
-            if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
-                mesg = (f'Pool mirror [{proxyname}] Nexus offset delta too large '
-                        f'({delta} > {MAX_NEXUS_DELTA}), running query locally.')
-                logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
-                return None
-
-            return proxy
-
-        except (TimeoutError, s_exc.IsFini):
-            if proxy is None:
-                logger.warning('Timeout waiting for pool mirror, running query locally.')
-            else:
-                mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset, running query locally.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
-                await proxy.fini()
+        except TimeoutError as e:
+            await self.logWarn('Timeout connecting to storm pool mirror.', timeout=timeout)
             return None
+
+        proxyname = proxy._ahainfo.get('name')
+        if proxyname is not None and proxyname == self.ahasvcname:
+            # we are part of the pool and were selected. Convert to local use.
+            return None
+
+        curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
+
+        try:
+            miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
+
+        except s_exc.IsFini as e:
+            await self.logWarn('Storm pool mirror is shutting down.', mirror=proxyname)
+            return None
+
+        except TimeoutError as e:
+            mesg = 'Timeout retrieving storm pool mirror nexus offset.'
+            await self.logWarn(mesg, mirror=proxyname, nexsoffs=curoffs, timeout=timeout)
+            return None
+
+        if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
+            mesg = f'Pool mirror nexus offset delta too large.'
+            await self.logWarn(mesg, mirror=proxyname, delta=delta, nexsoffs=curoffs, mirror_offset=miroffs)
+            return None
+
+        return proxy
+
+    async def logWarn(self, mesg, **extra):
+        extra = await self.getLogExtra(**extra)
+        logger.warning(mesg, extra=extra)
 
     async def storm(self, text, opts=None):
 
