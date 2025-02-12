@@ -4417,11 +4417,11 @@ class EditPropSetMulti(Edit):
             arry = list(arry)
 
             try:
-                for v in valu:
+                for item in valu:
                     await asyncio.sleep(0)
 
                     try:
-                        norm, info = atyp.norm(v)
+                        norm, info = atyp.norm(item)
                     except excignore:
                         continue
 
