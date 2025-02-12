@@ -1062,23 +1062,22 @@ class Snap(s_base.Base):
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if isinstance(valu, dict) and cmpr == '=':
-            if isinstance(prop.type, s_types.Guid):
-                if prop.isform:
-                    if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
-                        yield node
-                    return
+        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr == '=':
+            if prop.isform:
+                if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
+                    yield node
+                return
 
-                fname = prop.type.name
-                if (form := prop.modl.form(fname)) is None:
-                    mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
-                    raise s_exc.BadTypeValu(mesg=mesg)
+            fname = prop.type.name
+            if (form := prop.modl.form(fname)) is None:
+                mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
+                raise s_exc.BadTypeValu(mesg=mesg)
 
-                if (node := await self._getGuidNodeByDict(form, valu)) is None:
-                    return
+            if (node := await self._getGuidNodeByDict(form, valu)) is None:
+                return
 
-                norm = False
-                valu = node.ndef[1]
+            norm = False
+            valu = node.ndef[1]
 
         if norm:
             cmprvals = prop.type.getStorCmprs(cmpr, valu)
