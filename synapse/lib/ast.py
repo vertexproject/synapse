@@ -4376,12 +4376,11 @@ class EditPropSetMulti(Edit):
 
         self.reqNotReadOnly(runt)
 
+        rval = self.kids[2]
         oper = await self.kids[1].compute(runt, None)
 
-        excignore = (s_exc.BadTypeValu,) if '?' in oper else ()
         isadd = '+' in oper
-
-        rval = self.kids[2]
+        excignore = (s_exc.BadTypeValu,) if '?' in oper else ()
 
         async for node, path in genr:
 
