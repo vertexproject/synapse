@@ -5882,7 +5882,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 offset=(await self.getNexsIndx() - 1),
                 waitoffset=nexsoffs,
                 timeout=timeout,
-                mesg=f'Timeout waiting for nexus offset {nexsoffs} in storm().')
+                mesg=f'Timeout waiting for nexus offset {nexsoffs}.')
 
     async def _getMirrorOpts(self, opts):
         assert 'nexsoffs' in opts
