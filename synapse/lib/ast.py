@@ -4411,8 +4411,7 @@ class EditPropSetMulti(Edit):
             isndef = isinstance(atyp, s_types.Ndef)
             valu = await s_stormtypes.tostor(valu, isndef=isndef)
 
-            arry = node.get(name)
-            if arry is None:
+            if (arry := node.get(name)) is None:
                 arry = ()
 
             arry = list(arry)

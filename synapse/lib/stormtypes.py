@@ -9886,7 +9886,7 @@ async def tostor(valu, isndef=False):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await tostor(v, isndef)
+                retn[k] = await tostor(v, isndef=isndef)
             except s_exc.NoSuchType:
                 pass
         return retn
