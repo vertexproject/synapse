@@ -4390,8 +4390,7 @@ class EditPropSetMulti(Edit):
             prop = node.form.props.get(name)
             if prop is None:
                 if (exc := await s_stormtypes.typeerr(propname, str)) is None:
-                    mesg = f'No property named {name}.'
-                    exc = s_exc.NoSuchProp.init(name)
+                    exc = s_exc.NoSuchProp.init(f'{node.form.name}:{name}')
 
                 raise self.kids[0].addExcInfo(exc)
 
