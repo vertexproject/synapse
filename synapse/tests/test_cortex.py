@@ -8088,7 +8088,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
                 self.isin('Set admin=True for lowuser', mesg.get('message'))
-                self.eq('admin', mesg['synapse'].get('username'))
+                self.eq('admin', mesg.get('username'))
                 self.eq('lowuser', mesg['synapse'].get('target_username'))
 
     async def test_cortex_ext_httpapi(self):

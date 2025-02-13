@@ -3467,6 +3467,7 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_logs(self):
 
+        s_logging.setLogGlobal('woot', 'hehe')
         async with self.getTestAha() as aha:
 
             async with aha.getLocalProxy() as proxy:
@@ -3492,5 +3493,6 @@ class CellTest(s_t_utils.SynTest):
 
                         aha.schedCoro(logtask())
 
+                    self.eq('hehe', logs[0]['woot'])
                     self.eq('oh hai', logs[0]['message'])
                     self.eq('one little piggy', logs[1]['message'])

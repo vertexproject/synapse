@@ -215,7 +215,7 @@ class CellApi(s_base.Base):
     async def initCellApi(self):
         pass
 
-    @adminapi(log=True)
+    @adminapi()
     async def logs(self, wait=False, last=None):
         async for loginfo in self.cell.logs(wait=wait, last=last):
             yield loginfo
@@ -3677,7 +3677,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A dictionary
         '''
-        return s_logging.getLogExtra(**kwargs)
+        extra = s_logging.getLogExtra(**kwargs)
+        if self.ahasvcname is not None:
+            extra['loginfo']['service'] = self.ahasvcname
+        return extra
 
     async def _getSpawnLogConf(self):
         return self.conf.get('_log_conf', {})
@@ -4304,7 +4307,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         cell = await cls.initFromArgv(argv, outp=outp)
 
         if cell.ahasvcname is not None:
-            s_logging.setLogExtra('service', cell.ahasvcname)
+            s_logging.setLogGlobal('service', cell.ahasvcname)
 
         await cell.main()
 

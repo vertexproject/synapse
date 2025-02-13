@@ -402,10 +402,10 @@ class AgendaTest(s_t_utils.SynTest):
                 core.stormlog = False
 
                 msgs = stream.jsonlines()
-                msgs = [m for m in msgs if m['text'] == '$lib.queue.gen(visi).put(bar)']
+                msgs = [m for m in msgs if m['synapse']['text'] == '$lib.queue.gen(visi).put(bar)']
                 self.gt(len(msgs), 0)
                 for m in msgs:
-                    self.eq(m.get('cron'), appt.iden)
+                    self.eq(m['synapse'].get('cron'), appt.iden)
 
                 self.eq(1, appt.startcount)
 

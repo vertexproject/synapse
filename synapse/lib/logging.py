@@ -78,30 +78,15 @@ async def getLogInfo(wait=False, last=None):
         async for loginfo in window:
             yield loginfo
 
-logextra = {}
-def setLogExtra(name, valu):
+_glob_loginfo = {}
+def setLogGlobal(name, valu):
     '''
-    Configure global extra values which should be added to every log.
+    Configure global values which should be added to every log.
     '''
-    logextra[name] = valu
+    _glob_loginfo[name] = valu
 
 def getLogExtra(**kwargs):
-
-    extra = {'synapse': kwargs}
-    extra.update(logextra)
-
-    user = s_scope.get('user')  # type: s_auth.User
-    if user is not None:
-        extra['user'] = user.iden
-        extra['username'] = user.name
-
-    else:
-        sess = s_scope.get('sess')  # type: s_daemon.Sess
-        if sess is not None and sess.user is not None:
-            extra['user'] = sess.user.iden
-            extra['username'] = sess.user.name
-
-    return extra
+    return {'synapse': kwargs, 'loginfo': {}}
 
 class Formatter(logging.Formatter):
 
@@ -118,6 +103,19 @@ class Formatter(logging.Formatter):
             'level': record.levelname,
             'time': self.formatTime(record, self.datefmt),
         }
+
+        loginfo.update(_glob_loginfo)
+        if hasattr(record, 'loginfo'):
+            loginfo.update(record.loginfo)
+
+        if (user := s_scope.get('user')) is not None:
+            loginfo['user'] = user.iden
+            loginfo['username'] = user.name
+
+        elif (sess := s_scope.get('sess')) is not None:
+            if sess.user is not None:
+                loginfo['user'] = sess.user.iden
+                loginfo['username'] = sess.user.name
 
         if record.exc_info:
             loginfo['err'] = s_common.err(record.exc_info[1], fulltb=True)
@@ -170,13 +168,13 @@ def getLogConfFromEnv():
 
     conf = {}
 
-    if level := os.getenv('SYN_LOG_LEVEL') is not None:
+    if (level := os.getenv('SYN_LOG_LEVEL')) is not None:
         conf['level'] = normLogLevel(level)
 
-    if datefmt := os.getenv('SYN_LOG_DATEFORMAT') is not None:
+    if (datefmt := os.getenv('SYN_LOG_DATEFORMAT')) is not None:
         conf['datefmt'] = datefmt
 
-    if structlog := os.getenv('SYN_LOG_STRUCT') is not None:
+    if (structlog := os.getenv('SYN_LOG_STRUCT')) is not None:
         conf['structlog'] = structlog.lower() in ('1', 'true')
 
     return conf
