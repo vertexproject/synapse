@@ -3781,9 +3781,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
         pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
-                          help='Specify the Python logging log level.', type=str.upper)
+                          help='Deprecated. Please use SYN_LOG_LEVEL environment variable.', type=str.upper)
+
         pars.add_argument('--structured-logging', default=True, action='store_true',
-                          help='Use structured logging.')
+                          help='Deprecated. Please use SYN_LOG_STRUCT environment variable.')
 
         telendef = None
         telepdef = 'tcp://0.0.0.0:27492'
@@ -3796,15 +3797,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         https = os.getenv(httpsvar, httpsdef)
 
         pars.add_argument('--telepath', default=telep, type=str,
-                          help=f'The telepath URL to listen on. This defaults to {telepdef}, and may be '
-                               f'also be overridden by the {telepvar} environment variable.')
+                          help=f'Deprecated. Please use the {telepvar} environment variable.')
         pars.add_argument('--https', default=https, type=int,
-                          help=f'The port to bind for the HTTPS/REST API. This defaults to {httpsdef}, '
-                               f'and may be also be overridden by the {httpsvar} environment variable.')
+                          help=f'Deprecated. Please use the {httpsvar} environment variable.')
         pars.add_argument('--name', type=str, default=telen,
-                          help=f'The (optional) additional name to share the {name} as. This defaults to '
-                               f'{telendef}, and may be also be overridden by the {telenvar} environment'
-                               f' variable.')
+                          help=f'Deprecated. Please use the {telenvar} environment variable.')
 
         if conf is not None:
             args = conf.getArgParseArgs()
