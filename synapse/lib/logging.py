@@ -113,7 +113,7 @@ class Formatter(logging.Formatter):
         loginfo = {
             'message': record.message,
             'logger': {
-                'filename': record.filename,
+                'name': record.name,
                 'func': record.funcName,
             },
             'level': record.levelname,
