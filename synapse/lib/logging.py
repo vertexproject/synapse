@@ -84,7 +84,7 @@ class TextFormatter(Formatter):
 
         syns = loginfo.get('synapse')
         if syns:
-            mesg += ' ({json.dumps(syns, default=str)})'
+            mesg += f' ({json.dumps(syns, default=str)})'
 
         return mesg
 
