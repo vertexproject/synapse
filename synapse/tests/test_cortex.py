@@ -8074,7 +8074,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
                 self.eq('Added user=lowuser', mesg.get('message'))
-                self.eq('admin', mesg['synapse'].get('username'))
+                self.eq('admin', mesg.get('username'))
                 self.eq('lowuser', mesg['synapse'].get('target_username'))
 
                 with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:

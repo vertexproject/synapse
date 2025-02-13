@@ -253,9 +253,9 @@ class TrigTest(s_t_utils.SynTest):
                 await core.nodes('[ test:str=logit ]')
                 self.true(await stream.wait(6))
             msgs = stream.jsonlines()
-            mesg = [m for m in msgs if m.get('iden') == tdef.get('iden')][0]
+            mesg = [m for m in msgs if m['synapse'].get('iden') == tdef.get('iden')][0]
             self.eq(mesg['message'], f'test trigger {tdef.get("iden")}')
-            self.eq(mesg['iden'], tdef.get('iden'))
+            self.eq(mesg['synapse']['iden'], tdef.get('iden'))
 
             # Attempting to add trigger with existing iden raises
             with self.raises(s_exc.DupIden):

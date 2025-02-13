@@ -146,6 +146,7 @@ class StormCellTest(s_test.SynTest):
 
                     await aha.delAhaSvc('00.testsvc.synapse')
 
+                    # FIXME: how did this ever work?
                     with self.raises(s_exc.NoSuchName):
                         await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))')
 

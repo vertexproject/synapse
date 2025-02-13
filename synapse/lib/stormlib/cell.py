@@ -300,7 +300,9 @@ class CellLib(s_stormtypes.Lib):
         if name is None:
             return await self.runt.snap.core.getMirrorUrls()
 
+        print(f'NAME: {name}')
         ssvc = self.runt.snap.core.getStormSvc(name)
+        print(f'SSVC: {ssvc}')
         if ssvc is None:
             mesg = f'No service with name/iden: {name}'
             raise s_exc.NoSuchName(mesg=mesg)
