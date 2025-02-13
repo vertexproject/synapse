@@ -735,6 +735,11 @@ Queries = [
     '[test:str=foo :$foo*$bar.baz=heval]',
     '[test:str=foo :$foo*$bar.("baz")=heval]',
     '[test:str=foo :$foo*$bar.baz()=heval]',
+    '[test:str=foo :bar++=([1, 2])]',
+    '[test:str=foo :$foo++=([1, 2])]',
+    '[test:str=foo :bar--=(foo, bar)]',
+    '[test:str=foo :bar?++=$baz]',
+    '[test:str=foo :bar?--={[it:dev:str=foo]}]',
 ]
 
 # Generated with print_parse_list below
@@ -1372,6 +1377,11 @@ _ParseResults = [
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarDeref: [VarValue: [Const: bar], Const: baz]], Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarDeref: [VarValue: [Const: bar], DollarExpr: [Const: baz]]], Const: heval]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [FuncCall: [VarDeref: [VarValue: [Const: bar], Const: baz], CallArgs: [], CallKwargs: []]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ++=, DollarExpr: [ExprList: [Const: 1, Const: 2]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [VarValue: [Const: foo]], Const: ++=, DollarExpr: [ExprList: [Const: 1, Const: 2]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: --=, List: [Const: foo, Const: bar]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ?++=, VarValue: [Const: baz]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ?--=, SubQuery: [Query: [EditNodeAdd: [FormName: [Const: it:dev:str], Const: =, Const: foo]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
