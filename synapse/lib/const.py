@@ -1,8 +1,8 @@
 # Logging related constants
 import logging
 
-LOG_FORMAT = '%(asctime)s [%(levelname)s] %(message)s ' \
-             '[%(filename)s:%(funcName)s:%(threadName)s:%(processName)s]'
+LOG_FORMAT = '%(asctime)s [%(levelname)s] %(message)s %(synapse)s [%(filename)s:%(funcName)s]'
+
 LOG_LEVEL_CHOICES = {
     'DEBUG': logging.DEBUG,
     'INFO': logging.INFO,

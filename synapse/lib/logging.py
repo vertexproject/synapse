@@ -53,19 +53,20 @@ class Formatter(logging.Formatter):
         loginfo = {
             'message': record.message,
             'logger': {
-                'name': record.name,
                 'filename': record.filename,
                 'func': record.funcName,
             },
             'level': record.levelname,
-            'tick': s_common.now(),
             'time': self.formatTime(record, self.datefmt),
         }
 
         if record.exc_info:
             loginfo['err'] = s_common.err(record.exc_info[1], fulltb=True)
 
-        loginfo['synapse'] = record.__dict__.get('synapse')
+        if not hasattr(record, 'synapse'):
+            record.synapse = {}
+
+        loginfo['synapse'] = record.synapse
 
         _addLogInfo(loginfo)
 
@@ -77,16 +78,13 @@ class Formatter(logging.Formatter):
 
 class TextFormatter(Formatter):
 
+    def __init__(self, *args, **kwargs):
+        kwargs['fmt'] = s_const.LOG_FORMAT
+        return super().__init__(*args, **kwargs)
+
     def format(self, record):
-
         loginfo = self.genLogInfo(record)
-        mesg = loginfo.get('message')
-
-        syns = loginfo.get('synapse')
-        if syns:
-            mesg += f' ({json.dumps(syns, default=str)})'
-
-        return mesg
+        return logging.Formatter.format(self, record)
 
 def setup(level=logging.WARNING, structlog=False):
     '''
@@ -102,6 +100,7 @@ def setup(level=logging.WARNING, structlog=False):
 
     handler = logging.StreamHandler()
     handler.setFormatter(fmtclass(datefmt=conf.get('datefmt')))
+
     logging.basicConfig(level=conf.get('level'), handlers=(handler,))
 
     logger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(level))
