@@ -360,16 +360,16 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             msgs = stream.jsonlines()
             self.gt(len(msgs), 0)
-            self.nn(msgs[0].get('delta'))
-            self.nn(msgs[0].get('path'))
-            self.nn(msgs[0].get('xactopslen'))
+            self.nn(msgs[0]['synapse'].get('delta'))
+            self.nn(msgs[0]['synapse'].get('path'))
+            self.nn(msgs[0]['synapse'].get('xactopslen'))
             self.sorteq([
                 'vm.swappiness',
                 'vm.dirty_expire_centisecs',
                 'vm.dirty_writeback_centisecs',
                 'vm.dirty_background_ratio',
                 'vm.dirty_ratio',
-            ], msgs[0].get('sysctls', {}).keys())
+            ], msgs[0]['synapse'].get('sysctls', {}).keys())
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:

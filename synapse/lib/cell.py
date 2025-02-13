@@ -3661,6 +3661,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         return await self.cellapi.anit(self, link, user)
 
+    # TODO: why is this async?
     async def getLogExtra(self, **kwargs):
         '''
         Get an extra dictionary for structured logging which can be used as a extra argument for loggers.

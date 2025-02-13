@@ -1134,7 +1134,7 @@ class CortexTest(s_t_utils.SynTest):
 
             mesg = stream.jsonlines()[0]
             self.eq(mesg.get('message'), f'Running dmon {iden}')
-            self.eq(mesg.get('iden'), iden)
+            self.eq(mesg['synapse'].get('iden'), iden)
 
             opts = {'vars': {'iden': iden}}
             logs = await core.callStorm('return($lib.dmon.log($iden))', opts=opts)
@@ -3386,7 +3386,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.true(await stream.wait(4))
 
             mesg = stream.jsonlines()[0]
-            self.eq(mesg.get('view'), view)
+            self.eq(mesg['synapse'].get('view'), view)
 
     async def test_strict(self):
 
@@ -8074,8 +8074,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
                 self.eq('Added user=lowuser', mesg.get('message'))
-                self.eq('admin', mesg.get('username'))
-                self.eq('lowuser', mesg.get('target_username'))
+                self.eq('admin', mesg['synapse'].get('username'))
+                self.eq('lowuser', mesg['synapse'].get('target_username'))
 
                 with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
 
@@ -8088,8 +8088,8 @@ class CortexBasicTest(s_t_utils.SynTest):
                 msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
                 self.isin('Set admin=True for lowuser', mesg.get('message'))
-                self.eq('admin', mesg.get('username'))
-                self.eq('lowuser', mesg.get('target_username'))
+                self.eq('admin', mesg['synapse'].get('username'))
+                self.eq('lowuser', mesg['synapse'].get('target_username'))
 
     async def test_cortex_ext_httpapi(self):
         # Cortex API tests for Extended HttpAPI
@@ -8297,12 +8297,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0].get('hash'), qhash)
-                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+                    self.eq(msgs[0]['synapse'].get('hash'), qhash)
+                    self.eq(msgs[0]['synapse'].get('mirror'), f'01.core.{ahanet}')
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[1]['synapse'].get('hash'), qhash)
+                    self.eq(msgs[1]['synapse'].get('pool:from'), f'00.core.{ahanet}')
 
                     # callStorm()
                     q = 'inet:asn=0 return($lib.true)'
@@ -8316,12 +8316,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0].get('hash'), qhash)
-                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+                    self.eq(msgs[0]['synapse'].get('hash'), qhash)
+                    self.eq(msgs[0]['synapse'].get('mirror'), f'01.core.{ahanet}')
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[1]['synapse'].get('hash'), qhash)
+                    self.eq(msgs[1]['synapse'].get('pool:from'), f'00.core.{ahanet}')
 
                     # exportStorm()
                     q = 'inet:asn=0'
@@ -8335,12 +8335,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0].get('hash'), qhash)
-                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+                    self.eq(msgs[0]['synapse'].get('hash'), qhash)
+                    self.eq(msgs[0]['synapse'].get('mirror'), f'01.core.{ahanet}')
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[1]['synapse'].get('hash'), qhash)
+                    self.eq(msgs[1]['synapse'].get('pool:from'), f'00.core.{ahanet}')
 
                     # count()
                     q = 'inet:asn=0'
@@ -8354,12 +8354,12 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(2, msgs)
 
                     self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
-                    self.eq(msgs[0].get('hash'), qhash)
-                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+                    self.eq(msgs[0]['synapse'].get('hash'), qhash)
+                    self.eq(msgs[0]['synapse'].get('mirror'), f'01.core.{ahanet}')
 
                     self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
-                    self.eq(msgs[1].get('hash'), qhash)
-                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+                    self.eq(msgs[1]['synapse'].get('hash'), qhash)
+                    self.eq(msgs[1]['synapse'].get('pool:from'), f'00.core.{ahanet}')
 
                     with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 
@@ -8370,7 +8370,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         stream.seek(0)
                         data = stream.read()
                         self.notin('Offloading Storm query', data)
-                        self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
+                        self.isin('Timeout retrieving storm pool mirror nexus offset.', data)
                         self.notin('Timeout waiting for query mirror', data)
 
                     await core00.stormpool.waitready(timeout=12)
@@ -8384,7 +8384,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         stream.seek(0)
                         data = stream.read()
                         self.notin('Offloading Storm query', data)
-                        self.isin('Timeout waiting for pool mirror [01.core.synapse] Nexus offset', data)
+                        self.isin('Timeout retrieving storm pool mirror nexus offset.', data)
                         self.notin('Timeout waiting for query mirror', data)
 
                     await core00.stormpool.waitready(timeout=12)
@@ -8411,9 +8411,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         stream.seek(0)
                         data = stream.read()
-                        explog = (f'Pool mirror [01.core.synapse] Nexus offset delta too large '
-                                  f'({nexsoffs} > 1), running query locally')
-                        self.isin(explog, data)
+                        self.isin('Pool mirror nexus offset delta too large.', data)
                         self.notin('Offloading Storm query', data)
 
                     with self.getLoggerStream('synapse') as stream:
@@ -8470,7 +8468,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Timeout waiting for pool mirror, running query locally', data)
+                    self.isin('Timeout connecting to storm pool mirror.', data)
 
                     await core01.fini()
 
@@ -8480,28 +8478,28 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Storm query mirror pool is empty, running query locally.', data)
+                    self.isin('Storm query mirror pool is empty.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Storm query mirror pool is empty, running query locally.', data)
+                    self.isin('Storm query mirror pool is empty.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.len(1, await alist(core00.exportStorm('inet:asn=0')))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Storm query mirror pool is empty, running query locally.', data)
+                    self.isin('Storm query mirror pool is empty.', data)
 
                     with self.getLoggerStream('synapse') as stream:
                         self.eq(1, await core00.count('inet:asn=0'))
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Storm query mirror pool is empty, running query locally.', data)
+                    self.isin('Storm query mirror pool is empty.', data)
 
                     core01 = await base.enter_context(self.getTestCore(dirn=dirn01))
                     await core01.promote(graceful=True)
