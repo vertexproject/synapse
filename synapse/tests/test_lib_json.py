@@ -30,6 +30,12 @@ class JsonTest(s_test.SynTest):
                     s_json.load(empty)
                 self.eq(exc.exception.get('mesg'), 'Cannot read empty file.')
 
+            buf = io.BytesIO(b'{"a": "b"}')
+            self.eq({'a': 'b'}, s_json.load(buf))
+
+            buf = io.StringIO('{"a": "b"}')
+            self.eq({'a': 'b'}, s_json.load(buf))
+
     async def test_lib_json_dumps(self):
         self.eq('{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
         self.eq('{"a":"b","c":"d"}', s_json.dumps({'c': 'd', 'a': 'b'}, sort_keys=True))

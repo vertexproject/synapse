@@ -2,6 +2,8 @@ import copy
 import asyncio
 import logging
 
+import regex
+
 import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
@@ -93,8 +95,7 @@ class JsonLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_jsonSave',
                   'args': (
                       {'name': 'item', 'type': 'any', 'desc': 'The item to be serialized as a JSON string.', },
-                      {'name': 'indent', 'type': 'boolean', 'default': False,
-                       'desc': 'Specify if the serialized JSON should be indented 2 spaces.'}
+                      {'name': 'indent', 'type': 'int', 'desc': 'Specify a number of spaces to indent with.', 'default': None},
                   ),
                   'returns': {'type': 'str', 'desc': 'The JSON serialized object.', }}},
         {'name': 'schema', 'desc': 'Get a JS schema validation object.',
@@ -117,12 +118,8 @@ class JsonLib(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _jsonSave(self, item, indent=False):
-        try:
-            # A little bit of hackery for backwards compatibility with the old indent parameter being an integer/None
-            indent = bool(await s_stormtypes.toint(indent, noneok=True))
-        except s_exc.BadCast:
-            indent = await s_stormtypes.tobool(indent)
+    async def _jsonSave(self, item, indent=None):
+        indent = await s_stormtypes.toint(indent, noneok=True)
 
         try:
             item = await s_stormtypes.toprim(item)
@@ -130,7 +127,13 @@ class JsonLib(s_stormtypes.Lib):
             mesg = f'Argument is not JSON compatible: {item}'
             raise s_exc.MustBeJsonSafe(mesg=mesg)
 
-        return s_json.dumps(item, indent=indent)
+        ret = s_json.dumps(item, indent=bool(indent))
+
+        if indent not in (None, 0, 2):
+            spacing = ' ' * indent
+            ret = regex.sub('\n(  )+', lambda m: '\n' + (len(m.group(0)) // 2) * spacing, ret)
+
+        return ret
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonLoad(self, text):

@@ -43,7 +43,7 @@ def load(fp):
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
-    if hasattr(fp, 'fileno'):
+    if hasattr(fp, 'mode'):
         try:
             with mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ) as mm:
                 with memoryview(mm) as mv:

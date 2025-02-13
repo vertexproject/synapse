@@ -1,3 +1,5 @@
+import textwrap
+
 import synapse.exc as s_exc
 
 import synapse.lib.stormlib.json as s_json
@@ -14,37 +16,34 @@ class JsonTest(s_test.SynTest):
             self.eq(('["foo","bar","baz"]'), await core.callStorm('return($lib.json.save((foo, bar, baz)))'))
             self.eq(('{"foo":1,"bar":{"baz":"hello"}}'), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}})))'))
             self.eq(('{"foo":1,"bar":{"baz":"hello"}}'), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), (null)))'))
-            self.eq((
-'''{
-  "foo": 1,
-  "bar": {
-    "baz": "hello"
-  }
-}'''), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=(4)))'))
+            self.eq(textwrap.dedent('''\
+                {
+                 "foo": 1,
+                 "bar": {
+                  "baz": "hello"
+                 }
+                }'''),
+                await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=(1)))')
+            )
 
-            self.eq((
-'''{
-  "foo": 1,
-  "bar": {
-    "baz": "hello"
-  }
-}'''), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=2))'))
+            self.eq(textwrap.dedent('''\
+                {
+                    "foo": 1,
+                    "bar": {
+                        "baz": "hello"
+                    }
+                }'''),
+                await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=(4)))')
+            )
 
-            self.eq((
-'''{
-  "foo": 1,
-  "bar": {
-    "baz": "hello"
-  }
-}'''), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=(true)))'))
-
-            self.eq((
-'''{
-  "foo": 1,
-  "bar": {
-    "baz": "hello"
-  }
-}'''), await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=NotABool))'))
+            self.eq(textwrap.dedent('''\
+                {
+                  "foo": 1,
+                  "bar": {
+                    "baz": "hello"
+                  }
+                }'''),
+                await core.callStorm('return($lib.json.save(({"foo": 1, "bar": {"baz": "hello"}}), indent=2))'))
 
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return($lib.json.load(foo))')
