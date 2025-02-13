@@ -5884,7 +5884,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return None
 
         if self.stormpool.size() == 0:
-            await self.logWarn('Storm query mirror pool is empty.')
+            extra = self.getLogExtra()
+            logger.warning('Storm query mirror pool is empty.', extra=extra)
             return None
 
         timeout = self.stormpoolopts.get('timeout:connection')
@@ -5892,7 +5893,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             proxy = await self.stormpool.proxy(timeout=timeout)
         except TimeoutError as e:
-            await self.logWarn('Timeout connecting to storm pool mirror.', timeout=timeout)
+            extra = self.getLogExtra(timeout=timeout)
+            logger.warning('Timeout connecting to storm pool mirror.', extra=extra)
             return None
 
         proxyname = proxy._ahainfo.get('name')
@@ -5906,24 +5908,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
 
         except s_exc.IsFini as e:
-            await self.logWarn('Storm pool mirror is shutting down.', mirror=proxyname)
+            extra = self.getLogExtra(mirror=proxyname)
+            logger.warning('Storm pool mirror is shutting down.', extra=extra)
             return None
 
         except TimeoutError as e:
-            mesg = 'Timeout retrieving storm pool mirror nexus offset.'
-            await self.logWarn(mesg, mirror=proxyname, nexsoffs=curoffs, timeout=timeout)
+            extra = self.getLogExtra(mirror=proxyname, nexsoffs=curoffs, timeout=timeout)
+            logger.warning('Timeout retrieving storm pool mirror nexus offset.', extra=extra)
             return None
 
         if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
-            mesg = f'Pool mirror nexus offset delta too large.'
-            await self.logWarn(mesg, mirror=proxyname, delta=delta, nexsoffs=curoffs, mirror_offset=miroffs)
+            extra = self.getLogExtra(mirror=proxyname, delta=delta, nexsoffs=curoffs, mirror_offset=miroffs)
+            logger.warning('Pool mirror nexus offset delta too large.', extra=extra)
             return None
 
         return proxy
-
-    async def logWarn(self, mesg, **extra):
-        extra = await self.getLogExtra(**extra)
-        logger.warning(mesg, extra=extra)
 
     async def storm(self, text, opts=None):
 
