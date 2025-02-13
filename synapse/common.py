@@ -39,6 +39,9 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
+# Import these into the namespace for convenience
+from synapse.lib.json import jsload, jslines, jssave, reqjsonsafe
+
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
 import synapse.vendor.cpython.lib.http.cookies as v_cookies
 
@@ -511,21 +514,6 @@ def getDirSize(*paths):
 
     return realsum, apprsum
 
-def jsload(*paths):
-    deprecated('jsload', curv='2.197.0')
-    import synapse.lib.json as s_json
-    return s_json.jsload(*paths)
-
-def jslines(*paths):
-    deprecated('jslines', curv='2.197.0')
-    import synapse.lib.json as s_json
-    return s_json.jslines(*paths)
-
-def jssave(js, *paths):
-    deprecated('jssave', curv='2.197.0')
-    import synapse.lib.json as s_json
-    return s_json.jssave(js, *paths)
-
 def yamlloads(data):
     return yaml.load(data, Loader)
 
@@ -955,15 +943,6 @@ def deprecated(name, curv='2.x', eolv='3.0.0'):
 def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
     warnings.warn(mesg, DeprecationWarning)
-
-def reqjsonsafe(item):
-    '''
-    Returns None if item is json serializable, otherwise raises an exception.
-    Uses default type coercion from synapse.lib.json.dumps.
-    '''
-    deprecated('reqjsonsafe', curv='2.197.0')
-    import synapse.lib.json as s_json
-    s_json.reqjsonsafe(item)
 
 def jsonsafe_nodeedits(nodeedits):
     '''

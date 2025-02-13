@@ -1,3 +1,5 @@
+import io
+
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -17,25 +19,54 @@ class JsonTest(s_test.SynTest):
     async def test_lib_json_load(self):
         with self.getTestDir() as dirn:
 
-            file00 = s_common.genfile(dirn, 'file00')
-            file00.write(b'{"a": "b"}')
-            file00.close()
+            with s_common.genfile(dirn, 'file00') as file00:
+                file00.write(b'{"a": "b"}')
 
-            file00 = s_common.genfile(dirn, 'file00')
-            self.eq({'a': 'b'}, s_json.load(file00))
+            with s_common.genfile(dirn, 'file00') as file00:
+                self.eq({'a': 'b'}, s_json.load(file00))
 
-            empty = s_common.genfile(dirn, 'empty')
+            with s_common.genfile(dirn, 'empty') as empty:
+                with self.raises(s_exc.BadJsonText) as exc:
+                    s_json.load(empty)
+                self.eq(exc.exception.get('mesg'), 'Cannot read empty file.')
 
-            with self.raises(s_exc.BadJsonText) as exc:
-                s_json.load(empty)
-            self.eq(exc.exception.get('mesg'), 'Cannot read empty file.')
-
-    # FIXME: Implement below tests if this PR gets the thumbs up during discussion
     async def test_lib_json_dumps(self):
-        pass
+        self.eq('{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
+        self.eq('{"a":"b","c":"d"}', s_json.dumps({'c': 'd', 'a': 'b'}, sort_keys=True))
+        self.eq('{\n  "c": "d",\n  "a": "b"\n}', s_json.dumps({'c': 'd', 'a': 'b'}, indent=True))
+        self.eq(b'{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}, asbytes=True))
+        self.eq('{"c":"d","a":"b"}\n', s_json.dumps({'c': 'd', 'a': 'b'}, append_newline=True))
+
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.dumps({}.items())
+        self.eq(exc.exception.get('mesg'), 'Type is not JSON serializable: dict_items')
+
+        self.eq('"dict_items([])"', s_json.dumps({}.items(), default=str))
 
     async def test_lib_json_dump(self):
-        pass
+        with self.getTestDir() as dirn:
+            binfn = s_common.genpath(dirn, 'bin.json')
+            txtfn = s_common.genpath(dirn, 'txt.json')
+
+            with open(binfn, 'wb') as binfp:
+                s_json.dump({'c': 'd', 'a': 'b'}, binfp)
+
+            with open(binfn, 'rb') as binfp:
+                self.eq(b'{"c":"d","a":"b"}', binfp.read())
+
+            with open(txtfn, 'w') as txtfp:
+                s_json.dump({'c': 'd', 'a': 'b'}, txtfp)
+
+            with open(txtfn, 'r') as txtfp:
+                self.eq('{"c":"d","a":"b"}', txtfp.read())
+
+        buf = io.BytesIO()
+        s_json.dump({'c': 'd', 'a': 'b'}, buf)
+        self.eq(b'{"c":"d","a":"b"}', buf.getvalue())
+
+        buf = io.StringIO()
+        s_json.dump({'c': 'd', 'a': 'b'}, buf)
+        self.eq('{"c":"d","a":"b"}', buf.getvalue())
 
     async def test_jsload(self):
         with self.getTestDir() as dirn:

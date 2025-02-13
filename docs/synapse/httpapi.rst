@@ -422,9 +422,8 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
         .. code:: python3
             :name: aiohttp api/v1/storm example
 
+            import json
             import pprint
-
-            import synapse.lib.json as s_json
 
             # Assumes sess is an aiohttp client session that has previously logged in
 
@@ -438,7 +437,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
                     if not byts:
                         break
 
-                    mesg = s_json.loads(byts)
+                    mesg = json.loads(byts)
                     pprint.pprint(mesg)
 
         requests example:
@@ -446,9 +445,8 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
         .. code:: python3
             :name: requests api/v1/storm example
 
+            import json
             import pprint
-
-            import synapse.lib.json as s_json
 
             # Assumes sess is an requests client session that has previously logged in
 
@@ -458,7 +456,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             resp = sess.get(url, json=data, stream=True)
             for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
-                mesg = s_json.loads(chunk)
+                mesg = json.loads(chunk)
                 pprint.pprint(mesg)
 
         When working with these APIs across proxies, we have experienced issues with NGINX interfering with the
@@ -468,9 +466,8 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
         .. code:: python3
             :name: chunked encoding reconstruction
 
+            import json
             import pprint
-
-            import synapse.lib.json as s_json
 
             # Assumes sess is an requests client session that has previously logged in
 
@@ -491,7 +488,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
                     if not chunkend:
                         continue
 
-                    mesg = s_json.loads(buf)
+                    mesg = json.loads(buf)
                     buf = b""
 
                     pprint.pprint(buf)

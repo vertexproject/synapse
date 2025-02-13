@@ -5,7 +5,6 @@ import mmap
 import orjson
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
 def loads(s):
     '''
@@ -44,13 +43,16 @@ def load(fp):
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
-    try:
-        with mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ) as mm:
-            with memoryview(mm) as mv:
-                return loads(mv)
-    except ValueError:
-        mesg = 'Cannot read empty file.'
-        raise s_exc.BadJsonText(mesg=mesg)
+    if hasattr(fp, 'fileno'):
+        try:
+            with mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ) as mm:
+                with memoryview(mm) as mv:
+                    return loads(mv)
+        except ValueError:
+            mesg = 'Cannot read empty file.'
+            raise s_exc.BadJsonText(mesg=mesg)
+    else:
+        return loads(fp.read())
 
 def dumps(obj, sort_keys=False, indent=False, default=None, asbytes=False, append_newline=False):
     '''
@@ -113,7 +115,12 @@ def dump(obj, fp, sort_keys=False, indent=False, default=None, append_newline=Fa
     Raises:
         synapse.exc.MustBeJsonSafe: This exception is raised when a python object cannot be serialized.
     '''
-    asbytes = 'b' in fp.mode
+    asbytes = False
+    if hasattr(fp, 'mode'):
+        asbytes = 'b' in fp.mode
+    elif isinstance(fp, io.BytesIO):
+        asbytes = True
+
     data = dumps(obj, sort_keys=sort_keys, indent=indent, default=default, asbytes=asbytes, append_newline=append_newline)
     fp.write(data)
 
@@ -131,6 +138,7 @@ def jsload(*paths):
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
+    import synapse.common as s_common # Avoid circular import
     with s_common.genfile(*paths) as fd:
         if os.fstat(fd.fileno()).st_size == 0:
             return None
@@ -151,6 +159,7 @@ def jslines(*paths):
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
+    import synapse.common as s_common # Avoid circular import
     with s_common.genfile(*paths) as fd:
         for line in fd:
             yield loads(line)
@@ -169,6 +178,7 @@ def jssave(js, *paths):
         synapse.exc.MustBeJsonSafe: This exception is raised when a python
         object cannot be serialized.
     '''
+    import synapse.common as s_common # Avoid circular import
     path = s_common.genpath(*paths)
     with io.open(path, 'wb') as fd:
         dump(js, fd, sort_keys=True, indent=True)
