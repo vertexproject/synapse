@@ -37,14 +37,34 @@ class JsonTest(s_test.SynTest):
     async def test_lib_json_dump(self):
         pass
 
-    async def test_lib_json_jsload(self):
-        pass
+    async def test_jsload(self):
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'jsload.json') as fp:
+                fp.write(b'{"a":"b"}')
 
-    async def test_lib_json_jslines(self):
-        pass
+            obj = s_common.jsload(dirn, 'jsload.json')
+            self.eq({'a': 'b'}, obj)
 
-    async def test_lib_json_jssave(self):
-        pass
+            s_common.genfile(dirn, 'empty.json').close()
+            self.none(s_common.jsload(dirn, 'empty.json'))
+
+    async def test_jslines(self):
+        with self.getTestDir() as dirn:
+            with s_common.genfile(dirn, 'jslines.json') as fp:
+                fp.write(b'{"a":"b"}\n{"c":"d"}')
+
+            objs = [k for k in s_common.jslines(dirn, 'jslines.json')]
+            self.len(2, objs)
+            self.eq([{'a': 'b'}, {'c': 'd'}], objs)
+
+    async def test_jssave(self):
+        with self.getTestDir() as dirn:
+            s_common.jssave({'a': 'b'}, dirn, 'jssave.json')
+
+            with s_common.genfile(dirn, 'jssave.json') as fd:
+                data = fd.read()
+
+            self.eq(data, b'{\n  "a": "b"\n}')
 
     async def test_lib_json_reqjsonsafe(self):
         pass

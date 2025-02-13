@@ -483,9 +483,18 @@ class CommonTest(s_t_utils.SynTest):
         for (item, eret) in items:
             if eret is None:
                 self.none(s_common.reqJsonSafeStrict(item))
+                s_common.reqjsonsafe(item)
             else:
                 with self.raises(eret):
                     s_common.reqJsonSafeStrict(item)
+
+                with warnings.catch_warnings(record=True) as msgs:
+                    with self.raises(s_exc.MustBeJsonSafe):
+                        s_common.reqjsonsafe(item)
+
+                    self.len(1, msgs)
+                    self.true(issubclass(msgs[0].category, DeprecationWarning))
+                    self.eq(str(msgs[0].message), '"reqjsonsafe" is deprecated in 2.197.0 and will be removed in 3.0.0')
 
     def test_sslctx(self):
         with self.getTestDir(mirror='certdir') as dirn:
