@@ -188,7 +188,7 @@ class CortexTest(s_t_utils.SynTest):
         async def testUserNotifs(core):
             async with core.getLocalProxy() as proxy:
                 root = core.auth.rootuser.iden
-                indx = await proxy.addUserNotif(root, 'hehe', {'foo': 'bar'})
+                indx = await proxy.addUserNotif(root, 'hehe', mesgdata={'foo': 'bar'})
                 self.nn(indx)
                 item = await proxy.getUserNotif(indx)
                 self.eq(root, item[0])
@@ -3041,14 +3041,14 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # test reqValidStorm
             self.true(await proxy.reqValidStorm('test:str=test'))
-            self.true(await proxy.reqValidStorm('1.2.3.4 | spin', {'mode': 'lookup'}))
-            self.true(await proxy.reqValidStorm('1.2.3.4 | spin', {'mode': 'autoadd'}))
+            self.true(await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'lookup'}))
+            self.true(await proxy.reqValidStorm('1.2.3.4 | spin', opts={'mode': 'autoadd'}))
             with self.raises(s_exc.BadSyntax):
                 await proxy.reqValidStorm('1.2.3.4 ')
             with self.raises(s_exc.BadSyntax):
-                await proxy.reqValidStorm('| 1.2.3.4 ', {'mode': 'lookup'})
+                await proxy.reqValidStorm('| 1.2.3.4 ', opts={'mode': 'lookup'})
             with self.raises(s_exc.BadSyntax):
-                await proxy.reqValidStorm('| 1.2.3.4', {'mode': 'autoadd'})
+                await proxy.reqValidStorm('| 1.2.3.4', opts={'mode': 'autoadd'})
 
     async def test_stormcmd(self):
 
@@ -5767,10 +5767,10 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
 
             # specify typeopts to getTypeNorm/getPropNorm
-            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), {'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
+            norm, info = await prox.getTypeNorm('array', ('  TIME   ', '   pass   ', '   the  '), typeopts={'uniq': True, 'sorted': True, 'type': 'str', 'typeopts': {'strip': True, 'lower': True}})
             self.eq(norm, ('pass', 'the', 'time'))
 
-            norm, info = await prox.getPropNorm('test:comp', "1234:comedy", {'sepr': ':'})
+            norm, info = await prox.getPropNorm('test:comp', "1234:comedy", typeopts={'sepr': ':'})
             self.eq(norm, (1234, "comedy"))
 
             # getTypeNorm can norm types which aren't defined as forms/props
@@ -6759,7 +6759,7 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCoreAndProxy() as (core, proxy):
             baseoffs = await core.getNexsIndx()
             baselayr = core.getLayer()
-            items = await alist(proxy.syncLayersEvents({}, wait=False))
+            items = await alist(proxy.syncLayersEvents(offsdict={}, wait=False))
             self.len(1, items)
 
             offsdict = {baselayr.iden: baseoffs}

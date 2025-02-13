@@ -251,14 +251,14 @@ class CoreApi(s_cell.CellApi):
 
         return opts
 
-    async def callStorm(self, text, opts=None):
+    async def callStorm(self, text, *, opts=None):
         '''
         Return the value expressed in a return() statement within storm.
         '''
         opts = self._reqValidStormOpts(opts)
         return await self.cell.callStorm(text, opts=opts)
 
-    async def exportStorm(self, text, opts=None):
+    async def exportStorm(self, text, *, opts=None):
         '''
         Execute a storm query and package nodes for export/import.
 
@@ -269,7 +269,7 @@ class CoreApi(s_cell.CellApi):
         async for pode in self.cell.exportStorm(text, opts=opts):
             yield pode
 
-    async def feedFromAxon(self, sha256, opts=None):
+    async def feedFromAxon(self, sha256, *, opts=None):
         '''
         Import a msgpack .nodes file from the axon.
         '''
@@ -299,7 +299,7 @@ class CoreApi(s_cell.CellApi):
         async for node in view.addNodes(items, user=self.user):
             await asyncio.sleep(0)
 
-    async def count(self, text, opts=None):
+    async def count(self, text, *, opts=None):
         '''
         Count the number of nodes which result from a storm query.
 
@@ -313,7 +313,7 @@ class CoreApi(s_cell.CellApi):
         opts = self._reqValidStormOpts(opts)
         return await self.cell.count(text, opts=opts)
 
-    async def storm(self, text, opts=None):
+    async def storm(self, text, *, opts=None):
         '''
         Evaluate a storm query and yield result messages.
 
@@ -325,7 +325,7 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.storm(text, opts=opts):
             yield mesg
 
-    async def reqValidStorm(self, text, opts=None):
+    async def reqValidStorm(self, text, *, opts=None):
         '''
         Parse a Storm query to validate it.
 
@@ -341,7 +341,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.reqValidStorm(text, opts)
 
-    async def syncLayerNodeEdits(self, offs, layriden=None, wait=True):
+    async def syncLayerNodeEdits(self, offs, *, layriden=None, wait=True):
         '''
         Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
 
@@ -358,7 +358,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
-    async def getPropNorm(self, prop, valu, typeopts=None):
+    async def getPropNorm(self, prop, valu, *, typeopts=None):
         '''
         Get the normalized property value based on the Cortex data model.
 
@@ -376,7 +376,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getPropNorm(prop, valu, typeopts=typeopts)
 
-    async def getTypeNorm(self, name, valu, typeopts=None):
+    async def getTypeNorm(self, name, valu, *, typeopts=None):
         '''
         Get the normalized type value based on the Cortex data model.
 
@@ -465,7 +465,7 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
-    async def addStormPkg(self, pkgdef, verify=False):
+    async def addStormPkg(self, pkgdef, *, verify=False):
         self.user.confirm(('pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef, verify=verify)
 
@@ -514,18 +514,18 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delStormDmon(iden)
 
     @s_cell.adminapi()
-    async def cloneLayer(self, iden, ldef=None):
+    async def cloneLayer(self, iden, *, ldef=None):
 
         ldef = ldef or {}
         ldef['creator'] = self.user.iden
 
         return await self.cell.cloneLayer(iden, ldef)
 
-    async def getStormVar(self, name, default=None):
+    async def getStormVar(self, name, *, default=None):
         self.user.confirm(('globals', 'get', name))
         return await self.cell.getStormVar(name, default=default)
 
-    async def popStormVar(self, name, default=None):
+    async def popStormVar(self, name, *, default=None):
         self.user.confirm(('globals', 'pop', name))
         return await self.cell.popStormVar(name, default=default)
 
@@ -533,17 +533,17 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('globals', 'set', name))
         return await self.cell.setStormVar(name, valu)
 
-    async def syncLayersEvents(self, offsdict=None, wait=True):
+    async def syncLayersEvents(self, *, offsdict=None, wait=True):
         self.user.confirm(('sync',))
         async for item in self.cell.syncLayersEvents(offsdict=offsdict, wait=wait):
             yield item
 
-    async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
+    async def syncIndexEvents(self, matchdef, *, offsdict=None, wait=True):
         self.user.confirm(('sync',))
         async for item in self.cell.syncIndexEvents(matchdef, offsdict=offsdict, wait=wait):
             yield item
 
-    async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
+    async def iterFormRows(self, layriden, form, *, stortype=None, startvalu=None):
         '''
         Yields nid, valu tuples of nodes of a single form, optionally (re)starting at startvalue
 
@@ -560,7 +560,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.iterFormRows(layriden, form, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterPropRows(self, layriden, form, prop, stortype=None, startvalu=None):
+    async def iterPropRows(self, layriden, form, prop, *, stortype=None, startvalu=None):
         '''
         Yields nid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalue
 
@@ -578,7 +578,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.iterPropRows(layriden, form, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
+    async def iterUnivRows(self, layriden, prop, *, stortype=None, startvalu=None):
         '''
         Yields nid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalue
 
@@ -595,7 +595,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.iterUnivRows(layriden, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
+    async def iterTagRows(self, layriden, tag, *, form=None, starttupl=None):
         '''
         Yields (nid, ival) values that match a tag and optional form, optionally (re)starting at starttupl.
 
@@ -612,7 +612,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
             yield item
 
-    async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
+    async def iterTagPropRows(self, layriden, tag, prop, *, form=None, stortype=None, startvalu=None):
         '''
         Yields (nid, valu) that match a tag:prop, optionally (re)starting at startvalu.
 
@@ -653,16 +653,16 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delUserNotif(indx)
 
     @s_cell.adminapi()
-    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+    async def addUserNotif(self, useriden, mesgtype, *, mesgdata=None):
         return await self.cell.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
 
     @s_cell.adminapi()
-    async def iterUserNotifs(self, useriden, size=None):
+    async def iterUserNotifs(self, useriden, *, size=None):
         async for item in self.cell.iterUserNotifs(useriden, size=size):
             yield item
 
     @s_cell.adminapi()
-    async def watchAllUserNotifs(self, offs=None):
+    async def watchAllUserNotifs(self, *, offs=None):
         async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 

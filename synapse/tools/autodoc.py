@@ -685,7 +685,7 @@ async def docModel(outp,
         else:
             q = f"[{form}='{example}']"
         node = False
-        async for (mtyp, mnfo) in core.storm(q, {'editformat': 'none'}):
+        async for (mtyp, mnfo) in core.storm(q, opts={'editformat': 'none'}):
             if mtyp in ('init', 'fini'):
                 continue
             if mtyp == 'err':  # pragma: no cover

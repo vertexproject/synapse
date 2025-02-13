@@ -143,7 +143,7 @@ class LayerApi(s_cell.CellApi):
         meta['link:user'] = self.user.iden
         return await self.layr.saveNodeEdits(edits, meta)
 
-    async def storNodeEdits(self, nodeedits, meta=None):
+    async def storNodeEdits(self, nodeedits, *, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
 
@@ -152,7 +152,7 @@ class LayerApi(s_cell.CellApi):
 
         return await self.layr.saveNodeEdits(nodeedits, meta)
 
-    async def storNodeEditsNoLift(self, nodeedits, meta=None):
+    async def storNodeEditsNoLift(self, nodeedits, *, meta=None):
 
         await self._reqUserAllowed(self.writeperm)
 
@@ -161,7 +161,7 @@ class LayerApi(s_cell.CellApi):
 
         await self.layr.storNodeEditsNoLift(nodeedits, meta)
 
-    async def syncNodeEdits(self, offs, wait=True, reverse=False, compat=False):
+    async def syncNodeEdits(self, offs, *, wait=True, reverse=False, compat=False):
         '''
         Yield (offs, nodeedits) tuples from the nodeedit log starting from the given offset.
 
@@ -172,7 +172,7 @@ class LayerApi(s_cell.CellApi):
             yield item
             await asyncio.sleep(0)
 
-    async def syncNodeEdits2(self, offs, wait=True, compat=False):
+    async def syncNodeEdits2(self, offs, *, wait=True, compat=False):
         await self._reqUserAllowed(self.liftperm)
         async for item in self.layr.syncNodeEdits2(offs, wait=wait, compat=compat):
             yield item

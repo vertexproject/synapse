@@ -331,7 +331,7 @@ class NexsRoot(s_base.Base):
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
-            await client.issue(nexsiden, event, args, kwargs, meta)
+            await client.issue(nexsiden, event, args, kwargs, meta=meta)
             return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def getIssueProxy(self):
