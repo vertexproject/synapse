@@ -45,7 +45,7 @@ class Formatter(logging.Formatter):
 
         return loginfo
 
-    def format(self, record: logging.LogRecord):
+    def format(self, record):
         loginfo = self.genLogInfo(record)
         return json.dumps(loginfo, default=str)
 
