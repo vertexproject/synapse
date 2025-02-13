@@ -3672,16 +3672,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A dictionary
         '''
-        sess = s_scope.get('sess')  # type: s_daemon.Sess
-        user = s_scope.get('user')  # type: s_auth.User
-
-        if user:
-            kwargs['user'] = user.iden
-            kwargs['username'] = user.name
-        elif sess and sess.user:
-            kwargs['user'] = sess.user.iden
-            kwargs['username'] = sess.user.name
-
         return s_logging.getLogExtra(**kwargs)
 
     async def _getSpawnLogConf(self):
@@ -4310,6 +4300,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             outp = s_output.stdout
 
         cell = await cls.initFromArgv(argv, outp=outp)
+
+        if cell.ahasvcname is not None:
+            s_logging.setLogExtra('service', cell.ahasvcname)
 
         await cell.main()
 

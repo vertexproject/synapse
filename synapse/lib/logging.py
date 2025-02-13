@@ -3,8 +3,11 @@ import json
 import logging
 import collections
 
+import synapse.exc as s_exc
 import synapse.common as s_common
+
 import synapse.lib.const as s_const
+import synapse.lib.scope as s_scope
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +19,30 @@ def _addLogInfo(info):
 
 # TODO: getLogInfo(wait=True)
 
+_logextra = {}
+def setLogExtra(name, valu):
+    '''
+    Configure global extra values which should be added to every log.
+    '''
+    _logextra[name] = valu
+
 def getLogExtra(**kwargs):
-    return {'synapse': kwargs}
+
+    extra = {'synapse': kwargs}
+    extra.update(_logextra)
+
+    user = s_scope.get('user')  # type: s_auth.User
+    if user is not None:
+        extra['user'] = user.iden
+        extra['username'] = user.name
+
+    else:
+        sess = s_scope.get('sess')  # type: s_daemon.Sess
+        if sess is not None and sess.user is not None:
+            extra['user'] = sess.user.iden
+            extra['username'] = sess.user.name
+
+    return extra
 
 class Formatter(logging.Formatter):
 
@@ -33,6 +58,7 @@ class Formatter(logging.Formatter):
                 'func': record.funcName,
             },
             'level': record.levelname,
+            'tick': s_common.now(),
             'time': self.formatTime(record, self.datefmt),
         }
 
