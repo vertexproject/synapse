@@ -191,7 +191,11 @@ def _iterBackupProc(path, linkinfo):
     # This logging call is okay to run since we're executing in
     # our own process space and no logging has been configured.
     logconf = linkinfo.get('logconf')
-    s_logging.setup(level=logconf.get('level'), structlog=logconf.get('structlog'))
+
+    level = logconf.get('level')
+    structlog = logconf.get('structlog')
+
+    s_logging.setup(level=level, structlog=structlog)
 
     logger.info(f'Backup streaming process for [{path}] starting.')
     asyncio.run(_iterBackupWork(path, linkinfo))
@@ -2611,7 +2615,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         (In a separate process) Actually do the backup
         '''
         # This is a new process: configure logging
-        s_logging.setup(level=logconf.get('level'), structlog=logconf.get('structlog'))
+        level = logconf.get('level')
+        structlog = logconf.get('structlog')
+
+        s_logging.setup(level=level, structlog=structlog)
+
         try:
 
             with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
