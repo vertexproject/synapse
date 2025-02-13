@@ -101,8 +101,8 @@ organization name:
 .. WARNING::
   
   Using the equals ( ``=`` ) operator to set an array property value will set or update (overwrite) the
-  **entire** property value. To add or remove individual elements from an array, use the ``+=`` or ``-=``
-  operators.
+  **entire** property value. To add or remove individual elements from an array, use the ``+=``, ``-=``,
+  ``++=``, or ``--=`` operators.
 
 **Example:**
 
@@ -119,12 +119,25 @@ Remove a name from the array of names associated with an organization:
 .. storm-cli:: ou:org:name='Monty Python' [ :names-='The Spanish Inquisition' ]
 
 
+Add multiple values to the array of names associated with an organization:
+
+
+.. storm-cli:: ou:org:name=vertex [ :names ++= ('The Vertex Project', 'The Vertex Project, LLC', Vertex) ]
+
+
+Remove multiple values from the array of names associated with an organization:
+
+
+.. storm-cli:: ou:org:name=vertex [ :names --= ('The Vertex Project', 'The Vertex Project, LLC', Vertex) ]
+
+
 .. TIP::
   
   The standard "edit try" operator ( ``?=`` ) (see :ref:`edit-try` in the :ref:`storm-ref-data-mod`) can
   be used to attempt to set a **full** array property value where you are unsure whether the value will
   succeed. The specialized ``?+=`` or ``?-=`` operators can be used to attempt to add or remove a **single**
-  array value in a similar manner.
+  array value in a similar manner. The ``?++=`` and ``?--=`` operators can be used to attempt to add or remove
+  multiple values from an array value, ignoring any items which fail to normalize.
 
 **Example:**
 
@@ -146,8 +159,8 @@ the "fail silently" behavior for the "edit try" operator. The ``:authors`` prope
   on an X509 certificate (``crypto:x509:cert``), Synapse will fail to set the property altogether because ``bob``
   is not a valid email address type (even though ``alice@vertex.link`` is).
 
-- The "edit try" operator for **removing** individual elements from an array ( ``?-=`` ) is unique to arrays
-  as they are the only type that allows removal of a single element from a property. (Properties with a single
+- The "edit try" operators for **removing** elements from an array ( ``?-=`` or ``?--=`` ) are unique to arrays
+  as they are the only type that allows removal of a individual elements from a property. (Properties with a single
   value are either set, modified (updated), or the property is deleted altogether.) As with other uses of 
   "edit try", use of the operator allows the operation to silently fail (vs. error and halt) if the operation
   attempts to remove a value from an array that does not match the array's defined type. For example, attempting

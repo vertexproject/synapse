@@ -113,6 +113,14 @@ commands:
           - help: Help on foo opt
         - - --bar
           - help: Help on bar opt
+      storm: |
+        test:str
+      endpoints:
+        - path: /v1/test/one
+        - path: /v1/test/two
+          host: vertex.link
+        - path: /v1/test/three
+          desc: endpoint three
 
     - name: testpkg.baz
       descr: |
