@@ -9870,7 +9870,7 @@ async def tostor(valu, isndef=False):
         retn = []
         for v in valu:
             try:
-                retn.append(await tostor(v))
+                retn.append(await tostor(v, isndef=isndef))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -9879,7 +9879,7 @@ async def tostor(valu, isndef=False):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await tostor(v)
+                retn[k] = await tostor(v, isndef=isndef)
             except s_exc.NoSuchType:
                 pass
         return retn
