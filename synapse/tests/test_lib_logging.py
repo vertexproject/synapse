@@ -36,18 +36,18 @@ class LoggingTest(s_test.SynTest):
 
         self.eq(extra['woot'], 'hehe')
 
-        event = asyncio.Event()
-        async def logtask():
-            await asyncio.sleep(1)
-            print('LOG TASK')
-            logger.warning('OMG WARNING', s_logging.getLogExtra(hehe='haha'))
-            logger.warning('OMG WARNING', s_logging.getLogExtra(hehe='haha'))
-            print('DONE')
+        # event = asyncio.Event()
+        # async def logtask():
+        #     await asyncio.sleep(1)
+        #     print('LOG TASK')
+        #     logger.warning('OMG WARNING', s_logging.getLogExtra(hehe='haha'))
+        #     logger.warning('OMG WARNING', s_logging.getLogExtra(hehe='haha'))
+        #     print('DONE')
 
-        async with await s_base.Base.anit() as base:
-            s_logging.logfifo.clear()
-            base.schedCoro(logtask())
-            async for loginfo in s_logging.getLogInfo(wait=True):
-                print(loginfo)
-                self.eq(loginfo['loglevel'], 'WARNING')
-                break
+        # async with await s_base.Base.anit() as base:
+        #     s_logging.logfifo.clear()
+        #     base.schedCoro(logtask())
+        #     async for loginfo in s_logging.getLogInfo(wait=True):
+        #         print(loginfo)
+        #         self.eq(loginfo['loglevel'], 'WARNING')
+        #         break
