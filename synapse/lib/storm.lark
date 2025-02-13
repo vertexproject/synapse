@@ -40,7 +40,7 @@ _editblock: "[" _editoper* "]"
 // A single edit operation
 _editoper: editnodeadd
             | editpropset | editunivset | edittagpropset | edittagadd | editcondpropset
-            | editpropdel | editunivdel | edittagpropdel | edittagdel
+            | editpropsetmulti | editpropdel | editunivdel | edittagpropdel | edittagdel
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
 // Parenthesis in an edit block don't have incoming nodes
@@ -48,18 +48,20 @@ editparens: "(" editnodeadd _editoper* ")"
 edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
 editunivdel: EXPRMINUS univprop
 edittagdel: EXPRMINUS tagname
-editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editcondpropset: relprop condsetoper _valu
+editpropsetmulti: relprop (MODSETMULTI | TRYMODSETMULTI) _valu
 editpropdel: EXPRMINUS relprop
-editunivset: univprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
-edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYSETPLUS | TRYSETMINUS) _valu
+editunivset: univprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 edittagpropdel: EXPRMINUS tagprop
 
 EQSPACE: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
-TRYSETPLUS.1: "?+="
-TRYSETMINUS.1: "?-="
+TRYMODSET.1: "?+=" | "?-="
+MODSETMULTI.4: "++=" | "--="
+TRYMODSETMULTI.1: "?++=" | "?--="
 TRYSET.1: "?="
 SETTAGOPER: "?"
 
