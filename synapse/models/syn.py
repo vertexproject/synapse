@@ -23,6 +23,10 @@ class SynUser(s_types.Guid):
             if user is not None:
                 return user.iden, {}
 
+        if text == '*':
+            mesg = f'{self.name} values must be a valid username or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
         try:
             return s_types.Guid._normPyStr(self, text)
         except s_exc.BadTypeValu:
@@ -54,6 +58,10 @@ class SynRole(s_types.Guid):
             role = core.auth._getRoleByName(text)
             if role is not None:
                 return role.iden, {}
+
+        if text == '*':
+            mesg = f'{self.name} values must be a valid rolename or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
 
         try:
             return s_types.Guid._normPyStr(self, text)

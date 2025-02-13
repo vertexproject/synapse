@@ -207,6 +207,9 @@ class RiskModelTest(s_t_utils.SynTest):
                     :host=*
                     :priority=high
                     :severity=highest
+                    :service:platform=*
+                    :service:instance=*
+                    :service:account=*
                 ]
             ''')
             self.len(1, nodes)
@@ -226,6 +229,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
             self.len(1, await core.nodes('risk:alert :engine -> it:prod:softver'))
+            self.len(1, await core.nodes('risk:alert :service:account -> inet:service:account'))
+            self.len(1, await core.nodes('risk:alert :service:platform -> inet:service:platform'))
+            self.len(1, await core.nodes('risk:alert :service:instance -> inet:service:instance'))
 
             nodes = await core.nodes('''[
                     risk:compromise=*
