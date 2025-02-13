@@ -58,6 +58,11 @@ class MatModule(s_module.CoreModule):
             ),
 
             'types': (
+                ('mat:item', ('guid', {}), {'doc': 'A GUID assigned to a material object.'}),
+                ('mat:item:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of material object or specification types.',
+                }),
 
                 ('phys:object', ('ndef', {'interface': 'phys:object'}), {
                     'doc': 'A node which represents a physical object.'}),
@@ -108,25 +113,17 @@ class MatModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The name of the material item.'}),
 
-                    ('type', ('mat:type', {}), {
+                    ('type', ('mat:item:type:taxonomy', {}), {
                         'doc': 'The taxonomy type of the item.'}),
 
                     ('spec', ('mat:spec', {}), {
                         'doc': 'The specification which defines this item.'}),
-
-                    ('latlong', ('geo:latlong', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :place:latlong.'}),
-
-                    ('loc', ('loc', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :place:loc.'}),
                 )),
 
                 ('mat:spec', {}, (
                     ('name', ('str', {'lower': True}), {
                         'doc': 'The name of the material specification.'}),
-                    ('type', ('mat:type', {}), {
+                    ('type', ('mat:item:type:taxonomy', {}), {
                         'doc': 'The taxonomy type for the specification.'}),
                 )),
 

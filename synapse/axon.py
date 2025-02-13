@@ -625,7 +625,6 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
 
             The following proxy arguments are supported::
 
-                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.
                 False: Do not use the proxy defined by the http:proxy configuration option if set.
                 <str>: A proxy URL string.
@@ -826,10 +825,7 @@ class Axon(s_cell.Cell):
         if self.inaugural:
             self.axonmetrics.set('size:bytes', 0)
             self.axonmetrics.set('file:count', 0)
-
-        await self._bumpCellVers('axon:metrics', (
-            (1, self._migrateAxonMetrics),
-        ), nexs=False)
+            self.cellvers.set('axon:metrics', 1)
 
         self.maxbytes = self.conf.get('max:bytes')
         self.maxcount = self.conf.get('max:count')
@@ -893,16 +889,6 @@ class Axon(s_cell.Cell):
 
     async def _axonHealth(self, health):
         health.update('axon', 'nominal', '', data=await self.metrics())
-
-    async def _migrateAxonMetrics(self):
-        logger.warning('migrating Axon metrics data out of hive')
-
-        async with await self.hive.open(('axon', 'metrics')) as hivenode:
-            axonmetrics = await hivenode.dict()
-            self.axonmetrics.set('size:bytes', axonmetrics.get('size:bytes', 0))
-            self.axonmetrics.set('file:count', axonmetrics.get('file:count', 0))
-
-        logger.warning('...Axon metrics migration complete!')
 
     async def _initBlobStor(self):
 
@@ -970,10 +956,6 @@ class Axon(s_cell.Cell):
 
     async def _resolveProxyUrl(self, valu):
         match valu:
-            case None:
-                s_common.deprecated('Setting the Axon HTTP proxy argument to None', curv='2.192.0')
-                return await self.getConfOpt('http:proxy')
-
             case True:
                 return await self.getConfOpt('http:proxy')
 
@@ -1592,7 +1574,6 @@ class Axon(s_cell.Cell):
 
             The following proxy arguments are supported::
 
-                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.
                 False: Do not use the proxy defined by the http:proxy configuration option if set.
                 <str>: A proxy URL string.
@@ -1778,7 +1759,6 @@ class Axon(s_cell.Cell):
 
             The following proxy arguments are supported::
 
-                None: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
                 True: Use the proxy defined by the http:proxy configuration option if set.
                 False: Do not use the proxy defined by the http:proxy configuration option if set.
                 <str>: A proxy URL string.

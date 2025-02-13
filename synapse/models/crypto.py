@@ -211,12 +211,6 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The destination address of the transaction.'}),
                     ('from', ('crypto:currency:address', {}), {
                         'doc': 'The source address of the transaction.'}),
-                    ('inputs', ('array', {'type': 'crypto:payment:input', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use crypto:payment:input:transaction.'}),
-                    ('outputs', ('array', {'type': 'crypto:payment:output', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use crypto:payment:output:transaction.'}),
                     ('fee', ('econ:price', {}), {
                         'doc': 'The total fee paid to execute the transaction.'}),
                     ('value', ('econ:price', {}), {
@@ -549,13 +543,9 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The fused list of e-mail addresses identified by the cert CN and SANs.',
                     }),
 
-                    ('identities:ipv4s', ('array', {'type': 'inet:ipv4', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The fused list of IPv4 addresses identified by the cert CN and SANs.',
-                    }),
-
-                    ('identities:ipv6s', ('array', {'type': 'inet:ipv6', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The fused list of IPv6 addresses identified by the cert CN and SANs.',
-                    }),
+                    ('identities:ips', ('array', {'type': 'inet:ip', 'uniq': True, 'sorted': True}), {
+                        'doc': 'The fused list of IP addresses identified by the cert CN and SANs.',
+                        'prevnames': ('identities:ipv4s', 'identities:ipv6s')}),
 
                     ('identities:urls', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'doc': 'The fused list of URLs identified by the cert CN and SANs.',

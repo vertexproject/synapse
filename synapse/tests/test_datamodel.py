@@ -1,3 +1,4 @@
+import copy
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
@@ -69,6 +70,31 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 core.model.reqForm('inet:asn').reqProp('newp')
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqForm('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqForm('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqFormsByLook('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                core.model.reqProp('inet:dns:query:name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                core.model.reqPropsByLook('inet:dns:query:name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
+            form = core.model.reqForm('inet:dns:query')
+            with self.raises(s_exc.NoSuchProp) as cm:
+                form.reqProp('name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
 
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
@@ -201,17 +227,17 @@ class DataModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(1, refs['prop'])
+            self.len(2, refs['prop'])
 
-            await core.addFormProp('test:comp', '_ipv4', ('inet:ipv4', {}), {})
+            await core.addFormProp('test:comp', '_ip', ('inet:ip', {}), {})
+
+            refs = core.model.form('test:comp').getRefsOut()
+            self.len(3, refs['prop'])
+
+            await core.delFormProp('test:comp', '_ip')
 
             refs = core.model.form('test:comp').getRefsOut()
             self.len(2, refs['prop'])
-
-            await core.delFormProp('test:comp', '_ipv4')
-
-            refs = core.model.form('test:comp').getRefsOut()
-            self.len(1, refs['prop'])
 
             self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
 
@@ -273,7 +299,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             await core.fini()
 
-            # Restarting the cortex warns again for various items that it loads from the hive
+            # Restarting the cortex warns again for various items that it loads
             # with deprecated types in them. This is a coverage test for extended properties.
             with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
                 async with await s_cortex.Cortex.anit(dirn, conf) as core:
@@ -315,10 +341,10 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addEdge(('hehe', 'woot', 'newp'), {})
 
             with self.raises(s_exc.NoSuchForm):
-                core.model.addEdge(('inet:ipv4', 'woot', 'newp'), {})
+                core.model.addEdge(('inet:ip', 'woot', 'newp'), {})
 
             with self.raises(s_exc.BadArg):
-                core.model.addEdge(('inet:ipv4', 10, 'inet:ipv4'), {})
+                core.model.addEdge(('inet:ip', 10, 'inet:ip'), {})
 
             with self.raises(s_exc.BadArg):
                 core.model.addEdge(('meta:rule', 'matches', None), {})
@@ -338,11 +364,12 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_locked_subs(self):
 
-        async with self.getTestCore() as core:
-            await core.setDeprLock('it:prod:softver:semver:major', True)
-            nodes = await core.nodes('[ it:prod:softver=* :semver=3.1.0 ]')
-            self.none(nodes[0].get('semver:major'))
-            self.eq(1, nodes[0].get('semver:minor'))
+        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
+        async with self.getTestCore(conf=copy.deepcopy(conf)) as core:
+            await core.setDeprLock('test:deprsub:imei:tac', True)
+            nodes = await core.nodes('[ test:deprsub=foo :imei=490154203237518 ]')
+            self.none(nodes[0].get('imei:tac'))
+            self.eq('323751', nodes[0].get('imei:serial'))
 
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const

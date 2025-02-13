@@ -36,10 +36,6 @@ class EconModule(s_module.CoreModule):
                 ('econ:receipt:item', ('guid', {}), {
                     'doc': 'A line item included as part of a purchase.'}),
 
-                ('econ:acquired', ('comp', {'fields': (('purchase', 'econ:purchase'), ('item', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use econ:purchase -(acquired)> *.'}),
-
                 ('econ:acct:payment', ('guid', {}), {
                     'doc': 'A payment or crypto currency transaction.'}),
 
@@ -63,6 +59,10 @@ class EconModule(s_module.CoreModule):
                 ('econ:fin:exchange', ('guid', {}), {
                     'doc': 'A financial exchange where securities are traded.'}),
 
+                ('econ:fin:security:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of financial security types.'}),
+
                 ('econ:fin:security', ('guid', {}), {
                     'doc': 'A financial security which is typically traded on an exchange.'}),
 
@@ -73,6 +73,7 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A sample of the price of a security at a single moment in time'}),
 
                 ('econ:bank:account:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A bank account type taxonomy.'}),
 
                 ('econ:bank:account', ('guid', {}), {
@@ -215,14 +216,6 @@ class EconModule(s_module.CoreModule):
                     ('product', ('biz:product', {}), {
                         'doc': 'The product being being purchased in this line item.'}),
                 )),
-                ('econ:acquired', {}, (
-                    ('purchase', ('econ:purchase', {}), {
-                        'doc': 'The purchase event which acquired an item.', 'ro': True, }),
-                    ('item', ('ndef', {}), {
-                        'doc': 'A reference to the item that was acquired.', 'ro': True, }),
-                    ('item:form', ('str', {}), {
-                        'doc': 'The form of item purchased.'}),
-                )),
 
                 ('econ:acct:payment', {}, (
 
@@ -241,34 +234,14 @@ class EconModule(s_module.CoreModule):
                     ('from:instrument', ('econ:pay:instrument', {}), {
                         'doc': 'The payment instrument used to make the payment.'}),
 
-                    ('from:account', ('econ:bank:account', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
-
-                    ('from:pay:card', ('econ:pay:card', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
-
                     ('from:contract', ('ou:contract', {}), {
                         'doc': 'A contract used as an aggregate payment source.'}),
-
-                    ('from:coinaddr', ('crypto:currency:address', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :from:instrument.'}),
 
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the entity making the payment.'}),
 
                     ('to:cash', ('bool', {}), {
                         'doc': 'Set to true if the payment output was in cash.'}),
-
-                    ('to:account', ('econ:bank:account', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :to:instrument.'}),
-
-                    ('to:coinaddr', ('crypto:currency:address', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :to:instrument.'}),
 
                     ('to:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
@@ -350,6 +323,7 @@ class EconModule(s_module.CoreModule):
                         'ex': 'usd'}),
                 )),
 
+                ('econ:fin:security:type:taxonomy', {}, ()),
                 ('econ:fin:security', {}, (
 
                     ('exchange', ('econ:fin:exchange', {}), {
@@ -358,8 +332,8 @@ class EconModule(s_module.CoreModule):
                     ('ticker', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The identifier for this security within the exchange'}),
 
-                    ('type', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A user defined type such as stock, bond, option, future, or forex'}),
+                    ('type', ('econ:fin:security:type:taxonomy', {}), {
+                        'doc': 'The type of security.'}),
 
                     ('price', ('econ:price', {}), {
                         'doc': 'The last known/available price of the security'}),

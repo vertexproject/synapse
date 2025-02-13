@@ -3,6 +3,7 @@ import json
 import logging
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.storm as s_storm
@@ -338,7 +339,7 @@ class HttpApi(s_stormtypes.StormType):
     async def _storPath(self, path):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         path = await s_stormtypes.tostr(path)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'path', path)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'path', path)
         self.info['path'] = path
         self.info['updated'] = adef.get('updated')
 
@@ -349,7 +350,7 @@ class HttpApi(s_stormtypes.StormType):
     async def _storPool(self, pool):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         pool = await s_stormtypes.tobool(pool)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'pool', pool)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'pool', pool)
         self.info['pool'] = pool
         self.info['updated'] = adef.get('updated')
 
@@ -360,14 +361,14 @@ class HttpApi(s_stormtypes.StormType):
     async def _storName(self, name):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         name = await s_stormtypes.tostr(name)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'name', name)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'name', name)
         self.info['name'] = name
         self.info['updated'] = adef.get('updated')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorView(self):
         iden = self.info.get('view')
-        vdef = await self.runt.snap.core.getViewDef(iden)
+        vdef = await self.runt.view.core.getViewDef(iden)
         if vdef is None:
             raise s_exc.NoSuchView(mesg=f'No view with {iden=}', iden=iden)
         return s_stormtypes.View(self.runt, vdef, path=self.path)
@@ -375,7 +376,7 @@ class HttpApi(s_stormtypes.StormType):
     async def _storVars(self, varz):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         varz = await s_stormtypes.toprim(varz)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'vars', varz)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'vars', varz)
         _varz = self.info.get('vars')
         _varz.clear()
         _varz.update(**adef.get('vars'))
@@ -387,7 +388,7 @@ class HttpApi(s_stormtypes.StormType):
             view = iden.value().get('iden')
         else:
             view = await s_stormtypes.tostr(iden)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'view', view)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'view', view)
         self.info['view'] = view
         self.info['updated'] = adef.get('updated')
 
@@ -398,7 +399,7 @@ class HttpApi(s_stormtypes.StormType):
     async def _storDesc(self, desc):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         desc = await s_stormtypes.tostr(desc)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'desc', desc)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'desc', desc)
         self.info['desc'] = desc
         self.info['updated'] = adef.get('updated')
 
@@ -409,7 +410,7 @@ class HttpApi(s_stormtypes.StormType):
     async def _storRunas(self, runas):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         runas = await s_stormtypes.tostr(runas)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'runas', runas)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'runas', runas)
         self.info['runas'] = runas
         self.info['updated'] = adef.get('updated')
 
@@ -420,7 +421,7 @@ class HttpApi(s_stormtypes.StormType):
     async def _storReadonly(self, readonly):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         readonly = await s_stormtypes.tobool(readonly)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'readonly', readonly)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'readonly', readonly)
         self.info['readonly'] = readonly
         self.info['updated'] = adef.get('updated')
 
@@ -439,14 +440,14 @@ class HttpApi(s_stormtypes.StormType):
             owner = info.get('iden')
         else:
             owner = await s_stormtypes.tostr(owner)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'owner', owner)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'owner', owner)
         self.info['owner'] = owner
         self.info['updated'] = adef.get('updated')
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorOwner(self):
         iden = self.info.get('owner')
-        udef = await self.runt.snap.core.getUserDef(iden)
+        udef = await self.runt.view.core.getUserDef(iden)
         if udef is None:
             raise s_exc.NoSuchUser(mesg=f'HTTP API owner does not exist {iden}', user=iden)
         return slib_auth.User(self.runt, udef['iden'])
@@ -454,7 +455,7 @@ class HttpApi(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorCreator(self):
         iden = self.info.get('creator')
-        udef = await self.runt.snap.core.getUserDef(iden)
+        udef = await self.runt.view.core.getUserDef(iden)
         if udef is None:
             raise s_exc.NoSuchUser(mesg=f'HTTP API creator does not exist {iden}', user=iden)
         return slib_auth.User(self.runt, udef['iden'])
@@ -471,7 +472,7 @@ class HttpApi(s_stormtypes.StormType):
             if isinstance(pdef, str):
                 pdef = _normPermString(pdef)
             pdefs.append(pdef)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'perms', pdefs)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'perms', pdefs)
         self.info['perms'].clear()
         self.info['perms'].extend(pdefs)
         self.info['updated'] = adef.get('updated')
@@ -483,7 +484,7 @@ class HttpApi(s_stormtypes.StormType):
     async def _storAuthenticated(self, authenticated):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         authenticated = await s_stormtypes.tobool(authenticated)
-        adef = await self.runt.snap.core.modHttpExtApi(self.iden, 'authenticated', authenticated)
+        adef = await self.runt.view.core.modHttpExtApi(self.iden, 'authenticated', authenticated)
         self.info['authenticated'] = authenticated
         self.info['updated'] = adef.get('updated')
 
@@ -600,7 +601,7 @@ class HttpApiMethods(s_stormtypes.Prim):
 
         if query is s_stormtypes.undef:
             methods.pop(meth, None)
-            adef = await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
+            adef = await self.httpapi.runt.view.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
             self.valu.pop(meth, None)
             self.httpapi.info['updated'] = adef.get('updated')
         else:
@@ -608,10 +609,10 @@ class HttpApiMethods(s_stormtypes.Prim):
             query = query.strip()
 
             # Ensure our query can be parsed.
-            await self.httpapi.runt.snap.core.getStormQuery(query)
+            await self.httpapi.runt.view.core.getStormQuery(query)
 
             methods[meth] = query
-            adef = await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
+            adef = await self.httpapi.runt.view.core.modHttpExtApi(self.httpapi.iden, 'methods', methods)
             self.valu[meth] = query
             self.httpapi.info['updated'] = adef.get('updated')
 
@@ -714,10 +715,6 @@ class HttpPermsList(s_stormtypes.List):
                       {'name': 'valu', 'type': 'int', 'desc': 'The list index value.', },
                   ),
                   'returns': {'type': 'any', 'desc': 'The permission present in the list at the index position.', }}},
-        {'name': 'length', 'desc': 'Get the length of the list. This is deprecated; please use ``.size()`` instead.',
-         'deprecated': {'eolvers': 'v3.0.0'},
-         'type': {'type': 'function', '_funcname': '_methListLength',
-                  'returns': {'type': 'int', 'desc': 'The size of the list.', }}},
         {'name': 'append', 'desc': 'Append a permission to the list.',
          'type': {'type': 'function', '_funcname': '_methListAppend',
                   'args': (
@@ -855,13 +852,13 @@ class HttpApiVars(s_stormtypes.Dict):
         varz = self.valu.copy()
         if valu is s_stormtypes.undef:
             varz.pop(name, None)
-            adef = await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'vars', varz)
+            adef = await self.httpapi.runt.view.core.modHttpExtApi(self.httpapi.iden, 'vars', varz)
             self.valu.pop(name, None)
             self.httpapi.info['updated'] = adef.get('updated')
         else:
             valu = await s_stormtypes.toprim(valu)
             varz[name] = valu
-            adef = await self.httpapi.runt.snap.core.modHttpExtApi(self.httpapi.iden, 'vars', varz)
+            adef = await self.httpapi.runt.view.core.modHttpExtApi(self.httpapi.iden, 'vars', varz)
             self.valu[name] = valu
             self.httpapi.info['updated'] = adef.get('updated')
 
@@ -984,7 +981,7 @@ class HttpReq(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     async def _gtorApi(self):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
-        adef = await self.runt.snap.core.getHttpExtApi(self.rnfo.get('iden'))
+        adef = await self.runt.view.core.getHttpExtApi(self.rnfo.get('iden'))
         return HttpApi(self.runt, adef)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -997,7 +994,7 @@ class HttpReq(s_stormtypes.StormType):
     @s_stormtypes.stormfunc(readonly=True)
     async def _methSendCode(self, code):
         code = await s_stormtypes.toint(code)
-        await self.runt.snap.fire('http:resp:code', code=code)
+        await self.runt.bus.fire('http:resp:code', code=code)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methSendHeaders(self, headers):
@@ -1005,7 +1002,7 @@ class HttpReq(s_stormtypes.StormType):
         if not isinstance(headers, dict):
             typ = await s_stormtypes.totype(headers)
             raise s_exc.BadArg(mesg=f'HTTP Response headers must be a dictionary, got {typ}.')
-        await self.runt.snap.fire('http:resp:headers', headers=headers)
+        await self.runt.bus.fire('http:resp:headers', headers=headers)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methSendBody(self, body):
@@ -1013,7 +1010,7 @@ class HttpReq(s_stormtypes.StormType):
         if not isinstance(body, bytes):
             typ = await s_stormtypes.totype(body)
             raise s_exc.BadArg(mesg=f'HTTP Response body must be bytes, got {typ}.')
-        await self.runt.snap.fire('http:resp:body', body=body)
+        await self.runt.bus.fire('http:resp:body', body=body)
 
     # Convenience method
     @s_stormtypes.stormfunc(readonly=True)
@@ -1180,14 +1177,14 @@ class CortexHttpApi(s_stormtypes.Lib):
     async def getHttpApi(self, iden):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         iden = await s_stormtypes.tostr(iden)
-        adef = await self.runt.snap.core.getHttpExtApi(iden)
+        adef = await self.runt.view.core.getHttpExtApi(iden)
         return HttpApi(self.runt, adef)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def getHttpApiByPath(self, path):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
         path = await s_stormtypes.tostr(path)
-        adef, _ = await self.runt.snap.core.getHttpExtApiByPath(path)
+        adef, _ = await self.runt.view.core.getHttpExtApiByPath(path)
         if adef is None:
             return None
         return HttpApi(self.runt, adef)
@@ -1195,7 +1192,7 @@ class CortexHttpApi(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def listHttpApis(self):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'get'))
-        adefs = await self.runt.snap.core.getHttpExtApis()
+        adefs = await self.runt.view.core.getHttpExtApis()
         apis = [HttpApi(self.runt, adef) for adef in adefs]
         return apis
 
@@ -1212,7 +1209,7 @@ class CortexHttpApi(s_stormtypes.Lib):
         adef = {
             'iden': iden,
             'path': path,
-            'view': self.runt.snap.view.iden,
+            'view': self.runt.view.iden,
             'runas': runas,
             'creator': self.runt.user.iden,
             'owner': self.runt.user.iden,
@@ -1223,19 +1220,19 @@ class CortexHttpApi(s_stormtypes.Lib):
             'readonly': readonly,
         }
 
-        adef = await self.runt.snap.core.addHttpExtApi(adef)
+        adef = await self.runt.view.core.addHttpExtApi(adef)
         return HttpApi(self.runt, adef)
 
     async def delHttpApi(self, iden):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'del'))
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.view.core.delHttpExtApi(iden)
+        return await self.runt.view.core.delHttpExtApi(iden)
 
     async def setHttpApiIndx(self, iden, index=0):
         s_stormtypes.confirm(('storm', 'lib', 'cortex', 'httpapi', 'set'))
         iden = await s_stormtypes.tostr(iden)
         index = await s_stormtypes.toint(index)
-        return await self.runt.snap.view.core.setHttpApiIndx(iden, index)
+        return await self.runt.view.core.setHttpApiIndx(iden, index)
 
 class StormPoolSetCmd(s_storm.Cmd):
     '''
@@ -1273,7 +1270,7 @@ class StormPoolSetCmd(s_storm.Cmd):
             'timeout:connection': self.opts.connection_timeout,
         }
 
-        await self.runt.snap.core.setStormPool(self.opts.url, opts)
+        await self.runt.view.core.setStormPool(self.opts.url, opts)
         await self.runt.printf('Storm pool configuration set.')
 
 class StormPoolDelCmd(s_storm.Cmd):
@@ -1294,7 +1291,7 @@ class StormPoolDelCmd(s_storm.Cmd):
         async for node, path in genr: # pragma: no cover
             yield node, path
 
-        await self.runt.snap.core.delStormPool()
+        await self.runt.view.core.delStormPool()
         await self.runt.printf('Storm pool configuration removed.')
 
 class StormPoolGetCmd(s_storm.Cmd):
@@ -1311,7 +1308,7 @@ class StormPoolGetCmd(s_storm.Cmd):
         async for node, path in genr: # pragma: no cover
             yield node, path
 
-        item = await self.runt.snap.core.getStormPool()
+        item = await self.runt.view.core.getStormPool()
         if item is None:
             await self.runt.printf('No Storm pool configuration found.')
             return
@@ -1321,3 +1318,59 @@ class StormPoolGetCmd(s_storm.Cmd):
         await self.runt.printf(f'Storm Pool URL: {url}')
         await self.runt.printf(f'Sync Timeout (secs): {opts.get("timeout:sync")}')
         await self.runt.printf(f'Connection Timeout (secs): {opts.get("timeout:connection")}')
+
+@s_stormtypes.registry.registerLib
+class CortexApi(s_stormtypes.Lib):
+    '''
+    Library for interacting with the Cortex API.
+    '''
+    _storm_locals = (
+        {'name': 'getIdenByNid', 'desc': 'Get the iden for a node by its node id in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getIdenByNid',
+                  'args': (
+                      {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The iden of the node or None if the node id is not found.'}}},
+        {'name': 'getNidByIden', 'desc': 'Get the node id for an iden in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getNidByIden',
+                  'args': (
+                      {'name': 'iden', 'type': 'str', 'desc': 'The iden of the node.'},
+                  ),
+                  'returns': {'type': 'int', 'desc': 'The node id or None if the iden is not found.'}}},
+        {'name': 'getNodeByNid', 'desc': 'Get a node from the current View by its node id in this Cortex.',
+         'type': {'type': 'function', '_funcname': 'getNodeByNid',
+                  'args': (
+                      {'name': 'nid', 'type': 'int', 'desc': 'The node id of the node.'},
+                  ),
+                  'returns': {'type': 'node', 'desc': 'The node in the current View if it exists.'}}},
+    )
+
+    _storm_lib_path = ('cortex',)
+
+    def getObjLocals(self):
+        return {
+            'getIdenByNid': self.getIdenByNid,
+            'getNidByIden': self.getNidByIden,
+            'getNodeByNid': self.getNodeByNid,
+        }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getIdenByNid(self, nid):
+        nid = await s_stormtypes.toint(nid)
+        buid = self.runt.view.core.getBuidByNid(s_common.int64en(nid))
+        if buid is not None:
+            return s_common.ehex(buid)
+        return None
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getNidByIden(self, iden):
+        buid = await s_stormtypes.tobuidhex(iden)
+        nid = self.runt.view.core.getNidByBuid(s_common.uhex(buid))
+        if nid is not None:
+            return s_common.int64un(nid)
+        return None
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def getNodeByNid(self, nid):
+        nid = await s_stormtypes.toint(nid)
+        return await self.runt.view.getNodeByNid(s_common.int64en(nid))

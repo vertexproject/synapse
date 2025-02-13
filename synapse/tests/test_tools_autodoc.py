@@ -23,7 +23,7 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             s = buf.decode()
             self.isin('Base types are defined via Python classes.', s)
-            self.isin('synapse.models.inet.Addr', s)
+            self.isin('synapse.models.inet.SockAddr', s)
             self.isin('Regular types are derived from BaseTypes.', s)
             self.isin(r'inet\:server', s)
 
@@ -45,7 +45,7 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             s = buf.decode()
             self.isin('Forms are derived from types, or base types. Forms represent node types in the graph.', s)
-            self.isin(r'inet\:ipv4', s)
+            self.isin(r'inet\:ip', s)
             self.notin(r'file\:bytes:.created', s)
             self.isin('Universal props are system level properties which may be present on every node.', s)
             self.isin('.created', s)
@@ -55,7 +55,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             # Ipv4 property
             self.isin('''* - ``:asn``
         - :ref:`dm-type-inet-asn`
-        - The ASN to which the IPv4 address is currently assigned.''', s)
+        - The ASN to which the IP address is currently assigned.''', s)
 
             # Readonly inet:form:password:md5 value
             self.isin('''* - ``:md5``
@@ -132,12 +132,6 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('.. _stormcmd-stormvar-magic:\n', s)
             self.isin('magic\n-----', s)
             self.isin('Test stormvar support', s)
-            self.isin('forms as input nodes', s)
-            self.isin('``test:str``', s)
-            self.isin('nodes in the graph', s)
-            self.isin('``test:comp``', s)
-            self.isin('nodedata with the following keys', s)
-            self.isin('``foo`` on ``inet:ipv4``', s)
 
             self.isin('.. _stormmod-stormvar-apimod', s)
             self.isin('status()', s)
@@ -167,13 +161,6 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('testpkgcmd does some stuff', s)
             self.isin('Help on foo opt', s)
             self.isin('Help on bar opt', s)
-
-            self.isin('forms as input nodes', s)
-            self.isin('``test:str``', s)
-            self.isin('nodes in the graph', s)
-            self.isin('``test:int``', s)
-            self.isin('nodedata with the following keys', s)
-            self.isin('``testnd`` on ``inet:ipv4``', s)
 
             # Tuplelized output
             self.isin('testpkg.baz', s)

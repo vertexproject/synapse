@@ -657,7 +657,6 @@ class AhaTest(s_test.SynTest):
                 # provisioning data
                 overconf = {
                     'dmon:listen': 'tcp://0.0.0.0:0',  # This is removed
-                    'nexslog:async': True,  # just set as a demonstrative value
                 }
                 s_common.yamlsave(overconf, axonpath, 'cell.mods.yaml')
 
@@ -669,7 +668,7 @@ class AhaTest(s_test.SynTest):
                         self.ne(axon.conf.get('dmon:listen'),
                                 'tcp://0.0.0.0:0')
                 overconf2 = s_common.yamlload(axonpath, 'cell.mods.yaml')
-                self.eq(overconf2, {'nexslog:async': True})
+                self.eq(overconf2, {})
 
                 # tests startup logic that recognizes it's already done
                 with self.getAsyncLoggerStream('synapse.lib.cell', ) as stream:

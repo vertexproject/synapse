@@ -424,11 +424,6 @@ class GeoModule(s_module.CoreModule):
 
                 'types': (
 
-                    ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
-                        'deprecated': True,
-                        'doc': 'Records a node latitude/longitude in space-time.'
-                    }),
-
                     ('geo:telem', ('guid', {}), {
                         'interfaces': ('phys:object', 'geo:locatable'),
                         'template': {'phys:object': 'object', 'geo:locatable': 'object'},
@@ -443,9 +438,9 @@ class GeoModule(s_module.CoreModule):
                     ('geo:place', ('guid', {}), {
                         'doc': 'A GUID for a geographic place.'}),
 
-                    ('geo:place:taxonomy', ('taxonomy', {}), {
-                        'doc': 'A taxonomy of place types.',
+                    ('geo:place:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
+                        'doc': 'A hierarchical taxonomy of place types.',
                     }),
 
                     ('geo:address', ('str', {'lower': True, 'onespace': True}), {
@@ -475,11 +470,6 @@ class GeoModule(s_module.CoreModule):
                 ),
 
                 'edges': (
-
-                    ((None, 'seenat', 'geo:telem'), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use geo:telem:node.'}),
-
                     (('geo:place', 'contains', 'geo:place'), {
                         'doc': 'The source place completely contains the target place.'}),
                 ),
@@ -487,28 +477,6 @@ class GeoModule(s_module.CoreModule):
                 'forms': (
 
                     ('geo:name', {}, ()),
-
-                    ('geo:nloc', {}, (
-
-                        ('ndef', ('ndef', {}), {'ro': True,
-                            'doc': 'The node with location in geospace and time.'}),
-
-                        ('ndef:form', ('str', {}), {'ro': True,
-                            'doc': 'The form of node referenced by the ndef.'}),
-
-                        ('latlong', ('geo:latlong', {}), {'ro': True,
-                            'doc': 'The latitude/longitude the node was observed.'}),
-
-                        ('time', ('time', {}), {'ro': True,
-                            'doc': 'The time the node was observed at location.'}),
-
-                        ('place', ('geo:place', {}), {
-                            'doc': 'The place corresponding to the latlong property.'}),
-
-                        ('loc', ('loc', {}), {
-                            'doc': 'The geo-political location string for the node.'}),
-
-                    )),
 
                     ('geo:telem', {}, (
 
@@ -518,19 +486,13 @@ class GeoModule(s_module.CoreModule):
                         ('desc', ('str', {}), {
                             'doc': 'A description of the telemetry sample.'}),
 
-                        ('latlong', ('geo:latlong', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use :place:latlong.'}),
-
-                        ('accuracy', ('geo:dist', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use :place:latlong:accuracy.'}),
-
                         ('node', ('ndef', {}), {
                             'doc': 'The node that was observed at the associated time and place.'}),
                     )),
 
-                    ('geo:place:taxonomy', {}, ()),
+                    ('geo:place:type:taxonomy', {
+                        'prevnames': ('geo:place:taxonomy',)}, ()),
+
                     ('geo:place', {}, (
 
                         ('id', ('str', {'strip': True}), {
@@ -540,15 +502,11 @@ class GeoModule(s_module.CoreModule):
                             'alts': ('names',),
                             'doc': 'The name of the place.'}),
 
-                        ('type', ('geo:place:taxonomy', {}), {
+                        ('type', ('geo:place:type:taxonomy', {}), {
                             'doc': 'The type of place.'}),
 
                         ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
                             'doc': 'An array of alternative place names.'}),
-
-                        ('parent', ('geo:place', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use a -(contains)> edge.'}),
 
                         ('desc', ('str', {}), {
                             'doc': 'A long form description of the place.'}),

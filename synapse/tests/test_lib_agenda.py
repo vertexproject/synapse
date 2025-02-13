@@ -318,7 +318,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Test that isrunning updated, cancelling works
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
-                        'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ipv4=1 ] | sleep 120',
+                        'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ip=([4, 1]) ] | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
@@ -755,7 +755,7 @@ class AgendaTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
-                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.nodes('[ inet:ip=1.2.3.4 ]')
 
             s_tools_backup.backup(path00, path01)
 
@@ -793,24 +793,6 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.eq(start['info']['iden'], cron00[0]['iden'])
                     self.eq(stop['info']['iden'], cron00[0]['iden'])
-
-                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
-                    nodes = await core00.nodes('syn:cron')
-                    self.len(1, nodes)
-
-                    msgs = await core00.stormlist('syn:cron [ :name=foo :doc=bar ]')
-                    self.stormHasNoWarnErr(msgs)
-                    await core01.sync()
-
-                    nodes = await core01.nodes('syn:cron')
-                    self.len(1, nodes)
-                    self.nn(nodes[0].props.get('.created'))
-                    self.eq(nodes[0].props.get('name'), 'foo')
-                    self.eq(nodes[0].props.get('doc'), 'bar')
-
-                    appt = await core01.agenda.get(nodes[0].ndef[1])
-                    self.eq(appt.name, 'foo')
-                    self.eq(appt.doc, 'bar')
 
             with self.getLoggerStream('synapse.lib.agenda') as stream:
                 async with self.getTestCore(dirn=path00) as core00:

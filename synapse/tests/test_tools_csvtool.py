@@ -174,13 +174,6 @@ class CsvToolTest(s_t_utils.SynTest):
                                            EOFError(),
                                            ])
 
-            with self.withCliPromptMockExtendOutp(outp):
-                with self.withTestCmdr(cmdg):
-                    await s_csvtool.main(argv, outp=outp)
-
-            outp.expect('inet:fqdn=google.com')
-            outp.expect('2 nodes')
-
     async def test_csvtool_export(self):
 
         async with self.getTestCore() as core:

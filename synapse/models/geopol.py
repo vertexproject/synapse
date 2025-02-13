@@ -16,7 +16,7 @@ class PolModule(s_module.CoreModule):
 
                     ('pol:immigration:status:type:taxonomy', ('taxonomy', {}), {
                         'interfaces': ('meta:taxonomy',),
-                        'doc': 'A taxonomy of immigration types.'}),
+                        'doc': 'A hierarchical taxonomy of immigration status types.'}),
 
                     ('pol:vitals', ('guid', {}), {
                         'doc': 'A set of vital statistics about a country.'}),
@@ -61,10 +61,6 @@ class PolModule(s_module.CoreModule):
                         ('iso3', ('pol:iso3', {}), {}),
 
                         ('isonum', ('pol:isonum', {}), {}),
-
-                        ('pop', ('int', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use :vitals::population.'}),
 
                         ('tld', ('inet:fqdn', {}), {}),
 

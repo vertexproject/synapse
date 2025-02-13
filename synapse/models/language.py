@@ -8,16 +8,8 @@ class LangModule(s_module.CoreModule):
 
             "types": (
 
-                ('lang:idiom', ('str', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use lang:translation.'}),
-
                 ('lang:phrase', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A small group of words which stand together as a concept.'}),
-
-                ('lang:trans', ('str', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use lang:translation.'}),
 
                 ('lang:code', ('str', {'lower': True, 'regex': '^[a-z]{2}(.[a-z]{2})?$'}), {
                     'ex': 'pt.br',
@@ -35,26 +27,6 @@ class LangModule(s_module.CoreModule):
             'forms': (
 
                 ('lang:phrase', {}, ()),
-                ('lang:idiom', {}, (
-
-                    ('url', ('inet:url', {}), {
-                        'doc': 'Authoritative URL for the idiom.'}),
-
-                    ('desc:en', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'English description.'}),
-                )),
-
-                ('lang:trans', {}, (
-
-                    ('text:en', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'English translation.'}),
-
-                    ('desc:en', ('str', {}), {
-                        'doc': 'English description.',
-                        'disp': {'hint': 'text'}}),
-                )),
 
                 ('lang:translation', {}, (
 

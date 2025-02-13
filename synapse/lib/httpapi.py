@@ -68,7 +68,6 @@ class HandlerBase:
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
-        self._web_user = None  # Deprecated for new handlers
         self.web_useriden = None  # The user iden at the time of authentication.
         self.web_username = None  # The user name at the time of authentication.
 
@@ -483,40 +482,6 @@ class StormHandler(Handler):
         # add an abstraction to allow subclasses to dictate how
         # a reference to the cortex is returned from the handler.
         return self.cell
-
-class StormNodesV1(StormHandler):
-
-    async def post(self):
-        return await self.get()
-
-    async def get(self):
-
-        user, body = await self.getUseridenBody()
-        if body is s_common.novalu:
-            return
-
-        s_common.deprecated('HTTP API /api/v1/storm/nodes', curv='2.110.0')
-
-        # dont allow a user to be specified
-        opts = body.get('opts')
-        query = body.get('query')
-        stream = body.get('stream')
-        jsonlines = stream == 'jsonlines'
-
-        opts = await self._reqValidOpts(opts)
-        if opts is None:
-            return
-
-        view = self.cell._viewFromOpts(opts)
-
-        taskinfo = {'query': query, 'view': view.iden}
-        await self.cell.boss.promote('storm', user=user, info=taskinfo)
-
-        async for pode in view.iterStormPodes(query, opts=opts):
-            self.write(json.dumps(pode))
-            if jsonlines:
-                self.write("\n")
-            await self.flush()
 
 class StormV1(StormHandler):
 
@@ -1196,11 +1161,6 @@ class FeedV1(Handler):
             return
 
         items = body.get('items')
-        name = body.get('name', 'syn.nodes')
-
-        func = self.cell.getFeedFunc(name)
-        if func is None:
-            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.')
 
         user = self.cell.auth.user(self.web_useriden)
 
@@ -1208,22 +1168,19 @@ class FeedV1(Handler):
         if view is None:
             return self.sendRestErr('NoSuchView', 'The specified view does not exist.')
 
-        wlyr = view.layers[0]
-        perm = ('feed:data', *name.split('.'))
+        perm = ('feed:data',)
 
-        if not user.allowed(perm, gateiden=wlyr.iden):
+        if not user.allowed(perm, gateiden=view.wlyr.iden):
             permtext = '.'.join(perm)
-            mesg = f'User does not have {permtext} permission on gate: {wlyr.iden}.'
+            mesg = f'User does not have {permtext} permission on gate: {view.wlyr.iden}.'
             return self.sendRestErr('AuthDeny', mesg)
 
         try:
 
-            info = {'name': name, 'view': view.iden, 'nitems': len(items)}
+            info = {'view': view.iden, 'nitems': len(items)}
             await self.cell.boss.promote('feeddata', user=user, info=info)
 
-            async with await self.cell.snap(user=user, view=view) as snap:
-                snap.strict = False
-                await snap.addFeedData(name, items)
+            await self.cell.addFeedData(items, user=user, viewiden=view.iden)
 
             return self.sendRestRetn(None)
 
