@@ -433,6 +433,23 @@ class Migrator(s_base.Base):
 
         self.cellslab.dropdb('hive')
 
+        authkv = self.cellslab.getSafeKeyVal('auth')
+        userkv = authkv.getSubKeyVal('user:info:')
+
+        for iden, info in userkv.items():
+            update = False
+            if not isinstance(info.get('onepass'), (None, dict)):
+                logger.warning(f'Removing deprecated one time password shadow for user {iden}!')
+                update = True
+                info.pop('onepass')
+
+            if not isinstance(info.get('passwd'), (None, dict)):
+                logger.warning(f'Removing deprecated password shadow for user {iden}!')
+                update = True
+                info.pop('passwd')
+
+            userkv.set(iden, info)
+
         logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
         await self._migrlogAdd('cell', 'prog', 'none', s_common.now())
 
