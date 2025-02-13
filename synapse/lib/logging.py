@@ -1,6 +1,8 @@
 import os
 import json
+import asyncio
 import logging
+import weakref
 import collections
 
 import synapse.exc as s_exc
@@ -11,25 +13,83 @@ import synapse.lib.scope as s_scope
 
 logger = logging.getLogger(__name__)
 
-logfifo = collections.deque()
+logtodo = []
+logbase = None
+logevnt = asyncio.Event()
+logwindows = weakref.WeakSet()
+
+logfifo = collections.deque(maxlen=1000)
 
 def _addLogInfo(info):
     logfifo.append(info)
-    # TODO notify waiters...
+    if logbase is not None:
+        logtodo.append(info)
+        logevnt.set()
 
-# TODO: getLogInfo(wait=True)
+async def _feedLogInfo():
 
-_logextra = {}
+    while not logbase.isfini:
+
+        await logevnt.wait()
+
+        if logbase.isfini:
+            return
+
+        todo = list(logtodo)
+
+        logevnt.clear()
+        logtodo.clear()
+
+        for wind in logwindows:
+            await wind.puts(todo)
+
+async def _initLogBase():
+
+    global logbase
+
+    # FIXME: resolve circurlar deps
+    import synapse.lib.base as s_base
+
+    logbase = await s_base.Base.anit()
+    logbase._fini_at_exit = True
+    logbase.schedCoro(_feedLogInfo())
+
+async def getLogInfo(wait=False):
+
+    if not wait:
+        for loginfo in list(logfifo):
+            yield loginfo
+        return
+
+    global logbase
+
+    if logbase is None:
+        await _initLogBase()
+
+    # FIXME: resolve circurlar deps
+    import synapse.lib.queue as s_queue
+
+    async with await s_queue.Window.anit(maxsize=2000) as window:
+
+        await window.puts(list(logfifo))
+
+        logwindows.add(window)
+
+        async for loginfo in window:
+            print(f'YIELD {loginfo}')
+            yield loginfo
+
+logextra = {}
 def setLogExtra(name, valu):
     '''
     Configure global extra values which should be added to every log.
     '''
-    _logextra[name] = valu
+    logextra[name] = valu
 
 def getLogExtra(**kwargs):
 
     extra = {'synapse': kwargs}
-    extra.update(_logextra)
+    extra.update(logextra)
 
     user = s_scope.get('user')  # type: s_auth.User
     if user is not None:
@@ -130,7 +190,7 @@ def normLogLevel(valu):
         valu: The value to norm ( a string or integer ).
 
     Returns:
-        int: A valid Logging log level.
+        int: A valid log level.
     '''
     if isinstance(valu, str):
 
