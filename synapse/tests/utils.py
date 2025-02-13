@@ -1844,6 +1844,26 @@ class SynTest(unittest.TestCase):
             slogger.removeHandler(handler)
             slogger.setLevel(level)
 
+    @contextlib.contextmanager
+    def getLogStream(self, name, level='DEBUG'):
+
+        stream = AsyncStreamEvent()
+        logger = logging.getLogger(name)
+
+        oldlevel = logger.level
+
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(s_logging.Formatter())
+
+        logger.setLevel(level)
+        logger.addHandler(handler)
+
+        try:
+            yield stream
+        finally:
+            logger.setLevel(oldlevel)
+            logger.removeHandler(handler)
+
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):
         '''

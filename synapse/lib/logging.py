@@ -54,10 +54,10 @@ async def _initLogBase():
     logbase._fini_at_exit = True
     logbase.schedCoro(_feedLogInfo())
 
-async def getLogInfo(wait=False):
+async def getLogInfo(wait=False, last=None):
 
     if not wait:
-        for loginfo in list(logfifo):
+        for loginfo in list(logfifo)[last:]:
             yield loginfo
         return
 
@@ -71,12 +71,11 @@ async def getLogInfo(wait=False):
 
     async with await s_queue.Window.anit(maxsize=2000) as window:
 
-        await window.puts(list(logfifo))
+        await window.puts(list(logfifo)[last:])
 
         logwindows.add(window)
 
         async for loginfo in window:
-            print(f'YIELD {loginfo}')
             yield loginfo
 
 logextra = {}

@@ -216,6 +216,11 @@ class CellApi(s_base.Base):
         pass
 
     @adminapi(log=True)
+    async def logs(self, wait=False, last=None):
+        async for loginfo in self.cell.logs(wait=wait, last=last):
+            yield loginfo
+
+    @adminapi(log=True)
     async def freeze(self, timeout=30):
         return await self.cell.freeze(timeout=timeout)
 
@@ -3661,7 +3666,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         return await self.cellapi.anit(self, link, user)
 
-    # TODO: why is this async?
+    # FIXME: why is this async?
     async def getLogExtra(self, **kwargs):
         '''
         Get an extra dictionary for structured logging which can be used as a extra argument for loggers.
@@ -5081,6 +5086,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def logs(self, wait=False, last=None):
+        async for loginfo in s_logging.getLogInfo(wait=wait, last=last):
+            yield loginfo
 
     async def freeze(self, timeout=30):
 
