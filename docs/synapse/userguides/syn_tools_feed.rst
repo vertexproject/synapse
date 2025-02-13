@@ -94,15 +94,15 @@ From which we can issue Storm commands to interact with and validate the nodes t
   cli> storm #my.cool.tag
   
   it:reveng:function=9710579930d831abd88acff1f2ecd04f
-           .created = 2021/06/30 19:46:31.810
+           .created = 2021-06-30T19:46:31.810Z
            :description = An example function
            #my.cool.tag
   inet:ip=23.8.47.1
-           .created = 2021/06/30 19:46:31.810
+           .created = 2021-06-30T19:46:31.810Z
            :type = unicast
            #my.cool.tag
   inet:url=https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide
-           .created = 2021/06/30 19:46:31.810
+           .created = 2021-06-30T19:46:31.810Z
            :base = https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide
            :fqdn = synapse.docs.vertex.link
            :params =
@@ -111,7 +111,7 @@ From which we can issue Storm commands to interact with and validate the nodes t
            :proto = https
            #my.cool.tag
   file:bytes=sha256:ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c
-           .created = 2021/06/30 19:46:31.810
+           .created = 2021-06-30T19:46:31.810Z
            :md5 = be1bb5ab2057d69fb6d0a9d0684168fe
            :sha1 = 57d13f1fa2322058dc80e5d6d768546b47238fcd
            :sha256 = ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c

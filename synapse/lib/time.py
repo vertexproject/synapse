@@ -223,7 +223,7 @@ def repr(tick, pack=False):
     millis = dt.microsecond / 1000
     if pack:
         return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
-    return '%d/%.2d/%.2d %.2d:%.2d:%.2d.%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
+    return '%d-%.2d-%.2dT%.2d:%.2d:%.2d.%.3dZ' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
 
 def day(tick):
     return (EPOCH + datetime.timedelta(milliseconds=tick)).day

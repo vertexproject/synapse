@@ -619,7 +619,7 @@ Example:
        'path': {},
        'props': {'.created': 1662491423034, 'type': 'unicast'},
        'repr': '8.8.8.8',
-       'reprs': {'.created': '2022/09/06 19:10:23.034'},
+       'reprs': {'.created': '2022-09-06T19:10:23.034Z'},
        'tagpropreprs': {},
        'tagprops': {},
        'tags': {}}))

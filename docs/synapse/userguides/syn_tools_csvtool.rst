@@ -221,18 +221,18 @@ For example:
   cli> storm inet:dns:a
   
   inet:dns:a=('hurr.net', '5.6.7.8')
-      .created = 2019/07/03 22:25:43.966
-      .seen = ('2018/10/03 00:47:29.000', '2018/10/04 18:26:06.000')
+      .created = 2019-07-03T22:25:43.966Z
+      .seen = ('2018-10-03T00:47:29.000Z', '2018-10-04T18:26:06.000Z')
       :fqdn = hurr.net
       :ip = 5.6.7.8
   inet:dns:a=('derp.org', '4.4.4.4')
-      .created = 2019/07/03 22:25:43.968
-      .seen = ('2019/06/09 09:00:18.000', '2019/07/03 15:07:52.000')
+      .created = 2019-07-03T22:25:43.968Z
+      .seen = ('2019-06-09T09:00:18.000Z', '2019-07-03T15:07:52.000Z')
       :fqdn = derp.org
       :ip = 4.4.4.4
   inet:dns:a=('woot.com', '1.2.3.4')
-      .created = 2019/07/03 22:25:43.962
-      .seen = ('2018/04/18 13:12:47.000', '2018/06/23 09:45:12.000')
+      .created = 2019-07-03T22:25:43.962Z
+      .seen = ('2018-04-18T13:12:47.000Z', '2018-06-23T09:45:12.000Z')
       :fqdn = woot.com
       :ip = 1.2.3.4
   complete. 3 nodes in 12 ms (250/sec).
@@ -351,7 +351,7 @@ Check that two ``inet:fqdn`` nodes were created and given the ``#cno.threat.vici
   cli> storm inet:fqdn#cno
   
   inet:fqdn=search.webstie.net
-      .created = 2019/07/05 14:49:20.110
+      .created = 2019-07-05T14:49:20.110Z
       :domain = webstie.net
       :host = search
       :issuffix = False
@@ -359,7 +359,7 @@ Check that two ``inet:fqdn`` nodes were created and given the ``#cno.threat.vici
       :zone = webstie.net
       #cno.threat.viciouswombat
   inet:fqdn=dns.domain-resolve.org
-      .created = 2019/07/05 14:49:20.117
+      .created = 2019-07-05T14:49:20.117Z
       :domain = domain-resolve.org
       :host = dns
       :issuffix = False
@@ -375,19 +375,19 @@ Check that four ``hash:sha256`` nodes were created and given both the Vicious Wo
   cli> storm hash:sha256
   
   hash:sha256=7fd526e1a190c10c060bac21de17d2c90eb2985633c9ab74020a2b78acd8a4c8
-      .created = 2019/07/05 14:49:20.115
+      .created = 2019-07-05T14:49:20.115Z
       #cno.mal.umptyscrunch
       #cno.threat.viciouswombat
   hash:sha256=b20327c03703ebad191c0ba025a3f26494ff12c5908749e33e71589ae1e1f6b3
-      .created = 2019/07/05 14:49:20.115
+      .created = 2019-07-05T14:49:20.115Z
       #cno.mal.umptyscrunch
       #cno.threat.viciouswombat
   hash:sha256=b214c7a127cb669a523791806353da5c5c04832f123a0a6df118642eee1632a3
-      .created = 2019/07/05 14:49:20.113
+      .created = 2019-07-05T14:49:20.113Z
       #cno.mal.umptyscrunch
       #cno.threat.viciouswombat
   hash:sha256=b4e3b2a1f1e343d14af8d812d4a29440940b99aaf145b5699dfe277b5bfb8405
-      .created = 2019/07/05 14:49:20.116
+      .created = 2019-07-05T14:49:20.116Z
       #cno.mal.umptyscrunch
       #cno.threat.viciouswombat
   complete. 4 nodes in 3 ms (1333/sec).

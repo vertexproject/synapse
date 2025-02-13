@@ -83,7 +83,7 @@ class StormCliTest(s_test.SynTest):
                     self.isin('.created = ', text)
                     self.isin('#bar', text)
                     self.isin('#baz:foo = 10', text)
-                    self.isin('#foo = (2012/01/01 00:00:00.000, 2012/01/01 00:00:00.001)', text)
+                    self.isin('#foo = (2012-01-01T00:00:00.000Z, 2012-01-01T00:00:00.001Z)', text)
                     self.isin('complete. 1 nodes in', text)
 
                 outp = s_output.OutPutStr()

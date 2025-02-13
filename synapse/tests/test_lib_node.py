@@ -36,7 +36,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(props, {'tick': 12345})
             self.eq(info.get('repr'), None)
             reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
-            self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
+            self.eq(reprs, {'tick': '1970-01-01T00:00:12.345Z'})
             tagpropreprs = info.get('tagpropreprs')
             self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
@@ -79,7 +79,7 @@ class NodeTest(s_t_utils.SynTest):
             self.none(node.get('#newp'))
 
             self.eq('cool', node.repr())
-            self.eq(node.repr('tick'), '1970/01/01 00:00:12.345')
+            self.eq(node.repr('tick'), '1970-01-01T00:00:12.345Z')
 
             self.false(await node.set('tick', 12345))
             self.true(await node.set('tick', 123456))
@@ -149,7 +149,7 @@ class NodeTest(s_t_utils.SynTest):
             self.len(5, s_node.tagsnice(strpode))
             self.len(6, s_node.tags(strpode))
             self.eq(s_node.reprTag(strpode, '#test.foo.bar'), '')
-            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
+            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016-01-01T00:00:00.000Z, 2019-01-01T00:00:00.000Z)')
             self.none(s_node.reprTag(strpode, 'test.foo.newp'))
 
             self.eq(s_node.prop(strpode, 'hehe'), 'hehe')
@@ -159,9 +159,9 @@ class NodeTest(s_t_utils.SynTest):
             self.none(s_node.prop(strpode, 'newp'))
 
             self.eq(s_node.reprProp(strpode, 'hehe'), 'hehe')
-            self.eq(s_node.reprProp(strpode, 'tick'), '1970/01/01 00:00:12.345')
-            self.eq(s_node.reprProp(strpode, ':tick'), '1970/01/01 00:00:12.345')
-            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970/01/01 00:00:12.345')
+            self.eq(s_node.reprProp(strpode, 'tick'), '1970-01-01T00:00:12.345Z')
+            self.eq(s_node.reprProp(strpode, ':tick'), '1970-01-01T00:00:12.345Z')
+            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970-01-01T00:00:12.345Z')
             self.none(s_node.reprProp(strpode, 'newp'))
 
             self.eq(s_node.reprTagProps(strpode, 'test'),
