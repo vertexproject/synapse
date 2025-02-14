@@ -46,14 +46,14 @@ Bugfixes
 - Fixed bug with ``syn:user`` and ``syn:role`` nodes when queried name does not
   exist and the value is not a valid ``guid``.
   (`#4119 <https://github.com/vertexproject/synapse/pull/4119>`_)
-- Fixed an issue where certain BadSyntax exceptions had incomplete error
+- Fixed an issue where certain ``BadSyntax`` exceptions had incomplete error
   highlighting information.
   (`#4120 <https://github.com/vertexproject/synapse/pull/4120>`_)
 - Fixed an issue where leading/trailing whitespace and comments were not
   included in the string representation of embedded Storm query objects.
   (`#4121 <https://github.com/vertexproject/synapse/pull/4121>`_)
 - Fixed a bug where ``syn:user`` and ``syn:role`` types could take a ``*`` and
-  return a new guid.
+  return a new ``guid``.
   (`#4122 <https://github.com/vertexproject/synapse/pull/4122>`_)
 - Fixed an issue where the Axon failed to yield when calling the ``history()``
   or ``get()`` APIs.
