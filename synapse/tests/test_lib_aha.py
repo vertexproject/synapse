@@ -1418,8 +1418,9 @@ class AhaTest(s_test.SynTest):
             self.len(nexsindx * 2, items)
 
             # ensure we handle down services correctly
-            async with aha.waiter(1, 'aha:svcdown', timeout=10):
-                await cell01.fini()
+            async with aha.waiter(2, 'aha:svcadd', timeout=10):
+                async with aha.waiter(1, 'aha:svcdown', timeout=10):
+                    await cell01.fini()
 
             # test the call endpoint
             todo = s_common.todo('getCellInfo')

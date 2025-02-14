@@ -181,13 +181,13 @@ def getLogConfFromEnv():
 
 def normLogLevel(valu):
     '''
-    Norm a log level value to a integer.
+    Norm a log level value to an integer.
 
     Args:
         valu: The value to norm ( a string or integer ).
 
     Returns:
-        int: A valid log level.
+        int: A valid log level integer.
     '''
     if isinstance(valu, str):
 
