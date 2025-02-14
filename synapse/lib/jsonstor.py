@@ -57,12 +57,13 @@ class JsonStor(s_base.Base):
         refs += valu
         if refs > 0:
             self.slab.put(buid + b'refs', s_msgpack.en(refs), db=self.metadb)
+            await asyncio.sleep(0)
             return refs
 
         # remove the meta entries
         for lkey, byts in self.slab.scanByPref(buid, db=self.metadb):
             self.slab.pop(lkey, db=self.metadb)
-            await asyncio.sleep(0)
+
         # remove the item data
         self.slab.pop(buid, db=self.itemdb)
         self.dirty.pop(buid, None)
