@@ -403,7 +403,6 @@ class Hive(s_nexus.Pusher):
 
         return node.valu
 
-
     async def _storLoadHive(self):
         pass
 
