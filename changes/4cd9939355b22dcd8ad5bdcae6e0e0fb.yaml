@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where leading/trailing whitespace and comments were not included
-  in the string representation of embedded Storm query objects.
-prs: []
-type: bug
-...

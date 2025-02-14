@@ -1,6 +1,0 @@
----
-desc: Added edit syntax for adding/removing node edges using a variable value rather
-  than a subquery.
-prs: []
-type: feat
-...
