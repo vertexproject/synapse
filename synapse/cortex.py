@@ -20,7 +20,6 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
-import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const

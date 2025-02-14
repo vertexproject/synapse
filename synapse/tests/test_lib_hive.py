@@ -1,11 +1,7 @@
-import asyncio
-
 import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.tests.utils as s_test
-
-import synapse.lib.hive as s_hive
 
 tree0 = {
     'kids': {
