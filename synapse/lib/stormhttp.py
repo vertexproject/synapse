@@ -57,7 +57,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
         try:
 
             mesg = await s_stormtypes.toprim(mesg)
-            await self.resp.send_bytes(s_json.dumps(mesg, asbytes=True))
+            await self.resp.send_bytes(s_json.dumpsb(mesg))
             return (True, None)
 
         except asyncio.CancelledError:  # pragma: no cover
@@ -566,7 +566,7 @@ class HttpResp(s_stormtypes.Prim):
             else:
                 encoding = await s_stormtypes.tostr(encoding)
 
-            return s_json.loads(valu.decode(encoding, errors))
+            return s_json.loads(valu.decode(encoding, 'backslashreplace'))
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None

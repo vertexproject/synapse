@@ -177,7 +177,7 @@ def _fmt_lines(fd, gest):
         yield line
 
 def _fmt_json(fd, info):
-    yield s_json.loads(fd.read())
+    yield s_json.load(fd)
 
 def _fmt_jsonl(fd, info):
     for line in fd:

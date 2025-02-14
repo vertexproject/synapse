@@ -513,7 +513,7 @@ class StormNodesV1(StormHandler):
         await self.cell.boss.promote('storm', user=user, info=taskinfo)
 
         async for pode in view.iterStormPodes(query, opts=opts):
-            self.write(s_json.dumps(pode, append_newline=jsonlines))
+            self.write(s_json.dumps(pode, newline=jsonlines))
             await self.flush()
 
 class StormV1(StormHandler):
@@ -543,7 +543,7 @@ class StormV1(StormHandler):
         opts.setdefault('editformat', 'nodeedits')
 
         async for mesg in self.getCore().storm(query, opts=opts):
-            self.write(s_json.dumps(mesg, append_newline=jsonlines))
+            self.write(s_json.dumps(mesg, newline=jsonlines))
             await self.flush()
 
 class StormCallV1(StormHandler):

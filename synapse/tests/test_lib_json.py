@@ -11,6 +11,7 @@ class JsonTest(s_test.SynTest):
 
     async def test_lib_json_loads(self):
         self.eq({'a': 'b'}, s_json.loads('{"a": "b"}'))
+        self.eq({'a': '😀🙇'}, s_json.loads('{"a": "😀\ud83d\ude47"}'))
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('newp')
@@ -40,8 +41,8 @@ class JsonTest(s_test.SynTest):
         self.eq('{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
         self.eq('{"a":"b","c":"d"}', s_json.dumps({'c': 'd', 'a': 'b'}, sort_keys=True))
         self.eq('{\n  "c": "d",\n  "a": "b"\n}', s_json.dumps({'c': 'd', 'a': 'b'}, indent=True))
-        self.eq(b'{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}, asbytes=True))
-        self.eq('{"c":"d","a":"b"}\n', s_json.dumps({'c': 'd', 'a': 'b'}, append_newline=True))
+        self.eq(b'{"c":"d","a":"b"}', s_json.dumpsb({'c': 'd', 'a': 'b'}))
+        self.eq('{"c":"d","a":"b"}\n', s_json.dumps({'c': 'd', 'a': 'b'}, newline=True))
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({}.items())
@@ -55,7 +56,7 @@ class JsonTest(s_test.SynTest):
             txtfn = s_common.genpath(dirn, 'txt.json')
 
             with open(binfn, 'wb') as binfp:
-                s_json.dump({'c': 'd', 'a': 'b'}, binfp)
+                s_json.dumpb({'c': 'd', 'a': 'b'}, binfp)
 
             with open(binfn, 'rb') as binfp:
                 self.eq(b'{"c":"d","a":"b"}', binfp.read())
@@ -67,7 +68,7 @@ class JsonTest(s_test.SynTest):
                 self.eq('{"c":"d","a":"b"}', txtfp.read())
 
         buf = io.BytesIO()
-        s_json.dump({'c': 'd', 'a': 'b'}, buf)
+        s_json.dumpb({'c': 'd', 'a': 'b'}, buf)
         self.eq(b'{"c":"d","a":"b"}', buf.getvalue())
 
         buf = io.StringIO()
@@ -79,24 +80,24 @@ class JsonTest(s_test.SynTest):
             with s_common.genfile(dirn, 'jsload.json') as fp:
                 fp.write(b'{"a":"b"}')
 
-            obj = s_common.jsload(dirn, 'jsload.json')
+            obj = s_json.jsload(dirn, 'jsload.json')
             self.eq({'a': 'b'}, obj)
 
             s_common.genfile(dirn, 'empty.json').close()
-            self.none(s_common.jsload(dirn, 'empty.json'))
+            self.none(s_json.jsload(dirn, 'empty.json'))
 
     async def test_jslines(self):
         with self.getTestDir() as dirn:
             with s_common.genfile(dirn, 'jslines.json') as fp:
                 fp.write(b'{"a":"b"}\n{"c":"d"}')
 
-            objs = [k for k in s_common.jslines(dirn, 'jslines.json')]
+            objs = [k for k in s_json.jslines(dirn, 'jslines.json')]
             self.len(2, objs)
             self.eq([{'a': 'b'}, {'c': 'd'}], objs)
 
     async def test_jssave(self):
         with self.getTestDir() as dirn:
-            s_common.jssave({'a': 'b'}, dirn, 'jssave.json')
+            s_json.jssave({'a': 'b'}, dirn, 'jssave.json')
 
             with s_common.genfile(dirn, 'jssave.json') as fd:
                 data = fd.read()

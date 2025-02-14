@@ -447,7 +447,6 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             import json
             import pprint
-
             # Assumes sess is an requests client session that has previously logged in
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'
@@ -468,7 +467,6 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
 
             import json
             import pprint
-
             # Assumes sess is an requests client session that has previously logged in
 
             query = '.created $lib.print($node.repr(".created")) | limit 3'

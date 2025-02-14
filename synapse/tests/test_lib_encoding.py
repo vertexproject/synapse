@@ -190,7 +190,7 @@ class EncTest(s_t_utils.SynTest):
 
         }
 
-        buf = io.BytesIO(s_json.dumps(data, asbytes=True))
+        buf = io.BytesIO(s_json.dumpsb(data))
 
         lines = list(s_encoding.iterdata(buf, format='json'))
         self.len(1, lines)

@@ -118,7 +118,7 @@ Examples:
 
         fmt = self.locs.get('log:fmt')
         if fmt == 'jsonl':
-            s = s_json.dumps(mesg, sort_keys=True, append_newline=True)
+            s = s_json.dumps(mesg, sort_keys=True, newline=True)
             buf = s.encode()
             return buf
 
@@ -430,7 +430,7 @@ class StormCmd(s_cli.Cmd):
                 if mesg[0] == 'node':
 
                     if nodesfd is not None:
-                        byts = s_json.dumps(mesg[1], asbytes=True, append_newline=True)
+                        byts = s_json.dumpsb(mesg[1], newline=True)
                         nodesfd.write(byts)
 
                 try:

@@ -22,6 +22,9 @@ def loads(s):
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
+    if isinstance(s, str):
+        s = s.encode('utf8', errors='backslashreplace')
+
     try:
         return orjson.loads(s)
     except orjson.JSONDecodeError as exc:
@@ -43,20 +46,25 @@ def load(fp):
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
-    if hasattr(fp, 'mode'):
-        try:
-            with mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ) as mm:
-                with memoryview(mm) as mv:
-                    return loads(mv)
-        except ValueError:
-            mesg = 'Cannot read empty file.'
-            raise s_exc.BadJsonText(mesg=mesg)
-    else:
+    try:
+        with mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ) as mm:
+            with memoryview(mm) as mv:
+                return loads(mv)
+
+    except (AttributeError, io.UnsupportedOperation):
+        # This block need to be first because io.UnsupportedOperation is a subclass of ValueError.
+        # The file pointer will raise UnsupportedOperation if fileno() fails because the file isn't
+        # backed by a file descriptor but mmap will raise ValueError if the (real) file is empty. So
+        # ordering matters. *sigh*
         return loads(fp.read())
 
-def dumps(obj, sort_keys=False, indent=False, default=None, asbytes=False, append_newline=False):
+    except ValueError:
+        mesg = 'Cannot read empty file.'
+        raise s_exc.BadJsonText(mesg=mesg)
+
+def dumpsb(obj, sort_keys=False, indent=False, default=None, newline=False):
     '''
-    Serialize a python object to a string.
+    Serialize a python object to byte string.
 
     Similar to the standard library json.dumps().
 
@@ -65,8 +73,7 @@ def dumps(obj, sort_keys=False, indent=False, default=None, asbytes=False, appen
         sort_keys (Optional[bool]): Sort dictionary keys. Default: False.
         indent (Optional[bool]): Include 2 spaces of indentation. Default: False.
         default (Optional[callable]): Callback for serializing unknown object types. Default: None.
-        asbytes (Optional[bool]): Serialized data should be returned as bytes instead of a string. Default: False.
-        append_newlines (Optional[bool]): Append a newline to the end of the serialized data. Default: False.
+        newline (Optional[bool]): Append a newline to the end of the serialized data. Default: False.
 
     Returns:
         (str | bytes): The JSON serialized python object.
@@ -82,25 +89,41 @@ def dumps(obj, sort_keys=False, indent=False, default=None, asbytes=False, appen
     if sort_keys:
         opts |= orjson.OPT_SORT_KEYS
 
-    if append_newline:
+    if newline:
         opts |= orjson.OPT_APPEND_NEWLINE
 
     try:
-        ret = orjson.dumps(obj, option=opts, default=default)
-        if not asbytes:
-            ret = ret.decode()
-        return ret
+        return orjson.dumps(obj, option=opts, default=default)
     except orjson.JSONEncodeError as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
-def dump(obj, fp, sort_keys=False, indent=False, default=None, append_newline=False):
+def dumps(obj, sort_keys=False, indent=False, default=None, asbytes=False, newline=False):
     '''
     Serialize a python object to a string.
 
-    Similar to the standard library json.dump().
+    Similar to the standard library json.dumps().
 
-    Note: This function attempts to automatically detect if the file was opened
-    in text or binary mode by inspecting `fp.mode`.
+    Arguments:
+        obj (object): The python object to serialize.
+        sort_keys (Optional[bool]): Sort dictionary keys. Default: False.
+        indent (Optional[bool]): Include 2 spaces of indentation. Default: False.
+        default (Optional[callable]): Callback for serializing unknown object types. Default: None.
+        newline (Optional[bool]): Append a newline to the end of the serialized data. Default: False.
+
+    Returns:
+        (str | bytes): The JSON serialized python object.
+
+    Raises:
+        synapse.exc.MustBeJsonSafe: This exception is raised when a python object cannot be serialized.
+    '''
+    data = dumpsb(obj, sort_keys=sort_keys, indent=indent, default=default, newline=newline)
+    return data.decode('utf8', errors='surrogatepass')
+
+def dumpb(obj, fp, sort_keys=False, indent=False, default=None, newline=False):
+    '''
+    Serialize a python object to a file-like object opened in binary mode.
+
+    Similar to the standard library json.dump().
 
     Arguments:
         obj (object): The python object to serialize.
@@ -108,20 +131,36 @@ def dump(obj, fp, sort_keys=False, indent=False, default=None, append_newline=Fa
         sort_keys (Optional[bool]): Sort dictionary keys. Default: False.
         indent (Optional[bool]): Include 2 spaces of indentation. Default: False.
         default (Optional[callable]): Callback for serializing unknown object types. Default: None.
-        append_newlines (Optional[bool]): Append a newline to the end of the serialized data. Default: False.
+        newline (Optional[bool]): Append a newline to the end of the serialized data. Default: False.
 
     Returns: None
 
     Raises:
         synapse.exc.MustBeJsonSafe: This exception is raised when a python object cannot be serialized.
     '''
-    asbytes = False
-    if hasattr(fp, 'mode'):
-        asbytes = 'b' in fp.mode
-    elif isinstance(fp, io.BytesIO):
-        asbytes = True
+    data = dumpsb(obj, sort_keys=sort_keys, indent=indent, default=default, newline=newline)
+    fp.write(data)
 
-    data = dumps(obj, sort_keys=sort_keys, indent=indent, default=default, asbytes=asbytes, append_newline=append_newline)
+def dump(obj, fp, sort_keys=False, indent=False, default=None, newline=False):
+    '''
+    Serialize a python object to a file-like object opened in text mode.
+
+    Similar to the standard library json.dump().
+
+    Arguments:
+        obj (object): The python object to serialize.
+        fp (file): The python file pointer to write the serialized data to.
+        sort_keys (Optional[bool]): Sort dictionary keys. Default: False.
+        indent (Optional[bool]): Include 2 spaces of indentation. Default: False.
+        default (Optional[callable]): Callback for serializing unknown object types. Default: None.
+        newline (Optional[bool]): Append a newline to the end of the serialized data. Default: False.
+
+    Returns: None
+
+    Raises:
+        synapse.exc.MustBeJsonSafe: This exception is raised when a python object cannot be serialized.
+    '''
+    data = dumps(obj, sort_keys=sort_keys, indent=indent, default=default, newline=newline)
     fp.write(data)
 
 def jsload(*paths):
@@ -181,7 +220,7 @@ def jssave(js, *paths):
     import synapse.common as s_common # Avoid circular import
     path = s_common.genpath(*paths)
     with io.open(path, 'wb') as fd:
-        dump(js, fd, sort_keys=True, indent=True)
+        dumpb(js, fd, sort_keys=True, indent=True)
 
 def reqjsonsafe(item):
     '''

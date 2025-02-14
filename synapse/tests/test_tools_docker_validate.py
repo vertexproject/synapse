@@ -50,7 +50,7 @@ class TestDockerValidate(s_t_utils.SynTest):
             # getCosignSignature
             outp = self.getTestOutp()
             with mock.patch('subprocess.run') as patch:
-                test_stdout = s_json.dumps(test_resp, asbytes=True)
+                test_stdout = s_json.dumpsb(test_resp)
                 mock_stdout = mock.MagicMock(stdout=test_stdout)
                 patch.return_value = mock_stdout
                 ret = s_t_d_validate.getCosignSignature(outp, 'hehe/haha:tag')

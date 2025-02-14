@@ -114,7 +114,7 @@ async def runCsvImport(opts, outp, text, stormopts):
                     outp.printf(repr(mesg))
 
                 if logfd is not None:
-                    logfd.write(s_json.dumps(mesg, asbytes=True, append_newline=True))
+                    logfd.write(s_json.dumpsb(mesg, newline=True))
 
         if opts.cli:
             await s_cmdr.runItemCmdr(core, outp, True)
