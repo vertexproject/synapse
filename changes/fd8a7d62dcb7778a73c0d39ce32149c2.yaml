@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where the Axon failed to yield when calling the ``history()``
-  or ``get()`` APIs.
-prs: []
-type: bug
-...
