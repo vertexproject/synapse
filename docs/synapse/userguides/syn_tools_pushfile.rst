@@ -101,7 +101,7 @@ The ``file:bytes`` node for the uploaded report can now be viewed in the specifi
   file:bytes=sha256:229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40ab0
   
   file:bytes=sha256:229cdde419ba9549023de39c6a0ca8af74b45fade2d7a22cdc4105a75cd40ab0
-      .created = 2019/07/03 18:46:40.542
+      .created = 2019-07-03T18:46:40.542Z
       :md5 = 23a14d3a4508628e7e09a4c4868dfb17
       :mime = ??
       :name = anotherrepport.pdf

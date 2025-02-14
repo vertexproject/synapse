@@ -634,7 +634,7 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
-        self.eq(('2016/01/01 00:00:00.000', '2017/01/01 00:00:00.000'), ival.repr(ival.norm(('2016', '2017'))[0]))
+        self.eq(('2016-01-01T00:00:00.000Z', '2017-01-01T00:00:00.000Z'), ival.repr(ival.norm(('2016', '2017'))[0]))
 
         self.gt(s_common.now(), ival._normRelStr('-1 min'))
 
@@ -1263,12 +1263,12 @@ class TypesTest(s_t_utils.SynTest):
             # Explicitly test our max time vs. future marker
             maxtime = 253402300799999  # 9999/12/31 23:59:59.999
             self.eq(t.norm(maxtime)[0], maxtime)
-            self.eq(t.repr(maxtime), '9999/12/31 23:59:59.999')
-            self.eq(t.norm('9999/12/31 23:59:59.999')[0], maxtime)
+            self.eq(t.repr(maxtime), '9999-12-31T23:59:59.999Z')
+            self.eq(t.norm('9999-12-31T23:59:59.999Z')[0], maxtime)
             self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
 
             tick = t.norm('2014')[0]
-            self.eq(t.repr(tick), '2014/01/01 00:00:00.000')
+            self.eq(t.repr(tick), '2014-01-01T00:00:00.000Z')
 
             tock = t.norm('2015')[0]
 

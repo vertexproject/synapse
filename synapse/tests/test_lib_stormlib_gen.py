@@ -139,13 +139,13 @@ class StormLibGenTest(s_test.SynTest):
             self.eq('vertex.link', nodes00[0].get('target:fqdn'))
             self.eq('foosig', nodes00[0].get('signame'))
             self.eq('barscn', nodes00[0].get('scanner:name'))
-            self.eq('2022/01/01 00:00:00.000', nodes00[0].repr('time'))
+            self.eq('2022-01-01T00:00:00.000Z', nodes00[0].repr('time'))
             nodes01 = await core.nodes(q)
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
             nodes02 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn')
             self.eq(nodes00[0].ndef, nodes02[0].ndef)
-            self.eq('2022/01/01 00:00:00.000', nodes02[0].repr('time'))
+            self.eq('2022-01-01T00:00:00.000Z', nodes02[0].repr('time'))
 
             nodes03 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name bazscn')
             self.ne(nodes00[0].ndef, nodes03[0].ndef)

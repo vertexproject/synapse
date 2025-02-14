@@ -1133,14 +1133,14 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('inet:ip=11.22.33.44 | merge', opts=opts)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip:asn = 99', msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020/01/01 00:00:00.000', '2020/01/01 00:00:00.001')", msgs)
+            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.001Z')", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo:score = 100", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
 
             msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip:asn = 99', msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020/01/01 00:00:00.000', '2020/01/01 00:00:00.001')", msgs)
+            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.001Z')", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo:score = 100", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
