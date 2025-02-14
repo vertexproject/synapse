@@ -417,6 +417,9 @@ class ProtoNode:
                 full = f'{prop.name}:{subname}'
                 subprop = self.form.props.get(full)
                 if subprop is not None and not subprop.locked:
+                    if subprop.deprecated:
+                        self.ctx.snap._skipPropDeprWarn(subprop.full)
+
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
@@ -449,6 +452,9 @@ class ProtoNode:
                 full = f'{prop.name}:{subname}'
                 subprop = self.form.props.get(full)
                 if subprop is not None and not subprop.locked:
+                    if subprop.deprecated:
+                        self.ctx.snap._skipPropDeprWarn(subprop.full)
+
                     ops.append(self.getSetOps(full, subvalu))
 
         propadds = norminfo.get('adds')
@@ -848,6 +854,10 @@ class Snap(s_base.Base):
             return
         self._warnonce_keys.add(mesg)
         await self.warn(mesg, log, **info)
+
+    def _skipPropDeprWarn(self, name):
+        mesg = f'The property {name} is deprecated or using a deprecated type and will be removed in 3.0.0'
+        self._warnonce_keys.add(mesg)
 
     async def getNodeByBuid(self, buid):
         '''

@@ -338,11 +338,20 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_locked_subs(self):
 
-        async with self.getTestCore() as core:
-            await core.setDeprLock('it:prod:softver:semver:major', True)
-            nodes = await core.nodes('[ it:prod:softver=* :semver=3.1.0 ]')
-            self.none(nodes[0].get('semver:major'))
-            self.eq(1, nodes[0].get('semver:minor'))
+        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
+        async with self.getTestCore(conf=conf) as core:
+
+            msgs = await core.stormlist('[ test:deprsub=bar :imei=490154203237518 ]')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:deprsub=bar')
+            self.eq('49015420', nodes[0].get('imei:tac'))
+            self.eq('323751', nodes[0].get('imei:serial'))
+
+            await core.setDeprLock('test:deprsub:imei:tac', True)
+            nodes = await core.nodes('[ test:deprsub=foo :imei=490154203237518 ]')
+            self.none(nodes[0].get('imei:tac'))
+            self.eq('323751', nodes[0].get('imei:serial'))
 
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const

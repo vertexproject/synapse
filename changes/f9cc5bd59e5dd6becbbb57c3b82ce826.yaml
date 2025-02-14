@@ -1,0 +1,6 @@
+---
+desc: Updated property set behavior to avoid warning when deprecated properties are
+  set as subs.
+prs: []
+type: feat
+...
