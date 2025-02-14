@@ -65,8 +65,9 @@ Bugfixes
 Deprecations
 ------------
 - Deprecated ``synapse/lib/hiveauth.py`` and added deprecation messages to
-  APIs. This file will be removed in ``v2.199.0``.
+  related APIs. This file and related APIs will be removed in ``v2.199.0``.
   (`#4100 <https://github.com/vertexproject/synapse/pull/4100>`_)
+  (`#4141 <https://github.com/vertexproject/synapse/pull/4141>`_)
 
 v2.197.0 - 2025-02-05
 =====================
