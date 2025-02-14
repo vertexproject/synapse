@@ -12,7 +12,6 @@ import synapse.lib.version as s_version
 
 # Change to v2.199.0 before release.
 reqver = '>=2.198,<3.0.0'
-reqver = '>=0.2.0,<3.0.0'
 
 async def main(argv, outp=s_output.stdout):
 
@@ -44,8 +43,6 @@ async def main(argv, outp=s_output.stdout):
     async with s_telepath.withTeleEnv():
 
         async with await s_telepath.openurl(opts.hiveurl) as hive:
-            classes = hive.sharinfo.get('classes', ())
-
             try:
                 s_version.reqVersion(hive._getSynVers(), reqver)
                 todo = s_common.todo('loadHiveTree', tree, path=path, trim=opts.trim)
