@@ -4406,6 +4406,11 @@ class EditPropSetMulti(Edit):
             else:
                 valu = await rval.compute(runt, path)
 
+            if valu is None:
+                yield node, path
+                await asyncio.sleep(0)
+                continue
+
             atyp = prop.type.arraytype
             isndef = isinstance(atyp, s_types.Ndef)
             valu = await s_stormtypes.tostor(valu, isndef=isndef)
