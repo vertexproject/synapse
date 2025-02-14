@@ -344,14 +344,27 @@ class DataModelTest(s_t_utils.SynTest):
             msgs = await core.stormlist('[ test:deprsub=bar :imei=490154203237518 ]')
             self.stormHasNoWarnErr(msgs)
 
+            msgs = await core.stormlist('[ test:deprsub2=(foo, 350123451234567) ]')
+            self.stormHasNoWarnErr(msgs)
+
             nodes = await core.nodes('test:deprsub=bar')
             self.eq('49015420', nodes[0].get('imei:tac'))
             self.eq('323751', nodes[0].get('imei:serial'))
+
+            nodes = await core.nodes('test:deprsub2=(foo, 350123451234567)')
+            self.eq('35012345', nodes[0].get('imei:tac'))
+            self.eq('123456', nodes[0].get('imei:serial'))
 
             await core.setDeprLock('test:deprsub:imei:tac', True)
             nodes = await core.nodes('[ test:deprsub=foo :imei=490154203237518 ]')
             self.none(nodes[0].get('imei:tac'))
             self.eq('323751', nodes[0].get('imei:serial'))
+
+            await core.nodes('test:deprsub2 | delnode')
+            await core.setDeprLock('test:deprsub2:imei:serial', True)
+            nodes = await core.nodes('[ test:deprsub2=(foo, 350123451234567) ]')
+            self.none(nodes[0].get('imei:serial'))
+            self.eq('35012345', nodes[0].get('imei:tac'))
 
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
