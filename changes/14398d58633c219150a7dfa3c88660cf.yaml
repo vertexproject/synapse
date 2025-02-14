@@ -1,0 +1,6 @@
+---
+desc: Updated Storm lift behavior to allow lifting guid forms and properties using
+  the property dictionary syntax.
+prs: []
+type: feat
+...
