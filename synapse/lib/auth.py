@@ -1407,64 +1407,41 @@ class User(Ruler):
                         logger.debug(f'Used one time password for {self.name}',
                                      extra={'synapse': {'user': self.iden, 'username': self.name}})
                         return True
-            else:
-                # Backwards compatible password handling
-                expires, params, hashed = onepass
-                if expires >= s_common.now():
-                    if s_common.guid((params, passwd)) == hashed:
-                        await self.auth.setUserInfo(self.iden, 'onepass', None)
-                        logger.debug(f'Used one time password for {self.name}',
-                                     extra={'synapse': {'user': self.iden, 'username': self.name}})
-                        return True
 
         shadow = self.info.get('passwd')
         if shadow is None:
             return False
 
-        if isinstance(shadow, dict):
-            result = await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
-            if self.auth.policy and (attempts := self.auth.policy.get('attempts')) is not None:
-                valu = self.info.get('policy:attempts', 0)
-                if result:
-                    if valu > 0:
-                        await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
-                    return True
+        result = await s_passwd.checkShadowV2(passwd=passwd, shadow=shadow)
+        if self.auth.policy and (attempts := self.auth.policy.get('attempts')) is not None:
+            valu = self.info.get('policy:attempts', 0)
+            if result:
+                if valu > 0:
+                    await self.auth.setUserInfo(self.iden, 'policy:attempts', 0)
+                return True
 
-                if enforce_policy:
+            if enforce_policy:
 
-                    valu += 1
-                    await self.auth.setUserInfo(self.iden, 'policy:attempts', valu)
+                valu += 1
+                await self.auth.setUserInfo(self.iden, 'policy:attempts', valu)
 
-                    if valu >= attempts:
+                if valu >= attempts:
 
-                        if self.iden == self.auth.rootuser.iden:
-                            mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}),. Cannot lock {self.name} user.'
-                            extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, }}
-                            logger.error(mesg, extra=extra)
-                            return False
+                    if self.iden == self.auth.rootuser.iden:
+                        mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}),. Cannot lock {self.name} user.'
+                        extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, }}
+                        logger.error(mesg, extra=extra)
+                        return False
 
-                        await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
+                    await self.auth.nexsroot.cell.setUserLocked(self.iden, True)
 
-                        mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'
-                        extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
-                        logger.warning(mesg, extra=extra)
+                    mesg = f'User {self.name} has exceeded the number of allowed password attempts ({valu + 1}), locking their account.'
+                    extra = {'synapse': {'target_user': self.iden, 'target_username': self.name, 'status': 'MODIFY'}}
+                    logger.warning(mesg, extra=extra)
 
-                    return False
+                return False
 
-            return result
-
-        # Backwards compatible password handling
-        salt, hashed = shadow
-        if s_common.guid((salt, passwd)) == hashed:
-            logger.debug(f'Migrating password to shadowv2 format for user {self.name}',
-                         extra={'synapse': {'user': self.iden, 'username': self.name}})
-            # Update user to new password hashing scheme. We cannot enforce policy
-            # when migrating an existing password.
-            await self.setPasswd(passwd=passwd, nexs=nexs, enforce_policy=False)
-
-            return True
-
-        return False
+        return result
 
     async def _checkPasswdPolicy(self, passwd, shadow, nexs=True):
         if not self.auth.policy:
