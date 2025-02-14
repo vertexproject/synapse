@@ -22,9 +22,12 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Added brief IO yields for various LMDB operations to help improve
+- Added brief I/O yields for various LMDB operations to help improve
   responsiveness when handling certain transactions.
   (`#3937 <https://github.com/vertexproject/synapse/pull/3937>`_)
+- Added edit syntax for adding/removing node edges using a variable value
+  rather than a subquery.
+  (`#4117 <https://github.com/vertexproject/synapse/pull/4117>`_)
 - Added new endpoints section in the package definition schema, allowing the
   configuration of multiple endpoints and details.
   (`#4127 <https://github.com/vertexproject/synapse/pull/4127>`_)
