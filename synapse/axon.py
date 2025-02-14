@@ -1017,6 +1017,7 @@ class Axon(s_cell.Cell):
         '''
         for item in self.axonhist.carve(tick, tock=tock):
             yield item
+            await asyncio.sleep(0)
 
     async def hashes(self, offs, wait=False, timeout=None):
         '''
@@ -1086,10 +1087,12 @@ class Axon(s_cell.Cell):
 
             async for byts in self._getBytsOffsSize(sha256, offs, size):
                 yield byts
+                await asyncio.sleep(0)
 
         else:
             async for byts in self._get(sha256):
                 yield byts
+                await asyncio.sleep(0)
 
     async def _get(self, sha256):
 
