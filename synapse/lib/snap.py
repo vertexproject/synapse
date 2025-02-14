@@ -1061,6 +1061,23 @@ class Snap(s_base.Base):
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
+        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr == '=':
+            if prop.isform:
+                if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
+                    yield node
+                return
+
+            fname = prop.type.name
+            if (form := prop.modl.form(fname)) is None:
+                mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            if (node := await self._getGuidNodeByDict(form, valu)) is None:
+                return
+
+            norm = False
+            valu = node.ndef[1]
+
         if norm:
             cmprvals = prop.type.getStorCmprs(cmpr, valu)
             # an empty return probably means ?= with invalid value
@@ -1397,10 +1414,6 @@ class Snap(s_base.Base):
 
     async def _addGuidNodeByDict(self, form, vals, props=None):
 
-        norms = {}
-        counts = []
-        proplist = []
-
         if props is None:
             props = {}
 
@@ -1438,7 +1451,32 @@ class Snap(s_base.Base):
                         raise e
                     await self.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
-        for name, valu in vals.items():
+        norms, proplist = self._normGuidNodeDict(form, vals)
+
+        iden = s_common.guid(proplist)
+        node = await self._getGuidNodeByNorms(form, iden, norms)
+
+        async with self.getEditor() as editor:
+
+            if node is not None:
+                proto = editor.loadNode(node)
+            else:
+                proto = await editor.addNode(form.name, iden)
+                for name, (prop, valu, info) in norms.items():
+                    await proto.set(name, valu, norminfo=info)
+
+            # ensure the non-deconf props are set
+            for name, (valu, info) in props.items():
+                await proto.set(name, valu, norminfo=info)
+
+        return await self.getNodeByBuid(proto.buid)
+
+    def _normGuidNodeDict(self, form, props):
+
+        norms = {}
+        proplist = []
+
+        for name, valu in props.items():
 
             try:
                 prop = form.reqProp(name)
@@ -1457,22 +1495,24 @@ class Snap(s_base.Base):
 
         proplist.sort()
 
+        return norms, proplist
+
+    async def _getGuidNodeByDict(self, form, props):
+        norms, proplist = self._normGuidNodeDict(form, props)
+        return await self._getGuidNodeByNorms(form, s_common.guid(proplist), norms)
+
+    async def _getGuidNodeByNorms(self, form, iden, norms):
+
         # check first for an exact match via our same deconf strategy
-        iden = s_common.guid(proplist)
 
         node = await self.getNodeByNdef((form.full, iden))
         if node is not None:
 
             # ensure we still match the property deconf criteria
-            for name, (prop, norm, info) in norms.items():
+            for (prop, norm, info) in norms.values():
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
         # TODO there is an opportunity here to populate
@@ -1481,8 +1521,10 @@ class Snap(s_base.Base):
         # if we lookup a node and it no longer passes the
         # filter...
 
+        counts = []
+
         # no exact match. lets do some counting.
-        for name, (prop, norm, info) in norms.items():
+        for (prop, norm, info) in norms.values():
             count = await self._getPropAltCount(prop, norm)
             counts.append((count, prop, norm))
 
@@ -1498,21 +1540,9 @@ class Snap(s_base.Base):
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
-        async with self.getEditor() as editor:
-            proto = await editor.addNode(form.name, iden)
-            for name, (prop, valu, info) in norms.items():
-                await proto.set(name, valu, norminfo=info)
-            for name, (valu, info) in props.items():
-                await proto.set(name, valu, norminfo=info)
-
-        return await self.getNodeByBuid(proto.buid)
+        return None
 
     async def _getPropAltCount(self, prop, valu):
         count = 0
