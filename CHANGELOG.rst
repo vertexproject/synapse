@@ -22,8 +22,8 @@ Model Changes
 
 Features and Enhancements
 -------------------------
-- Added brief IO yields for `Slab.put()` and `Slab.delete()` operations to help
-  improve performance when handling multiple transactions.
+- Added brief IO yields for various LMDB operations to help improve
+  responsiveness when handling certain transactions.
   (`#3937 <https://github.com/vertexproject/synapse/pull/3937>`_)
 - Added new endpoints section in the package definition schema, allowing the
   configuration of multiple endpoints and details.
@@ -62,7 +62,7 @@ Bugfixes
 Deprecations
 ------------
 - Deprecated ``synapse/lib/hiveauth.py`` and added deprecation messages to
-  APIs.
+  APIs. This file will be removed in ``v2.199.0``.
   (`#4100 <https://github.com/vertexproject/synapse/pull/4100>`_)
 
 v2.197.0 - 2025-02-05
