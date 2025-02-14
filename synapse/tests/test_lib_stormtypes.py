@@ -4928,7 +4928,7 @@ class StormTypesTest(s_test.SynTest):
                         self.true(await stream.wait(6))
                     mesg = stream.jsonlines()[0]
                     self.eq(mesg['message'], f'm3 cron {guid}')
-                    self.eq(mesg['iden'], guid)
+                    self.eq(mesg['synapse']['iden'], guid)
 
                 ##################
 
