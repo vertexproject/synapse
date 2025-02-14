@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class TankApi(s_cell.CellApi):
 
-    async def slice(self, offs, size=None, wait=False, timeout=None):
+    async def slice(self, offs, *, size=None, wait=False, timeout=None):
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.iden())
         async for item in self.cell.slice(offs, size=size, wait=wait, timeout=timeout):
             yield item
@@ -26,7 +26,7 @@ class TankApi(s_cell.CellApi):
         self.user.confirm(('cryo', 'tank', 'put'), gateiden=self.cell.iden())
         return await self.cell.puts(items)
 
-    async def metrics(self, offs, size=None):
+    async def metrics(self, offs, *, size=None):
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=self.cell.iden())
         async for item in self.cell.metrics(offs, size=size):
             yield item
@@ -171,11 +171,11 @@ class CryoApi(s_cell.CellApi):
 
     This is the API to reference for remote CryoCell use.
     '''
-    async def init(self, name, conf=None):
+    async def init(self, name, *, conf=None):
         tank = await self.cell.init(name, conf=conf, user=self.user)
         return tank.iden()
 
-    async def slice(self, name, offs, size=None, wait=False, timeout=None):
+    async def slice(self, name, offs, *, size=None, wait=False, timeout=None):
         tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.slice(offs, size=size, wait=wait, timeout=timeout):
@@ -200,7 +200,7 @@ class CryoApi(s_cell.CellApi):
         async for item in tank.rows(offs, size):
             yield item
 
-    async def metrics(self, name, offs, size=None):
+    async def metrics(self, name, offs, *, size=None):
         tank = await self.cell.init(name, user=self.user)
         self.user.confirm(('cryo', 'tank', 'read'), gateiden=tank.iden())
         async for item in tank.metrics(offs, size=size):

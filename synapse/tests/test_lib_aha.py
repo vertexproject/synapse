@@ -260,7 +260,7 @@ class AhaTest(s_test.SynTest):
 
                 async with aha.getLocalProxy() as ahaproxy:
 
-                    svcs = [x async for x in ahaproxy.getAhaSvcs('synapse')]
+                    svcs = [x async for x in ahaproxy.getAhaSvcs(network='synapse')]
                     self.len(2, svcs)
                     names = [s['name'] for s in svcs]
                     self.sorteq(('cryo.synapse', '0.cryo.synapse'), names)
@@ -804,7 +804,7 @@ class AhaTest(s_test.SynTest):
                 clonurls = []
                 async with aha.getLocalProxy() as proxy:
                     provurls.append(await proxy.addAhaSvcProv('00.cell'))
-                    provurls.append(await proxy.addAhaSvcProv('01.cell', {'mirror': 'cell'}))
+                    provurls.append(await proxy.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'}))
                     enrlursl.append(await proxy.addAhaUserEnroll('bob'))
                     enrlursl.append(await proxy.addAhaUserEnroll('alice'))
                     clonurls.append(await proxy.addAhaClone('hehe.haha.com'))

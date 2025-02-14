@@ -135,7 +135,7 @@ def mergeAhaInfo(info0, info1):
 
     return info0
 
-async def open(url, onlink=None):
+async def open(url, *, onlink=None):
     '''
     Open a new telepath ClientV2 object based on the given URL.
 
@@ -1063,7 +1063,7 @@ class Client(s_base.Base):
             }
 
     '''
-    async def __anit__(self, urlinfo, opts=None, conf=None, onlink=None):
+    async def __anit__(self, urlinfo, *, opts=None, conf=None, onlink=None):
 
         await s_base.Base.__anit__(self)
 

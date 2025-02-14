@@ -393,7 +393,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await s_cell.CellApi.__anit__(self, cell, link, user)
         await s_share.Share.__anit__(self, link, None)
 
-    async def get(self, sha256, offs=None, size=None):
+    async def get(self, sha256, *, offs=None, size=None):
         '''
         Get bytes of a file.
 
@@ -461,7 +461,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'has'))
         return await self.cell.hashset(sha256)
 
-    async def hashes(self, offs, wait=False, timeout=None):
+    async def hashes(self, offs, *, wait=False, timeout=None):
         '''
         Yield hash rows for files that exist in the Axon in added order starting at an offset.
 
@@ -477,7 +477,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.hashes(offs, wait=wait, timeout=timeout):
             yield item
 
-    async def history(self, tick, tock=None):
+    async def history(self, tick, *, tock=None):
         '''
         Yield hash rows for files that existing in the Axon after a given point in time.
 
@@ -594,7 +594,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         await self._reqUserAllowed(('axon', 'del'))
         return await self.cell.dels(sha256s)
 
-    async def wget(self, url, params=None, headers=None, json=None, body=None, method='GET',
+    async def wget(self, url, *, params=None, headers=None, json=None, body=None, method='GET',
                    ssl=True, timeout=None, proxy=True, ssl_opts=None):
         '''
         Stream a file download directly into the Axon.
@@ -661,13 +661,13 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         return await self.cell.wget(url, params=params, headers=headers, json=json, body=body, method=method,
                                     ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
 
-    async def postfiles(self, fields, url, params=None, headers=None, method='POST',
+    async def postfiles(self, fields, url, *, params=None, headers=None, method='POST',
                         ssl=True, timeout=None, proxy=True, ssl_opts=None):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.postfiles(fields, url, params=params, headers=headers, method=method,
                                          ssl=ssl, timeout=timeout, proxy=proxy, ssl_opts=ssl_opts)
 
-    async def wput(self, sha256, url, params=None, headers=None, method='PUT',
+    async def wput(self, sha256, url, *, params=None, headers=None, method='PUT',
                    ssl=True, timeout=None, proxy=True, ssl_opts=None):
         await self._reqUserAllowed(('axon', 'wput'))
         return await self.cell.wput(sha256, url, params=params, headers=headers, method=method,
@@ -697,7 +697,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.iterMpkFile(sha256):
             yield item
 
-    async def readlines(self, sha256, errors='ignore'):
+    async def readlines(self, sha256, *, errors='ignore'):
         '''
         Yield lines from a multi-line text file in the axon.
 
@@ -712,7 +712,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.readlines(sha256, errors=errors):
             yield item
 
-    async def csvrows(self, sha256, dialect='excel', errors='ignore', **fmtparams):
+    async def csvrows(self, sha256, *, dialect='excel', errors='ignore', **fmtparams):
         '''
         Yield CSV rows from a CSV file.
 
@@ -744,7 +744,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.csvrows(sha256, dialect, errors=errors, **fmtparams):
             yield item
 
-    async def jsonlines(self, sha256, errors='ignore'):
+    async def jsonlines(self, sha256, *, errors='ignore'):
         '''
         Yield JSON objects from JSONL (JSON lines) file.
 
@@ -759,7 +759,7 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         async for item in self.cell.jsonlines(sha256, errors=errors):
             yield item
 
-    async def unpack(self, sha256, fmt, offs=0):
+    async def unpack(self, sha256, fmt, *, offs=0):
         '''
         Unpack bytes from a file in the Axon using struct.
 

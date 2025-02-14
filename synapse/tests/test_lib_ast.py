@@ -247,7 +247,7 @@ class AstTest(s_test.SynTest):
 
             # And it works remotely
             async with core.getLocalProxy() as prox:
-                msgs = await s_test.alist(prox.storm('1.2.3.4', opts))
+                msgs = await s_test.alist(prox.storm('1.2.3.4', opts=opts))
                 nodes = [m[1] for m in msgs if m[0] == 'node']
                 self.len(1, nodes)
                 self.eq(nodes[0][0], ('inet:ip', (4, 0x01020304)))

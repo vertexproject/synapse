@@ -1263,11 +1263,11 @@ class CellTest(s_t_utils.SynTest):
                     self.none(info['lastexception'])
 
                     with self.raises(s_exc.BadArg):
-                        await proxy.runBackup('../woot')
+                        await proxy.runBackup(name='../woot')
 
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 0.1):
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeperProc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeperProc'))
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup(name='_sleeperProc'))
 
                     info = await proxy.getBackupInfo()
                     errinfo = info.get('lastexception')
@@ -1279,7 +1279,7 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch.object(s_cell.Cell, 'BACKUP_SPAWN_TIMEOUT', 8.0):
 
                         with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_sleeper2Proc)):
-                            await self.asyncraises(s_exc.SynErr, proxy.runBackup('_sleeper2Proc'))
+                            await self.asyncraises(s_exc.SynErr, proxy.runBackup(name='_sleeper2Proc'))
 
                         info = await proxy.getBackupInfo()
                         laststart2 = info['laststart']
@@ -1289,7 +1289,7 @@ class CellTest(s_t_utils.SynTest):
                         self.eq(errinfo['errinfo']['mesg'], 'backup subprocess start timed out')
 
                     with mock.patch.object(s_cell.Cell, '_backupProc', staticmethod(_exiterProc)):
-                        await self.asyncraises(s_exc.SpawnExit, proxy.runBackup('_exiterProc'))
+                        await self.asyncraises(s_exc.SpawnExit, proxy.runBackup(name='_exiterProc'))
 
                     info = await proxy.getBackupInfo()
                     laststart3 = info['laststart']
@@ -1387,7 +1387,7 @@ class CellTest(s_t_utils.SynTest):
 
                     with mock.patch('synapse.lib.coro.executor', err):
                         with self.raises(s_exc.SynErr) as cm:
-                            await proxy.runBackup('partial')
+                            await proxy.runBackup(name='partial')
                         self.eq(cm.exception.get('errx'), 'RuntimeError')
 
                     self.isin('partial', await proxy.getBackups())
@@ -1662,7 +1662,7 @@ class CellTest(s_t_utils.SynTest):
                             s_common.gendir(os.path.join(backdirn, name))
 
                         with mock.patch.object(s_cell.Cell, 'runBackup', _fakeBackup):
-                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup'))
+                            arch = s_t_utils.alist(proxy.iterNewBackupArchive(name='nobkup'))
                             with self.raises(asyncio.TimeoutError):
                                 await asyncio.wait_for(arch, timeout=0.1)
 
@@ -1671,7 +1671,7 @@ class CellTest(s_t_utils.SynTest):
                             await asyncio.sleep(3.0)
 
                         with mock.patch.object(s_cell.Cell, 'runBackup', _slowFakeBackup):
-                            arch = s_t_utils.alist(proxy.iterNewBackupArchive('nobkup2'))
+                            arch = s_t_utils.alist(proxy.iterNewBackupArchive(name='nobkup2'))
                             with self.raises(asyncio.TimeoutError):
                                 await asyncio.wait_for(arch, timeout=0.1)
 
@@ -1693,17 +1693,17 @@ class CellTest(s_t_utils.SynTest):
 
                         with mock.patch.object(s_cell.Cell, 'runBackup', _slowFakeBackup2):
                             with mock.patch.object(s_cell.Cell, 'iterNewBackupArchive', _iterNewDup):
-                                arch = s_t_utils.alist(proxy.iterNewBackupArchive('dupbackup', remove=True))
+                                arch = s_t_utils.alist(proxy.iterNewBackupArchive(name='dupbackup', remove=True))
                                 task = core.schedCoro(arch)
                                 await asyncio.wait_for(evt0.wait(), timeout=2)
 
-                        fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadystreaming', remove=True))
+                        fail = s_t_utils.alist(proxy.iterNewBackupArchive(name='alreadystreaming', remove=True))
                         await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
                         task.cancel()
                         await asyncio.wait_for(evt1.wait(), timeout=2)
 
                     with self.raises(s_exc.BadArg):
-                        async for msg in proxy.iterNewBackupArchive('bkup'):
+                        async for msg in proxy.iterNewBackupArchive(name='bkup'):
                             pass
 
                     # Get an existing backup
@@ -1716,7 +1716,7 @@ class CellTest(s_t_utils.SynTest):
                     self.len(1, nodes)
 
                     with open(bkuppath2, 'wb') as bkup2:
-                        async for msg in proxy.iterNewBackupArchive('bkup2'):
+                        async for msg in proxy.iterNewBackupArchive(name='bkup2'):
                             bkup2.write(msg)
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
@@ -1727,7 +1727,7 @@ class CellTest(s_t_utils.SynTest):
                     self.len(1, nodes)
 
                     with open(bkuppath3, 'wb') as bkup3:
-                        async for msg in proxy.iterNewBackupArchive('bkup3', remove=True):
+                        async for msg in proxy.iterNewBackupArchive(name='bkup3', remove=True):
                             bkup3.write(msg)
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
@@ -1744,11 +1744,11 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
 
                     # Start another backup while one is already running
-                    bkup = s_t_utils.alist(proxy.iterNewBackupArchive('runbackup', remove=True))
+                    bkup = s_t_utils.alist(proxy.iterNewBackupArchive(name='runbackup', remove=True))
                     task = core.schedCoro(bkup)
                     await asyncio.sleep(0)
 
-                    fail = s_t_utils.alist(proxy.iterNewBackupArchive('alreadyrunning', remove=True))
+                    fail = s_t_utils.alist(proxy.iterNewBackupArchive(name='alreadyrunning', remove=True))
                     await self.asyncraises(s_exc.BackupAlreadyRunning, fail)
                     await asyncio.wait_for(task, 5)
 
@@ -1800,7 +1800,7 @@ class CellTest(s_t_utils.SynTest):
                             bkup5.write(msg)
 
                     with mock.patch('synapse.lib.cell._iterBackupProc', _backupEOF):
-                        await s_t_utils.alist(proxy.iterNewBackupArchive('eof', remove=True))
+                        await s_t_utils.alist(proxy.iterNewBackupArchive(name='eof', remove=True))
 
             with tarfile.open(bkuppath5, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
@@ -3138,7 +3138,7 @@ class CellTest(s_t_utils.SynTest):
                     with mock.patch.object(s_cell.Cell, 'runBackup', mock_runBackup):
                         with self.getAsyncLoggerStream('synapse.lib.cell', 'Removing') as stream:
                             with self.raises(s_exc.SynErr) as cm:
-                                async for _ in proxy.iterNewBackupArchive('failedbackup', remove=True):
+                                async for _ in proxy.iterNewBackupArchive(name='failedbackup', remove=True):
                                     pass
 
                             self.isin('backup failed', str(cm.exception))
@@ -3151,7 +3151,7 @@ class CellTest(s_t_utils.SynTest):
 
                     core.backupstreaming = True
                     with self.raises(s_exc.BackupAlreadyRunning):
-                        async for _ in proxy.iterNewBackupArchive('newbackup', remove=True):
+                        async for _ in proxy.iterNewBackupArchive(name='newbackup', remove=True):
                             pass
 
     async def test_cell_peer_noaha(self):

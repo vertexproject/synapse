@@ -50,7 +50,7 @@ class ViewApi(s_cell.CellApi):
 
         return await self.view.storNodeEdits(edits, meta)
 
-    async def syncNodeEdits2(self, offs, wait=True, compat=False):
+    async def syncNodeEdits2(self, offs, *, wait=True, compat=False):
         await self._reqUserAllowed(('view', 'read'))
         # present a layer compatible API to remote callers
         async for item in self.view.wlyr.syncNodeEdits2(offs, wait=wait, compat=compat):
