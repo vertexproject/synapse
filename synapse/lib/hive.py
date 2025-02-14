@@ -424,7 +424,7 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
         return node.valu
 
     async def getTeleApi(self, link, mesg, path):
-
+        s_common.deprecated('Hive.getTeleApi', curv='2.198.0', eolv='2.199.0')
         auth = await self.getHiveAuth()
 
         if not self.conf.get('auth:en'):
@@ -759,6 +759,7 @@ def iterpath(path):
         yield path[:i + 1]
 
 async def openurl(url, **opts):
+    s_common.deprecated('synapse.lib.hive.openurl()', curv='2.198.0', eolv='2.199.0')
     prox = await s_telepath.openurl(url, **opts)
     return await TeleHive.anit(prox)
 
