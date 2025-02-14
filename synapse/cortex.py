@@ -855,7 +855,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     cellapi = CoreApi
     viewapi = s_view.ViewApi
     layerapi = s_layer.LayerApi
-    hiveapi = s_hive.HiveApi
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
@@ -4655,12 +4654,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if not path:
             return await self.cellapi.anit(self, link, user)
-
-        # allow an admin to directly open the cortex hive
-        # (perhaps this should be a Cell() level pattern)
-        if path[0] == 'hive' and user.isAdmin():
-            s_common.deprecated('Cortex /hive telepath path', curv='2.167.0')
-            return await self.hiveapi.anit(self.hive, user)
 
         if path[0] == 'layer':
 

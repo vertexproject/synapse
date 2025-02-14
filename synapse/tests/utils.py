@@ -2356,25 +2356,6 @@ class SynTest(unittest.TestCase):
             async with await s_hive.SlabHive.anit(slab) as hive:
                 yield hive
 
-    @contextlib.asynccontextmanager
-    async def getTestHiveDmon(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                async with self.getTestDmon() as dmon:
-                    dmon.share('hive', hive)
-                    yield dmon
-
-    @contextlib.asynccontextmanager
-    async def getTestTeleHive(self):
-
-        async with self.getTestHiveDmon() as dmon:
-
-            turl = self.getTestUrl(dmon, 'hive')
-
-            async with await s_hive.openurl(turl) as hive:
-
-                yield hive
-
     async def runCoreNodes(self, core, query, opts=None):
         '''
         Run a storm query through a Cortex as a SchedCoro and return the results.

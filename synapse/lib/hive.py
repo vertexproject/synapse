@@ -86,7 +86,7 @@ class Node(s_base.Base):
         for name, node in self.kids.items():
             yield name, node
 
-class Hive(s_nexus.Pusher, s_telepath.Aware):
+class Hive(s_nexus.Pusher):
     '''
     An optionally persistent atomically accessed tree which implements
     primitives for use in making distributed/clustered services.
@@ -94,8 +94,6 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
     async def __anit__(self, conf=None, nexsroot=None, cell=None):
 
         await s_nexus.Pusher.__anit__(self, 'hive', nexsroot=nexsroot)
-
-        s_telepath.Aware.__init__(self)
 
         if conf is None:
             conf = {}
@@ -160,24 +158,6 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
             culls = [n for n in node.kids.keys() if n not in kidnames]
             for cullname in culls:
                 await node.pop((cullname,))
-
-    async def getHiveAuth(self):
-        '''
-        Retrieve a HiveAuth for hive standalone or non-cell uses.
-
-        Note:
-            This is for the hive's own auth, or for non-cell auth.  It isn't the same auth as for a cell
-        '''
-        import synapse.lib.hiveauth as s_hiveauth
-        if self.auth is None:
-
-            path = tuple(self.conf.get('auth:path').split('/'))
-
-            node = await self.open(path)
-            self.auth = await s_hiveauth.Auth.anit(node, nexsroot=self.nexsroot)
-            self.onfini(self.auth.fini)
-
-        return self.auth
 
     async def _onHiveFini(self):
         await self.root.fini()
@@ -423,26 +403,6 @@ class Hive(s_nexus.Pusher, s_telepath.Aware):
 
         return node.valu
 
-    async def getTeleApi(self, link, mesg, path):
-
-        auth = await self.getHiveAuth()
-
-        if not self.conf.get('auth:en'):
-            user = await auth.getUserByName('root')
-            return await HiveApi.anit(self, user)
-
-        name, info = mesg[1].get('auth')
-
-        user = await auth.getUserByName(name)
-        if user is None:
-            raise s_exc.NoSuchUser(name=name)
-
-        # passwd None always fails...
-        passwd = info.get('passwd')
-        if not await user.tryPasswd(passwd):
-            raise s_exc.AuthDeny(mesg='Invalid password', user=user.iden, username=user.name)
-
-        return await HiveApi.anit(self, user)
 
     async def _storLoadHive(self):
         pass
@@ -479,224 +439,6 @@ class SlabHive(Hive):
     async def storNodeDele(self, full):
         lkey = '\x00'.join(full).encode('utf8')
         self.slab.pop(lkey, db=self.db)
-
-class HiveApi(s_base.Base):
-
-    async def __anit__(self, hive, user):
-
-        await s_base.Base.__anit__(self)
-
-        self.hive = hive
-        self.user = user
-
-        self.msgq = asyncio.Queue(maxsize=10000)
-
-        self.onfini(self._onHapiFini)
-
-    async def loadHiveTree(self, tree, path=(), trim=False):
-        s_common.deprecated('HiveApi.loadHiveTree', curv='2.167.0')
-        return await self.hive.loadHiveTree(tree, path=path, trim=trim)
-
-    async def saveHiveTree(self, path=()):
-        s_common.deprecated('HiveApi.saveHiveTree', curv='2.167.0')
-        return await self.hive.saveHiveTree(path=path)
-
-    async def treeAndSync(self, path, iden):
-        s_common.deprecated('HiveApi.treeAndSync', curv='2.167.0')
-
-        node = await self.hive.open(path)
-
-        # register handlers...
-        node.on('hive:add', self._onHiveEdit, base=self)
-        node.on('hive:set', self._onHiveEdit, base=self)
-        node.on('hive:pop', self._onHiveEdit, base=self)
-
-        # serialize the subtree into a message and return
-        # via the mesg queue so there is no get/update race
-        root = (node.valu, {})
-
-        todo = collections.deque([(node, root)])
-
-        # breadth first generator
-        while todo:
-
-            node, pode = todo.popleft()
-
-            for name, kidn in node.kids.items():
-
-                kidp = (kidn.valu, {})
-                pode[1][name] = kidp
-
-                todo.append((kidn, kidp))
-
-        await self.msgq.put(('hive:tree', {'path': path, 'tree': root}))
-        await self.msgq.put(('hive:sync', {'iden': iden}))
-        return
-
-    async def setAndSync(self, path, valu, iden, nexs=False):
-        s_common.deprecated('HiveApi.setAndSync', curv='2.167.0')
-
-        valu = await self.hive.set(path, valu, nexs=nexs)
-        await self.msgq.put(('hive:sync', {'iden': iden}))
-        return valu
-
-    async def addAndSync(self, path, valu, iden):
-        s_common.deprecated('HiveApi.addAndSync', curv='2.167.0')
-
-        valu = await self.hive.add(path, valu)
-        await self.msgq.put(('hive:sync', {'iden': iden}))
-        return valu
-
-    async def popAndSync(self, path, iden, nexs=False):
-        s_common.deprecated('HiveApi.popAndSync', curv='2.167.0')
-
-        valu = await self.hive.pop(path, nexs=nexs)
-        await self.msgq.put(('hive:sync', {'iden': iden}))
-        return valu
-
-    async def _onHapiFini(self):
-        await self.msgq.put(None)
-
-    async def _onHiveEdit(self, mesg):
-        self.msgq.put_nowait(mesg)
-
-    async def get(self, full):
-        s_common.deprecated('HiveApi.get', curv='2.167.0')
-        return await self.hive.get(full)
-
-    async def edits(self):
-        s_common.deprecated('HiveApi.edits', curv='2.167.0')
-
-        while not self.isfini:
-
-            item = await self.msgq.get()
-            if item is None:
-                return
-
-            yield item
-
-class TeleHive(Hive):
-    '''
-    A Hive that acts as a consistent read cache for a telepath proxy Hive
-    '''
-
-    async def __anit__(self, proxy):
-
-        self.proxy = proxy
-
-        await Hive.__anit__(self)
-
-        self.lock = asyncio.Lock()
-
-        self.syncevents = {}  # iden: asyncio.Event()
-
-        # fire a task to sync the sections of the tree we open
-        self.schedCoro(self._runHiveLoop())
-
-        self.mesgbus = await s_base.Base.anit()
-        self.mesgbus.on('hive:set', self._onHiveSet)
-        self.mesgbus.on('hive:pop', self._onHivePop)
-        self.mesgbus.on('hive:tree', self._onHiveTree)
-        self.mesgbus.on('hive:sync', self._onHiveSync)
-
-        self.onfini(self.mesgbus.fini)
-
-        self.onfini(proxy.fini)
-
-    async def _onHiveSync(self, mesg):
-
-        iden = mesg[1].get('iden')
-        evnt = self.syncevents.pop(iden, None)
-        if evnt is None:
-            return
-
-        evnt.set()
-
-    def _getSyncIden(self):
-        iden = s_common.guid()
-        evnt = asyncio.Event()
-        self.syncevents[iden] = evnt
-        return iden, evnt
-
-    async def _runHiveLoop(self):
-        while not self.isfini:
-            async for mesg in self.proxy.edits():
-                await self.mesgbus.dist(mesg)
-
-    async def _onHiveSet(self, mesg):
-        path = mesg[1].get('path')
-        valu = mesg[1].get('valu')
-        await Hive.set(self, path, valu)
-
-    async def _onHivePop(self, mesg):
-        path = mesg[1].get('path')
-        await Hive.pop(self, path)
-
-    async def _onHiveTree(self, mesg):
-
-        # get an entire tree update at once
-        path = mesg[1].get('path')
-        tree = mesg[1].get('tree')
-
-        node = await Hive.open(self, path)
-
-        todo = collections.deque([(node, path, tree)])
-
-        while todo:
-
-            node, path, (valu, kids) = todo.popleft()
-
-            # do *not* go through the set() API
-            node.valu = valu
-            for name, kidt in kids.items():
-
-                kidp = path + (name,)
-                kidn = await Hive.open(self, kidp)
-
-                todo.append((kidn, kidp, kidt))
-
-    async def set(self, path, valu, nexs=False):
-        iden, evnt = self._getSyncIden()
-        valu = await self.proxy.setAndSync(path, valu, iden, nexs=nexs)
-        await evnt.wait()
-        return valu
-
-    async def add(self, path, valu):
-        iden, evnt = self._getSyncIden()
-        valu = await self.proxy.addAndSync(path, valu, iden)
-        await evnt.wait()
-        return valu
-
-    async def pop(self, path, nexs=False):
-        iden, evnt = self._getSyncIden()
-        valu = await self.proxy.popAndSync(path, iden, nexs=nexs)
-        await evnt.wait()
-        return valu
-
-    async def get(self, path):
-        return await self.proxy.get(path)
-
-    async def open(self, path):
-
-        # try once pre-lock for speed
-        node = self.nodes.get(path)
-        if node is not None:
-            return node
-
-        async with self.lock:
-
-            # try again with lock to avoid race
-            node = self.nodes.get(path)
-            if node is not None:
-                return node
-
-            iden, evnt = self._getSyncIden()
-
-            await self.proxy.treeAndSync(path, iden)
-
-            await evnt.wait()
-
-            return self.nodes.get(path)
 
 class HiveDict(s_base.Base):
     '''
@@ -757,10 +499,6 @@ class HiveDict(s_base.Base):
 def iterpath(path):
     for i in range(len(path)):
         yield path[:i + 1]
-
-async def openurl(url, **opts):
-    prox = await s_telepath.openurl(url, **opts)
-    return await TeleHive.anit(prox)
 
 async def opendir(dirn, conf=None):
     slab = await s_slab.Slab.anit(dirn, map_size=s_const.gibibyte)

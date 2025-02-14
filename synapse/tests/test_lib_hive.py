@@ -73,40 +73,6 @@ class HiveTest(s_test.SynTest):
 
                 self.none(await hive.get(('foo', 'bar', 'lulz')))
 
-    async def test_hive_telepath(self):
-
-        # confirm that the primitives used by higher level APIs
-        # work using telepath remotes and property synchronize.
-
-        async with self.getTestHiveDmon() as dmon:
-
-            turl = self.getTestUrl(dmon, 'hive')
-
-            async with await s_hive.openurl(turl) as hive0:
-
-                path = ('foo', 'bar')
-
-                evnt = asyncio.Event()
-
-                def onedit(mesg):
-                    evnt.set()
-
-                node0 = await hive0.open(path)
-                node0.on('hive:set', onedit)
-
-                async with await s_hive.openurl(turl) as hive1:
-
-                    node1 = await hive1.open(path)
-                    await node1.set(200)
-
-                    await evnt.wait()
-
-                    self.eq(200, node0.valu)
-
-                    self.eq(201, await node0.add(1))
-                    self.eq(202, await node1.add(1))
-                    self.eq(203, await node0.add(1))
-
     async def test_hive_dir(self):
 
         async with self.getTestHive() as hive:
