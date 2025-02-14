@@ -1,6 +1,0 @@
----
-desc: Fixed an issue in ``$lib.regex`` where Python regex exceptions were leaking into
-  the Storm runtime.
-prs: []
-type: bug
-...
