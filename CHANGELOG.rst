@@ -6,6 +6,69 @@
 Synapse Changelog
 *****************
 
+v2.198.0 - 2025-02-14
+=====================
+
+Automatic Migrations
+--------------------
+- Added a migration to lock any service users which are marked as archived but
+  are not locked.
+  (`#4100 <https://github.com/vertexproject/synapse/pull/4100>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_198_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added brief I/O yields for various LMDB operations to help improve
+  responsiveness when handling certain transactions.
+  (`#3937 <https://github.com/vertexproject/synapse/pull/3937>`_)
+- Added edit syntax for adding/removing node edges using a variable value
+  rather than a subquery.
+  (`#4117 <https://github.com/vertexproject/synapse/pull/4117>`_)
+- Added new endpoints section in the package definition schema, allowing the
+  configuration of multiple endpoints and details.
+  (`#4127 <https://github.com/vertexproject/synapse/pull/4127>`_)
+- Added ``++=``, ``--=``, ``?++=``, and ``?--=`` edit operators to Storm for
+  adding or removing multiple values from an array property in a single
+  operation.
+  (`#4130 <https://github.com/vertexproject/synapse/pull/4130>`_)
+- Updated Storm lift behavior to allow lifting guid forms and properties using
+  the property dictionary syntax.
+  (`#4132 <https://github.com/vertexproject/synapse/pull/4132>`_)
+
+Bugfixes
+--------
+- Fixed bug where archived users could be unlocked.
+  (`#4100 <https://github.com/vertexproject/synapse/pull/4100>`_)
+- Fixed an issue in ``$lib.regex`` where Python regex exceptions were leaking
+  into the Storm runtime.
+  (`#4118 <https://github.com/vertexproject/synapse/pull/4118>`_)
+- Fixed bug with ``syn:user`` and ``syn:role`` nodes when queried name does not
+  exist and the value is not a valid ``guid``.
+  (`#4119 <https://github.com/vertexproject/synapse/pull/4119>`_)
+- Fixed an issue where certain ``BadSyntax`` exceptions had incomplete error
+  highlighting information.
+  (`#4120 <https://github.com/vertexproject/synapse/pull/4120>`_)
+- Fixed an issue where leading/trailing whitespace and comments were not
+  included in the string representation of embedded Storm query objects.
+  (`#4121 <https://github.com/vertexproject/synapse/pull/4121>`_)
+- Fixed a bug where ``syn:user`` and ``syn:role`` types could take a ``*`` and
+  return a new ``guid``.
+  (`#4122 <https://github.com/vertexproject/synapse/pull/4122>`_)
+- Fixed an issue where the Axon failed to yield when calling the ``history()``
+  or ``get()`` APIs.
+  (`#4131 <https://github.com/vertexproject/synapse/pull/4131>`_)
+
+Deprecations
+------------
+- Deprecated ``synapse/lib/hiveauth.py`` and added deprecation messages to
+  related APIs. This file and related APIs will be removed in ``v2.199.0``.
+  (`#4100 <https://github.com/vertexproject/synapse/pull/4100>`_)
+  (`#4141 <https://github.com/vertexproject/synapse/pull/4141>`_)
+
 v2.197.0 - 2025-02-05
 =====================
 

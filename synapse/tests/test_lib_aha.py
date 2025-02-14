@@ -133,9 +133,14 @@ class AhaTest(s_test.SynTest):
         with self.getTestDir() as dirn:
             cryo0_dirn = s_common.gendir(dirn, 'cryo0')
             async with self.getTestAha(dirn=dirn) as aha:
+
+                replaymult = 1
+                if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
+                    replaymult = 2
+
                 purl = await aha.addAhaSvcProv('0.cryo')
 
-                wait00 = aha.waiter(1, 'aha:svcadd')
+                wait00 = aha.waiter(1 * replaymult, 'aha:svcadd')
 
                 conf = {'aha:provision': purl}
                 async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
@@ -444,8 +449,13 @@ class AhaTest(s_test.SynTest):
 
             async with self.getTestAha() as aha:
 
+                replaymult = 1
+                if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
+                    replaymult = 2
+
                 aha.testerr = True
                 wait00 = aha.waiter(1, 'aha:svcadd')
+
                 conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
                 async with self.getTestCryo(conf=conf) as cryo:
 
@@ -454,7 +464,7 @@ class AhaTest(s_test.SynTest):
                     svc = await aha.getAhaSvc('0.cryo...')
                     self.none(svc)
 
-                    wait01 = aha.waiter(1, 'aha:svcadd')
+                    wait01 = aha.waiter(1 * replaymult, 'aha:svcadd')
                     aha.testerr = False
 
                     self.nn(await wait01.wait(timeout=2))

@@ -47,6 +47,7 @@ async def main(argv, outp=s_output.stdout):
             try:
                 s_version.reqVersion(hive._getSynVers(), reqver)
                 if 'synapse.lib.hive.HiveApi' in classes:
+                    s_common.deprecated('Connecting directly to a Hive via Telepath', curv='2.198.0', eolv='2.199.0')
                     await hive.loadHiveTree(tree, path=path, trim=opts.trim)
                 else:
                     todo = s_common.todo('loadHiveTree', tree, path=path, trim=opts.trim)
