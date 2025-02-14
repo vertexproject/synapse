@@ -1,0 +1,5 @@
+---
+desc: Remove ``hiveauth.py`` and related APIs.
+prs: []
+type: deprecation
+...
