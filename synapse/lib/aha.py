@@ -1592,6 +1592,7 @@ class AhaCell(s_cell.Cell):
             self.slab.delete(iden, db='aha:provs')
             provinfo = s_msgpack.un(byts)
             logger.info(f'Deleted service provisioning service={provinfo.get("conf").get("aha:name")}, iden={iden.decode()}')
+            await asyncio.sleep(0)
 
     @s_nexus.Pusher.onPushAuto('aha:enroll:clear')
     async def clearAhaUserEnrolls(self):
@@ -1599,6 +1600,7 @@ class AhaCell(s_cell.Cell):
             self.slab.delete(iden, db='aha:enrolls')
             userinfo = s_msgpack.un(byts)
             logger.info(f'Deleted user enrollment username={userinfo.get("name")}, iden={iden.decode()}')
+            await asyncio.sleep(0)
 
     @s_nexus.Pusher.onPushAuto('aha:clone:clear')
     async def clearAhaClones(self):
@@ -1606,6 +1608,7 @@ class AhaCell(s_cell.Cell):
             self.slab.delete(lkey, db='aha:clones')
             cloninfo = s_msgpack.un(byts)
             logger.info(f'Deleted AHA clone enrollment username={cloninfo.get("host")}, iden={s_common.ehex(lkey)}')
+            await asyncio.sleep(0)
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
     async def delAhaSvcProv(self, iden):

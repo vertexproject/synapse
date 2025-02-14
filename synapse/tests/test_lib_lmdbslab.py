@@ -371,6 +371,30 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 'vm.dirty_ratio',
             ], msgs[0].get('sysctls', {}).keys())
 
+    async def test_lmdbslab_commit_over_max_xactops(self):
+
+        # Make sure that we don't confuse the periodic commit with the max replay log commit
+        with (self.getTestDir() as dirn,
+              patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1),
+              patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 100)
+              ):
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, max_replay_log=100, map_size=100_000_000) as slab:
+                foo = slab.initdb('foo', dupsort=True)
+
+                byts = b'\x00' * 256
+                for i in range(1000):
+                    slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+                    await asyncio.sleep(0)
+
+            # Let the slab close and then grab its stats
+            stats = slab.statinfo()
+            commitstats = stats.get('commitstats', ())
+            self.gt(len(commitstats), 0)
+            commitstats = [x[1] for x in commitstats if x[1] != 0]
+            self.eq(commitstats, (100, 100, 100, 100, 100, 100, 100, 100, 100, 100))
+
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'test.lmdb')
