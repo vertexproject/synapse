@@ -530,8 +530,8 @@ deprmodel = {
         )),
         ('test:deprsub', {}, (
             ('imei', ('tel:mob:imei', {}), {}),
-            ('imei:tac', ('str', {}), {'deprecated': True, 'sub': True}),
-            ('imei:serial', ('str', {}), {'sub': True}),
+            ('imei:tac', ('str', {}), {'deprecated': True}),
+            ('imei:serial', ('str', {}), {}),
         ))
     ),
 
