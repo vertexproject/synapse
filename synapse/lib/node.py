@@ -63,18 +63,24 @@ class Node:
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
-    async def addEdge(self, verb, n2iden):
+    async def addEdge(self, verb, n2iden, extra=None):
         if self.form.isrunt:
             mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
-            raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
+            exc = s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
+            if extra is not None:
+                exc = extra(exc)
+            raise exc
 
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2iden)
 
-    async def delEdge(self, verb, n2iden):
+    async def delEdge(self, verb, n2iden, extra=None):
         if self.form.isrunt:
             mesg = f'Edges cannot be used with runt nodes: {self.form.full}'
-            raise s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
+            exc = s_exc.IsRuntForm(mesg=mesg, form=self.form.full)
+            if extra is not None:
+                exc = extra(exc)
+            raise exc
 
         async with self.snap.getNodeEditor(self) as editor:
             return await editor.delEdge(verb, n2iden)

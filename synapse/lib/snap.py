@@ -138,6 +138,12 @@ class ProtoNode:
 
         if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edges.add(tupl)
+
+            if len(self.edges) >= 1000:
+                nodeedits = self.ctx.getNodeEdits()
+                await self.ctx.snap.applyNodeEdits(nodeedits)
+                self.edges.clear()
+
             return True
 
         return False
@@ -169,6 +175,12 @@ class ProtoNode:
 
         if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edgedels.add(tupl)
+
+            if len(self.edgedels) >= 1000:
+                nodeedits = self.ctx.getNodeEdits()
+                await self.ctx.snap.applyNodeEdits(nodeedits)
+                self.edgedels.clear()
+
             return True
 
         return False
