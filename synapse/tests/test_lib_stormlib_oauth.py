@@ -1,14 +1,107 @@
+import os
 import yarl
+import base64
 import asyncio
+import logging
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.oauth as s_oauth
 import synapse.lib.httpapi as s_httpapi
 import synapse.tests.utils as s_test
 import synapse.tools.backup as s_backup
 
+logger = logging.getLogger(__name__)
+
+ESECRET = 'secret'
+ECLIENT = 'root'
+EASSERTION = 'secretassertion'
+EASSERTION_TYPE = 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer'
+
+class HttpOAuth2Assertion(s_httpapi.Handler):
+    async def get(self):
+        self.set_header('Content-Type', 'application/json')
+        reqv = [_s.decode() for _s in self.request.query_arguments.get('getassertion')]
+        if reqv == ['valid']:
+            self.set_status(200)
+            self.write({'assertion': EASSERTION})
+        elif reqv == ['invalid']:
+            self.set_status(401)
+            self.write({'error': 'not allowed'})
+        else:
+            self.set_status(200)
+            self.write({'assertion': 'newp'})
+
 class HttpOAuth2Token(s_httpapi.Handler):
+
+    def checkAuth(self, body):
+        # Assert client_secret or client_assertion is valid
+        if 'client_assertion' in body:
+            client_id = body['client_id'][0]
+            assertion = body['client_assertion'][0]
+            assertion_type = body['client_assertion_type'][0]
+            if client_id != ECLIENT:
+                self.set_status(400)
+                self.write({
+                    'error': 'invalid_request',
+                    'error_description': f'invalid client_id {client_id}'
+                })
+                return False
+            if assertion != EASSERTION:
+                self.set_status(400)
+                self.write({
+                    'error': 'invalid_request',
+                    'error_description': f'invalid client_assertion {assertion}'
+                })
+                return False
+            if assertion_type != EASSERTION_TYPE:
+                self.set_status(400)
+                self.write({
+                    'error': 'invalid_request',
+                    'error_description': f'invalid client_assertion_type {assertion_type}'
+                })
+                return False
+        else:
+            auth = self.request.headers.get('Authorization')
+            if auth is None:
+                self.set_status(400)
+                self.write({
+                    'error': 'invalid_request',
+                    'error_description': 'missing AUTHORIZATION header :('
+                })
+                return False
+
+            if not auth.startswith('Basic '):
+                self.set_status(400)
+                self.write({
+                    'error': 'invalid_request',
+                    'error_description': f'basic auth missing Basic ?'
+                })
+                return False
+
+            _, blob = auth.split(None, 1)
+
+            try:
+                text = base64.b64decode(blob).decode('utf8')
+                name, secret = text.split(':', 1)
+            except Exception as e:
+                self.set_status(400)
+                self.write({
+                    'error': 'invalid_request',
+                    'error_description': f'failed to decode auth {text=} {e=}'
+                })
+                return False
+            if secret != ESECRET:
+                self.set_status(400)
+                self.write({
+                    'error': 'invalid_request',
+                    'error_description': f'bad client_secret {secret}'
+                })
+                return False
+
+        return True
 
     async def post(self):
 
@@ -19,6 +112,9 @@ class HttpOAuth2Token(s_httpapi.Handler):
         self.set_header('Content-Type', 'application/json')
 
         if grant_type == 'authorization_code':
+
+            if not self.checkAuth(body):
+                return
 
             if body.get('code_verifier') != ['legit']:
                 self.set_status(400)
@@ -90,6 +186,9 @@ class HttpOAuth2Token(s_httpapi.Handler):
             })
 
         if grant_type == 'refresh_token':
+
+            if not self.checkAuth(body):
+                return
 
             tok = body['refresh_token'][0]
 
@@ -246,7 +345,7 @@ class OAuthTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm(q)
 
-    async def test_storm_oauth_v2(self):
+    async def test_storm_oauth_v2_clientsecret(self):
 
         with self.getTestDir() as dirn:
 
@@ -641,3 +740,426 @@ class OAuthTest(s_test.SynTest):
                     self.true(await s_coro.event_wait(core01._oauth_sched_empty, timeout=5))
                     self.len(0, core01._oauth_sched_heap)
                     self.eq({'error': 'User does not exist'}, await core01.getOAuthClient(expconf00['iden'], user.iden))
+
+    async def test_storm_oauth_v2_clientassertion_callstorm(self):
+
+        with self.getTestDir() as dirn:
+
+            core00dirn = s_common.gendir(dirn, 'core00')
+            core01dirn = s_common.gendir(dirn, 'core01')
+
+            coreconf = {
+                'nexslog:en': True,
+            }
+
+            async with self.getTestCore(dirn=core00dirn, conf=coreconf) as core00:
+                pass
+
+            s_backup.backup(core00dirn, core01dirn)
+
+            async with self.getTestCore(dirn=core00dirn, conf=coreconf) as core00:
+
+                conf = {'mirror': core00.getLocalUrl()}
+                async with self.getTestCore(dirn=core01dirn, conf=conf) as core01:
+
+                    root = await core00.auth.getUserByName('root')
+                    await root.setPasswd('secret')
+
+                    user = await core00.auth.addUser('user')
+                    await user.setPasswd('secret')
+                    await core00.addUserRule(user.iden, (True, ('globals', 'get')))
+
+                    core00.addHttpApi('/api/oauth/token', HttpOAuth2Token, {'cell': core00})
+                    core00.addHttpApi('/api/oauth/assertion', HttpOAuth2Assertion, {'cell': core00})
+
+                    addr, port = await core00.addHttpsPort(0)
+                    baseurl = f'https://127.0.0.1:{port}'
+
+                    view = await core01.callStorm('return($lib.view.get().iden)')
+                    await core01.callStorm('$lib.globals.set(getassertion, valid)')
+
+                    assert_q = '''
+                    $url = `{$baseurl}/api/oauth/assertion`
+                    $valid = $lib.globals.get(getassertion)
+                    $raise = $lib.globals.get(raise, (false))
+                    if $raise {
+                        $lib.raise(BadAssertion, 'I am supposed to raise.')
+                    }
+                    $params = ({"getassertion": $valid})
+                    $resp = $lib.inet.http.get($url, params=$params, ssl_verify=(false))
+                    if ($resp.code = 200) {
+                        $resp = ( (true), ({'token': $resp.json().assertion}))
+                    } else {
+                        $resp = ( (false), ({"error": `Failed to get assertion from {$url}`}) )
+                    }
+                    return ( $resp )
+                    '''
+                    assert_vars = {
+                        'baseurl': baseurl,
+                    }
+
+                    providerconf00 = {
+                        'iden': s_common.guid('providerconf00'),
+                        'name': 'providerconf00',
+                        'client_id': 'root',
+                        'client_assertion': {
+                            'cortex:callstorm': {
+                                'query': assert_q,
+                                'vars': assert_vars,
+                                'view': view,
+                            }
+                        },
+                        'scope': 'allthethings',
+                        'auth_uri': baseurl + '/api/oauth/authorize',
+                        'token_uri': baseurl + '/api/oauth/token',
+                        'redirect_uri': 'https://opticnetloc/oauth2',
+                        'extensions': {'pkce': True},
+                        'extra_auth_params': {'include_granted_scopes': 'true'}
+                    }
+
+                    self.notin('client_secret', providerconf00)
+
+                    expconf00 = {
+                        # default values
+                        'ssl_verify': True,
+                        **providerconf00,
+                        # default values currently not configurable by the user
+                        'flow_type': 'authorization_code',
+                        'auth_scheme': 'basic',
+                    }
+
+                    opts = {
+                        'vars': {
+                            'providerconf': providerconf00,
+                            'authcode': 'itsagoodone',
+                            'code_verifier': 'legit',
+                            'lowuser': user.iden,
+                        },
+                    }
+                    lowopts = opts.copy()
+                    lowopts['user'] = user.iden
+
+                    # add a new provider
+                    await core01.nodes('$lib.inet.http.oauth.v2.addProvider($providerconf)', opts=opts)
+
+                    # list providers
+                    ret = await core01.callStorm('''
+                        $confs = ([])
+                        for ($iden, $conf) in $lib.inet.http.oauth.v2.listProviders() {
+                            $confs.append(($iden, $conf))
+                        }
+                        return($confs)
+                    ''')
+                    self.eq([(expconf00['iden'], expconf00)], ret)
+
+                    # get the provider by iden
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getProvider($providerconf.iden))
+                    ''', opts=opts)
+                    self.eq(expconf00, ret)
+
+                    providerconf00['ssl_verify'] = False
+                    expconf00['ssl_verify'] = False
+                    await core01.nodes('''
+                        $lib.inet.http.oauth.v2.delProvider($providerconf.iden)
+                        $lib.inet.http.oauth.v2.addProvider($providerconf)
+                    ''', opts=opts)
+
+                    # set the user auth code
+                    core00._oauth_sched_ran.clear()
+                    await core01.nodes('''
+                        $iden = $providerconf.iden
+                        $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
+                    ''', opts=lowopts)
+
+                    # the token is available immediately
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=lowopts)
+                    self.eq((True, 'accesstoken00'), ret)
+
+                    # access token refreshes in the background and refresh_token also gets updated
+                    self.true(await s_coro.event_wait(core00._oauth_sched_ran, timeout=15))
+                    await core01.sync()
+                    clientconf = await core01.getOAuthClient(providerconf00['iden'], user.iden)
+                    self.eq('accesstoken01', clientconf['access_token'])
+                    self.eq('refreshtoken01', clientconf['refresh_token'])
+                    self.eq(core00._oauth_sched_heap[0][0], clientconf['refresh_at'])
+
+                    # Refresh again but raise an exception from callStorm
+                    await core00.callStorm('$lib.globals.set(raise, (true))')
+                    core00._oauth_sched_ran.clear()
+                    self.true(await s_coro.event_wait(core00._oauth_sched_ran, timeout=15))
+                    await core01.sync()
+                    clientconf = await core01.getOAuthClient(providerconf00['iden'], user.iden)
+                    self.isin("Error executing callStorm: StormRaise: errname='BadAssertion'", clientconf.get('error'))
+                    self.notin('access_token', clientconf)
+                    self.notin('refresh_token', clientconf)
+                    await core00.callStorm('$lib.globals.pop(raise)')
+                    self.true(await s_coro.event_wait(core00._oauth_sched_empty, timeout=5))
+                    self.len(0, core00._oauth_sched_heap)
+
+                    # clear the access token so new auth code will be needed
+                    core00._oauth_sched_empty.clear()
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.clearUserAccessToken($providerconf.iden))
+                    ''', opts=lowopts)
+                    self.isin('error', ret)
+                    self.notin('access_token', ret)
+                    self.notin('refresh_token', ret)
+
+                    await core01.sync()
+                    ret = await core01.callStorm('''
+                        return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                    ''', opts=lowopts)
+                    self.eq((False, 'Auth code has not been set'), ret)
+
+                    # An invalid assertion when setting the token code will cause an error
+                    await core01.callStorm('$lib.globals.set(getassertion, newpnewp)')
+                    with self.raises(s_exc.SynErr) as cm:
+                        await core01.nodes('''
+                            $iden = $providerconf.iden
+                            $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
+                        ''', opts=lowopts)
+                    self.isin('Failed to get OAuth v2 token: invalid_request', cm.exception.get('mesg'))
+
+                    # An assertion storm callback which fails to return a token as expected also produces an error
+                    await core01.callStorm('$lib.globals.set(getassertion, invalid)')
+
+                    with self.raises(s_exc.SynErr) as cm:
+                        await core01.nodes('''
+                            $iden = $providerconf.iden
+                            $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
+                        ''', opts=lowopts)
+                    # N.B. The message here comes from the caller defined Storm callback. Not the oauth.py code.
+                    self.isin('Failed to get OAuth v2 token: Failed to get assertion from',
+                              cm.exception.get('mesg'))
+
+    async def test_storm_oauth_v2_clientassertion_azure_token(self):
+        with self.getTestDir() as dirn:
+            core00dirn = s_common.gendir(dirn, 'core00')
+            core01dirn = s_common.gendir(dirn, 'core01')
+
+            coreconf = {
+                'nexslog:en': True,
+            }
+
+            async with self.getTestCore(dirn=core00dirn, conf=coreconf) as core00:
+                pass
+
+            s_backup.backup(core00dirn, core01dirn)
+
+            async with self.getTestCore(dirn=core00dirn, conf=coreconf) as core00:
+                conf = {'mirror': core00.getLocalUrl()}
+                async with self.getTestCore(dirn=core01dirn, conf=conf) as core01:
+                    root = await core00.auth.getUserByName('root')
+                    await root.setPasswd('secret')
+
+                    user = await core00.auth.addUser('user')
+                    await user.setPasswd('secret')
+
+                    core00.addHttpApi('/api/oauth/token', HttpOAuth2Token, {'cell': core00})
+                    core00.addHttpApi('/api/oauth/assertion', HttpOAuth2Assertion, {'cell': core00})
+
+                    addr, port = await core00.addHttpsPort(0)
+                    baseurl = f'https://127.0.0.1:{port}'
+
+                    isok, info = s_oauth._getAzureTokenFile()
+                    self.false(isok)
+                    self.eq(info.get('error'), 'AZURE_FEDERATED_TOKEN_FILE environment variable is not set.')
+                    tokenpath = s_common.genpath(dirn, 'tokenfile')
+                    with self.setTstEnvars(AZURE_FEDERATED_TOKEN_FILE=tokenpath):
+                        isok, info = s_oauth._getAzureTokenFile()
+                        self.false(isok)
+                        self.eq(info.get('error'), f'AZURE_FEDERATED_TOKEN_FILE file does not exist {tokenpath}')
+
+                        with s_common.genfile(tokenpath) as fd:
+                            fd.write(EASSERTION.encode())
+
+                        isok, info = s_oauth._getAzureTokenFile()
+                        self.true(isok)
+                        self.eq(info.get('token'), EASSERTION)
+
+                        providerconf00 = {
+                            'iden': s_common.guid('providerconf00'),
+                            'name': 'providerconf00',
+                            'client_id': 'root',
+                            'client_assertion': {
+                                'msft:azure:workloadidentity': True
+                            },
+                            'scope': 'allthethings',
+                            'auth_uri': baseurl + '/api/oauth/authorize',
+                            'token_uri': baseurl + '/api/oauth/token',
+                            'redirect_uri': 'https://opticnetloc/oauth2',
+                            'extensions': {'pkce': True},
+                            'extra_auth_params': {'include_granted_scopes': 'true'}
+                        }
+
+                        self.notin('client_secret', providerconf00)
+
+                        expconf00 = {
+                            # default values
+                            'ssl_verify': True,
+                            **providerconf00,
+                            # default values currently not configurable by the user
+                            'flow_type': 'authorization_code',
+                            'auth_scheme': 'basic',
+                        }
+
+                        opts = {
+                            'vars': {
+                                'providerconf': providerconf00,
+                                'authcode': 'itsagoodone',
+                                'code_verifier': 'legit',
+                                'lowuser': user.iden,
+                            },
+                        }
+                        lowopts = opts.copy()
+                        lowopts['user'] = user.iden
+
+                        # add a new provider
+                        await core01.nodes('$lib.inet.http.oauth.v2.addProvider($providerconf)', opts=opts)
+
+                        # list providers
+                        ret = await core01.callStorm('''
+                                                $confs = ([])
+                                                for ($iden, $conf) in $lib.inet.http.oauth.v2.listProviders() {
+                                                    $confs.append(($iden, $conf))
+                                                }
+                                                return($confs)
+                                            ''')
+                        self.eq([(expconf00['iden'], expconf00)], ret)
+
+                        # get the provider by iden
+                        ret = await core01.callStorm('return($lib.inet.http.oauth.v2.getProvider($providerconf.iden))',
+                                                     opts=opts)
+                        self.eq(expconf00, ret)
+
+                        providerconf00['ssl_verify'] = False
+                        expconf00['ssl_verify'] = False
+                        await core01.nodes('''
+                            $lib.inet.http.oauth.v2.delProvider($providerconf.iden)
+                            $lib.inet.http.oauth.v2.addProvider($providerconf)
+                        ''', opts=opts)
+
+                        # set the user auth code
+                        core00._oauth_sched_ran.clear()
+                        await core01.nodes('''
+                            $iden = $providerconf.iden
+                            $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
+                        ''', opts=lowopts)
+
+                        # the token is available immediately
+                        ret = await core01.callStorm('''
+                            return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                        ''', opts=lowopts)
+                        self.eq((True, 'accesstoken00'), ret)
+
+                        # access token refreshes in the background and refresh_token also gets updated
+                        self.true(await s_coro.event_wait(core00._oauth_sched_ran, timeout=15))
+                        await core01.sync()
+                        clientconf = await core01.getOAuthClient(providerconf00['iden'], user.iden)
+                        self.eq('accesstoken01', clientconf['access_token'])
+                        self.eq('refreshtoken01', clientconf['refresh_token'])
+                        self.eq(core00._oauth_sched_heap[0][0], clientconf['refresh_at'])
+
+                        # clear the auth code, delete the file and set the auth code
+                        core00._oauth_sched_empty.clear()
+                        ret = await core01.callStorm('''
+                            return($lib.inet.http.oauth.v2.clearUserAccessToken($providerconf.iden))
+                        ''', opts=lowopts)
+                        self.eq('accesstoken01', ret['access_token'])
+                        self.eq('refreshtoken01', ret['refresh_token'])
+
+                        await core01.sync()
+                        ret = await core01.callStorm('''
+                            return($lib.inet.http.oauth.v2.getUserAccessToken($providerconf.iden))
+                        ''', opts=lowopts)
+                        self.eq((False, 'Auth code has not been set'), ret)
+
+                        self.true(await s_coro.event_wait(core00._oauth_sched_empty, timeout=5))
+                        self.len(0, core00._oauth_sched_heap)
+
+                        os.unlink(tokenpath)
+
+                        core00._oauth_sched_empty.clear()
+                        with self.raises(s_exc.SynErr) as cm:
+                            await core01.nodes('''
+                                $iden = $providerconf.iden
+                                $lib.inet.http.oauth.v2.setUserAuthCode($iden, $authcode, code_verifier=$code_verifier)
+                            ''', opts=lowopts)
+                        self.isin('Failed to get OAuth v2 token: AZURE_FEDERATED_TOKEN_FILE file does not exist',
+                                  cm.exception.get('mesg'))
+
+    async def test_storm_oauth_v2_badconfigs(self):
+        # Specifically test bad configs here
+        async with self.getTestCore() as core:
+
+            view = await core.callStorm('return($lib.view.get().iden)')
+
+            providerconf00 = {
+                'iden': s_common.guid('providerconf00'),
+                'name': 'providerconf00',
+                'client_id': 'root',
+                'client_secret': 'secret',
+                'scope': 'allthethings',
+                'auth_uri': 'https://hehe.corp/api/oauth/authorize',
+                'token_uri': 'https://hehe.corp/api/oauth/token',
+                'redirect_uri': 'https://opticnetloc/oauth2',
+                'extensions': {'pkce': True},
+                'extra_auth_params': {'include_granted_scopes': 'true'}
+            }
+            opts = {
+                'vars': {
+                    'providerconf': providerconf00,
+                }
+            }
+            q = '$lib.inet.http.oauth.v2.addProvider($providerconf)'
+
+            providerconf00.pop('client_secret')
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes(q, opts=opts)
+            self.isin('client_assertion and client_secret missing', cm.exception.get('mesg'))
+
+            callstormopts = {
+                'query': 'version',
+                'view': view,
+            }
+            assertions = {'msft:azure:workloadidentity': True}
+            providerconf00['client_secret'] = 'secret'
+            providerconf00['client_assertion'] = assertions
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes(q, opts=opts)
+            self.isin('client_assertion and client_secret provided.', cm.exception.get('mesg'))
+
+            providerconf00.pop('client_secret')
+            assertions['msft:azure:workloadidentity'] = False
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes(q, opts=opts)
+            self.eq('msft:azure:workloadidentity valu must be true', cm.exception.get('mesg'))
+
+            assertions['cortex:callstorm'] = callstormopts
+            with self.raises(s_exc.SchemaViolation) as cm:
+                await core.nodes(q, opts=opts)
+            self.isin('data.client_assertion must be valid exactly by one definition', cm.exception.get('mesg'))
+
+            assertions.pop('msft:azure:workloadidentity')
+            callstormopts['view'] = s_common.guid()
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes(q, opts=opts)
+            self.eq(f'View {callstormopts["view"]} does not exist.', cm.exception.get('mesg'))
+
+            callstormopts['view'] = view
+            callstormopts['query'] = ' | | | '
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes(q, opts=opts)
+            self.isin('Bad storm query', cm.exception.get('mesg'))
+
+            class NotACortex(s_oauth.OAuthMixin, s_cell.Cell):
+                async def initServiceStorage(self):
+                    await self._initOAuthManager()
+
+            async with self.getTestCell(NotACortex) as cell:
+                with self.raises(s_exc.BadArg) as cm:
+                    await cell.addOAuthProvider(providerconf00)
+                self.eq('cortex:callstorm client assertion not supported by NotACortex', cm.exception.get('mesg'))
