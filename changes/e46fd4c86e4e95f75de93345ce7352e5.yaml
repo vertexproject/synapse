@@ -1,0 +1,5 @@
+---
+desc: Fixed an issue with Snap usage in the Storm ``merge`` command and ``View.merge()`` method.
+prs: []
+type: bug
+...
