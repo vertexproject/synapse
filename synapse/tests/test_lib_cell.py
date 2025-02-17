@@ -7,6 +7,7 @@ import base64
 import signal
 import socket
 import asyncio
+import logging
 import tarfile
 import collections
 import multiprocessing
@@ -31,6 +32,7 @@ import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus
 import synapse.lib.config as s_config
 import synapse.lib.certdir as s_certdir
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.lmdbslab as s_lmdbslab
@@ -40,6 +42,8 @@ import synapse.lib.platforms.linux as s_linux
 import synapse.tools.backup as s_tools_backup
 
 import synapse.tests.utils as s_t_utils
+
+logger = logging.getLogger(__name__)
 
 # Defective versions of spawned backup processes
 def _sleeperProc(pipe, srcdir, dstdir, lmdbpaths, logconf):
@@ -448,7 +452,7 @@ class CellTest(s_t_utils.SynTest):
                         self.true(await stream.wait(timeout=10))
                     msgs = stream.jsonlines()
                     self.len(1, msgs)
-                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0].get('wrapped_func'))
+                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0]['synapse']['wrapped_func'])
 
                 visi = await echo.auth.addUser('visi')
                 await visi.setPasswd('foo')
@@ -3158,7 +3162,7 @@ class CellTest(s_t_utils.SynTest):
         mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
         mesg += 'for information about these sysctl parameters.'
         self.eq(msgs[0]['message'], mesg)
-        self.eq(msgs[0]['sysctls'], [
+        self.eq(msgs[0]['synapse']['sysctls'], [
             {'name': 'vm.dirty_expire_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_expire_centisecs']},
             {'name': 'vm.dirty_writeback_centisecs', 'expected': 21, 'actual': sysctls['vm.dirty_writeback_centisecs']},
         ])
@@ -3460,3 +3464,35 @@ class CellTest(s_t_utils.SynTest):
 
             self.none(await cell00.getTask(task01))
             self.false(await cell00.killTask(task01))
+
+    async def test_cell_logs(self):
+
+        s_logging.setLogGlobal('woot', 'hehe')
+        async with self.getTestAha() as aha:
+
+            async with aha.getLocalProxy() as proxy:
+
+                async def logtask():
+                    logger.warning('one little piggy', extra=await aha.getLogExtra())
+
+                with self.getLogStream('synapse.tests.test_lib_cell') as stream:
+
+                    logger.warning('oh hai', extra=await aha.getLogExtra())
+
+                    # test the non-wait version quick...
+                    logs = [loginfo async for loginfo in proxy.logs(last=-1)]
+                    self.eq('oh hai', logs[0]['message'])
+
+                    logs = []
+                    async for loginfo in proxy.logs(wait=True, last=-1):
+
+                        logs.append(loginfo)
+
+                        if len(logs) == 2:
+                            break
+
+                        aha.schedCoro(logtask())
+
+                    self.eq('hehe', logs[0]['woot'])
+                    self.eq('oh hai', logs[0]['message'])
+                    self.eq('one little piggy', logs[1]['message'])

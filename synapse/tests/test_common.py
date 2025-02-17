@@ -352,19 +352,6 @@ class CommonTest(s_t_utils.SynTest):
             self.false(s_common.envbool('SYN_FOO'))
             self.false(s_common.envbool('SYN_BAR'))
 
-    def test_normlog(self):
-        self.eq(10, s_common.normLogLevel(' 10 '))
-        self.eq(10, s_common.normLogLevel(10))
-        self.eq(20, s_common.normLogLevel(' inFo\n'))
-        with self.raises(s_exc.BadArg):
-            s_common.normLogLevel(100)
-        with self.raises(s_exc.BadArg):
-            s_common.normLogLevel('BEEP')
-        with self.raises(s_exc.BadArg):
-            s_common.normLogLevel('12')
-        with self.raises(s_exc.BadArg):
-            s_common.normLogLevel({'key': 'newp'})
-
     async def test_merggenr(self):
         async def asyncl(data):
             for item in data:

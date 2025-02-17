@@ -57,4 +57,4 @@ class LogTest(s_test.SynTest):
             mesg = msgs[1]
             self.eq(mesg.get('logger').get('name'), 'synapse.storm.log')
             self.eq(mesg.get('message'), 'struct2 message')
-            self.eq(mesg.get('key'), 'valu')
+            self.eq(mesg['synapse'].get('key'), 'valu')

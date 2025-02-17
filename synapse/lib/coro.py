@@ -19,6 +19,8 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
+import synapse.lib.logging as s_logging
+
 def iscoro(item):
     return inspect.iscoroutine(item)
 
@@ -215,8 +217,12 @@ def genrhelp(f):
     return func
 
 def _exectodo(que, todo, logconf):
+
     # This is a new process: configure logging
-    s_common.setlogging(logger, **logconf)
+    level = logconf.get('level')
+    structlog = logconf.get('structlog')
+    s_logging.setup(level=level, structlog=structlog)
+
     func, args, kwargs = todo
     try:
         ret = func(*args, **kwargs)
@@ -311,7 +317,11 @@ def _runtodo(todo):
     return todo[0](*todo[1], **todo[2])
 
 def _init_pool_worker(logger_, logconf):
-    s_common.setlogging(logger_, **logconf)
+
+    level = logconf.get('level')
+    structlog = logconf.get('structlog')
+    s_logging.setup(level=level, structlog=structlog)
+
     p = multiprocessing.current_process()
     logger.debug(f'Initialized new forkserver pool worker: name={p.name} pid={p.ident}')
 
