@@ -1474,6 +1474,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             meta = await snap.getSnapMeta()
             async for nodeedits in fromlayr.iterLayerNodeEdits():
+                meta['time'] = s_common.now()
                 await snap.saveNodeEdits([nodeedits], meta)
 
     async def swapLayer(self):
