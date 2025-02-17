@@ -148,8 +148,12 @@ class ProtoNode:
         if (nodeedit := self.getNodeEdit()) is not None:
             nodecache = {self.buid: self.node}
             nodes = await self.ctx.snap.applyNodeEdits((nodeedit,), nodecache=nodecache, meta=self.ctx.meta)
-            if nodes:
-                self.node = nodes[0]
+
+            if self.node is None:
+                if nodes and nodes[0].buid == self.buid:
+                    self.node = nodes[0]
+                else:  # pragma: no cover
+                    self.node = await self.ctx.snap.getNodeByBuid(self.buid)
 
             self.tags.clear()
             self.props.clear()
