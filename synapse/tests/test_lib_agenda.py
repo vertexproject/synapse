@@ -7,11 +7,13 @@ from datetime import timezone as tz
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.cortex as s_cortex
 import synapse.tests.utils as s_t_utils
 
 import synapse.tools.backup as s_tools_backup
 
 import synapse.lib.agenda as s_agenda
+import synapse.lib.schemas as s_schemas
 from synapse.lib.agenda import TimeUnit as s_tu
 
 class AgendaTest(s_t_utils.SynTest):
@@ -178,28 +180,28 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq([], agenda.list())
 
                 # Missing reqs
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden', 'storm': 'foo'}
+                cdef = {'user': core.auth.rootuser.iden, 'iden': 'fakeiden', 'storm': 'foo'}
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
-                # Missing creator
+                # Missing user
                 cdef = {'iden': 'fakeiden', 'storm': 'foo',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Missing storm
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'fakeiden',
+                cdef = {'user': core.auth.rootuser.iden, 'iden': 'fakeiden',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(ValueError, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('newp'))
 
                 # Missing incvals
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                cdef = {'user': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH}
                 await self.asyncraises(ValueError, agenda.add(cdef))
 
                 # Cannot schedule a recurring job with 'now'
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
+                cdef = {'user': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': '[test:str=doit]',
                         'reqs': {s_agenda.TimeUnit.NOW: True},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
@@ -207,14 +209,14 @@ class AgendaTest(s_t_utils.SynTest):
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
                 # Require valid storm
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': ' | | | ',
+                cdef = {'user': core.auth.rootuser.iden, 'iden': 'DOIT', 'storm': ' | | | ',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await self.asyncraises(s_exc.BadSyntax, agenda.add(cdef))
                 await self.asyncraises(s_exc.NoSuchIden, agenda.get('DOIT'))
 
                 # Schedule a one-shot to run immediately
                 doit = s_common.guid()
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': doit,
+                cdef = {'user': core.auth.rootuser.iden, 'iden': doit,
                         'storm': '$lib.queue.gen(visi).put(woot)',
                         'reqs': {s_agenda.TimeUnit.NOW: True}}
                 await agenda.add(cdef)
@@ -231,7 +233,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(doit)
 
                 # Schedule a one-shot 1 minute from now
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(woot)',
+                cdef = {'user': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(woot)',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
                 await agenda.add(cdef)
                 unixtime += 61
@@ -243,7 +245,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.eq(appts[0][1].nexttime, None)
 
                 # Schedule a query to run every Wednesday and Friday at 10:15am
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
+                cdef = {'user': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
                         'incvals': (2, 4)}
@@ -251,7 +253,7 @@ class AgendaTest(s_t_utils.SynTest):
                 guid = adef.get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(baz)',
+                cdef = {'user': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(baz)',
                         'reqs': {s_tu.HOUR: (7, 8), s_tu.MINUTE: 0, s_tu.DAYOFMONTH: 6},
                         'incunit': s_agenda.TimeUnit.MONTH,
                         'incvals': 1}
@@ -262,7 +264,7 @@ class AgendaTest(s_t_utils.SynTest):
                 lasthanu = {s_tu.DAYOFMONTH: 10, s_tu.MONTH: 12, s_tu.YEAR: 2018}
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(happyholidays)',
+                cdef = {'user': core.auth.rootuser.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(happyholidays)',
                         'reqs': (xmas, lasthanu)}
                 await agenda.add(cdef)
 
@@ -317,7 +319,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(0, agenda.apptheap)
 
                 # Test that isrunning updated, cancelling works
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
+                cdef = {'user': core.auth.rootuser.iden, 'iden': s_common.guid(),
                         'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ipv4=1 ] | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
                 adef = await agenda.add(cdef)
@@ -347,7 +349,7 @@ class AgendaTest(s_t_utils.SynTest):
                 await agenda.delete(guid)
 
                 # Test bad queries record exception
-                cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
+                cdef = {'user': core.auth.rootuser.iden, 'iden': s_common.guid(),
                         'storm': '$lib.queue.gen(visi).put(boom) $lib.raise(OmgWtfBbq, boom)',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE,
                         'incvals': 1}
@@ -371,7 +373,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(0, agenda.apptheap)
 
                 # schedule a query to run every Wednesday and Friday at 10:15am
-                cdef = {'creator': visi.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
+                cdef = {'user': visi.iden, 'iden': s_common.guid(), 'storm': '$lib.queue.gen(visi).put(bar)',
                         'pool': True,
                         'reqs': {s_tu.HOUR: 10, s_tu.MINUTE: 15},
                         'incunit': s_agenda.TimeUnit.DAYOFWEEK,
@@ -409,7 +411,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 self.eq(1, appt.startcount)
 
-                cdef = {'creator': visi.iden, 'iden': s_common.guid(), 'storm': '[test:str=foo2]',
+                cdef = {'user': visi.iden, 'iden': s_common.guid(), 'storm': '[test:str=foo2]',
                         'reqs': {s_agenda.TimeUnit.MINUTE: 1}}
 
                 await agenda.add(cdef)
@@ -432,7 +434,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Can't use an existing authgate iden
                 viewiden = core.getView().iden
-                cdef = {'creator': core.auth.rootuser.iden,
+                cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
                         'storm': '[test:str=bar]',
                         'reqs': {'hour': 10},
                         'incunit': 'dayofweek',
@@ -450,7 +453,8 @@ class AgendaTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                cdef = {'creator': core.auth.rootuser.iden,
+                cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
                         'storm': '[test:str=bar]',
                         'reqs': {'hour': 10, 'minute': 15},
                         'incunit': 'dayofweek',
@@ -459,7 +463,8 @@ class AgendaTest(s_t_utils.SynTest):
                 guid1 = adef.get('iden')
 
                 # every 6th of the month at 7am and 8am (the 6th is a Thursday)
-                cdef = {'creator': core.auth.rootuser.iden,
+                cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
                         'storm': '[test:str=baz]',
                         'reqs': {'hour': (7, 8), 'minute': 0, 'dayofmonth': 6},
                         'incunit': 'month',
@@ -472,7 +477,8 @@ class AgendaTest(s_t_utils.SynTest):
                 await appt.save()
 
                 # Add an appt with an invalid query
-                cdef = {'creator': core.auth.rootuser.iden,
+                cdef = {'user': core.auth.rootuser.iden,
+                        'creator': core.auth.rootuser.iden,
                         'storm': '[test:str=',
                         'reqs': {'hour': (7, 8)},
                         'incunit': 'month',
@@ -488,6 +494,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # And one-shots for Christmas and last day of Hanukkah of 2018
                 cdef = {'creator': core.auth.rootuser.iden,
+                        'user': core.auth.rootuser.iden,
                         'storm': '#happyholidays',
                         'reqs': (xmas, lasthanu)}
 
@@ -691,15 +698,15 @@ class AgendaTest(s_t_utils.SynTest):
 
             cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron) }')
             self.false(cdef['pool'])
-            self.eq(cdef['creator'], core.auth.rootuser.iden)
+            self.eq(cdef['user'], core.auth.rootuser.iden)
 
             cdef = await core.callStorm('for $cron in $lib.cron.list() { $cron.set(pool, (true)) return($cron) }')
             self.true(cdef['pool'])
 
             opts = {'vars': {'lowuser': lowuser}}
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $lowuser)) }',
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(user, $lowuser)) }',
                                         opts=opts)
-            self.eq(cdef['creator'], lowuser)
+            self.eq(cdef['user'], lowuser)
 
             opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
             q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
@@ -710,9 +717,16 @@ class AgendaTest(s_t_utils.SynTest):
 
             await core.addUserRule(lowuser, (True, ('cron', 'get')))
             opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
+            q = '$cron = $lib.cron.get($iden) return ( $cron.set(user, $lowuser) )'
+            msgs = await core.stormlist(q, opts=opts)
+            self.stormIsInErr('must have permission cron.set.user', msgs)
+
+            with self.raises(s_exc.BadArg):
+                await core.editCronJob(cdef.get('iden'), 'newp', 'newp')
+
             q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
             msgs = await core.stormlist(q, opts=opts)
-            self.stormIsInErr('must have permission cron.set.creator', msgs)
+            self.stormIsInErr('CronJob does not support setting: creator', msgs)
 
     async def test_agenda_fatal_run(self):
 
@@ -731,9 +745,9 @@ class AgendaTest(s_t_utils.SynTest):
             msgs = await core.stormlist('cron.add --minute +1 $q', opts={'vars': {'q': q}, 'view': fork})
             self.stormHasNoWarnErr(msgs)
 
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(creator, $user)) }',
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(user, $user)) }',
                                         opts={'vars': {'user': user}})
-            self.eq(cdef['creator'], user)
+            self.eq(cdef['user'], user)
 
             # Force the cron to run.
 
@@ -998,6 +1012,7 @@ class AgendaTest(s_t_utils.SynTest):
             guid = s_common.guid()
             cdef = {
                 'creator': core.auth.rootuser.iden, 'iden': guid,
+                'user': core.auth.rootuser.iden,
                 'storm': q,
                 'reqs': {'now': True}
             }
@@ -1070,6 +1085,7 @@ class AgendaTest(s_t_utils.SynTest):
                     guid = s_common.guid()
                     cdef = {
                         'creator': core00.auth.rootuser.iden, 'iden': guid,
+                        'user': core00.auth.rootuser.iden,
                         'storm': q,
                         'reqs': {'NOW': True},
                         'pool': True,
@@ -1097,6 +1113,122 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq(cdef01.get('lastresult'), 'cancelled')
                     self.gt(cdef00['laststarttime'], 0)
                     self.eq(cdef00['laststarttime'], cdef01['laststarttime'])
+
+    async def test_cron_creator_migration(self):
+        async with self.getRegrCore('cron-creator-to-user') as core:
+            msgs = await core.stormlist('cron.list')
+            self.stormIsInPrint('root root 1ec949d8', msgs, whitespace=False)
+            self.stormIsInPrint('testuser testuser 8fb20efd', msgs, whitespace=False)
+
+            msgs = await core.stormlist('trigger.list')
+            self.stormIsInPrint('testuser testuser 2b61c302', msgs, whitespace=False)
+
+            rules = await core.callStorm('return($lib.auth.users.byname(testuser).getRules())')
+            self.isin((True, ('cron', 'set', 'user')), rules)
+            self.notin((True, ('cron', 'set', 'creator')), rules)
+
+            rules = await core.callStorm('return($lib.auth.roles.byname(testrole).getRules())')
+            self.isin((True, ('cron', 'set', 'user', 'extra')), rules)
+            self.notin((True, ('cron', 'set', 'creator', 'extra')), rules)
+
+    async def test_cron_creator_mirror_migr(self):
+
+        realexec = s_cortex.Cortex._execCellUpdates
+        realpack = s_agenda._Appt.pack
+
+        async def noop(self):
+            pass
+
+        def nouser(self):
+            appt = realpack(self)
+            if self.stor.core.isactive:
+                appt.pop('user')
+            return appt
+
+        with self.getRegrDir('cortexes', 'cron-creator-to-user') as dirn1, \
+             self.getRegrDir('cortexes', 'cron-creator-to-user') as dirn2:
+
+            with mock.patch.object(s_cortex.Cortex, '_execCellUpdates', noop), \
+                 mock.patch.object(s_agenda._Appt, 'pack', nouser):
+
+                async with self.getTestCore(dirn=dirn1) as core1:
+
+                    conf = {'mirror': core1.getLocalUrl()}
+
+                    with mock.patch.object(s_cortex.Cortex, '_execCellUpdates', realexec):
+
+                        async with self.getTestCore(dirn=dirn2, conf=conf) as core2:
+
+                            await core2.sync()
+
+                            apptdefs = core1.cortexdata.getSubKeyVal('agenda:appt:')
+                            for iden, info in apptdefs.items():
+                                self.none(info.get('user'))
+
+                            # These should still display correctly before being migrated
+                            msgs = await core2.stormlist('cron.list')
+                            self.stormIsInPrint('root root 1ec949d8', msgs, whitespace=False)
+                            self.stormIsInPrint('testuser testuser 8fb20efd', msgs, whitespace=False)
+
+                            # Edits to creator from an old leader are handled by an updated mirror
+                            user = await core1.auth.getUserByName('roleuser')
+                            await core1._push('cron:edit', '1ec949d8c09ef603e391068ffaca1b8f', 'creator', user.iden)
+
+                            await core2.sync()
+
+                            msgs = await core2.stormlist('cron.list')
+                            self.stormIsInPrint('roleuser roleuser 1ec949d8', msgs, whitespace=False)
+                            self.stormIsInPrint('testuser testuser 8fb20efd', msgs, whitespace=False)
+
+                            for view in core1.views.values():
+                                for iden, trig in view.triggers.list():
+                                    self.none(trig.tdef.get('creator'))
+
+                            for view in core2.views.values():
+                                for iden, trig in view.triggers.list():
+                                    self.none(trig.tdef.get('creator'))
+
+                            msgs = await core2.stormlist('trigger.list')
+                            self.stormIsInPrint('testuser testuser 2b61c302', msgs, whitespace=False)
+
+                            await core1.nodes(f'$lib.trigger.get(2b61c3028a3efc87dcd99b8bfc1fbd83).set(user, {user.iden})')
+
+                            await core2.sync()
+
+                            msgs = await core2.stormlist('trigger.list')
+                            self.stormIsInPrint('roleuser roleuser 2b61c302', msgs, whitespace=False)
+
+            async with self.getTestCore(dirn=dirn1) as core1, \
+                       self.getTestCore(dirn=dirn2, conf=conf) as core2:
+
+                await core2.sync()
+
+                apptdefs = core1.cortexdata.getSubKeyVal('agenda:appt:')
+                for iden, info in apptdefs.items():
+                    self.nn(info.get('user'))
+                    self.eq(info.get('user'), info.get('creator'))
+
+                apptdefs = core2.cortexdata.getSubKeyVal('agenda:appt:')
+                for iden, info in apptdefs.items():
+                    self.nn(info.get('user'))
+                    self.eq(info.get('user'), info.get('creator'))
+
+                for view in core1.views.values():
+                    for iden, trig in view.triggers.list():
+                        self.nn(trig.tdef.get('creator'))
+                        self.eq(trig.tdef.get('creator'), trig.tdef.get('user'))
+
+                for view in core2.views.values():
+                    for iden, trig in view.triggers.list():
+                        self.nn(trig.tdef.get('creator'))
+                        self.eq(trig.tdef.get('creator'), trig.tdef.get('user'))
+
+                msgs = await core2.stormlist('cron.list')
+                self.stormIsInPrint('roleuser roleuser 1ec949d8', msgs, whitespace=False)
+                self.stormIsInPrint('testuser testuser 8fb20efd', msgs, whitespace=False)
+
+                msgs = await core2.stormlist('trigger.list')
+                self.stormIsInPrint('roleuser roleuser 2b61c302', msgs, whitespace=False)
 
     async def test_agenda_graceful_promotion_with_running_cron(self):
 
@@ -1202,6 +1334,7 @@ class AgendaTest(s_t_utils.SynTest):
 
             cdef = {
                 'creator': core.auth.rootuser.iden,
+                'user': core.auth.rootuser.iden,
                 'iden': s_common.guid(),
                 'storm': '$lib.log.info("test")',
                 'reqs': {},
