@@ -471,7 +471,6 @@ jobs:
       - image: cimg/python:3.12
         environment:
           PYVERS: 3.12
-          RUN_SYNTAX: 0
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
