@@ -439,6 +439,9 @@ class ProtoNode:
                 full = f'{prop.name}:{subname}'
                 subprop = self.form.props.get(full)
                 if subprop is not None and not subprop.locked:
+                    if subprop.deprecated:
+                        self.ctx.snap._skipPropDeprWarn(subprop.full)
+
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
@@ -448,10 +451,13 @@ class ProtoNode:
 
         return True
 
-    async def getSetOps(self, name, valu, norminfo=None):
+    async def getSetSubOps(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
-        if prop is None:
+        if prop is None or prop.locked:
             return ()
+
+        if prop.deprecated:
+            self.ctx.snap._skipPropDeprWarn(prop.full)
 
         retn = await self._set(prop, valu, norminfo=norminfo)
         if retn is False:
@@ -469,9 +475,7 @@ class ProtoNode:
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                subprop = self.form.props.get(full)
-                if subprop is not None and not subprop.locked:
-                    ops.append(self.getSetOps(full, subvalu))
+                ops.append(self.getSetSubOps(full, subvalu))
 
         propadds = norminfo.get('adds')
         if propadds is not None:
@@ -592,7 +596,7 @@ class SnapEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSetSubOps(prop, valu))
 
         adds = norminfo.get('adds')
         if adds is not None:
@@ -628,7 +632,7 @@ class SnapEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSetSubOps(prop, valu))
 
             while ops:
                 oset = ops.popleft()
@@ -884,6 +888,10 @@ class Snap(s_base.Base):
             return
         self._warnonce_keys.add(mesg)
         await self.warn(mesg, log, **info)
+
+    def _skipPropDeprWarn(self, name):
+        mesg = f'The property {name} is deprecated or using a deprecated type and will be removed in 3.0.0'
+        self._warnonce_keys.add(mesg)
 
     async def getNodeByBuid(self, buid):
         '''

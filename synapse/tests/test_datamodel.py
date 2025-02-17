@@ -338,11 +338,33 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_locked_subs(self):
 
-        async with self.getTestCore() as core:
-            await core.setDeprLock('it:prod:softver:semver:major', True)
-            nodes = await core.nodes('[ it:prod:softver=* :semver=3.1.0 ]')
-            self.none(nodes[0].get('semver:major'))
-            self.eq(1, nodes[0].get('semver:minor'))
+        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
+        async with self.getTestCore(conf=conf) as core:
+
+            msgs = await core.stormlist('[ test:deprsub=bar :range=(1, 5) ]')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('[ test:deprsub2=(foo, (2, 6)) ]')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:deprsub=bar')
+            self.eq(1, nodes[0].get('range:min'))
+            self.eq(5, nodes[0].get('range:max'))
+
+            nodes = await core.nodes('test:deprsub2=(foo, (2, 6))')
+            self.eq(2, nodes[0].get('range:min'))
+            self.eq(6, nodes[0].get('range:max'))
+
+            await core.setDeprLock('test:deprsub:range:min', True)
+            nodes = await core.nodes('[ test:deprsub=foo :range=(1, 5) ]')
+            self.none(nodes[0].get('range:min'))
+            self.eq(5, nodes[0].get('range:max'))
+
+            await core.nodes('test:deprsub2 | delnode')
+            await core.setDeprLock('test:deprsub2:range:max', True)
+            nodes = await core.nodes('[ test:deprsub2=(foo, (2, 6)) ]')
+            self.none(nodes[0].get('range:max'))
+            self.eq(2, nodes[0].get('range:min'))
 
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const

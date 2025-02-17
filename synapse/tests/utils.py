@@ -519,6 +519,12 @@ deprmodel = {
         ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
         ('test:deprform', ('test:str', {}), {}),
         ('test:deprndef', ('ndef', {}), {}),
+        ('test:deprsub', ('str', {}), {}),
+        ('test:range', ('range', {}), {}),
+        ('test:deprsub2', ('comp', {'fields': (
+            ('name', 'test:str'),
+            ('range', 'test:range'))
+        }), {}),
     ),
     'forms': (
         ('test:deprprop', {}, ()),
@@ -526,6 +532,17 @@ deprmodel = {
             ('ndefprop', ('test:deprndef', {}), {}),
             ('deprprop', ('test:deprarray', {}), {}),
             ('okayprop', ('str', {}), {}),
+        )),
+        ('test:deprsub', {}, (
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {'deprecated': True}),
+            ('range:max', ('int', {}), {}),
+        )),
+        ('test:deprsub2', {}, (
+            ('name', ('str', {}), {}),
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {}),
+            ('range:max', ('int', {}), {'deprecated': True}),
         )),
     ),
 
