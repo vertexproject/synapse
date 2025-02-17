@@ -4,18 +4,18 @@ This contains the core test helper code used in Synapse.
 This gives the opportunity for third-party users of Synapse to test their
 code using some of the same helpers used to test Synapse.
 
-The core class, synapse.tests.utils.SynTest is a subclass of unittest.TestCase,
-with several wrapper functions to allow for easier calls to assert* functions,
-with less typing.  There are also Synapse specific helpers, to load Cortexes and
-whole both multi-component environments into memory.
+The core class, synapse.tests.utils.SynTest is a subclass of
+unittest.IsolatedAsyncioTestCase, with several wrapper functions to allow for
+easier calls to assert* functions, with less typing.  There are also Synapse
+specific helpers, to load Cortexes and whole multi-component environments
+into memory.
 
-Since SynTest is built from unittest.TestCase, the use of SynTest is
-compatible with the unittest, nose and pytest frameworks.  This does not lock
-users into a particular test framework; while at the same time allowing base
-use to be invoked via the built-in Unittest library, with one important exception:
-due to an unfortunate design approach, you cannot use the unittest module command
-line to run a *single* async unit test.  pytest works fine though.
-
+Since SynTest is built from unittest.IsolatedAsyncioTestCase, the use of
+SynTest is compatible with the unittest and pytest frameworks.  This does not
+lock users into a particular test framework; while at the same time allowing
+base use to be invoked via the built-in Unittest library. Customizations made
+using the various setup and teardown helpers available on
+``IsolatedAsyncioTestCase`` should first call our methods using ``super()``.
 '''
 import io
 import os
@@ -85,6 +85,11 @@ logging.getLogger('vcr').setLevel(logging.ERROR)
 
 # Default LMDB map size for tests
 TEST_MAP_SIZE = s_const.gibibyte
+
+_SYN_ASYNCIO_DEBUG = False
+# Check if DEBUG mode was set https://docs.python.org/3/library/asyncio-dev.html#debug-mode
+if (s_common.envbool('PYTHONASYNCIODEBUG') or s_common.envbool('PYTHONDEVMODE') or sys.flags.dev_mode):  # pragma: no cover
+    _SYN_ASYNCIO_DEBUG = True
 
 async def alist(coro):
     return [x async for x in coro]
@@ -996,21 +1001,28 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-class SynTest(unittest.TestCase):
-    '''
-    Mark all async test methods as s_glob.synchelp decorated.
+class SynTest(unittest.IsolatedAsyncioTestCase):
 
-    Note:
-        This precludes running a single unit test via path using the unittest module.
-    '''
-    def __init__(self, *args, **kwargs):
-        unittest.TestCase.__init__(self, *args, **kwargs)
+    def _setupAsyncioRunner(self):
+        assert self._asyncioRunner is None, 'asyncio runner is already initialized'
+        # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
+        runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG)
+        self._asyncioRunner = runner
 
-        for s in dir(self):
-            attr = getattr(self, s, None)
-            # If s is an instance method and starts with 'test_', synchelp wrap it
-            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, s_glob.synchelp(attr))
+    def tearDown(self):
+        '''
+        Test teardown method which clears globals in ``synapse.glob`` which may have been set.
+
+        Implementors who define their own ``teardown`` method should also call this via ``super()``.
+
+        Examples:
+            Teardown a custom resource created in ``setUp()`` or ``asyncSetUp()``::
+
+                def teardown():
+                    super().tearDown()
+                    self.my_custom_resource.close()
+        '''
+        s_glob._clearGlobals()
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
