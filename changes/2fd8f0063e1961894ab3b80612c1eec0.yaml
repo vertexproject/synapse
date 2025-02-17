@@ -1,0 +1,5 @@
+---
+desc: Fixed an issue with Snap construction in the Storm ``merge`` command.
+prs: []
+type: bug
+...

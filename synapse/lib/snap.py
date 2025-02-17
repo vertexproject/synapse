@@ -138,15 +138,29 @@ class ProtoNode:
 
         if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edges.add(tupl)
-
             if len(self.edges) >= 1000:
-                nodeedits = self.ctx.getNodeEdits()
-                await self.ctx.snap.applyNodeEdits(nodeedits)
-                self.edges.clear()
-
+                await self.flushEdits()
             return True
 
         return False
+
+    async def flushEdits(self):
+        if (nodeedit := self.getNodeEdit()) is not None:
+            nodecache = {self.buid: self.node}
+            nodes = await self.ctx.snap.applyNodeEdits((nodeedit,), nodecache=nodecache, meta=self.ctx.meta)
+
+            if self.node is None:
+                if nodes and nodes[0].buid == self.buid:
+                    self.node = nodes[0]
+                else:  # pragma: no cover
+                    self.node = await self.ctx.snap.getNodeByBuid(self.buid)
+
+            self.tags.clear()
+            self.props.clear()
+            self.tagprops.clear()
+            self.edges.clear()
+            self.edgedels.clear()
+            self.nodedata.clear()
 
     async def delEdge(self, verb, n2iden):
 
@@ -175,12 +189,8 @@ class ProtoNode:
 
         if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edgedels.add(tupl)
-
             if len(self.edgedels) >= 1000:
-                nodeedits = self.ctx.getNodeEdits()
-                await self.ctx.snap.applyNodeEdits(nodeedits)
-                self.edgedels.clear()
-
+                await self.flushEdits()
             return True
 
         return False
@@ -478,7 +488,8 @@ class SnapEditor:
     '''
     A SnapEditor allows tracking node edits with subs/deps as a transaction.
     '''
-    def __init__(self, snap):
+    def __init__(self, snap, meta=None):
+        self.meta = meta
         self.snap = snap
         self.protonodes = {}
         self.maxnodes = snap.core.maxnodes
@@ -495,6 +506,19 @@ class SnapEditor:
             if nodeedit is not None:
                 nodeedits.append(nodeedit)
         return nodeedits
+
+    async def flushEdits(self):
+        nodecache = {}
+        nodeedits = []
+        for protonode in self.protonodes.values():
+            if (nodeedit := protonode.getNodeEdit()) is not None:
+                nodeedits.append(nodeedit)
+                nodecache[protonode.buid] = protonode.node
+
+        if nodeedits:
+            await self.snap.applyNodeEdits(nodeedits, nodecache=nodecache, meta=self.meta)
+
+        self.protonodes.clear()
 
     async def _addNode(self, form, valu, props=None, norminfo=None):
 
@@ -1226,11 +1250,13 @@ class Snap(s_base.Base):
         if nodes:
             return nodes[0]
 
-    async def applyNodeEdits(self, edits, nodecache=None):
+    async def applyNodeEdits(self, edits, nodecache=None, meta=None):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
-        meta = await self.getSnapMeta()
+        if meta is None:
+            meta = await self.getSnapMeta()
+
         saveoff, changes, nodes = await self._applyNodeEdits(edits, meta, nodecache=nodecache)
         return nodes
 

@@ -1,0 +1,5 @@
+---
+desc: Increased performance of the Storm ``merge`` command and ``View.merge()`` method.
+prs: []
+type: feat
+...
