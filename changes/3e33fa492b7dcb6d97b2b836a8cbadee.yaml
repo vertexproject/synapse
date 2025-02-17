@@ -1,0 +1,6 @@
+---
+desc: Update the `lmdb` requirement to allow installation of the latest versions of
+  that package.
+prs: []
+type: feat
+...
