@@ -520,9 +520,10 @@ deprmodel = {
         ('test:deprform', ('test:str', {}), {}),
         ('test:deprndef', ('ndef', {}), {}),
         ('test:deprsub', ('str', {}), {}),
+        ('test:range', ('range', {}), {}),
         ('test:deprsub2', ('comp', {'fields': (
             ('name', 'test:str'),
-            ('imei', 'tel:mob:imei'))
+            ('range', 'test:range'))
         }), {}),
     ),
     'forms': (
@@ -533,15 +534,15 @@ deprmodel = {
             ('okayprop', ('str', {}), {}),
         )),
         ('test:deprsub', {}, (
-            ('imei', ('tel:mob:imei', {}), {}),
-            ('imei:tac', ('str', {}), {'deprecated': True}),
-            ('imei:serial', ('str', {}), {}),
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {'deprecated': True}),
+            ('range:max', ('int', {}), {}),
         )),
         ('test:deprsub2', {}, (
             ('name', ('str', {}), {}),
-            ('imei', ('tel:mob:imei', {}), {}),
-            ('imei:tac', ('str', {}), {}),
-            ('imei:serial', ('str', {}), {'deprecated': True}),
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {}),
+            ('range:max', ('int', {}), {'deprecated': True}),
         )),
     ),
 

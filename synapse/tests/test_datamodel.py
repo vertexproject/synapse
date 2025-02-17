@@ -341,30 +341,30 @@ class DataModelTest(s_t_utils.SynTest):
         conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
         async with self.getTestCore(conf=conf) as core:
 
-            msgs = await core.stormlist('[ test:deprsub=bar :imei=490154203237518 ]')
+            msgs = await core.stormlist('[ test:deprsub=bar :range=(1, 5) ]')
             self.stormHasNoWarnErr(msgs)
 
-            msgs = await core.stormlist('[ test:deprsub2=(foo, 350123451234567) ]')
+            msgs = await core.stormlist('[ test:deprsub2=(foo, (2, 6)) ]')
             self.stormHasNoWarnErr(msgs)
 
             nodes = await core.nodes('test:deprsub=bar')
-            self.eq('49015420', nodes[0].get('imei:tac'))
-            self.eq('323751', nodes[0].get('imei:serial'))
+            self.eq(1, nodes[0].get('range:min'))
+            self.eq(5, nodes[0].get('range:max'))
 
-            nodes = await core.nodes('test:deprsub2=(foo, 350123451234567)')
-            self.eq('35012345', nodes[0].get('imei:tac'))
-            self.eq('123456', nodes[0].get('imei:serial'))
+            nodes = await core.nodes('test:deprsub2=(foo, (2, 6))')
+            self.eq(2, nodes[0].get('range:min'))
+            self.eq(6, nodes[0].get('range:max'))
 
-            await core.setDeprLock('test:deprsub:imei:tac', True)
-            nodes = await core.nodes('[ test:deprsub=foo :imei=490154203237518 ]')
-            self.none(nodes[0].get('imei:tac'))
-            self.eq('323751', nodes[0].get('imei:serial'))
+            await core.setDeprLock('test:deprsub:range:min', True)
+            nodes = await core.nodes('[ test:deprsub=foo :range=(1, 5) ]')
+            self.none(nodes[0].get('range:min'))
+            self.eq(5, nodes[0].get('range:max'))
 
             await core.nodes('test:deprsub2 | delnode')
-            await core.setDeprLock('test:deprsub2:imei:serial', True)
-            nodes = await core.nodes('[ test:deprsub2=(foo, 350123451234567) ]')
-            self.none(nodes[0].get('imei:serial'))
-            self.eq('35012345', nodes[0].get('imei:tac'))
+            await core.setDeprLock('test:deprsub2:range:max', True)
+            nodes = await core.nodes('[ test:deprsub2=(foo, (2, 6)) ]')
+            self.none(nodes[0].get('range:max'))
+            self.eq(2, nodes[0].get('range:min'))
 
     def test_datamodel_schema_basetypes(self):
         # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
