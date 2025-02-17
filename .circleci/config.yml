@@ -465,6 +465,23 @@ jobs:
     steps:
       - test_steps_python
 
+  python312:
+    resource_class: xlarge
+    docker:
+      - image: cimg/python:3.12
+        environment:
+          PYVERS: 3.12
+          RUN_SYNTAX: 1
+          SYN_VENDOR_TEST: 1
+          CODECOV_FLAG: linux
+          SYN_REGRESSION_REPO: ~/git/synapse-regression
+          COVERAGE_ARGS: --cov synapse
+
+    working_directory: ~/repo
+
+    steps:
+      - test_steps_python
+
   doctests:
     docker:
       - image: cimg/python:3.11
@@ -560,6 +577,15 @@ workflows:
             branches:
               only:
                 - master
+
+      - python312:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              only:
+                - master
+                - dev_py312_ci
 
       - python_package_smoketest:
           filters:
