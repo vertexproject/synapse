@@ -4647,9 +4647,135 @@ class Str(Prim):
                        'desc': 'Keyword values which are substituted into the string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The new string.', }}},
-        {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
-         'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
+         {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
+          'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
                   'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
+         {'name': 'isAlnum', 'desc': '''
+            Returns true if all chars in the string are alphanumeric, false otherwise.
+
+            Examples:
+                Test if string `aca123` is alphanumeric::
+
+                    $foo="aca123" return ( $foo.isAlnum() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsAlnum',
+                  'returns': {'type': 'bool', 'desc': 'Whether string is alphanumeric', }}},
+         {'name': 'isAlpha', 'desc': '''
+            Returns true if all chars in the string are in the alphabet, false otherwise.
+
+            Examples:
+                Test if string `aca` contains only letters in the alphabet::
+
+                    $foo="aca" return ( $foo.isAlpha() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsAlpha',
+                  'returns': {'type': 'bool', 'desc': 'Whether string only contains chars from alphabet', }}},
+         {'name': 'isAscii', 'desc': '''
+            Returns true if all chars in the string are ASCII chars, false otherwise.
+
+            Examples:
+                Test if string `aca` contains only letters in the alphabet::
+
+                    $foo="aca" return ( $foo.isAscii() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsASCII',
+                  'returns': {'type': 'bool', 'desc': 'Whether all the chars are ASCII', }}},
+         {'name': 'isDecimal', 'desc': '''
+            Returns true if all the chars are decimals (including unicode), false otherwise.
+
+            Examples:
+                Test if string `123` contains only decimals::
+
+                    $foo="123" return ( $foo.isDecimal() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsDecimal',
+                  'returns': {'type': 'bool', 'desc': 'Whether all the chars are decimals', }}},
+         {'name': 'isDigit', 'desc': '''
+            Returns true if all the chars are decimals, false otherwise.
+            Exponents are considered as digits.
+
+            Examples:
+                Test if string `123` contains only digits::
+
+                    $foo="123" return ( $foo.isDigit() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsDigit',
+                  'returns': {'type': 'bool', 'desc': 'Whether all the chars are digits', }}},
+         {'name': 'isIdentifier', 'desc': '''
+            Returns true if the string is a valid identifier, false otherwise.
+            A valid identifier only contains alphanumeric letters (a-z) and (0-9), or underscores (_).
+            and cannot start with a number, or contain any spaces.
+
+            Examples:
+                Test if string `aca_123` is a valid identifier::
+
+                    $foo="aca_123" return ( $foo.isIdentifier() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsIdentifier',
+                  'returns': {'type': 'bool', 'desc': 'Whether the string is a valid identifier', }}},
+         {'name': 'isLower', 'desc': '''
+            Returns true if all the chars are in lower case, false otherwise.
+            Numbers, symbols and spaces are not checked, only alphabet characters.
+
+            Examples:
+                Test if string `aca` only contains lower case chars::
+
+                    $foo="aca" return ( $foo.isLower() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsLower',
+                  'returns': {'type': 'bool', 'desc': 'Whether all chars are in lower case', }}},
+         {'name': 'isNumeric', 'desc': '''
+            Returns true if all the chars are numeric, false otherwise.
+            Unicode fractions are considered as numeric, but not decimals like `1.5`.
+
+            Examples:
+                Test if string `123` only contains numeric chars::
+
+                    $foo="123" return ( $foo.isNumeric() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsNumeric',
+                  'returns': {'type': 'bool', 'desc': 'Whether all chars are numeric', }}},
+         {'name': 'isPrintable', 'desc': '''
+            Returns true if all the chars are printable, false otherwise.
+
+            Examples:
+                Test if string `aca 123` only contains printable chars::
+
+                    $foo="aca 123" return ( $foo.isPrintable() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsPrintable',
+                  'returns': {'type': 'bool', 'desc': 'Whether all chars are printable', }}},
+         {'name': 'isSpace', 'desc': '''
+            Returns true if all the chars are whitespaces, false otherwise.
+
+            Examples:
+                Test if string `   ` only contains whitespaces::
+
+                    $foo="   " return ( $foo.isSpace() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsSpace',
+                  'returns': {'type': 'bool', 'desc': 'Whether all chars are whitespaces', }}},
+         {'name': 'isTitle', 'desc': '''
+            Returns true if all words in a text start with a upper case letter and others are lower case, false otherwise.
+
+            Examples:
+                Test if string `Aca Test` has words start with a upper case letter and others are lower case::
+
+                    $foo="Aca Test" return ( $foo.isTitle() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsTitle',
+                  'returns': {'type': 'bool', 'desc': 'Whether all words starts with an upper case', }}},
+         {'name': 'isUpper', 'desc': '''
+            Returns true if all the characters are in upper case, false otherwise.
+            Numbers, symbols and spaces are not checked, only alphabet characters.
+
+            Examples:
+                Test if string `ACA` only contains upper case chars::
+
+                    $foo="ACA" return ( $foo.isUpper() ) // true
+            ''',
+         'type': {'type': 'function', '_funcname': '_methStrIsUpper',
+                  'returns': {'type': 'bool', 'desc': 'Whether all chars are upper case', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -4680,6 +4806,18 @@ class Str(Prim):
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
             'json': self._methStrJson,
+            'isAlnum': self._methStrIsAlNum,
+            'isAlpha': self._methStrIsAlpha,
+            'isAscii': self._methStrIsASCII,
+            'isDecimal': self._methStrIsDecimal,
+            'isDigit': self._methStrIsDigit,
+            'isIdentifier': self._methStrIsIdentifier,
+            'isLower': self._methStrIsLower,
+            'isNumeric': self._methStrIsNumeric,
+            'isPrintable': self._methStrIsPrintable,
+            'isSpace': self._methStrIsSpace,
+            'isTitle': self._methStrIsTitle,
+            'isUpper': self._methStrIsUpper,
         }
 
     def __int__(self):
@@ -4802,6 +4940,54 @@ class Str(Prim):
         except Exception as e:
             mesg = f'Text is not valid JSON: {self.valu}'
             raise s_exc.BadJsonText(mesg=mesg)
+
+    @stormfunc(readonly=True)
+    async def _methStrIsAlNum(self):
+        return self.valu.isalnum()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsAlpha(self):
+        return self.valu.isalpha()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsASCII(self):
+        return self.valu.isascii()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsDecimal(self):
+        return self.valu.isdecimal()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsDigit(self):
+        return self.valu.isdigit()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsIdentifier(self):
+        return self.valu.isidentifier()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsLower(self):
+        return self.valu.islower()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsNumeric(self):
+        return self.valu.isnumeric()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsPrintable(self):
+        return self.valu.isprintable()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsSpace(self):
+        return self.valu.isspace()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsTitle(self):
+        return self.valu.istitle()
+
+    @stormfunc(readonly=True)
+    async def _methStrIsUpper(self):
+        return self.valu.isupper()
 
 @registry.registerType
 class Bytes(Prim):
