@@ -6,7 +6,7 @@
 Synapse Changelog
 *****************
 
-v2.199.0 - 2025-02-17
+v2.199.0 - 2025-02-18
 =====================
 
 Features and Enhancements
