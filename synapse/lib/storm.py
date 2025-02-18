@@ -2100,6 +2100,7 @@ class Parser:
         self.allargs = []
 
         self.inputs = None
+        self.endpoints = None
 
         self.reqopts = []
 
@@ -2107,6 +2108,9 @@ class Parser:
 
     def set_inputs(self, idefs):
         self.inputs = list(idefs)
+
+    def set_endpoints(self, endpoints):
+        self.endpoints = list(endpoints)
 
     def add_argument(self, *names, **opts):
 
@@ -2364,6 +2368,21 @@ class Parser:
             self._printf('')
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
+
+        if self.endpoints:
+            self._printf('')
+            self._printf('Endpoints:')
+            self._printf('')
+            base_w = 32
+            wrap_w = 120 - base_w
+            for endpoint in self.endpoints:
+                path = endpoint['path']
+                desc = endpoint.get('desc', '')
+                base = f'    {path}'
+                wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
+                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                for ln in wrap_desc[1:]:
+                    self._printf(f'{"":<{base_w}}{ln}')
 
         options = [x for x in self.allargs if x[0][0].startswith('-')]
 
@@ -2654,6 +2673,10 @@ class PureCmd(Cmd):
         inputs = self.cdef.get('cmdinputs')
         if inputs:
             pars.set_inputs(inputs)
+
+        endpoints = self.cdef.get('endpoints')
+        if endpoints:
+            pars.set_endpoints(endpoints)
 
         return pars
 

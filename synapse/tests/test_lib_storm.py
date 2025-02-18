@@ -4125,6 +4125,9 @@ class StormTest(s_t_utils.SynTest):
                     {'name': 'woot', 'cmdinputs': (
                         {'form': 'hehe:haha'},
                         {'form': 'hoho:lol', 'help': 'We know whats up'}
+                    ), 'endpoints': (
+                        {'path': '/v1/test/one', 'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'},
+                        {'path': '/v1/test/two', 'host': 'vertex.link', 'desc': 'Single line endpoint description.'},
                     )},
                 ),
             }
@@ -4132,6 +4135,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
+            self.isin('Endpoints:\n\n    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.', helptext)
+            self.isin('This is the second line of the description.', helptext)
+            self.isin('/v1/test/two              : Single line endpoint description.', helptext)
 
     async def test_storm_help_cmd(self):
 
