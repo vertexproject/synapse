@@ -15,6 +15,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -1107,7 +1108,7 @@ class Model:
 
     def _prepFormIface(self, form, iface):
 
-        template = iface.get('template', {})
+        template = s_msgpack.deepcopy(iface.get('template', {}))
         template.update(form.type.info.get('template', {}))
 
         def convert(item):
