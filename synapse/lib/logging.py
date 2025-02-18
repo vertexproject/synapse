@@ -47,7 +47,6 @@ async def _initLogBase():
 
     global logbase
 
-    # FIXME: resolve circurlar deps
     import synapse.lib.base as s_base
 
     logbase = await s_base.Base.anit()
@@ -66,7 +65,6 @@ async def getLogInfo(wait=False, last=None):
     if logbase is None:
         await _initLogBase()
 
-    # FIXME: resolve circurlar deps
     import synapse.lib.queue as s_queue
 
     async with await s_queue.Window.anit(maxsize=2000) as window:
