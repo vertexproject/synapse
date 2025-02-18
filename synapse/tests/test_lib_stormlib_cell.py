@@ -146,7 +146,8 @@ class StormCellTest(s_test.SynTest):
 
                     await aha.delAhaSvc('00.testsvc.synapse')
 
-                    self.false(await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))'))
+                    with self.raises(s_exc.NoSuchName):
+                        await core00.callStorm('return($lib.cell.getMirrorUrls(name=testsvc))')
 
         # No AHA case
 
