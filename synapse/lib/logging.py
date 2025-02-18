@@ -103,6 +103,7 @@ class Formatter(logging.Formatter):
         }
 
         loginfo.update(_glob_loginfo)
+
         if hasattr(record, 'loginfo'):
             loginfo.update(record.loginfo)
 
