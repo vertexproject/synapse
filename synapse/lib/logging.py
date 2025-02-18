@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 logtodo = []
 logbase = None
+loglock = asyncio.Lock()
 logevnt = asyncio.Event()
 logwindows = weakref.WeakSet()
 
@@ -26,7 +27,7 @@ def _addLogInfo(info):
         logtodo.append(info)
         logevnt.set()
 
-async def _feedLogInfo():
+async def _feedLogTask():
 
     while not logbase.isfini:
 
@@ -42,39 +43,6 @@ async def _feedLogInfo():
 
         for wind in logwindows:
             await wind.puts(todo)
-
-async def _initLogBase():
-
-    global logbase
-
-    import synapse.lib.base as s_base
-
-    logbase = await s_base.Base.anit()
-    logbase._fini_at_exit = True
-    logbase.schedCoro(_feedLogInfo())
-
-async def getLogInfo(wait=False, last=None):
-
-    if not wait:
-        for loginfo in list(logfifo)[last:]:
-            yield loginfo
-        return
-
-    global logbase
-
-    if logbase is None:
-        await _initLogBase()
-
-    import synapse.lib.queue as s_queue
-
-    async with await s_queue.Window.anit(maxsize=2000) as window:
-
-        await window.puts(list(logfifo)[last:])
-
-        logwindows.add(window)
-
-        async for loginfo in window:
-            yield loginfo
 
 _glob_loginfo = {}
 def setLogGlobal(name, valu):

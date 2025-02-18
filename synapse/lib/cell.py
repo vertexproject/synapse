@@ -5090,9 +5090,35 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
 
+    async def _initLogBase(self):
+
+        async with s_logging.loglock:
+
+            if s_logging.logbase is not None:
+                return
+
+            s_logging.logbase = await s_base.Base.anit()
+            s_logging.logbase._fini_at_exit = True
+
+            s_logging.logbase.schedCoro(s_logging._feedLogTask())
+
     async def logs(self, wait=False, last=None):
-        async for loginfo in s_logging.getLogInfo(wait=wait, last=last):
-            yield loginfo
+
+        await self._initLogBase()
+
+        if not wait:
+            for loginfo in list(s_logging.logfifo)[last:]:
+                yield loginfo
+            return
+
+        async with await s_queue.Window.anit(maxsize=2000) as window:
+
+            await window.puts(list(s_logging.logfifo)[last:])
+
+            s_logging.logwindows.add(window)
+
+            async for loginfo in window:
+                yield loginfo
 
     async def freeze(self, timeout=30):
 
