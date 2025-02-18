@@ -10,7 +10,8 @@ import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
-reqver = '>=0.2.0,<3.0.0'
+# Change to v2.199.0 before release.
+reqver = '>=2.198,<3.0.0'
 
 async def main(argv, outp=s_output.stdout):
 
@@ -42,16 +43,10 @@ async def main(argv, outp=s_output.stdout):
     async with s_telepath.withTeleEnv():
 
         async with await s_telepath.openurl(opts.hiveurl) as hive:
-            classes = hive.sharinfo.get('classes', ())
-
             try:
                 s_version.reqVersion(hive._getSynVers(), reqver)
-                if 'synapse.lib.hive.HiveApi' in classes:
-                    s_common.deprecated('Connecting directly to a Hive via Telepath', curv='2.198.0', eolv='2.199.0')
-                    await hive.loadHiveTree(tree, path=path, trim=opts.trim)
-                else:
-                    todo = s_common.todo('loadHiveTree', tree, path=path, trim=opts.trim)
-                    await hive.dyncall('cell', todo)
+                todo = s_common.todo('loadHiveTree', tree, path=path, trim=opts.trim)
+                await hive.dyncall('cell', todo)
 
             except s_exc.BadVersion as e:
                 valu = s_version.fmtVersion(*e.get('valu'))

@@ -1203,12 +1203,12 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_hiveapi(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCell() as cell:
 
-            await core.setHiveKey(('foo', 'bar'), 10)
-            await core.setHiveKey(('foo', 'baz'), 30)
+            await cell.setHiveKey(('foo', 'bar'), 10)
+            await cell.setHiveKey(('foo', 'baz'), 30)
 
-            async with core.getLocalProxy() as proxy:
+            async with cell.getLocalProxy() as proxy:
                 self.eq((), await proxy.getHiveKeys(('lulz',)))
                 self.eq((('bar', 10), ('baz', 30)), await proxy.getHiveKeys(('foo',)))
 

@@ -20,7 +20,6 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
-import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
@@ -855,7 +854,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     cellapi = CoreApi
     viewapi = s_view.ViewApi
     layerapi = s_layer.LayerApi
-    hiveapi = s_hive.HiveApi
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
@@ -4655,10 +4653,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if not path:
             return await self.cellapi.anit(self, link, user)
-
-        if path[0] == 'hive' and user.isAdmin():
-            s_common.deprecated('Cortex /hive telepath path', curv='2.198.0', eolv='2.199.0')
-            return await self.hiveapi.anit(self.hive, user)
 
         if path[0] == 'layer':
 
