@@ -2366,7 +2366,7 @@ class Parser:
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
 
-        if endpoints := self.cdef.get('endpoints'):
+        if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
             self._printf('')
             self._printf('Endpoints:')
             self._printf('')
