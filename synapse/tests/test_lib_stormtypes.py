@@ -1779,10 +1779,10 @@ class StormTypesTest(s_test.SynTest):
             self.len(2, csv_rows)
             csv_rows.sort(key=lambda x: x[1].get('row')[1])
             self.eq(csv_rows[0],
-                    ('csv:row', {'row': ['test:str', '1234', '2001/01/01 00:00:00.000'],
+                    ('csv:row', {'row': ['test:str', '1234', '2001-01-01T00:00:00.000Z'],
                                  'table': 'mytable'}))
             self.eq(csv_rows[1],
-                    ('csv:row', {'row': ['test:str', '9876', '3001/01/01 00:00:00.000'],
+                    ('csv:row', {'row': ['test:str', '9876', '3001-01-01T00:00:00.000Z'],
                                  'table': 'mytable'}))
 
             q = 'test:str $hehe=$node.props.hehe $lib.csv.emit(:tick, $hehe)'
