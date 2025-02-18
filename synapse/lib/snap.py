@@ -1606,7 +1606,8 @@ class Snap(s_base.Base):
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                if valu in node.get(prop.name):
+                arryvalu = node.get(prop.name)
+                if arryvalu is not None and valu in arryvalu:
                     return True
             else:
                 if node.get(prop.name) == valu:
