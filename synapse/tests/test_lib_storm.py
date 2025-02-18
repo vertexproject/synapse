@@ -163,6 +163,10 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
 
+            await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
+            self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
@@ -1756,6 +1760,10 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('test:ro | merge', opts=altview)
             self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
+
+            await core.nodes('[ test:str=foo +(refs)> { for $i in $lib.range(1001) {[ test:int=$i ]}}]', opts=altview)
+            await core.nodes('test:str=foo -(refs)+> * merge --apply', opts=altview)
+            self.len(1001, await core.nodes('test:str=foo -(refs)> *'))
 
     async def test_storm_merge_stricterr(self):
 

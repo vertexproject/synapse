@@ -519,6 +519,12 @@ deprmodel = {
         ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
         ('test:deprform', ('test:str', {}), {}),
         ('test:deprndef', ('ndef', {}), {}),
+        ('test:deprsub', ('str', {}), {}),
+        ('test:range', ('range', {}), {}),
+        ('test:deprsub2', ('comp', {'fields': (
+            ('name', 'test:str'),
+            ('range', 'test:range'))
+        }), {}),
     ),
     'forms': (
         ('test:deprprop', {}, ()),
@@ -526,6 +532,17 @@ deprmodel = {
             ('ndefprop', ('test:deprndef', {}), {}),
             ('deprprop', ('test:deprarray', {}), {}),
             ('okayprop', ('str', {}), {}),
+        )),
+        ('test:deprsub', {}, (
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {'deprecated': True}),
+            ('range:max', ('int', {}), {}),
+        )),
+        ('test:deprsub2', {}, (
+            ('name', ('str', {}), {}),
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {}),
+            ('range:max', ('int', {}), {'deprecated': True}),
         )),
     ),
 
@@ -2374,25 +2391,6 @@ class SynTest(unittest.TestCase):
         async with await s_lmdbslab.Slab.anit(dirn, map_size=map_size) as slab:
 
             async with await s_hive.SlabHive.anit(slab) as hive:
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveDmon(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                async with self.getTestDmon() as dmon:
-                    dmon.share('hive', hive)
-                    yield dmon
-
-    @contextlib.asynccontextmanager
-    async def getTestTeleHive(self):
-
-        async with self.getTestHiveDmon() as dmon:
-
-            turl = self.getTestUrl(dmon, 'hive')
-
-            async with await s_hive.openurl(turl) as hive:
-
                 yield hive
 
     async def runCoreNodes(self, core, query, opts=None):

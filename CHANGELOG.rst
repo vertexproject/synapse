@@ -6,6 +6,23 @@
 Synapse Changelog
 *****************
 
+v2.199.0 - 2025-02-18
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated property set behavior to avoid warning when deprecated properties are
+  set as subs.
+  (`#4143 <https://github.com/vertexproject/synapse/pull/4143>`_)
+- Increased performance of the Storm ``merge`` command and ``View.merge()``
+  method.
+  (`#4144 <https://github.com/vertexproject/synapse/pull/4144>`_)
+
+Bugfixes
+--------
+- Fixed an issue with Snap construction in the Storm ``merge`` command.
+  (`#4144 <https://github.com/vertexproject/synapse/pull/4144>`_)
+
 v2.198.0 - 2025-02-14
 =====================
 
