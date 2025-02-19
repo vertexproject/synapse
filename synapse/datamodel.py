@@ -1,6 +1,7 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
+import sys
 import asyncio
 import logging
 import collections
@@ -133,6 +134,10 @@ class Prop:
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
                 if (runt := s_scope.get('runt')) is not None:
                     await runt.warnonce(mesg)
+
+                if __debug__:
+                    sys.audit('synapse.datamodel.Prop.deprecated', mesg, self.full)
+
             self.onSet(depfunc)
 
     def __repr__(self):
@@ -294,6 +299,9 @@ class Form:
                 mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 4.0.0'
                 if (runt := s_scope.get('runt')) is not None:
                     await runt.warnonce(mesg)
+
+                if __debug__:
+                    sys.audit('synapse.datamodel.Form.deprecated', mesg, self.full)
 
             self.onAdd(depfunc)
 

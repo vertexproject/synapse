@@ -60,7 +60,7 @@ edittagpropdel: EXPRMINUS tagprop
 EQSPACE: /((?<=\s)=|=(?=\s))/
 MODSET.4: "+=" | "-="
 TRYMODSET.1: "?+=" | "?-="
-MODSETMULTI.4: "++=" | "--="
+MODSETMULTI.5: "++=" | "--="
 TRYMODSETMULTI.1: "?++=" | "?--="
 TRYSET.1: "?="
 SETTAGOPER: "?"
