@@ -663,7 +663,98 @@ class SubGraph:
                 yield node, path
 
 class Oper(AstNode):
-    pass
+
+    async def yieldFromValu(self, runt, valu, vkid):
+
+        viewiden = runt.view.iden
+
+        # there is nothing in None... ;)
+        if valu is None:
+            return
+
+        # a little DWIM on what we get back...
+        # ( most common case will be stormtypes libs agenr -> nid )
+        # nid -> node
+        if isinstance(valu, int):
+            if (node := await runt.view.getNodeByNid(s_common.int64en(valu))) is not None:
+                yield node
+
+            return
+
+        # buid list -> nodes
+        if isinstance(valu, bytes):
+            if (node := await runt.view.getNodeByBuid(valu)) is not None:
+                yield node
+
+            return
+
+        # iden list -> nodes
+        if isinstance(valu, str):
+            try:
+                buid = s_common.uhex(valu)
+            except binascii.Error:
+                mesg = 'Yield string must be iden in hexdecimal. Got: %r' % (valu,)
+                raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
+
+            node = await runt.view.getNodeByBuid(buid)
+            if node is not None:
+                yield node
+
+            return
+
+        if isinstance(valu, types.AsyncGeneratorType):
+            try:
+                async for item in valu:
+                    async for node in self.yieldFromValu(runt, item, vkid):
+                        yield node
+            finally:
+                await valu.aclose()
+            return
+
+        if isinstance(valu, types.GeneratorType):
+            try:
+                for item in valu:
+                    async for node in self.yieldFromValu(runt, item, vkid):
+                        yield node
+            finally:
+                valu.close()
+            return
+
+        if isinstance(valu, (list, tuple, set)):
+            for item in valu:
+                async for node in self.yieldFromValu(runt, item, vkid):
+                    yield node
+            return
+
+        if isinstance(valu, s_stormtypes.Node):
+            valu = valu.valu
+            if valu.view.iden != viewiden:
+                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.view.iden} expected {viewiden}'
+                raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
+            yield valu
+            return
+
+        if isinstance(valu, s_node.Node):
+            if valu.view.iden != viewiden:
+                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.view.iden} expected {viewiden}'
+                raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
+            yield valu
+            return
+
+        if isinstance(valu, (s_stormtypes.List, s_stormtypes.Set)):
+            for item in valu.valu:
+                async for node in self.yieldFromValu(runt, item, vkid):
+                    yield node
+            return
+
+        if isinstance(valu, s_stormtypes.Prim):
+            async with contextlib.aclosing(valu.nodes()) as genr:
+                async for node in genr:
+                    if node.view.iden != viewiden:
+                        mesg = f'Node is not from the current view. Node {node.iden()} is from {node.view.iden} expected {viewiden}'
+                        raise vkid.addExcInfo(s_exc.BadLiftValu(mesg=mesg))
+                    yield node
+                return
 
 class SubQuery(Oper):
 
@@ -1515,111 +1606,20 @@ class YieldValu(Oper):
     async def run(self, runt, genr):
 
         node = None
+        vkid = self.kids[0]
 
         async for node, path in genr:
-            valu = await self.kids[0].compute(runt, path)
-            async with contextlib.aclosing(self.yieldFromValu(runt, valu)) as agen:
+            valu = await vkid.compute(runt, path)
+            async with contextlib.aclosing(self.yieldFromValu(runt, valu, vkid)) as agen:
                 async for subn in agen:
                     yield subn, runt.initPath(subn)
             yield node, path
 
         if node is None and self.kids[0].isRuntSafe(runt):
-            valu = await self.kids[0].compute(runt, None)
-            async with contextlib.aclosing(self.yieldFromValu(runt, valu)) as agen:
+            valu = await vkid.compute(runt, None)
+            async with contextlib.aclosing(self.yieldFromValu(runt, valu, vkid)) as agen:
                 async for subn in agen:
                     yield subn, runt.initPath(subn)
-
-    async def yieldFromValu(self, runt, valu):
-
-        viewiden = runt.view.iden
-
-        # there is nothing in None... ;)
-        if valu is None:
-            return
-
-        # a little DWIM on what we get back...
-        # ( most common case will be stormtypes libs agenr -> nid )
-        # nid -> node
-        if isinstance(valu, int):
-            if (node := await runt.view.getNodeByNid(s_common.int64en(valu))) is not None:
-                yield node
-
-            return
-
-        # buid list -> nodes
-        if isinstance(valu, bytes):
-            if (node := await runt.view.getNodeByBuid(valu)) is not None:
-                yield node
-
-            return
-
-        # iden list -> nodes
-        if isinstance(valu, str):
-            try:
-                buid = s_common.uhex(valu)
-            except binascii.Error:
-                mesg = 'Yield string must be iden in hexdecimal. Got: %r' % (valu,)
-                raise self.kids[0].addExcInfo(s_exc.BadLiftValu(mesg=mesg))
-
-            node = await runt.view.getNodeByBuid(buid)
-            if node is not None:
-                yield node
-
-            return
-
-        if isinstance(valu, types.AsyncGeneratorType):
-            try:
-                async for item in valu:
-                    async for node in self.yieldFromValu(runt, item):
-                        yield node
-            finally:
-                await valu.aclose()
-            return
-
-        if isinstance(valu, types.GeneratorType):
-            try:
-                for item in valu:
-                    async for node in self.yieldFromValu(runt, item):
-                        yield node
-            finally:
-                valu.close()
-            return
-
-        if isinstance(valu, (list, tuple, set)):
-            for item in valu:
-                async for node in self.yieldFromValu(runt, item):
-                    yield node
-            return
-
-        if isinstance(valu, s_stormtypes.Node):
-            valu = valu.valu
-            if valu.view.iden != viewiden:
-                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.view.iden} expected {viewiden}'
-                raise s_exc.BadLiftValu(mesg=mesg)
-            yield valu
-            return
-
-        if isinstance(valu, s_node.Node):
-            if valu.view.iden != viewiden:
-                mesg = f'Node is not from the current view. Node {valu.iden()} is from {valu.view.iden} expected {viewiden}'
-                raise s_exc.BadLiftValu(mesg=mesg)
-            yield valu
-            return
-
-        if isinstance(valu, (s_stormtypes.List, s_stormtypes.Set)):
-            for item in valu.valu:
-                async for node in self.yieldFromValu(runt, item):
-                    yield node
-            return
-
-        if isinstance(valu, s_stormtypes.Prim):
-            async with contextlib.aclosing(valu.nodes()) as genr:
-                async for node in genr:
-                    if node.view.iden != viewiden:
-                        mesg = f'Node is not from the current view. Node {node.iden()} is from {node.view.iden} expected {viewiden}'
-                        raise s_exc.BadLiftValu(mesg=mesg)
-                    yield node
-                return
 
 class LiftTag(LiftOper):
 
@@ -4515,6 +4515,83 @@ class EditPropSet(Edit):
 
             await asyncio.sleep(0)
 
+class EditPropSetMulti(Edit):
+
+    async def run(self, runt, genr):
+
+        self.reqNotReadOnly(runt)
+
+        rval = self.kids[2]
+        oper = await self.kids[1].compute(runt, None)
+
+        isadd = '+' in oper
+        excignore = (s_exc.BadTypeValu,) if '?' in oper else ()
+
+        async for node, path in genr:
+
+            propname = await self.kids[0].compute(runt, path)
+            name = await tostr(propname)
+
+            prop = node.form.props.get(name)
+            if prop is None:
+                if (exc := await s_stormtypes.typeerr(propname, str)) is None:
+                    exc = s_exc.NoSuchProp.init(f'{node.form.name}:{name}')
+
+                raise self.kids[0].addExcInfo(exc)
+
+            runt.confirmPropSet(prop)
+
+            if not prop.type.isarray:
+                mesg = f'Property set using ({oper}) is only valid on arrays.'
+                exc = s_exc.StormRuntimeError(mesg=mesg)
+                raise self.kids[0].addExcInfo(exc)
+
+            if isinstance(rval, SubQuery):
+                valu = await rval.compute_array(runt, path)
+            else:
+                valu = await rval.compute(runt, path)
+
+            if valu is None:
+                yield node, path
+                await asyncio.sleep(0)
+                continue
+
+            atyp = prop.type.arraytype
+            isndef = isinstance(atyp, s_types.Ndef)
+            valu = await s_stormtypes.tostor(valu, isndef=isndef)
+
+            if (arry := node.get(name)) is None:
+                arry = ()
+
+            arry = list(arry)
+
+            try:
+                for item in valu:
+                    await asyncio.sleep(0)
+
+                    try:
+                        norm, info = atyp.norm(item)
+                    except excignore:
+                        continue
+
+                    if isadd:
+                        arry.append(norm)
+                    else:
+                        try:
+                            arry.remove(norm)
+                        except ValueError:
+                            pass
+
+            except TypeError:
+                styp = await s_stormtypes.totype(valu, basetypes=True)
+                mesg = f"'{styp}' object is not iterable: {s_common.trimText(repr(valu))}"
+                raise rval.addExcInfo(s_exc.StormRuntimeError(mesg=mesg, type=styp)) from None
+
+            await node.set(name, arry)
+
+            yield node, path
+            await asyncio.sleep(0)
+
 class EditPropDel(Edit):
 
     async def run(self, runt, genr):
@@ -4721,17 +4798,27 @@ class EditEdgeAdd(Edit):
 
         self.reqNotReadOnly(runt)
 
-        # SubQuery -> Query
-        query = self.kids[1].kids[0]
+        constverb = False
+        if self.kids[0].isconst:
+            constverb = True
+            verb = await tostr(await self.kids[0].compute(runt, None))
+            runt.layerConfirm(('node', 'edge', 'add', verb))
+        else:
+            hits = set()
+            def allowed(x):
+                if x in hits:
+                    return
 
-        hits = set()
+                runt.layerConfirm(('node', 'edge', 'add', x))
+                hits.add(x)
 
-        def allowed(x):
-            if x in hits:
-                return
+        isvar = False
+        vkid = self.kids[1]
 
-            runt.layerConfirm(('node', 'edge', 'add', x))
-            hits.add(x)
+        if not isinstance(vkid, SubQuery):
+            isvar = True
+        else:
+            query = vkid.kids[0]
 
         async for node, path in genr:
 
@@ -4739,38 +4826,46 @@ class EditEdgeAdd(Edit):
                 mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
 
-            nid = node.nid
-            verb = await tostr(await self.kids[0].compute(runt, path))
+            if not constverb:
+                verb = await tostr(await self.kids[0].compute(runt, path))
+                allowed(verb)
 
-            allowed(verb)
+            if isvar:
+                valu = await vkid.compute(runt, path)
+                async with contextlib.aclosing(self.yieldFromValu(runt, valu, vkid)) as agen:
+                    if self.n2:
+                        nid = node.nid
+                        form = node.form.name
+                        async for subn in agen:
+                            await subn.addEdge(verb, nid, n2form=form, extra=self.addExcInfo)
+                    else:
+                        async with node.view.getEditor() as editor:
+                            proto = editor.loadNode(node)
+                            async for subn in agen:
+                                if subn.form.isrunt:
+                                    mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                    raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-            async with runt.getSubRuntime(query) as subr:
+                                await proto.addEdge(verb, subn.nid, n2form=subn.form.name)
+                                await asyncio.sleep(0)
 
-                if self.n2:
-                    async for subn, subp in subr.execute():
-                        if subn.form.isrunt:
-                            mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
-                            raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-
-                        await subn.addEdge(verb, nid, n2form=node.form.name)
-
-                else:
-                    async with runt.view.getEditor(runt=runt) as editor:
-                        proto = editor.loadNode(node)
-
+            else:
+                async with runt.getSubRuntime(query) as subr:
+                    if self.n2:
+                        nid = node.nid
+                        form = node.form.name
                         async for subn, subp in subr.execute():
-                            if subn.form.isrunt:
-                                mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
-                                raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+                            await subn.addEdge(verb, nid, n2form=form, extra=self.addExcInfo)
+                    else:
+                        async with node.view.getEditor() as editor:
+                            proto = editor.loadNode(node)
+                            async for subn, subp in subr.execute():
+                                if subn.form.isrunt:
+                                    mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                    raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                            await proto.addEdge(verb, subn.nid, n2form=subn.form.name)
-                            await asyncio.sleep(0)
-
-                            if len(proto.edges) >= 1000:
-                                nodeedits = editor.getNodeEdits()
-                                if nodeedits:
-                                    await runt.view.saveNodeEdits(nodeedits, editor.getEditorMeta())
-                                proto.edges.clear()
+                                await proto.addEdge(verb, subn.nid, n2form=subn.form.name)
+                                await asyncio.sleep(0)
 
             yield node, path
 
@@ -4784,16 +4879,27 @@ class EditEdgeDel(Edit):
 
         self.reqNotReadOnly(runt)
 
-        query = self.kids[1].kids[0]
+        isvar = False
+        vkid = self.kids[1]
 
-        hits = set()
+        if not isinstance(vkid, SubQuery):
+            isvar = True
+        else:
+            query = vkid.kids[0]
 
-        def allowed(x):
-            if x in hits:
-                return
+        constverb = False
+        if self.kids[0].isconst:
+            constverb = True
+            verb = await tostr(await self.kids[0].compute(runt, None))
+            runt.layerConfirm(('node', 'edge', 'del', verb))
+        else:
+            hits = set()
+            def allowed(x):
+                if x in hits:
+                    return
 
-            runt.layerConfirm(('node', 'edge', 'del', x))
-            hits.add(x)
+                runt.layerConfirm(('node', 'edge', 'del', x))
+                hits.add(x)
 
         async for node, path in genr:
 
@@ -4801,36 +4907,44 @@ class EditEdgeDel(Edit):
                 mesg = f'Edges cannot be used with runt nodes: {node.form.full}'
                 raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=node.form.full))
 
-            nid = node.nid
-            verb = await tostr(await self.kids[0].compute(runt, path))
+            if not constverb:
+                verb = await tostr(await self.kids[0].compute(runt, path))
+                allowed(verb)
 
-            allowed(verb)
+            if isvar:
+                valu = await vkid.compute(runt, path)
+                async with contextlib.aclosing(self.yieldFromValu(runt, valu, vkid)) as agen:
+                    if self.n2:
+                        nid = node.nid
+                        async for subn in agen:
+                            await subn.delEdge(verb, nid, extra=self.addExcInfo)
+                    else:
+                        async with node.view.getEditor() as editor:
+                            proto = editor.loadNode(node)
+                            async for subn in agen:
+                                if subn.form.isrunt:
+                                    mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                    raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-            async with runt.getSubRuntime(query) as subr:
-                if self.n2:
-                    async for subn, subp in subr.execute():
-                        if subn.form.isrunt:
-                            mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
-                            raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
-                        await subn.delEdge(verb, nid)
+                                await proto.delEdge(verb, subn.nid)
+                                await asyncio.sleep(0)
 
-                else:
-                    async with runt.view.getEditor(runt=runt) as editor:
-                        proto = editor.loadNode(node)
-
+            else:
+                async with runt.getSubRuntime(query) as subr:
+                    if self.n2:
+                        nid = node.nid
                         async for subn, subp in subr.execute():
-                            if subn.form.isrunt:
-                                mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
-                                raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
+                            await subn.delEdge(verb, nid, extra=self.addExcInfo)
+                    else:
+                        async with node.view.getEditor() as editor:
+                            proto = editor.loadNode(node)
+                            async for subn, subp in subr.execute():
+                                if subn.form.isrunt:
+                                    mesg = f'Edges cannot be used with runt nodes: {subn.form.full}'
+                                    raise self.addExcInfo(s_exc.IsRuntForm(mesg=mesg, form=subn.form.full))
 
-                            await proto.delEdge(verb, subn.nid)
-                            await asyncio.sleep(0)
-
-                            if len(proto.edgedels) >= 1000:
-                                nodeedits = editor.getNodeEdits()
-                                if nodeedits:
-                                    await runt.view.saveNodeEdits(nodeedits, editor.getEditorMeta())
-                                proto.edgedels.clear()
+                                await proto.delEdge(verb, subn.nid)
+                                await asyncio.sleep(0)
 
             yield node, path
 

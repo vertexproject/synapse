@@ -179,6 +179,34 @@ class ProtoNode(s_node.NodeBase):
 
         return (nid, self.form.name, edits)
 
+    async def flushEdits(self):
+        if (nodeedit := self.getNodeEdit()) is not None:
+            await self.editor.view.saveNodeEdits((nodeedit,), meta=self.editor.getEditorMeta())
+
+            if self.node is None:
+                self.node = await self.editor.view.getNodeByBuid(self.buid)
+
+            self.delnode = False
+            self.tombnode = False
+
+            self.tags.clear()
+            self.props.clear()
+            self.tagprops.clear()
+            self.edges.clear()
+            self.nodedata.clear()
+
+            self.tagdels.clear()
+            self.tagtombs.clear()
+            self.propdels.clear()
+            self.proptombs.clear()
+            self.tagpropdels.clear()
+            self.tagproptombs.clear()
+            self.edgedels.clear()
+            self.edgetombs.clear()
+            self.edgetombdels.clear()
+            self.nodedatadels.clear()
+            self.nodedatatombs.clear()
+
     async def addEdge(self, verb, n2nid, n2form=None):
 
         if not isinstance(verb, str):
@@ -213,6 +241,8 @@ class ProtoNode(s_node.NodeBase):
         if not self.multilayer:
             if not await self.editor.view.hasNodeEdge(self.nid, verb, n2nid):
                 self.edges.add(tupl)
+                if len(self.edges) >= 1000:
+                    await self.flushEdits()
                 return True
 
         if tupl in self.edgetombs:
@@ -225,6 +255,8 @@ class ProtoNode(s_node.NodeBase):
 
         if toplayr is False:
             self.edgetombdels.add(tupl)
+            if len(self.edgetombdels) >= 1000:
+                await self.flushEdits()
 
         for layr in self.editor.view.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
@@ -234,6 +266,9 @@ class ProtoNode(s_node.NodeBase):
                 break
 
         self.edges.add(tupl)
+        if len(self.edges) >= 1000:
+            await self.flushEdits()
+
         return True
 
     async def delEdge(self, verb, n2nid):
@@ -261,6 +296,8 @@ class ProtoNode(s_node.NodeBase):
         if not self.multilayer:
             if await self.editor.view.hasNodeEdge(self.nid, verb, n2nid):
                 self.edgedels.add(tupl)
+                if len(self.edgedels) >= 1000:
+                    await self.flushEdits()
                 return True
             return False
 
@@ -271,11 +308,15 @@ class ProtoNode(s_node.NodeBase):
         # has or none
         if toplayr is True:
             self.edgedels.add(tupl)
+            if len(self.edgedels) >= 1000:
+                await self.flushEdits()
 
         for layr in self.editor.view.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr:
                     self.edgetombs.add(tupl)
+                    if len(self.edgetombs) >= 1000:
+                        await self.flushEdits()
                     return True
                 break
 
@@ -759,9 +800,9 @@ class ProtoNode(s_node.NodeBase):
 
         return True
 
-    async def getSetOps(self, name, valu, norminfo=None):
+    async def getSubSetOps(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
-        if prop is None:
+        if prop is None or prop.locked:
             return ()
 
         retn = await self._set(prop, valu, norminfo=norminfo)
@@ -780,9 +821,7 @@ class ProtoNode(s_node.NodeBase):
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                subprop = self.form.props.get(full)
-                if subprop is not None and not subprop.locked:
-                    ops.append(self.getSetOps(full, subvalu))
+                ops.append(self.getSubSetOps(full, subvalu))
 
         propadds = norminfo.get('adds')
         if propadds is not None:
@@ -809,13 +848,17 @@ class NodeEditor:
     '''
     A NodeEditor allows tracking node edits with subs/deps as a transaction.
     '''
-    def __init__(self, view, user):
+    def __init__(self, view, user, meta=None):
+        self.meta = meta
         self.user = user
         self.view = view
         self.protonodes = {}
         self.maxnodes = view.core.maxnodes
 
     def getEditorMeta(self):
+        if self.meta is not None:
+            return self.meta
+
         return {
             'time': s_common.now(),
             'user': self.user.iden
@@ -838,6 +881,13 @@ class NodeEditor:
             if nodeedit is not None:
                 nodeedits.append(nodeedit)
         return nodeedits
+
+    async def flushEdits(self):
+        nodeedits = self.getNodeEdits()
+        if nodeedits:
+            await self.view.saveNodeEdits(nodeedits, meta=self.meta)
+
+        self.protonodes.clear()
 
     async def _addNode(self, form, valu, norminfo=None):
 
@@ -908,7 +958,7 @@ class NodeEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSubSetOps(prop, valu))
 
         adds = norminfo.get('adds')
         if adds is not None:
@@ -945,7 +995,7 @@ class NodeEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSubSetOps(prop, valu))
 
             while ops:
                 oset = ops.popleft()

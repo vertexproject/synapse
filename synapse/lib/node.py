@@ -200,11 +200,11 @@ class Node(NodeBase):
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
-    async def addEdge(self, verb, n2nid, n2form=None):
+    async def addEdge(self, verb, n2nid, n2form=None, extra=None):
         async with self.view.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2nid, n2form=n2form)
 
-    async def delEdge(self, verb, n2nid):
+    async def delEdge(self, verb, n2nid, extra=None):
         async with self.view.getNodeEditor(self) as editor:
             return await editor.delEdge(verb, n2nid)
 
@@ -1035,13 +1035,21 @@ class RuntNode(NodeBase):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 
-    async def addEdge(self, verb, n2nid):
+    async def addEdge(self, verb, n2nid, n2form=None, extra=None):
         mesg = f'You can not add an edge to a runtime only node (form: {self.form.name})'
-        raise s_exc.IsRuntForm(mesg=mesg)
+        exc = s_exc.IsRuntForm(mesg=mesg)
+        if extra is not None:
+            exc = extra(exc)
 
-    async def delEdge(self, verb, n2nid):
+        raise exc
+
+    async def delEdge(self, verb, n2nid, extra=None):
         mesg = f'You can not delete an edge from a runtime only node (form: {self.form.name})'
-        raise s_exc.IsRuntForm(mesg=mesg)
+        exc = s_exc.IsRuntForm(mesg=mesg)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     async def delTag(self, name, valu=None):
         mesg = f'You can not remove a tag from a runtime only node (form: {self.form.name})'

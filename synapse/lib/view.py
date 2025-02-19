@@ -2022,7 +2022,7 @@ class View(s_nexus.Pusher):  # type: ignore
             'user': user.iden
         }
 
-        editor = s_editor.NodeEditor(self.parent, user)
+        editor = s_editor.NodeEditor(self.parent, user, meta=meta)
 
         async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
             nid = s_common.int64en(intnid)
@@ -2035,10 +2035,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 await protonode.delEdgesN2(meta=meta)
                 await protonode.delete()
 
-                deledits = editor.getNodeEdits()
-                await self.parent.saveNodeEdits(deledits, meta)
-
-                editor.protonodes.clear()
+                await editor.flushEdits()
                 continue
 
             realedits = []
@@ -2104,7 +2101,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 deledits[0][2].extend(realedits)
                 await self.parent.storNodeEdits(deledits, meta)
             else:
-                await self.parent.storNodeEdits([(intnid, form, realedits)], meta)
+                await self.parent.storNodeEdits(((intnid, form, realedits),), meta)
 
     async def swapLayer(self):
         oldlayr = self.layers[0]
@@ -2534,10 +2531,6 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _addGuidNodeByDict(self, form, vals, runt, props=None):
 
-        norms = {}
-        counts = []
-        proplist = []
-
         if props is None:
             props = {}
 
@@ -2575,8 +2568,32 @@ class View(s_nexus.Pusher):  # type: ignore
                         raise e
                     await runt.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
-        for name, valu in vals.items():
+        norms, proplist = self._normGuidNodeDict(form, vals)
 
+        iden = s_common.guid(proplist)
+        node = await self._getGuidNodeByNorms(form, iden, norms)
+
+        async with self.getEditor() as editor:
+
+            if node is not None:
+                proto = editor.loadNode(node)
+            else:
+                proto = await editor.addNode(form.name, iden)
+                for name, (prop, valu, info) in norms.items():
+                    await proto.set(name, valu, norminfo=info)
+
+            # ensure the non-deconf props are set
+            for name, (valu, info) in props.items():
+                await proto.set(name, valu, norminfo=info)
+
+        return await self.getNodeByBuid(proto.buid)
+
+    def _normGuidNodeDict(self, form, props):
+
+        norms = {}
+        proplist = []
+
+        for name, valu in props.items():
             try:
                 prop = form.reqProp(name)
                 norm, norminfo = prop.type.norm(valu)
@@ -2594,22 +2611,24 @@ class View(s_nexus.Pusher):  # type: ignore
 
         proplist.sort()
 
+        return norms, proplist
+
+    async def _getGuidNodeByDict(self, form, props):
+        norms, proplist = self._normGuidNodeDict(form, props)
+        return await self._getGuidNodeByNorms(form, s_common.guid(proplist), norms)
+
+    async def _getGuidNodeByNorms(self, form, iden, norms):
+
         # check first for an exact match via our same deconf strategy
-        iden = s_common.guid(proplist)
 
         node = await self.getNodeByNdef((form.full, iden))
         if node is not None:
 
             # ensure we still match the property deconf criteria
-            for name, (prop, norm, info) in norms.items():
+            for (prop, norm, info) in norms.values():
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
         # TODO there is an opportunity here to populate
@@ -2619,7 +2638,10 @@ class View(s_nexus.Pusher):  # type: ignore
         # filter...
 
         # no exact match. lets do some counting.
-        for name, (prop, norm, info) in norms.items():
+
+        counts = []
+
+        for (prop, norm, info) in norms.values():
             count = await self._getPropAltCount(prop, norm)
             counts.append((count, prop, norm))
 
@@ -2635,21 +2657,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
-        async with self.getEditor() as editor:
-            proto = await editor.addNode(form.name, iden)
-            for name, (prop, valu, info) in norms.items():
-                await proto.set(name, valu, norminfo=info)
-            for name, (valu, info) in props.items():
-                await proto.set(name, valu, norminfo=info)
-
-        return await self.getNodeByBuid(proto.buid)
+        return None
 
     async def _getPropAltCount(self, prop, valu):
         count = 0
@@ -2666,7 +2676,8 @@ class View(s_nexus.Pusher):  # type: ignore
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                if valu in node.get(prop.name):
+                arryvalu = node.get(prop.name)
+                if arryvalu is not None and valu in arryvalu:
                     return True
             else:
                 if node.get(prop.name) == valu:
@@ -3233,6 +3244,23 @@ class View(s_nexus.Pusher):  # type: ignore
         if prop is None:
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
+
+        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr == '=':
+            if prop.isform:
+                if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
+                    yield node
+                return
+
+            fname = prop.type.name
+            if (form := prop.modl.form(fname)) is None:
+                mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            if (node := await self._getGuidNodeByDict(form, valu)) is None:
+                return
+
+            norm = False
+            valu = node.ndef[1]
 
         if norm or virts is not None:
             cmprvals = prop.type.getStorCmprs(cmpr, valu, virts=virts)

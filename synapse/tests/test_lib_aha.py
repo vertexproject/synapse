@@ -133,13 +133,18 @@ class AhaTest(s_test.SynTest):
         with self.getTestDir() as dirn:
             cryo0_dirn = s_common.gendir(dirn, 'cryo0')
             async with self.getTestAha(dirn=dirn) as aha:
+
+                replaymult = 1
+                if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
+                    replaymult = 2
+
                 purl = await aha.addAhaSvcProv('0.cryo')
 
-                wait00 = aha.waiter(1, 'aha:svcadd')
+                wait00 = aha.waiter(1 * replaymult, 'aha:svcadd')
 
                 conf = {'aha:provision': purl}
                 async with self.getTestCryo(dirn=cryo0_dirn, conf=conf) as cryo:
-                    self.isin(len(await wait00.wait(timeout=6)), (1, 2))
+                    self.len(1 * replaymult, await wait00.wait(timeout=6))
 
                     svc = await aha.getAhaSvc('0.cryo...')
                     linkiden = svc.get('svcinfo', {}).get('online')
@@ -147,16 +152,16 @@ class AhaTest(s_test.SynTest):
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
 
-            async with self.getTestAha(dirn=dirn) as aha:
-                wait01 = aha.waiter(1, 'aha:svcdown')
-                await wait01.wait(timeout=6)
-                svc = await aha.getAhaSvc('0.cryo...')
-                self.notin('online', svc.get('svcinfo'))
+            with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.cryo.synapse] offline.') as stream:
+                async with self.getTestAha(dirn=dirn) as aha:
+                    self.true(await asyncio.wait_for(stream.wait(), timeout=12))
+                    svc = await aha.getAhaSvc('0.cryo...')
+                    self.notin('online', svc.get('svcinfo'))
 
-                # Try setting something down a second time
-                await aha.setAhaSvcDown('0.cryo', linkiden, network='synapse')
-                svc = await aha.getAhaSvc('0.cryo...')
-                self.notin('online', svc.get('svcinfo'))
+                    # Try setting something down a second time
+                    await aha.setAhaSvcDown('0.cryo', linkiden, network='synapse')
+                    svc = await aha.getAhaSvc('0.cryo...')
+                    self.notin('online', svc.get('svcinfo'))
 
     async def test_lib_aha_basics(self):
 
@@ -444,8 +449,13 @@ class AhaTest(s_test.SynTest):
 
             async with self.getTestAha() as aha:
 
+                replaymult = 1
+                if s_common.envbool('SYNDEV_NEXUS_REPLAY'):
+                    replaymult = 2
+
                 aha.testerr = True
                 wait00 = aha.waiter(1, 'aha:svcadd')
+
                 conf = {'aha:provision': await aha.addAhaSvcProv('0.cryo')}
                 async with self.getTestCryo(conf=conf) as cryo:
 
@@ -454,7 +464,7 @@ class AhaTest(s_test.SynTest):
                     svc = await aha.getAhaSvc('0.cryo...')
                     self.none(svc)
 
-                    wait01 = aha.waiter(1, 'aha:svcadd')
+                    wait01 = aha.waiter(1 * replaymult, 'aha:svcadd')
                     aha.testerr = False
 
                     self.nn(await wait01.wait(timeout=2))
