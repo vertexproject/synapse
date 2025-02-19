@@ -1648,10 +1648,6 @@ class Snap(s_base.Base):
         return tagnode
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
-        if __debug__:
-            if issubclass(ctor, s_exc.IsDeprLocked):
-                sys.audit('synapse.exc.IsDeprLocked', (mesg, info))
-
         if self.strict:
             raise ctor(mesg=mesg, **info)
         await self.warn(mesg)
