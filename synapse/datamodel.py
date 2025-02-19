@@ -1,6 +1,7 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
+import sys
 import asyncio
 import logging
 import collections
@@ -142,6 +143,9 @@ class Prop:
             async def depfunc(node, oldv):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
+                if __debug__:
+                    sys.audit('synapse.datamodel.Prop.deprecated', mesg, self.full)
+
             self.onSet(depfunc)
 
     def __repr__(self):
@@ -306,6 +310,8 @@ class Form:
             async def depfunc(node):
                 mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
+                if __debug__:
+                    sys.audit('synapse.datamodel.Form.deprecated', mesg, self.full)
             self.onAdd(depfunc)
 
     def getStorNode(self, form):
