@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where the guid dictionary syntax could raise an exception when
+  attempting to filter by alternate property values.
+prs: []
+type: bug
+...

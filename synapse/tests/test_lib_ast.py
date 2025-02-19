@@ -501,6 +501,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop [ :ints++=([3, 4]) ]')
             self.eq(nodes[0].get('ints'), (1, 3, 4))
 
+            nodes = await core.nodes('test:arrayprop [ :ints++=(null) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('test:arrayprop [ :ints--=(null) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
             nodes = await core.nodes('test:arrayprop [ :strs++=(foo, bar, baz) ]')
             self.eq(nodes[0].get('strs'), ('foo', 'bar', 'baz'))
 

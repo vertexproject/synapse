@@ -63,6 +63,7 @@ class JsonStor(s_base.Base):
         for lkey, byts in self.slab.scanByPref(buid, db=self.metadb):
             self.slab.pop(lkey, db=self.metadb)
             await asyncio.sleep(0)
+
         # remove the item data
         self.slab.pop(buid, db=self.itemdb)
         self.dirty.pop(buid, None)

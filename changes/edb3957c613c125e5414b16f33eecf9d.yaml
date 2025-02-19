@@ -1,0 +1,5 @@
+---
+desc: Fixed bug where data model interface template values were modified by inheritors.
+prs: []
+type: bug
+...

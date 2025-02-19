@@ -1,6 +1,0 @@
----
-desc: Added ``++=``, ``--=``, ``?++=``, and ``?--=`` edit operators to Storm for adding or removing multiple
-  values from an array property in a single operation.
-prs: []
-type: feat
-...

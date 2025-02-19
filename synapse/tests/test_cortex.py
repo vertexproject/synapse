@@ -1001,6 +1001,114 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(cm.exception.get('mesg'),
                     'walk operation expected a string or list.  got: 0.')
 
+            await core.nodes('[media:news=*]')
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ +(refs)> $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(1, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ +(refs)> $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:int')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ -(refs)> $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(0, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ -(refs)> $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:int')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ <(refs)+ $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:str')
+            self.len(1, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ <(refs)+ $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:int')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ <(refs)- $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:str')
+            self.len(0, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ <(refs)- $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:int')
+            self.len(0, nodes)
+
+            await core.nodes('[media:news=*]')
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} $edge=refs media:news [ +($edge)> $n ]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} $edge=refs media:news [ -($edge)> $n ]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(0, nodes)
+
     async def test_cortex_callstorm(self):
 
         async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:
@@ -4520,12 +4628,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             self.len(2, await core.nodes('[ inet:dns:a=(vertex.link,1.2.3.4) inet:dns:a=(woot.com,5.6.7.8)]'))
             self.len(4, await core.nodes('inet:dns:a inet:fqdn=:fqdn'))
-
-    async def test_cortex_hive(self):
-        async with self.getTestCore() as core:
-            await core.hive.set(('visi',), 200)
-            async with core.getLocalProxy(share='cortex/hive') as hive:
-                self.eq(200, await hive.get(('visi',)))
 
     async def test_cortex_delnode_perms(self):
 

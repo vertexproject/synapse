@@ -1,6 +1,0 @@
----
-desc: Added new endpoints section in the package definition schema, allowing the configuration
-  of multiple endpoints and details.
-prs: []
-type: feat
-...
