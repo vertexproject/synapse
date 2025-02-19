@@ -25,6 +25,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
@@ -1782,7 +1783,7 @@ class LibBase(Lib):
         name = await tostr(name)
         mesg = await tostr(mesg)
         info = await toprim(info)
-        s_common.reqjsonsafe(info)
+        s_json.reqjsonsafe(info)
 
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
@@ -1841,7 +1842,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _fire(self, name, **info):
         info = await toprim(info)
-        s_common.reqjsonsafe(info)
+        s_json.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
 @registry.registerLib
@@ -4797,11 +4798,7 @@ class Str(Prim):
 
     @stormfunc(readonly=True)
     async def _methStrJson(self):
-        try:
-            return json.loads(self.valu, strict=True)
-        except Exception as e:
-            mesg = f'Text is not valid JSON: {self.valu}'
-            raise s_exc.BadJsonText(mesg=mesg)
+        return s_json.loads(self.valu)
 
 @registry.registerType
 class Bytes(Prim):
@@ -4994,14 +4991,10 @@ class Bytes(Prim):
             else:
                 encoding = await tostr(encoding)
 
-            return json.loads(valu.decode(encoding, errors))
+            return s_json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
-
-        except json.JSONDecodeError as e:
-            mesg = f'Unable to decode bytes as json: {e.args[0]}'
-            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Dict(Prim):
@@ -6262,7 +6255,7 @@ class NodeData(Prim):
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
-        s_common.reqjsonsafe(valu)
+        s_json.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):

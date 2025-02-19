@@ -1,8 +1,9 @@
 import sys
-import json
 import pprint
 
 import requests
+
+import synapse.lib.json as s_json
 
 # Examples for using the Cortex HTTP API to call Storm queries.
 # For more information about these APIs, refer to the following documentation.
@@ -39,7 +40,7 @@ def main(argv):
 
     resp = sess.get(url, json=data, stream=True)
     for chunk in resp.iter_content(chunk_size=None, decode_unicode=True):
-        mesg = json.loads(chunk)
+        mesg = s_json.loads(chunk)
         pprint.pprint(mesg)
 
     # storm/call - this is intended for use with the Storm return() syntax

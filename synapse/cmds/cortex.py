@@ -1,5 +1,4 @@
 import os
-import json
 import queue
 import shlex
 import pprint
@@ -10,6 +9,7 @@ import synapse.common as s_common
 
 import synapse.lib.cli as s_cli
 import synapse.lib.cmd as s_cmd
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.msgpack as s_msgpack
@@ -118,7 +118,7 @@ Examples:
 
         fmt = self.locs.get('log:fmt')
         if fmt == 'jsonl':
-            s = json.dumps(mesg, sort_keys=True) + '\n'
+            s = s_json.dumps(mesg, sort_keys=True, newline=True)
             buf = s.encode()
             return buf
 
@@ -430,8 +430,8 @@ class StormCmd(s_cli.Cmd):
                 if mesg[0] == 'node':
 
                     if nodesfd is not None:
-                        byts = json.dumps(mesg[1]).encode()
-                        nodesfd.write(byts + b'\n')
+                        byts = s_json.dumpsb(mesg[1], newline=True)
+                        nodesfd.write(byts)
 
                 try:
                     func = self.cmdmeths[mesg[0]]

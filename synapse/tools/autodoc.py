@@ -1,6 +1,5 @@
 import sys
 import copy
-import json
 import asyncio
 import logging
 import argparse
@@ -13,6 +12,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
@@ -253,7 +253,7 @@ def processTypes(rst, dochelp, types):
                         rst.addLines(f' * {key}: ``{valu}``')
                         continue
                     lines = [f' * {key}:\n', '  ::\n\n']
-                    json_lines = json.dumps(valu, indent=1, sort_keys=True)
+                    json_lines = s_json.dumps(valu, indent=True, sort_keys=True)
                     json_lines = ['   ' + line for line in json_lines.split('\n')]
                     lines.extend(json_lines)
                     lines.append('\n')
@@ -795,7 +795,7 @@ async def docConfdefs(ctor):
                 data = {k: v for k, v in conf.items() if k not in (
                     'description', 'default', 'type', 'hideconf', 'hidecmdl',
                 )}
-                parts = json.dumps(data, sort_keys=True, indent=2).split('\n')
+                parts = s_json.dumps(data, sort_keys=True, indent=True).split('\n')
                 lines.append('    ::')
                 lines.append('\n')
                 lines.extend([f'      {p}' for p in parts])
