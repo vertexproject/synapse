@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import types
 import asyncio
 import logging
@@ -12,14 +11,12 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
