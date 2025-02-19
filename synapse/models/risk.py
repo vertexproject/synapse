@@ -810,6 +810,15 @@ class RiskModule(s_module.CoreModule):
 
                     ('host', ('it:host', {}), {
                         'doc': 'The host which generated the alert.'}),
+
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which generated the alert.'}),
+
+                    ('service:instance', ('inet:service:instance', {}), {
+                        'doc': 'The service instance which generated the alert.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which generated the alert.'}),
                 )),
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (

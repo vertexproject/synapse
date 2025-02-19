@@ -880,6 +880,19 @@ _reqValidPkgdefSchema = {
                     'type': 'string',
                     'pattern': s_grammar.re_scmd
                 },
+                'endpoints': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'path': {'type': 'string'},
+                            'host': {'type': 'string'},
+                            'desc': {'type': 'string'},
+                        },
+                        'required': ['path'],
+                        'additionalProperties': False
+                    }
+                },
                 'cmdargs': {
                     'type': ['array', 'null'],
                     'items': {'$ref': '#/definitions/cmdarg'},

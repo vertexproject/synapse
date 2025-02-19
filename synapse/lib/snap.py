@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 import types
 import asyncio
 import logging
@@ -12,14 +11,12 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
@@ -138,9 +135,29 @@ class ProtoNode:
 
         if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edges.add(tupl)
+            if len(self.edges) >= 1000:
+                await self.flushEdits()
             return True
 
         return False
+
+    async def flushEdits(self):
+        if (nodeedit := self.getNodeEdit()) is not None:
+            nodecache = {self.buid: self.node}
+            nodes = await self.ctx.snap.applyNodeEdits((nodeedit,), nodecache=nodecache, meta=self.ctx.meta)
+
+            if self.node is None:
+                if nodes and nodes[0].buid == self.buid:
+                    self.node = nodes[0]
+                else:  # pragma: no cover
+                    self.node = await self.ctx.snap.getNodeByBuid(self.buid)
+
+            self.tags.clear()
+            self.props.clear()
+            self.tagprops.clear()
+            self.edges.clear()
+            self.edgedels.clear()
+            self.nodedata.clear()
 
     async def delEdge(self, verb, n2iden):
 
@@ -169,6 +186,8 @@ class ProtoNode:
 
         if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edgedels.add(tupl)
+            if len(self.edgedels) >= 1000:
+                await self.flushEdits()
             return True
 
         return False
@@ -417,6 +436,9 @@ class ProtoNode:
                 full = f'{prop.name}:{subname}'
                 subprop = self.form.props.get(full)
                 if subprop is not None and not subprop.locked:
+                    if subprop.deprecated:
+                        self.ctx.snap._skipPropDeprWarn(subprop.full)
+
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
@@ -426,10 +448,13 @@ class ProtoNode:
 
         return True
 
-    async def getSetOps(self, name, valu, norminfo=None):
+    async def getSetSubOps(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
-        if prop is None:
+        if prop is None or prop.locked:
             return ()
+
+        if prop.deprecated:
+            self.ctx.snap._skipPropDeprWarn(prop.full)
 
         retn = await self._set(prop, valu, norminfo=norminfo)
         if retn is False:
@@ -447,9 +472,7 @@ class ProtoNode:
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                subprop = self.form.props.get(full)
-                if subprop is not None and not subprop.locked:
-                    ops.append(self.getSetOps(full, subvalu))
+                ops.append(self.getSetSubOps(full, subvalu))
 
         propadds = norminfo.get('adds')
         if propadds is not None:
@@ -462,7 +485,8 @@ class SnapEditor:
     '''
     A SnapEditor allows tracking node edits with subs/deps as a transaction.
     '''
-    def __init__(self, snap):
+    def __init__(self, snap, meta=None):
+        self.meta = meta
         self.snap = snap
         self.protonodes = {}
         self.maxnodes = snap.core.maxnodes
@@ -479,6 +503,19 @@ class SnapEditor:
             if nodeedit is not None:
                 nodeedits.append(nodeedit)
         return nodeedits
+
+    async def flushEdits(self):
+        nodecache = {}
+        nodeedits = []
+        for protonode in self.protonodes.values():
+            if (nodeedit := protonode.getNodeEdit()) is not None:
+                nodeedits.append(nodeedit)
+                nodecache[protonode.buid] = protonode.node
+
+        if nodeedits:
+            await self.snap.applyNodeEdits(nodeedits, nodecache=nodecache, meta=self.meta)
+
+        self.protonodes.clear()
 
     async def _addNode(self, form, valu, props=None, norminfo=None):
 
@@ -556,7 +593,7 @@ class SnapEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSetSubOps(prop, valu))
 
         adds = norminfo.get('adds')
         if adds is not None:
@@ -592,7 +629,7 @@ class SnapEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSetSubOps(prop, valu))
 
             while ops:
                 oset = ops.popleft()
@@ -849,6 +886,10 @@ class Snap(s_base.Base):
         self._warnonce_keys.add(mesg)
         await self.warn(mesg, log, **info)
 
+    def _skipPropDeprWarn(self, name):
+        mesg = f'The property {name} is deprecated or using a deprecated type and will be removed in 3.0.0'
+        self._warnonce_keys.add(mesg)
+
     async def getNodeByBuid(self, buid):
         '''
         Retrieve a node tuple by binary id.
@@ -1062,6 +1103,23 @@ class Snap(s_base.Base):
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
+        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr == '=':
+            if prop.isform:
+                if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
+                    yield node
+                return
+
+            fname = prop.type.name
+            if (form := prop.modl.form(fname)) is None:
+                mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            if (node := await self._getGuidNodeByDict(form, valu)) is None:
+                return
+
+            norm = False
+            valu = node.ndef[1]
+
         if norm:
             cmprvals = prop.type.getStorCmprs(cmpr, valu)
             # an empty return probably means ?= with invalid value
@@ -1189,11 +1247,13 @@ class Snap(s_base.Base):
         if nodes:
             return nodes[0]
 
-    async def applyNodeEdits(self, edits, nodecache=None):
+    async def applyNodeEdits(self, edits, nodecache=None, meta=None):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
-        meta = await self.getSnapMeta()
+        if meta is None:
+            meta = await self.getSnapMeta()
+
         saveoff, changes, nodes = await self._applyNodeEdits(edits, meta, nodecache=nodecache)
         return nodes
 
@@ -1398,10 +1458,6 @@ class Snap(s_base.Base):
 
     async def _addGuidNodeByDict(self, form, vals, props=None):
 
-        norms = {}
-        counts = []
-        proplist = []
-
         if props is None:
             props = {}
 
@@ -1439,7 +1495,32 @@ class Snap(s_base.Base):
                         raise e
                     await self.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
-        for name, valu in vals.items():
+        norms, proplist = self._normGuidNodeDict(form, vals)
+
+        iden = s_common.guid(proplist)
+        node = await self._getGuidNodeByNorms(form, iden, norms)
+
+        async with self.getEditor() as editor:
+
+            if node is not None:
+                proto = editor.loadNode(node)
+            else:
+                proto = await editor.addNode(form.name, iden)
+                for name, (prop, valu, info) in norms.items():
+                    await proto.set(name, valu, norminfo=info)
+
+            # ensure the non-deconf props are set
+            for name, (valu, info) in props.items():
+                await proto.set(name, valu, norminfo=info)
+
+        return await self.getNodeByBuid(proto.buid)
+
+    def _normGuidNodeDict(self, form, props):
+
+        norms = {}
+        proplist = []
+
+        for name, valu in props.items():
 
             try:
                 prop = form.reqProp(name)
@@ -1458,22 +1539,24 @@ class Snap(s_base.Base):
 
         proplist.sort()
 
+        return norms, proplist
+
+    async def _getGuidNodeByDict(self, form, props):
+        norms, proplist = self._normGuidNodeDict(form, props)
+        return await self._getGuidNodeByNorms(form, s_common.guid(proplist), norms)
+
+    async def _getGuidNodeByNorms(self, form, iden, norms):
+
         # check first for an exact match via our same deconf strategy
-        iden = s_common.guid(proplist)
 
         node = await self.getNodeByNdef((form.full, iden))
         if node is not None:
 
             # ensure we still match the property deconf criteria
-            for name, (prop, norm, info) in norms.items():
+            for (prop, norm, info) in norms.values():
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
         # TODO there is an opportunity here to populate
@@ -1482,8 +1565,10 @@ class Snap(s_base.Base):
         # if we lookup a node and it no longer passes the
         # filter...
 
+        counts = []
+
         # no exact match. lets do some counting.
-        for name, (prop, norm, info) in norms.items():
+        for (prop, norm, info) in norms.values():
             count = await self._getPropAltCount(prop, norm)
             counts.append((count, prop, norm))
 
@@ -1499,21 +1584,9 @@ class Snap(s_base.Base):
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
-        async with self.getEditor() as editor:
-            proto = await editor.addNode(form.name, iden)
-            for name, (prop, valu, info) in norms.items():
-                await proto.set(name, valu, norminfo=info)
-            for name, (valu, info) in props.items():
-                await proto.set(name, valu, norminfo=info)
-
-        return await self.getNodeByBuid(proto.buid)
+        return None
 
     async def _getPropAltCount(self, prop, valu):
         count = 0
@@ -1530,7 +1603,8 @@ class Snap(s_base.Base):
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                if valu in node.get(prop.name):
+                arryvalu = node.get(prop.name)
+                if arryvalu is not None and valu in arryvalu:
                     return True
             else:
                 if node.get(prop.name) == valu:
@@ -1618,10 +1692,6 @@ class Snap(s_base.Base):
         return tagnode
 
     async def _raiseOnStrict(self, ctor, mesg, **info):
-        if __debug__:
-            if issubclass(ctor, s_exc.IsDeprLocked):
-                sys.audit('synapse.exc.IsDeprLocked', (mesg, info))
-
         if self.strict:
             raise ctor(mesg=mesg, **info)
         await self.warn(mesg)

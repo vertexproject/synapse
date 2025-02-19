@@ -1222,6 +1222,9 @@ def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
     assert n > plen
     return f'{text[:mlen]}{placeholder}'
 
+def queryhash(text):
+    return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+
 def _patch_http_cookies():
     '''
     Patch stdlib http.cookies._unquote from the 3.11.10 implementation if

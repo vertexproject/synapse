@@ -1,0 +1,5 @@
+---
+desc: Added Endpoints section with path and description to Storm command help output when defined.
+prs: []
+type: feat
+...
