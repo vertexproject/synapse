@@ -9307,7 +9307,7 @@ class CronJob(Prim):
          'type': {'type': 'function', '_funcname': '_methCronJobKill',
                   'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the task was terminated.'}}},
 
-        {'name': 'completed', 'desc': 'True if a Cron Job defined with a non-recurring tasks has completed.',
+        {'name': 'completed', 'desc': 'True if a non-recurring Cron Job has completed.',
          'type': {'type': 'function', '_funcname': '_methCronJobCompleted',
                   'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the job is completed.'}}},
 
