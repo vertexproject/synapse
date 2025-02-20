@@ -976,7 +976,7 @@ stormcmds = (
 
             if $crons {
                 for $cron in $crons {
-                    if $cron.completed() {
+                    if $cron.completed {
                         $lib.cron.del($cron.iden)
                         $count = ($count + 1)
                     }

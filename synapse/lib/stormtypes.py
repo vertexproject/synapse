@@ -9307,15 +9307,15 @@ class CronJob(Prim):
          'type': {'type': 'function', '_funcname': '_methCronJobKill',
                   'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the task was terminated.'}}},
 
-        {'name': 'completed', 'desc': 'True if a non-recurring Cron Job has completed.',
-         'type': {'type': 'function', '_funcname': '_methCronJobCompleted',
-                  'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the job is completed.'}}},
-
         {'name': 'pprint', 'desc': 'Get a dictionary containing user friendly strings for printing the CronJob.',
          'type': {'type': 'function', '_funcname': '_methCronJobPprint',
                   'returns':
                       {'type': 'dict',
                        'desc': 'A dictionary containing structured data about a cronjob for display purposes.'}}},
+
+        {'name': 'completed', 'desc': 'True if a non-recurring Cron Job has completed.',
+         'type': {'type': 'gtor', '_gtorfunc': '_gtorCompleted', 'returns': {'type': 'boolean'}}},
+
     )
     _storm_typename = 'cronjob'
     _ismutable = False
@@ -9325,6 +9325,7 @@ class CronJob(Prim):
         self.runt = runt
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+        self.gtors['completed'] = self._gtorCompleted
 
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
@@ -9334,7 +9335,6 @@ class CronJob(Prim):
             'set': self._methCronJobSet,
             'kill': self._methCronJobKill,
             'pprint': self._methCronJobPprint,
-            'completed': self._methCronJobCompleted,
         }
 
     async def _methCronJobKill(self):
@@ -9358,7 +9358,8 @@ class CronJob(Prim):
 
         return self
 
-    async def _methCronJobCompleted(self):
+    @stormfunc(readonly=True)
+    async def _gtorCompleted(self):
         if self.valu.get('recs'):
             return False
         return True
