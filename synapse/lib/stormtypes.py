@@ -6429,9 +6429,6 @@ class Layer(Prim):
                        'desc': 'The default value returned if the name is not set in the Layer.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The value requested or the default value.', }}},
-        {'name': 'pack', 'desc': 'Get the Layer definition.',
-         'type': {'type': 'function', '_funcname': '_methLayerPack',
-                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the Layer definition.', }}},
         {'name': 'repr', 'desc': 'Get a string representation of the Layer.',
          'type': {'type': 'function', '_funcname': '_methLayerRepr',
                   'returns': {'type': 'str', 'desc': 'A string that can be printed, representing a Layer.', }}},
@@ -6799,7 +6796,6 @@ class Layer(Prim):
         return {
             'set': self._methLayerSet,
             'get': self._methLayerGet,
-            'pack': self._methLayerPack,
             'repr': self._methLayerRepr,
             'edits': self._methLayerEdits,
             'edited': self._methLayerEdited,
@@ -7306,8 +7302,7 @@ class Layer(Prim):
         valu = await self.runt.dyncall(layriden, todo, gatekeys=gatekeys)
         self.valu[name] = valu
 
-    @stormfunc(readonly=True)
-    async def _methLayerPack(self):
+    async def value(self):
         ldef = copy.deepcopy(self.valu)
         pushs = ldef.get('pushs')
         if pushs is not None:
@@ -7512,9 +7507,6 @@ class View(Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the new View.', 'default': None},
                   ),
                   'returns': {'type': 'view', 'desc': 'The ``view`` object for the new View.', }}},
-        {'name': 'pack', 'desc': 'Get the View definition.',
-         'type': {'type': 'function', '_funcname': '_methViewPack',
-                  'returns': {'type': 'dict', 'desc': 'Dictionary containing the View definition.', }}},
         {'name': 'repr', 'desc': 'Get a string representation of the View.',
          'type': {'type': 'function', '_funcname': '_methViewRepr',
                   'returns': {'type': 'list', 'desc': 'A list of lines that can be printed, representing a View.', }}},
@@ -7724,7 +7716,6 @@ class View(Prim):
         return {
             'set': self._methViewSet,
             'get': self._methViewGet,
-            'pack': self._methViewPack,
             'repr': self._methViewRepr,
             'merge': self._methViewMerge,
             'detach': self.detach,
@@ -7989,8 +7980,7 @@ class View(Prim):
 
         return '\n'.join(lines)
 
-    @stormfunc(readonly=True)
-    async def _methViewPack(self):
+    def value(self):
         return copy.deepcopy(self.valu)
 
     async def _methViewFork(self, name=None):
@@ -8437,9 +8427,6 @@ class Trigger(Prim):
                        'desc': 'The iden of the new View for the Trigger to run in.', },
                   ),
                   'returns': {'type': 'null', }}},
-        {'name': 'pack', 'desc': 'Get the trigger definition.',
-         'type': {'type': 'function', '_funcname': 'pack',
-                  'returns': {'type': 'dict', 'desc': 'The definition.', }}},
     )
     _storm_typename = 'trigger'
     _ismutable = False
@@ -8459,11 +8446,9 @@ class Trigger(Prim):
         return {
             'set': self.set,
             'move': self.move,
-            'pack': self.pack,
         }
 
-    @stormfunc(readonly=True)
-    async def pack(self):
+    def value(self):
         return copy.deepcopy(self.valu)
 
     async def deref(self, name):
@@ -9322,9 +9307,10 @@ class CronJob(Prim):
          'type': {'type': 'function', '_funcname': '_methCronJobKill',
                   'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the task was terminated.'}}},
 
-        {'name': 'pack', 'desc': 'Get the Cronjob definition.',
-         'type': {'type': 'function', '_funcname': '_methCronJobPack',
-                  'returns': {'type': 'dict', 'desc': 'The definition.'}}},
+        {'name': 'completed', 'desc': 'True if a Cron Job defined with a non-recurring tasks has completed.',
+         'type': {'type': 'function', '_funcname': '_methCronJobCompleted',
+                  'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the job is completed.'}}},
+
         {'name': 'pprint', 'desc': 'Get a dictionary containing user friendly strings for printing the CronJob.',
          'type': {'type': 'function', '_funcname': '_methCronJobPprint',
                   'returns':
@@ -9347,8 +9333,8 @@ class CronJob(Prim):
         return {
             'set': self._methCronJobSet,
             'kill': self._methCronJobKill,
-            'pack': self._methCronJobPack,
             'pprint': self._methCronJobPprint,
+            'completed': self._methCronJobCompleted,
         }
 
     async def _methCronJobKill(self):
@@ -9372,8 +9358,12 @@ class CronJob(Prim):
 
         return self
 
-    @stormfunc(readonly=True)
-    async def _methCronJobPack(self):
+    async def _methCronJobCompleted(self):
+        if self.valu.get('recs'):
+            return False
+        return True
+
+    def value(self):
         return copy.deepcopy(self.valu)
 
     @staticmethod

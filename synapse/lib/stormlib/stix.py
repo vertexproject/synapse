@@ -1274,11 +1274,6 @@ class StixBundle(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'str', 'desc': 'The stable STIX id of the added object.'}}},
 
-        {'name': 'pack', 'desc': 'Return the bundle as a STIX JSON object.',
-         'type': {'type': 'function', '_funcname': 'pack',
-                  'args': (),
-                  'returns': {'type': 'dict', }}},
-
         {'name': 'size', 'desc': 'Return the number of STIX objects currently in the bundle.',
          'type': {'type': 'function', '_funcname': 'size',
                   'args': (),
@@ -1298,13 +1293,20 @@ class StixBundle(s_stormtypes.Prim):
         self.synextension = config.get('synapse_extension', True)
         self.maxsize = config.get('maxsize', 10000)
 
-    async def value(self):
-        return self.pack()
+    def value(self):
+        objects = list(self.objs.values())
+        if self.synextension:
+            objects.insert(0, self._getSynapseExtensionDefinition())
+        bundle = {
+            'type': 'bundle',
+            'id': f'bundle--{uuid4()}',
+            'objects': objects
+        }
+        return bundle
 
     def getObjLocals(self):
         return {
             'add': self.add,
-            'pack': self.pack,
             'size': self.size,
         }
 
@@ -1430,18 +1432,6 @@ class StixBundle(s_stormtypes.Prim):
             ],
         }
         return ret
-
-    @s_stormtypes.stormfunc(readonly=True)
-    def pack(self):
-        objects = list(self.objs.values())
-        if self.synextension:
-            objects.insert(0, self._getSynapseExtensionDefinition())
-        bundle = {
-            'type': 'bundle',
-            'id': f'bundle--{uuid4()}',
-            'objects': objects
-        }
-        return bundle
 
     @s_stormtypes.stormfunc(readonly=True)
     def size(self):
