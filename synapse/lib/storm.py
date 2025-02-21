@@ -1726,9 +1726,6 @@ class Runtime(s_base.Base):
     async def warnonce(self, mesg, **info):
         return await self.snap.warnonce(mesg, **info)
 
-    def tick(self):
-        pass
-
     def cancel(self):
         self.task.cancel()
 
@@ -1964,7 +1961,6 @@ class Runtime(s_base.Base):
                     nodegenr = subgraph.run(self, nodegenr)
 
                 async for item in nodegenr:
-                    self.tick()
                     yield item
 
         except RecursionError:
