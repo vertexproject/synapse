@@ -56,9 +56,9 @@ _DefaultConfig = {
                     'rels': (
                         ('attributed-to', 'threat-actor', ':org -> ou:org'),
                         ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
-                        ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
-                        ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
-                        ('targets', 'vulnerability', '-> risk:attack :used:vuln -> risk:vuln'),
+                        ('targets', 'identity', '-> risk:attack -(targets)> ou:org'),
+                        ('targets', 'identity', '-> risk:attack -(targets)> ps:person'),
+                        ('targets', 'vulnerability', '-> risk:attack -(uses)> risk:vuln'),
                     ),
                 },
             },
@@ -96,8 +96,8 @@ _DefaultConfig = {
                     'rels': (
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', ':hq -> geo:place'),
-                        ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack :used:vuln -> risk:vuln'),
+                        ('targets', 'identity', '-> ou:campaign -> risk:attack -(targets)> ou:org'),
+                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack -(uses)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -148,31 +148,29 @@ _DefaultConfig = {
             },
         },
 
-        'inet:ipv4': {
-            'default': 'ipv4-addr',
+        'inet:ip': {
+            'dynopts': ('ipv4-addr', 'ipv6-addr'),
+            'dyndefault': '''
+                if (:version=4) { return(ipv4-addr) }
+                elif (:version=6) { return(ipv6-addr) }
+            ''',
             'stix': {
                 'ipv4-addr': {
                     'props': {
-                        'value': 'return($node.repr())',
+                        'value': '+:version=4 return($node.repr())',
                     },
                     'rels': (
                         ('belongs-to', 'autonomous-system', '-> inet:asn'),
                     ),
-                }
-            },
-        },
-
-        'inet:ipv6': {
-            'default': 'ipv6-addr',
-            'stix': {
+                },
                 'ipv6-addr': {
                     'props': {
-                        'value': 'return($node.repr())',
+                        'value': '+:version=6 return($node.repr())',
                     },
                     'rels': (
                         ('belongs-to', 'autonomous-system', '-> inet:asn'),
                     ),
-                }
+                },
             },
         },
 
@@ -184,8 +182,8 @@ _DefaultConfig = {
                         'value': 'return($node.repr())',
                         'resolves_to_refs': '''
                             init { $refs = () }
-                            { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
-                            { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
+                            { -> inet:dns:a -> inet:ip $refs.append($bundle.add($node)) }
+                            { -> inet:dns:aaaa -> inet:ip $refs.append($bundle.add($node)) }
                             { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
                             fini { if $refs { return($refs)} }
                          ''',
@@ -213,26 +211,25 @@ _DefaultConfig = {
                     'props': {
                         'value': 'return($node.repr())',
                         'display_name': '-> ps:contact +:name return(:name)',
-                        'belongs_to_ref': '-> inet:web:acct return($bundle.add($node))',
+                        'belongs_to_ref': '-> inet:service:account return($bundle.add($node))',
                     },
                 }
             },
         },
 
-        'inet:web:acct': {
+        'inet:service:account': {
             'default': 'user-account',
             'stix': {
                 'user-account': {
                     'props': {
-                        'user_id': 'return(:user)',
+                        'user_id': 'return(:id)',
                         'account_login': 'return(:user)',
-                        'account_type': '''
-                            {+:site=twitter.com return(twitter)}
-                            {+:site=facebook.com return(facebook)}
+                        'account_type': '''-> inet:service:platform
+                            {+:name=twitter return(twitter)}
+                            {+:name=facebook return(facebook)}
                         ''',
-                        'credential': '+:passwd return(:passwd)',
-                        'display_name': '+:realname return(:realname)',
-                        'account_created': '+:signup return($lib.stix.export.timestamp(:signup))',
+                        'credential': '-> auth:creds return(:passwd)',
+                        'account_created': '+:period return($lib.stix.export.timestamp((:period).0))',
                         'account_last_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.0))',
                         'account_first_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.1))',
                     },
@@ -489,7 +486,7 @@ _DefaultConfig = {
 perm_maxsize = ('storm', 'lib', 'stix', 'export', 'maxsize')
 def _validateConfig(runt, config):
 
-    core = runt.snap.core
+    core = runt.view.core
 
     maxsize = config.get('maxsize', 10000)
 
@@ -527,21 +524,29 @@ def _validateConfig(runt, config):
 
         stixdef = formconf.get('default')
         if stixdef is None:
-            mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
-            raise s_exc.NeedConfValu(mesg=mesg)
+            if (stixdyn := formconf.get('dyndefault')) is None:
+                mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
+                raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixdef not in alltypes:
-            mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
-            raise s_exc.BadConfValu(mesg=mesg)
+            stixdefs = formconf.get('dynopts')
+
+        else:
+            stixdefs = (stixdef,)
+
+        for stixdef in stixdefs:
+            if stixdef not in alltypes:
+                mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
+                raise s_exc.BadConfValu(mesg=mesg)
 
         stixmaps = formconf.get('stix')
         if stixmaps is None:
             mesg = f'STIX Bundle config is missing STIX maps for form {formname}.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixmaps.get(stixdef) is None:
-            mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
-            raise s_exc.BadConfValu(mesg=mesg)
+        for stixdef in stixdefs:
+            if stixmaps.get(stixdef) is None:
+                mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
+                raise s_exc.BadConfValu(mesg=mesg)
 
         for stixtype, stixinfo in stixmaps.items():
 
@@ -677,7 +682,7 @@ class LibStix(s_stormtypes.Lib):
             ndef = synx.get('synapse_ndef')
             if not ndef:  # pragma: no cover
                 continue
-            node = await self.runt.snap.getNodeByNdef(ndef)
+            node = await self.runt.view.getNodeByNdef(ndef)
             if node:
                 yield node
 
@@ -925,7 +930,7 @@ class LibStixImport(s_stormtypes.Lib):
 
         if bundlenode is not None:
             for node in nodesbyid.values():
-                await bundlenode.addEdge('refs', node.iden())
+                await bundlenode.addEdge('refs', node.nid)
                 await asyncio.sleep(0)
             yield bundlenode
 
@@ -948,7 +953,7 @@ class LibStixImport(s_stormtypes.Lib):
 
             objconf = config['objects'].get(objtype)
             if objconf is None:
-                await self.runt.snap.warnonce(f'STIX bundle ingest has no object definition for: {objtype}.')
+                await self.runt.warnonce(f'STIX bundle ingest has no object definition for: {objtype}.')
                 continue
 
             objstorm = objconf.get('storm')
@@ -962,7 +967,7 @@ class LibStixImport(s_stormtypes.Lib):
             except asyncio.CancelledError: # pragma: no cover
                 raise
             except Exception as e:
-                await self.runt.snap.warn(f'Error during STIX import callback for {objtype}: {e}')
+                await self.runt.warn(f'Error during STIX import callback for {objtype}: {e}')
 
         for rel in relationships:
 
@@ -1006,10 +1011,10 @@ class LibStixImport(s_stormtypes.Lib):
                 except asyncio.CancelledError: # pragma: no cover
                     raise
                 except Exception as e:
-                    await self.runt.snap.warn(f'Error during STIX import callback for {reltype}: {e}')
+                    await self.runt.warn(f'Error during STIX import callback for {reltype}: {e}')
 
             if not foundone:
-                await self.runt.snap.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
+                await self.runt.warnonce(f'STIX bundle ingest has no relationship definition for: {reltype}.')
 
         # attempt to resolve object_refs
         for obj in bundle.get('objects', ()):
@@ -1023,13 +1028,13 @@ class LibStixImport(s_stormtypes.Lib):
                 if refsnode is None:
                     continue
 
-                await node.addEdge('refs', refsnode.iden())
+                await node.addEdge('refs', refsnode.nid)
 
         return nodesbyid
 
     async def _callStorm(self, text, varz):
 
-        query = await self.runt.snap.core.getStormQuery(text)
+        query = await self.runt.view.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts={'vars': varz}) as runt:
             try:
                 async for _ in runt.execute():
@@ -1102,8 +1107,8 @@ class LibStixExport(s_stormtypes.Lib):
                                     "rels": (
                                         ("attributed-to", "threat-actor", ":org -> ou:org"),
                                         ("originates-from", "location", ":org -> ou:org :hq -> geo:place"),
-                                        ("targets", "identity", "-> risk:attack :target:org -> ou:org"),
-                                        ("targets", "identity", "-> risk:attack :target:person -> ps:person"),
+                                        ("targets", "identity", "-> risk:attack -(targets)> ou:org"),
+                                        ("targets", "identity", "-> risk:attack -(targets)> ps:person"),
                                     ),
                                 },
                             },
@@ -1118,7 +1123,7 @@ class LibStixExport(s_stormtypes.Lib):
                             "domain-name": {
                                 ...
                                 "pivots": [
-                                    {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                                    {"storm": "-> inet:dns:a -> inet:ip", "stixtype": "ipv4-addr"}
                                 ]
                             {
                         }
@@ -1324,7 +1329,10 @@ class StixBundle(s_stormtypes.Prim):
             return None
 
         if stixtype is None:
-            stixtype = formconf.get('default')
+            if (stixtype := formconf.get('default')) is None:
+                stixdyn = formconf.get('dyndefault')
+                if (stixtype := await self._callStorm(stixdyn, node)) is s_common.novalu:
+                    return None
 
         # cyber observables have UUIDv5 the rest have UUIDv4
         if stixtype in stix_observables:
@@ -1445,7 +1453,7 @@ class StixBundle(s_stormtypes.Prim):
         varz['bundle'] = self
 
         opts = {'vars': varz}
-        query = await self.runt.snap.core.getStormQuery(text)
+        query = await self.runt.view.core.getStormQuery(text)
         async with self.runt.getCmdRuntime(query, opts=opts) as runt:
 
             async def genr():

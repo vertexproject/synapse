@@ -205,28 +205,6 @@ class GeoTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, '1.3 pc')
             self.raises(s_exc.BadTypeValu, t.norm, 'foo')
 
-            # geo:nloc
-            formname = 'geo:nloc'
-            t = core.model.type(formname)
-
-            ndef = ('inet:ipv4', '0.0.0.0')
-            latlong = ('0.000000000', '0')
-            stamp = -0
-
-            place = s_common.guid()
-            opts = {'vars': {'place': place, 'loc': 'us.hehe.haha', 'valu': (ndef, latlong, stamp)}}
-            nodes = await core.nodes(f'[(geo:nloc=$valu :place=$place :loc=$loc)]', opts=opts)
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], (('inet:ipv4', 0), (0.0, 0.0), stamp))
-            self.eq(node.get('ndef'), ('inet:ipv4', 0))
-            self.eq(node.get('ndef:form'), 'inet:ipv4')
-            self.eq(node.get('latlong'), (0.0, 0.0))
-            self.eq(node.get('time'), 0)
-            self.eq(node.get('place'), place)
-            self.eq(node.get('loc'), 'us.hehe.haha')
-            self.len(1, await core.nodes('inet:ipv4=0'))
-
             # geo:place
 
             # test inline tuple/float with negative syntax...
@@ -238,11 +216,9 @@ class GeoTest(s_t_utils.SynTest):
 
             guid = s_common.guid()
             fbyts = s_common.guid()
-            parent = s_common.guid()
             props = {'name': 'Vertex  HQ',
                      'desc': 'The place where Vertex Project hangs out at!',
                      'address': '208 Datong Road, Pudong District, Shanghai, China',
-                     'parent': parent,
                      'loc': 'us.hehe.haha',
                      'photo': f'guid:{fbyts}',
                      'latlong': '34.1341, -118.3215',
@@ -252,7 +228,7 @@ class GeoTest(s_t_utils.SynTest):
             q = '''
                 [ geo:place=$valu
                     :id=IAD
-                    :name=$p.name :desc=$p.desc :address=$p.address :parent=$p.parent :loc=$p.loc
+                    :name=$p.name :desc=$p.desc :address=$p.address :loc=$p.loc
                     :photo=$p.photo :latlong=$p.latlong :bbox=$p.bbox :radius=$p.radius
                 ]
             '''
@@ -267,17 +243,12 @@ class GeoTest(s_t_utils.SynTest):
             self.eq(node.get('radius'), 1337000)
             self.eq(node.get('desc'), 'The place where Vertex Project hangs out at!')
             self.eq(node.get('address'), '208 datong road, pudong district, shanghai, china')
-            self.eq(node.get('parent'), parent)
             self.eq(node.get('photo'), f'guid:{fbyts}')
 
             self.eq(node.get('bbox'), (2.11, 2.12, -4.88, -4.9))
             self.eq(node.repr('bbox'), '2.11,2.12,-4.88,-4.9')
 
-            opts = {'vars': {'place': parent}}
-            nodes = await core.nodes('geo:place=$place', opts=opts)
-            self.len(1, nodes)
-
-            self.len(1, await core.nodes('geo:place -> geo:place:taxonomy'))
+            self.len(1, await core.nodes('geo:place -> geo:place:type:taxonomy'))
 
             q = '[geo:place=(beep,) :latlong=$latlong]'
             opts = {'vars': {'latlong': (11.38, 20.01)}}
@@ -505,9 +476,7 @@ class GeoTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ geo:telem=*
                     :time=20220618
-                    :latlong=(10.1, 3.0)
                     :desc=foobar
-                    :accuracy=10m
                     :node=(test:int, 1234)
 
                     :place={[ geo:place=({"name": "Woot"}) ]}
@@ -528,10 +497,8 @@ class GeoTest(s_t_utils.SynTest):
                 ]
             ''')
             self.eq(1655510400000, nodes[0].get('time'))
-            self.eq((10.1, 3.0), nodes[0].get('latlong'))
             self.eq('foobar', nodes[0].get('desc'))
             self.eq('woot', nodes[0].get('place:name'))
-            self.eq(10000, nodes[0].get('accuracy'))
             self.len(1, await core.nodes('geo:telem -> geo:place +:name=woot'))
             self.eq(('test:int', 1234), nodes[0].get('node'))
             self.len(1, await core.nodes('test:int=1234'))

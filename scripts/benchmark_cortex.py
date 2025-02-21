@@ -468,7 +468,7 @@ class Benchmarker:
 
     @benchmark({'official', 'addnodes'})
     async def do08LocalAddNodes(self, core: s_cortex.Cortex, prox: s_telepath.Proxy) -> int:
-        count = await acount(core.addNodes(self.testdata.asns2, view=core.getView(self.viewiden)))
+        count = await acount(core.addNodes('syn.nodes', self.testdata.asns2, viewiden=self.viewiden))
         assert count == self.workfactor
         return count
 

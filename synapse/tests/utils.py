@@ -57,8 +57,6 @@ import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.cmdr as s_cmdr
-import synapse.lib.hive as s_hive
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
@@ -299,9 +297,17 @@ testmodel = {
             'doc': 'test interface',
             'props': (
                 ('size', ('int', {}), {}),
+                ('seen', ('ival', {}), {}),
                 ('names', ('array', {'type': 'str'}), {}),
             ),
             'interfaces': ('inet:proto:request',)
+        }),
+        ('test:virtarray', {
+            'doc': 'test interface',
+            'props': (
+                ('server', ('inet:server', {}), {'alts': ('servers',)}),
+                ('servers', ('array', {'type': 'inet:server'}), {}),
+            )
         }),
     ),
     'types': (
@@ -320,7 +326,6 @@ testmodel = {
         ('test:str', ('str', {}), {}),
         ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
-        ('test:edge', ('edge', {}), {}),
         ('test:guid', ('guid', {}), {}),
         ('test:data', ('data', {}), {}),
         ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
@@ -355,24 +360,28 @@ testmodel = {
 
         ('test:ndef', ('ndef', {}), {}),
         ('test:ndef:formfilter1', ('ndef', {
-            'forms': ('inet:ipv4', 'inet:ipv6')
+            'forms': ('inet:ip',)
         }), {}),
         ('test:ndef:formfilter2', ('ndef', {
             'interfaces': ('meta:taxonomy',)
         }), {}),
         ('test:ndef:formfilter3', ('ndef', {
-            'forms': ('inet:ipv4',),
+            'forms': ('inet:ip',),
             'interfaces': ('file:mime:msoffice',)
         }), {}),
 
         ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
         ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
         ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
+        ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+        ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
     ),
 
     'univs': (
         ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
         ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
+        ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props'}),
+        ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props'}),
     ),
 
     'forms': (
@@ -429,13 +438,6 @@ testmodel = {
             ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
         )),
 
-        ('test:edge', {}, (
-            ('n1', ('ndef', {}), {'ro': True}),
-            ('n1:form', ('str', {}), {'ro': True}),
-            ('n2', ('ndef', {}), {'ro': True}),
-            ('n2:form', ('str', {}), {'ro': True}),
-        )),
-
         ('test:guid', {}, (
             ('size', ('test:int', {}), {}),
             ('tick', ('test:time', {}), {}),
@@ -457,6 +459,7 @@ testmodel = {
             ('tick', ('test:time', {}), {}),
             ('hehe', ('str', {}), {}),
             ('ndefs', ('array', {'type': 'ndef'}), {}),
+            ('cidr', ('inet:cidr', {}), {}),
         )),
 
         ('test:migr', {}, (
@@ -509,7 +512,8 @@ testmodel = {
 
         ('test:hasiface', {}, ()),
         ('test:hasiface2', {}, ()),
-
+        ('test:virtiface', {}, ()),
+        ('test:virtiface2', {}, ()),
     ),
 }
 
@@ -519,6 +523,7 @@ deprmodel = {
         ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
         ('test:deprform', ('test:str', {}), {}),
         ('test:deprndef', ('ndef', {}), {}),
+        ('test:deprform2', ('test:str', {}), {'deprecated': True}),
         ('test:deprsub', ('str', {}), {}),
         ('test:range', ('range', {}), {}),
         ('test:deprsub2', ('comp', {'fields': (
@@ -532,7 +537,9 @@ deprmodel = {
             ('ndefprop', ('test:deprndef', {}), {}),
             ('deprprop', ('test:deprarray', {}), {}),
             ('okayprop', ('str', {}), {}),
+            ('deprprop2', ('test:str', {}), {'deprecated': True}),
         )),
+        ('test:deprform2', {}, ()),
         ('test:deprsub', {}, (
             ('range', ('test:range', {}), {}),
             ('range:min', ('int', {}), {'deprecated': True}),
@@ -557,13 +564,13 @@ class TestCmd(s_storm.Cmd):
     forms = {
         'input': [
             'test:str',
-            'inet:ipv6',
+            'inet:ip',
         ],
         'output': [
             'inet:fqdn',
         ],
         'nodedata': [
-            ('foo', 'inet:ipv4'),
+            ('foo', 'inet:ip'),
             ('bar', 'inet:fqdn'),
         ],
     }
@@ -583,15 +590,13 @@ class DeprModule(s_module.CoreModule):
             ('depr', deprmodel),
         )
 
-
 class TestModule(s_module.CoreModule):
     testguid = '8f1401de15918358d5247e21ca29a814'
 
     async def initCoreModule(self):
 
-        self.core.setFeedFunc('com.test.record', self.addTestRecords)
-
-        await self.core.addNode(self.core.auth.rootuser, 'meta:source', self.testguid, {'name': 'test'})
+        data = [(('meta:source', self.testguid), {'props': {'name': 'test'}})]
+        await self.core.addFeedData(data)
 
         self.core.addStormLib(('test',), LibTst)
 
@@ -600,9 +605,6 @@ class TestModule(s_module.CoreModule):
 
         form = self.model.form('test:runt')
         self.core.addRuntLift(form.full, self._testRuntLift)
-
-        for prop in form.props.values():
-            self.core.addRuntLift(prop.full, self._testRuntLift)
 
         self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
         self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
@@ -615,57 +617,24 @@ class TestModule(s_module.CoreModule):
             health.update(self.getModName(), 'failed',
                           'Test module is unhealthy', data={'beep': 1})
 
-    async def addTestRecords(self, snap, items):
+    async def addTestRecords(self, view, items, user=None):
         for name in items:
-            await snap.addNode('test:str', name)
+            await view.addNode('test:str', name, user=user)
 
-    async def _testRuntLift(self, full, valu=None, cmpr=None, view=None):
+    async def _testRuntLift(self, view, prop, cmprvalu=None):
 
         now = s_common.now()
-        modl = self.core.model
+        timetype = self.core.model.type('time')
 
-        runtdefs = [
-            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-            ('woah', {}),
+        podes = [
+            (('test:runt', 'beep'), {'props': {'tick': timetype.norm('2001')[0], 'lulz': 'beep.sys', '.created': now}}),
+            (('test:runt', 'boop'), {'props': {'tick': timetype.norm('2010')[0], '.created': now}}),
+            (('test:runt', 'blah'), {'props': {'tick': timetype.norm('2010')[0], 'lulz': 'blah.sys'}}),
+            (('test:runt', 'woah'), {'props': {}}),
         ]
 
-        runts = {}
-        for name, props in runtdefs:
-            runts[name] = TestRunt(name, **props)
-
-        genr = runts.values
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
-
-        if cmpr is not None:
-            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
-            if filt is None:
-                raise s_exc.BadCmprValu(cmpr=cmpr)
-
-        fullprop = self.model.prop(full)
-        if fullprop.isform:
-
-            if cmpr is None:
-                for obj in genr():
-                    yield obj.getStorNode(fullprop)
-                return
-
-            for obj in genr():
-                sode = obj.getStorNode(fullprop)
-                if filt(sode[1]['ndef'][1]):
-                    yield sode
-        else:
-            for obj in genr():
-                sode = obj.getStorNode(fullprop.form)
-                propval = sode[1]['props'].get(fullprop.name)
-
-                if propval is not None and (cmpr is None or filt(propval)):
-                    yield sode
+        for p in podes:
+            yield p
 
     async def _testRuntPropSetLulz(self, node, prop, valu):
         curv = node.get(prop.name)
@@ -675,14 +644,14 @@ class TestModule(s_module.CoreModule):
         if not valu.endswith('.sys'):
             raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
                                     valu=valu, name=prop.full)
-        node.props[prop.name] = valu
+        node.pode[1]['props'][prop.name] = valu
         # In this test helper, we do NOT persist the change to our in-memory
         # storage of row data, so a re-lift of the node would not reflect the
         # change that a user made here.
         return True
 
     async def _testRuntPropDelLulz(self, node, prop,):
-        curv = node.props.pop(prop.name, s_common.novalu)
+        curv = node.pode[1]['props'].pop(prop.name, s_common.novalu)
         if curv is s_common.novalu:
             return False
 
@@ -923,7 +892,7 @@ async def _doubleapply(self, indx, item):
         assert nestitem is None, f'Failure: have nested nexus actions, inner item is {item},  outer item was {nestitem}'
         s_task.varset('applynest', item)
 
-        nexsiden, event, args, kwargs, _ = item
+        nexsiden, event, args, kwargs, meta, tick = item
 
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
@@ -1015,7 +984,7 @@ class ReloadCell(s_cell.Cell):
 
 class SynTest(unittest.TestCase):
     '''
-    Mark all async test methods as s_glob.synchelp decorated.
+    Wrap all async test methods with s_glob.sync.
 
     Note:
         This precludes running a single unit test via path using the unittest module.
@@ -1023,18 +992,23 @@ class SynTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
 
+        def synchelp(f):
+            def wrap(*args, **kwargs):
+                return s_glob.sync(f(*args, **kwargs))
+            return wrap
+
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, s_glob.synchelp(attr))
+                setattr(self, s, synchelp(attr))
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
         [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
-        diff = {prop for prop in (set(node.props) - set(ex_props)) if not prop.startswith('.')}
+        diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
 
@@ -1229,19 +1203,6 @@ class SynTest(unittest.TestCase):
             with self.getTestDir() as dirn:
                 async with await s_axon.Axon.anit(dirn, conf) as axon:
                     yield axon
-
-    @contextlib.contextmanager
-    def withTestCmdr(self, cmdg):
-
-        getItemCmdr = s_cmdr.getItemCmdr
-
-        async def getTestCmdr(*a, **k):
-            cli = await getItemCmdr(*a, **k)
-            cli.prompt = cmdg
-            return cli
-
-        with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
-            yield
 
     @contextlib.contextmanager
     def withCliPromptMockExtendOutp(self, outp):
@@ -2355,23 +2316,6 @@ class SynTest(unittest.TestCase):
         idel = await core.auth.addUser('icandel')
         await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
-
-    @contextlib.asynccontextmanager
-    async def getTestHive(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveFromDirn(self, dirn):
-
-        import synapse.lib.const as s_const
-        map_size = s_const.gibibyte
-
-        async with await s_lmdbslab.Slab.anit(dirn, map_size=map_size) as slab:
-
-            async with await s_hive.SlabHive.anit(slab) as hive:
-                yield hive
 
     async def runCoreNodes(self, core, query, opts=None):
         '''

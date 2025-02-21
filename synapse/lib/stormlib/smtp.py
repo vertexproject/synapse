@@ -189,7 +189,7 @@ class SmtpMessage(s_stormtypes.StormType):
 
             ctx = None
             if usetls or starttls:
-                ctx = self.runt.snap.core.getCachedSslCtx(opts=None, verify=ssl_verify)
+                ctx = self.runt.view.core.getCachedSslCtx(opts=None, verify=ssl_verify)
 
             futu = aiosmtplib.send(message,
                                    port=port,

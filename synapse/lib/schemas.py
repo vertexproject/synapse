@@ -647,8 +647,6 @@ datamodel_basetypes = [
     'loc',
     'ndef',
     'array',
-    'edge',
-    'timeedge',
     'data',
     'nodeprop',
     'hugenum',

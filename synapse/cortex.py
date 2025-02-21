@@ -51,12 +51,10 @@ import synapse.lib.crypto.rsa as s_rsa
 
 # Importing these registers their commands
 import synapse.lib.stormhttp as s_stormhttp  # NOQA
-import synapse.lib.stormwhois as s_stormwhois  # NOQA
 
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.lib.stormlib.aha as s_stormlib_aha  # NOQA
-import synapse.lib.stormlib.env as s_stormlib_env  # NOQA
 import synapse.lib.stormlib.gen as s_stormlib_gen  # NOQA
 import synapse.lib.stormlib.gis as s_stormlib_gis  # NOQA
 import synapse.lib.stormlib.hex as s_stormlib_hex  # NOQA
@@ -108,7 +106,7 @@ stormlogger = logging.getLogger('synapse.storm')
 A Cortex implements the synapse hypergraph object.
 '''
 
-reqver = '>=0.2.0,<3.0.0'
+reqver = '>=3.0.0,<4.0.0'
 
 # Constants returned in results from syncLayersEvents and syncIndexEvents
 SYNC_NODEEDITS = 0  # A nodeedits: (<offs>, 0, <etyp>, (<etype args>), {<meta>})
@@ -133,8 +131,6 @@ reqValidStormMacro = s_config.getJsValidator({
     'properties': {
         'name': {'type': 'string', 'pattern': '^.{1,491}$'},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        # user kept for backward compat. remove eventually...
-        'user': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'desc': {'type': 'string', 'default': ''},
         'storm': {'type': 'string'},
@@ -145,7 +141,6 @@ reqValidStormMacro = s_config.getJsValidator({
     'required': [
         'name',
         'iden',
-        'user',
         'storm',
         'creator',
         'created',
@@ -256,14 +251,14 @@ class CoreApi(s_cell.CellApi):
 
         return opts
 
-    async def callStorm(self, text, opts=None):
+    async def callStorm(self, text, *, opts=None):
         '''
         Return the value expressed in a return() statement within storm.
         '''
         opts = self._reqValidStormOpts(opts)
         return await self.cell.callStorm(text, opts=opts)
 
-    async def exportStorm(self, text, opts=None):
+    async def exportStorm(self, text, *, opts=None):
         '''
         Execute a storm query and package nodes for export/import.
 
@@ -274,7 +269,7 @@ class CoreApi(s_cell.CellApi):
         async for pode in self.cell.exportStorm(text, opts=opts):
             yield pode
 
-    async def feedFromAxon(self, sha256, opts=None):
+    async def feedFromAxon(self, sha256, *, opts=None):
         '''
         Import a msgpack .nodes file from the axon.
         '''
@@ -283,91 +278,28 @@ class CoreApi(s_cell.CellApi):
 
     async def _reqDefLayerAllowed(self, perms):
         view = self.cell.getView()
-        wlyr = view.layers[0]
-        self.user.confirm(perms, gateiden=wlyr.iden)
+        self.user.confirm(perms, gateiden=view.wlyr.iden)
 
-    async def addNode(self, form, valu, props=None):
-        '''
-        Deprecated in 2.0.0.
-        '''
-        s_common.deprecated('CoreApi.addNode')
-        async with await self.cell.snap(user=self.user) as snap:
-            self.user.confirm(('node', 'add', form), gateiden=snap.wlyr.iden)
-            node = await snap.addNode(form, valu, props=props)
-            return node.pack()
-
-    async def addNodes(self, nodes):
-        '''
-        Add a list of packed nodes to the cortex.
-
-        Args:
-            nodes (list): [ ( (form, valu), {'props':{}, 'tags':{}}), ... ]
-
-        Yields:
-            (tuple): Packed node tuples ((form,valu), {'props': {}, 'tags':{}})
-
-        Deprecated in 2.0.0
-        '''
-        s_common.deprecated('CoreApi.addNodes')
-
-        # First check that that user may add each form
-        done = {}
-        for node in nodes:
-
-            formname = node[0][0]
-            if done.get(formname):
-                continue
-
-            await self._reqDefLayerAllowed(('node', 'add', formname))
-            done[formname] = True
-
-        async with await self.cell.snap(user=self.user) as snap:
-
-            snap.strict = False
-            async for node in snap.addNodes(nodes):
-
-                if node is not None:
-                    node = node.pack()
-
-                yield node
-
-    async def getFeedFuncs(self):
-        '''
-        Get a list of Cortex feed functions.
-
-        Notes:
-            Each feed dictionary has the name of the feed function, the
-            full docstring for the feed function, and the first line of
-            the docstring broken out in their own keys for easy use.
-
-        Returns:
-            tuple: A tuple of dictionaries.
-        '''
-        return await self.cell.getFeedFuncs()
-
-    async def addFeedData(self, name, items, *, viewiden=None):
+    async def addFeedData(self, items, *, viewiden=None):
 
         view = self.cell.getView(viewiden, user=self.user)
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-        wlyr = view.layers[0]
-        parts = name.split('.')
-
-        self.user.confirm(('feed:data', *parts), gateiden=wlyr.iden)
+        self.user.confirm(('feed:data',), gateiden=view.wlyr.iden)
 
         await self.cell.boss.promote('feeddata',
                                      user=self.user,
-                                     info={'name': name,
-                                           'view': view.iden,
+                                     info={'view': view.iden,
                                            'nitems': len(items),
                                            })
 
-        async with await self.cell.snap(user=self.user, view=view) as snap:
-            snap.strict = False
-            await snap.addFeedData(name, items)
+        logger.info(f'User ({self.user.name}) adding feed data: {len(items)}')
 
-    async def count(self, text, opts=None):
+        async for node in view.addNodes(items, user=self.user):
+            await asyncio.sleep(0)
+
+    async def count(self, text, *, opts=None):
         '''
         Count the number of nodes which result from a storm query.
 
@@ -381,7 +313,7 @@ class CoreApi(s_cell.CellApi):
         opts = self._reqValidStormOpts(opts)
         return await self.cell.count(text, opts=opts)
 
-    async def storm(self, text, opts=None):
+    async def storm(self, text, *, opts=None):
         '''
         Evaluate a storm query and yield result messages.
 
@@ -393,7 +325,7 @@ class CoreApi(s_cell.CellApi):
         async for mesg in self.cell.storm(text, opts=opts):
             yield mesg
 
-    async def reqValidStorm(self, text, opts=None):
+    async def reqValidStorm(self, text, *, opts=None):
         '''
         Parse a Storm query to validate it.
 
@@ -409,7 +341,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.reqValidStorm(text, opts)
 
-    async def syncLayerNodeEdits(self, offs, layriden=None, wait=True):
+    async def syncLayerNodeEdits(self, offs, *, layriden=None, wait=True):
         '''
         Yield (indx, mesg) nodeedit sets for the given layer beginning at offset.
 
@@ -426,7 +358,7 @@ class CoreApi(s_cell.CellApi):
         async for item in self.cell.syncLayerNodeEdits(layr.iden, offs, wait=wait):
             yield item
 
-    async def getPropNorm(self, prop, valu, typeopts=None):
+    async def getPropNorm(self, prop, valu, *, typeopts=None):
         '''
         Get the normalized property value based on the Cortex data model.
 
@@ -444,7 +376,7 @@ class CoreApi(s_cell.CellApi):
         '''
         return await self.cell.getPropNorm(prop, valu, typeopts=typeopts)
 
-    async def getTypeNorm(self, name, valu, typeopts=None):
+    async def getTypeNorm(self, name, valu, *, typeopts=None):
         '''
         Get the normalized type value based on the Cortex data model.
 
@@ -533,7 +465,7 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('model', 'tagprop', 'del'))
         return await self.cell.delTagProp(name)
 
-    async def addStormPkg(self, pkgdef, verify=False):
+    async def addStormPkg(self, pkgdef, *, verify=False):
         self.user.confirm(('pkg', 'add'))
         return await self.cell.addStormPkg(pkgdef, verify=verify)
 
@@ -582,18 +514,18 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delStormDmon(iden)
 
     @s_cell.adminapi()
-    async def cloneLayer(self, iden, ldef=None):
+    async def cloneLayer(self, iden, *, ldef=None):
 
         ldef = ldef or {}
         ldef['creator'] = self.user.iden
 
         return await self.cell.cloneLayer(iden, ldef)
 
-    async def getStormVar(self, name, default=None):
+    async def getStormVar(self, name, *, default=None):
         self.user.confirm(('globals', 'get', name))
         return await self.cell.getStormVar(name, default=default)
 
-    async def popStormVar(self, name, default=None):
+    async def popStormVar(self, name, *, default=None):
         self.user.confirm(('globals', 'pop', name))
         return await self.cell.popStormVar(name, default=default)
 
@@ -601,19 +533,19 @@ class CoreApi(s_cell.CellApi):
         self.user.confirm(('globals', 'set', name))
         return await self.cell.setStormVar(name, valu)
 
-    async def syncLayersEvents(self, offsdict=None, wait=True):
+    async def syncLayersEvents(self, *, offsdict=None, wait=True):
         self.user.confirm(('sync',))
         async for item in self.cell.syncLayersEvents(offsdict=offsdict, wait=wait):
             yield item
 
-    async def syncIndexEvents(self, matchdef, offsdict=None, wait=True):
+    async def syncIndexEvents(self, matchdef, *, offsdict=None, wait=True):
         self.user.confirm(('sync',))
         async for item in self.cell.syncIndexEvents(matchdef, offsdict=offsdict, wait=wait):
             yield item
 
-    async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
+    async def iterFormRows(self, layriden, form, *, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalue
+        Yields nid, valu tuples of nodes of a single form, optionally (re)starting at startvalue
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -622,15 +554,15 @@ class CoreApi(s_cell.CellApi):
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
-            AsyncIterator[Tuple(buid, valu)]
+            AsyncIterator[Tuple(nid, valu)]
         '''
         self.user.confirm(('layer', 'lift', layriden))
         async for item in self.cell.iterFormRows(layriden, form, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterPropRows(self, layriden, form, prop, stortype=None, startvalu=None):
+    async def iterPropRows(self, layriden, form, prop, *, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalue
+        Yields nid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalue
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -640,15 +572,15 @@ class CoreApi(s_cell.CellApi):
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
-            AsyncIterator[Tuple(buid, valu)]
+            AsyncIterator[Tuple(nid, valu)]
         '''
         self.user.confirm(('layer', 'lift', layriden))
         async for item in self.cell.iterPropRows(layriden, form, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
+    async def iterUnivRows(self, layriden, prop, *, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalue
+        Yields nid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalue
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -657,36 +589,32 @@ class CoreApi(s_cell.CellApi):
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
-            AsyncIterator[Tuple(buid, valu)]
+            AsyncIterator[Tuple(nid, valu)]
         '''
         self.user.confirm(('layer', 'lift', layriden))
         async for item in self.cell.iterUnivRows(layriden, prop, stortype=stortype, startvalu=startvalu):
             yield item
 
-    async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
+    async def iterTagRows(self, layriden, tag, *, form=None, starttupl=None):
         '''
-        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+        Yields (nid, ival) values that match a tag and optional form, optionally (re)starting at starttupl.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
-            form (Optional[str]):  if present, only yields buids of nodes that match the form.
-            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
+            form (Optional[str]): if present, only yields nids of nodes that match the form.
+            starttupl (Optional[Tuple[nid, Tuple[int, int] | Tuple[None, None]]]): if present, (re)starts the stream of values there.
 
         Returns:
-            AsyncIterator[Tuple(buid, (valu, form))]
-
-        Note:
-            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
-            call by feeding the last value retrieved into starttupl
+            AsyncIterator[Tuple(nid, valu)]
         '''
         self.user.confirm(('layer', 'lift', layriden))
         async for item in self.cell.iterTagRows(layriden, tag, form=form, starttupl=starttupl):
             yield item
 
-    async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
+    async def iterTagPropRows(self, layriden, tag, prop, *, form=None, stortype=None, startvalu=None):
         '''
-        Yields (buid, valu) that match a tag:prop, optionally (re)starting at startvalu.
+        Yields (nid, valu) that match a tag:prop, optionally (re)starting at startvalu.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -697,7 +625,7 @@ class CoreApi(s_cell.CellApi):
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
-            AsyncIterator[Tuple(buid, valu)]
+            AsyncIterator[Tuple(nid, valu)]
         '''
         self.user.confirm(('layer', 'lift', layriden))
         async for item in self.cell.iterTagPropRows(layriden, tag, prop, form=form, stortype=stortype,
@@ -725,16 +653,16 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.delUserNotif(indx)
 
     @s_cell.adminapi()
-    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+    async def addUserNotif(self, useriden, mesgtype, *, mesgdata=None):
         return await self.cell.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
 
     @s_cell.adminapi()
-    async def iterUserNotifs(self, useriden, size=None):
+    async def iterUserNotifs(self, useriden, *, size=None):
         async for item in self.cell.iterUserNotifs(useriden, size=size):
             yield item
 
     @s_cell.adminapi()
-    async def watchAllUserNotifs(self, offs=None):
+    async def watchAllUserNotifs(self, *, offs=None):
         async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 
@@ -744,12 +672,7 @@ class CoreApi(s_cell.CellApi):
 
 class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     '''
-    A Cortex implements the synapse hypergraph.
-
-    The bulk of the Cortex API lives on the Snap() object which can
-    be obtained by calling Cortex.snap() in a with block.  This allows
-    callers to manage transaction boundaries explicitly and dramatically
-    increases performance.
+    A Cortex implements the Synapse hypergraph.
     '''
 
     # For the cortex, nexslog:en defaults to True
@@ -767,30 +690,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
         },
-        'cron:enable': {
-            'default': True,
-            'description': 'Deprecated. This option no longer controls cron execution and will be removed in Synapse 3.0.',
-            'type': 'boolean'
-        },
-        'trigger:enable': {
-            'default': True,
-            'description': 'Deprecated. This option no longer controls trigger execution and will be removed in Synapse 3.0.',
-            'type': 'boolean'
-        },
-        'layer:lmdb:map_async': {
-            'default': True,
-            'description': 'Deprecated. This value is ignored.',
-            'type': 'boolean',
-            'hidecmdl': True,
-            'hideconf': True,
-        },
-        'layer:lmdb:max_replay_log': {
-            'default': 10000,
-            'description': 'Deprecated. This value is ignored.',
-            'type': 'integer',
-            'hidecmdl': True,
-            'hideconf': True,
-        },
         'layers:lockmemory': {
             'default': False,
             'description': 'Should new layers lock memory for performance by default.',
@@ -800,12 +699,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'default': True,
             'description': 'Whether nodeedits are logged in each layer.',
             'type': 'boolean'
-        },
-        'provenance:en': {  # TODO: Remove in 3.0.0
-            'default': False,
-            'description': 'This no longer does anything.',
-            'type': 'boolean',
-            'hideconf': True,
         },
         'max:nodes': {
             'description': 'Maximum number of nodes which are allowed to be stored in a Cortex.',
@@ -867,6 +760,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if self.inaugural:
             self.cellinfo.set('cortex:version', s_version.version)
+            self.cellvers.set('cortex:storage', 4)
+            self.cellvers.set('cortex:defaults', 2)
+            self.cellvers.set('cortex:extmodel', 1)
 
         corevers = self.cellinfo.get('cortex:version')
         s_version.reqVersion(corevers, reqver, exc=s_exc.BadStorageVersion,
@@ -879,7 +775,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.viewsbylayer = collections.defaultdict(list)
 
         self.modules = {}
-        self.feedfuncs = {}
         self.stormcmds = {}
 
         self.maxnodes = self.conf.get('max:nodes')
@@ -903,6 +798,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.tagvalid = s_cache.FixedCache(self._isTagValid, size=1000)
         self.tagprune = s_cache.FixedCache(self._getTagPrune, size=1000)
+        self.tagnorms = s_cache.FixedCache(self._getTagNorm, size=1000)
 
         self.querycache = s_cache.FixedCache(self._getStormQuery, size=10000)
 
@@ -936,7 +832,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initCoreInfo()
         self._initStormLibs()
-        self._initFeedFuncs()
 
         self.modsbyiface = {}
         self.stormiface_search = self.conf.get('storm:interface:search')
@@ -950,15 +845,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model = s_datamodel.Model(core=self)
 
-        await self._bumpCellVers('cortex:extmodel', (
-            (1, self._migrateTaxonomyIface),
-        ), nexs=False)
-
-        await self._bumpCellVers('cortex:storage', (
-            (1, self._storUpdateMacros),
-            (4, self._storCortexHiveMigration),
-        ), nexs=False)
-
         # Perform module loading
         await self._loadCoreMods()
         await self._loadExtModel()
@@ -968,6 +854,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._initCoreAxon()
         await self._initJsonStor()
 
+        await self._initLayerV3Stor()
         await self._initCoreLayers()
         await self._initCoreViews()
         self.onfini(self._finiStor)
@@ -986,8 +873,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self._initStormGraphs()
 
-        await self._initRuntFuncs()
-
         self.tagmeta = self.cortexdata.getSubKeyVal('tagmeta:')
         self.cmddefs = self.cortexdata.getSubKeyVal('storm:cmds:')
         self.pkgdefs = self.cortexdata.getSubKeyVal('storm:packages:')
@@ -996,7 +881,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._initDeprLocks()
         await self._warnDeprLocks()
 
-        # Finalize coremodule loading & give svchive a shot to load
+        # Finalize coremodule loading
         await self._initPureStormCmds()
 
         self.dynitems.update({
@@ -1005,127 +890,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'multiqueue': self.multiqueue,
         })
 
-        # TODO - Remove this in 3.0.0
-        ag = await self.auth.addAuthGate('cortex', 'cortex')
-        for useriden in ag.gateusers.keys():
-            user = self.auth.user(useriden)
-            if user is None:
-                continue
-
-            mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=await self.getLogExtra(user=useriden, username=user.name))
-        for roleiden in ag.gateroles.keys():
-            role = self.auth.role(roleiden)
-            if role is None:
-                continue
-
-            mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
-                   f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
-
         self._initVaults()
-
-    async def _storCortexHiveMigration(self):
-
-        logger.warning('migrating Cortex data out of hive')
-
-        viewdefs = self.cortexdata.getSubKeyVal('view:info:')
-        async with await self.hive.open(('cortex', 'views')) as viewnodes:
-            for view_iden, node in viewnodes:
-                viewdict = await node.dict()
-                viewinfo = viewdict.pack()
-                viewinfo.setdefault('iden', view_iden)
-                viewdefs.set(view_iden, viewinfo)
-
-                trigdict = self.cortexdata.getSubKeyVal(f'view:{view_iden}:trigger:')
-                async with await node.open(('triggers',)) as trignodes:
-                    for iden, trig in trignodes:
-                        valu = trig.valu
-                        if valu.get('view', s_common.novalu) != view_iden:
-                            valu['view'] = view_iden
-                        trigdict.set(iden, valu)
-
-        layrdefs = self.cortexdata.getSubKeyVal('layer:info:')
-        async with await self.hive.open(('cortex', 'layers')) as layrnodes:
-            for iden, node in layrnodes:
-                layrdict = await node.dict()
-                layrinfo = layrdict.pack()
-                pushs = layrinfo.get('pushs', {})
-                if pushs:
-                    for pdef in pushs.values():
-                        pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                        pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
-
-                pulls = layrinfo.get('pulls', {})
-                if pulls:
-                    pulls = layrinfo.get('pulls', {})
-                    for pdef in pulls.values():
-                        pdef.setdefault('chunk:size', s_const.layer_pdef_csize)
-                        pdef.setdefault('queue:size', s_const.layer_pdef_qsize)
-
-                layrdefs.set(iden, layrinfo)
-
-        migrs = (
-            (('agenda', 'appts'), 'agenda:appt:'),
-            (('cortex', 'tagmeta'), 'tagmeta:'),
-            (('cortex', 'storm', 'cmds'), 'storm:cmds:'),
-            (('cortex', 'storm', 'vars'), 'storm:vars:'),
-            (('cortex', 'storm', 'dmons'), 'storm:dmons:'),
-            (('cortex', 'storm', 'packages'), 'storm:packages:'),
-            (('cortex', 'storm', 'services'), 'storm:services:'),
-            (('cortex', 'model', 'forms'), 'model:forms:'),
-            (('cortex', 'model', 'props'), 'model:props:'),
-            (('cortex', 'model', 'univs'), 'model:univs:'),
-            (('cortex', 'model', 'tagprops'), 'model:tagprops:'),
-            (('cortex', 'model', 'deprlocks'), 'model:deprlocks:'),
-        )
-
-        for hivepath, kvpref in migrs:
-            subkv = self.cortexdata.getSubKeyVal(kvpref)
-            async with await self.hive.open(hivepath) as hivenode:
-                for name, node in hivenode:
-                    subkv.set(name, node.valu)
-
-        logger.warning('...Cortex data migration complete!')
-
-    async def _viewNomergeToProtected(self):
-        for view in self.views.values():
-            nomerge = view.info.get('nomerge', False)
-            await view.setViewInfo('protected', nomerge)
-            await view.setViewInfo('nomerge', None)
-
-    async def _storUpdateMacros(self):
-        for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
-
-            try:
-
-                info = {
-                    'name': name,
-                    'storm': node.valu.get('storm'),
-                }
-
-                user = node.valu.get('user')
-                if user is not None:
-                    info['user'] = user
-
-                created = node.valu.get('created')
-                if created is not None:
-                    info['created'] = created
-
-                edited = node.valu.get('edited')
-                if edited is not None:
-                    info['updated'] = edited
-
-                    if info.get('created') is None:
-                        info['created'] = edited
-
-                mdef = self._initStormMacro(info)
-
-                await self._addStormMacro(mdef)
-
-            except Exception as e:
-                logger.exception(f'Macro migration error for macro: {name} (skipped).')
 
     def getStormMacro(self, name, user=None):
 
@@ -1199,15 +964,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mdef.setdefault('updated', now)
         mdef.setdefault('created', now)
 
-        useriden = mdef.get('user', user.iden)
-
-        mdef['user'] = useriden
-        mdef['creator'] = useriden
+        mdef['creator'] = user.iden
 
         mdef.setdefault('storm', '')
         self._initEasyPerm(mdef)
 
-        mdef['permissions']['users'][useriden] = s_cell.PERM_ADMIN
+        mdef['permissions']['users'][user.iden] = s_cell.PERM_ADMIN
 
         return mdef
 
@@ -1521,18 +1283,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
         await hook(node, prop, norm)
 
-    async def _execCellUpdates(self):
-
-        await self._bumpCellVers('cortex:defaults', (
-            (1, self._addAllLayrRead),
-            (2, self._viewNomergeToProtected),
-        ))
-
-    async def _addAllLayrRead(self):
-        layriden = self.getView().layers[0].iden
-        role = await self.auth.getRoleByName('all')
-        await role.addRule((True, ('layer', 'read')), gateiden=layriden)
-
     async def initServiceRuntime(self):
 
         # do any post-nexus initialization here...
@@ -1568,9 +1318,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await view.initTrigTask()
                 await view.initMergeTask()
 
-            for layer in self.layers.values():
-                await layer.initLayerActive()
-
         self.runActiveTask(_runMigrations())
 
         await self.initStormPool()
@@ -1582,9 +1329,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for view in self.views.values():
             await view.finiTrigTask()
             await view.finiMergeTask()
-
-        for layer in self.layers.values():
-            await layer.initLayerPassive()
 
         await self.finiStormPool()
 
@@ -1717,14 +1461,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             for layr in self.layers.values():
                 if not prop.isform and prop.isuniv:
-                    if await layr.getUnivPropCount(prop.name, maxsize=1):
+                    if await layr.getPropCount(None, prop.name):
                         break
 
                 else:
-                    if await layr.getPropCount(propname, maxsize=1):
+                    if await layr.getPropCount(propname):
                         break
 
-                    if await layr.getPropCount(prop.form.name, prop.name, maxsize=1):
+                    if await layr.getPropCount(prop.form.name, prop.name):
                         break
             else:
                 count += 1
@@ -2103,6 +1847,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         return tuple(prune)
 
+    def getTagNorm(self, tagname):
+        return self.tagnorms.get(tagname)
+
+    def _getTagNorm(self, tagname):
+
+        if not self.isTagValid(tagname):
+            raise s_exc.BadTag(f'The tag ({tagname}) does not meet the regex for the tree.')
+
+        return self.model.type('syn:tag').norm(tagname)
+
     async def getTagModel(self, tagname):
         '''
         Retrieve the tag model specification for a tag.
@@ -2126,42 +1880,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _finiStor(self):
         await asyncio.gather(*[view.fini() for view in self.views.values()])
         await asyncio.gather(*[layr.fini() for layr in self.layers.values()])
-
-    async def _initRuntFuncs(self):
-
-        async def onSetTrigDoc(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            node.snap.user.confirm(('trigger', 'set', 'doc'), gateiden=iden)
-            await node.snap.view.setTriggerInfo(iden, 'doc', valu)
-            node.props[prop.name] = valu
-
-        async def onSetTrigName(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            node.snap.user.confirm(('trigger', 'set', 'name'), gateiden=iden)
-            await node.snap.view.setTriggerInfo(iden, 'name', valu)
-            node.props[prop.name] = valu
-
-        async def onSetCronDoc(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            node.snap.user.confirm(('cron', 'set', 'doc'), gateiden=iden)
-            await self.editCronJob(iden, 'doc', valu)
-            node.props[prop.name] = valu
-
-        async def onSetCronName(node, prop, valu):
-            valu = str(valu)
-            iden = node.ndef[1]
-            node.snap.user.confirm(('cron', 'set', 'name'), gateiden=iden)
-            await self.editCronJob(iden, 'name', valu)
-            node.props[prop.name] = valu
-
-        self.addRuntPropSet('syn:cron:doc', onSetCronDoc)
-        self.addRuntPropSet('syn:cron:name', onSetCronName)
-
-        self.addRuntPropSet('syn:trigger:doc', onSetTrigDoc)
-        self.addRuntPropSet('syn:trigger:name', onSetTrigName)
 
     async def _initStormDmons(self):
 
@@ -2197,6 +1915,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.multiqueue = await slab.getMultiQueue('cortex:queue', nexsroot=self.nexsroot)
 
     async def _initStormGraphs(self):
+        # TODO we should probably just store this in the cell.slab to save a file handle :D
         path = os.path.join(self.dirn, 'slabs', 'graphs.lmdb')
 
         slab = await s_lmdbslab.Slab.anit(path)
@@ -2204,6 +1923,83 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.pkggraphs = {}
         self.graphs = s_lmdbslab.SlabDict(slab, db=slab.initdb('graphs'))
+
+    async def _initLayerV3Stor(self):
+
+        path = os.path.join(self.dirn, 'slabs', 'layersv3.lmdb')
+        self.v3stor = await s_lmdbslab.Slab.anit(path)
+
+        self.onfini(self.v3stor.fini)
+
+        self.indxabrv = self.v3stor.getNameAbrv('indxabrv')
+
+        self.nid2ndef = self.v3stor.initdb('nid2ndef')
+        self.nid2buid = self.v3stor.initdb('nid2buid')
+        self.buid2nid = self.v3stor.initdb('buid2nid')
+
+        self.nextnid = 0
+        byts = self.v3stor.lastkey(db=self.nid2buid)
+        if byts is not None:
+            self.nextnid = s_common.int64un(byts) + 1
+
+    def getNidNdef(self, nid):
+        byts = self.v3stor.get(nid, db=self.nid2ndef)
+        if byts is not None:
+            return s_msgpack.un(byts)
+
+    def hasNidNdef(self, nid):
+        return self.v3stor.has(nid, db=self.nid2ndef)
+
+    def setNidNdef(self, nid, ndef):
+        buid = s_common.buid(ndef)
+        self.v3stor.put(nid, buid, db=self.nid2buid)
+        self.v3stor.put(buid, nid, db=self.buid2nid)
+        self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+
+        if (nid := s_common.int64un(nid)) >= self.nextnid:
+            self.nextnid = nid + 1
+
+    def getBuidByNid(self, nid):
+        return self.v3stor.get(nid, db=self.nid2buid)
+
+    def getNidByBuid(self, buid):
+        return self.v3stor.get(buid, db=self.buid2nid)
+
+    async def genNdefNid(self, ndef):
+        buid = s_common.buid(ndef)
+        nid = self.v3stor.get(buid, db=self.buid2nid)
+        if nid is not None:
+            return nid
+        return await self._push('nid:gen', ndef)
+
+    @s_nexus.Pusher.onPush('nid:gen')
+    async def _genNdefNid(self, ndef):
+        buid = s_common.buid(ndef)
+        nid = self.v3stor.get(buid, db=self.buid2nid)
+        if nid is not None:
+            return nid
+
+        nid = s_common.int64en(self.nextnid)
+        self.nextnid += 1
+
+        self.v3stor.put(nid, buid, db=self.nid2buid)
+        self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+        self.v3stor.put(buid, nid, db=self.buid2nid)
+
+        return nid
+
+    @s_cache.memoizemethod()
+    def getIndxAbrv(self, indx, *args):
+        return self.indxabrv.bytsToAbrv(indx + s_msgpack.en(args))
+
+    @s_cache.memoizemethod()
+    def setIndxAbrv(self, indx, *args):
+        return self.indxabrv.setBytsToAbrv(indx + s_msgpack.en(args))
+
+    @s_cache.memoizemethod()
+    def getAbrvIndx(self, abrv):
+        byts = self.indxabrv.abrvToByts(abrv)
+        return s_msgpack.un(byts[2:])
 
     async def setStormCmd(self, cdef):
         await self._reqStormCmd(cdef)
@@ -2250,238 +2046,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         await self.getStormQuery(cdef.get('storm'))
 
-    async def _getStorNodes(self, buid, layers):
-        # NOTE: This API lives here to make it easy to optimize
-        #       the cluster case to minimize round trips
-        return [await layr.getStorNode(buid) for layr in layers]
-
-    async def _genSodeList(self, buid, sodes, layers, filtercmpr=None):
-        sodelist = []
-
-        if filtercmpr is not None:
-            filt = True
-            for layr in layers[-1::-1]:
-                sode = sodes.get(layr.iden)
-                if sode is None:
-                    sode = await layr.getStorNode(buid)
-                    if filt and filtercmpr(sode):
-                        return
-                else:
-                    filt = False
-                sodelist.append((layr.iden, sode))
-
-            return (buid, sodelist[::-1])
-
-        for layr in layers:
-            sode = sodes.get(layr.iden)
-            if sode is None:
-                sode = await layr.getStorNode(buid)
-            sodelist.append((layr.iden, sode))
-
-        return (buid, sodelist)
-
-    async def _mergeSodes(self, layers, genrs, cmprkey, filtercmpr=None, reverse=False):
-        lastbuid = None
-        sodes = {}
-        async for layr, (_, buid), sode in s_common.merggenr2(genrs, cmprkey, reverse=reverse):
-            if not buid == lastbuid or layr in sodes:
-                if lastbuid is not None:
-                    sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
-                    if sodelist is not None:
-                        yield sodelist
-                    sodes.clear()
-                lastbuid = buid
-            sodes[layr] = sode
-
-        if lastbuid is not None:
-            sodelist = await self._genSodeList(lastbuid, sodes, layers, filtercmpr)
-            if sodelist is not None:
-                yield sodelist
-
-    async def _liftByDataName(self, name, layers):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByDataName(name):
-                yield (buid, [(layr, sode)])
-            return
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByDataName(name)))
-
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid):
-            yield sodes
-
-    async def _liftByProp(self, form, prop, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByProp(form, prop, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByProp(form, prop, reverse=reverse)))
-
-        def filtercmpr(sode):
-            if (props := sode.get('props')) is None:
-                return False
-
-            return props.get(prop) is not None
-
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
-            yield sodes
-
-    async def _liftByPropValu(self, form, prop, cmprvals, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByPropValu(form, prop, cmprvals, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        def filtercmpr(sode):
-            props = sode.get('props')
-            if props is None:
-                return False
-            return props.get(prop) is not None
-
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropValu(form, prop, (cval,), reverse=reverse)))
-
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
-                yield sodes
-
-    async def _liftByPropArray(self, form, prop, cmprvals, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByPropArray(form, prop, cmprvals, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        if prop is None:
-            filtercmpr = None
-        else:
-            def filtercmpr(sode):
-                props = sode.get('props')
-                if props is None:
-                    return False
-                return props.get(prop) is not None
-
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByPropArray(form, prop, (cval,), reverse=reverse)))
-
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
-                yield sodes
-
-    async def _liftByFormValu(self, form, cmprvals, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByFormValu(form, cmprvals, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByFormValu(form, (cval,), reverse=reverse)))
-
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, reverse=reverse):
-                yield sodes
-
-    async def _liftByTag(self, tag, form, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTag(tag, form, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        if form is None:
-            def filtercmpr(sode):
-                tags = sode.get('tags')
-                if tags is None:
-                    return False
-                return tags.get(tag) is not None
-        else:
-            filtercmpr = None
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTag(tag, form, reverse=reverse)))
-
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr, reverse=reverse):
-            yield sodes
-
-    async def _liftByTagValu(self, tag, cmpr, valu, form, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagValu(tag, cmpr, valu, form, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        def filtercmpr(sode):
-            tags = sode.get('tags')
-            if tags is None:
-                return False
-            return tags.get(tag) is not None
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagValu(tag, cmpr, valu, form, reverse=reverse)))
-
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_buid, filtercmpr, reverse=reverse):
-            yield sodes
-
-    async def _liftByTagProp(self, form, tag, prop, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagProp(form, tag, prop, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        genrs = []
-        for layr in layers:
-            genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagProp(form, tag, prop, reverse=reverse)))
-
-        def filtercmpr(sode):
-            if (tagprops := sode.get('tagprops')) is None:
-                return False
-
-            if (props := tagprops.get(tag)) is None:
-                return False
-
-            return props.get(prop) is not None
-
-        async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
-            yield sodes
-
-    async def _liftByTagPropValu(self, form, tag, prop, cmprvals, layers, reverse=False):
-        if len(layers) == 1:
-            layr = layers[0].iden
-            async for _, buid, sode in layers[0].liftByTagPropValu(form, tag, prop, cmprvals, reverse=reverse):
-                yield (buid, [(layr, sode)])
-            return
-
-        def filtercmpr(sode):
-            tagprops = sode.get('tagprops')
-            if tagprops is None:
-                return False
-            props = tagprops.get(tag)
-            if not props:
-                return False
-            return props.get(prop) is not None
-
-        for cval in cmprvals:
-            genrs = []
-            for layr in layers:
-                genrs.append(wrap_liftgenr(layr.iden, layr.liftByTagPropValu(form, tag, prop, (cval,), reverse=reverse)))
-
-            async for sodes in self._mergeSodes(layers, genrs, cmprkey_indx, filtercmpr, reverse=reverse):
-                yield sodes
-
     def _setStormCmd(self, cdef):
         '''
         Note:
@@ -2494,31 +2058,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         def getCmdBrief():
             return cdef.get('descr', 'No description').strip().split('\n')[0]
 
+        # TODO this is super ugly...
         ctor.getCmdBrief = getCmdBrief
         ctor.pkgname = cdef.get('pkgname')
         ctor.svciden = cdef.get('cmdconf', {}).get('svciden', '')
         ctor.forms = cdef.get('forms', {})
 
-        def getStorNode(form):
-            ndef = (form.name, form.type.norm(cdef.get('name'))[0])
+        def getRuntPode():
+            ndef = ('syn:cmd', cdef.get('name'))
             buid = s_common.buid(ndef)
 
             props = {
                 'doc': ctor.getCmdBrief()
             }
-
-            inpt = ctor.forms.get('input')
-            outp = ctor.forms.get('output')
-            nodedata = ctor.forms.get('nodedata')
-
-            if inpt:
-                props['input'] = tuple(inpt)
-
-            if outp:
-                props['output'] = tuple(outp)
-
-            if nodedata:
-                props['nodedata'] = tuple(nodedata)
 
             if ctor.svciden:
                 props['svciden'] = ctor.svciden
@@ -2526,18 +2078,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if ctor.pkgname:
                 props['package'] = ctor.pkgname
 
-            pnorms = {}
-            for prop, valu in props.items():
-                formprop = form.props.get(prop)
-                if formprop is not None and valu is not None:
-                    pnorms[prop] = formprop.type.norm(valu)[0]
-
-            return (buid, {
-                'ndef': ndef,
-                'props': pnorms,
+            return (ndef, {
+                'iden': s_common.ehex(s_common.buid(ndef)),
+                'props': props,
             })
 
-        ctor.getStorNode = getStorNode
+        ctor.getRuntPode = getRuntPode
 
         name = cdef.get('name')
         self.stormcmds[name] = ctor
@@ -2823,15 +2369,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                    f'Cortex is running {s_version.version}'
             s_version.reqVersion(s_version.version, reqversion, mesg=mesg)
 
-        elif (minversion := pkgdef.get('synapse_minversion')) is not None:
-            # This is for older packages that might not have the
-            # `synapse_version` field.
-            # TODO: Remove this whole else block after Synapse 3.0.0.
-            if tuple(minversion) > s_version.version:
-                mesg = f'Storm package {pkgname} requires Synapse {minversion} but ' \
-                       f'Cortex is running {s_version.version}'
-                raise s_exc.BadVersion(mesg=mesg)
-
         # Validate storm contents from modules and commands
         mods = pkgdef.get('modules', ())
         cmds = pkgdef.get('commands', ())
@@ -2859,12 +2396,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if validstorm:
                 cmdtext = cdef.get('storm')
                 await self.getStormQuery(cmdtext)
-
-            if cdef.get('forms') is not None:
-                name = cdef.get('name')
-                mesg = f"Storm command definition 'forms' key is deprecated and will be removed " \
-                       f"in 3.0.0 (command {name} in package {pkgname})"
-                logger.warning(mesg, extra=await self.getLogExtra(name=name, pkgname=pkgname))
 
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
@@ -3176,27 +2707,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
 
-    async def _migrateTaxonomyIface(self):
-
-        extforms = await (await self.hive.open(('cortex', 'model', 'forms'))).dict()
-
-        for formname, basetype, typeopts, typeinfo in extforms.values():
-            try:
-                ifaces = typeinfo.get('interfaces')
-
-                if ifaces and 'taxonomy' in ifaces:
-                    logger.warning(f'Migrating taxonomy interface on form {formname} to meta:taxonomy.')
-
-                    ifaces = set(ifaces)
-                    ifaces.remove('taxonomy')
-                    ifaces.add('meta:taxonomy')
-                    typeinfo['interfaces'] = tuple(ifaces)
-
-                    await extforms.set(formname, (formname, basetype, typeopts, typeinfo))
-
-            except Exception as e:  # pragma: no cover
-                logger.exception(f'Taxonomy migration error for form: {formname} (skipped).')
-
     async def _loadExtModel(self):
 
         self.exttypes = self.cortexdata.getSubKeyVal('model:types:')
@@ -3221,7 +2731,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             else:
                 if form.type.deprecated:
                     mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 3.0.0'
+                           f' be removed in 4.0.0'
                     logger.warning(mesg)
 
         for form, prop, tdef, info in self.extprops.values():
@@ -3232,7 +2742,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             else:
                 if prop.type.deprecated:
                     mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
-                           f' be removed in 3.0.0'
+                           f' be removed in 4.0.0'
                     logger.warning(mesg)
 
         for prop, tdef, info in self.extunivs.values():
@@ -3605,7 +3115,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
             mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
-                   f' be removed in 3.0.0'
+                   f' be removed in 4.0.0'
             logger.warning(mesg)
 
         full = f'{form}:{prop}'
@@ -3638,8 +3148,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             async for rows in s_coro.chunks(genr):
                 nodeedits = []
-                for buid, valu in rows:
-                    nodeedits.append((buid, prop.form.name, (
+                for nid, valu in rows:
+                    nodeedits.append((s_common.int64un(nid), prop.form.name, (
                         (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
                     )))
 
@@ -3665,9 +3175,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             async for rows in s_coro.chunks(genr):
                 nodeedits = []
-                for buid, valu in rows:
-                    sode = await layr.getStorNode(buid)
-                    nodeedits.append((buid, sode.get('form'), (
+                for nid, valu in rows:
+                    sode = layr._getStorNode(nid)
+                    nodeedits.append((s_common.int64un(nid), sode.get('form'), (
                         (s_layer.EDIT_PROP_DEL, (prop.name, None, prop.type.stortype), ()),
                     )))
 
@@ -3697,8 +3207,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 async for rows in s_coro.chunks(genr):
                     nodeedits = []
-                    for buid, valu in rows:
-                        nodeedits.append((buid, form, (
+                    for nid, valu in rows:
+                        nodeedits.append((s_common.int64un(nid), form, (
                             (s_layer.EDIT_TAGPROP_DEL, (tag, prop.name, None, prop.type.stortype), ()),
                         )))
 
@@ -3869,56 +3379,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.extedges.get(edgeguid) is None:
             return
 
+        (n1form, verb, n2form) = edge
+
+        for layr in self.layers.values():
+            if layr.getEdgeVerbCount(verb, n1form=n1form, n2form=n2form) > 0:
+                mesg = f'Nodes still exist with edge: {edge} in layer {layr.iden}'
+                raise s_exc.CantDelEdge(mesg=mesg)
+
         self.model.delEdge(edge)
 
         self.extedges.pop(edgeguid, None)
         await self.fire('core:extmodel:change', edge=edge, act='del', type='edge')
         await self.feedBeholder('model:edge:del', {'edge': edge})
-
-    async def addNodeTag(self, user, iden, tag, valu=(None, None)):
-        '''
-        Add a tag to a node specified by iden.
-
-        Args:
-            iden (str): A hex encoded node BUID.
-            tag (str):  A tag string.
-            valu (tuple):  A time interval tuple or (None, None).
-        '''
-
-        buid = s_common.uhex(iden)
-        async with await self.snap(user=user) as snap:
-
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
-
-            await node.addTag(tag, valu=valu)
-            return node.pack()
-
-    async def addNode(self, user, form, valu, props=None):
-
-        async with await self.snap(user=user) as snap:
-            node = await snap.addNode(form, valu, props=props)
-            return node.pack()
-
-    async def delNodeTag(self, user, iden, tag):
-        '''
-        Delete a tag from the node specified by iden.
-
-        Args:
-            iden (str): A hex encoded node BUID.
-            tag (str):  A tag string.
-        '''
-        buid = s_common.uhex(iden)
-
-        async with await self.snap(user=user) as snap:
-
-            node = await snap.getNodeByBuid(buid)
-            if node is None:
-                raise s_exc.NoSuchIden(iden=iden)
-
-            await node.delTag(tag)
-            return node.pack()
 
     async def _onCoreFini(self):
         '''
@@ -3927,7 +3399,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.axon:
             await self.axon.fini()
 
-    async def syncLayerNodeEdits(self, iden, offs, wait=True):
+    async def syncLayerNodeEdits(self, iden, offs, wait=True, compat=False):
         '''
         Yield (offs, mesg) tuples for nodeedits in a layer.
         '''
@@ -3935,7 +3407,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {iden}', iden=iden)
 
-        async for item in layr.syncNodeEdits(offs, wait=wait):
+        async for item in layr.syncNodeEdits(offs, wait=wait, compat=compat):
             yield item
 
     async def syncLayersEvents(self, offsdict=None, wait=True):
@@ -3986,7 +3458,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
           SYNC_LAYR_ADD:  item is an empty tuple ()
           SYNC_LAYR_DEL:  item is an empty tuple ()
-          SYNC_NODEEDIT:  item is (buid, form, ETYPE, VALS, META)) or (None, None, s_layer.EDIT_PROGRESS, (), ())
+          SYNC_NODEEDIT:  item is (buid, form, ETYPE, VALS)) or (None, None, s_layer.EDIT_PROGRESS, ())
 
         For edits in the past, events are yielded in offset order across all layers.  For current data (wait=True),
         events across different layers may be emitted slightly out of offset order.
@@ -4175,11 +3647,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # TODO: 3.0.0 conversion will truncate this hive key
 
         if self.inaugural:
-            locks = (
-                # 2.87.0 - lock out incorrect crypto model
-                ('crypto:currency:transaction:inputs', True),
-                ('crypto:currency:transaction:outputs', True),
-            )
+            locks = ()
             for k, v in locks:
                 await self._hndlsetDeprLock(k, v)
 
@@ -4454,15 +3922,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             # Ensure each ctor's permdefs are valid
             for pdef in ctor._storm_lib_perms:
                 s_schemas.reqValidPermDef(pdef)
-            # Skip libbase which is registered as a default ctor in the storm Runtime
-            if path:
-                self.addStormLib(path, ctor)
 
-    def _initFeedFuncs(self):
-        '''
-        Registration for built-in Cortex feed functions.
-        '''
-        self.setFeedFunc('syn.nodes', self._addSynNodes)
+            self.addStormLib(path, ctor)
 
     def _initCortexHttpApi(self):
         '''
@@ -4471,7 +3932,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.addHttpApi('/api/v1/feed', s_httpapi.FeedV1, {'cell': self})
         self.addHttpApi('/api/v1/storm', s_httpapi.StormV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/call', s_httpapi.StormCallV1, {'cell': self})
-        self.addHttpApi('/api/v1/storm/nodes', s_httpapi.StormNodesV1, {'cell': self})
         self.addHttpApi('/api/v1/storm/export', s_httpapi.StormExportV1, {'cell': self})
         self.addHttpApi('/api/v1/reqvalidstorm', s_httpapi.ReqValidStormV1, {'cell': self})
 
@@ -4699,37 +4159,21 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 counts[name] += valu
         return dict(counts)
 
-    def addRuntLift(self, prop, func):
+    def addRuntLift(self, formname, func):
         '''
-        Register a runt lift helper for a given prop.
+        Register a runt lift helper for a given form.
 
         Args:
-            prop (str): Full property name for the prop to register the helper for.
-            func:
+            formname (str): The form name to register the callback for.
+            func: (function): A callback func(view) which yields packed nodes.
 
         Returns:
             None: None.
         '''
-        self._runtLiftFuncs[prop] = func
+        self._runtLiftFuncs[formname] = func
 
-    async def runRuntLift(self, full, valu=None, cmpr=None, view=None):
-        '''
-        Execute a runt lift function.
-
-        Args:
-            full (str): Property to lift by.
-            valu:
-            cmpr:
-
-        Returns:
-            bytes, list: Yields bytes, list tuples where the list contains a series of
-                key/value pairs which are used to construct a Node object.
-
-        '''
-        func = self._runtLiftFuncs.get(full)
-        if func is not None:
-            async for pode in func(full, valu, cmpr, view):
-                yield pode
+    def getRuntLift(self, formname):
+        return self._runtLiftFuncs.get(formname)
 
     def addRuntPropSet(self, full, func):
         '''
@@ -4740,10 +4184,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def runRuntPropSet(self, node, prop, valu):
         func = self._runtPropSetFuncs.get(prop.full)
         if func is None:
-            raise s_exc.IsRuntForm(mesg='No prop:set func set for runt property.',
-                                   prop=prop.full, valu=valu, ndef=node.ndef)
-        ret = await s_coro.ornot(func, node, prop, valu)
-        return ret
+            mesg = f'Property {prop.full} may not be set on a runtime node.'
+            raise s_exc.IsRuntForm(mesg=mesg)
+        return await s_coro.ornot(func, node, prop, valu)
 
     def addRuntPropDel(self, full, func):
         '''
@@ -4754,10 +4197,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def runRuntPropDel(self, node, prop):
         func = self._runtPropDelFuncs.get(prop.full)
         if func is None:
-            raise s_exc.IsRuntForm(mesg='No prop:del func set for runt property.',
-                                   prop=prop.full, ndef=node.ndef)
-        ret = await s_coro.ornot(func, node, prop)
-        return ret
+            mesg = f'Property {prop.full} may not be deleted from a runtime node.'
+            raise s_exc.IsRuntForm(mesg=mesg)
+        return await s_coro.ornot(func, node, prop)
 
     async def _checkLayerModels(self):
         async with self.enterMigrationMode():
@@ -4894,7 +4336,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             mesg = f'Cannot delete view ({iden}) that has protected set.'
             raise s_exc.CantDelView(mesg=mesg)
 
-        layriden = view.layers[0].iden
+        layriden = view.wlyr.iden
         pareiden = None
         if view.parent is not None:
             pareiden = view.parent.iden
@@ -5060,12 +4502,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             Layer: A Layer object.
         '''
         if iden is None:
-            return self.view.layers[0]
-
-        # For backwards compatibility, resolve references to old layer iden == cortex.iden to the main layer
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if iden == self.iden:
-            return self.view.layers[0]
+            return self.view.wlyr
 
         return self.layers.get(iden)
 
@@ -5103,11 +4540,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if iden is None:
                 iden = self.view.iden
-
-        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if iden == self.iden:
-            iden = self.view.iden
 
         view = self.views.get(iden)
         if view is None:
@@ -5254,11 +4686,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # forward wind the new layer to the current model version
         await layr._setModelVers(s_modelrev.maxvers)
 
-        if self.isactive:
-            await layr.initLayerActive()
-        else:
-            await layr.initLayerPassive()
-
         pack = await layr.pack()
         await self.feedBeholder('layer:add', pack, gates=[iden])
         return pack
@@ -5275,7 +4702,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _initLayr(self, layrinfo, nexsoffs=None):
         '''
-        Instantiate a Layer() instance via the provided layer info HiveDict.
+        Instantiate a Layer() instance via the provided layer info dict.
         '''
         layr = await self._ctorLayr(layrinfo)
         layr.addoffs = nexsoffs
@@ -5309,7 +4736,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _ctorLayr(self, layrinfo):
         '''
-        Actually construct the Layer instance for the given HiveDict.
+        Actually construct the Layer instance for the given layrinfo.
         '''
         return await s_layer.Layer.anit(self, layrinfo)
 
@@ -5434,25 +4861,74 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.addActiveCoro(pull, iden=iden)
 
+    def localToRemoteEdits(self, lnodeedits):
+        rnodeedits = []
+        for nid, form, ledits in lnodeedits:
+            if (ndef := self.getNidNdef(s_common.int64en(nid))) is None:
+                continue
+
+            redits = []
+            for edit in ledits:
+                if edit[0] in (10, 11):
+                    verb, n2nid = edit[1]
+                    if (n2ndef := self.getNidNdef(s_common.int64en(n2nid))) is None:
+                        continue
+
+                    redits.append((edit[0], (verb, n2ndef)))
+                    continue
+
+                redits.append(edit)
+
+            if redits:
+                rnodeedits.append((*ndef, redits))
+
+        return rnodeedits
+
+    async def remoteToLocalEdits(self, rnodeedits):
+        lnodeedits = []
+        for form, valu, redits in rnodeedits:
+
+            buid = s_common.buid((form, valu))
+            if (nid := self.getNidByBuid(buid)) is None:
+                if redits[0][0] != 0:
+                    # If we don't know this buid and the first edit isn't
+                    # a node add, this is an edit to a node we won't have
+                    # and we need to use a nexus event to generate the NID
+                    nid = s_common.int64un(await self.genNdefNid((form, valu)))
+            else:
+                nid = s_common.int64un(nid)
+
+            ledits = []
+            for edit in redits:
+                if edit[0] in (10, 11):
+                    verb, n2ndef = edit[1]
+                    n2nid = await self.genNdefNid(n2ndef)
+                    ledits.append((edit[0], (verb, s_common.int64un(n2nid))))
+                    continue
+
+                ledits.append(edit)
+
+            lnodeedits.append((nid, form, ledits))
+
+        return lnodeedits
+
     async def _pushBulkEdits(self, layr0, layr1, pdef):
 
         iden = pdef.get('iden')
         user = pdef.get('user')
         gvar = f'push:{iden}'
-        # TODO Remove the defaults in 3.0.0
-        csize = pdef.get('chunk:size', s_const.layer_pdef_csize)
-        qsize = pdef.get('queue:size', s_const.layer_pdef_qsize)
+        csize = pdef.get('chunk:size')
+        qsize = pdef.get('queue:size')
 
         async with await s_base.Base.anit() as base:
-
             queue = s_queue.Queue(maxsize=qsize)
 
             async def fill():
 
                 try:
                     filloffs = await self.getStormVar(gvar, -1)
-                    async for item in layr0.syncNodeEdits(filloffs + 1, wait=True):
-                        await queue.put(item)
+                    async for (offs, nodeedits) in layr0.syncNodeEdits(filloffs + 1, wait=True, compat=True):
+                        await queue.put((offs, await self.remoteToLocalEdits(nodeedits)))
                     await queue.close()
 
                 except asyncio.CancelledError:  # pragma: no cover
@@ -5473,12 +4949,12 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     # prevent push->push->push nodeedits growth
                     alledits.extend(edits)
                     if len(alledits) > csize:
-                        await layr1.storNodeEdits(alledits, meta)
+                        await layr1.saveNodeEdits(alledits, meta)
                         await self.setStormVar(gvar, offs)
                         alledits.clear()
 
                 if alledits:
-                    await layr1.storNodeEdits(alledits, meta)
+                    await layr1.saveNodeEdits(alledits, meta)
                     await self.setStormVar(gvar, offs)
 
     async def _checkNexsIndx(self):
@@ -5699,6 +5175,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.stormlibs.append((path, ctor))
 
+        # Skip libbase which is registered as a default ctor in the storm Runtime
+        if not path:
+            return
+
         root = self.libroot
         # (name, {kids}, {funcs})
 
@@ -5727,43 +5207,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.axready.wait()
         return self.axon.iden
 
-    def setFeedFunc(self, name, func):
-        '''
-        Set a data ingest function.
-
-        def func(snap, items):
-            loaditems...
-        '''
-        self.feedfuncs[name] = func
-
-    def getFeedFunc(self, name):
-        '''
-        Get a data ingest function.
-        '''
-        return self.feedfuncs.get(name)
-
-    async def getFeedFuncs(self):
-        ret = []
-        for name, ctor in self.feedfuncs.items():
-            # TODO - Future support for feed functions defined via Storm.
-            doc = getattr(ctor, '__doc__', None)
-            if doc is None:
-                doc = 'No feed docstring'
-            doc = doc.strip()
-            desc = doc.split('\n')[0]
-            ret.append({'name': name,
-                        'desc': desc,
-                        'fulldoc': doc,
-                        })
-        return tuple(ret)
-
-    async def _addSynNodes(self, snap, items):
-        '''
-        Add nodes to the Cortex via the packed node format.
-        '''
-        async for node in snap.addNodes(items):
-            pass
-
     async def setUserLocked(self, iden, locked):
         retn = await s_cell.Cell.setUserLocked(self, iden, locked)
         await self._bumpUserDmons(iden)
@@ -5782,6 +5225,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if opts is None:
             opts = {}
 
+        varz = opts.get('vars')
+        if varz is not None:
+            for valu in varz.keys():
+                if not isinstance(valu, str):
+                    mesg = f"Storm var names must be strings (got {valu} of type {type(valu)})"
+                    raise s_exc.BadArg(mesg=mesg)
+
         opts.setdefault('user', self.auth.rootuser.iden)
         return opts
 
@@ -5795,11 +5245,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             viewiden = user.profile.get('cortex:view')
 
         if viewiden is None:
-            viewiden = self.view.iden
-
-        # For backwards compatibility, resolve references to old view iden == cortex.iden to the main view
-        # TODO:  due to our migration policy, remove in 3.0.0
-        if viewiden == self.iden:  # pragma: no cover
             viewiden = self.view.iden
 
         view = self.views.get(viewiden)
@@ -6008,30 +5453,34 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.boss.promote('storm:export', user=user, info=taskinfo, taskiden=taskiden)
 
         with s_scope.enter({'user': user}):
-
             async with await s_spooled.Dict.anit(dirn=self.dirn, cell=self) as spooldict:
-                async with await self.snap(user=user, view=view) as snap:
 
-                    async for pode in snap.iterStormPodes(text, opts=opts):
-                        await spooldict.set(pode[1]['iden'], pode)
-                        await asyncio.sleep(0)
+                query = await self.getStormQuery(text, mode=opts.get('mode', 'storm'))
+                async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
 
-                    for iden, pode in spooldict.items():
+                    info = opts.get('_loginfo', {})
+                    info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                    self._logStormQuery(text, user, info=info)
+
+                    async for node, path in runt.execute():
+                        await spooldict.set(node.nid, (node.lastlayr(), node.pack()))
+
+                    for nid1, (stoplayr, pode1) in spooldict.items():
                         await asyncio.sleep(0)
 
                         edges = []
-                        async for verb, n2iden in snap.iterNodeEdgesN1(s_common.uhex(iden)):
+
+                        for nid2, pode2 in spooldict.items():
                             await asyncio.sleep(0)
 
-                            if not spooldict.has(n2iden):
-                                continue
-
-                            edges.append((verb, n2iden))
+                            async for verb in view.iterEdgeVerbs(nid1, nid2, stop=stoplayr):
+                                n2buid = self.getBuidByNid(nid2)
+                                edges.append((verb, s_common.ehex(n2buid)))
 
                         if edges:
-                            pode[1]['edges'] = edges
+                            pode1[1]['edges'] = edges
 
-                        yield pode
+                        yield pode1
 
     async def exportStormToAxon(self, text, opts=None):
         async with await self.axon.upload() as fd:
@@ -6052,7 +5501,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.boss.promote('feeddata', user=user, info=taskinfo, taskiden=taskiden)
 
         # ensure that the user can make all node edits in the layer
-        user.confirm(('node',), gateiden=view.layers[0].iden)
+        user.confirm(('node',), gateiden=view.wlyr.iden)
 
         q = s_queue.Queue(maxsize=10000)
         feedexc = None
@@ -6076,15 +5525,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             base.schedCoro(fill())
 
             count = 0
-            async with await self.snap(user=user, view=view) as snap:
 
-                # feed the items directly to syn.nodes
-                async for items in q.slices(size=100):
-                    async for node in snap.addNodes(items):
-                        count += 1
+            # feed the items directly to syn.nodes
+            async for items in q.slices(size=100):
+                async for node in view.addNodes(items):
+                    count += 1
 
-                if feedexc is not None:
-                    raise feedexc
+            if feedexc is not None:
+                raise feedexc
 
         return count
 
@@ -6135,9 +5583,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         view = self._viewFromOpts(opts)
         user = self._userFromOpts(opts)
 
-        async with await self.snap(user=user, view=view) as snap:
-            async with snap.getStormRuntime(query, opts=opts, user=user) as runt:
-                yield runt
+        async with await s_storm.Runtime.anit(query, view, opts=opts, user=user) as runt:
+            yield runt
 
     async def reqValidStorm(self, text, opts=None):
         '''
@@ -6172,32 +5619,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             info['hash'] = s_storm.queryhash(text)
             stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
                             extra={'synapse': info})
-
-    async def getNodeByNdef(self, ndef, view=None):
-        '''
-        Return a single Node() instance by (form,valu) tuple.
-        '''
-        name, valu = ndef
-
-        form = self.model.forms.get(name)
-        if form is None:
-            raise s_exc.NoSuchForm.init(name)
-
-        norm, info = form.type.norm(valu)
-
-        buid = s_common.buid((form.name, norm))
-
-        async with await self.snap(view=view) as snap:
-            return await snap.getNodeByBuid(buid)
-
-    def getCoreInfo(self):
-        '''This API is deprecated.'''
-        s_common.deprecated('Cortex.getCoreInfo')
-        return {
-            'version': synapse.version,
-            'modeldef': self.model.getModelDefs(),
-            'stormcmds': {cmd: {} for cmd in self.stormcmds.keys()},
-        }
 
     async def getCoreInfoV2(self):
         return {
@@ -6238,34 +5659,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         }
         return ret
 
-    async def addNodes(self, nodedefs, view=None):
+    async def addFeedData(self, items, *, user=None, viewiden=None):
         '''
-        Quickly add/modify a list of nodes from node definition tuples.
-        This API is the simplest/fastest way to add nodes, set node props,
-        and add tags to nodes remotely.
+        Add bulk data in nodes format.
 
         Args:
-
-            nodedefs (list): A list of node definition tuples. See below.
-
-        A node definition tuple is defined as:
-
-            ( (form, valu), {'props':{}, 'tags':{})
-
-        The "props" or "tags" keys may be omitted.
-
-        '''
-        async with await self.snap(view=view) as snap:
-            snap.strict = False
-            async for node in snap.addNodes(nodedefs):
-                yield node
-
-    async def addFeedData(self, name, items, *, viewiden=None):
-        '''
-        Add data using a feed/parser function.
-
-        Args:
-            name (str): The name of the feed record format.
             items (list): A list of items to ingest.
             viewiden (str): The iden of a view to use.
                 If a view is not specified, the default view is used.
@@ -6275,34 +5673,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if view is None:
             raise s_exc.NoSuchView(mesg=f'No such view iden={viewiden}', iden=viewiden)
 
-        async with await self.snap(view=view) as snap:
-            snap.strict = False
-            await snap.addFeedData(name, items)
-
-    async def snap(self, user=None, view=None):
-        '''
-        Return a transaction object for the default view.
-
-        Args:
-            user (str): The user to get the snap for.
-            view (View): View object to use when making the snap.
-
-        Notes:
-            This must be used as an asynchronous context manager.
-
-        Returns:
-            s_snap.Snap: A Snap object for the view.
-        '''
-
-        if view is None:
-            view = self.view
-
         if user is None:
-            user = await self.auth.getUserByName('root')
+            user = self.auth.rootuser
 
-        snap = await view.snap(user)
+        logger.info(f'User (user.name) adding feed data: {len(items)}')
 
-        return snap
+        async for node in view.addNodes(items, user=user):
+            await asyncio.sleep(0)
 
     async def loadCoreModule(self, ctor, conf=None):
         '''
@@ -6719,7 +6096,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def iterFormRows(self, layriden, form, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
+        Yields nid, valu tuples of nodes of a single form, optionally (re)starting at startvalu.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -6728,18 +6105,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
-            AsyncIterator[Tuple(buid, valu)]
+            AsyncIterator[Tuple(nid, valu)]
         '''
         layr = self.getLayer(layriden)
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterFormRows(form, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterPropRows(self, layriden, form, prop, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
+        Yields nid, valu tuples of nodes with a particular secondary property, optionally (re)starting at startvalu.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -6749,18 +6126,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
-            AsyncIterator[Tuple(buid, valu)]
+            AsyncIterator[Tuple(nid, valu)]
         '''
         layr = self.getLayer(layriden)
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterPropRows(form, prop, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterUnivRows(self, layriden, prop, stortype=None, startvalu=None):
         '''
-        Yields buid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
+        Yields nid, valu tuples of nodes with a particular universal property, optionally (re)starting at startvalu.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -6769,42 +6146,41 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
-            AsyncIterator[Tuple(buid, valu)]
+            AsyncIterator[Tuple(nid, valu)]
         '''
         layr = self.getLayer(layriden)
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterUnivRows(prop, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     async def iterTagRows(self, layriden, tag, form=None, starttupl=None):
         '''
-        Yields (buid, (valu, form)) values that match a tag and optional form, optionally (re)starting at starttupl.
+        Yields (nid, valu) values that match a tag and optional form.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
             tag (str): the tag to match
-            form (Optional[str]):  if present, only yields buids of nodes that match the form.
-            starttupl (Optional[Tuple[buid, form]]):  if present, (re)starts the stream of values there.
+            form (Optional[str]):  if present, only yields nids of nodes that match the form.
+            starttupl (Optional[Tuple[nid, Tuple[int, int] | Tuple[None, None]]]): if present, (re)starts the stream of values there.
 
         Returns:
-            AsyncIterator[Tuple(buid, (valu, form))]
-
-        Note:
-            This yields (buid, (tagvalu, form)) instead of just buid, valu in order to allow resuming an interrupted
-            call by feeding the last value retrieved into starttupl
+            AsyncIterator[Tuple(nid, valu)]
         '''
         layr = self.getLayer(layriden)
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterTagRows(tag, form=form, starttupl=starttupl):
-            yield item
+        if starttupl is not None:
+            starttupl = (s_common.int64en(starttupl[0]), starttupl[1])
+
+        async for nid, valu in layr.iterTagRows(tag, form=form, starttupl=starttupl):
+            yield s_common.int64un(nid), valu
 
     async def iterTagPropRows(self, layriden, tag, prop, form=None, stortype=None, startvalu=None):
         '''
-        Yields (buid, valu) that match a tag:prop, optionally (re)starting at startvalu.
+        Yields (nid, valu) that match a tag:prop, optionally (re)starting at startvalu.
 
         Args:
             layriden (str):  Iden of the layer to retrieve the nodes
@@ -6815,14 +6191,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             startvalu (Any):  The value to start at.  May only be not None if stortype is not None.
 
         Returns:
-            AsyncIterator[Tuple(buid, valu)]
+            AsyncIterator[Tuple(nid, valu)]
         '''
         layr = self.getLayer(layriden)
         if layr is None:
             raise s_exc.NoSuchLayer(mesg=f'No such layer {layriden}', iden=layriden)
 
-        async for item in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
-            yield item
+        async for nid, valu in layr.iterTagPropRows(tag, prop, form=form, stortype=stortype, startvalu=startvalu):
+            yield s_common.int64un(nid), valu
 
     def _initVaults(self):
         self.vaultsdb = self.slab.initdb('vaults')

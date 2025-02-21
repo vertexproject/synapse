@@ -100,7 +100,6 @@ class LibHttp(s_stormtypes.Lib):
 
     For APIs that accept a proxy argument, the following values are supported::
 
-        $lib.null: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
         $lib.true: Use the proxy defined by the http:proxy configuration option if set.
         $lib.false: Do not use the proxy defined by the http:proxy configuration option if set.
         <str>: A proxy URL string.
@@ -354,7 +353,7 @@ class LibHttp(s_stormtypes.Lib):
         if params:
             kwargs['params'] = params
 
-        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
+        kwargs['ssl'] = self.runt.view.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         try:
             sess = await sock.enter_context(aiohttp.ClientSession(connector=connector, timeout=timeout))
@@ -419,18 +418,18 @@ class LibHttp(s_stormtypes.Lib):
                     kwargs['proxy'] = proxy
 
                 if ssl_opts is not None:
-                    axonvers = self.runt.snap.core.axoninfo['synapse']['version']
+                    axonvers = self.runt.view.core.axoninfo['synapse']['version']
                     mesg = f'The ssl_opts argument requires an Axon Synapse version {s_stormtypes.AXON_MINVERS_SSLOPTS}, ' \
                            f'but the Axon is running {axonvers}'
                     s_version.reqVersion(axonvers, s_stormtypes.AXON_MINVERS_SSLOPTS, mesg=mesg)
                     kwargs['ssl_opts'] = ssl_opts
 
-                axon = self.runt.snap.core.axon
+                axon = self.runt.view.core.axon
                 info = await axon.postfiles(fields, url, headers=headers, params=params, method=meth,
                                             ssl=ssl_verify, timeout=timeout, **kwargs)
                 return HttpResp(info)
 
-        kwargs['ssl'] = self.runt.snap.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
+        kwargs['ssl'] = self.runt.view.core.getCachedSslCtx(opts=ssl_opts, verify=ssl_verify)
 
         connector = None
         if proxyurl := await s_stormtypes.resolveCoreProxyUrl(proxy):

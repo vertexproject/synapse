@@ -73,7 +73,7 @@ class StormPlugin(coverage.CoveragePlugin, coverage.FileTracer):
         if filename.endswith('synapse/lib/stormctrl.py'):
             return StormCtrlTracer(self)
 
-        if filename.endswith('synapse/lib/snap.py'):
+        if filename.endswith('synapse/lib/view.py'):
             return PivotTracer(self)
 
         return None

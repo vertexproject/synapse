@@ -40,21 +40,25 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:note:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An analyst note type taxonomy.'}),
+                    'doc': 'A hierarchical taxonomy of note types.'}),
+
+                ('meta:source:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of source types.'}),
 
                 ('meta:timeline', ('guid', {}), {
                     'doc': 'A curated timeline of analytically relevant events.'}),
 
-                ('meta:timeline:taxonomy', ('taxonomy', {}), {
+                ('meta:timeline:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of timeline types for meta:timeline nodes.'}),
+                    'doc': 'A hierarchical taxonomy of timeline types.'}),
 
                 ('meta:event', ('guid', {}), {
                     'doc': 'An analytically relevant event in a curated timeline.'}),
 
-                ('meta:event:taxonomy', ('taxonomy', {}), {
+                ('meta:event:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of event types for meta:event nodes.'}),
+                    'doc': 'A hierarchical taxonomy of event types.'}),
 
                 ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
@@ -65,43 +69,10 @@ class BaseModule(s_module.CoreModule):
 
                 ('meta:rule:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy for meta:rule types.'}),
+                    'doc': 'A hierarchical taxonomy of rule types.'}),
 
                 ('meta:rule', ('guid', {}), {
                     'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
-
-                ('graph:cluster', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic node, used in conjunction with Edge types, to cluster arbitrary nodes to a '
-                           'single node in the model.'}),
-
-                ('graph:node', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic node used to represent objects outside the model.'}),
-
-                ('graph:event', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic event node to represent events outside the model.'}),
-
-                ('edge:refs', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 refers to or contains N2.'}),
-
-                ('edge:has', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 has N2.'}),
-
-                ('edge:wentto', ('timeedge', {}), {
-                    'deprecated': True,
-                    'doc': 'A digraph edge which records that N1 went to N2 at a specific time.'}),
-
-                ('graph:edge', ('edge', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic digraph edge to show relationships outside the model.'}),
-
-                ('graph:timeedge', ('timeedge', {}), {
-                    'deprecated': True,
-                    'doc': 'A generic digraph time edge to show relationships outside the model.'}),
 
                 ('meta:activity', ('int', {'enums': prioenums, 'enums:strict': False}), {
                     'doc': 'A generic activity level enumeration.'}),
@@ -137,11 +108,6 @@ class BaseModule(s_module.CoreModule):
                     'props': (
                         ('title', ('str', {}), {
                             'doc': 'A brief title of the definition.'}),
-
-                        ('summary', ('str', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use title/desc.',
-                            'disp': {'hint': 'text'}}),
 
                         ('desc', ('str', {}), {
                             'doc': 'A definition of the taxonomy entry.',
@@ -181,14 +147,14 @@ class BaseModule(s_module.CoreModule):
             ),
             'forms': (
 
+                ('meta:source:type:taxonomy', {}, ()),
                 ('meta:source', {}, (
 
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A human friendly name for the source.'}),
 
-                    # TODO - 3.0 move to taxonomy type
-                    ('type', ('str', {'lower': True}), {
-                        'doc': 'An optional type field used to group sources.'}),
+                    ('type', ('meta:source:type:taxonomy', {}), {
+                        'doc': 'The type of source.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'A URL which documents the meta source.'}),
@@ -246,11 +212,12 @@ class BaseModule(s_module.CoreModule):
                     ('summary', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A prose summary of the timeline.'}),
-                    ('type', ('meta:timeline:taxonomy', {}), {
+                    ('type', ('meta:timeline:type:taxonomy', {}), {
                         'doc': 'The type of timeline.'}),
                 )),
 
-                ('meta:timeline:taxonomy', {}, ()),
+                ('meta:timeline:type:taxonomy', {
+                    'prevnames': ('meta:timeline:taxonomy',)}, ()),
 
                 ('meta:event', {}, (
 
@@ -273,11 +240,12 @@ class BaseModule(s_module.CoreModule):
                     ('duration', ('duration', {}), {
                         'doc': 'The duration of the event.'}),
 
-                    ('type', ('meta:event:taxonomy', {}), {
+                    ('type', ('meta:event:type:taxonomy', {}), {
                         'doc': 'Type of event.'}),
                 )),
 
-                ('meta:event:taxonomy', {}, ()),
+                ('meta:event:type:taxonomy', {
+                    'prevnames': ('meta:event:taxonomy',)}, ()),
 
                 ('meta:ruleset', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -333,82 +301,6 @@ class BaseModule(s_module.CoreModule):
 
                     ('count', ('int', {}), {
                         'doc': 'The number of items counted in aggregate.'}),
-                )),
-
-                ('graph:cluster', {}, (
-                    ('name', ('str', {'lower': True}), {
-                        'doc': 'A human friendly name for the cluster.'}),
-                    ('desc', ('str', {'lower': True}), {
-                        'doc': 'A human friendly long form description for the cluster.'}),
-                    ('type', ('str', {'lower': True}), {
-                        'doc': 'An optional type field used to group clusters.'}),
-                )),
-
-                ('edge:has', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
-
-                ('edge:refs', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
-
-                ('edge:wentto', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-
-                    ('time', ('time', {}), {'ro': True}),
-                )),
-
-                ('graph:node', {}, (
-
-                    ('type', ('str', {}), {
-                        'doc': 'The type name for the non-model node.'}),
-
-                    ('name', ('str', {}), {
-                        'doc': 'A human readable name for this record.'}),
-
-                    ('data', ('data', {}), {
-                        'doc': 'Arbitrary non-indexed msgpack data attached to the node.'}),
-
-                )),
-
-                ('graph:edge', {}, (
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
-
-                ('graph:timeedge', {}, (
-                    ('time', ('time', {}), {'ro': True}),
-                    ('n1', ('ndef', {}), {'ro': True}),
-                    ('n1:form', ('str', {}), {'ro': True}),
-                    ('n2', ('ndef', {}), {'ro': True}),
-                    ('n2:form', ('str', {}), {'ro': True}),
-                )),
-
-                ('graph:event', {}, (
-
-                    ('time', ('time', {}), {
-                        'doc': 'The time of the event.'}),
-
-                    ('type', ('str', {}), {
-                        'doc': 'A arbitrary type string for the event.'}),
-
-                    ('name', ('str', {}), {
-                        'doc': 'A name for the event.'}),
-
-                    ('data', ('data', {}), {
-                        'doc': 'Arbitrary non-indexed msgpack data attached to the event.'}),
-
                 )),
 
             ),
