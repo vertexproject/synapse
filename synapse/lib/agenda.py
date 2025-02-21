@@ -861,6 +861,11 @@ class Agenda(s_base.Base):
                 if mesg[0] == 'node':
                     count += 1
 
+                elif mesg[0] == 'warn':
+                    text = mesg[1].get('mesg')
+                    extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
+                    logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
+
                 elif mesg[0] == 'err':
                     excname, errinfo = mesg[1]
                     errinfo.pop('eline', None)
