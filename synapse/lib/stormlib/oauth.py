@@ -3,7 +3,6 @@ from oauthlib import oauth1
 
 import synapse.exc as s_exc
 
-import synapse.lib.oauth as s_oauth
 import synapse.lib.stormtypes as s_stormtypes
 
 @s_stormtypes.registry.registerLib
@@ -157,7 +156,8 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
                         $lib.inet.http.oauth.v2.addProvider($conf)
 
-                    Add a new provider which uses the Microsfot Azure Federated Workflow Identify token credentials.::
+                    Add a new provider which uses the Microsfot Azure Federated Workflow Identify token credentials.
+                    This resolves the client_assertion from the AZURE_FEDERATED_TOKEN_FILE environment variable::
 
                         $iden = $lib.guid(azureexample, provider, oauth)
                         $authority_id = '4b70ee6f-d47b-3262-baa1-41cd7faed71b'
@@ -190,7 +190,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                     Add a new provider which uses a custom Storm callback to obtain the client_assertion data. These
                     callbacks are executed as the user who is performing the authorization_code workflow. The Storm
                     callback must return data in a tuple of ``bool`` and a dictionary containing the assertion in the
-                    key ``token``. Error messagess should be in the key ``error``.::
+                    key ``token``. Error messagess should be in the key ``error``::
 
                         $iden = $lib.guid(callstormexample, provider, oauth)
 
