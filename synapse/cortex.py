@@ -1095,6 +1095,49 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await view.setViewInfo('protected', nomerge)
             await view.setViewInfo('nomerge', None)
 
+    async def _migrateCronUser(self):
+        for iden, cron in self.agenda.list():
+            await self.editCronJob(iden, 'user', cron.creator)
+
+        oldperm = ('cron', 'set', 'creator')
+        newperm = ('cron', 'set', 'user')
+
+        for user in self.auth.users():
+            rules = []
+            update = False
+
+            for allow, path in user.getRules():
+                if path[:3] == oldperm:
+                    update = True
+                    rules.append((allow, newperm + path[3:]))
+                    continue
+                rules.append((allow, path))
+
+            if update:
+                await user.setRules(rules)
+
+        for role in self.auth.roles():
+            rules = []
+            update = False
+
+            for allow, path in role.getRules():
+                if path[:3] == oldperm:
+                    update = True
+                    rules.append((allow, newperm + path[3:]))
+                    continue
+                rules.append((allow, path))
+
+            if update:
+                await role.setRules(rules)
+
+    @s_nexus.Pusher.onPushAuto('cortex:migr:trigger:creator')
+    async def _migrateTriggerCreator(self):
+        for view in self.views.values():
+            for iden, trig in view.triggers.list():
+                if trig.tdef.get('creator') is None:
+                    trig.tdef['creator'] = trig.tdef['user']
+                    view.trigdict.set(iden, trig.tdef)
+
     async def _storUpdateMacros(self):
         for name, node in await self.hive.open(('cortex', 'storm', 'macros')):
 
@@ -1526,6 +1569,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpCellVers('cortex:defaults', (
             (1, self._addAllLayrRead),
             (2, self._viewNomergeToProtected),
+            (3, self._migrateCronUser),
+            (4, self._migrateTriggerCreator),
         ))
 
     async def _addAllLayrRead(self):
@@ -6535,7 +6580,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         cdef['created'] = s_common.now()
 
-        opts = {'user': cdef['creator'], 'view': cdef.get('view')}
+        opts = {'user': cdef['user'], 'view': cdef.get('view')}
 
         view = self._viewFromOpts(opts)
         cdef['view'] = view.iden
@@ -6553,7 +6598,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.auth.reqNoAuthGate(iden)
 
-        user = await self.auth.reqUser(cdef['creator'])
+        useriden = cdef.get('user', cdef['creator'])
+        user = await self.auth.reqUser(useriden)
 
         cdef = await self.agenda.add(cdef)
 
@@ -6663,24 +6709,44 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             info = cron.pack()
 
-            user = self.auth.user(cron.creator)
+            user = self.auth.user(cron.user)
             if user is not None:
                 info['username'] = user.name
+
+            creator = self.auth.user(cron.creator)
+            if creator is not None:
+                info['creatorname'] = creator.name
 
             crons.append(info)
 
         return crons
 
-    @s_nexus.Pusher.onPushAuto('cron:edit')
     async def editCronJob(self, iden, name, valu):
+
+        if name == 'user':
+            await self.auth.reqUser(valu)
+
+        elif name not in ('name', 'doc', 'pool'):
+            mesg = f'editCronJob name {name} is not supported for editing.'
+            raise s_exc.BadArg(mesg=mesg)
+
+        return await self._push('cron:edit', iden, name, valu)
+
+    @s_nexus.Pusher.onPush('cron:edit')
+    async def _editCronJob(self, iden, name, valu):
         '''
         Modify a cron job definition.
         '''
         appt = await self.agenda.get(iden)
         # TODO make this generic and check cdef
 
-        if name == 'creator':
+        if name == 'user':
             await self.auth.reqUser(valu)
+            appt.user = valu
+
+        elif name == 'creator':
+            await self.auth.reqUser(valu)
+            appt.user = valu
             appt.creator = valu
 
         elif name == 'name':
