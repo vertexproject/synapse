@@ -305,7 +305,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     self.eq(resp.status, 200)
                     self.true(await stream.wait(timeout=12))
                 msgs = stream.jsonlines()
-                self.eq(msgs[0].get('httpapi'), echoiden)
+                self.eq(msgs[0]['synapse'].get('httpapi'), echoiden)
                 core.stormlog = False
 
                 # Sad paths on the $request methods
