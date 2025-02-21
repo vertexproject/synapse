@@ -10,8 +10,7 @@ import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 
-# Change to v2.199.0 before release.
-reqver = '>=2.198,<3.0.0'
+reqver = '>=2.200,<3.0.0'
 
 async def main(argv, outp=s_output.stdout):
 

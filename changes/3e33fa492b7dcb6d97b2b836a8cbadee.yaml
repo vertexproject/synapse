@@ -1,5 +1,0 @@
----
-desc: Update the ``lmdb`` library constraints to ``>=1.2.1,<1.7.0``.
-prs: []
-type: feat
-...

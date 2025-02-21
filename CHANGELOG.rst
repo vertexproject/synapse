@@ -6,6 +6,31 @@
 Synapse Changelog
 *****************
 
+v2.200.0 - 2025-02-21
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the ``lmdb`` library constraints to ``>=1.2.1,<1.7.0``.
+  (`#4145 <https://github.com/vertexproject/synapse/pull/4145>`_)
+- Added Endpoints section with path and description to Storm command help
+  output when defined.
+  (`#4149 <https://github.com/vertexproject/synapse/pull/4149>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the guid dictionary syntax could raise an exception when
+  attempting to filter by alternate property values.
+  (`#4147 <https://github.com/vertexproject/synapse/pull/4147>`_)
+- Fixed bug where data model interface template values were modified by
+  inheritors.
+  (`#4148 <https://github.com/vertexproject/synapse/pull/4148>`_)
+
+Deprecations
+------------
+- Removed ``hiveauth.py`` and related APIs which depended on it.
+  (`#4140 <https://github.com/vertexproject/synapse/pull/4140>`_)
+
 v2.199.0 - 2025-02-18
 =====================
 
