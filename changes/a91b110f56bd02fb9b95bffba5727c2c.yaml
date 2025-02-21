@@ -1,0 +1,7 @@
+---
+desc: Added support to the Cortex Oauth2 providers to authenticate with client_assertions.
+  Currently assertions can be sourced Azure Managed Identity Workloads and via Storm
+  callback functions.
+prs: []
+type: feat
+...
