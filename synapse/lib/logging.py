@@ -110,13 +110,14 @@ class TextFormatter(Formatter):
         loginfo = self.genLogInfo(record)
         return logging.Formatter.format(self, record)
 
-def setup(level=logging.WARNING, structlog=False):
+_glob_logconf = {}
+def setup(**conf):
     '''
     Configure synapse logging.
     '''
-    conf = getLogConfFromEnv()
-    conf.setdefault('level', level)
-    conf.setdefault('structlog', structlog)
+    conf.update(getLogConfFromEnv())
+    conf.setdefault('level', logging.WARNING)
+    conf.setdefault('structlog', False)
 
     fmtclass = Formatter
     if not conf.get('structlog'):
@@ -128,6 +129,9 @@ def setup(level=logging.WARNING, structlog=False):
     logging.basicConfig(level=conf.get('level'), handlers=(handler,))
 
     logger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(level))
+
+    _glob_logconf.clear()
+    _glob_logconf.update(conf)
 
     return conf
 
@@ -146,9 +150,9 @@ def getLogConfFromEnv():
 
     return conf
 
-def normLogLevel(valu):
+def level(valu):
     '''
-    Norm a log level value to an integer.
+    Normalize a log level value to an integer.
 
     Args:
         valu: The value to norm ( a string or integer ).

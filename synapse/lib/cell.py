@@ -3789,6 +3789,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
         pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
+                          type=s_logging.level,
                           help='Deprecated. Please use SYN_LOG_LEVEL environment variable.', type=str.upper)
 
         pars.add_argument('--structured-logging', default=True, action='store_true',
@@ -4227,8 +4228,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.genpath(opts.dirn, 'cell.yaml')
         mods_path = s_common.genpath(opts.dirn, 'cell.mods.yaml')
 
-        level = s_logging.normLogLevel(opts.log_level)
-        logconf = s_logging.setup(level=level, structlog=opts.structured_logging)
+        logconf = {
+            'level': opts.log_level,
+            'structlog': opts.structured_logging
+        }
+
+        # if (logarchive := conf.get('log:archive')) is not None:
+            # logconf['archive'] = logarchive
+
+        logconf = s_logging.setup(**logconf)
 
         extra = s_logging.getLogExtra(service_type=cls.getCellType(),
                                       service_version=cls.VERSTRING,
@@ -4239,7 +4247,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await cls._initBootRestore(opts.dirn)
 
         try:
-            conf.setdefault('_log_conf', logconf)
+            conf['_log_conf'] = logconf
             conf.setConfFromOpts(opts)
             conf.setConfFromEnvs()
             conf.setConfFromFile(path)
@@ -4248,7 +4256,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.exception(f'Error while bootstrapping cell config.')
             raise
 
-        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
+        # s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)
