@@ -161,18 +161,16 @@ class OAuthMixin(s_nexus.Pusher):
             self._oauth_sched_ran.clear()
 
     async def _getOAuthAccessToken(self, providerconf, useriden, authcode, code_verifier=None):
-        formdata = aiohttp.FormData()
+
+        ok, data = await self._getAuthData(providerconf, useriden)
+        if not ok:
+            return ok, data
+
         token_uri = providerconf['token_uri']
         ssl_verify = providerconf['ssl_verify']
-        client_assertion = providerconf.get('client_assertion')
 
-        if client_assertion:
-            auth = None
-            ok, info = await self._getClientAssertionData(providerconf, formdata, useriden)
-            if not ok:
-                return ok, info
-        else:
-            auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
+        auth = data.get('auth')
+        formdata = data.get('formdata')  # type: aiohttp.FormData
 
         formdata.add_field('grant_type', 'authorization_code')
         formdata.add_field('scope', providerconf['scope'])
@@ -184,22 +182,20 @@ class OAuthMixin(s_nexus.Pusher):
         return await self._fetchOAuthToken(token_uri, auth, formdata, ssl_verify=ssl_verify)
 
     async def _refreshOAuthAccessToken(self, providerconf, clientconf, useriden):
-        formdata = aiohttp.FormData()
+
+        ok, data = await self._getAuthData(providerconf, useriden)
+        if not ok:
+            return ok, data
+
         token_uri = providerconf['token_uri']
         ssl_verify = providerconf['ssl_verify']
         refresh_token = clientconf['refresh_token']
-        client_assertion = providerconf.get('client_assertion')
+
+        auth = data.get('auth')
+        formdata = data.get('formdata')  # type: aiohttp.FormData
 
         formdata.add_field('grant_type', 'refresh_token')
         formdata.add_field('refresh_token', refresh_token)
-
-        if client_assertion:
-            auth = None
-            ok, info = await self._getClientAssertionData(providerconf, formdata, useriden)
-            if not ok:
-                return ok, info
-        else:
-            auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
 
         ok, data = await self._fetchOAuthToken(token_uri, auth, formdata, ssl_verify=ssl_verify, retries=3)
         if ok and not data.get('refresh_token'):
@@ -208,36 +204,61 @@ class OAuthMixin(s_nexus.Pusher):
 
         return ok, data
 
-    async def _getClientAssertionData(self, providerconf, formdata, useriden):
+    async def _getAuthData(self,  providerconf, useriden):
+        isok = False
+        ret = {}
+        auth_scheme = providerconf['auth_scheme']
 
-        client_id = providerconf['client_id']
-        client_assertion = providerconf['client_assertion']
+        if auth_scheme == 'basic':
+            auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
+            ret['auth'] = auth
+            ret['formdata'] = aiohttp.FormData()
+            isok = True
 
-        if (info := client_assertion.get('cortex:callstorm')):
-            opts = {
-                'view': info['view'],
-                'vars': info.get('vars', {}),
-                'user': useriden,
-            }
-            try:
-                ok, info = await self.callStorm(info['query'], opts=opts)
-            except Exception as e:
-                return False, {'error': f'Error executing callStorm: {e}'}
-            if not ok:
-                return ok, info
-            assertion = info.get('token')
-        elif client_assertion.get('msft:azure:workloadidentity'):
-            ok, info = _getAzureTokenFile()
-            if not ok:
-                return ok, info
-            assertion = info.get('token')
+        elif auth_scheme == 'client_assertion':
+            assertion = None
+            client_id = providerconf['client_id']
+            client_assertion = providerconf['client_assertion']
+
+            if (info := client_assertion.get('cortex:callstorm')):
+                opts = {
+                    'view': info['view'],
+                    'vars': info.get('vars', {}),
+                    'user': useriden,
+                }
+                try:
+                    ok, info = await self.callStorm(info['query'], opts=opts)
+                except Exception as e:
+                    isok = False
+                    ret['error'] = f'Error executing callStorm: {e}'
+                else:
+                    if not ok:
+                        return ok, info
+                    assertion = info.get('token')
+
+            elif client_assertion.get('msft:azure:workloadidentity'):
+                ok, info = _getAzureTokenFile()
+                if not ok:
+                    return ok, info
+                assertion = info.get('token')
+
+            else:  # pragma: no cover
+                isok = False
+                ret['error'] = f'unknown client_assertions data: {client_assertion=}'
+
+            if assertion:
+                formdata = aiohttp.FormData()
+                formdata.add_field('client_assertion_type', 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer')
+                formdata.add_field('client_assertion', assertion)
+                formdata.add_field('client_id', client_id)
+                ret['formdata'] = formdata
+                isok = True
+
         else:  # pragma: no cover
-            return False, {'error': f'unknown client_assertions data: {client_assertion=}'}
+            isok = False
+            ret['error'] = f'unknown authorization scheme: {auth_scheme}'
 
-        formdata.add_field('client_assertion_type', 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer')
-        formdata.add_field('client_assertion', assertion)
-        formdata.add_field('client_id', client_id)
-        return True, {}
+        return isok, ret
 
     async def _fetchOAuthToken(self, url, auth, formdata, ssl_verify=True, retries=1):
 
@@ -297,6 +318,7 @@ class OAuthMixin(s_nexus.Pusher):
 
         client_secret = conf.get('client_secret')
         client_assertion = conf.get('client_assertion', {})
+
         if (client_assertion and client_secret):
             mesg = 'client_assertion and client_secret provided. These are mutually exclusive options.'
             raise s_exc.BadArg(mesg=mesg)
@@ -304,22 +326,30 @@ class OAuthMixin(s_nexus.Pusher):
             mesg = 'client_assertion and client_secret missing. These are mutually exclusive options and one must be provided.'
             raise s_exc.BadArg(mesg=mesg)
 
-        if (info := client_assertion.get('cortex:callstorm')) is not None:
-            if not hasattr(self, 'callStorm'):
-                mesg = f'cortex:callstorm client assertion not supported by {self.__class__.__name__}'
-                raise s_exc.BadArg(mesg=mesg)
-            text = info['query']
-            # Validate the query text
-            try:
-                await self.reqValidStorm(text)
-            except s_exc.BadSyntax as e:
-                raise s_exc.BadArg(mesg=f'Bad storm query: {e.get("mesg")}') from None
-            view = self.getView(info['view'])
-            if view is None:
-                raise s_exc.BadArg(mesg=f'View {info["view"]} does not exist.')
-        elif (valu := client_assertion.get('msft:azure:workloadidentity')) is not None:
-            if not valu:
-                raise s_exc.BadArg(mesg='msft:azure:workloadidentity valu must be true')
+        auth_scheme = conf.get('auth_scheme')
+        if auth_scheme == 'basic':
+            if not client_secret:
+                raise s_exc.BadArg(mesg='must provide client_secret for auth_scheme=basic')
+
+        elif auth_scheme == 'client_assertion':
+            if (info := client_assertion.get('cortex:callstorm')) is not None:
+                if not hasattr(self, 'callStorm'):
+                    mesg = f'cortex:callstorm client assertion not supported by {self.__class__.__name__}'
+                    raise s_exc.BadArg(mesg=mesg)
+                text = info['query']
+                # Validate the query text
+                try:
+                    await self.reqValidStorm(text)
+                except s_exc.BadSyntax as e:
+                    raise s_exc.BadArg(mesg=f'Bad storm query: {e.get("mesg")}') from None
+                view = self.getView(info['view'])
+                if view is None:
+                    raise s_exc.BadArg(mesg=f'View {info["view"]} does not exist.')
+            elif (valu := client_assertion.get('msft:azure:workloadidentity')) is not None:
+                if not valu:
+                    raise s_exc.BadArg(mesg='msft:azure:workloadidentity valu must be true')
+        else:  # pragma: no cover
+            raise s_exc.BadArg(mesg=f'unknown auth_scheme={auth_scheme}')
 
         await self._push('oauth:provider:add', conf)
 

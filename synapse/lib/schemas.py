@@ -1082,7 +1082,7 @@ _reqValidOauth2ProviderSchema = {
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'flow_type': {'type': 'string', 'default': 'authorization_code', 'enum': ['authorization_code']},
-        'auth_scheme': {'type': 'string', 'default': 'basic', 'enum': ['basic']},
+        'auth_scheme': {'type': 'string', 'default': 'basic', 'enum': ['basic', 'client_assertion']},
         'client_id': {'type': 'string'},
         'client_secret': {'type': 'string'},
         'client_assertion': _client_assertion_schema,

@@ -809,6 +809,7 @@ class OAuthTest(s_test.SynTest):
                                 'view': view,
                             }
                         },
+                        'auth_scheme': 'client_assertion',
                         'scope': 'allthethings',
                         'auth_uri': baseurl + '/api/oauth/authorize',
                         'token_uri': baseurl + '/api/oauth/token',
@@ -825,7 +826,6 @@ class OAuthTest(s_test.SynTest):
                         **providerconf00,
                         # default values currently not configurable by the user
                         'flow_type': 'authorization_code',
-                        'auth_scheme': 'basic',
                     }
 
                     opts = {
@@ -987,6 +987,7 @@ class OAuthTest(s_test.SynTest):
                             'client_assertion': {
                                 'msft:azure:workloadidentity': True
                             },
+                            'auth_scheme': 'client_assertion',
                             'scope': 'allthethings',
                             'auth_uri': baseurl + '/api/oauth/authorize',
                             'token_uri': baseurl + '/api/oauth/token',
@@ -1003,7 +1004,6 @@ class OAuthTest(s_test.SynTest):
                             **providerconf00,
                             # default values currently not configurable by the user
                             'flow_type': 'authorization_code',
-                            'auth_scheme': 'basic',
                         }
 
                         opts = {
@@ -1120,6 +1120,14 @@ class OAuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg) as cm:
                 await core.nodes(q, opts=opts)
             self.isin('client_assertion and client_secret missing', cm.exception.get('mesg'))
+
+            providerconf00['client_assertion'] = {'msft:azure:workloadidentity': False}
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes(q, opts=opts)
+            self.isin('must provide client_secret for auth_scheme=basic', cm.exception.get('mesg'))
+
+            providerconf00.pop('client_assertion')
+            providerconf00['auth_scheme'] = 'client_assertion'
 
             callstormopts = {
                 'query': 'version',

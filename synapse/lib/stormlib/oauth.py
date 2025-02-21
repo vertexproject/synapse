@@ -160,10 +160,11 @@ class OAuthV2Lib(s_stormtypes.Lib):
                     Add a new provider which uses the Microsfot Azure Federated Workflow Identify token credentials.::
 
                         $iden = $lib.guid(azureexample, provider, oauth)
-                        $authority_id = 'f70e4be6-bd47-2263-a1ba-d7141cd7faeb'
+                        $authority_id = '4b70ee6f-d47b-3262-baa1-41cd7faed71b'
                         $conf = ({
                             "iden": $iden,
                             "name": "example_provider",
+                            "auth_scheme": "client_assertion",
                             "client_id": "yourclientid",
                             "client_assertion": {
                                 "msft:azure:workloadidentity": true,
@@ -217,6 +218,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         $conf = ({
                             "iden": $iden,
                             "name": "example_provider",
+                            "auth_scheme": "client_assertion",
                             "client_id": "yourclientid",
                             "client_assertion": {
                                 "cortex:callstorm": {
