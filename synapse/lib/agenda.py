@@ -260,6 +260,7 @@ class _Appt:
         'created',
         'enabled',
         'errcount',
+        'loglevel',
         'nexttime',
         'lasterrs',
         'isrunning',
@@ -269,7 +270,7 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False, loglevel=None):
         self.doc = ''
         self.name = ''
         self.task = None
@@ -284,6 +285,7 @@ class _Appt:
         self._recidxnexttime = None  # index of rec who is up next
         self.view = view
         self.created = created
+        self.loglevel = loglevel
 
         if self.recur and not self.recs:
             raise s_exc.BadTime(mesg='A recurrent appointment with no records')
@@ -559,6 +561,7 @@ class Agenda(s_base.Base):
         creator = cdef.get('creator')
         view = cdef.get('view')
         created = cdef.get('created')
+        loglevel = cdef.get('loglevel', 'WARNING')
 
         pool = cdef.get('pool', False)
 
@@ -603,7 +606,9 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view, created=created, pool=pool)
+        # TODO: this is insane. Make _Appt take the cdef directly...
+        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view,
+                           created=created, pool=pool, loglevel=loglevel)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
@@ -841,7 +846,10 @@ class Agenda(s_base.Base):
                     extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
                                        'username': user.name, 'view': appt.view}})
         starttime = self._getNowTick()
+
         success = False
+        loglevel = s_common.normLogLevel(appt.loglevel)
+
         try:
             opts = {
                 'user': user.iden,
@@ -861,7 +869,7 @@ class Agenda(s_base.Base):
                 if mesg[0] == 'node':
                     count += 1
 
-                elif mesg[0] == 'warn':
+                elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
                     text = mesg[1].get('mesg')
                     extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
                     logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
