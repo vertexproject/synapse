@@ -97,6 +97,7 @@ _CronJobSchema = {
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
         'doc': {'type': 'string'},
+        'loglevel': {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())},
         'incunit': {
             'oneOf': [
                 {'type': 'null'},
