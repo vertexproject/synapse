@@ -366,7 +366,10 @@ class _Appt:
         if val['ver'] != 1:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, nexttime=val['nexttime'], view=val.get('view'))
+        # TODO: MOAR INSANITY
+        loglevel = val.get('loglevel', 'WARNING')
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs,
+                   nexttime=val['nexttime'], view=val.get('view'), loglevel=loglevel)
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
         appt.pool = val.get('pool', False)
