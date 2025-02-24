@@ -35,6 +35,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.schemas as s_schemas
@@ -925,7 +926,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCorePerms()
 
         # Reset the storm:log:level from the config value to an int for internal use.
-        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
+        self.conf['storm:log:level'] = s_logging.normLogLevel(self.conf.get('storm:log:level'))
         self.stormlog = self.conf.get('storm:log')
         self.stormloglvl = self.conf.get('storm:log:level')
 
@@ -4632,6 +4633,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         adef = self._exthttpapis.get(iden)
         if adef is None:
             raise s_exc.NoSuchIden(mesg=f'No extended http api for {iden=}', iden=iden)
+        # TODO: any reason this (and above) uses the slower copy.deepcopy?
         return copy.deepcopy(adef)
 
     async def getHttpExtApiByPath(self, path):
@@ -6159,19 +6161,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
-    def _logStormQuery(self, text, user, info=None):
+    async def _logStormQuery(self, text, user, extra=None):
         '''
         Log a storm query.
         '''
         if self.stormlog:
-            if info is None:
-                info = {}
-            info['text'] = text
-            info['username'] = user.name
-            info['user'] = user.iden
-            info['hash'] = s_storm.queryhash(text)
-            stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': info})
+
+            if extra is None:
+                extra = {}
+
+            extra['text'] = text
+            extra['hash'] = s_storm.queryhash(text)
+
+            extra = await self.getLogExtra(**extra)
+            stormlogger.log(self.stormloglvl, 'Executing storm query as [%s]', user.name, extra=extra)
 
     async def getNodeByNdef(self, ndef, view=None):
         '''

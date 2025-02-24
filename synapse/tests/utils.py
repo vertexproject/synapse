@@ -69,12 +69,12 @@ import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
-import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tools.genpkg as s_genpkg
@@ -1277,12 +1277,12 @@ class SynTest(unittest.TestCase):
     @contextlib.asynccontextmanager
     async def withSetLoggingMock(self):
         '''
-        Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
+        Context manager to mock calls to the logging setup function to avoid unittests calling logging.basicconfig.
 
         Returns:
             mock.MagicMock: Yields a mock.MagicMock object.
         '''
-        with mock.patch('synapse.common.setlogging',
+        with mock.patch('synapse.lib.logging.setup',
                         PickleableMagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
@@ -1848,7 +1848,7 @@ class SynTest(unittest.TestCase):
         stream.setMesg(mesg)
         handler = logging.StreamHandler(stream)
         slogger = logging.getLogger(logname)
-        formatter = s_structlog.JsonFormatter()
+        formatter = s_logging.Formatter()
         handler.setFormatter(formatter)
         slogger.addHandler(handler)
         level = slogger.level
@@ -1860,6 +1860,26 @@ class SynTest(unittest.TestCase):
         finally:
             slogger.removeHandler(handler)
             slogger.setLevel(level)
+
+    @contextlib.contextmanager
+    def getLogStream(self, name, level='DEBUG'):
+
+        stream = AsyncStreamEvent()
+        logger = logging.getLogger(name)
+
+        oldlevel = logger.level
+
+        handler = logging.StreamHandler(stream)
+        handler.setFormatter(s_logging.Formatter())
+
+        logger.setLevel(level)
+        logger.addHandler(handler)
+
+        try:
+            yield stream
+        finally:
+            logger.setLevel(oldlevel)
+            logger.removeHandler(handler)
 
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):

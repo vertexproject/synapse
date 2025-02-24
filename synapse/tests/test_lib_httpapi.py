@@ -1757,12 +1757,12 @@ class HttpApiTest(s_tests.SynTest):
                         self.true(await stream.wait(6))
 
                 mesg = get_mesg(stream)
-                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg.get('username'), 'root')
-                self.eq(mesg.get('user'), core.auth.rootuser.iden)
-                self.isin('headers', mesg)
-                self.eq(mesg['headers'].get('user-agent'), 'test_request_logging')
-                self.isin('remoteip', mesg)
+                self.eq(mesg['synapse'].get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg['synapse'].get('username'), 'root')
+                self.eq(mesg['synapse'].get('user'), core.auth.rootuser.iden)
+                self.isin('headers', mesg['synapse'])
+                self.eq(mesg['synapse']['headers'].get('user-agent'), 'test_request_logging')
+                self.isin('remoteip', mesg['synapse'])
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
                 self.notin('1.2.3.4', mesg.get('message'))
@@ -1774,11 +1774,11 @@ class HttpApiTest(s_tests.SynTest):
                         self.true(await stream.wait(6))
 
                 mesg = get_mesg(stream)
-                self.eq(mesg.get('uri'), '/api/v1/active')
+                self.eq(mesg['synapse'].get('uri'), '/api/v1/active')
                 self.notin('headers', mesg)
                 self.notin('username', mesg)
                 self.notin('user', mesg)
-                self.isin('remoteip', mesg)
+                self.isin('remoteip', mesg['synapse'])
                 self.isin('200 GET /api/v1/active', mesg.get('message'))
 
                 # Sessions populate the data too
@@ -1791,9 +1791,9 @@ class HttpApiTest(s_tests.SynTest):
                             self.true(await stream.wait(6))
 
                     mesg = get_mesg(stream)
-                    self.eq(mesg.get('uri'), '/api/v1/login')
-                    self.eq(mesg.get('username'), 'visi')
-                    self.eq(mesg.get('user'), visiiden)
+                    self.eq(mesg['synapse'].get('uri'), '/api/v1/login')
+                    self.eq(mesg['synapse'].get('username'), 'visi')
+                    self.eq(mesg['synapse'].get('user'), visiiden)
 
                     # session cookie loging populates the data upon reuse
                     with self.getStructuredAsyncLoggerStream(logname, 'api/v1/auth/users') as stream:
@@ -1802,9 +1802,9 @@ class HttpApiTest(s_tests.SynTest):
                             self.true(await stream.wait(6))
 
                     mesg = get_mesg(stream)
-                    self.eq(mesg.get('uri'), '/api/v1/auth/users')
-                    self.eq(mesg.get('username'), 'visi')
-                    self.eq(mesg.get('user'), visiiden)
+                    self.eq(mesg['synapse'].get('uri'), '/api/v1/auth/users')
+                    self.eq(mesg['synapse'].get('username'), 'visi')
+                    self.eq(mesg['synapse'].get('user'), visiiden)
 
         async with self.getTestCore(conf={'https:parse:proxy:remoteip': True}) as core:
 
@@ -1831,10 +1831,10 @@ class HttpApiTest(s_tests.SynTest):
                         self.true(await stream.wait(6))
 
                 mesg = get_mesg(stream)
-                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg.get('username'), 'root')
-                self.eq(mesg.get('user'), core.auth.rootuser.iden)
-                self.eq(mesg.get('remoteip'), '1.2.3.4')
+                self.eq(mesg['synapse'].get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg['synapse'].get('username'), 'root')
+                self.eq(mesg['synapse'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['synapse'].get('remoteip'), '1.2.3.4')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
 
@@ -1849,10 +1849,10 @@ class HttpApiTest(s_tests.SynTest):
                         self.true(await stream.wait(6))
 
                 mesg = get_mesg(stream)
-                self.eq(mesg.get('uri'), '/api/v1/auth/adduser')
-                self.eq(mesg.get('username'), 'root')
-                self.eq(mesg.get('user'), core.auth.rootuser.iden)
-                self.eq(mesg.get('remoteip'), '8.8.8.8')
+                self.eq(mesg['synapse'].get('uri'), '/api/v1/auth/adduser')
+                self.eq(mesg['synapse'].get('username'), 'root')
+                self.eq(mesg['synapse'].get('user'), core.auth.rootuser.iden)
+                self.eq(mesg['synapse'].get('remoteip'), '8.8.8.8')
                 self.isin('(root)', mesg.get('message'))
                 self.isin('200 POST /api/v1/auth/adduser', mesg.get('message'))
 

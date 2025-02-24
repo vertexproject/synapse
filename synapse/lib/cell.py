@@ -48,6 +48,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
@@ -104,8 +105,8 @@ def adminapi(log=False):
                 raise s_exc.AuthDeny(mesg=f'User is not an admin [{self.user.name}]',
                                      user=self.user.iden, username=self.user.name)
             if log:
-                logger.info(f'Executing [{func.__qualname__}] as [{self.user.name}] with args [{args}[{kwargs}]',
-                            extra={'synapse': {'wrapped_func': func.__qualname__}})
+                extra = s_logging.getLogExtra(func=func.__qualname__, args=args, kwargs=kwargs)
+                logger.info('Executing remote admin API call.', extra=extra)
 
             return func(self, *args, **kwargs)
 
@@ -189,7 +190,12 @@ def _iterBackupProc(path, linkinfo):
     '''
     # This logging call is okay to run since we're executing in
     # our own process space and no logging has been configured.
-    s_common.setlogging(logger, **linkinfo.get('logconf'))
+    logconf = linkinfo.get('logconf')
+
+    level = logconf.get('level')
+    structlog = logconf.get('structlog')
+
+    s_logging.setup(level=level, structlog=structlog)
 
     logger.info(f'Backup streaming process for [{path}] starting.')
     asyncio.run(_iterBackupWork(path, linkinfo))
@@ -208,6 +214,11 @@ class CellApi(s_base.Base):
 
     async def initCellApi(self):
         pass
+
+    @adminapi()
+    async def logs(self, wait=False, last=None):
+        async for loginfo in self.cell.logs(wait=wait, last=last):
+            yield loginfo
 
     @adminapi(log=True)
     async def freeze(self, timeout=30):
@@ -2609,7 +2620,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         (In a separate process) Actually do the backup
         '''
         # This is a new process: configure logging
-        s_common.setlogging(logger, **logconf)
+        level = logconf.get('level')
+        structlog = logconf.get('structlog')
+
+        s_logging.setup(level=level, structlog=structlog)
+
         try:
 
             with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
@@ -3661,25 +3676,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A dictionary
         '''
-        extra = {**kwargs}
-        sess = s_scope.get('sess')  # type: s_daemon.Sess
-        user = s_scope.get('user')  # type: s_auth.User
-        if user:
-            extra['user'] = user.iden
-            extra['username'] = user.name
-        elif sess and sess.user:
-            extra['user'] = sess.user.iden
-            extra['username'] = sess.user.name
-        return {'synapse': extra}
+        extra = s_logging.getLogExtra(**kwargs)
+        if self.ahasvcname is not None:
+            extra['loginfo']['service'] = self.ahasvcname
+        return extra
 
     async def _getSpawnLogConf(self):
-        conf = self.conf.get('_log_conf')
-        if conf:
-            conf = conf.copy()
-        else:
-            conf = s_common._getLogConfFromEnv()
-        conf['log_setup'] = False
-        return conf
+        return self.conf.get('_log_conf', {})
 
     def modCellConf(self, conf):
         '''
@@ -3785,9 +3788,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
         pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
-                          help='Specify the Python logging log level.', type=str.upper)
-        pars.add_argument('--structured-logging', default=False, action='store_true',
-                          help='Use structured logging.')
+                          type=s_logging.normLogLevel,
+                          help='Deprecated. Please use SYN_LOG_LEVEL environment variable.')
+
+        pars.add_argument('--structured-logging', default=True, action='store_true',
+                          help='Deprecated. Please use SYN_LOG_STRUCT environment variable.')
 
         telendef = None
         telepdef = 'tcp://0.0.0.0:27492'
@@ -3800,15 +3805,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         https = os.getenv(httpsvar, httpsdef)
 
         pars.add_argument('--telepath', default=telep, type=str,
-                          help=f'The telepath URL to listen on. This defaults to {telepdef}, and may be '
-                               f'also be overridden by the {telepvar} environment variable.')
+                          help=f'Deprecated. Please use the {telepvar} environment variable.')
         pars.add_argument('--https', default=https, type=int,
-                          help=f'The port to bind for the HTTPS/REST API. This defaults to {httpsdef}, '
-                               f'and may be also be overridden by the {httpsvar} environment variable.')
+                          help=f'Deprecated. Please use the {httpsvar} environment variable.')
         pars.add_argument('--name', type=str, default=telen,
-                          help=f'The (optional) additional name to share the {name} as. This defaults to '
-                               f'{telendef}, and may be also be overridden by the {telenvar} environment'
-                               f' variable.')
+                          help=f'Deprecated. Please use the {telenvar} environment variable.')
 
         if conf is not None:
             args = conf.getArgParseArgs()
@@ -4226,17 +4227,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.genpath(opts.dirn, 'cell.yaml')
         mods_path = s_common.genpath(opts.dirn, 'cell.mods.yaml')
 
-        logconf = s_common.setlogging(logger, defval=opts.log_level,
-                                      structlog=opts.structured_logging)
+        logconf = {
+            'level': opts.log_level,
+            'structlog': opts.structured_logging
+        }
 
-        logger.info(f'Starting {cls.getCellType()} version {cls.VERSTRING}, Synapse version: {s_version.verstring}',
-                    extra={'synapse': {'svc_type': cls.getCellType(), 'svc_version': cls.VERSTRING,
-                                       'synapse_version': s_version.verstring}})
+        # if (logarchive := conf.get('log:archive')) is not None:
+            # logconf['archive'] = logarchive
+
+        logconf = s_logging.setup(**logconf)
+
+        extra = s_logging.getLogExtra(service_type=cls.getCellType(),
+                                      service_version=cls.VERSTRING,
+                                      synapse_version=s_version.verstring)
+
+        logger.info('Starting synapse service.', extra=extra)
 
         await cls._initBootRestore(opts.dirn)
 
         try:
-            conf.setdefault('_log_conf', logconf)
+            conf['_log_conf'] = logconf
             conf.setConfFromOpts(opts)
             conf.setConfFromEnvs()
             conf.setConfFromFile(path)
@@ -4245,7 +4255,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             logger.exception(f'Error while bootstrapping cell config.')
             raise
 
-        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
+        # s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)
@@ -4302,6 +4312,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             outp = s_output.stdout
 
         cell = await cls.initFromArgv(argv, outp=outp)
+
+        if cell.ahasvcname is not None:
+            s_logging.setLogGlobal('service', cell.ahasvcname)
 
         await cell.main()
 
@@ -5083,6 +5096,36 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def _initLogBase(self):
+
+        async with s_logging.loglock:
+
+            if s_logging.logbase is not None:
+                return
+
+            s_logging.logbase = await s_base.Base.anit()
+            s_logging.logbase._fini_at_exit = True
+
+            s_logging.logbase.schedCoro(s_logging._feedLogTask())
+
+    async def logs(self, wait=False, last=None):
+
+        await self._initLogBase()
+
+        if not wait:
+            for loginfo in list(s_logging.logfifo)[last:]:
+                yield loginfo
+            return
+
+        async with await s_queue.Window.anit(maxsize=2000) as window:
+
+            await window.puts(list(s_logging.logfifo)[last:])
+
+            s_logging.logwindows.add(window)
+
+            async for loginfo in window:
+                yield loginfo
 
     async def freeze(self, timeout=30):
 

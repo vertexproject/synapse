@@ -780,9 +780,9 @@ class Snap(s_base.Base):
 
         show_storage = False
 
-        info = opts.get('_loginfo', {})
-        info.update({'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
-        self.core._logStormQuery(text, user, info=info)
+        extra = opts.get('_loginfo', {})
+        extra.update({'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
+        await self.core._logStormQuery(text, user, extra=extra)
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')

@@ -920,14 +920,14 @@ class View(s_nexus.Pusher):  # type: ignore
         opts = self.core._initStormOpts(opts)
         user = self.core._userFromOpts(opts)
 
-        info = opts.get('_loginfo', {})
-        info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-        self.core._logStormQuery(text, user, info=info)
-
         taskiden = opts.get('task')
         taskinfo = {'query': text, 'view': self.iden}
 
         with s_scope.enter({'user': user}):
+
+            extra = opts.get('_loginfo', {})
+            extra.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+            await self.core._logStormQuery(text, user, extra=extra)
 
             await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -1047,9 +1047,9 @@ class View(s_nexus.Pusher):  # type: ignore
                                 count += 1
 
                         else:
-                            info = opts.get('_loginfo', {})
-                            info.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                            self.core._logStormQuery(text, user, info=info)
+                            extra = opts.get('_loginfo', {})
+                            extra.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
+                            await self.core._logStormQuery(text, user, extra=extra)
                             async for item in snap.storm(text, opts=opts, user=user):
                                 count += 1
 
