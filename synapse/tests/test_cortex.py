@@ -7397,6 +7397,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
                 self.eq(2, await proxy.feedFromAxon(sha256))
 
+                opts['limit'] = 1
+                self.len(1, await alist(proxy.exportStorm('media:news inet:email', opts=opts)))
+
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
                 self.eq(401, resp.status)
