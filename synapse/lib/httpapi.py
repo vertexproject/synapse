@@ -1373,7 +1373,7 @@ class ExtApiHandler(StormHandler):
                         # change the status code or the response headers. We just have to
                         # log the error and move along.
                         mesg = f'Extended HTTP API {iden} tried to set code after sending body.'
-                        logger.error(mesg)
+                        logger.error(mesg, extra=await core.getLogExtra())
                         continue
 
                     rcode = True
@@ -1385,7 +1385,7 @@ class ExtApiHandler(StormHandler):
                         # change the status code or the response headers. We just have to
                         # log the error and move along.
                         mesg = f'Extended HTTP API {iden} tried to set headers after sending body.'
-                        logger.error(mesg)
+                        logger.error(mesg, extra=await core.getLogExtra())
                         continue
                     for hkey, hval in info['headers'].items():
                         self.set_header(hkey, hval)
@@ -1405,7 +1405,7 @@ class ExtApiHandler(StormHandler):
                 elif mtyp == 'err':
                     errname, erfo = info
                     mesg = f'Error executing Extended HTTP API {iden}: {errname} {erfo.get("mesg")}'
-                    logger.error(mesg)
+                    logger.error(mesg, extra=await core.getLogExtra())
                     if rbody:
                         # We've already flushed() the stream at this point, so we cannot
                         # change the status code or the response headers. We just have to
@@ -1423,7 +1423,8 @@ class ExtApiHandler(StormHandler):
         except Exception as e:
             rcode = True
             enfo = s_common.err(e)
-            logger.exception(f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+            extra = await core.getLogExtra(iden=iden)
+            logger.exception(f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}', extra=extra)
             if rbody is False:
                 self.clear()
                 self.set_status(500)

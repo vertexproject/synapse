@@ -105,8 +105,8 @@ def adminapi(log=False):
                 raise s_exc.AuthDeny(mesg=f'User is not an admin [{self.user.name}]',
                                      user=self.user.iden, username=self.user.name)
             if log:
-                logger.info(f'Executing [{func.__qualname__}] as [{self.user.name}] with args [{args}[{kwargs}]',
-                            extra={'synapse': {'wrapped_func': func.__qualname__}})
+                extra = s_logging.getLogExtra(func=func.__qualname__, args=args, kwargs=kwargs)
+                logger.info('Executing remote admin API call.', extra=extra)
 
             return func(self, *args, **kwargs)
 
@@ -3666,7 +3666,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         return await self.cellapi.anit(self, link, user)
 
-    # FIXME: why is this async?
     async def getLogExtra(self, **kwargs):
         '''
         Get an extra dictionary for structured logging which can be used as a extra argument for loggers.
@@ -3789,8 +3788,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
         pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
-                          type=s_logging.level,
-                          help='Deprecated. Please use SYN_LOG_LEVEL environment variable.', type=str.upper)
+                          type=s_logging.normLogLevel,
+                          help='Deprecated. Please use SYN_LOG_LEVEL environment variable.')
 
         pars.add_argument('--structured-logging', default=True, action='store_true',
                           help='Deprecated. Please use SYN_LOG_STRUCT environment variable.')

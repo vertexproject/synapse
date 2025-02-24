@@ -52,7 +52,7 @@ def setLogGlobal(name, valu):
     _glob_loginfo[name] = valu
 
 def getLogExtra(**kwargs):
-    return {'synapse': kwargs, 'loginfo': {}}
+    return {'params': kwargs, 'loginfo': {}}
 
 class Formatter(logging.Formatter):
 
@@ -87,10 +87,10 @@ class Formatter(logging.Formatter):
         if record.exc_info:
             loginfo['err'] = s_common.err(record.exc_info[1], fulltb=True)
 
-        if not hasattr(record, 'synapse'):
-            record.synapse = {}
+        if not hasattr(record, 'params'):
+            record.params = {}
 
-        loginfo['synapse'] = record.synapse
+        loginfo['params'] = record.params
 
         _addLogInfo(loginfo)
 
@@ -116,8 +116,12 @@ def setup(**conf):
     Configure synapse logging.
     '''
     conf.update(getLogConfFromEnv())
-    conf.setdefault('level', logging.WARNING)
-    conf.setdefault('structlog', False)
+
+    if conf.get('level') is None:
+        conf['level'] = logging.WARNING
+
+    if conf.get('structlog') is None:
+        conf['structlog'] = False
 
     fmtclass = Formatter
     if not conf.get('structlog'):
@@ -126,7 +130,9 @@ def setup(**conf):
     handler = logging.StreamHandler()
     handler.setFormatter(fmtclass(datefmt=conf.get('datefmt')))
 
-    logging.basicConfig(level=conf.get('level'), handlers=(handler,))
+    level = normLogLevel(conf.get('level'))
+
+    logging.basicConfig(level=level, handlers=(handler,))
 
     logger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(level))
 
@@ -150,7 +156,7 @@ def getLogConfFromEnv():
 
     return conf
 
-def level(valu):
+def normLogLevel(valu):
     '''
     Normalize a log level value to an integer.
 
