@@ -873,7 +873,7 @@ class Agenda(s_base.Base):
                     count += 1
 
                 elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
-                    text = mesg[1].get('mesg')
+                    text = mesg[1].get('mesg', '<missing message>')
                     extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
                     logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
 
