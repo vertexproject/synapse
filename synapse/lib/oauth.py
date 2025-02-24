@@ -35,16 +35,16 @@ def normOAuthTokenData(issued_at, data):
     }
 
 az_tfile_envar = 'AZURE_FEDERATED_TOKEN_FILE'
-def _getAzureTokenFile():
+def _getAzureTokenFile() -> tuple[bool, str]:
     fp = os.getenv(az_tfile_envar, None)
     if not fp:
-        return False, {'error': f'{az_tfile_envar} environment variable is not set.'}
+        return False, f'{az_tfile_envar} environment variable is not set.'
     if os.path.exists(fp):
         with open(fp, 'r') as fd:
             assertion = fd.read()
-            return True, {'token': assertion}
+            return True, assertion
     else:
-        return False, {'error': f'{az_tfile_envar} file does not exist {fp}'}
+        return False, f'{az_tfile_envar} file does not exist {fp}'
 
 class OAuthMixin(s_nexus.Pusher):
     '''
@@ -237,10 +237,10 @@ class OAuthMixin(s_nexus.Pusher):
                     assertion = info.get('token')
 
             elif client_assertion.get('msft:azure:workloadidentity'):
-                ok, info = _getAzureTokenFile()
+                ok, valu = _getAzureTokenFile()
                 if not ok:
-                    return ok, info
-                assertion = info.get('token')
+                    return ok, {'error': valu}
+                assertion = valu
 
             else:  # pragma: no cover
                 isok = False
@@ -311,10 +311,17 @@ class OAuthMixin(s_nexus.Pusher):
                 return retn
 
     async def addOAuthProvider(self, conf):
+
         conf = s_schemas.reqValidOauth2Provider(conf)
         iden = conf['iden']
         if self._getOAuthProvider(iden) is not None:
             raise s_exc.DupIden(mesg=f'Duplicate OAuth V2 client iden ({iden})', iden=iden)
+
+        # N.B. The schema ensures that the possible values in the conf are valid
+        # when they are provided. Since writing multi-path schemas in draft07 is
+        # overly complicated, some of the mutual exclusion values and logical
+        # "is this meaningful?" type checks are made here before pushing the
+        # nexus event to create the provider.
 
         client_secret = conf.get('client_secret')
         client_assertion = conf.get('client_assertion', {})
@@ -348,6 +355,9 @@ class OAuthMixin(s_nexus.Pusher):
             elif (valu := client_assertion.get('msft:azure:workloadidentity')) is not None:
                 if not valu:
                     raise s_exc.BadArg(mesg='msft:azure:workloadidentity valu must be true')
+                ok, tknkvalu = _getAzureTokenFile()
+                if not ok:
+                    raise s_exc.BadArg(mesg=f'Failed to get the client_assertion data: {tknkvalu}')
         else:  # pragma: no cover
             raise s_exc.BadArg(mesg=f'unknown auth_scheme={auth_scheme}')
 

@@ -964,39 +964,51 @@ class OAuthTest(s_test.SynTest):
                     addr, port = await core00.addHttpsPort(0)
                     baseurl = f'https://127.0.0.1:{port}'
 
-                    isok, info = s_oauth._getAzureTokenFile()
+                    isok, valu = s_oauth._getAzureTokenFile()
                     self.false(isok)
-                    self.eq(info.get('error'), 'AZURE_FEDERATED_TOKEN_FILE environment variable is not set.')
+                    self.eq(valu, 'AZURE_FEDERATED_TOKEN_FILE environment variable is not set.')
                     tokenpath = s_common.genpath(dirn, 'tokenfile')
+
+                    providerconf00 = {
+                        'iden': s_common.guid('providerconf00'),
+                        'name': 'providerconf00',
+                        'client_id': 'root',
+                        'client_assertion': {
+                            'msft:azure:workloadidentity': True
+                        },
+                        'auth_scheme': 'client_assertion',
+                        'scope': 'allthethings',
+                        'auth_uri': baseurl + '/api/oauth/authorize',
+                        'token_uri': baseurl + '/api/oauth/token',
+                        'redirect_uri': 'https://opticnetloc/oauth2',
+                        'extensions': {'pkce': True},
+                        'extra_auth_params': {'include_granted_scopes': 'true'}
+                    }
+                    opts = {
+                        'vars': {
+                            'providerconf': providerconf00,
+                            'authcode': 'itsagoodone',
+                            'code_verifier': 'legit',
+                            'lowuser': user.iden,
+                        },
+                    }
+
+                    # must be able to get the token value to create the provider
+                    with self.raises(s_exc.BadArg) as cm:
+                        await core01.nodes('$lib.inet.http.oauth.v2.addProvider($providerconf)', opts=opts)
+                    self.isin('Failed to get the client_assertion data', cm.exception.get('mesg'))
+
                     with self.setTstEnvars(AZURE_FEDERATED_TOKEN_FILE=tokenpath):
-                        isok, info = s_oauth._getAzureTokenFile()
+                        isok, valu = s_oauth._getAzureTokenFile()
                         self.false(isok)
-                        self.eq(info.get('error'), f'AZURE_FEDERATED_TOKEN_FILE file does not exist {tokenpath}')
+                        self.eq(valu, f'AZURE_FEDERATED_TOKEN_FILE file does not exist {tokenpath}')
 
                         with s_common.genfile(tokenpath) as fd:
                             fd.write(EASSERTION.encode())
 
-                        isok, info = s_oauth._getAzureTokenFile()
+                        isok, valu = s_oauth._getAzureTokenFile()
                         self.true(isok)
-                        self.eq(info.get('token'), EASSERTION)
-
-                        providerconf00 = {
-                            'iden': s_common.guid('providerconf00'),
-                            'name': 'providerconf00',
-                            'client_id': 'root',
-                            'client_assertion': {
-                                'msft:azure:workloadidentity': True
-                            },
-                            'auth_scheme': 'client_assertion',
-                            'scope': 'allthethings',
-                            'auth_uri': baseurl + '/api/oauth/authorize',
-                            'token_uri': baseurl + '/api/oauth/token',
-                            'redirect_uri': 'https://opticnetloc/oauth2',
-                            'extensions': {'pkce': True},
-                            'extra_auth_params': {'include_granted_scopes': 'true'}
-                        }
-
-                        self.notin('client_secret', providerconf00)
+                        self.eq(valu, EASSERTION)
 
                         expconf00 = {
                             # default values
@@ -1006,14 +1018,6 @@ class OAuthTest(s_test.SynTest):
                             'flow_type': 'authorization_code',
                         }
 
-                        opts = {
-                            'vars': {
-                                'providerconf': providerconf00,
-                                'authcode': 'itsagoodone',
-                                'code_verifier': 'legit',
-                                'lowuser': user.iden,
-                            },
-                        }
                         lowopts = opts.copy()
                         lowopts['user'] = user.iden
 
