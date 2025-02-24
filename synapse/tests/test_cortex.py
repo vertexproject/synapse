@@ -3019,6 +3019,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.nn(tnfo)
             self.eq(tnfo['info']['doc'], 'An IPv4 or IPv6 address.')
+            self.none(tnfo.get('virts'))
+
+            tnfo = model['types'].get('inet:sockaddr')
+            self.eq(tnfo['virts'], {'ip': 'inet:ip', 'port': 'inet:port'})
+            self.eq(tnfo['lift_cmprs'], ('=', '~=', '?=', 'in=', 'range=', '^='))
+            self.eq(tnfo['filter_cmprs'], ('=', '!=', '~=', '^=', 'in=', 'range='))
 
             fnfo = model['forms'].get('inet:ip')
             self.nn(fnfo)

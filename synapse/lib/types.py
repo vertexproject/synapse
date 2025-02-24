@@ -208,6 +208,8 @@ class Type:
             'info': dict(self.info),
             'opts': dict(self.opts),
             'stortype': self.stortype,
+            'lift_cmprs': list(self.storlifts.keys()),
+            'filter_cmprs': list(self._cmpr_ctors.keys()),
         }
 
         if self.virts:
