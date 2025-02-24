@@ -610,6 +610,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:mitigation -> it:mitre:attack:mitigation'))
             self.len(1, await core.nodes('risk:mitigation -> risk:mitigation:type:taxonomy'))
 
+            nodes = await core.nodes('risk:mitigation:type:taxonomy=foo.bar [ :desc="foo that bars"]')
+            self.len(1, nodes)
+            self.eq('foo that bars', nodes[0].get('desc'))
+
     async def test_model_risk_tool_software(self):
 
         async with self.getTestCore() as core:
