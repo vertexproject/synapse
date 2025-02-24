@@ -205,11 +205,9 @@ def processTypes(rst, dochelp, types):
                          f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
-
                          )
 
-        opts = tnfo.get('opts')
-        if opts:
+        if (opts := tnfo.get('opts')):
             rst.addLines('',
                          f'The type ``{name}`` has the following options set:',
                          ''
