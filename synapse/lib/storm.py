@@ -2077,7 +2077,7 @@ class Runtime(s_base.Base):
 
 class Parser:
 
-    def __init__(self, prog=None, descr=None, root=None, model=None):
+    def __init__(self, prog=None, descr=None, root=None, model=None, cdef=None):
 
         if root is None:
             root = self
@@ -2088,6 +2088,7 @@ class Parser:
 
         self.prog = prog
         self.descr = descr
+        self.cdef = cdef
 
         self.exc = None
 
@@ -2364,6 +2365,21 @@ class Parser:
             self._printf('')
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
+
+        if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
+            self._printf('')
+            self._printf('Endpoints:')
+            self._printf('')
+            base_w = 32
+            wrap_w = 120 - base_w
+            for endpoint in endpoints:
+                path = endpoint['path']
+                desc = endpoint.get('desc', '')
+                base = f'    {path}'
+                wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
+                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                for ln in wrap_desc[1:]:
+                    self._printf(f'{"":<{base_w}}{ln}')
 
         options = [x for x in self.allargs if x[0][0].startswith('-')]
 
@@ -2655,6 +2671,7 @@ class PureCmd(Cmd):
         if inputs:
             pars.set_inputs(inputs)
 
+        pars.cdef = self.cdef
         return pars
 
     async def execStormCmd(self, runt, genr):
