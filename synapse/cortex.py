@@ -526,7 +526,7 @@ class CoreApi(s_cell.CellApi):
         return await self.cell.getStormVar(name, default=default)
 
     async def popStormVar(self, name, *, default=None):
-        self.user.confirm(('globals', 'pop', name))
+        self.user.confirm(('globals', 'del', name))
         return await self.cell.popStormVar(name, default=default)
 
     async def setStormVar(self, name, valu):
@@ -929,11 +929,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         mesg = f'User requires {s_cell.permnames.get(level)} permission on macro: {name}'
 
         if level == s_cell.PERM_EDIT and (
-            user.allowed(('storm', 'macro', 'edit')) or
-            user.allowed(('storm', 'macro', 'admin'))):
+            user.allowed(('macro', 'edit')) or
+            user.allowed(('macro', 'admin'))):
             return mdef
 
-        if level == s_cell.PERM_ADMIN and user.allowed(('storm', 'macro', 'admin')):
+        if level == s_cell.PERM_ADMIN and user.allowed(('macro', 'admin')):
             return mdef
 
         self._reqEasyPerm(mdef, user, level, mesg=mesg)
@@ -944,7 +944,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        user.confirm(('storm', 'macro', 'add'), default=True)
+        user.confirm(('macro', 'add'), default=True)
 
         mdef = self._initStormMacro(mdef, user=user)
 
@@ -1199,10 +1199,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'data', 'set', '<key>'), 'gate': 'layer',
               'ex': 'node.data.set.hehe',
              'desc': 'Permits a user to set node data in a given layer for a specific key.'},
-            {'perm': ('node', 'data', 'pop'), 'gate': 'layer',
+            {'perm': ('node', 'data', 'del'), 'gate': 'layer',
              'desc': 'Permits a user to remove node data in a given layer.'},
-            {'perm': ('node', 'data', 'pop', '<key>'), 'gate': 'layer',
-             'ex': 'node.data.pop.hehe',
+            {'perm': ('node', 'data', 'del', '<key>'), 'gate': 'layer',
+             'ex': 'node.data.del.hehe',
              'desc': 'Permits a user to remove node data in a given layer for a specific key.'},
 
             {'perm': ('pkg', 'add'), 'gate': 'cortex',
@@ -1210,22 +1210,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('pkg', 'del'), 'gate': 'cortex',
              'desc': 'Controls access to deleting storm packages.'},
 
-            {'perm': ('storm', 'asroot', 'cmd', '<cmdname>'), 'gate': 'cortex',
+            {'perm': ('asroot', 'cmd', '<cmdname>'), 'gate': 'cortex',
             'desc': 'Controls running storm commands requiring root privileges.',
-             'ex': 'storm.asroot.cmd.movetag'},
-            {'perm': ('storm', 'asroot', 'mod', '<modname>'), 'gate': 'cortex',
+             'ex': 'asroot.cmd.movetag'},
+            {'perm': ('asroot', 'mod', '<modname>'), 'gate': 'cortex',
             'desc': 'Controls importing modules requiring root privileges.',
-             'ex': 'storm.asroot.cmd.synapse-misp.privsep'},
+             'ex': 'asroot.cmd.synapse-misp.privsep'},
 
-            {'perm': ('storm', 'graph', 'add'), 'gate': 'cortex',
+            {'perm': ('graph', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm graph.',
              'default': True},
-            {'perm': ('storm', 'macro', 'add'), 'gate': 'cortex',
+            {'perm': ('macro', 'add'), 'gate': 'cortex',
              'desc': 'Controls access to add a storm macro.',
              'default': True},
-            {'perm': ('storm', 'macro', 'admin'), 'gate': 'cortex',
+            {'perm': ('macro', 'admin'), 'gate': 'cortex',
              'desc': 'Controls access to edit/set/delete a storm macro.'},
-            {'perm': ('storm', 'macro', 'edit'), 'gate': 'cortex',
+            {'perm': ('macro', 'edit'), 'gate': 'cortex',
              'desc': 'Controls access to edit a storm macro.'},
 
             {'perm': ('task', 'get'), 'gate': 'cortex',
@@ -1500,7 +1500,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if user is None:
             user = self.auth.rootuser
 
-        user.confirm(('storm', 'graph', 'add'), default=True)
+        user.confirm(('graph', 'add'), default=True)
 
         self._initEasyPerm(gdef)
 
@@ -6792,82 +6792,19 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.delete(name.encode(), db=self.vaultsbynamedb)
         self.slab.delete(bidn, db=self.vaultsdb)
 
-    def _propAllowedReason(self, user, perms, gateiden=None, default=None):
-        '''
-        Similar to allowed, but always prefer the default value specified by the caller.
-        Default values are still pulled from permdefs if there is a match there; but still prefer caller default.
-        This results in a ternary response that can be used to know if a rule had a positive/negative or no match.
-        The matching reason metadata is also returned.
-        '''
-        if default is None:
-            permdef = self.getPermDef(perms)
-            if permdef:
-                default = permdef.get('default', default)
-
-        return user.getAllowedReason(perms, gateiden=gateiden, default=default)
-
     def confirmPropSet(self, user, prop, layriden):
-        meta0 = self._propAllowedReason(user, prop.setperms[0], gateiden=layriden)
+        default = None
+        if (permdef := self.getPermDef(prop.setperm)):
+            default = permdef.get('default')
 
-        if meta0.isadmin:
-            return
-
-        allowed0 = meta0.value
-
-        meta1 = self._propAllowedReason(user, prop.setperms[1], gateiden=layriden)
-        allowed1 = meta1.value
-
-        if allowed0:
-            if allowed1:
-                return
-            elif allowed1 is False:
-                # This is a allow-with-precedence case.
-                # Inspect meta to determine if the rule a0 is more specific than rule a1
-                if len(meta0.rule) >= len(meta1.rule):
-                    return
-                user.raisePermDeny(prop.setperms[0], gateiden=layriden)
-            return
-
-        if allowed1:
-            if allowed0 is None:
-                return
-            # allowed0 here is False. This is a deny-with-precedence case.
-            # Inspect meta to determine if the rule a1 is more specific than rule a0
-            if len(meta1.rule) > len(meta0.rule):
-                return
-
-        user.raisePermDeny(prop.setperms[0], gateiden=layriden)
+        user.confirm(prop.setperm, default=default, gateiden=layriden)
 
     def confirmPropDel(self, user, prop, layriden):
-        meta0 = self._propAllowedReason(user, prop.delperms[0], gateiden=layriden)
+        default = None
+        if (permdef := self.getPermDef(prop.delperm)):
+            default = permdef.get('default')
 
-        if meta0.isadmin:
-            return
-
-        allowed0 = meta0.value
-        meta1 = self._propAllowedReason(user, prop.delperms[1], gateiden=layriden)
-        allowed1 = meta1.value
-
-        if allowed0:
-            if allowed1:
-                return
-            elif allowed1 is False:
-                # This is a allow-with-precedence case.
-                # Inspect meta to determine if the rule a0 is more specific than rule a1
-                if len(meta0.rule) >= len(meta1.rule):
-                    return
-                user.raisePermDeny(prop.delperms[0], gateiden=layriden)
-            return
-
-        if allowed1:
-            if allowed0 is None:
-                return
-            # allowed0 here is False. This is a deny-with-precedence case.
-            # Inspect meta to determine if the rule a1 is more specific than rule a0
-            if len(meta1.rule) > len(meta0.rule):
-                return
-
-        user.raisePermDeny(prop.delperms[0], gateiden=layriden)
+        user.confirm(prop.delperm, default=default, gateiden=layriden)
 
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):

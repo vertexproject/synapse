@@ -101,15 +101,9 @@ class Prop:
             self.isext = name.startswith('._')
         self.isform = False     # for quick Prop()/Form() detection
 
-        self.delperms = [('node', 'prop', 'del', self.full)]
-        self.setperms = [('node', 'prop', 'set', self.full)]
-
         if form is not None:
-            self.setperms.append(('node', 'prop', 'set', form.name, self.name))
-            self.delperms.append(('node', 'prop', 'del', form.name, self.name))
-
-        self.setperms.reverse()  # Make them in precedence order
-        self.delperms.reverse()  # Make them in precedence order
+            self.setperm = ('node', 'prop', 'set', form.name, self.name)
+            self.delperm = ('node', 'prop', 'del', form.name, self.name)
 
         self.form = form
         self.type = None

@@ -62,7 +62,7 @@ class ImapLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'imap', )
     _storm_lib_perms = (
-        {'perm': ('storm', 'inet', 'imap', 'connect'), 'gate': 'cortex',
+        {'perm': ('inet', 'imap', 'connect'), 'gate': 'cortex',
          'desc': 'Controls connecting to external servers via imap.'},
     )
 
@@ -73,7 +73,7 @@ class ImapLib(s_stormtypes.Lib):
 
     async def connect(self, host, port=993, timeout=30, ssl=True, ssl_verify=True):
 
-        self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
+        self.runt.confirm(('inet', 'imap', 'connect'))
 
         ssl = await s_stormtypes.tobool(ssl)
         host = await s_stormtypes.tostr(host)

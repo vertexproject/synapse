@@ -5052,7 +5052,7 @@ class Layer(s_nexus.Pusher):
         perm_del_form = ('node', 'del')
         perm_del_prop = ('node', 'prop', 'del')
         perm_del_tag = ('node', 'tag', 'del')
-        perm_del_ndata = ('node', 'data', 'pop')
+        perm_del_ndata = ('node', 'data', 'del')
         perm_del_edge = ('node', 'edge', 'del')
 
         perm_add_form = ('node', 'add')

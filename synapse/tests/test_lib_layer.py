@@ -1967,12 +1967,10 @@ class LayerTest(s_t_utils.SynTest):
             return True
 
         def confirmPropSet(self, user, prop, layriden):
-            seen.add(prop.setperms[0])
-            seen.add(prop.setperms[1])
+            seen.add(prop.setperm)
 
         def confirmPropDel(self, user, prop, layriden):
-            seen.add(prop.delperms[0])
-            seen.add(prop.delperms[1])
+            seen.add(prop.delperm)
 
         with mock.patch('synapse.lib.spooled.Dict', Dict):
             async with self.getTestCore() as core:
@@ -2033,15 +2031,6 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'add', 'syn:tag'),
                     ('node', 'add', 'test:str'),
 
-                    # Old style prop set
-                    ('node', 'prop', 'set', 'test:str:hehe'),
-                    ('node', 'prop', 'set', 'test:str.created'),
-
-                    ('node', 'prop', 'set', 'syn:tag:up'),
-                    ('node', 'prop', 'set', 'syn:tag:base'),
-                    ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag.created'),
-
                     # New style prop set
                     ('node', 'prop', 'set', 'test:str', 'hehe'),
                     ('node', 'prop', 'set', 'test:str', '.created'),
@@ -2092,14 +2081,6 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'add', 'syn:tag'),
                     ('node', 'add', 'test:str'),
 
-                    # Old style prop set
-                    ('node', 'prop', 'set', 'test:str.created'),
-
-                    ('node', 'prop', 'set', 'syn:tag:up'),
-                    ('node', 'prop', 'set', 'syn:tag:base'),
-                    ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag.created'),
-
                     # New style prop set
                     ('node', 'prop', 'set', 'test:str', '.created'),
 
@@ -2124,7 +2105,7 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'tag', 'del', 'performance', 'score'),
 
                     # Nodedata del (tombstone)
-                    ('node', 'data', 'pop', 'movie'),
+                    ('node', 'data', 'del', 'movie'),
 
                     # Edge del (tombstone)
                     ('node', 'edge', 'del', 'seen'),
@@ -2140,14 +2121,6 @@ class LayerTest(s_t_utils.SynTest):
                     # Node del
                     ('node', 'del', 'syn:tag'),
                     ('node', 'del', 'test:str'),
-
-                    # Old style prop del
-                    ('node', 'prop', 'del', 'test:str.created'),
-
-                    ('node', 'prop', 'del', 'syn:tag:up'),
-                    ('node', 'prop', 'del', 'syn:tag:base'),
-                    ('node', 'prop', 'del', 'syn:tag:depth'),
-                    ('node', 'prop', 'del', 'syn:tag.created'),
 
                     # New style prop del
                     ('node', 'prop', 'del', 'test:str', '.created'),
