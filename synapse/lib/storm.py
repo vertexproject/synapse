@@ -722,7 +722,7 @@ stormcmds = (
             $view.merge()
 
             if $cmdopts.delete {
-                $layriden = $view.pack().layers.index(0).iden
+                $layriden = $view.layers.index(0).iden
                 $lib.view.del($view.iden)
                 $lib.layer.del($layriden)
             } else {
@@ -976,9 +976,8 @@ stormcmds = (
 
             if $crons {
                 for $cron in $crons {
-                    $job = $cron.pack()
-                    if (not $job.recs) {
-                        $lib.cron.del($job.iden)
+                    if $cron.completed {
+                        $lib.cron.del($cron.iden)
                         $count = ($count + 1)
                     }
                 }

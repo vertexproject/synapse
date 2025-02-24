@@ -531,14 +531,14 @@ class StormLibStixTest(s_test.SynTest):
                     $bundle = $lib.stix.export.bundle(config=$config)
                     ou:technique
                     $bundle.add($node, "attack-pattern")
-                    fini { return($bundle.pack()) }
+                    fini { return($bundle) }
                 ''')
 
             bund = await core.callStorm('''
                 $bundle = $lib.stix.export.bundle()
                 ou:technique
                 $bundle.add($node, "attack-pattern")
-                fini { return($bundle.pack()) }
+                fini { return($bundle) }
             ''')
             rels = [sobj for sobj in bund['objects'] if sobj.get('relationship_type') == 'mitigates']
             self.len(1, rels)

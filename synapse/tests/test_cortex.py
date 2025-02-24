@@ -6661,7 +6661,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 async def action():
                     await asyncio.sleep(0.1)
                     await core.callStorm('return($lib.view.get().fork())')
-                    await core.callStorm('return($lib.cron.add(query="{meta:note=*}", hourly=30).pack())')
+                    await core.callStorm('return($lib.cron.add(query="{meta:note=*}", hourly=30))')
                     tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
                     opts = {'vars': {'tdef': tdef}}
                     trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
