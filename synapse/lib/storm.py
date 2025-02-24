@@ -1891,7 +1891,7 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.view.wlyr.iden
 
-        return self.view.core.confirmPropSet(self.user, prop, layriden=layriden)
+        self.user.confirm(prop.setperm, gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
         if self.asroot:
@@ -1900,7 +1900,7 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.view.wlyr.iden
 
-        return self.view.core.confirmPropDel(self.user, prop, layriden=layriden)
+        self.user.confirm(prop.delperm, gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:

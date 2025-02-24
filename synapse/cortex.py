@@ -6792,20 +6792,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.delete(name.encode(), db=self.vaultsbynamedb)
         self.slab.delete(bidn, db=self.vaultsdb)
 
-    def confirmPropSet(self, user, prop, layriden):
-        default = None
-        if (permdef := self.getPermDef(prop.setperm)):
-            default = permdef.get('default')
-
-        user.confirm(prop.setperm, default=default, gateiden=layriden)
-
-    def confirmPropDel(self, user, prop, layriden):
-        default = None
-        if (permdef := self.getPermDef(prop.delperm)):
-            default = permdef.get('default')
-
-        user.confirm(prop.delperm, default=default, gateiden=layriden)
-
 @contextlib.asynccontextmanager
 async def getTempCortex(mods=None):
     '''

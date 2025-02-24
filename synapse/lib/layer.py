@@ -5126,9 +5126,9 @@ class Layer(s_nexus.Pusher):
                         raise s_exc.NoSuchProp(mesg=mesg, form=form, prop=prop)
 
                     if delete:
-                        self.core.confirmPropDel(user, realprop, gateiden)
+                        user.confirm(realprop.delperm, gateiden=gateiden)
                     else:
-                        self.core.confirmPropSet(user, realprop, gateiden)
+                        user.confirm(realprop.setperm, gateiden=gateiden)
 
                 elif not allow_forms:
                     user.confirm(perm_forms + (form,), gateiden=gateiden)

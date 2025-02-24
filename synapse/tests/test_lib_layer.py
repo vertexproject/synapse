@@ -1966,12 +1966,6 @@ class LayerTest(s_t_utils.SynTest):
             seen.add(perm)
             return True
 
-        def confirmPropSet(self, user, prop, layriden):
-            seen.add(prop.setperm)
-
-        def confirmPropDel(self, user, prop, layriden):
-            seen.add(prop.delperm)
-
         with mock.patch('synapse.lib.spooled.Dict', Dict):
             async with self.getTestCore() as core:
 
@@ -2022,9 +2016,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 seen.clear()
                 with mock.patch.object(s_auth.User, 'confirm', confirm):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                            await layr.confirmLayerEditPerms(user, parent.iden)
+                    await layr.confirmLayerEditPerms(user, parent.iden)
 
                 self.eq(seen, {
                     # Node add
@@ -2072,9 +2064,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 seen.clear()
                 with mock.patch.object(s_auth.User, 'confirm', confirm):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                            await layr.confirmLayerEditPerms(user, parent.iden)
+                    await layr.confirmLayerEditPerms(user, parent.iden)
 
                 self.eq(seen, {
                     # Node add
@@ -2113,9 +2103,7 @@ class LayerTest(s_t_utils.SynTest):
 
                 seen.clear()
                 with mock.patch.object(s_auth.User, 'confirm', confirm):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                            await layr.confirmLayerEditPerms(user, layr.iden, delete=True)
+                    await layr.confirmLayerEditPerms(user, layr.iden, delete=True)
 
                 self.eq(seen, {
                     # Node del
@@ -2183,9 +2171,7 @@ class LayerTest(s_t_utils.SynTest):
 
             seen.clear()
             with mock.patch.object(s_auth.User, 'confirm', confirm):
-                with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                        await layr.confirmLayerEditPerms(user, parent.iden)
+                await layr.confirmLayerEditPerms(user, parent.iden)
 
             self.eq(seen, {
                 # node.edge.add.* and node.data.set.* because of the deny rules
@@ -2198,9 +2184,7 @@ class LayerTest(s_t_utils.SynTest):
 
             seen.clear()
             with mock.patch.object(s_auth.User, 'confirm', confirm):
-                with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                        await layr.confirmLayerEditPerms(user, parent.iden)
+                await layr.confirmLayerEditPerms(user, parent.iden)
 
             self.eq(seen, set())
 
