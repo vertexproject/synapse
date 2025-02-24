@@ -9,7 +9,7 @@ class MediaModule(s_module.CoreModule):
         ctors = ()
 
         forms = (
-            ('media:news:type:taxonomy', {'prevnames': ('media:news:taxonomy',)}, ()),
+            ('media:news:type:taxonomy', {}, ()),
             ('media:news', {}, (
                 ('url', ('inet:url', {}), {
                     'ex': 'http://cnn.com/news/mars-lander.html',
@@ -75,6 +75,7 @@ class MediaModule(s_module.CoreModule):
             ('media:news:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
                 'doc': 'A hierarchical taxonomy of news types.',
+                'prevnames': ('media:news:taxonomy',)
             }),
 
             ('media:topic', ('str', {'lower': True, 'onespace': True}), {

@@ -188,7 +188,7 @@ class PsModule(s_module.CoreModule):
                         'doc': 'The last date the student attended a class.',
                     }),
                     ('classes', ('array', {'type': 'edu:class', 'uniq': True, 'sorted': True}), {
-                        'doc': 'The classes attended by the student.',
+                        'doc': 'The classes attended by the student',
                     }),
                     ('achievement', ('ps:achievement', {}), {
                         'doc': 'The achievement awarded to the individual.',

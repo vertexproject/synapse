@@ -178,7 +178,7 @@ class ProjectModule(s_module.CoreModule):
                             'doc': 'The ticket the comment was added to.'}),
 
                         ('text', ('str', {}), {
-                            'doc': 'The text of the comment.'}),
+                            'doc': 'The text of the comment'}),
                         # -(refs)> thing comment is about
                     )),
 

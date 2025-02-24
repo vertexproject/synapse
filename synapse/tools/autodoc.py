@@ -43,8 +43,6 @@ info_ignores = (
     'stortype',
     'bases',
     'custom',
-    'template',
-    'display',
 )
 
 raw_back_slash_colon = r'\:'
@@ -57,29 +55,29 @@ class DocHelp:
 
     def __init__(self, ctors, types, forms, props, univs):
         self.ctors = {c[0]: c[3].get('doc', 'BaseType has no doc string.') for c in ctors}
-        self.types = {name: valu['info'].get('doc', self.ctors.get(name)) for name, valu in types.items()}
+        self.types = {t[0]: t[2].get('doc', self.ctors.get(t[1][0])) for t in types}
         self.forms = {f[0]: f[1].get('doc', self.types.get(f[0], self.ctors.get(f[0]))) for f in forms}
         self.univs = {}
         for unam, utyp, unfo in univs:
             tn = utyp[0]
             doc = unfo.get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
             self.univs[unam] = doc
-
         self.props = {}
         for form, props in props.items():
             for prop in props:
                 tn = prop[1][0]
                 doc = prop[2].get('doc', self.forms.get(tn, self.types.get(tn, self.ctors.get(tn))))
                 self.props[(form, prop[0])] = doc
-
+        typed = {t[0]: t for t in types}
         ctord = {c[0]: c for c in ctors}
         self.formhelp = {}  # form name -> ex string for a given type
         for form in forms:
             formname = form[0]
-            tnfo = types.get(formname)
+            tnfo = typed.get(formname)
             ctor = ctord.get(formname)
             if tnfo:
-                example = tnfo['info'].get('ex')
+                tnfo = tnfo[2]
+                example = tnfo.get('ex')
                 self.formhelp[formname] = example
             elif ctor:
                 ctor = ctor[3]
@@ -89,7 +87,7 @@ class DocHelp:
                 logger.warning(f'No ctor/type available for [{formname}]')
 
 
-def processCtors(rst, dochelp, ctors, types):
+def processCtors(rst, dochelp, ctors):
     '''
 
     Args:
@@ -130,16 +128,6 @@ def processCtors(rst, dochelp, ctors, types):
                          f' * ``{ex}``',
                          )
 
-        tnfo = types.get(name)
-        if (virts := tnfo.get('virts')) is not None:
-            rst.addLines('', f'The ``{name}`` type has the following virtual properties:', '')
-            for virt in virts:
-                rst.addLines(f' * ``{virt}``')
-
-        rst.addLines('', f'The ``{name}`` type supports lifting using the following operators:', '')
-        for cmpr in tnfo.get('lift_cmprs'):
-            rst.addLines(f' * ``{cmpr}``')
-
         if opts:
             rst.addLines('',
                          f'The base type ``{name}`` has the following default options set:',
@@ -160,7 +148,7 @@ def processTypes(rst, dochelp, types):
     Args:
         rst (RstHelp):
         dochelp (DocHelp):
-        types (dict):
+        ctors (list):
 
     Returns:
         None
@@ -171,9 +159,7 @@ def processTypes(rst, dochelp, types):
                  'Regular types are derived from BaseTypes.',
                  '')
 
-    for name, tnfo in types.items():
-        if name in dochelp.ctors:
-            continue
+    for name, (ttyp, topt), info in types:
 
         doc = dochelp.types.get(name)
         if not doc.endswith('.'):
@@ -188,15 +174,8 @@ def processTypes(rst, dochelp, types):
         link = f'.. _dm-type-{name.replace(":", "-")}:'
         rst.addHead(hname, lvl=2, link=link)
 
-        info = tnfo['info']
         rst.addLines(doc,
-                     f'The ``{name}`` type is derived from the base type: ``{info["bases"][-1]}``.')
-
-        ifaces = info.pop('interfaces', None)
-        if ifaces:
-            rst.addLines('', f'The ``{name}`` type implements the interfaces:', '')
-            for iface in ifaces:
-                rst.addLines(f' * ``{iface}``')
+                     f'The ``{name}`` type is derived from the base type: ``{ttyp}``.')
 
         _ = info.pop('doc', None)
         ex = info.pop('ex', None)
@@ -205,17 +184,15 @@ def processTypes(rst, dochelp, types):
                          f'An example of ``{name}``{raw_back_slash_colon}',
                          '',
                          f' * ``{ex}``',
-
                          )
 
-        opts = tnfo.get('opts')
-        if opts:
+        if topt:
             rst.addLines('',
                          f'The type ``{name}`` has the following options set:',
                          ''
                          )
 
-            for key, valu in sorted(opts.items(), key=lambda x: x[0]):
+            for key, valu in sorted(topt.items(), key=lambda x: x[0]):
                 if key == 'enums':
                     if valu is None:
                         continue
@@ -679,6 +656,7 @@ async def docModel(outp,
     _, model = modeldefs[0]
 
     ctors = model.get('ctors')
+    types = model.get('types')
     forms = model.get('forms')
     univs = model.get('univs')
     edges = model.get('edges')
@@ -686,11 +664,10 @@ async def docModel(outp,
 
     ctors = sorted(ctors, key=lambda x: x[0])
     univs = sorted(univs, key=lambda x: x[0])
+    types = sorted(types, key=lambda x: x[0])
     forms = sorted(forms, key=lambda x: x[0])
     univ_names = {univ[0] for univ in univs}
 
-    modeldict = await core.getModelDict()
-    types = modeldict.get('types')
     for fname, fnfo, fprops in forms:
         for prop in fprops:
             props[fname].append(prop)
@@ -721,7 +698,7 @@ async def docModel(outp,
     rst = s_autodoc.RstHelp()
     rst.addHead('Synapse Data Model - Types', lvl=0)
 
-    processCtors(rst, dochelp, ctors, types)
+    processCtors(rst, dochelp, ctors)
     processTypes(rst, dochelp, types)
 
     rst2 = s_autodoc.RstHelp()

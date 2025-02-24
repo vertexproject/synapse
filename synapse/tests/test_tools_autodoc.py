@@ -52,7 +52,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.notin('..created\n', s)
             self.isin('An example of ``inet:dns:a``\\:', s)
 
-            # IP property
+            # Ipv4 property
             self.isin('''* - ``:asn``
         - :ref:`dm-type-inet-asn`
         - The ASN to which the IP address is currently assigned.''', s)
@@ -71,11 +71,11 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             async with self.getTestCore() as core:
                 lurl = core.getLocalUrl()
-                argv = ['--doc-model', '--savedir', '.', '--cortex', lurl]
+                argv = ['--doc-model', '--savedir', path, '--cortex', lurl]
                 outp = self.getTestOutp()
                 self.eq(await s_autodoc.main(argv, outp=outp), 0)
 
-                with s_common.genfile('.', 'datamodel_types.rst') as fd:
+                with s_common.genfile(path, 'datamodel_types.rst') as fd:
                     buf = fd.read()
 
                 s = buf.decode()
