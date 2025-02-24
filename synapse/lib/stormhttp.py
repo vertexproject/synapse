@@ -282,7 +282,7 @@ class LibHttp(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'http')
     _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'inet', 'http', 'proxy'), 'gate': 'cortex',
+        {'perm': ('inet', 'http', 'proxy'), 'gate': 'cortex',
          'desc': 'Permits a user to specify the proxy used with `$lib.inet.http` APIs.'},
     )
 
@@ -409,7 +409,7 @@ class LibHttp(s_stormtypes.Lib):
 
         if fields:
             if any(['sha256' in field for field in fields]):
-                self.runt.confirm(('storm', 'lib', 'axon', 'wput'))
+                self.runt.confirm(('axon', 'wput'))
 
                 kwargs = {}
 

@@ -2737,7 +2737,7 @@ class StormTypesTest(s_test.SynTest):
             opts = {'user': user, 'vars': varz}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts)
-            await core.addUserRule(user, (True, ('storm', 'lib', 'telepath', 'open', 'cell')))
+            await core.addUserRule(user, (True, ('telepath', 'open', 'cell')))
             self.len(2, await core.callStorm('return ( $lib.telepath.open($url).ipv4s() )', opts=opts))
 
             # SynErr exceptions are allowed through. They can be caught by storm.
@@ -6953,7 +6953,7 @@ words\tword\twrd'''
             opts = {'user': visi.iden, 'vars': {'sha256': sha256_s, 'emptyhash': emptyhash}}
             await self.asyncraises(s_exc.AuthDeny,
                 core.callStorm('return($lib.axon.read($sha256, offs=3, size=3))', opts=opts))
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+            await visi.addRule((True, ('axon', 'get')))
 
             q = 'return($lib.axon.read($sha256, offs=3, size=3))'
             self.eq(b'tex', await core.callStorm(q, opts=opts))
@@ -6977,10 +6977,10 @@ words\tword\twrd'''
             sha256_s = s_common.ehex(sha256)
             opts = {'user': visi.iden, 'vars': {'sha256': sha256_s}}
 
-            await visi.delRule((True, ('storm', 'lib', 'axon', 'get')))
+            await visi.delRule((True, ('axon', 'get')))
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
             await self.asyncraises(s_exc.AuthDeny, core.callStorm(q, opts=opts))
-            await visi.addRule((True, ('storm', 'lib', 'axon', 'get')))
+            await visi.addRule((True, ('axon', 'get')))
 
             q = 'return($lib.axon.unpack($sha256, fmt=">Q"))'
             self.eq((1,), await core.callStorm(q, opts=opts))

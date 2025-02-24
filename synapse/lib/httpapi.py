@@ -1088,7 +1088,7 @@ class StormVarsPopV1(Handler):
         varname = str(body.get('name'))
         defvalu = body.get('default')
 
-        if not await self.allowed(('globals', 'pop', varname)):
+        if not await self.allowed(('globals', 'del', varname)):
             return
 
         valu = await self.cell.popStormVar(varname, default=defvalu)

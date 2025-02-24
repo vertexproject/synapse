@@ -93,11 +93,11 @@ async def resolveCoreProxyUrl(valu):
             return await runt.view.core.getConfOpt('http:proxy')
 
         case False:
-            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            runt.confirm(('inet', 'http', 'proxy'))
             return None
 
         case str():
-            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            runt.confirm(('inet', 'http', 'proxy'))
             return valu
 
         case _:
@@ -127,11 +127,11 @@ async def resolveAxonProxyArg(valu):
             return True, True
 
         case False:
-            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            runt.confirm(('inet', 'http', 'proxy'))
             return True, False
 
         case str():
-            runt.confirm(('storm', 'lib', 'inet', 'http', 'proxy'))
+            runt.confirm(('inet', 'http', 'proxy'))
             return True, valu
 
         case _:
@@ -1473,9 +1473,9 @@ class LibBase(Lib):
         {'perm': ('globals', 'set', '<name>'), 'gate': 'cortex',
             'desc': 'Used to control edit access to a specific global variable.'},
 
-        {'perm': ('globals', 'pop'), 'gate': 'cortex',
+        {'perm': ('globals', 'del'), 'gate': 'cortex',
             'desc': 'Used to control delete access to all global variables.'},
-        {'perm': ('globals', 'pop', '<name>'), 'gate': 'cortex',
+        {'perm': ('globals', 'del', '<name>'), 'gate': 'cortex',
             'desc': 'Used to control delete access to a specific global variable.'},
     )
 
@@ -1556,11 +1556,11 @@ class LibBase(Lib):
                 raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         else:
-            perm = ('storm', 'asroot', 'mod') + tuple(name.split('.'))
+            perm = ('asroot', 'mod') + tuple(name.split('.'))
             asroot = self.runt.allowed(perm)
 
             if mdef.get('asroot', False) and not asroot:
-                mesg = f'Module ({name}) elevates privileges.  You need perm: storm.asroot.mod.{name}'
+                mesg = f'Module ({name}) elevates privileges.  You need perm: asroot.mod.{name}'
                 raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         modr = await self.runt.getModRuntime(query, opts={'vars': {'modconf': modconf}})
@@ -2725,8 +2725,7 @@ class LibAxon(Lib):
             mesg = f'Size must be between 1 and {s_const.mebibyte} bytes'
             raise s_exc.BadArg(mesg=mesg)
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
 
         await self.runt.view.core.getAxon()
 
@@ -2748,8 +2747,7 @@ class LibAxon(Lib):
         fmt = await tostr(fmt)
         offs = await toint(offs)
 
-        if not self.runt.allowed(('axon', 'get')):
-            self.runt.confirm(('storm', 'lib', 'axon', 'get'))
+        self.runt.confirm(('axon', 'get'))
 
         await self.runt.view.core.getAxon()
         return await self.runt.view.core.axon.unpack(s_common.uhex(sha256), fmt, offs)
@@ -3486,8 +3484,7 @@ class LibPipe(Lib):
             Generate and return a Storm Pipe.
 
             Notes:
-                The filler query is run in parallel with $pipe. This requires the permission
-                ``storm.pipe.gen`` to use.
+                The filler query is run in parallel with $pipe.
 
             Examples:
                 Fill a pipe with a query and consume it with another::
@@ -3933,9 +3930,9 @@ class LibTelepath(Lib):
     )
     _storm_lib_path = ('telepath',)
     _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'telepath', 'open'), 'gate': 'cortex',
+        {'perm': ('telepath', 'open'), 'gate': 'cortex',
          'desc': 'Controls the ability to open an arbitrary telepath URL. USE WITH CAUTION.'},
-        {'perm': ('storm', 'lib', 'telepath', 'open', '<scheme>'), 'gate': 'cortex',
+        {'perm': ('telepath', 'open', '<scheme>'), 'gate': 'cortex',
          'desc': 'Controls the ability to open a telepath URL with a specific URI scheme. USE WITH CAUTION.'},
     )
 
@@ -3948,7 +3945,7 @@ class LibTelepath(Lib):
         url = await tostr(url)
         scheme = url.split('://')[0]
         if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+            self.runt.confirm(('telepath', 'open', scheme))
         try:
             return Proxy(self.runt, await self.runt.getTeleProxy(url))
         except s_exc.SynErr:
@@ -5483,7 +5480,7 @@ class GlobalVars(Prim):
         runt = s_scope.get('runt')
 
         if valu is undef:
-            runt.confirm(('globals', 'pop', name))
+            runt.confirm(('globals', 'del', name))
             await runt.view.core.popStormVar(name)
             return
 
@@ -5850,7 +5847,7 @@ class NodeData(Prim):
     async def _popNodeData(self, name):
         name = await tostr(name)
         gateiden = self.valu.view.wlyr.iden
-        confirm(('node', 'data', 'pop', name), gateiden=gateiden)
+        confirm(('node', 'data', 'del', name), gateiden=gateiden)
 
         if self.path is not None:
             self.path.popData(self.valu.nid, name)
@@ -6917,7 +6914,7 @@ class Layer(Prim):
 
         scheme = url.split('://')[0]
         if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+            self.runt.confirm(('telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass
@@ -6962,7 +6959,7 @@ class Layer(Prim):
         scheme = url.split('://')[0]
 
         if not self.runt.allowed(('lib', 'telepath', 'open', scheme)):
-            self.runt.confirm(('storm', 'lib', 'telepath', 'open', scheme))
+            self.runt.confirm(('telepath', 'open', scheme))
 
         async with await s_telepath.openurl(url):
             pass

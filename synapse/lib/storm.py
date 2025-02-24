@@ -1503,8 +1503,6 @@ class Runtime(s_base.Base):
     '''
     A Runtime represents the instance of a running query.
     '''
-
-    _admin_reason = s_auth._allowedReason(True, isadmin=True)
     async def __anit__(self, query, view, opts=None, user=None, root=None, bus=None):
 
         await s_base.Base.__anit__(self)
@@ -1886,12 +1884,6 @@ class Runtime(s_base.Base):
 
         return self.user.allowed(perms, gateiden=gateiden, default=default)
 
-    def allowedReason(self, perms, gateiden=None, default=None):
-        if self.asroot:
-            return self._admin_reason
-
-        return self.view.core._propAllowedReason(self.user, perms, gateiden=gateiden, default=default)
-
     def confirmPropSet(self, prop, layriden=None):
         if self.asroot:
             return
@@ -1899,7 +1891,7 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.view.wlyr.iden
 
-        return self.view.core.confirmPropSet(self.user, prop, layriden=layriden)
+        self.user.confirm(prop.setperm, gateiden=layriden)
 
     def confirmPropDel(self, prop, layriden=None):
         if self.asroot:
@@ -1908,7 +1900,7 @@ class Runtime(s_base.Base):
         if layriden is None:
             layriden = self.view.wlyr.iden
 
-        return self.view.core.confirmPropDel(self.user, prop, layriden=layriden)
+        self.user.confirm(prop.delperm, gateiden=layriden)
 
     def confirmEasyPerm(self, item, perm, mesg=None):
         if not self.asroot:
@@ -2701,11 +2693,11 @@ class PureCmd(Cmd):
     async def execStormCmd(self, runt, genr):
 
         name = self.getName()
-        perm = ('storm', 'asroot', 'cmd') + tuple(name.split('.'))
+        perm = ('asroot', 'cmd') + tuple(name.split('.'))
 
         asroot = runt.allowed(perm)
         if self.asroot and not asroot:
-            mesg = f'Command ({name}) elevates privileges.  You need perm: storm.asroot.cmd.{name}'
+            mesg = f'Command ({name}) elevates privileges.  You need perm: asroot.cmd.{name}'
             raise s_exc.AuthDeny(mesg=mesg, user=runt.user.iden, username=runt.user.name)
 
         # if a command requires perms, check em!
@@ -3646,10 +3638,10 @@ class MergeCmd(Cmd):
             async for abrv, tomb in runt.view.wlyr.iterNodeDataKeys(node.nid):
                 name = core.getAbrvIndx(abrv)[0]
                 if tomb:
-                    runt.confirm(('node', 'data', 'pop', name), gateiden=layr1)
+                    runt.confirm(('node', 'data', 'del', name), gateiden=layr1)
                 else:
                     if not self.opts.wipe:
-                        runt.confirm(('node', 'data', 'pop', name), gateiden=layr0)
+                        runt.confirm(('node', 'data', 'del', name), gateiden=layr0)
                     runt.confirm(('node', 'data', 'set', name), gateiden=layr1)
 
         if not (allows['edges'] and allows['edgetombs']):
@@ -3695,14 +3687,14 @@ class MergeCmd(Cmd):
                              runt.user.allowed(('node', 'prop', 'set'), gateiden=layr1.iden, deepdeny=True),
                     'tags': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr0.iden, deepdeny=True) and
                             runt.user.allowed(('node', 'tag', 'add'), gateiden=layr1.iden, deepdeny=True),
-                    'ndata': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr0.iden, deepdeny=True) and
+                    'ndata': runt.user.allowed(('node', 'data', 'del'), gateiden=layr0.iden, deepdeny=True) and
                              runt.user.allowed(('node', 'data', 'set'), gateiden=layr1.iden, deepdeny=True),
                     'edges': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr0.iden, deepdeny=True) and
                              runt.user.allowed(('node', 'edge', 'add'), gateiden=layr1.iden, deepdeny=True),
                     'formtombs': runt.user.allowed(('node', 'del'), gateiden=layr1.iden, deepdeny=True),
                     'proptombs': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr1.iden, deepdeny=True),
                     'tagtombs': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr1.iden, deepdeny=True),
-                    'ndatatombs': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr1.iden, deepdeny=True),
+                    'ndatatombs': runt.user.allowed(('node', 'data', 'del'), gateiden=layr1.iden, deepdeny=True),
                     'edgetombs': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr1.iden, deepdeny=True),
                 }
             else:
@@ -3715,7 +3707,7 @@ class MergeCmd(Cmd):
                     'formtombs': runt.user.allowed(('node', 'del'), gateiden=layr1.iden, deepdeny=True),
                     'proptombs': runt.user.allowed(('node', 'prop', 'del'), gateiden=layr1.iden, deepdeny=True),
                     'tagtombs': runt.user.allowed(('node', 'tag', 'del'), gateiden=layr1.iden, deepdeny=True),
-                    'ndatatombs': runt.user.allowed(('node', 'data', 'pop'), gateiden=layr1.iden, deepdeny=True),
+                    'ndatatombs': runt.user.allowed(('node', 'data', 'del'), gateiden=layr1.iden, deepdeny=True),
                     'edgetombs': runt.user.allowed(('node', 'edge', 'del'), gateiden=layr1.iden, deepdeny=True),
                 }
 
@@ -4108,9 +4100,9 @@ class MoveNodesCmd(Cmd):
             async for abrv, tomb in self.lyrs[layr].iterNodeDataKeys(node.nid):
                 name = self.core.getAbrvIndx(abrv)[0]
                 if tomb:
-                    self.runt.confirm(('node', 'data', 'pop', name), gateiden=self.destlayr)
+                    self.runt.confirm(('node', 'data', 'del', name), gateiden=self.destlayr)
                 else:
-                    self.runt.confirm(('node', 'data', 'pop', name), gateiden=layr)
+                    self.runt.confirm(('node', 'data', 'del', name), gateiden=layr)
                     self.runt.confirm(('node', 'data', 'set', name), gateiden=self.destlayr)
 
             for verb in sode.get('n1verbs', {}).keys():
@@ -4894,7 +4886,7 @@ class DelNodeCmd(Cmd):
                 raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
         if delbytes:
-            runt.confirm(('storm', 'lib', 'axon', 'del'))
+            runt.confirm(('axon', 'del'))
             await runt.view.core.getAxon()
             axon = runt.view.core.axon
 

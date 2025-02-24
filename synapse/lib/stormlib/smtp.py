@@ -22,7 +22,7 @@ class SmtpLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'smtp',)
     _storm_lib_perms = (
-        {'perm': ('storm', 'inet', 'smtp', 'send'), 'gate': 'cortex',
+        {'perm': ('inet', 'smtp', 'send'), 'gate': 'cortex',
          'desc': 'Controls sending SMTP messages to external servers.'},
     )
 
@@ -153,7 +153,7 @@ class SmtpMessage(s_stormtypes.StormType):
     async def send(self, host, port=25, user=None, passwd=None, usetls=False, starttls=False, timeout=60,
                    ssl_verify=True):
 
-        self.runt.confirm(('storm', 'inet', 'smtp', 'send'))
+        self.runt.confirm(('inet', 'smtp', 'send'))
 
         try:
             if self.bodytext is None and self.bodyhtml is None:
