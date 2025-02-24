@@ -204,7 +204,7 @@ class OAuthMixin(s_nexus.Pusher):
 
         return ok, data
 
-    async def _getAuthData(self,  providerconf, useriden):
+    async def _getAuthData(self, providerconf, useriden):
         isok = False
         ret = {}
         auth_scheme = providerconf['auth_scheme']
