@@ -137,15 +137,14 @@ class LoggerLib(s_stormtypes.Lib):
     async def _getExtra(self, extra=None):
 
         if extra is None:
-            return await self.runt.snap.core.getLogExtra()
+            return self.runt.snap.core.getLogExtra()
 
         extra = await s_stormtypes.toprim(extra)
         if extra and not isinstance(extra, dict):
-            mesg = f'extra provided to log call must be a dictionary compatible type. Got {extra.__class__.__name__} ' \
-                   f'instead.'
-            raise s_exc.BadArg(mesg=mesg, arg='extra')
+            mesg = '$lib.log argument extra= must be a dictionary'
+            raise s_exc.BadArg(mesg=mesg, arg='extra', got=extra.__class__.__name__)
 
-        return await self.runt.snap.core.getLogExtra(**extra)
+        return self.runt.snap.core.getLogExtra(**extra)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logDebug(self, mesg, extra=None):

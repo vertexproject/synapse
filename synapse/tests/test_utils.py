@@ -289,9 +289,9 @@ class TestUtils(s_t_utils.SynTest):
                 self.checkNode(nodes[0], (('test:comp', (1, 'newp')), {'hehe': 1, 'haha': 'test'}))
             with self.raises(AssertionError):
                 self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'newp'}))
-            with self.getAsyncLoggerStream('synapse.tests.utils', 'untested properties') as stream:
+            with self.getLoggerStream('synapse.tests.utils') as stream:
                 self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1}))
-                self.true(await stream.wait(timeout=12))
+                self.true(await stream.expect('untested properties'))
 
             await self.checkNodes(core, [('test:comp', (1, 'test')),])
             with self.raises(AssertionError):

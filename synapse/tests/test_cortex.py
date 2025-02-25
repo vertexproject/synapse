@@ -305,7 +305,7 @@ class CortexTest(s_t_utils.SynTest):
             async with self.getTestCore(dirn=dirn) as core:
                 await core.callStorm('$lib.jsonstor.set((path,), hehe)')
 
-            with self.getAsyncLoggerStream('synapse.lib.nexus') as stream:
+            with self.getLoggerStream('synapse.lib.nexus') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
                     q = 'return( $lib.jsonstor.get((path,)) )'
                     self.eq('hehe', await core.callStorm(q))
@@ -1161,7 +1161,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(cm.exception.get('mesg'),
                         'Generator control statement "stop" used outside of a generator function.')
 
-            with self.getAsyncLoggerStream('synapse.lib.view', 'callStorm cancelled') as stream:
+            with self.getLoggerStream('synapse.lib.view') as stream:
                 async with core.getLocalProxy() as proxy:
 
                     # async cancellation test
@@ -1171,7 +1171,7 @@ class CortexTest(s_t_utils.SynTest):
                     except asyncio.TimeoutError:
                         logger.exception('Woohoo!')
 
-                self.true(await stream.wait(6))
+                self.true(await stream.expect('callStorm cancelled'))
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
@@ -1221,8 +1221,7 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            with self.getStructuredAsyncLoggerStream('synapse.storm.log',
-                                                     'Running dmon') as stream:
+            with self.getLoggerStream('synapse.storm.log') as stream:
                 iden = await core.callStorm('''
                     $que = $lib.queue.add(foo)
 
@@ -1238,7 +1237,7 @@ class CortexTest(s_t_utils.SynTest):
                     $que.get()
                     return($ddef.iden)
                 ''')
-                self.true(await stream.wait(6))
+                self.true(await stream.expect('Running dmon'))
 
             mesg = stream.jsonlines()[0]
             self.eq(mesg.get('message'), f'Running dmon {iden}')
@@ -2911,10 +2910,9 @@ class CortexTest(s_t_utils.SynTest):
 
             # Attempt a formpivot from a syn:tag node to a secondary property
             # which is not valid
-            with self.getAsyncLoggerStream('synapse.lib.ast',
-                                           'Unknown time format') as stream:
+            with self.getLoggerStream('synapse.lib.ast') as stream:
                 self.len(0, await core.nodes('syn:tag=foo.bar -> test:str:tick'))
-                self.true(await stream.wait(4))
+                self.true(await stream.expect('Unknown time format'))
 
     async def test_storm_tagtags(self):
 
@@ -3479,22 +3477,12 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(view)
 
             # Storm logging
-            with self.getAsyncLoggerStream('synapse.storm', 'Executing storm query {help ask} as [root]') \
-                    as stream:
+            with self.getLoggerStream('synapse.storm') as stream:
                 await alist(core.storm('help ask'))
-                self.true(await stream.wait(4))
-
-            mesg = 'Executing storm query {help foo} as [root]'
-            with self.getAsyncLoggerStream('synapse.storm', mesg) as stream:
-                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
-                self.true(await stream.wait(4))
-
-            with self.getStructuredAsyncLoggerStream('synapse.storm', mesg) as stream:
-                await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
-                self.true(await stream.wait(4))
-
-            mesg = stream.jsonlines()[0]
-            self.eq(mesg['params'].get('view'), view)
+                rows = stream.jsonlines()
+                self.eq(rows[0]['message'], 'Executing storm query as [root]')
+                self.eq(rows[0]['params']['view'], view)
+                self.eq(rows[0]['params']['text'], 'help ask')
 
     async def test_strict(self):
 
@@ -5892,9 +5880,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     log01 = await alist(core01.nexsroot.nexslog.iter(0))
                     self.eq(log00, log01)
 
-                    with self.getAsyncLoggerStream('synapse.lib.nexus', 'offset is out of sync') as stream:
+                    with self.getLoggerStream('synapse.lib.nexus') as stream:
                         async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
-                            self.true(await stream.wait(6))
+                            self.true(await stream.expect('offset is out of sync'))
                             self.true(core02.nexsroot.isfini)
 
                 # restore mirror
@@ -6283,10 +6271,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await asyncio.sleep(0)
 
                 q = '''$q = $lib.queue.get(dmon) $q.puts((1, 3, 5))'''
-                with self.getAsyncLoggerStream('synapse.lib.storm',
-                                               "made ('test:int', 5)") as stream:
+                with self.getLoggerStream('synapse.lib.storm', struct=False) as stream:
                     await core.nodes(q)
-                    self.true(await stream.wait(6))
+                    self.true(await stream.expect("made ('test:int', 5)", escape=True))
 
                 nodes = await core.nodes('test:int', opts={'view': view2_iden})
                 self.len(3, nodes)
@@ -6313,10 +6300,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     await core.addStormDmon(ddef)
 
                 q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
-                with self.getAsyncLoggerStream('synapse.lib.storm',
-                                               "made ('test:str', '5')") as stream:
+                with self.getLoggerStream('synapse.lib.storm', struct=False) as stream:
                     await core.nodes(q)
-                    self.true(await stream.wait(6))
+                    self.true(await stream.expect("made ('test:str', '5')", escape=True))
 
                 nodes = await core.nodes('test:str', opts={'view': view2_iden})
                 self.len(3, nodes)
@@ -6330,10 +6316,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 with self.raises(s_exc.NoSuchView):
                     await core.nodes('test:int', opts={'view': view2_iden})
 
-            with self.getAsyncLoggerStream('synapse.lib.storm',
-                                           'Dmon View is invalid. Stopping Dmon') as stream:
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
-                    self.true(await stream.wait(6))
+                    self.true(await stream.expect('Dmon View is invalid. Stopping Dmon'))
                     msgs = await core.stormlist('dmon.list')
                     self.stormIsInPrint('fatal error: invalid view', msgs)
 
@@ -7692,7 +7677,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(1, data.count('deprecated properties unlocked'))
                 self.isin('deprecated properties unlocked and not in use', data)
 
-                match = regex.match(r'Detected (?P<count>\d+) deprecated properties', data)
+                match = regex.search(r'Detected (?P<count>\d+) deprecated properties', data)
                 count = int(match.groupdict().get('count'))
 
                 here = stream.tell()
@@ -8166,7 +8151,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 self.eq('admin', await prox.callStorm('return( $lib.user.name()  )', opts=opts))
 
-                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
 
                     q = 'return( ($lib.user.name(), $lib.auth.users.add(lowuser) ))'
                     (whoami, udef) = await prox.callStorm(q, opts=opts)
@@ -8179,7 +8164,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq('admin', mesg.get('username'))
                 self.eq('lowuser', mesg['params'].get('target_username'))
 
-                with self.getStructuredAsyncLoggerStream('synapse.lib.cell') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
 
                     q = 'auth.user.mod lowuser --admin $lib.true'
                     msgs = []
@@ -8389,7 +8374,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     # storm()
                     q = 'inet:asn=0'
                     qhash = s_storm.queryhash(q)
-                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                    with self.getLoggerStream('synapse') as stream:
                         msgs = await alist(core00.storm(q))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
@@ -8402,14 +8387,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(msgs[0]['params'].get('hash'), qhash)
                     self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
 
-                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('message'), f'Executing storm query as [root]')
                     self.eq(msgs[1]['params'].get('hash'), qhash)
                     self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
 
                     # callStorm()
                     q = 'inet:asn=0 return($lib.true)'
                     qhash = s_storm.queryhash(q)
-                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                    with self.getLoggerStream('synapse') as stream:
                         self.true(await core00.callStorm(q))
 
                     data = stream.getvalue()
@@ -8421,14 +8406,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(msgs[0]['params'].get('hash'), qhash)
                     self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
 
-                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('message'), f'Executing storm query as [root]')
                     self.eq(msgs[1]['params'].get('hash'), qhash)
                     self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
 
                     # exportStorm()
                     q = 'inet:asn=0'
                     qhash = s_storm.queryhash(q)
-                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                    with self.getLoggerStream('synapse') as stream:
                         self.len(1, await alist(core00.exportStorm(q)))
 
                     data = stream.getvalue()
@@ -8440,14 +8425,14 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(msgs[0]['params'].get('hash'), qhash)
                     self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
 
-                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('message'), f'Executing storm query as [root]')
                     self.eq(msgs[1]['params'].get('hash'), qhash)
                     self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
 
                     # count()
                     q = 'inet:asn=0'
                     qhash = s_storm.queryhash(q)
-                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                    with self.getLoggerStream('synapse') as stream:
                         self.eq(1, await core00.count(q))
 
                     data = stream.getvalue()
@@ -8459,7 +8444,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq(msgs[0]['params'].get('hash'), qhash)
                     self.eq(msgs[0]['params'].get('mirror'), f'01.core.{ahanet}')
 
-                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('message'), f'Executing storm query as [root]')
                     self.eq(msgs[1]['params'].get('hash'), qhash)
                     self.eq(msgs[1]['params'].get('pool:from'), f'00.core.{ahanet}')
 
@@ -8685,7 +8670,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 core.auth.stor.set('gate:cortex:user:newp', {'iden': 'newp'})
                 core.auth.stor.set('gate:cortex:role:newp', {'iden': 'newp'})
 
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
+            with self.getLoggerStream('synapse.cortex', struct=False) as stream:
                 async with self.getTestCore(dirn=dirn) as core:  # type: s_cortex.Cortex
                     # The cortex authgate still does nothing
                     with self.raises(s_exc.AuthDeny) as cm:

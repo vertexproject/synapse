@@ -145,7 +145,7 @@ class HandlerBase:
             self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
 
-    def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
+    async def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
         '''
         Helper to log issues related to request authentication.
 
@@ -158,21 +158,14 @@ class HandlerBase:
         Returns:
             None
         '''
-        uri = self.request.uri
-        remote_ip = self.request.remote_ip
-        enfo = {'uri': uri,
-                'remoteip': remote_ip,
-                }
-        errm = f'Failed to authenticate request to {uri} from {remote_ip} '
-        if mesg:
-            errm = f'{errm}: {mesg}'
-        if user:
-            errm = f'{errm}: user={user}'
-            enfo['user'] = user
-        if username:
-            errm = f'{errm} ({username})'
-            enfo['username'] = username
-        logger.log(level, msg=errm, extra={'synapse': enfo})
+        extra = self.cell.getLogExtra(
+            mesg=mesg,
+            path=self.request.uri,
+            remoteip=self.request.remote_ip,
+            username=username,
+            user=user)
+
+        logger.log(level, 'Failed to authenticate HTTP request', extra=extra)
 
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')
@@ -321,15 +314,15 @@ class HandlerBase:
 
         udef = await authcell.getUserDefByName(name)
         if udef is None:
-            self.logAuthIssue(mesg='No such user.', username=name)
+            await self.logAuthIssue(mesg='No such user.', username=name)
             return None
 
         if udef.get('locked'):
-            self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
+            await self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
             return None
 
         if not await authcell.tryUserPasswd(name, passwd):
-            self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
+            await self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return None
 
         self.web_useriden = udef.get('iden')
@@ -341,7 +334,7 @@ class HandlerBase:
         key = self.request.headers.get('X-API-KEY')
         isok, info = await authcell.checkUserApiKey(key)  # errfo or dict with tdef + udef
         if isok is False:
-            self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
+            await self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
             return
 
         udef = info.get('udef')
@@ -685,15 +678,15 @@ class LoginV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDefByName(name)
         if udef is None:
-            self.logAuthIssue(mesg='No such user.', username=name)
+            await self.logAuthIssue(mesg='No such user.', username=name)
             return self.sendRestErr('AuthDeny', 'No such user.')
 
         if udef.get('locked'):
-            self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
+            await self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
             return self.sendRestErr('AuthDeny', 'User is locked.')
 
         if not await authcell.tryUserPasswd(name, passwd):
-            self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
+            await self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         iden = udef.get('iden')
@@ -1372,8 +1365,8 @@ class ExtApiHandler(StormHandler):
                         # We've already flushed() the stream at this point, so we cannot
                         # change the status code or the response headers. We just have to
                         # log the error and move along.
-                        mesg = f'Extended HTTP API {iden} tried to set code after sending body.'
-                        logger.error(mesg, extra=await core.getLogExtra())
+                        extra = core.getLogExtra(httpapi=iden)
+                        logger.error('Extended HTTP API sent code after sending body.', extra=extra)
                         continue
 
                     rcode = True
@@ -1384,8 +1377,8 @@ class ExtApiHandler(StormHandler):
                         # We've already flushed() the stream at this point, so we cannot
                         # change the status code or the response headers. We just have to
                         # log the error and move along.
-                        mesg = f'Extended HTTP API {iden} tried to set headers after sending body.'
-                        logger.error(mesg, extra=await core.getLogExtra())
+                        extra = core.getLogExtra(httpapi=iden)
+                        logger.error('Extended HTTP API set headers after sending body.', extra=extra)
                         continue
                     for hkey, hval in info['headers'].items():
                         self.set_header(hkey, hval)
@@ -1395,7 +1388,7 @@ class ExtApiHandler(StormHandler):
                         self.clear()
                         self.set_status(500)
                         self.sendRestErr('StormRuntimeError',
-                                         f'Extended HTTP API {iden} must set status code before sending body.')
+                                         'Extended HTTP API must set status code before sending body.')
                         return await self.finish()
                     rbody = True
                     body = info['body']
@@ -1404,8 +1397,8 @@ class ExtApiHandler(StormHandler):
 
                 elif mtyp == 'err':
                     errname, erfo = info
-                    mesg = f'Error executing Extended HTTP API {iden}: {errname} {erfo.get("mesg")}'
-                    logger.error(mesg, extra=await core.getLogExtra())
+                    extra = core.getLogExtra(httpapi=iden, errname=errname, **erfo)
+                    logger.error('Extended HTTP API encountered an error.', extra=extra)
                     if rbody:
                         # We've already flushed() the stream at this point, so we cannot
                         # change the status code or the response headers. We just have to
@@ -1422,18 +1415,18 @@ class ExtApiHandler(StormHandler):
 
         except Exception as e:
             rcode = True
-            enfo = s_common.err(e)
-            extra = await core.getLogExtra(iden=iden)
-            logger.exception(f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}', extra=extra)
+            errname, errinfo = s_common.err(e)
+            extra = core.getLogExtra(httpapi=iden, errname=errname, **errinfo)
+            logger.exception(f'Extended HTTP API encountered a fatal error.', extra=extra)
             if rbody is False:
                 self.clear()
                 self.set_status(500)
-                self.sendRestErr(enfo[0],
-                                 f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+                self.sendRestErr(errname,
+                                 f'Extended HTTP API {iden} encountered fatal error: {errinfo.get("mesg")}')
 
         if rcode is False:
             self.clear()
             self.set_status(500)
-            self.sendRestErr('StormRuntimeError', f'Extended HTTP API {iden} never set status code.')
+            self.sendRestErr('StormRuntimeError', 'Extended HTTP API never set status code.')
 
         await self.finish()

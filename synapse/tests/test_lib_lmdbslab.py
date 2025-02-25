@@ -350,13 +350,13 @@ class LmdbSlabTest(s_t_utils.SynTest):
         with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1), \
                 patch('synapse.common.now', self.simplenow):
             path = os.path.join(dirn, 'test.lmdb')
-            with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
+            with self.getLoggerStream('synapse.lib.lmdbslab') as stream:
                 async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
                     foo = slab.initdb('foo', dupsort=True)
                     byts = b'\x00' * 256
                     for i in range(10):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-                self.true(await stream.wait(timeout=1))
+                self.true(await stream.expect('Commit with'))
 
             msgs = stream.jsonlines()
             self.gt(len(msgs), 0)

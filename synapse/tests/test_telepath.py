@@ -880,12 +880,12 @@ class TeleTest(s_t_utils.SynTest):
 
         async with await s_telepath.open(urls) as targ:
 
-            with self.getAsyncLoggerStream('synapse.telepath', 'Connect call failed') as stream:
+            with self.getLoggerStream('synapse.telepath') as stream:
 
                 await targ.waitready()
 
                 # Verify the password doesn't leak into the log
-                self.true(await stream.wait(2))
+                self.true(await stream.expect('Connect call failed'))
                 stream.seek(0)
                 mesgs = stream.read()
                 self.notin('password', mesgs)
@@ -906,18 +906,17 @@ class TeleTest(s_t_utils.SynTest):
             _url = s_telepath.zipurl(urlinfo)
             logger.info(f'Connected to url={_url}')
 
-        with self.getAsyncLoggerStream('synapse.tests.test_telepath',
-                                       f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo') as stream:
+        with self.getLoggerStream('synapse.tests.test_telepath') as stream:
             async with await s_telepath.open(url1, onlink=onlink) as targ:
-                self.true(await stream.wait(timeout=12))
+                self.true(await stream.expect(f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo', escape=True))
 
         # Coverage
         async def badonlink(proxy, urlinfo):
             raise ValueError('oopsie')
 
-        with self.getAsyncLoggerStream('synapse.telepath', 'onlink: ') as stream:
+        with self.getLoggerStream('synapse.telepath', 'onlink: ') as stream:
             async with await s_telepath.open(url1, onlink=badonlink) as targ:
-                self.true(await stream.wait(timeout=12))
+                self.true(await stream.expect('onlink: '))
 
         await dmon0.fini()
         await dmon1.fini()
@@ -1004,8 +1003,7 @@ class TeleTest(s_t_utils.SynTest):
 
             async with await s_telepath.openurl(url) as proxy:
 
-                with self.getAsyncLoggerStream('synapse.daemon',
-                                               'task sleepg') as stream:
+                with self.getLoggerStream('synapse.daemon') as stream:
 
                     # Fire up an async generator which will yield a message then
                     # wait for a while so that our break will tear it down
@@ -1016,7 +1014,7 @@ class TeleTest(s_t_utils.SynTest):
                     # Ensure that the sleepg function got canceled.
                     self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
                     # Ensure we logged the cancellation.
-                    self.true(await stream.wait(6))
+                    self.true(await stream.expect('task sleepg'))
 
     async def test_link_fini_breaking_tasks2(self):
         '''

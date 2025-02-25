@@ -50,8 +50,7 @@ class BossTest(s_test.SynTest):
 
             self.len(1, boss.ps())
 
-            with self.getAsyncLoggerStream('synapse.lib.boss',
-                                           'Iden specified for existing task') as stream:
+            with self.getLoggerStream('synapse.lib.boss') as stream:
 
                 iden = s_common.guid()
 
@@ -60,5 +59,5 @@ class BossTest(s_test.SynTest):
                     await boss.promote(f'double', root, taskiden=iden + iden)
 
                 coro = boss.schedCoro(double_promote())
-                self.true(await stream.wait(timeout=6))
+                self.true(await stream.expect('Iden specified for existing task'))
                 await coro

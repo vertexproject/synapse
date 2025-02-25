@@ -1015,7 +1015,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=await self.getLogExtra(user=useriden, username=user.name))
+            logger.warning(mesg, extra=self.getLogExtra(user=useriden, username=user.name))
         for roleiden in ag.gateroles.keys():
             role = self.auth.role(roleiden)
             if role is None:
@@ -1023,7 +1023,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
+            logger.warning(mesg, extra=self.getLogExtra(role=roleiden, rolename=role.name))
 
         self._initVaults()
 
@@ -2865,7 +2865,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 name = cdef.get('name')
                 mesg = f"Storm command definition 'forms' key is deprecated and will be removed " \
                        f"in 3.0.0 (command {name} in package {pkgname})"
-                logger.warning(mesg, extra=await self.getLogExtra(name=name, pkgname=pkgname))
+                logger.warning(mesg, extra=self.getLogExtra(name=name, pkgname=pkgname))
 
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
@@ -5837,7 +5837,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5895,7 +5895,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
                 mesg = (f'Pool mirror [{proxyname}] Nexus offset delta too large '
                         f'({delta} > {MAX_NEXUS_DELTA}), running query locally.')
-                logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
+                logger.warning(mesg, extra=self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
                 return None
 
             return proxy
@@ -5905,7 +5905,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 logger.warning('Timeout waiting for pool mirror, running query locally.')
             else:
                 mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset, running query locally.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                logger.warning(mesg, extra=self.getLogExtra(mirror=proxyname))
                 await proxy.fini()
             return None
 
@@ -5918,7 +5918,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5952,7 +5952,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -5981,7 +5981,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
                 logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
@@ -6173,7 +6173,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             extra['text'] = text
             extra['hash'] = s_storm.queryhash(text)
 
-            extra = await self.getLogExtra(**extra)
+            extra = self.getLogExtra(**extra)
             stormlogger.log(self.stormloglvl, 'Executing storm query as [%s]', user.name, extra=extra)
 
     async def getNodeByNdef(self, ndef, view=None):
@@ -6622,7 +6622,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         await self.agenda.enable(iden)
         await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
-        logger.info(f'Enabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+        logger.info(f'Enabled cron job {iden}', extra=self.getLogExtra(iden=iden, status='MODIFY'))
 
     @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
@@ -6635,7 +6635,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.agenda.disable(iden)
         await self._killCronTask(iden)
         await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
-        logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+        logger.info(f'Disabled cron job {iden}', extra=self.getLogExtra(iden=iden, status='MODIFY'))
 
     async def killCronTask(self, iden):
         if self.agenda.appts.get(iden) is None:

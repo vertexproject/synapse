@@ -49,10 +49,10 @@ class ConfTest(s_test.SynTest):
                'Will not form argparse for [key:bool:nodefval]'
         pars = argparse.ArgumentParser('synapse.tests.test_lib_config.basics')
         pars.add_argument('--beep', type=str, help='beep option', default='beep.sys')
-        with self.getLoggerStream('synapse.lib.config', mesg) as stream:
+        with self.getLoggerStream('synapse.lib.config') as stream:
             for optname, optinfo in conf.getArgParseArgs():
                 pars.add_argument(optname, **optinfo)
-            self.true(stream.wait(3))
+            self.true(stream.expect(mesg))
         hmsg = pars.format_help()
 
         # Undo pretty-printing
@@ -239,7 +239,7 @@ class ConfTest(s_test.SynTest):
             s_common.yamlsave({'key:integer': 5678, 'key:string': 'haha'},
                               dirn, '3.yaml')
             fp = s_common.genpath(dirn, '3.yaml')
-            with self.getAsyncLoggerStream('synapse.lib.config') as stream:
+            with self.getLoggerStream('synapse.lib.config') as stream:
                 conf3.setConfFromFile(fp, force=True)
             stream.seek(0)
             buf = stream.read()

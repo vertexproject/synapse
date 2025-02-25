@@ -1445,9 +1445,9 @@ class StormTest(s_t_utils.SynTest):
                 }
             }
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz requirement') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
+                self.true(await stream.expect('bazfaz requirement'))
 
             pkgdef = {
                 'name': 'bazfaz',
@@ -1459,9 +1459,9 @@ class StormTest(s_t_utils.SynTest):
                 }
             }
 
-            with self.getAsyncLoggerStream('synapse.cortex', 'bazfaz optional requirement') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.wait(timeout=1))
+                self.true(await stream.expect('bazfaz optional requirement'))
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
@@ -1705,7 +1705,7 @@ class StormTest(s_t_utils.SynTest):
 
             await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
 
-            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+            with self.getLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
 
             stream.seek(0)
@@ -1725,7 +1725,7 @@ class StormTest(s_t_utils.SynTest):
             newn = await core.nodes('[ ou:name=readonly ]')
             self.ne(oldn[0].props['.created'], newn[0].props['.created'])
 
-            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+            with self.getLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview)
 
             stream.seek(0)
@@ -1745,7 +1745,7 @@ class StormTest(s_t_utils.SynTest):
             q = 'ou:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
             await core.nodes(q, opts=altview2)
 
-            with self.getAsyncLoggerStream('synapse.lib.snap') as stream:
+            with self.getLoggerStream('synapse.lib.snap') as stream:
                 await core.stormlist('ou:name | merge --apply', opts=altview2)
 
             stream.seek(0)
@@ -2503,29 +2503,30 @@ class StormTest(s_t_utils.SynTest):
                                             name=hehedmon))'''
                 ddef0 = await asvisi.callStorm(q)
 
-            with self.getAsyncLoggerStream('synapse.lib.storm', 'user is locked') as stream:
+            with self.getLoggerStream('synapse.lib.storm') as stream:
                 await visi.setLocked(True)
                 q = 'return($lib.dmon.bump($iden))'
                 self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
-                self.true(await stream.wait(2))
+                self.true(await stream.expect('user is locked'))
 
     async def test_storm_dmon_user_autobump(self):
         async with self.getTestCore() as core:
             visi = await core.auth.addUser('visi')
             await visi.addRule((True, ('dmon', 'add')))
             async with core.getLocalProxy(user='visi') as asvisi:
-                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                with self.getLoggerStream('synapse.lib.storm') as stream:
                     q = '''return($lib.dmon.add(${{ $lib.print(foobar) $lib.time.sleep(10) }},
                                                 name=hehedmon))'''
                     await asvisi.callStorm(q)
+                    self.true(await stream.expect('Dmon query exited'))
 
-                with self.getAsyncLoggerStream('synapse.lib.storm', 'user is locked') as stream:
+                with self.getLoggerStream('synapse.lib.storm') as stream:
                     await core.setUserLocked(visi.iden, True)
-                    self.true(await stream.wait(2))
+                    self.true(await stream.expect('user is locked'))
 
-                with self.getAsyncLoggerStream('synapse.lib.storm', 'Dmon query exited') as stream:
+                with self.getLoggerStream('synapse.lib.storm') as stream:
                     await core.setUserLocked(visi.iden, False)
-                    self.true(await stream.wait(2))
+                    self.true(await stream.expect('Dmon query exited'))
 
     async def test_storm_dmon_caching(self):
 
@@ -2800,7 +2801,7 @@ class StormTest(s_t_utils.SynTest):
             # because the pkg hasn't changed so no loading occurs
             waiter = core.waiter(1, 'core:pkg:onload:complete')
 
-            with self.getAsyncLoggerStream('synapse.cortex') as stream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify https://127.0.0.1:{port}/api/v1/pkgtest/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
@@ -3192,14 +3193,14 @@ class StormTest(s_t_utils.SynTest):
             self.len(3, nodes)
 
             q = 'iden newp'
-            with self.getLoggerStream('synapse.lib.snap', 'Failed to decode iden') as stream:
+            with self.getLoggerStream('synapse.lib.snap') as stream:
                 self.len(0, await core.nodes(q))
-                self.true(stream.wait(1))
+                self.true(await stream.expect('Failed to decode iden'))
 
             q = 'iden deadb33f'
-            with self.getLoggerStream('synapse.lib.snap', 'iden must be 32 bytes') as stream:
+            with self.getLoggerStream('synapse.lib.snap') as stream:
                 self.len(0, await core.nodes(q))
-                self.true(stream.wait(1))
+                self.true(await stream.expect('iden must be 32 bytes'))
 
             # Runtsafety test
             q = 'test:str=hehe | iden $node.iden()'
