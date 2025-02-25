@@ -83,7 +83,7 @@ class FeedTest(s_t_utils.SynTest):
                 self.true(outp.expect('Cannot start from a arbitrary offset for more than 1 file.'))
 
             nodes = await core.nodes('test:int')
-            self.len(8, nodes)
+            self.len(4, nodes)
 
     async def test_synnodes_view(self):
 

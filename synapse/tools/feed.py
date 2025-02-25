@@ -55,11 +55,11 @@ async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0,
         tick = time.time()
         outp.printf(f'Adding items from [{path}]')
 
-        foff = 0
+        foff = -1
         for chunk in s_common.chunks(item, chunksize):
 
             clen = len(chunk)
-            if offset and foff + clen < offset:
+            if offset and foff + clen <= offset:
                 # We have not yet encountered a chunk which
                 # will include the offset size.
                 foff += clen
