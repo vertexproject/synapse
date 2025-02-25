@@ -169,8 +169,7 @@ class OAuthMixin(s_nexus.Pusher):
         token_uri = providerconf['token_uri']
         ssl_verify = providerconf['ssl_verify']
 
-        auth = data.get('auth')
-        formdata = data.get('formdata')  # type: aiohttp.FormData
+        auth, formdata = self._unpackAuthData(data)
 
         formdata.add_field('grant_type', 'authorization_code')
         formdata.add_field('scope', providerconf['scope'])
@@ -191,8 +190,7 @@ class OAuthMixin(s_nexus.Pusher):
         ssl_verify = providerconf['ssl_verify']
         refresh_token = clientconf['refresh_token']
 
-        auth = data.get('auth')
-        formdata = data.get('formdata')  # type: aiohttp.FormData
+        auth, formdata = self._unpackAuthData(data)
 
         formdata.add_field('grant_type', 'refresh_token')
         formdata.add_field('refresh_token', refresh_token)
@@ -210,9 +208,8 @@ class OAuthMixin(s_nexus.Pusher):
         auth_scheme = providerconf['auth_scheme']
 
         if auth_scheme == 'basic':
-            auth = aiohttp.BasicAuth(providerconf['client_id'], password=providerconf['client_secret'])
-            ret['auth'] = auth
-            ret['formdata'] = aiohttp.FormData()
+            ret['auth'] = {'login': providerconf['client_id'], 'password': providerconf['client_secret']}
+            ret['formdata'] = {}
             isok = True
 
         elif auth_scheme == 'client_assertion':
@@ -247,10 +244,11 @@ class OAuthMixin(s_nexus.Pusher):
                 ret['error'] = f'unknown client_assertions data: {client_assertion=}'
 
             if assertion:
-                formdata = aiohttp.FormData()
-                formdata.add_field('client_assertion_type', 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer')
-                formdata.add_field('client_assertion', assertion)
-                formdata.add_field('client_id', client_id)
+                formdata = {
+                    'client_id': client_id,
+                    'client_assertion': assertion,
+                    'client_assertion_type': 'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+                }
                 ret['formdata'] = formdata
                 isok = True
 
@@ -259,6 +257,16 @@ class OAuthMixin(s_nexus.Pusher):
             ret['error'] = f'unknown authorization scheme: {auth_scheme}'
 
         return isok, ret
+
+    @staticmethod
+    def _unpackAuthData(data: dict) -> tuple[aiohttp.BasicAuth | None, aiohttp.FormData]:
+        auth = data.get('auth', None)  # type: dict | None
+        if auth:
+            auth = aiohttp.BasicAuth(auth.get('login'), password=auth.get('password'))
+        formdata = aiohttp.FormData()
+        for k, v in data.get('formdata', {}).items():
+            formdata.add_field(k, v)
+        return auth, formdata
 
     async def _fetchOAuthToken(self, url, auth, formdata, ssl_verify=True, retries=1):
 
@@ -326,7 +334,7 @@ class OAuthMixin(s_nexus.Pusher):
         client_secret = conf.get('client_secret')
         client_assertion = conf.get('client_assertion', {})
 
-        if (client_assertion and client_secret):
+        if client_assertion and client_secret:
             mesg = 'client_assertion and client_secret provided. These are mutually exclusive options.'
             raise s_exc.BadArg(mesg=mesg)
         if not client_assertion and not client_secret:
