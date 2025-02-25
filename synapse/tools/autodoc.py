@@ -197,7 +197,7 @@ def processTypes(rst, dochelp, types):
 
         if topt:
             rst.addLines('',
-                         f'The type ``{name}`` has the following options set:',
+                         f'The ``{name}`` type has the following options set:',
                          ''
                          )
 
