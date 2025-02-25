@@ -43,6 +43,9 @@ info_ignores = (
     'stortype',
     'bases',
     'custom',
+    'template',
+    'display',
+    'deprecated',
 )
 
 raw_back_slash_colon = r'\:'
@@ -176,6 +179,12 @@ def processTypes(rst, dochelp, types):
 
         rst.addLines(doc,
                      f'The ``{name}`` type is derived from the base type: ``{ttyp}``.')
+
+        ifaces = info.pop('interfaces', None)
+        if ifaces:
+            rst.addLines('', f'The ``{name}`` type implements the interfaces:', '')
+            for iface in ifaces:
+                rst.addLines(f' * ``{iface}``')
 
         _ = info.pop('doc', None)
         ex = info.pop('ex', None)
@@ -410,6 +419,9 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
+                    if enfo.pop('deprecated', None) and not doc.startswith('Deprecated'):
+                        logger.warning(f'{name} => Light edge {enam} is deprecated but docstring does not suggest a replacement.')
+
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
                     _edges.append((src, enam, dst, doc))
@@ -446,6 +458,9 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                         src = '*'
                     if dst is None:
                         dst = '*'
+
+                    if enfo.pop('deprecated', None) and not doc.startswith('Deprecated'):
+                        logger.warning(f'{name} => Light edge {enam} is deprecated but docstring does not suggest a replacement.')
 
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')

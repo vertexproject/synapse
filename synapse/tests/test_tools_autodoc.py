@@ -40,6 +40,11 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('+==========+', s)
             self.isin('+deprecated+', s)
 
+            self.isin('''The ``it:host`` type implements the interfaces:
+
+ * ``inet:service:object``
+ * ``phys:object``''', s)
+
             with s_common.genfile(path, 'datamodel_forms.rst') as fd:
                 buf = fd.read()
 
@@ -71,11 +76,11 @@ class TestAutoDoc(s_t_utils.SynTest):
 
             async with self.getTestCore() as core:
                 lurl = core.getLocalUrl()
-                argv = ['--doc-model', '--savedir', path, '--cortex', lurl]
+                argv = ['--doc-model', '--savedir', '.', '--cortex', lurl]
                 outp = self.getTestOutp()
                 self.eq(await s_autodoc.main(argv, outp=outp), 0)
 
-                with s_common.genfile(path, 'datamodel_types.rst') as fd:
+                with s_common.genfile('.', 'datamodel_types.rst') as fd:
                     buf = fd.read()
 
                 s = buf.decode()
