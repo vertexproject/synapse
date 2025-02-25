@@ -182,7 +182,7 @@ def processTypes(rst, dochelp, types):
 
         ifaces = info.pop('interfaces', None)
         if ifaces:
-            rst.addLines('', f'The ``{name}`` type implements the interfaces:', '')
+            rst.addLines('', 'This type implements the following interfaces:', '')
             for iface in ifaces:
                 rst.addLines(f' * ``{iface}``')
 
@@ -197,7 +197,7 @@ def processTypes(rst, dochelp, types):
 
         if topt:
             rst.addLines('',
-                         f'The ``{name}`` type has the following options set:',
+                         f'This type has the following options set:',
                          ''
                          )
 

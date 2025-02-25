@@ -40,7 +40,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('+==========+', s)
             self.isin('+deprecated+', s)
 
-            self.isin('''The ``it:host`` type implements the interfaces:
+            self.isin('''This type implements the following interfaces:
 
  * ``inet:service:object``
  * ``phys:object``''', s)
