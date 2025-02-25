@@ -217,12 +217,9 @@ class Query(AstNode):
                 genr = await stack.enter_async_context(contextlib.aclosing(oper.run(runt, genr)))
 
             async for node, path in genr:
-                runt.tick()
                 yield node, path
 
     async def iterNodePaths(self, runt, genr=None):
-
-        count = 0
 
         self.optimize()
         self.validate(runt)
@@ -231,18 +228,18 @@ class Query(AstNode):
         if genr is None:
             genr = runt.getInput()
 
+        count = 0
+        limit = runt.getOpt('limit')
+
         async with contextlib.aclosing(self.run(runt, genr)) as agen:
             async for node, path in agen:
 
-                runt.tick()
-
                 yield node, path
 
-                count += 1
-
-                limit = runt.getOpt('limit')
-                if limit is not None and count >= limit:
-                    break
+                if limit is not None:
+                    count += 1
+                    if count >= limit:
+                        break
 
 class Lookup(Query):
     '''
