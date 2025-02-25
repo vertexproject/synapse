@@ -419,8 +419,8 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
-                    if enfo.pop('deprecated', None) and not doc.startswith('Deprecated'):
-                        logger.warning(f'{name} => Light edge {enam} is deprecated but docstring does not suggest a replacement.')
+                    for key in info_ignores:
+                        enfo.pop(key, None)
 
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
@@ -459,8 +459,8 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
-                    if enfo.pop('deprecated', None) and not doc.startswith('Deprecated'):
-                        logger.warning(f'{name} => Light edge {enam} is deprecated but docstring does not suggest a replacement.')
+                    for key in info_ignores:
+                        enfo.pop(key, None)
 
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
