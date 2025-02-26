@@ -448,7 +448,7 @@ class CellTest(s_t_utils.SynTest):
                     self.true(await proxy.adminOnly())
                     with self.getLoggerStream('synapse.lib.cell') as stream:
                         self.eq(await proxy.adminOnlyLog(1, 2, three=4), (1, 2, {'three': 4}))
-                        self.true(await stream.expect('Executing remote admin API call', timeout=10))
+                        await stream.expect('Executing remote admin API call')
                     msgs = stream.jsonlines()
                     self.len(1, msgs)
                     self.eq('EchoAuthApi.adminOnlyLog', msgs[0]['params']['func'])
@@ -744,7 +744,7 @@ class CellTest(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.lib.cell') as stream:
                 async with self.getTestCell(s_cell.Cell, dirn=longdirn) as cell:
                     self.none(cell.dmon.addr)
-                self.true(await stream.expect('LOCAL UNIX SOCKET WILL BE UNAVAILABLE'))
+                await stream.expect('LOCAL UNIX SOCKET WILL BE UNAVAILABLE')
 
     async def test_cell_setuser(self):
 
@@ -1298,7 +1298,7 @@ class CellTest(s_t_utils.SynTest):
                 with self.raises(FileExistsError):
                     async with await s_cell.Cell.initFromArgv(['/dev/null']):
                         pass
-                self.true(await stream.expect('Error starting cell at /dev/null'))
+                await stream.expect('Error starting cell at /dev/null')
 
             # Bad configs can also cause a failure.
             with self.getTestDir() as dirn:
@@ -1308,7 +1308,7 @@ class CellTest(s_t_utils.SynTest):
                             async with await s_cell.Cell.initFromArgv([dirn, ]):
                                 pass
                     self.eq(cm.exception.get('name'), 'auth:passwd')
-                self.true(await stream.expect('Error while bootstrapping cell config'))
+                await stream.expect('Error while bootstrapping cell config')
 
     async def test_cell_backup(self):
 
@@ -2059,7 +2059,7 @@ class CellTest(s_t_utils.SynTest):
 
                 with self.getLoggerStream('synapse.lib.nexus') as stream:
                     async with self.getTestCell(s_cell.Cell, dirn=path01, conf=conf01) as cell01:
-                        self.true(await stream.expect('has different iden', timeout=2))
+                        await stream.expect('has different iden')
                         self.true(await cell01.nexsroot.waitfini(6))
 
     async def test_backup_restore_base(self):
@@ -2096,7 +2096,7 @@ class CellTest(s_t_utils.SynTest):
                     with self.getLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
-                            self.true(await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL'))
+                            await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL')
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
                             self.true(core.conf.get('storm:log'))
 
@@ -2132,7 +2132,7 @@ class CellTest(s_t_utils.SynTest):
                     with self.getLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
-                            self.true(await stream.expect('Removing existing'))
+                            await stream.expect('Removing existing')
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
             # Restore a backup which has an existing restore.done file in it - that marker file will get overwritten
@@ -2143,7 +2143,7 @@ class CellTest(s_t_utils.SynTest):
                     with self.getLoggerStream('synapse.lib.cell') as stream:
                         argv = [cdir, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                         async with await s_cortex.Cortex.initFromArgv(argv) as core:
-                            self.true(await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL'))
+                            await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL')
                             self.len(1, await core.nodes('inet:ipv4=1.2.3.4'))
 
                     rpath = s_common.genpath(cdir, 'restore.done')
@@ -2238,7 +2238,7 @@ class CellTest(s_t_utils.SynTest):
                         with self.getLoggerStream('synapse.lib.cell') as stream:
                             argv = [bdr0, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                             async with await s_cortex.Cortex.initFromArgv(argv) as bcree00:
-                                self.true(await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL'))
+                                await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL')
                                 self.len(1, await bcree00.nodes('inet:asn=0'))
                                 self.len(1, await bcree00.nodes('[inet:asn=1234]'))
 
@@ -2256,7 +2256,7 @@ class CellTest(s_t_utils.SynTest):
                                                        SYN_CORTEX_AHA_PROVISION=purl):
                                     argv = [bdr1, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                                     async with await s_cortex.Cortex.initFromArgv(argv) as bcree01:
-                                        self.true(await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL'))
+                                        await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL')
                                         self.true(bcree00.isactive)
                                         self.false(bcree01.isactive)
 
@@ -2334,7 +2334,7 @@ class CellTest(s_t_utils.SynTest):
                         with self.getLoggerStream('synapse.lib.cell') as stream:
                             argv = [bdr0, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                             async with await s_cortex.Cortex.initFromArgv(argv) as bcree00:
-                                self.true(await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL'))
+                                await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL')
                                 self.len(1, await bcree00.nodes('inet:asn=0'))
                                 self.len(1, await bcree00.nodes('[inet:asn=1234]'))
 
@@ -2352,7 +2352,7 @@ class CellTest(s_t_utils.SynTest):
                                                        SYN_CORTEX_AHA_PROVISION=purl):
                                     argv = [bdr1, '--https', '0', '--telepath', 'tcp://127.0.0.1:0']
                                     async with await s_cortex.Cortex.initFromArgv(argv) as bcree01:
-                                        self.true(await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL'))
+                                        await stream.expect('Restoring cortex from SYN_RESTORE_HTTPS_URL')
                                         self.true(bcree00.isactive)
                                         self.false(bcree01.isactive)
 
@@ -2560,7 +2560,7 @@ class CellTest(s_t_utils.SynTest):
                     opts = {'view': viewiden}
                     with self.getLoggerStream('synapse.lib.lmdbslab') as stream:
                         nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ipv4=$x]}', opts=opts)
-                        self.true(await stream.expect('Error during slab resize callback - foo'))
+                        await stream.expect('Error during slab resize callback - foo')
 
         async with self.getTestCore() as core:
 
@@ -3312,7 +3312,7 @@ class CellTest(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.lib.cell') as stream:
                 cell.ahaclient = MockAhaClient()
                 self.none(await cell.getAhaProxy())
-                self.true(await stream.expect('AHA client connection failed.'))
+                await stream.expect('AHA client connection failed.')
 
             class MockProxyHasNot:
                 def _hasTeleFeat(self, name, vers):
@@ -3368,7 +3368,7 @@ class CellTest(s_t_utils.SynTest):
                             with self.raises(Exception) as cm:
                                 async for _ in proxy.iterBackupArchive('bkup'):
                                     pass
-                            self.true(await stream.expect('Error during backup streaming'))
+                            await stream.expect('Error during backup streaming')
 
     async def test_iter_new_backup_archive(self):
 
@@ -3392,7 +3392,7 @@ class CellTest(s_t_utils.SynTest):
                                     pass
 
                             self.isin('backup failed', str(cm.exception))
-                            self.true(await stream.expect('Removing'))
+                            await stream.expect('Removing')
 
                             path = os.path.join(backdirn, 'failedbackup')
                             self.false(os.path.exists(path))

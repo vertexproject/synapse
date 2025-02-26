@@ -230,7 +230,7 @@ class StormlibModelTest(s_test.SynTest):
                         (('ou:org', ('t0',)), {'props': {'sic': '5678'}}),
                     )
                     await core.addFeedData('syn.nodes', data)
-                    self.true(await stream.expect('Prop ou:org:sic is locked due to deprecation'))
+                    await stream.expect('Prop ou:org:sic is locked due to deprecation')
                     nodes = await core.nodes('ou:org=(t0,)')
                     self.none(nodes[0].get('sic'))
 

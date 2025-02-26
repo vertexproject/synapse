@@ -123,7 +123,7 @@ class LinkTest(s_test.SynTest):
         await asyncio.sleep(0)
         with self.getLoggerStream('synapse.lib.link') as stream:
             msg1 = await link.rx()
-            self.true(await stream.expect('rx error'))
+            await stream.expect('rx error')
         self.none(msg1)
 
     async def test_link_file(self):

@@ -36,7 +36,7 @@ class DaemonTest(s_t_utils.SynTest):
                     with self.raises(OSError):
                         await dmon.listen(listpath)
 
-                self.true(await stream.expect('exceeds OS supported UNIX socket path length'))
+                await stream.expect('exceeds OS supported UNIX socket path length')
 
     async def test_dmon_ready(self):
 
@@ -85,7 +85,7 @@ class DaemonTest(s_t_utils.SynTest):
                 async with await prox.getPoolLink() as link:
                     with self.getLoggerStream('synapse.daemon') as stream:
                         await link.tx(31337)
-                        self.true(await stream.expect('Dmon.onLinkMesg Handler: mesg='))
+                        await stream.expect('Dmon.onLinkMesg Handler: mesg=')
 
                 # Valid format; do not know what the message is.
                 async with await prox.getPoolLink() as link:
@@ -93,14 +93,14 @@ class DaemonTest(s_t_utils.SynTest):
                     emsg = "Dmon.onLinkMesg Invalid mesg: mesg=('newp', {})"
                     with self.getLoggerStream('synapse.daemon', emsg) as stream:
                         await link.tx(mesg)
-                        self.true(await stream.expect(emsg))
+                        await stream.expect(emsg)
 
                 # Invalid data casues a link to fail on rx
                 async with await prox.getPoolLink() as link:
                     with self.getLoggerStream('synapse.lib.link') as stream:
                         byts = b'\x16\x03\x01\x02\x00\x01\x00\x01\xfc\x03\x03\xa6\xa3D\xd5\xdf%\xac\xa9\x92\xc3'
                         await link.send(byts)
-                        self.true(await stream.expect('rx error'))
+                        await stream.expect('rx error')
 
                 # bad t2:init message
                 async with await prox.getPoolLink() as link:
@@ -108,7 +108,7 @@ class DaemonTest(s_t_utils.SynTest):
                     emsg = "Error on t2:init:"
                     with self.getLoggerStream('synapse.daemon', emsg) as stream:
                         await link.tx(mesg)
-                        self.true(await stream.expect(emsg))
+                        await stream.expect(emsg)
 
 class SvcApi(s_cell.CellApi, s_stormsvc.StormSvc):
     _storm_svc_name = 'foo'

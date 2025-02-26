@@ -423,7 +423,7 @@ class AgendaTest(s_t_utils.SynTest):
                     unixtime = datetime.datetime(year=2019, month=2, day=16, hour=10, minute=16, tzinfo=tz.utc).timestamp()
 
                     # pump the ioloop via sleep(0) until the log message appears
-                    while not await stream.expect('locked', timeout=0.1):
+                    while not await stream.contains('locked'):
                         await asyncio.sleep(0)
 
                     await core.nexsroot.waitOffs(strt + 4)
@@ -739,14 +739,14 @@ class AgendaTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.lib.agenda') as stream:
                 core.agenda._addTickOff(55)
-                self.true(await stream.expect('Cron job error'))
+                await stream.expect('Cron job error')
 
             await core.addUserRule(user, (True, ('storm',)))
             await core.addUserRule(user, (True, ('view', 'read')), gateiden=fork)
 
             with self.getLoggerStream('synapse.storm.log') as stream:
                 core.agenda._addTickOff(60)
-                self.true(await stream.expect('I am a cron job'))
+                await stream.expect('I am a cron job')
 
     async def test_agenda_mirror_realtime(self):
         with self.getTestDir() as dirn:
@@ -922,7 +922,7 @@ class AgendaTest(s_t_utils.SynTest):
                         await core01.promote(graceful=True)
                         self.false(core00.isactive)
                         self.true(core01.isactive)
-                        self.true(await stream.expect('Cron job completed.*cancelled', count=NUMJOBS, escape=False))
+                        await stream.expect('Cron job completed.*cancelled', count=NUMJOBS, escape=False)
 
                     # Sync the (now) follower so the isrunning status gets updated to false on both cortexes
                     await core00.sync()
@@ -1101,7 +1101,7 @@ class AgendaTest(s_t_utils.SynTest):
                 q = '$lib.warn("oh hai")'
                 msgs = await core.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
                 self.stormHasNoWarnErr(msgs)
-                self.true(await stream.expect('warning.*oh hai', escape=False))
+                await stream.expect('warning.*oh hai', escape=False)
 
     async def test_agenda_graceful_promotion_with_running_cron(self):
 
@@ -1134,7 +1134,7 @@ class AgendaTest(s_t_utils.SynTest):
                 async with self.getTestCore(conf=conf01) as core01:
 
                     with self.getLoggerStream('synapse.storm.log') as stream:
-                        self.true(await stream.expect('I AM A ERROR LOG MESSAGE'))
+                        await stream.expect('I AM A ERROR LOG MESSAGE')
 
                     cron = await core00.callStorm('return($lib.cron.list())')
                     self.len(1, cron)

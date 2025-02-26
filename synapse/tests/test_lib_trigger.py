@@ -147,7 +147,7 @@ class TrigTest(s_t_utils.SynTest):
             await view.addTrigger(tdef)
             with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:str=foo ]')
-                self.true(await stream.expect('f=test:str v=foo'))
+                await stream.expect('f=test:str v=foo')
             self.len(1, await core.nodes('test:guid#nodeadd'))
 
             # node:del case
@@ -170,7 +170,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=foo +#a.b ]')
             with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:str=foo +#a.b.c ]')
-                self.true(await stream.expect('a.b.c'))
+                await stream.expect('a.b.c')
 
             await core.nodes('[ test:str=foo +#a.b.ccc ]')
             self.len(1, await core.nodes('#count'))
@@ -214,7 +214,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:type10=1 ]')
             with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:type10=1 :intprop=25 ]')
-                self.true(await stream.expect('pf=test:type10:intprop pn=intprop'))
+                await stream.expect('pf=test:type10:intprop pn=intprop')
             self.len(1, await core.nodes('test:guid#propset'))
 
             # Test re-setting doesn't fire
@@ -248,7 +248,7 @@ class TrigTest(s_t_utils.SynTest):
             await view.addTrigger(tdef)
             with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:str=logit ]')
-                self.true(await stream.expect('test trigger'))
+                await stream.expect('test trigger')
             msgs = stream.jsonlines()
             mesg = [m for m in msgs if m['params'].get('iden') == tdef.get('iden')][0]
             self.eq(mesg['message'], f'test trigger {tdef.get("iden")}')

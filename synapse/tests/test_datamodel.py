@@ -248,7 +248,7 @@ class DataModelTest(s_t_utils.SynTest):
             mesg = 'type test:dep:comp field str uses a deprecated type test:dep:easy'
             with self.getLoggerStream('synapse.lib.types') as tstream:
                 _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
-                self.true(await tstream.expect(mesg))
+                await tstream.expect(mesg)
 
             msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
             self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
@@ -257,17 +257,17 @@ class DataModelTest(s_t_utils.SynTest):
             mesg = 'tag property depr is using a deprecated type test:dep:easy'
             with self.getLoggerStream('synapse.datamodel') as dstream:
                 await core.addTagProp('depr', ('test:dep:easy', {}), {})
-                self.true(await dstream.expect(mesg))
+                await dstream.expect(mesg)
 
             mesg = 'universal property ._test is using a deprecated type test:dep:easy'
             with self.getLoggerStream('synapse.datamodel') as dstream:
                 await core.addUnivProp('_test', ('test:dep:easy', {}), {})
-                self.true(await dstream.expect(mesg))
+                await dstream.expect(mesg)
 
             mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'
             with self.getLoggerStream('synapse.cortex') as cstream:
                 await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
-                self.true(await cstream.expect(mesg))
+                await cstream.expect(mesg)
 
             # Deprecated ctor information propagates upward to types and forms
             msgs = await core.stormlist('[test:dep:str=" test" :beep=" boop "]')
@@ -280,7 +280,7 @@ class DataModelTest(s_t_utils.SynTest):
             # with deprecated types in them. This is a coverage test for extended properties.
             with self.getLoggerStream('synapse.cortex') as cstream:
                 async with await s_cortex.Cortex.anit(dirn, conf) as core:
-                    self.true(await cstream.expect(mesg))
+                    await cstream.expect(mesg)
 
     async def test_datamodel_getmodeldefs(self):
         '''

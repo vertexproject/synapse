@@ -154,7 +154,7 @@ class AhaTest(s_test.SynTest):
 
             with self.getLoggerStream('synapse.lib.aha') as stream:
                 async with self.getTestAha(dirn=dirn) as aha:
-                    self.true(await stream.expect(f'Set [0.cryo.synapse] offline.'))
+                    await stream.expect(f'Set [0.cryo.synapse] offline.')
                     svc = await aha.getAhaSvc('0.cryo...')
                     self.notin('online', svc.get('svcinfo'))
 
@@ -674,7 +674,7 @@ class AhaTest(s_test.SynTest):
                 # force a re-provision... (because the providen is different)
                 with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
-                        self.true(await stream.expect('Provisioning axon from AHA service'))
+                        await stream.expect('Provisioning axon from AHA service')
                         self.ne(axon.conf.get('dmon:listen'),
                                 'tcp://0.0.0.0:0')
                 overconf2 = s_common.yamlload(axonpath, 'cell.mods.yaml')

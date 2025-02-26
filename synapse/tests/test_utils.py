@@ -117,7 +117,7 @@ class TestUtils(s_t_utils.SynTest):
         logger.error('notthere')
         with self.getLoggerStream('synapse.tests.test_utils') as stream:
             thr = logathing('StreamEvent Test Message')
-            self.true(await stream.expect('Test Message'))
+            await stream.expect('Test Message')
             thr.join()
 
         stream.seek(0)
@@ -282,7 +282,7 @@ class TestUtils(s_t_utils.SynTest):
                 self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'newp'}))
             with self.getLoggerStream('synapse.tests.utils') as stream:
                 self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1}))
-                self.true(await stream.expect('untested properties'))
+                await stream.expect('untested properties')
 
             await self.checkNodes(core, [('test:comp', (1, 'test')),])
             with self.raises(AssertionError):

@@ -800,6 +800,18 @@ class StreamEvent(io.StringIO):
         self._lines.append(s)
         self._event.set()
 
+    async def contains(self, text, count=1, escape=True):
+
+        if escape:
+            text = regex.escape(text)
+
+        regx = regex.compile(text)
+        for line in self._lines:
+            if regx.search(line):
+                return True
+
+        return False
+
     async def expect(self, text, count=1, timeout=5, escape=True):
 
         offs = 0
@@ -830,11 +842,11 @@ class StreamEvent(io.StringIO):
             return tally >= count
 
         try:
-            return await s_common.wait_for(_expect(), timeout=timeout)
+            await s_common.wait_for(_expect(), timeout=timeout)
         except TimeoutError:
             logger.warning(f'Pattern [{text}] not found in...')
             [logger.warning(f'    {line}') for line in self._lines]
-            return False
+            raise s_exc.SynErr(mesg='Pattern [{text}] not found!')
 
     def jsonlines(self) -> typing.List[dict]:
         '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''

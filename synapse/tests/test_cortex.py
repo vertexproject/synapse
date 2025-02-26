@@ -1171,7 +1171,7 @@ class CortexTest(s_t_utils.SynTest):
                     except asyncio.TimeoutError:
                         logger.exception('Woohoo!')
 
-                self.true(await stream.expect('callStorm cancelled'))
+                await stream.expect('callStorm cancelled')
 
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
@@ -1237,7 +1237,7 @@ class CortexTest(s_t_utils.SynTest):
                     $que.get()
                     return($ddef.iden)
                 ''')
-                self.true(await stream.expect('Running dmon'))
+                await stream.expect('Running dmon')
 
             mesg = stream.jsonlines()[0]
             self.eq(mesg.get('message'), f'Running dmon {iden}')
@@ -2912,7 +2912,7 @@ class CortexTest(s_t_utils.SynTest):
             # which is not valid
             with self.getLoggerStream('synapse.lib.ast') as stream:
                 self.len(0, await core.nodes('syn:tag=foo.bar -> test:str:tick'))
-                self.true(await stream.expect('Unknown time format'))
+                await stream.expect('Unknown time format')
 
     async def test_storm_tagtags(self):
 
@@ -5882,7 +5882,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     with self.getLoggerStream('synapse.lib.nexus') as stream:
                         async with self.getTestCore(dirn=path02, conf={'mirror': url01}) as core02:
-                            self.true(await stream.expect('offset is out of sync'))
+                            await stream.expect('offset is out of sync')
                             self.true(core02.nexsroot.isfini)
 
                 # restore mirror
@@ -6273,7 +6273,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '''$q = $lib.queue.get(dmon) $q.puts((1, 3, 5))'''
                 with self.getLoggerStream('synapse.lib.storm', struct=False) as stream:
                     await core.nodes(q)
-                    self.true(await stream.expect("made ('test:int', 5)"))
+                    await stream.expect("made ('test:int', 5)")
 
                 nodes = await core.nodes('test:int', opts={'view': view2_iden})
                 self.len(3, nodes)
@@ -6302,7 +6302,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
                 with self.getLoggerStream('synapse.lib.storm', struct=False) as stream:
                     await core.nodes(q)
-                    self.true(await stream.expect("made ('test:str', '5')"))
+                    await stream.expect("made ('test:str', '5')")
 
                 nodes = await core.nodes('test:str', opts={'view': view2_iden})
                 self.len(3, nodes)
@@ -6318,7 +6318,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.lib.storm') as stream:
                 async with self.getTestCore(dirn=dirn) as core:
-                    self.true(await stream.expect('Dmon View is invalid. Stopping Dmon'))
+                    await stream.expect('Dmon View is invalid. Stopping Dmon')
                     msgs = await core.stormlist('dmon.list')
                     self.stormIsInPrint('fatal error: invalid view', msgs)
 

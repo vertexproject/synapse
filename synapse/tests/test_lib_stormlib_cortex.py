@@ -303,7 +303,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 with self.getLoggerStream('synapse.storm') as stream:
                     resp = await sess.get(url)
                     self.eq(resp.status, 200)
-                    self.true(await stream.expect('Executing storm query'))
+                    await stream.expect('Executing storm query')
                 msgs = stream.jsonlines()
                 self.eq(msgs[0]['params'].get('httpapi'), echoiden)
                 core.stormlog = False
@@ -340,7 +340,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath04')
                     self.eq(resp.status, 200)
                     self.eq(await resp.json(), {'hehe': 'yes!'})
-                    self.true(await stream.expect('Response.reply() has already been called'))
+                    await stream.expect('Response.reply() has already been called')
 
     async def test_libcortex_httpapi_runas_owner(self):
         async with self.getTestCore() as core:
@@ -1325,13 +1325,13 @@ for $i in $values {
                 with self.getLoggerStream('synapse.lib.httpapi') as stream:
 
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad03')
-                    self.true(await stream.expect('Extended HTTP API sent code after sending body.'))
+                    await stream.expect('Extended HTTP API sent code after sending body.')
                     self.eq(resp.status, 201)
                     self.eq(await resp.read(), b'text')
 
                 with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad04')
-                    self.true(await stream.expect('Extended HTTP API set headers after sending body.'))
+                    await stream.expect('Extended HTTP API set headers after sending body.')
                     self.eq(resp.status, 200)
                     self.eq(await resp.read(), b'text')
 
@@ -1343,14 +1343,14 @@ for $i in $values {
 
                 with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad06')
-                    self.true(await stream.expect('Extended HTTP API encountered an error.'))
+                    await stream.expect('Extended HTTP API encountered an error.')
                     self.eq('BadTypeValu', stream.jsonlines()[0]['params']['errname'])
                     self.eq(resp.status, 201)
                     self.eq(await resp.json(), {})
 
                 with self.getLoggerStream('synapse.lib.httpapi') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad07')
-                    self.true(await stream.expect('Extended HTTP API encountered an error.'))
+                    await stream.expect('Extended HTTP API encountered an error.')
                     self.eq('StormRuntimeError', stream.jsonlines()[0]['params']['errname'])
                     self.eq(resp.status, 500)
                     data = await resp.json()

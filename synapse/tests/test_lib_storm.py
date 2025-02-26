@@ -1447,7 +1447,7 @@ class StormTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.expect('bazfaz requirement'))
+                await stream.expect('bazfaz requirement')
 
             pkgdef = {
                 'name': 'bazfaz',
@@ -1461,7 +1461,7 @@ class StormTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                self.true(await stream.expect('bazfaz optional requirement'))
+                await stream.expect('bazfaz optional requirement')
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
@@ -2507,7 +2507,7 @@ class StormTest(s_t_utils.SynTest):
                 await visi.setLocked(True)
                 q = 'return($lib.dmon.bump($iden))'
                 self.true(await core.callStorm(q, opts={'vars': {'iden': ddef0['iden']}}))
-                self.true(await stream.expect('user is locked'))
+                await stream.expect('user is locked')
 
     async def test_storm_dmon_user_autobump(self):
         async with self.getTestCore() as core:
@@ -2518,15 +2518,15 @@ class StormTest(s_t_utils.SynTest):
                     q = '''return($lib.dmon.add(${{ $lib.print(foobar) $lib.time.sleep(10) }},
                                                 name=hehedmon))'''
                     await asvisi.callStorm(q)
-                    self.true(await stream.expect('Dmon query exited'))
+                    await stream.expect('Dmon query exited')
 
                 with self.getLoggerStream('synapse.lib.storm') as stream:
                     await core.setUserLocked(visi.iden, True)
-                    self.true(await stream.expect('user is locked'))
+                    await stream.expect('user is locked')
 
                 with self.getLoggerStream('synapse.lib.storm') as stream:
                     await core.setUserLocked(visi.iden, False)
-                    self.true(await stream.expect('Dmon query exited'))
+                    await stream.expect('Dmon query exited')
 
     async def test_storm_dmon_caching(self):
 
@@ -3195,12 +3195,12 @@ class StormTest(s_t_utils.SynTest):
             q = 'iden newp'
             with self.getLoggerStream('synapse.lib.snap') as stream:
                 self.len(0, await core.nodes(q))
-                self.true(await stream.expect('Failed to decode iden'))
+                await stream.expect('Failed to decode iden')
 
             q = 'iden deadb33f'
             with self.getLoggerStream('synapse.lib.snap') as stream:
                 self.len(0, await core.nodes(q))
-                self.true(await stream.expect('iden must be 32 bytes'))
+                await stream.expect('iden must be 32 bytes')
 
             # Runtsafety test
             q = 'test:str=hehe | iden $node.iden()'

@@ -319,7 +319,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.lib.multislabseqn') as stream:
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
                     await self.agenlen(15, msqn.iter(0))
-                self.true(await stream.expect('non-directory'))
+                await stream.expect('non-directory')
 
             # Switcheroo
 
@@ -347,7 +347,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             with self.getLoggerStream('synapse.lib.multislabseqn') as stream:
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:
                     await self.agenlen(15, msqn.iter(0))
-                self.true(await stream.expect('gap in indices'))
+                await stream.expect('gap in indices')
 
             # Wipe a seqn clean
             baddirn = s_common.genpath(dirn, 'bad4')

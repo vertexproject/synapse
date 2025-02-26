@@ -992,7 +992,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 node = nodes[0]
                 self.eq(node.get('vers'), 'alpha')
                 self.none(node.get('semver'))
-                self.true(await stream.expect('Unable to parse string as a semver'))
+                await stream.expect('Unable to parse string as a semver')
 
     async def test_it_form_callbacks(self):
         async with self.getTestCore() as core:

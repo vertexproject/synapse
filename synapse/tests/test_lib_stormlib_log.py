@@ -13,27 +13,27 @@ class LogTest(s_test.SynTest):
             # Raw message
             with self.getLoggerStream(logname) as stream:
                 await core.callStorm('$lib.log.debug("debug message")')
-                self.true(await stream.expect('debug message'))
+                await stream.expect('debug message')
             with self.getLoggerStream(logname) as stream:
                 await core.callStorm('$lib.log.info("info message")')
-                self.true(await stream.expect('info message'))
+                await stream.expect('info message')
             with self.getLoggerStream(logname) as stream:
                 await core.callStorm('$lib.log.warning("warn message")')
-                self.true(await stream.expect('warn message'))
+                await stream.expect('warn message')
             with self.getLoggerStream(logname) as stream:
                 await core.callStorm('$lib.log.error("error message")')
-                self.true(await stream.expect('error message'))
+                await stream.expect('error message')
 
             # Extra without structlog handler in place has no change in results
             with self.getLoggerStream(logname) as stream:
                 await core.callStorm('$lib.log.debug("debug message", extra=({"key": "valu"}))')
-                self.true(await stream.expect('debug message'))
+                await stream.expect('debug message')
                 self.eq('valu', stream.jsonlines()[0]['params']['key'])
 
             # Extra can be empty too
             with self.getLoggerStream(logname) as stream:
                 await core.callStorm('$lib.log.debug("debug message", extra=({}))')
-                self.true(await stream.expect('debug message'))
+                await stream.expect('debug message')
 
             # Extra must be a dict after toprim is called on him.
             with self.raises(s_exc.BadArg):

@@ -885,7 +885,7 @@ class TeleTest(s_t_utils.SynTest):
                 await targ.waitready()
 
                 # Verify the password doesn't leak into the log
-                self.true(await stream.expect('Connect call failed'))
+                await stream.expect('Connect call failed')
                 stream.seek(0)
                 mesgs = stream.read()
                 self.notin('password', mesgs)
@@ -908,7 +908,7 @@ class TeleTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.tests.test_telepath') as stream:
             async with await s_telepath.open(url1, onlink=onlink) as targ:
-                self.true(await stream.expect(f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo'))
+                await stream.expect(f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo')
 
         # Coverage
         async def badonlink(proxy, urlinfo):
@@ -916,7 +916,7 @@ class TeleTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.telepath', 'onlink: ') as stream:
             async with await s_telepath.open(url1, onlink=badonlink) as targ:
-                self.true(await stream.expect('onlink: '))
+                await stream.expect('onlink: ')
 
         await dmon0.fini()
         await dmon1.fini()
@@ -1014,7 +1014,7 @@ class TeleTest(s_t_utils.SynTest):
                     # Ensure that the sleepg function got canceled.
                     self.true(await asyncio.wait_for(foo.sleepg_evt.wait(), timeout=6))
                     # Ensure we logged the cancellation.
-                    self.true(await stream.expect('task sleepg'))
+                    await stream.expect('task sleepg')
 
     async def test_link_fini_breaking_tasks2(self):
         '''

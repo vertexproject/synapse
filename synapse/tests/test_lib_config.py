@@ -52,7 +52,7 @@ class ConfTest(s_test.SynTest):
         with self.getLoggerStream('synapse.lib.config') as stream:
             for optname, optinfo in conf.getArgParseArgs():
                 pars.add_argument(optname, **optinfo)
-            self.true(stream.expect(mesg))
+            await stream.expect(mesg)
         hmsg = pars.format_help()
 
         # Undo pretty-printing

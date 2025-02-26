@@ -4925,7 +4925,7 @@ class StormTypesTest(s_test.SynTest):
                     with self.getLoggerStream('synapse.storm.log') as stream:
                         unixtime += 7 * MINSECS
                         self.eq('m3', await getNextFoo())
-                        self.true(await stream.expect('m3 cron'))
+                        await stream.expect('m3 cron')
                     mesg = stream.jsonlines()[0]
                     self.eq(mesg['message'], f'm3 cron {guid}')
                     self.eq(mesg['params']['iden'], guid)

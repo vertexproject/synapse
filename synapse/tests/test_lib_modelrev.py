@@ -391,7 +391,7 @@ class ModelRevTest(s_tests.SynTest):
 
         with self.getLoggerStream('synapse.lib.modelrev') as stream:
             async with self.getRegrCore('model-0.2.19-bad-risk-types') as core:
-                self.true(await stream.expect('error re-norming risk:vuln:type=foo.bar...newp'))
+                await stream.expect('error re-norming risk:vuln:type=foo.bar...newp')
                 self.len(5, await core.nodes('risk:vuln'))
                 self.len(4, await core.nodes('risk:vuln:type'))
                 nodes = await core.nodes('yield $lib.lift.byNodeData(_migrated:risk:vuln:type)')

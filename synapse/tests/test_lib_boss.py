@@ -59,5 +59,5 @@ class BossTest(s_test.SynTest):
                     await boss.promote(f'double', root, taskiden=iden + iden)
 
                 coro = boss.schedCoro(double_promote())
-                self.true(await stream.expect('Iden specified for existing task'))
+                await stream.expect('Iden specified for existing task')
                 await coro
