@@ -18,6 +18,7 @@ import synapse.lib.config as s_config
 import synapse.lib.output as s_output
 import synapse.lib.autodoc as s_autodoc
 import synapse.lib.dyndeps as s_dyndeps
+import synapse.lib.logging as s_logging
 import synapse.lib.version as s_version
 import synapse.lib.stormsvc as s_stormsvc
 import synapse.lib.stormtypes as s_stormtypes
@@ -1027,5 +1028,5 @@ def makeargparser():
     return pars
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
+    s_logging.setup(level=logging.DEBUG)
     asyncio.run(main(sys.argv[1:]))

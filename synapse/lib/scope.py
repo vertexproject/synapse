@@ -114,7 +114,6 @@ class Scope:
 # set up a global scope with an empty frame
 globscope = Scope(dict())
 
-
 def _task_scope() -> Scope:
     '''
     Get the current task scope. If the _syn_scope is not set, set it to a new scope
