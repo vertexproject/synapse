@@ -899,13 +899,13 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('asroot.yep', opts=opts)
 
-            await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot', 'yep')))
+            await visi.addRule((True, ('asroot', 'cmd', 'asroot', 'yep')))
 
             nodes = await core.nodes('asroot.yep', opts=opts)
             self.len(1, nodes)
             self.eq('false', nodes[0].ndef[1])
 
-            await visi.addRule((True, ('storm', 'asroot', 'cmd', 'asroot')))
+            await visi.addRule((True, ('asroot', 'cmd', 'asroot')))
             self.len(1, await core.nodes('asroot.not', opts=opts))
 
             pkg0 = {
@@ -984,10 +984,10 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.nodes('$lib.import(foo.baz).lol()', opts=opts)
 
-            await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo', 'bar')))
+            await visi.addRule((True, ('asroot', 'mod', 'foo', 'bar')))
             self.len(1, await core.nodes('yield $lib.import(foo.bar).lol()', opts=opts))
 
-            await visi.addRule((True, ('storm', 'asroot', 'mod', 'foo')))
+            await visi.addRule((True, ('asroot', 'mod', 'foo')))
             self.len(1, await core.nodes('yield $lib.import(foo.baz).lol()', opts=opts))
 
             # coverage for dyncall/dyniter with asroot...
@@ -1979,8 +1979,8 @@ class StormTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.AuthDeny) as ecm:
                 await core.nodes('ps:contact merge --apply', opts=view2opts)
-            self.eq('node.data.pop.foo', ecm.exception.errinfo['perm'])
-            await visi.addRule((True, ('node', 'data', 'pop')), gateiden=layr2)
+            self.eq('node.data.del.foo', ecm.exception.errinfo['perm'])
+            await visi.addRule((True, ('node', 'data', 'del')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
                 await core.nodes('ps:contact merge --apply', opts=view2opts)
@@ -4767,7 +4767,7 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await core.callStorm(pullq, opts={'user': visi.iden, 'vars': varz})
 
-                await core.addUserRule(visi.iden, (True, ('storm', 'lib', 'telepath', 'open', 'tcp')))
+                await core.addUserRule(visi.iden, (True, ('telepath', 'open', 'tcp')))
 
                 msgs = await core.stormlist(pullq, opts={'user': visi.iden, 'vars': varz})
                 self.stormHasNoWarnErr(msgs)
@@ -5415,7 +5415,7 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
 
-                await visi.addRule((True, ('storm', 'lib', 'axon', 'del')))
+                await visi.addRule((True, ('axon', 'del')))
 
                 await asvisi.callStorm(f'file:bytes={sha256} | delnode --delbytes')
                 self.len(0, await core.nodes(f'file:bytes={sha256}'))

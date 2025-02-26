@@ -20,7 +20,7 @@ class LoggerLib(s_stormtypes.Lib):
         Log a message to the Cortex at the debug log level.
 
         Notes:
-            This requires the ``storm.lib.log.debug`` permission to use.
+            This requires the ``log.debug`` permission to use.
 
         Examples:
             Log a debug message::
@@ -44,7 +44,7 @@ class LoggerLib(s_stormtypes.Lib):
             Log a message to the Cortex at the info log level.
 
             Notes:
-                This requires the ``storm.lib.log.info`` permission to use.
+                This requires the ``log.info`` permission to use.
 
             Examples:
                 Log an info message::
@@ -68,7 +68,7 @@ class LoggerLib(s_stormtypes.Lib):
             Log a message to the Cortex at the warning log level.
 
             Notes:
-                This requires the ``storm.lib.log.warning`` permission to use.
+                This requires the ``log.warning`` permission to use.
 
             Examples:
                 Log a warning message::
@@ -92,7 +92,7 @@ class LoggerLib(s_stormtypes.Lib):
             Log a message to the Cortex at the error log level.
 
             Notes:
-                This requires the ``storm.lib.log.error`` permission to use.
+                This requires the ``log.error`` permission to use.
 
             Examples:
                 Log an error message::
@@ -116,13 +116,13 @@ class LoggerLib(s_stormtypes.Lib):
 
     _storm_lib_path = ('log',)
     _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'log', 'debug'), 'gate': 'cortex',
+        {'perm': ('log', 'debug'), 'gate': 'cortex',
             'desc': 'Controls the ability to log a debug level message.'},
-        {'perm': ('storm', 'lib', 'log', 'error'), 'gate': 'cortex',
+        {'perm': ('log', 'error'), 'gate': 'cortex',
             'desc': 'Controls the ability to log a error level message.'},
-        {'perm': ('storm', 'lib', 'log', 'info'), 'gate': 'cortex',
+        {'perm': ('log', 'info'), 'gate': 'cortex',
             'desc': 'Controls the ability to log a info level message.'},
-        {'perm': ('storm', 'lib', 'log', 'warning'), 'gate': 'cortex',
+        {'perm': ('log', 'warning'), 'gate': 'cortex',
             'desc': 'Controls the ability to log a warning level message.'},
     )
 
@@ -147,7 +147,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logDebug(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'debug'))
+        self.runt.confirm(('log', 'debug'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.debug(mesg, extra=extra)
@@ -155,7 +155,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logInfo(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'info'))
+        self.runt.confirm(('log', 'info'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.info(mesg, extra=extra)
@@ -163,7 +163,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logWarning(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'warning'))
+        self.runt.confirm(('log', 'warning'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.warning(mesg, extra=extra)
@@ -171,7 +171,7 @@ class LoggerLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _logError(self, mesg, extra=None):
-        self.runt.confirm(('storm', 'lib', 'log', 'error'))
+        self.runt.confirm(('log', 'error'))
         mesg = await s_stormtypes.tostr(mesg)
         extra = await self._getExtra(extra)
         stormlogger.error(mesg, extra=extra)

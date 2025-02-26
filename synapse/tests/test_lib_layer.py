@@ -1966,14 +1966,6 @@ class LayerTest(s_t_utils.SynTest):
             seen.add(perm)
             return True
 
-        def confirmPropSet(self, user, prop, layriden):
-            seen.add(prop.setperms[0])
-            seen.add(prop.setperms[1])
-
-        def confirmPropDel(self, user, prop, layriden):
-            seen.add(prop.delperms[0])
-            seen.add(prop.delperms[1])
-
         with mock.patch('synapse.lib.spooled.Dict', Dict):
             async with self.getTestCore() as core:
 
@@ -2024,23 +2016,12 @@ class LayerTest(s_t_utils.SynTest):
 
                 seen.clear()
                 with mock.patch.object(s_auth.User, 'confirm', confirm):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                            await layr.confirmLayerEditPerms(user, parent.iden)
+                    await layr.confirmLayerEditPerms(user, parent.iden)
 
                 self.eq(seen, {
                     # Node add
                     ('node', 'add', 'syn:tag'),
                     ('node', 'add', 'test:str'),
-
-                    # Old style prop set
-                    ('node', 'prop', 'set', 'test:str:hehe'),
-                    ('node', 'prop', 'set', 'test:str.created'),
-
-                    ('node', 'prop', 'set', 'syn:tag:up'),
-                    ('node', 'prop', 'set', 'syn:tag:base'),
-                    ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag.created'),
 
                     # New style prop set
                     ('node', 'prop', 'set', 'test:str', 'hehe'),
@@ -2083,22 +2064,12 @@ class LayerTest(s_t_utils.SynTest):
 
                 seen.clear()
                 with mock.patch.object(s_auth.User, 'confirm', confirm):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                            await layr.confirmLayerEditPerms(user, parent.iden)
+                    await layr.confirmLayerEditPerms(user, parent.iden)
 
                 self.eq(seen, {
                     # Node add
                     ('node', 'add', 'syn:tag'),
                     ('node', 'add', 'test:str'),
-
-                    # Old style prop set
-                    ('node', 'prop', 'set', 'test:str.created'),
-
-                    ('node', 'prop', 'set', 'syn:tag:up'),
-                    ('node', 'prop', 'set', 'syn:tag:base'),
-                    ('node', 'prop', 'set', 'syn:tag:depth'),
-                    ('node', 'prop', 'set', 'syn:tag.created'),
 
                     # New style prop set
                     ('node', 'prop', 'set', 'test:str', '.created'),
@@ -2124,7 +2095,7 @@ class LayerTest(s_t_utils.SynTest):
                     ('node', 'tag', 'del', 'performance', 'score'),
 
                     # Nodedata del (tombstone)
-                    ('node', 'data', 'pop', 'movie'),
+                    ('node', 'data', 'del', 'movie'),
 
                     # Edge del (tombstone)
                     ('node', 'edge', 'del', 'seen'),
@@ -2132,22 +2103,12 @@ class LayerTest(s_t_utils.SynTest):
 
                 seen.clear()
                 with mock.patch.object(s_auth.User, 'confirm', confirm):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                        with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                            await layr.confirmLayerEditPerms(user, layr.iden, delete=True)
+                    await layr.confirmLayerEditPerms(user, layr.iden, delete=True)
 
                 self.eq(seen, {
                     # Node del
                     ('node', 'del', 'syn:tag'),
                     ('node', 'del', 'test:str'),
-
-                    # Old style prop del
-                    ('node', 'prop', 'del', 'test:str.created'),
-
-                    ('node', 'prop', 'del', 'syn:tag:up'),
-                    ('node', 'prop', 'del', 'syn:tag:base'),
-                    ('node', 'prop', 'del', 'syn:tag:depth'),
-                    ('node', 'prop', 'del', 'syn:tag.created'),
 
                     # New style prop del
                     ('node', 'prop', 'del', 'test:str', '.created'),
@@ -2210,9 +2171,7 @@ class LayerTest(s_t_utils.SynTest):
 
             seen.clear()
             with mock.patch.object(s_auth.User, 'confirm', confirm):
-                with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                        await layr.confirmLayerEditPerms(user, parent.iden)
+                await layr.confirmLayerEditPerms(user, parent.iden)
 
             self.eq(seen, {
                 # node.edge.add.* and node.data.set.* because of the deny rules
@@ -2225,9 +2184,7 @@ class LayerTest(s_t_utils.SynTest):
 
             seen.clear()
             with mock.patch.object(s_auth.User, 'confirm', confirm):
-                with mock.patch.object(s_cortex.Cortex, 'confirmPropSet', confirmPropSet):
-                    with mock.patch.object(s_cortex.Cortex, 'confirmPropDel', confirmPropDel):
-                        await layr.confirmLayerEditPerms(user, parent.iden)
+                await layr.confirmLayerEditPerms(user, parent.iden)
 
             self.eq(seen, set())
 

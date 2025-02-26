@@ -338,14 +338,14 @@ class MacroTest(s_test.SynTest):
             msgs = await core.stormlist('macro.set asdf {inet:ip}', opts={'user': visi.iden})
             self.stormIsInErr('User requires edit permission on macro: asdf', msgs)
 
-            await visi.addRule((True, ('storm', 'macro', 'edit')))
+            await visi.addRule((True, ('macro', 'edit')))
             msgs = await core.stormlist('macro.set asdf {inet:ip}', opts={'user': visi.iden})
             self.stormHasNoWarnErr(msgs)
 
             msgs = await core.stormlist('macro.del asdf', opts={'user': visi.iden})
             self.stormIsInErr('User requires admin permission on macro: asdf', msgs)
 
-            await visi.addRule((True, ('storm', 'macro', 'admin')))
+            await visi.addRule((True, ('macro', 'admin')))
             msgs = await core.stormlist('macro.del asdf', opts={'user': visi.iden})
             self.stormHasNoWarnErr(msgs)
 

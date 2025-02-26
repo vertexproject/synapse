@@ -321,13 +321,13 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('default: false', msgs)
 
             msgs = await core.stormlist('auth.perms.list --find macro.')
-            self.stormIsInPrint('storm.macro.add', msgs)
-            self.stormIsInPrint('storm.macro.admin', msgs)
-            self.stormIsInPrint('storm.macro.edit', msgs)
+            self.stormIsInPrint('macro.add', msgs)
+            self.stormIsInPrint('macro.admin', msgs)
+            self.stormIsInPrint('macro.edit', msgs)
             self.stormNotInPrint('node.add.<form>', msgs)
 
             msgs = await core.stormlist('auth.perms.list --find url')
-            self.stormIsInPrint('storm.lib.telepath.open.<scheme>', msgs)
+            self.stormIsInPrint('telepath.open.<scheme>', msgs)
             self.stormIsInPrint('Controls the ability to open a telepath URL with a specific URI scheme.', msgs)
             self.stormNotInPrint('node.add.<form>', msgs)
 
@@ -977,10 +977,10 @@ class StormLibAuthTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.auth.roles.del(ninjas) )', opts=aslowuser)
 
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'users', 'add')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'users', 'del')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'roles', 'add')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'roles', 'del')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'user', 'add')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'user', 'del')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'role', 'add')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'role', 'del')))
             unfo = await core.callStorm('return ( $lib.auth.users.add(giggles) )', opts=aslowuser)
             iden = unfo.get('iden')
             msgs = await core.stormlist(f'$lib.auth.users.del({iden})', opts=aslowuser)

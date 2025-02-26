@@ -581,7 +581,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.addUserRule(useriden, (True, ('node', 'prop', 'del')), gateiden=layr.iden)
             await core.addUserRule(useriden, (True, ('node', 'tag', 'del')), gateiden=layr.iden)
             await core.addUserRule(useriden, (True, ('node', 'edge', 'del')), gateiden=layr.iden)
-            await core.addUserRule(useriden, (True, ('node', 'data', 'pop')), gateiden=layr.iden)
+            await core.addUserRule(useriden, (True, ('node', 'data', 'del')), gateiden=layr.iden)
 
             await core.nodes('$lib.view.get().wipeLayer()', opts=opts)
 
