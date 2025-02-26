@@ -908,7 +908,7 @@ class TeleTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.tests.test_telepath') as stream:
             async with await s_telepath.open(url1, onlink=onlink) as targ:
-                self.true(await stream.expect(f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo', escape=True))
+                self.true(await stream.expect(f'Connected to url=tcp://127.0.0.1:{addr1[1]}/foo'))
 
         # Coverage
         async def badonlink(proxy, urlinfo):

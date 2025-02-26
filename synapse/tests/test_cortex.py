@@ -6273,7 +6273,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '''$q = $lib.queue.get(dmon) $q.puts((1, 3, 5))'''
                 with self.getLoggerStream('synapse.lib.storm', struct=False) as stream:
                     await core.nodes(q)
-                    self.true(await stream.expect("made ('test:int', 5)", escape=True))
+                    self.true(await stream.expect("made ('test:int', 5)"))
 
                 nodes = await core.nodes('test:int', opts={'view': view2_iden})
                 self.len(3, nodes)
@@ -6302,7 +6302,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 q = '''$q = $lib.queue.get(dmon2) $q.puts((1, 3, 5))'''
                 with self.getLoggerStream('synapse.lib.storm', struct=False) as stream:
                     await core.nodes(q)
-                    self.true(await stream.expect("made ('test:str', '5')", escape=True))
+                    self.true(await stream.expect("made ('test:str', '5')"))
 
                 nodes = await core.nodes('test:str', opts={'view': view2_iden})
                 self.len(3, nodes)

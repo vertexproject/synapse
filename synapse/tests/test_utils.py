@@ -107,7 +107,7 @@ class TestUtils(s_t_utils.SynTest):
         mesgs = stream.read()
         self.isin('ruh roh', mesgs)
 
-    def test_syntest_logstream_event(self):
+    async def test_syntest_logstream_event(self):
 
         @s_common.firethread
         def logathing(mesg):
@@ -115,24 +115,15 @@ class TestUtils(s_t_utils.SynTest):
             logger.error(mesg)
 
         logger.error('notthere')
-        with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
+        with self.getLoggerStream('synapse.tests.test_utils') as stream:
             thr = logathing('StreamEvent Test Message')
-            self.true(stream.wait(10))
+            self.true(await stream.expect('Test Message'))
             thr.join()
 
         stream.seek(0)
         mesgs = stream.read()
         self.isin('StreamEvent Test Message', mesgs)
         self.notin('notthere', mesgs)
-
-        with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
-            thr = logathing(json.dumps({'mesg': 'Test Message'}))
-            self.true(stream.wait(10))
-            thr.join()
-
-        msgs = stream.jsonlines()
-        self.len(1, msgs)
-        self.eq(msgs[0], {'mesg': 'Test Message'})
 
     def test_syntest_envars(self):
         os.environ['foo'] = '1'

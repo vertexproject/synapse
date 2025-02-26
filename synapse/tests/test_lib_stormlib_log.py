@@ -27,7 +27,8 @@ class LogTest(s_test.SynTest):
             # Extra without structlog handler in place has no change in results
             with self.getLoggerStream(logname) as stream:
                 await core.callStorm('$lib.log.debug("debug message", extra=({"key": "valu"}))')
-                self.true(await stream.expect('debug message.*valu'))
+                self.true(await stream.expect('debug message'))
+                self.eq('valu', stream.jsonlines()[0]['params']['key'])
 
             # Extra can be empty too
             with self.getLoggerStream(logname) as stream:

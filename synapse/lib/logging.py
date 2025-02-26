@@ -75,14 +75,20 @@ class Formatter(logging.Formatter):
         if hasattr(record, 'loginfo'):
             loginfo.update(record.loginfo)
 
-        if (user := s_scope.get('user')) is not None:
-            loginfo['user'] = user.iden
-            loginfo['username'] = user.name
+        try:
 
-        elif (sess := s_scope.get('sess')) is not None:
-            if sess.user is not None:
-                loginfo['user'] = sess.user.iden
-                loginfo['username'] = sess.user.name
+            if (user := s_scope.get('user')) is not None:
+                loginfo['user'] = user.iden
+                loginfo['username'] = user.name
+
+            elif (sess := s_scope.get('sess')) is not None:
+                if sess.user is not None:
+                    loginfo['user'] = sess.user.iden
+                    loginfo['username'] = sess.user.name
+
+        except RuntimeError:
+            # if there is no running loop, there can be no scope vars...
+            pass
 
         if record.exc_info:
             loginfo['err'] = s_common.err(record.exc_info[1], fulltb=True)

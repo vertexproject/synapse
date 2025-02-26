@@ -436,9 +436,9 @@ class CommonTest(s_t_utils.SynTest):
         with self.getTestDir(mirror='certdir') as dirn:
             cadir = s_common.genpath(dirn, 'cas')
             os.makedirs(s_common.genpath(cadir, 'newp'))
-            with self.getLoggerStream('synapse.common', f'Error loading {cadir}/ca.key') as stream:
+            with self.getLoggerStream('synapse.common') as stream:
                 ctx = s_common.getSslCtx(cadir)
-                self.true(stream.wait(10))
+                self.true(await stream.expect(f'Error loading {cadir}/ca.key'))
             ca_subjects = {cert.get('subject') for cert in ctx.get_ca_certs()}
             self.isin(((('commonName', 'test'),),), ca_subjects)
 

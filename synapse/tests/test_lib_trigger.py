@@ -170,7 +170,7 @@ class TrigTest(s_t_utils.SynTest):
             await core.nodes('[ test:str=foo +#a.b ]')
             with self.getLoggerStream('synapse.storm.log') as stream:
                 await core.nodes('[ test:str=foo +#a.b.c ]')
-                self.true(await stream.expect('a.b.c', escape=True))
+                self.true(await stream.expect('a.b.c'))
 
             await core.nodes('[ test:str=foo +#a.b.ccc ]')
             self.len(1, await core.nodes('#count'))
