@@ -1180,6 +1180,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.activebase = None
         self.inaugural = False
+        self.ahasvcname = None
         self.activecoros = {}
         self.sockaddr = None  # Default value...
         self.https_listeners = []
@@ -1215,7 +1216,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellBoot()
 
         # we need to know this pretty early...
-        self.ahasvcname = None
         ahaname = self.conf.get('aha:name')
         ahanetw = self.conf.get('aha:network')
         if ahaname is not None and ahanetw is not None:

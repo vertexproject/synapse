@@ -927,7 +927,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             extra = opts.get('_loginfo', {})
             extra.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-            await self.core._logStormQuery(text, user, extra=extra)
+            self.core._logStormQuery(text, user, extra=extra)
 
             await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
@@ -1049,7 +1049,7 @@ class View(s_nexus.Pusher):  # type: ignore
                         else:
                             extra = opts.get('_loginfo', {})
                             extra.update({'mode': opts.get('mode', 'storm'), 'view': self.iden})
-                            await self.core._logStormQuery(text, user, extra=extra)
+                            self.core._logStormQuery(text, user, extra=extra)
                             async for item in snap.storm(text, opts=opts, user=user):
                                 count += 1
 

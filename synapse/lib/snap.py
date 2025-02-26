@@ -782,7 +782,7 @@ class Snap(s_base.Base):
 
         extra = opts.get('_loginfo', {})
         extra.update({'mode': opts.get('mode', 'storm'), 'view': self.view.iden})
-        await self.core._logStormQuery(text, user, extra=extra)
+        self.core._logStormQuery(text, user, extra=extra)
 
         # { form: ( embedprop, ... ) }
         embeds = opts.get('embeds')

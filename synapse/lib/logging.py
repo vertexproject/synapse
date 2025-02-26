@@ -52,7 +52,19 @@ def setLogGlobal(name, valu):
     _glob_loginfo[name] = valu
 
 def getLogExtra(**kwargs):
-    return {'params': kwargs, 'loginfo': {}}
+    '''
+    Construct a properly enveloped log extra dictionary.
+
+    NOTE: If the key "exc" is specified, it will be used as
+          an exception to generate standardized error info.
+    '''
+    exc = kwargs.pop('exc', None)
+    extra = {'params': kwargs, 'loginfo': {}}
+
+    if exc is not None:
+        extra['loginfo']['error'] = s_common.excinfo(exc)
+
+    return extra
 
 class Formatter(logging.Formatter):
 
@@ -91,7 +103,7 @@ class Formatter(logging.Formatter):
             pass
 
         if record.exc_info:
-            loginfo['err'] = s_common.err(record.exc_info[1], fulltb=True)
+            loginfo['error'] = s_common.excinfo(record.exc_info[1])
 
         if not hasattr(record, 'params'):
             record.params = {}

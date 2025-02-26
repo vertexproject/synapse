@@ -154,7 +154,7 @@ class AhaTest(s_test.SynTest):
 
             with self.getLoggerStream('synapse.lib.aha') as stream:
                 async with self.getTestAha(dirn=dirn) as aha:
-                    await stream.expect(f'Set [0.cryo.synapse] offline.')
+                    await stream.expect('Setting service offline.')
                     svc = await aha.getAhaSvc('0.cryo...')
                     self.notin('online', svc.get('svcinfo'))
 
