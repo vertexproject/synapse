@@ -896,7 +896,7 @@ class Axon(s_cell.Cell):
 
     async def _migrateAxonMetrics(self):
         extra = self.getLogExtra()
-        logger.warning('migrating Axon metrics data out of hive', extra=extra)
+        logger.warning('Migrating Axon metrics data out of hive.', extra=extra)
 
         async with await self.hive.open(('axon', 'metrics')) as hivenode:
             axonmetrics = await hivenode.dict()
@@ -1515,7 +1515,7 @@ class Axon(s_cell.Cell):
             except json.JSONDecodeError as e:
                 # TODO: this feels like it should not be a log...
                 extra = self.getLogExtra(sha256=sha256, err=str(e))
-                logger.exception('Bad JSON line encountered', extra=extra)
+                logger.exception('Bad JSON line encountered.', extra=extra)
                 mesg = f'Bad JSON line while processing {sha256}: {e}'
                 raise s_exc.BadJsonText(mesg=mesg, sha256=sha256) from None
 
@@ -1669,7 +1669,7 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 extra = self.getLogExtra(url=s_urlhelp.sanitizeUrl(url))
-                logger.exception(f'Error POSTing file', extra=extra)
+                logger.exception('Axon file HTTP POST request failed.', extra=extra)
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
                 if errmsg:
@@ -1717,7 +1717,7 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 extra = self.getLogExtra(sha256=sha256, url=s_urlhelp.sanitizeUrl(url))
-                logger.exception('axon.wput() error streaming blob', extra=extra)
+                logger.exception('Axon file HTTP PUT request failed.', extra=extra)
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
                 if errmsg:
@@ -1856,7 +1856,7 @@ class Axon(s_cell.Cell):
 
             except Exception as e:
                 extra = self.getLogExtra(url=s_urlhelp.sanitizeUrl(url))
-                logger.exception('axon.wget() failed', extra=extra)
+                logger.exception('Axon failed to retrieve URL.', extra=extra)
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
                 if errmsg:
