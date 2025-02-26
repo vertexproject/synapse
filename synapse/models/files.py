@@ -323,11 +323,11 @@ class FileModule(s_module.CoreModule):
                         ('file', ('file:bytes', {}), {
                             'doc': 'The Mach-O file containing the load command.'}),
                         ('type', ('int', {'enums': s_l_macho.getLoadCmdTypes()}), {
-                            'doc': 'The type of the load command'}),
+                            'doc': 'The type of the load command.'}),
                         ('size', ('int', {}), {
                             'doc': 'The size of the load command structure in bytes.'}),
                     ),
-                    'doc': 'Properties common to all Mach-O load commands',
+                    'doc': 'Properties common to all Mach-O load commands.',
                 })
             ),
 
@@ -744,7 +744,7 @@ class FileModule(s_module.CoreModule):
                     ('sha256', ('hash:sha256', {}), {
                         'doc': 'The sha256 hash of the bytes of the Mach-O section.'}),
                     ('offset', ('int', {}), {
-                        'doc': 'The file offset to the beginning of the section'}),
+                        'doc': 'The file offset to the beginning of the section.'}),
                 )),
 
                 ('file:mime:lnk', {}, (

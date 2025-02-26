@@ -93,7 +93,7 @@ class RiskModule(s_module.CoreModule):
                     },
                 }),
                 ('risk:mitigation:type:taxonomy', ('taxonomy', {}), {
-                    'interaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of mitigation types.',
                 }),
                 ('risk:mitigation', ('guid', {}), {
