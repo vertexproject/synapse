@@ -432,7 +432,7 @@ class CommonTest(s_t_utils.SynTest):
                 with self.raises(eret):
                     s_common.reqJsonSafeStrict(item)
 
-    def test_sslctx(self):
+    async def test_sslctx(self):
         with self.getTestDir(mirror='certdir') as dirn:
             cadir = s_common.genpath(dirn, 'cas')
             os.makedirs(s_common.genpath(cadir, 'newp'))
