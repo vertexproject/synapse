@@ -1332,7 +1332,7 @@ class InetModule(s_module.CoreModule):
 
                     ('inet:ssl:cert', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
                         'deprecated': True,
-                        'doc': 'Deprecated. Please use inet:tls:servercert or inet:tls:clientcert',
+                        'doc': 'Deprecated. Please use inet:tls:servercert or inet:tls:clientcert.',
                     }),
 
                     ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
@@ -3802,7 +3802,7 @@ class InetModule(s_module.CoreModule):
 
                         ('client:address', ('inet:client', {}), {
                             'deprecated': True,
-                            'doc': 'Deprecated. Please use :client'}),
+                            'doc': 'Deprecated. Please use :client.'}),
 
                         ('client:software', ('it:prod:softver', {}), {
                             'doc': 'The client software version used to send the message.'}),

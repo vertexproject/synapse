@@ -67,10 +67,10 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A financial security which is typically traded on an exchange.'}),
 
                 ('econ:fin:bar', ('guid', {}), {
-                    'doc': 'A sample of the open, close, high, low prices of a security in a specific time window'}),
+                    'doc': 'A sample of the open, close, high, low prices of a security in a specific time window.'}),
 
                 ('econ:fin:tick', ('guid', {}), {
-                    'doc': 'A sample of the price of a security at a single moment in time'}),
+                    'doc': 'A sample of the price of a security at a single moment in time.'}),
 
                 ('econ:bank:account:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A bank account type taxonomy.'}),
@@ -192,10 +192,10 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The campaign that the purchase was in support of.'}),
 
                     ('price', ('econ:price', {}), {
-                        'doc': 'The econ:price of the purchase'}),
+                        'doc': 'The econ:price of the purchase.'}),
 
                     ('currency', ('econ:currency', {}), {
-                        'doc': 'The econ:price of the purchase'}),
+                        'doc': 'The econ:price of the purchase.'}),
 
                     ('listing', ('biz:listing', {}), {
                         'doc': 'The purchase was made based on the given listing.'}),
@@ -283,10 +283,10 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The purchase which the payment was paying for.'}),
 
                     ('amount', ('econ:price', {}), {
-                        'doc': 'The amount of money transferred in the payment'}),
+                        'doc': 'The amount of money transferred in the payment.'}),
 
                     ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency of the payment'}),
+                        'doc': 'The currency of the payment.'}),
 
                     ('memo', ('str', {}), {
                         'doc': 'A small note specified by the payer common in financial transactions.'}),
@@ -339,66 +339,66 @@ class EconModule(s_module.CoreModule):
                 ('econ:fin:exchange', {}, (
 
                     ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A simple name for the exchange',
+                        'doc': 'A simple name for the exchange.',
                         'ex': 'nasdaq'}),
 
                     ('org', ('ou:org', {}), {
-                        'doc': 'The organization that operates the exchange'}),
+                        'doc': 'The organization that operates the exchange.'}),
 
                     ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency used for all transactions in the exchange',
+                        'doc': 'The currency used for all transactions in the exchange.',
                         'ex': 'usd'}),
                 )),
 
                 ('econ:fin:security', {}, (
 
                     ('exchange', ('econ:fin:exchange', {}), {
-                        'doc': 'The exchange on which the security is traded'}),
+                        'doc': 'The exchange on which the security is traded.'}),
 
                     ('ticker', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The identifier for this security within the exchange'}),
+                        'doc': 'The identifier for this security within the exchange.'}),
 
                     ('type', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A user defined type such as stock, bond, option, future, or forex'}),
+                        'doc': 'A user defined type such as stock, bond, option, future, or forex.'}),
 
                     ('price', ('econ:price', {}), {
-                        'doc': 'The last known/available price of the security'}),
+                        'doc': 'The last known/available price of the security.'}),
 
                     ('time', ('time', {}), {
-                        'doc': 'The time of the last know price sample'}),
+                        'doc': 'The time of the last know price sample.'}),
                 )),
 
                 ('econ:fin:tick', {}, (
 
                     ('security', ('econ:fin:security', {}), {
-                        'doc': 'The security measured by the tick'}),
+                        'doc': 'The security measured by the tick.'}),
 
                     ('time', ('time', {}), {
-                        'doc': 'The time the price was sampled'}),
+                        'doc': 'The time the price was sampled.'}),
 
                     ('price', ('econ:price', {}), {
-                        'doc': 'The price of the security at the time'}),
+                        'doc': 'The price of the security at the time.'}),
                 )),
 
                 ('econ:fin:bar', {}, (
 
                     ('security', ('econ:fin:security', {}), {
-                        'doc': 'The security measured by the bar'}),
+                        'doc': 'The security measured by the bar.'}),
 
                     ('ival', ('ival', {}), {
-                        'doc': 'The interval of measurement'}),
+                        'doc': 'The interval of measurement.'}),
 
                     ('price:open', ('econ:price', {}), {
-                        'doc': 'The opening price of the security'}),
+                        'doc': 'The opening price of the security.'}),
 
                     ('price:close', ('econ:price', {}), {
-                        'doc': 'The closing price of the security'}),
+                        'doc': 'The closing price of the security.'}),
 
                     ('price:low', ('econ:price', {}), {
-                        'doc': 'The low price of the security'}),
+                        'doc': 'The low price of the security.'}),
 
                     ('price:high', ('econ:price', {}), {
-                        'doc': 'The high price of the security'}),
+                        'doc': 'The high price of the security.'}),
                 )),
 
                 ('econ:acct:invoice', {}, (
