@@ -3289,11 +3289,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             remoteip=handler.request.remote_ip,
             took=int(1000 * handler.request.request_time()))
 
-        if handler.web_useriden is not None:
-            extra['loginfo']['user'] = handler.web_useriden
+        if hasattr(handler, 'web_useriden') and handler.web_useriden is not None:
+                extra['loginfo']['user'] = handler.web_useriden
 
-        if handler.web_username is not None:
-            extra['loginfo']['username'] = handler.web_username
+        if hasattr(handler, 'web_username') and handler.web_username is not None:
+                extra['loginfo']['username'] = handler.web_username
 
         log_method('HTTP API Request', extra=extra)
 
