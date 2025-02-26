@@ -1077,6 +1077,9 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
             self.len(1, await core.nodes('it:host:activity:sandbox:file'))
 
+            self.len(1, await core.nodes('[ it:exec:reg:get=* :host=(host,) ]'))
+            self.len(4, await core.nodes('it:host:activity:host=(host,)'))
+
     async def test_ast_edge_walknjoin(self):
 
         async with self.getTestCore() as core:
