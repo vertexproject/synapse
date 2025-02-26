@@ -859,9 +859,6 @@ class User(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methUserRoles',
                   'returns': {'type': 'list',
                               'desc': 'A list of ``auth:roles`` which the user is a member of.', }}},
-        {'name': 'pack', 'desc': 'Get the packed version of the User.',
-         'type': {'type': 'function', '_funcname': '_methUserPack', 'args': (),
-                  'returns': {'type': 'dict', 'desc': 'The packed User definition.', }}},
         {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
          'type': {'type': 'function', '_funcname': '_methUserAllowed',
                   'args': (
@@ -1125,7 +1122,6 @@ class User(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
-            'pack': self._methUserPack,
             'tell': self._methUserTell,
             'gates': self._methGates,
             'notify': self._methUserNotify,
@@ -1151,10 +1147,6 @@ class User(s_stormtypes.Prim):
             'modApiKey': self._methModApiKey,
             'delApiKey': self._methDelApiKey,
         }
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methUserPack(self):
-        return await self.value()
 
     async def _methUserTell(self, text):
         self.runt.confirm(('tell', self.valu), default=True)
@@ -1383,9 +1375,6 @@ class Role(s_stormtypes.Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'pack', 'desc': 'Get the packed version of the Role.',
-         'type': {'type': 'function', '_funcname': '_methRolePack', 'args': (),
-                  'returns': {'type': 'dict', 'desc': 'The packed Role definition.', }}},
         {'name': 'gates', 'desc': 'Return a list of auth gates that the role has rules for.',
          'type': {'type': 'function', '_funcname': '_methGates',
                   'args': (),
@@ -1462,7 +1451,6 @@ class Role(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'get': self._methRoleGet,
-            'pack': self._methRolePack,
             'gates': self._methGates,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
@@ -1484,10 +1472,6 @@ class Role(s_stormtypes.Prim):
     async def _methRoleGet(self, name):
         rdef = await self.runt.view.core.getRoleDef(self.valu)
         return rdef.get(name)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methRolePack(self):
-        return await self.value()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGates(self):

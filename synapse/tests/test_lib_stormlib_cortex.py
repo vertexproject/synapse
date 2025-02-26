@@ -72,7 +72,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             adef = await core.getHttpExtApi(iden)
             self.nn(adef)
 
-            info = await core.callStorm('return( $lib.cortex.httpapi.get($iden).pack() )',
+            info = await core.callStorm('return( $lib.cortex.httpapi.get($iden) )',
                                         opts={'vars': {'iden': testpath00}})
             self.eq(info.get('iden'), testpath00)
 
@@ -1469,7 +1469,7 @@ for $i in $values {
                     self.false(data['opts'].get('mirror'))
                     data.clear()
 
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api.pack() ) '
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api ) '
                     adef = await core.callStorm(q, opts=opts_iden00)
                     self.true(adef.get('pool'))
 
@@ -1478,7 +1478,7 @@ for $i in $values {
                     self.true(data['opts'].get('mirror'))
                     data.clear()
 
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api.pack() ) '
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api ) '
                     adef = await core.callStorm(q, opts=opts_iden00)
                     self.false(adef.get('pool'))
 

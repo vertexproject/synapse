@@ -990,7 +990,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(valu, 0)
 
             opts = {'vars': {'iden': guid}}
-            get_cron = 'return($lib.cron.get($iden).pack())'
+            get_cron = 'return($lib.cron.get($iden))'
             cdef = await core.callStorm(get_cron, opts=opts)
             self.true(cdef.get('isrunning'))
 
@@ -1063,7 +1063,7 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq(valu, 0)
 
                     opts = {'vars': {'iden': guid}, 'mirror': False}
-                    get_cron = 'return($lib.cron.get($iden).pack())'
+                    get_cron = 'return($lib.cron.get($iden))'
                     cdef = await core00.callStorm(get_cron, opts=opts)
                     self.true(cdef.get('isrunning'))
 
