@@ -1,5 +1,6 @@
 import io
 import os
+import json
 import mmap
 
 import orjson
@@ -22,13 +23,13 @@ def loads(s):
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
-    if isinstance(s, str):
-        s = s.encode('utf8', errors='backslashreplace')
-
     try:
         return orjson.loads(s)
-    except orjson.JSONDecodeError as exc:
-        raise s_exc.BadJsonText(mesg=exc.args[0])
+    except orjson.JSONDecodeError:
+        try:
+            return json.loads(s)
+        except json.JSONDecodeError as exc:
+            raise s_exc.BadJsonText(mesg=exc.args[0])
 
 def load(fp):
     '''
@@ -46,21 +47,7 @@ def load(fp):
         synapse.exc.BadJsonText: This exception is raised when there is an error
             deserializing the provided data.
     '''
-    try:
-        with mmap.mmap(fp.fileno(), 0, prot=mmap.PROT_READ) as mm:
-            with memoryview(mm) as mv:
-                return loads(mv)
-
-    except (AttributeError, io.UnsupportedOperation):
-        # This block need to be first because io.UnsupportedOperation is a subclass of ValueError.
-        # The file pointer will raise UnsupportedOperation if fileno() fails because the file isn't
-        # backed by a file descriptor but mmap will raise ValueError if the (real) file is empty. So
-        # ordering matters. *sigh*
-        return loads(fp.read())
-
-    except ValueError:
-        mesg = 'Cannot read empty file.'
-        raise s_exc.BadJsonText(mesg=mesg)
+    return loads(fp.read())
 
 def dumpsb(obj, sort_keys=False, indent=False, default=None, newline=False):
     '''
@@ -94,6 +81,20 @@ def dumpsb(obj, sort_keys=False, indent=False, default=None, newline=False):
 
     try:
         return orjson.dumps(obj, option=opts, default=default)
+
+    except TypeError:
+        indent = 2 if indent else None
+
+        try:
+            ret = json.dumps(obj, sort_keys=sort_keys, indent=indent)
+        except json.JSONEncodeError as exc:
+            raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
+
+        if newline:
+            ret += '\n'
+
+        return ret.encode()
+
     except orjson.JSONEncodeError as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 

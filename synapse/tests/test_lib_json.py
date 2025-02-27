@@ -1,4 +1,7 @@
 import io
+import json
+
+import orjson
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -11,11 +14,10 @@ class JsonTest(s_test.SynTest):
 
     async def test_lib_json_loads(self):
         self.eq({'a': 'b'}, s_json.loads('{"a": "b"}'))
-        self.eq({'a': '😀🙇'}, s_json.loads('{"a": "😀\ud83d\ude47"}'))
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('newp')
-        self.eq(exc.exception.get('mesg'), 'invalid literal: line 1 column 1 (char 0)')
+        self.eq(exc.exception.get('mesg'), 'Expecting value: line 1 column 1 (char 0)')
 
     async def test_lib_json_load(self):
         with self.getTestDir() as dirn:
@@ -29,13 +31,55 @@ class JsonTest(s_test.SynTest):
             with s_common.genfile(dirn, 'empty') as empty:
                 with self.raises(s_exc.BadJsonText) as exc:
                     s_json.load(empty)
-                self.eq(exc.exception.get('mesg'), 'Cannot read empty file.')
+                self.eq(exc.exception.get('mesg'), 'Expecting value: line 1 column 1 (char 0)')
 
             buf = io.BytesIO(b'{"a": "b"}')
             self.eq({'a': 'b'}, s_json.load(buf))
 
             buf = io.StringIO('{"a": "b"}')
             self.eq({'a': 'b'}, s_json.load(buf))
+
+    async def test_lib_json_load_surrogates(self):
+
+        inval = '{"a": "😀\ud83d\ude47"}'
+        outval = {'a': '😀\ud83d\ude47'}
+
+        # orjson.dumps fails because of the surrogate pairs
+        with self.raises(orjson.JSONDecodeError):
+            orjson.loads(inval)
+
+        # stdlib json.loads passes because of voodoo magic
+        self.eq(outval, json.loads(inval))
+
+        self.eq(outval, s_json.loads(inval))
+
+        buf = io.StringIO(inval)
+        self.eq(outval, s_json.load(buf))
+
+        buf = io.BytesIO(inval.encode('utf8', errors='surrogatepass'))
+        self.eq(outval, s_json.load(buf))
+
+    async def test_lib_json_dump_surrogates(self):
+        inval = {'a': '😀\ud83d\ude47'}
+        outval = '{"a": "\\ud83d\\ude00\\ud83d\\ude47"}'
+
+        # orjson.dumps fails because of the surrogate pairs
+        with self.raises(TypeError):
+            orjson.dumps(inval)
+
+        # stdlib json.dumps passes because of voodoo magic
+        self.eq(outval, json.dumps(inval))
+
+        self.eq(outval, s_json.dumps(inval))
+        self.eq(outval.encode('utf8'), s_json.dumpsb(inval))
+
+        buf = io.StringIO()
+        s_json.dump(inval, buf)
+        self.eq(outval, buf.getvalue())
+
+        buf = io.BytesIO()
+        s_json.dumpb(inval, buf)
+        self.eq(outval.encode('utf8'), buf.getvalue())
 
     async def test_lib_json_dumps(self):
         self.eq('{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
@@ -105,4 +149,20 @@ class JsonTest(s_test.SynTest):
             self.eq(data, b'{\n  "a": "b"\n}')
 
     async def test_lib_json_reqjsonsafe(self):
-        pass
+        self.none(s_json.reqjsonsafe('foo'))
+        self.none(s_json.reqjsonsafe({'foo': 'bar'}))
+        self.none(s_json.reqjsonsafe(['foo', 'bar']))
+
+        with open('/dev/null', 'rb') as fp:
+
+            with self.raises(s_exc.MustBeJsonSafe) as exc:
+                s_json.reqjsonsafe(fp)
+            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.MustBeJsonSafe) as exc:
+                s_json.reqjsonsafe({'foo': fp})
+            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
+
+            with self.raises(s_exc.MustBeJsonSafe) as exc:
+                s_json.reqjsonsafe(['foo', fp])
+            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
