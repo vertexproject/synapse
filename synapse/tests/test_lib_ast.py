@@ -501,6 +501,12 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('test:arrayprop [ :ints++=([3, 4]) ]')
             self.eq(nodes[0].get('ints'), (1, 3, 4))
 
+            nodes = await core.nodes('test:arrayprop [ :ints++=(null) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('test:arrayprop [ :ints--=(null) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
             nodes = await core.nodes('test:arrayprop [ :strs++=(foo, bar, baz) ]')
             self.eq(nodes[0].get('strs'), ('foo', 'bar', 'baz'))
 
@@ -1070,6 +1076,9 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('test:interface:sandbox:file'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
             self.len(1, await core.nodes('it:host:activity:sandbox:file'))
+
+            self.len(1, await core.nodes('[ it:exec:reg:get=* :host=(host,) ]'))
+            self.len(4, await core.nodes('it:host:activity:host=(host,)'))
 
     async def test_ast_edge_walknjoin(self):
 

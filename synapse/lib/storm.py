@@ -1726,9 +1726,6 @@ class Runtime(s_base.Base):
     async def warnonce(self, mesg, **info):
         return await self.snap.warnonce(mesg, **info)
 
-    def tick(self):
-        pass
-
     def cancel(self):
         self.task.cancel()
 
@@ -1964,7 +1961,6 @@ class Runtime(s_base.Base):
                     nodegenr = subgraph.run(self, nodegenr)
 
                 async for item in nodegenr:
-                    self.tick()
                     yield item
 
         except RecursionError:
@@ -2077,7 +2073,7 @@ class Runtime(s_base.Base):
 
 class Parser:
 
-    def __init__(self, prog=None, descr=None, root=None, model=None):
+    def __init__(self, prog=None, descr=None, root=None, model=None, cdef=None):
 
         if root is None:
             root = self
@@ -2088,6 +2084,7 @@ class Parser:
 
         self.prog = prog
         self.descr = descr
+        self.cdef = cdef
 
         self.exc = None
 
@@ -2364,6 +2361,21 @@ class Parser:
             self._printf('')
 
         self._printf(f'Usage: {self.prog} [options] {posargs}')
+
+        if self.cdef is not None and (endpoints := self.cdef.get('endpoints')):
+            self._printf('')
+            self._printf('Endpoints:')
+            self._printf('')
+            base_w = 32
+            wrap_w = 120 - base_w
+            for endpoint in endpoints:
+                path = endpoint['path']
+                desc = endpoint.get('desc', '')
+                base = f'    {path}'
+                wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
+                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                for ln in wrap_desc[1:]:
+                    self._printf(f'{"":<{base_w}}{ln}')
 
         options = [x for x in self.allargs if x[0][0].startswith('-')]
 
@@ -2655,6 +2667,7 @@ class PureCmd(Cmd):
         if inputs:
             pars.set_inputs(inputs)
 
+        pars.cdef = self.cdef
         return pars
 
     async def execStormCmd(self, runt, genr):
@@ -3653,22 +3666,25 @@ class MergeCmd(Cmd):
 
             genr = diffgenr()
 
-        async with await runt.snap.view.parent.snap(user=runt.user.iden) as snap:
+        async with await runt.snap.view.parent.snap(user=runt.user) as snap:
             snap.strict = False
 
             snap.on('warn', runt.snap.dist)
+
+            meta = {'user': runt.user.iden}
+
+            if doapply:
+                editor = s_snap.SnapEditor(snap, meta=meta)
 
             async for node, path in genr:
 
                 # the timestamp for the adds/subs of each node merge will match
                 nodeiden = node.iden()
-                meta = {'user': runt.user.iden, 'time': s_common.now()}
+
+                meta['time'] = s_common.now()
 
                 sodes = await node.getStorNodes()
                 sode = sodes[0]
-
-                if doapply:
-                    editor = s_snap.SnapEditor(snap)
 
                 subs = []
 
@@ -3818,13 +3834,11 @@ class MergeCmd(Cmd):
                     subs.append((s_layer.EDIT_NODE_DEL, valu, ()))
 
                 if doapply:
-                    addedits = editor.getNodeEdits()
-                    if addedits:
-                        await runt.snap.view.parent.storNodeEdits(addedits, meta=meta)
+                    await editor.flushEdits()
 
                     if subs:
                         subedits = [(node.buid, node.form.name, subs)]
-                        await runt.snap.view.storNodeEdits(subedits, meta=meta)
+                        await runt.snap.applyNodeEdits(subedits, nodecache={node.buid: node}, meta=meta)
 
                 runt.snap.clearCachedNode(node.buid)
                 yield await runt.snap.getNodeByBuid(node.buid), path

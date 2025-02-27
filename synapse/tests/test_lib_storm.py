@@ -163,6 +163,10 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
 
+            await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
+            self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
@@ -1756,6 +1760,10 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('test:ro | merge', opts=altview)
             self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
+
+            await core.nodes('[ test:str=foo +(refs)> { for $i in $lib.range(1001) {[ test:int=$i ]}}]', opts=altview)
+            await core.nodes('test:str=foo -(refs)+> * merge --apply', opts=altview)
+            self.len(1001, await core.nodes('test:str=foo -(refs)> *'))
 
     async def test_storm_merge_stricterr(self):
 
@@ -4117,6 +4125,9 @@ class StormTest(s_t_utils.SynTest):
                     {'name': 'woot', 'cmdinputs': (
                         {'form': 'hehe:haha'},
                         {'form': 'hoho:lol', 'help': 'We know whats up'}
+                    ), 'endpoints': (
+                        {'path': '/v1/test/one', 'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'},
+                        {'path': '/v1/test/two', 'host': 'vertex.link', 'desc': 'Single line endpoint description.'},
                     )},
                 ),
             }
@@ -4124,6 +4135,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
+            self.isin('Endpoints:\n\n    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.', helptext)
+            self.isin('This is the second line of the description.', helptext)
+            self.isin('/v1/test/two              : Single line endpoint description.', helptext)
 
     async def test_storm_help_cmd(self):
 

@@ -147,7 +147,7 @@ class DnsModule(s_module.CoreModule):
 
                 ('inet:dns:txt', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('txt', 'str'))}), {
                     'ex': '(hehe.vertex.link,"fancy TXT record")',
-                    'doc': 'The result of a DNS MX record lookup.'}),
+                    'doc': 'The result of a DNS TXT record lookup.'}),
 
                 ('inet:dns:type', ('int', {}), {
                     'doc': 'A DNS query/answer type integer.'}),

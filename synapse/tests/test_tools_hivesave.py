@@ -17,8 +17,8 @@ class HiveSaveTest(s_test.SynTest):
 
             hivepath0 = os.path.join(dirn, 'hivesave0.mpk')
 
-            async with self.getTestHiveDmon() as dmon:
-                hurl = self.getTestUrl(dmon, 'hive')
+            async with self.getTestCell() as cell:
+                hurl = cell.getLocalUrl()
 
                 argv = [hurl, hivepath0]
 
@@ -39,12 +39,10 @@ class HiveSaveTest(s_test.SynTest):
             hivepath0 = os.path.join(dirn, 'hivesave0.mpk')
             yamlpath0 = os.path.join(dirn, 'hivesave0.yaml')
 
-            async with self.getTestHiveDmon() as dmon:
+            async with self.getTestCell() as cell:
+                hurl = cell.getLocalUrl()
 
-                hive = dmon.shared.get('hive')
-                await hive.set(('baz', 'faz'), 'visi')
-
-                hurl = self.getTestUrl(dmon, 'hive')
+                await cell.hive.set(('baz', 'faz'), 'visi')
 
                 retn = await s_hivesave.main([hurl, hivepath0])
                 self.eq(0, retn)
