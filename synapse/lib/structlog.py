@@ -1,8 +1,8 @@
-import json
-
 import logging
 
 import synapse.common as s_common
+
+import synapse.lib.json as s_json
 
 class JsonFormatter(logging.Formatter):
     def __init__(self, *args, **kwargs):
@@ -37,4 +37,4 @@ class JsonFormatter(logging.Formatter):
         if extras:
             ret.update({k: v for k, v in extras.items() if k not in ret})
 
-        return json.dumps(ret, default=str)
+        return s_json.dumps(ret, default=str)
