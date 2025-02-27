@@ -76,6 +76,7 @@ terminalEnglishMap = {
     'MODSETMULTI': '++= or --=',
     'NONQUOTEWORD': 'unquoted value',
     'NOT': 'not',
+    'NOTOP': 'not',
     'NULL': 'null',
     'NUMBER': 'number',
     'OCTNUMBER': 'number',
