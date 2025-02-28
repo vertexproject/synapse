@@ -608,11 +608,17 @@ class Proxy(s_base.Base):
         self.methinfo = {}
 
         self.sess = None
+
         self.links = collections.deque()
-        self._link_poolsize = 4
+        self.alllinks = collections.deque()
+
+        self._link_add = 0      # counter for pending links being connected
+        self._links_min = 4     # low water mark for the link pool
+        self._links_max = 12    # high water mark for the link pool
+
+        # self._link_poolsize = 4
 
         self.synack = None
-        self.syndone = asyncio.Event()
 
         self.handlers = {
             'task:fini': self._onTaskFini,
@@ -626,15 +632,13 @@ class Proxy(s_base.Base):
                 await item.fini()
 
             mesg = ('task:fini', {'retn': (False, ('IsFini', {}))})
-            for name, task in list(self.tasks.items()):
+            for iden, task in list(self.tasks.items()):
                 task.reply(mesg)
-                del self.tasks[name]
+                del self.tasks[iden]
 
-            for link in self.links:
-                await link.fini()
-
-            del self.syndone
-            await self.link.fini()
+            # fini all the links from a different task to prevent
+            # delaying the proxy shutdown...
+            s_coro.create_task(self._finiAllLinks())
 
         self.onfini(fini)
         self.link.onfini(self.fini)
@@ -692,6 +696,12 @@ class Proxy(s_base.Base):
 
             link = self.links.popleft()
 
+            # fire a task to replace the link if we are
+            # below the low-water mark for link count.
+            if len(self.links) + self._link_add <= self._links_min:
+                self._link_add += 1
+                self.schedCoro(self._addPoolLink())
+
             if link.isfini:
                 continue
 
@@ -699,6 +709,11 @@ class Proxy(s_base.Base):
 
         # we need a new one...
         return await self._initPoolLink()
+
+    async def _addPoolLink(self):
+        link = await self._initPoolLink()
+        self.links.append(link)
+        self._link_add -= 1
 
     async def getPipeline(self, genr, name=None):
         '''
@@ -724,8 +739,6 @@ class Proxy(s_base.Base):
 
     async def _initPoolLink(self):
 
-        # TODO loop / backoff
-
         if self.link.get('unix'):
 
             path = self.link.get('path')
@@ -739,9 +752,18 @@ class Proxy(s_base.Base):
 
             link = await s_link.connect(host, port, ssl=ssl)
 
-        self.onfini(link)
+        self.alllinks.append(link)
+        async def fini():
+            self.alllinks.remove(link)
+
+        link.onfini(fini)
 
         return link
+
+    async def _finiAllLinks(self):
+        for link in list(self.alllinks):
+            await link.fini()
+        await self.link.fini()
 
     async def _putPoolLink(self, link):
 
@@ -749,7 +771,9 @@ class Proxy(s_base.Base):
             return
 
         # If we've exceeded our poolsize, discard the current link.
-        if len(self.links) >= self._link_poolsize:
+        # TODO: make this a gradual step-down...
+        # (perhaps via a single proxy management task for all proxies)
+        if len(self.links) >= self._links_max:
             return await link.fini()
 
         self.links.append(link)
@@ -862,6 +886,7 @@ class Proxy(s_base.Base):
 
                 except GeneratorExit:
                     # if they bail early on the genr, fini the link
+                    # TODO: devise a tx/rx strategy to recover these links...
                     await link.fini()
 
             return s_coro.GenrHelp(genrloop())
@@ -1321,7 +1346,7 @@ class Client(s_base.Base):
         info.update(self._t_opts)
         self._t_proxy = await openinfo(info)
         self._t_methinfo = self._t_proxy.methinfo
-        self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
+        # self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
         async def fini():
             if self._t_named_meths:
