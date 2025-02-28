@@ -1355,7 +1355,7 @@ for $i in $values {
                     self.eq(resp.status, 500)
                     data = await resp.json()
                     self.eq(data.get('code'), 'StormRuntimeError')
-                    self.isin('Input is a zero-length, empty document: line 1 column 1 (char 0)', data.get('mesg'))
+                    self.isin('Failed to decode request body as JSON', data.get('mesg'))
 
     async def test_cortex_httpapi_dynamic(self):
 

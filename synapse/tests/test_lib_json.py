@@ -90,7 +90,7 @@ class JsonTest(s_test.SynTest):
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({}.items())
-        self.eq(exc.exception.get('mesg'), 'Type is not JSON serializable: dict_items')
+        self.eq(exc.exception.get('mesg'), 'Object of type dict_items is not JSON serializable')
 
         self.eq('"dict_items([])"', s_json.dumps({}.items(), default=str))
 
