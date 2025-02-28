@@ -1,0 +1,6 @@
+---
+desc: Added word boundary checks for `null` and `not` to prevent matching these terms
+  when they appear within other words.
+prs: []
+type: bug
+...

@@ -437,7 +437,8 @@ _cond: notcond | "(" _condexpr ")"
     | condsubq | arraycond
     | _varvalu | _reqdollarexprs
 
-notcond: "not" _cond
+_NOT: "not"
+notcond: _NOT _cond
 
 hasrelpropcond: relprop | univprop
 relpropcond: relpropvalue _cmpr _valu
@@ -627,15 +628,15 @@ OCTNUMBER.1: /
 /x
 
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
-NULL.2: "null"
-NOT.2: "not"
+NULL.2: /null(?=$|[\s\),\]}\|\=])/
+NOTOP.2: /not(?=$|[\s\),\]}\|\=])/
 OR.2: "or"
 AND.2: "and"
 
 // $ expression rules in increasing order of precedence (modeled on Python's order)
 ?expror: exprand | expror OR exprand
 ?exprand: exprnot | exprand AND exprnot
-?exprnot: exprcmp | NOT exprcmp
+?exprnot: exprcmp | NOTOP exprcmp
 ?exprcmp: exprsum | exprcmp (CMPR | EQSPACE | EQNOSPACE) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
 ?exprproduct: exprunary | exprproduct (EXPRTIMES | EXPRDIVIDE | EXPRMODULO) exprunary
