@@ -1,6 +1,6 @@
 ---
-desc: Fixed an issue where the Storm ``batch`` command failed to aco accept ``storm:query``
-  objects as their query input.
+desc: Fixed an issue where the Storm ``batch`` command failed to accept ``storm:query``
+  objects as query arguments.
 prs: []
 type: bug
 ...
