@@ -566,7 +566,7 @@ class HttpResp(s_stormtypes.Prim):
             else:
                 encoding = await s_stormtypes.tostr(encoding)
 
-            return s_json.loads(valu.decode(encoding, 'backslashreplace'))
+            return s_json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None

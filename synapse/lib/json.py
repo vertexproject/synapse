@@ -87,7 +87,7 @@ def dumpsb(obj, sort_keys=False, indent=False, default=None, newline=False):
 
         try:
             ret = json.dumps(obj, sort_keys=sort_keys, indent=indent)
-        except json.JSONEncodeError as exc:
+        except TypeError as exc:
             raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
         if newline:

@@ -157,12 +157,12 @@ class JsonTest(s_test.SynTest):
 
             with self.raises(s_exc.MustBeJsonSafe) as exc:
                 s_json.reqjsonsafe(fp)
-            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
+            self.isin('Object of type BufferedReader is not JSON serializable', exc.exception.get('mesg'))
 
             with self.raises(s_exc.MustBeJsonSafe) as exc:
                 s_json.reqjsonsafe({'foo': fp})
-            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
+            self.isin('Object of type BufferedReader is not JSON serializable', exc.exception.get('mesg'))
 
             with self.raises(s_exc.MustBeJsonSafe) as exc:
                 s_json.reqjsonsafe(['foo', fp])
-            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
+            self.isin('Object of type BufferedReader is not JSON serializable', exc.exception.get('mesg'))
