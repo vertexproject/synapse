@@ -1,6 +1,5 @@
 import os
 import copy
-import json
 import urllib
 import logging
 import argparse
@@ -12,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.data as s_data
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.hashitem as s_hashitem
 
 from fastjsonschema.exceptions import JsonSchemaValueException
@@ -44,7 +44,7 @@ def localSchemaRefHandler(uri):
         raise s_exc.NoSuchFile(mesg=f'Local JSON schema not found for {uri}.')
 
     with open(filename, 'r') as fp:
-        return json.load(fp)
+        return s_json.load(fp)
 
 # This handlers dictionary is used by the jsonschema validator to attempt to
 # resolve schema '$ref' values locally from disk and will raise an exception

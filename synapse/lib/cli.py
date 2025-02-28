@@ -1,5 +1,4 @@
 import os
-import json
 import signal
 import asyncio
 import logging
@@ -18,6 +17,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
 import synapse.lib.grammar as s_grammar
@@ -542,5 +542,5 @@ class CmdLocals(Cmd):
                 ret[k] = v
             else:
                 ret[k] = repr(v)
-        mesg = json.dumps(ret, indent=2, sort_keys=True)
+        mesg = s_json.dumps(ret, indent=True, sort_keys=True)
         self.printf(mesg)

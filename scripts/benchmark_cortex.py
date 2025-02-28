@@ -34,6 +34,7 @@ import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.time as s_time
 import synapse.lib.lmdbslab as s_lmdbslab
 
@@ -628,7 +629,7 @@ async def benchmarkAll(confignames: List = None,
                         if jsonprefix:
                             fn = f'{jsonprefix}{fn}'
                             data['prefix'] = jsonprefix
-                        s_common.jssave(data, jsondir, fn)
+                        s_json.jssave(data, jsondir, fn)
                 finally:
                     endProgress()
 

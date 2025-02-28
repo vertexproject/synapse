@@ -1,11 +1,11 @@
 import os
 import ssl
-import json
 import shutil
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.stormctrl as s_stormctrl
@@ -32,11 +32,11 @@ class TstWebSock(s_httpapi.WebSocket):
         await self.sendJsonMesg(resp)
 
     async def on_message(self, byts):
-        mesg = json.loads(byts)
+        mesg = s_json.loads(byts)
         await self.sendJsonMesg(('echo', mesg), binary=True)
 
     async def sendJsonMesg(self, item, binary=False):
-        byts = json.dumps(item)
+        byts = s_json.dumps(item)
         await self.write_message(byts, binary=binary)
 
 class HttpNotJson(s_httpapi.Handler):
@@ -539,7 +539,7 @@ class StormHttpTest(s_test.SynTest):
             return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
             '''
             resp = await core.callStorm(q, opts=opts)
-            request = json.loads(resp.get('body'))
+            request = s_json.loads(resp.get('body'))
             request_headers = request.get('result').get('headers')
             self.isin('multipart/form-data; boundary=', request_headers.get('Content-Type', ''))
 

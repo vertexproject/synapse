@@ -1,11 +1,13 @@
 import copy
-import json
 import asyncio
 import logging
+
+import regex
 
 import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.config as s_config
 import synapse.lib.stormtypes as s_stormtypes
 
@@ -121,19 +123,22 @@ class JsonLib(s_stormtypes.Lib):
 
         try:
             item = await s_stormtypes.toprim(item)
-            return json.dumps(item, indent=indent)
-        except Exception as e:
+        except Exception:
             mesg = f'Argument is not JSON compatible: {item}'
             raise s_exc.MustBeJsonSafe(mesg=mesg)
+
+        ret = s_json.dumps(item, indent=bool(indent))
+
+        if indent not in (None, 0, 2):
+            spacing = ' ' * indent
+            ret = regex.sub('\n(  )+', lambda m: '\n' + (len(m.group(0)) // 2) * spacing, ret)
+
+        return ret
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonLoad(self, text):
         text = await s_stormtypes.tostr(text)
-        try:
-            return json.loads(text, strict=True)
-        except Exception as e:
-            mesg = f'Text is not valid JSON: {text}'
-            raise s_exc.BadJsonText(mesg=mesg)
+        return s_json.loads(text)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonSchema(self, schema, use_default=True):
