@@ -20,6 +20,7 @@ import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
 import synapse.lib.queue as s_queue
 import synapse.lib.certdir as s_certdir
+import synapse.lib.logging as s_logging
 import synapse.lib.threads as s_threads
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
@@ -1142,7 +1143,9 @@ class ClientV2(s_base.Base):
             try:
                 await self.onlink(proxy, urlinfo)
             except Exception as e:
-                logger.exception(f'onlink: {self.onlink}')
+                name = proxy._ahainfo.get('name', '<no-aha-name>')
+                extra = s_logging.getLogExtra(service=name)
+                logger.exception('Telepath ClientV2 onlink error.', extra=extra)
 
     async def _shutDownPool(self):
         # when we reconnect to our AHA service, we need to dump the current

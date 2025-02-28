@@ -352,19 +352,6 @@ class CommonTest(s_t_utils.SynTest):
             self.false(s_common.envbool('SYN_FOO'))
             self.false(s_common.envbool('SYN_BAR'))
 
-    def test_normlog(self):
-        self.eq(10, s_common.normLogLevel(' 10 '))
-        self.eq(10, s_common.normLogLevel(10))
-        self.eq(20, s_common.normLogLevel(' inFo\n'))
-        with self.raises(s_exc.BadArg):
-            s_common.normLogLevel(100)
-        with self.raises(s_exc.BadArg):
-            s_common.normLogLevel('BEEP')
-        with self.raises(s_exc.BadArg):
-            s_common.normLogLevel('12')
-        with self.raises(s_exc.BadArg):
-            s_common.normLogLevel({'key': 'newp'})
-
     async def test_merggenr(self):
         async def asyncl(data):
             for item in data:
@@ -445,13 +432,13 @@ class CommonTest(s_t_utils.SynTest):
                 with self.raises(eret):
                     s_common.reqJsonSafeStrict(item)
 
-    def test_sslctx(self):
+    async def test_sslctx(self):
         with self.getTestDir(mirror='certdir') as dirn:
             cadir = s_common.genpath(dirn, 'cas')
             os.makedirs(s_common.genpath(cadir, 'newp'))
-            with self.getLoggerStream('synapse.common', f'Error loading {cadir}/ca.key') as stream:
+            with self.getLoggerStream('synapse.common') as stream:
                 ctx = s_common.getSslCtx(cadir)
-                self.true(stream.wait(10))
+                await stream.expect(f'Error loading {cadir}/ca.key')
             ca_subjects = {cert.get('subject') for cert in ctx.get_ca_certs()}
             self.isin(((('commonName', 'test'),),), ca_subjects)
 
