@@ -102,7 +102,7 @@ class TransportModule(s_module.CoreModule):
                     'doc': 'An individual sea vessel.'}),
 
                 ('transport:sea:mmsi', ('str', {'regex': '[0-9]{9}'}), {
-                    'doc': 'A Maritime Mobile Service Identifier'}),
+                    'doc': 'A Maritime Mobile Service Identifier.'}),
 
                 ('transport:sea:imo', ('str', {'lower': True, 'strip': True, 'replace': ((' ', ''),), 'regex': '^imo[0-9]{7}$'}), {
                     'doc': 'An International Maritime Organization registration number.'}),
@@ -349,7 +349,7 @@ class TransportModule(s_module.CoreModule):
                 )),
                 ('transport:air:port', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'The name of the airport'}),
+                        'doc': 'The name of the airport.'}),
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the IATA airport code is assigned.'}),
                 )),
@@ -462,7 +462,7 @@ class TransportModule(s_module.CoreModule):
                         'doc': 'Deprecated. Please use :phys:length.'}),
 
                     ('beam', ('geo:dist', {}), {
-                        'doc': 'The official overall vessel beam'}),
+                        'doc': 'The official overall vessel beam.'}),
 
                     ('flag', ('iso:3166:cc', {}), {
                         'doc': 'The country the vessel is flagged to.'}),

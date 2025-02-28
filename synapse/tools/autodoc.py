@@ -43,6 +43,9 @@ info_ignores = (
     'stortype',
     'bases',
     'custom',
+    'template',
+    'display',
+    'deprecated',
 )
 
 raw_back_slash_colon = r'\:'
@@ -177,6 +180,12 @@ def processTypes(rst, dochelp, types):
         rst.addLines(doc,
                      f'The ``{name}`` type is derived from the base type: ``{ttyp}``.')
 
+        ifaces = info.pop('interfaces', None)
+        if ifaces:
+            rst.addLines('', 'This type implements the following interfaces:', '')
+            for iface in ifaces:
+                rst.addLines(f' * ``{iface}``')
+
         _ = info.pop('doc', None)
         ex = info.pop('ex', None)
         if ex:
@@ -188,7 +197,7 @@ def processTypes(rst, dochelp, types):
 
         if topt:
             rst.addLines('',
-                         f'The type ``{name}`` has the following options set:',
+                         f'This type has the following options set:',
                          ''
                          )
 
@@ -410,6 +419,9 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
+                    for key in info_ignores:
+                        enfo.pop(key, None)
+
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
                     _edges.append((src, enam, dst, doc))
@@ -446,6 +458,9 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                         src = '*'
                     if dst is None:
                         dst = '*'
+
+                    for key in info_ignores:
+                        enfo.pop(key, None)
 
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
