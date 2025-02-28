@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where interface properties which were overridden by a form specific
-  property were not liftable by the interface property.
-prs: []
-type: bug
-...
