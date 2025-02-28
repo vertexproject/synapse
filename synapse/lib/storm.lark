@@ -437,7 +437,8 @@ _cond: notcond | "(" _condexpr ")"
     | condsubq | arraycond
     | _varvalu | _reqdollarexprs
 
-notcond: "not" _cond
+_NOT: "not"
+notcond: _NOT _cond
 
 hasrelpropcond: relprop | univprop
 relpropcond: relpropvalue _cmpr _valu
@@ -629,7 +630,6 @@ OCTNUMBER.1: /
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
 NULL.2: /null(?=$|[\s\),\]}\|\=])/
 NOTOP.2: /not(?=$|[\s\),\]}\|\=])/
-NOT.2: "not"
 OR.2: "or"
 AND.2: "and"
 
