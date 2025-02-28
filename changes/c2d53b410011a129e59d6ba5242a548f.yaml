@@ -1,0 +1,6 @@
+---
+desc: Fixed a bug where the ``lasterrs`` in cron jobs could be a tuple, which caused
+  issues appending new errors.
+prs: []
+type: bug
+...
