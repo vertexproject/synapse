@@ -95,7 +95,7 @@ class JsonLib(s_stormtypes.Lib):
          'type': {'type': 'function', '_funcname': '_jsonSave',
                   'args': (
                       {'name': 'item', 'type': 'any', 'desc': 'The item to be serialized as a JSON string.', },
-                      {'name': 'indent', 'type': 'int', 'desc': 'Specify a number of spaces to indent with.', 'default': None},
+                      {'name': 'indent', 'type': 'boolean', 'desc': 'Indent serialized data with two spaces.', 'default': False},
                   ),
                   'returns': {'type': 'str', 'desc': 'The JSON serialized object.', }}},
         {'name': 'schema', 'desc': 'Get a JS schema validation object.',
@@ -119,7 +119,7 @@ class JsonLib(s_stormtypes.Lib):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonSave(self, item, indent=None):
-        indent = await s_stormtypes.toint(indent, noneok=True)
+        indent = await s_stormtypes.tobool(indent)
 
         try:
             item = await s_stormtypes.toprim(item)
@@ -127,13 +127,7 @@ class JsonLib(s_stormtypes.Lib):
             mesg = f'Argument is not JSON compatible: {item}'
             raise s_exc.MustBeJsonSafe(mesg=mesg)
 
-        ret = s_json.dumps(item, indent=bool(indent))
-
-        if indent not in (None, 0, 2):
-            spacing = ' ' * indent
-            ret = regex.sub('\n(  )+', lambda m: '\n' + (len(m.group(0)) // 2) * spacing, ret)
-
-        return ret
+        return s_json.dumps(item, indent=indent)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonLoad(self, text):

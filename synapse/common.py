@@ -1213,6 +1213,8 @@ def _patch_tornado_json():
     import synapse.lib.json as s_json
 
     if hasattr(tornado.escape, 'json_encode'):
+        # This exists for a specific reason. See the following URL for explanation:
+        # https://github.com/tornadoweb/tornado/blob/master/tornado/escape.py#L83-L96
         def _tornado_json_encode(value):
             return s_json.dumps(value).replace("</", "<\\/")
 

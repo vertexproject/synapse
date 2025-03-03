@@ -61,63 +61,51 @@ class JsonTest(s_test.SynTest):
 
     async def test_lib_json_dump_surrogates(self):
         inval = {'a': '😀\ud83d\ude47'}
-        outval = '{"a": "\\ud83d\\ude00\\ud83d\\ude47"}'
+        outval = b'{"a": "\\ud83d\\ude00\\ud83d\\ude47"}'
 
         # orjson.dumps fails because of the surrogate pairs
         with self.raises(TypeError):
             orjson.dumps(inval)
 
         # stdlib json.dumps passes because of voodoo magic
-        self.eq(outval, json.dumps(inval))
+        self.eq(outval.decode(), json.dumps(inval))
 
         self.eq(outval, s_json.dumps(inval))
-        self.eq(outval.encode('utf8'), s_json.dumpsb(inval))
+        self.eq(outval + b'\n', s_json.dumps(inval, newline=True))
 
-        buf = io.StringIO()
+        buf = io.BytesIO()
         s_json.dump(inval, buf)
         self.eq(outval, buf.getvalue())
 
-        buf = io.BytesIO()
-        s_json.dumpb(inval, buf)
-        self.eq(outval.encode('utf8'), buf.getvalue())
-
     async def test_lib_json_dumps(self):
-        self.eq('{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
-        self.eq('{"a":"b","c":"d"}', s_json.dumps({'c': 'd', 'a': 'b'}, sort_keys=True))
-        self.eq('{\n  "c": "d",\n  "a": "b"\n}', s_json.dumps({'c': 'd', 'a': 'b'}, indent=True))
-        self.eq(b'{"c":"d","a":"b"}', s_json.dumpsb({'c': 'd', 'a': 'b'}))
-        self.eq('{"c":"d","a":"b"}\n', s_json.dumps({'c': 'd', 'a': 'b'}, newline=True))
+        self.eq(b'{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
+        self.eq(b'{"a":"b","c":"d"}', s_json.dumps({'c': 'd', 'a': 'b'}, sort_keys=True))
+        self.eq(b'{\n  "c": "d",\n  "a": "b"\n}', s_json.dumps({'c': 'd', 'a': 'b'}, indent=True))
+        self.eq(b'{"c":"d","a":"b"}\n', s_json.dumps({'c': 'd', 'a': 'b'}, newline=True))
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({}.items())
-        self.eq(exc.exception.get('mesg'), 'Object of type dict_items is not JSON serializable')
+        self.eq(exc.exception.get('mesg'), 'Type is not JSON serializable: dict_items')
 
-        self.eq('"dict_items([])"', s_json.dumps({}.items(), default=str))
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.dumps({1: 'foo'})
+        self.eq(exc.exception.get('mesg'), 'Dict key must be str')
+
+        self.eq(b'"dict_items([])"', s_json.dumps({}.items(), default=str))
 
     async def test_lib_json_dump(self):
         with self.getTestDir() as dirn:
             binfn = s_common.genpath(dirn, 'bin.json')
-            txtfn = s_common.genpath(dirn, 'txt.json')
 
             with open(binfn, 'wb') as binfp:
-                s_json.dumpb({'c': 'd', 'a': 'b'}, binfp)
+                s_json.dump({'c': 'd', 'a': 'b'}, binfp)
 
             with open(binfn, 'rb') as binfp:
                 self.eq(b'{"c":"d","a":"b"}', binfp.read())
 
-            with open(txtfn, 'w') as txtfp:
-                s_json.dump({'c': 'd', 'a': 'b'}, txtfp)
-
-            with open(txtfn, 'r') as txtfp:
-                self.eq('{"c":"d","a":"b"}', txtfp.read())
-
         buf = io.BytesIO()
-        s_json.dumpb({'c': 'd', 'a': 'b'}, buf)
-        self.eq(b'{"c":"d","a":"b"}', buf.getvalue())
-
-        buf = io.StringIO()
         s_json.dump({'c': 'd', 'a': 'b'}, buf)
-        self.eq('{"c":"d","a":"b"}', buf.getvalue())
+        self.eq(b'{"c":"d","a":"b"}', buf.getvalue())
 
     async def test_jsload(self):
         with self.getTestDir() as dirn:
@@ -157,12 +145,12 @@ class JsonTest(s_test.SynTest):
 
             with self.raises(s_exc.MustBeJsonSafe) as exc:
                 s_json.reqjsonsafe(fp)
-            self.isin('Object of type BufferedReader is not JSON serializable', exc.exception.get('mesg'))
+            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
 
             with self.raises(s_exc.MustBeJsonSafe) as exc:
                 s_json.reqjsonsafe({'foo': fp})
-            self.isin('Object of type BufferedReader is not JSON serializable', exc.exception.get('mesg'))
+            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
 
             with self.raises(s_exc.MustBeJsonSafe) as exc:
                 s_json.reqjsonsafe(['foo', fp])
-            self.isin('Object of type BufferedReader is not JSON serializable', exc.exception.get('mesg'))
+            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))

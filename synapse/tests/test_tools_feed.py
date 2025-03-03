@@ -33,7 +33,7 @@ class FeedTest(s_t_utils.SynTest):
                 with s_common.genfile(jsonlfp) as fd:
                     for i in range(20):
                         pode = (('test:int', i), {})
-                        _ = fd.write(s_json.dumpsb(pode, newline=True))
+                        _ = fd.write(s_json.dumps(pode, newline=True))
 
                 argv = ['--cortex', curl,
                         '--format', 'syn.nodes',
@@ -153,7 +153,7 @@ class FeedTest(s_t_utils.SynTest):
                 jsonfp = s_common.genpath(dirn, 'podes.json')
                 with s_common.genfile(jsonfp) as fd:
                     podes = [(('test:int', ii), {}) for ii in range(20)]
-                    s_json.dumpb(podes, fd)
+                    s_json.dump(podes, fd)
 
                 argv = ['--cortex', curl,
                         '--format', 'syn.nodes',
