@@ -380,6 +380,7 @@ class _Appt:
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
         appt.enabled = val['enabled']
+        appt.lasterrs = list(val.get('lasterrs', []))
 
         return appt
 
@@ -438,8 +439,10 @@ class _Appt:
                 logger.warning('Invalid cron property edit', extra=extra)
                 continue
 
-            else:
-                setattr(self, name, valu)
+            if name == 'lasterrs' and not isinstance(valu, list):
+                valu = list(valu)
+
+            setattr(self, name, valu)
 
         await self.save()
 

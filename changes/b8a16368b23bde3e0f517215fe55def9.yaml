@@ -1,5 +1,0 @@
----
-desc: Updated cron job execution to emit container warnings when the cron job uses ``$lib.warn()``.
-prs: []
-type: feat
-...

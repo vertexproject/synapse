@@ -5039,7 +5039,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''
                 for $i in $lib.range(12) {[ test:str=$i ]}
 
-                batch $lib.true --size 5 {
+                batch $lib.true --size 5 ${
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
                     $lib.print($lib.str.join(',', $vals))

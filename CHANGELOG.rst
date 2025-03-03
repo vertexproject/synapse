@@ -6,6 +6,37 @@
 Synapse Changelog
 *****************
 
+v2.201.0 - 2025-02-28
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_201_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated cron job execution to emit container warnings when the cron job uses
+  ``$lib.warn()``.
+  (`#4152 <https://github.com/vertexproject/synapse/pull/4152>`_)
+- Updated ``synapse.tools.autodoc`` to include the list of interfaces
+  implemented by a type.
+  (`#4158 <https://github.com/vertexproject/synapse/pull/4158>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the ``risk:mitigation:type:taxonomy`` form did not
+  inherit the ``meta:taxonomy`` interface.
+  (`#4156 <https://github.com/vertexproject/synapse/pull/4156>`_)
+- Fixed an issue where interface properties which were overridden by a form
+  specific property were not liftable by the interface property.
+  (`#4161 <https://github.com/vertexproject/synapse/pull/4161>`_)
+- Fixed a bug where the ``lasterrs`` in cron jobs could be a tuple, which
+  caused issues appending new errors.
+  (`#4163 <https://github.com/vertexproject/synapse/pull/4163>`_)
+- Fixed an issue where the Storm ``batch`` command failed to accept
+  ``storm:query`` objects as query arguments.
+  (`#4164 <https://github.com/vertexproject/synapse/pull/4164>`_)
+
 v2.200.0 - 2025-02-21
 =====================
 
