@@ -645,6 +645,10 @@ class Proxy(s_base.Base):
             if self in self._all_proxies:
                 self._all_proxies.remove(self)
 
+            if not self._all_proxies and self._link_task is not None:
+                self._link_task.cancel()
+                self._link_task = None
+
         self._all_proxies.add(self)
 
         self.onfini(fini)
