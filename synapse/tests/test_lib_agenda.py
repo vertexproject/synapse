@@ -1134,7 +1134,7 @@ class AgendaTest(s_t_utils.SynTest):
                 async with self.getTestCore(conf=conf01) as core01:
 
                     with self.getLoggerStream('synapse.storm.log') as stream:
-                        await stream.expect('I AM A ERROR LOG MESSAGE')
+                        await stream.expect('I AM A ERROR LOG MESSAGE', timeout=10)
 
                     cron = await core00.callStorm('return($lib.cron.list())')
                     self.len(1, cron)
