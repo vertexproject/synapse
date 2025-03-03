@@ -1,5 +1,0 @@
----
-desc: Updated ``synapse.tools.autodoc`` to include the list of interfaces implemented by a type.
-prs: []
-type: feat
-...
