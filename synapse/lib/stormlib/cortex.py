@@ -1028,9 +1028,7 @@ class HttpReq(s_stormtypes.StormType):
         if body is not s_stormtypes.undef:
             if not isinstance(body, bytes):
                 body = await s_stormtypes.toprim(body)
-                # FIXME: handle data which has surrogate issues
-                # body = json.dumps(body).encode('utf-8', 'surrogatepass')
-                body = s_json.dumpsb(body)
+                body = s_json.dumps(body)
                 headers['Content-Type'] = 'application/json; charset=utf8"'
                 headers['Content-Length'] = len(body)
 

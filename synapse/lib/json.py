@@ -11,7 +11,7 @@ import synapse.exc as s_exc
 
 logger = logging.getLogger(__name__)
 
-def _fallback_loads(s: str) -> Any:
+def _fallback_loads(s: str | bytes) -> Any:
 
     try:
         return json.loads(s)

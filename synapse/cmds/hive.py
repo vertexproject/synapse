@@ -140,8 +140,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             return
 
         if opts.json:
-            # Save a decode/encode cycle by using dumpsb and then decoding it ourselves
-            rend = s_json.dumpsb(valu, indent=True, sort_keys=True)
+            rend = s_json.dumps(valu, indent=True, sort_keys=True)
             prend = rend.decode()
         elif isinstance(valu, str):
             rend = valu.encode()

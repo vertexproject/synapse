@@ -188,7 +188,7 @@ class StormLibStixTest(s_test.SynTest):
             self.isin('Error validating bundle', resp.get('mesg'))
 
             self.len(14, bund.get('objects'))
-            self.isin(s_stix.SYN_STIX_EXTENSION_ID, s_json.dumps(bund))
+            self.isin(s_stix.SYN_STIX_EXTENSION_ID, s_json.dumps(bund).decode())
             nodes = await core.nodes('yield $lib.stix.lift($bundle)', {'vars': {'bundle': bund}})
             self.len(10, nodes)
 
@@ -217,7 +217,7 @@ class StormLibStixTest(s_test.SynTest):
             self.reqValidStix(bund_noext)
             nodes = await core.nodes('yield $lib.stix.lift($bundle)', {'vars': {'bundle': bund_noext}})
             self.len(0, nodes)
-            self.notin(s_stix.SYN_STIX_EXTENSION_ID, s_json.dumps(bund_noext))
+            self.notin(s_stix.SYN_STIX_EXTENSION_ID, s_json.dumps(bund_noext).decode())
 
             # test some sad paths...
             self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))

@@ -430,7 +430,7 @@ class StormCmd(s_cli.Cmd):
                 if mesg[0] == 'node':
 
                     if nodesfd is not None:
-                        byts = s_json.dumpsb(mesg[1], newline=True)
+                        byts = s_json.dumps(mesg[1], newline=True)
                         nodesfd.write(byts)
 
                 try:
