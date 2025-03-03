@@ -557,7 +557,7 @@ class AhaCell(s_cell.Cell):
             return
 
         path = s_common.genpath(self.dirn, 'cell.guid')
-        if os.path.isfile(path):
+        if os.path.isfile(path): # pragma: no cover
             extra = self.getLogExtra()
             logger.debug('Cloning AHA: cell.guid detected. Skipping.', extra=extra)
             return
@@ -673,7 +673,7 @@ class AhaCell(s_cell.Cell):
             for svcname in poolinfo.get('services'):
 
                 svcitem = await self.jsonstor.getPathObj(('aha', 'svcfull', svcname))
-                if not svcitem:
+                if not svcitem: # pragma: no cover
                     extra = self.getLogExtra(pool=name, service=svcname)
                     logger.warning('Pool includes service which does not exist.', extra=extra)
                     continue

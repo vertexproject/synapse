@@ -1125,14 +1125,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 await self._addStormMacro(mdef)
 
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 extra = self.getLogExtra(name=name)
-                logger.exception(f'Macro migration error. Skipped.', extra=extra)
+                logger.exception('Macro migration error. Skipped.', extra=extra)
 
     def getStormMacro(self, name, user=None):
 
         if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+            raise s_exc.BadArg(mesg='Macro names must be at least 1 character long.')
 
         if len(name) > 491:
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
@@ -2173,10 +2173,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 await self.runStormDmon(iden, ddef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 extra = self.getLogExtra(iden=iden, exc=e)
                 logger.warning('Failed to start Storm dmon.', extra=extra)
 
@@ -2187,10 +2184,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 await self._setStormSvc(sdef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 extra = self.getLogExtra(iden=iden, exc=e)
                 logger.warning('Failed to initialize Storm service.', extra=extra)
 
@@ -2714,10 +2708,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._normStormPkg(pkgdef, validstorm=False)
             self.loadStormPkg(pkgdef)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             name = pkgdef.get('name', '')
             extra = self.getLogExtra(name=name, exc=e)
             logger.exception('Error loading Storm package.', extra=extra)
@@ -3126,9 +3117,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await self.runStormSvcEvent(iden, 'add')
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
-            raise
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             extra = self.getLogExtra(iden=iden)
             logger.exception('Failed to run Storm service add event.', extra=extra)
             return
@@ -3243,7 +3232,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for form, prop, tdef, info in self.extprops.values():
             try:
                 prop = self.model.addFormProp(form, prop, tdef, info)
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 extra = self.getLogExtra(prop=f'{form}:{prop}', exc=e)
                 logger.warning('Extended property definition error.', extra=extra)
             else:
@@ -3254,14 +3243,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for prop, tdef, info in self.extunivs.values():
             try:
                 self.model.addUnivProp(prop, tdef, info)
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 extra = self.getLogExtra(univ=prop, exc=e)
                 logger.warning('Extended universal property definition error.', extra=extra)
 
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
-            except Exception as e:
+            except Exception as e: # pragma: no cover
                 extra = self.getLogExtra(prop=prop, exc=e)
                 logger.warning('Tag property definition error.', extra=extra)
 
@@ -4457,9 +4446,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             else:
                 await self._trySetStormCmd(name, cdef)
 
-        for name in oldcmds:
+        for name in oldcmds: # pragma: no cover
             extra = self.getLogExtra(name=name)
-            logger.warning('Removing old command.', extra=extra)
+            logger.warning('Storm outdated command removed.', extra=extra)
             self.cmddefs.pop(name)
 
         for pkgdef in self.pkgdefs.values():
@@ -4468,7 +4457,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _trySetStormCmd(self, name, cdef):
         try:
             self._setStormCmd(cdef)
-        except (asyncio.CancelledError, Exception) as e:
+        except Exception as e: # pragma: no cover
             extra = self.getLogExtra(name=name, exc=e)
             logger.warning('Storm command load failed.', extra=extra)
 
@@ -5939,7 +5928,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             return proxy
 
-        except s_exc.IsFini:
+        except s_exc.IsFini: # pragma: no cover
             extra = self.getLogExtra(mirror=proxyname)
             logger.warning('Proxy closed waiting for pool mirror nexus offset. (running locally)', extra=extra)
             return None

@@ -4,6 +4,7 @@ import json
 import logging
 import unittest
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -124,6 +125,11 @@ class TestUtils(s_t_utils.SynTest):
         mesgs = stream.read()
         self.isin('StreamEvent Test Message', mesgs)
         self.notin('notthere', mesgs)
+
+        # coverage for the stream sad path...
+        with self.getLoggerStream('synapse.tests.test_utils') as stream:
+            with self.raises(s_exc.SynErr):
+                await stream.expect('newp', timeout=0.0001)
 
     def test_syntest_envars(self):
         os.environ['foo'] = '1'
