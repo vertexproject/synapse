@@ -590,6 +590,9 @@ class Proxy(s_base.Base):
         valu = proxy.getFooValu(x, y)
 
     '''
+    _link_task = None
+    _link_event = asyncio.Event()
+
     async def __anit__(self, link, name):
 
         await s_base.Base.__anit__(self)
@@ -642,6 +645,40 @@ class Proxy(s_base.Base):
 
         self.onfini(fini)
         self.link.onfini(self.fini)
+
+        await self._initLinkLoop()
+
+    @classmethod
+    async def _initLinkLoop(clas):
+
+        if clas._link_task is not None:
+            return
+
+        clas._link_task = s_coro.create_task(clas._linkLoopTask())
+
+    @classmethod
+    async def _linkLoopTask(clas):
+        while True:
+            try:
+                await s_coro.event_wait(clas._link_event, timeout=10)
+
+                for proxy in list(clas._all_proxies):
+
+                    if proxy.isfini:
+                        continue
+
+                    # close one link per proxy per period if the number of
+                    # available links is greater than _links_max...
+                    if len(proxy.links) > proxy._links_max:
+                        link = proxy.links.popleft()
+                        await link.fini()
+                        # mostly to facilitate testing...
+                        await proxy.fire('pool:link:fini', link=link)
+
+                clas._link_event.clear()
+
+            except Exception:  # pragma: no cover
+                logger.exception('synapse.telepath.Proxy.linkLoopTask()')
 
     def _hasTeleFeat(self, name, vers=1):
         return self._features.get(name, 0) >= vers
@@ -769,12 +806,6 @@ class Proxy(s_base.Base):
 
         if link.isfini:
             return
-
-        # If we've exceeded our poolsize, discard the current link.
-        # TODO: make this a gradual step-down...
-        # (perhaps via a single proxy management task for all proxies)
-        if len(self.links) >= self._links_max:
-            return await link.fini()
 
         self.links.append(link)
 
