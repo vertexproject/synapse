@@ -735,7 +735,7 @@ class Proxy(s_base.Base):
 
             # fire a task to replace the link if we are
             # below the low-water mark for link count.
-            if len(self.links) + self._link_add <= self._links_min:
+            if len(self.links) + self._link_add < self._links_min:
                 self._link_add += 1
                 self.schedCoro(self._addPoolLink())
 
