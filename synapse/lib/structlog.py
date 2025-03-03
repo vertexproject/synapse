@@ -37,4 +37,4 @@ class JsonFormatter(logging.Formatter):
         if extras:
             ret.update({k: v for k, v in extras.items() if k not in ret})
 
-        return s_json.dumps(ret, default=str)
+        return s_json.dumps(ret, default=str).decode()

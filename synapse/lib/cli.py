@@ -542,5 +542,5 @@ class CmdLocals(Cmd):
                 ret[k] = v
             else:
                 ret[k] = repr(v)
-        mesg = s_json.dumps(ret, indent=True, sort_keys=True)
+        mesg = s_json.dumps(ret, indent=True, sort_keys=True).decode()
         self.printf(mesg)

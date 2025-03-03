@@ -262,7 +262,7 @@ def processTypes(rst, dochelp, types):
                         rst.addLines(f' * {key}: ``{valu}``')
                         continue
                     lines = [f' * {key}:\n', '  ::\n\n']
-                    json_lines = s_json.dumps(valu, indent=True, sort_keys=True)
+                    json_lines = s_json.dumps(valu, indent=True, sort_keys=True).decode()
                     json_lines = ['   ' + line for line in json_lines.split('\n')]
                     lines.extend(json_lines)
                     lines.append('\n')
@@ -810,7 +810,7 @@ async def docConfdefs(ctor):
                 data = {k: v for k, v in conf.items() if k not in (
                     'description', 'default', 'type', 'hideconf', 'hidecmdl',
                 )}
-                parts = s_json.dumps(data, sort_keys=True, indent=True).split('\n')
+                parts = s_json.dumps(data, sort_keys=True, indent=True).decode().split('\n')
                 lines.append('    ::')
                 lines.append('\n')
                 lines.extend([f'      {p}' for p in parts])

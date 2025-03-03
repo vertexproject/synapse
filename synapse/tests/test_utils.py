@@ -126,7 +126,7 @@ class TestUtils(s_t_utils.SynTest):
         self.notin('notthere', mesgs)
 
         with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
-            thr = logathing(s_json.dumps({'mesg': 'Test Message'}))
+            thr = logathing(s_json.dumps({'mesg': 'Test Message'}).decode())
             self.true(stream.wait(10))
             thr.join()
 

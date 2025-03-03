@@ -13,7 +13,7 @@ import synapse.lib.health as s_health
 import synapse.lib.urlhelp as s_urlhelp
 
 def serialize(ret):
-    return s_json.dumps(ret)
+    return s_json.dumps(ret).decode()
 
 def format_component(e, mesg: str) -> dict:
     d = {

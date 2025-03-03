@@ -118,9 +118,7 @@ Examples:
 
         fmt = self.locs.get('log:fmt')
         if fmt == 'jsonl':
-            s = s_json.dumps(mesg, sort_keys=True, newline=True)
-            buf = s.encode()
-            return buf
+            return s_json.dumps(mesg, sort_keys=True, newline=True)
 
         elif fmt == 'mpk':
             buf = s_msgpack.en(mesg)

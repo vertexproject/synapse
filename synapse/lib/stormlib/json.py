@@ -118,7 +118,7 @@ class JsonLib(s_stormtypes.Lib):
         }
 
     @s_stormtypes.stormfunc(readonly=True)
-    async def _jsonSave(self, item, indent=None):
+    async def _jsonSave(self, item, indent=False):
         indent = await s_stormtypes.tobool(indent)
 
         try:
@@ -127,7 +127,7 @@ class JsonLib(s_stormtypes.Lib):
             mesg = f'Argument is not JSON compatible: {item}'
             raise s_exc.MustBeJsonSafe(mesg=mesg)
 
-        return s_json.dumps(item, indent=indent)
+        return s_json.dumps(item, indent=indent).decode()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _jsonLoad(self, text):

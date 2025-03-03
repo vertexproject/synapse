@@ -57,7 +57,7 @@ async def main(argv, outp=s_output.stdout):
             async for item in tank.slice(opts.offset, opts.size):
 
                 if opts.jsonl:
-                    outp.printf(s_json.dumps(item[1], sort_keys=True))
+                    outp.printf(s_json.dumps(item[1], sort_keys=True).decode())
 
                 elif opts.msgpack:
                     sys.stdout.buffer.write(s_msgpack.en(item[1]))

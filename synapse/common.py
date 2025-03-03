@@ -1216,7 +1216,7 @@ def _patch_tornado_json():
         # This exists for a specific reason. See the following URL for explanation:
         # https://github.com/tornadoweb/tornado/blob/master/tornado/escape.py#L83-L96
         def _tornado_json_encode(value):
-            return s_json.dumps(value).replace("</", "<\\/")
+            return s_json.dumps(value).replace(b'</', b'<\\/').decode()
 
         tornado.escape.json_encode = _tornado_json_encode
 
