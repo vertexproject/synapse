@@ -1,0 +1,7 @@
+---
+desc: Updated the ``indent`` keyword argument of ``$lib.json.save()`` to be a boolean
+  instead of an integer. This API will now indent by two spaces if requested instead
+  of an arbitrary number of spaces.
+prs: []
+type: feat
+...

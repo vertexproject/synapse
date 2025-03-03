@@ -2,8 +2,6 @@ import copy
 import asyncio
 import logging
 
-import regex
-
 import synapse.exc as s_exc
 
 import synapse.lib.coro as s_coro

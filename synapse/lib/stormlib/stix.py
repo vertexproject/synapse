@@ -7,9 +7,7 @@ import regex
 
 import synapse.exc as s_exc
 import synapse.common as s_common
-
 import synapse.lib.coro as s_coro
-import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
@@ -590,7 +588,7 @@ def validateStix(bundle, version='2.1'):
         'mesg': '',
         'result': {},
     }
-    bundle = s_json.loads(s_json.dumps(bundle))
+    bundle = s_msgpack.deepcopy(bundle, use_list=True)
     opts = stix2validator.ValidationOptions(strict=True, version=version)
     try:
         results = stix2validator.validate_parsed_json(bundle, options=opts)
@@ -1173,7 +1171,7 @@ class LibStixExport(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def config(self):
         # make a new mutable config
-        return s_json.loads(s_json.dumps(_DefaultConfig))
+        return s_msgpack.deepcopy(_DefaultConfig, use_list=True)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def bundle(self, config=None):
@@ -1373,7 +1371,7 @@ class StixBundle(s_stormtypes.Prim):
         return stixid
 
     def _initStixItem(self, stixid, stixtype, node):
-        ndef = s_json.loads(s_json.dumps(node.ndef))
+        ndef = s_msgpack.deepcopy(node.ndef, use_list=True)
         retn = {
             'id': stixid,
             'type': stixtype,
