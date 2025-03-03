@@ -1,6 +1,5 @@
 import synapse.exc as s_exc
 
-import synapse.lib.aha as s_aha
 import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.stormlib.cell as s_stormlib_cell
@@ -351,3 +350,25 @@ class StormCellTest(s_test.SynTest):
             self.len(1, await core.nodes('risk:vulnerable -> it:prod:softver +:name=view0', opts={'view': view0}))
             self.len(1, await core.nodes('risk:vulnerable -> it:prod:softver +:name=view1', opts={'view': view1}))
             self.len(1, await core.nodes('risk:vulnerable -> it:host', opts={'view': view2}))
+
+    async def test_stormlib_cell_iterlogs(self):
+        with self.getAsyncLoggerStream('', '') as stream:
+            conf = {'storm:log': True}
+            async with self.getTestCore(conf=conf) as core:
+                msgs = await core.stormlist('$lib.print(hello)')
+                msgs = await core.stormlist('$lib.log.info(hello)')
+                msgs = await core.stormlist('for $mesg in $lib.cell.iterLogs() { $lib.print($mesg) }')
+                self.stormIsInPrint('Executing storm query {$lib.print(hello)} ', msgs)
+                self.stormIsInPrint('Executing storm query {$lib.log.info(hello)}', msgs)
+                self.stormIsInPrint('hello', msgs)
+
+        with self.getStructuredAsyncLoggerStream('', '') as stream:
+            conf = {'storm:log': True}
+            async with self.getTestCore(conf=conf) as core:
+                msgs = await core.stormlist('$lib.print(hello)')
+                msgs = await core.stormlist('$lib.log.info(hello)')
+                msgs = await core.stormlist('for $mesg in $lib.cell.iterLogs() { $lib.print($mesg) }')
+
+                self.stormIsInPrint('"message": "Executing storm query {$lib.print(hello)}', msgs)
+                self.stormIsInPrint('"message": "Executing storm query {$lib.log.info(hello)}', msgs)
+                self.stormIsInPrint('"message": "hello"', msgs)

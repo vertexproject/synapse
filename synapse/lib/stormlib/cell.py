@@ -174,8 +174,27 @@ class CellLib(s_stormtypes.Lib):
                                '(defaults to the Cortex if not provided).'},
                   ),
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing uptime data.', }}},
+        {'name': 'iterLogs', 'desc': 'Iterate over recent service logs.',
+         'type': {'type': 'function', '_funcname': '_methIterLogs',
+                  'args': (
+                      {'name': 'name', 'type': 'str', 'default': None,
+                       # FIXME This may need to accomdate other aha / telepath values
+                       'desc': 'The name, or iden, of the service to get uptime data for '
+                               '(defaults to the Cortex if not provided).'},
+                  ),
+                  # FIXME DISCUSS
+                  #  The real q is do we want the Telepath/Storm API endpoints to yield strings
+                  #  OR do we want to yield struct log messages as dictionaries ?
+                  #  Strings are EASY to grab and capture; grabbing the structlog data is
+                  #  more complicated.
+                  'returns': {'name': 'Yields', 'type': 'str'},
+                  }}
     )
     _storm_lib_path = ('cell',)
+    # FIXME populate
+    # _storm_lib_perms = (
+    #
+    # )
 
     def __init__(self, runt, name=()):
         s_stormtypes.Lib.__init__(self, runt, name=name)
@@ -192,6 +211,7 @@ class CellLib(s_stormtypes.Lib):
             'hotFixesCheck': self._hotFixesCheck,
             'trimNexsLog': self._trimNexsLog,
             'uptime': self._uptime,
+            'iterLogs': self._methIterLogs,
         }
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -339,3 +359,30 @@ class CellLib(s_stormtypes.Lib):
             'starttime': info['cellstarttime'],
             'uptime': info['celluptime'],
         }
+
+    @s_stormtypes.stormfunc(readonly=True)
+    async def _methIterLogs(self, name=None):
+        name = await s_stormtypes.tostr(name, noneok=True)
+
+        # FIXME PERMS DISCUSSION
+        self.runt.confirm(('storm', 'lib', 'cell', 'iterlogs'))
+        # if not self.runt.isAdmin():
+        #     mesg = '$lib.cell.iterLogs() requires admin privs.'
+        #     raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
+
+        if name is None:
+            genr = self.runt.snap.core.iterCellLogs()
+        else:
+            ssvc = self.runt.snap.core.getStormSvc(name)
+            if ssvc is None:
+                # FIXME: FALLBACK to lookup via aha or telepath?
+                # It sure would be nice to have an easy way to reach the logs from ANYTHING
+                # but that may be a later scatter/gather support item.
+                mesg = f'No service with name/iden: {name}'
+                raise s_exc.NoSuchName(mesg=mesg)
+            await ssvc.proxy.waitready()
+            genr = ssvc.proxy.iterCellLogs()
+
+        async for mesg in genr:
+            yield mesg
+            await asyncio.sleep(0)
