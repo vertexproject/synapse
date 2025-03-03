@@ -592,6 +592,7 @@ class Proxy(s_base.Base):
     '''
     _link_task = None
     _link_event = asyncio.Event()
+    _all_proxies = set()
 
     async def __anit__(self, link, name):
 
@@ -619,8 +620,6 @@ class Proxy(s_base.Base):
         self._links_min = 4     # low water mark for the link pool
         self._links_max = 12    # high water mark for the link pool
 
-        # self._link_poolsize = 4
-
         self.synack = None
 
         self.handlers = {
@@ -642,6 +641,11 @@ class Proxy(s_base.Base):
             # fini all the links from a different task to prevent
             # delaying the proxy shutdown...
             s_coro.create_task(self._finiAllLinks())
+
+            if self in self._all_proxies:
+                self._all_proxies.remove(self)
+
+        self._all_proxies.add(self)
 
         self.onfini(fini)
         self.link.onfini(self.fini)
@@ -792,6 +796,8 @@ class Proxy(s_base.Base):
         self.alllinks.append(link)
         async def fini():
             self.alllinks.remove(link)
+            if link in self.links:
+                self.links.remove(link)
 
         link.onfini(fini)
 
@@ -1377,7 +1383,6 @@ class Client(s_base.Base):
         info.update(self._t_opts)
         self._t_proxy = await openinfo(info)
         self._t_methinfo = self._t_proxy.methinfo
-        # self._t_proxy._link_poolsize = self._t_conf.get('link_poolsize', 4)
 
         async def fini():
             if self._t_named_meths:

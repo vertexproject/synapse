@@ -8516,8 +8516,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         stream.seek(0)
                         data = stream.read()
-                        explog = (f'Pool mirror [01.core.synapse] Nexus offset delta too large '
-                                  f'({nexsoffs} > 1), running query locally')
+                        explog = ('Pool mirror [01.core.synapse] is too far out of sync. Skipping.')
                         self.isin(explog, data)
                         self.notin('Offloading Storm query', data)
 
@@ -8575,7 +8574,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Timeout waiting for pool mirror, running query locally', data)
+                    self.isin('Timeout waiting for pool mirror proxy.', data)
+                    self.isin('Pool members exhausted. Running query locally.', data)
 
                     await core01.fini()
 
