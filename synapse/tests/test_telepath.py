@@ -959,7 +959,7 @@ class TeleTest(s_t_utils.SynTest):
             self.len(2, prox.links)
             self.true(prox.links[1] is l0)
 
-            # Grabbing a link will still spin up another since we are below low-watermark
+            # Grabbing a link will still spin up another since we are below low watermark
             genr = await prox.genr()  # type: s_coro.GenrHelp
             self.eq(await genr.genr.__anext__(), 10)
 
@@ -968,7 +968,7 @@ class TeleTest(s_t_utils.SynTest):
             self.eq(await genr.list(), (20, 30))
             self.len(3, prox.links)
 
-            # Fill up pool above low-watermark
+            # Fill up pool above low watermark
             genrs = [await prox.genr() for _ in range(2)]
             [await genr.list() for genr in genrs]
             self.len(5, prox.links)

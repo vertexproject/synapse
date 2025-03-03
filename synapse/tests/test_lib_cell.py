@@ -1817,7 +1817,15 @@ class CellTest(s_t_utils.SynTest):
 
                     with open(bkuppath3, 'wb') as bkup3:
                         async for msg in proxy.iterNewBackupArchive('bkup3', remove=True):
+                            self.true(core.backupstreaming)
                             bkup3.write(msg)
+
+                    async def streamdone():
+                        while core.backupstreaming:
+                            await asyncio.sleep(0)
+
+                    task = core.schedCoro(streamdone())
+                    await asyncio.wait_for(task, 5)
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
                     self.false(os.path.isdir(os.path.join(backdirn, 'bkup3')))
@@ -1829,6 +1837,9 @@ class CellTest(s_t_utils.SynTest):
                     with open(bkuppath4, 'wb') as bkup4:
                         async for msg in proxy.iterNewBackupArchive(remove=True):
                             bkup4.write(msg)
+
+                    task = core.schedCoro(streamdone())
+                    await asyncio.wait_for(task, 5)
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
 
