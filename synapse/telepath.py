@@ -31,6 +31,8 @@ televers = (3, 0)
 
 aha_clients = {}
 
+LINK_CULL_INTERVAL = 10
+
 async def addAhaUrl(url):
     '''
     Add (incref) an aha registry URL.
@@ -646,8 +648,8 @@ class Proxy(s_base.Base):
                 self._all_proxies.remove(self)
 
             if not self._all_proxies and self._link_task is not None:
-                self._link_task.cancel()
-                self._link_task = None
+                self.__class__._link_task.cancel()
+                self.__class__._link_task = None
 
         self._all_proxies.add(self)
 
@@ -668,7 +670,7 @@ class Proxy(s_base.Base):
     async def _linkLoopTask(clas):
         while True:
             try:
-                await s_coro.event_wait(clas._link_event, timeout=10)
+                await s_coro.event_wait(clas._link_event, timeout=LINK_CULL_INTERVAL)
 
                 for proxy in list(clas._all_proxies):
 

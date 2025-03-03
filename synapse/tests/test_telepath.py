@@ -939,7 +939,6 @@ class TeleTest(s_t_utils.SynTest):
 
             # Validate the Proxy behavior then the client override
             prox = await s_telepath.openurl(url)  # type: Foo
-            prox._link_poolsize = 2
 
             # Start with no links
             self.len(0, prox.links)
@@ -996,6 +995,22 @@ class TeleTest(s_t_utils.SynTest):
             for link in list(prox.links):
                 self.true(await link.waitfini(1))
             self.len(0, prox.links)
+
+        with mock.patch('synapse.telepath.LINK_CULL_INTERVAL', 1):
+            async with self.getTestDmon() as dmon:
+                dmon.share('foo', foo)
+                url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+                prox = await s_telepath.openurl(url)
+
+                # Fill up pool above high watermark
+                genrs = [await prox.genr() for _ in range(13)]
+                [await genr.list() for genr in genrs]
+                self.len(13, prox.links)
+
+                wait = prox.waiter(1, 'pool:link:fini')
+                await wait.wait(timeout=5)
+                self.len(12, prox.links)
 
     async def test_link_fini_breaking_tasks(self):
         foo = Foo()

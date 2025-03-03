@@ -130,6 +130,7 @@ class Base:
         self.anitted = True  # For assertion purposes
         self.finievt = None
         self.entered = False
+        self.finidone = False
 
         # hold a weak ref to other bases we should fini if they
         # are still around when we go down...
@@ -431,6 +432,7 @@ class Base:
         self._syn_funcs.clear()
         self._fini_funcs.clear()
 
+        self.finidone = True
         fevt = self.finievt
 
         if fevt is not None:
@@ -469,7 +471,7 @@ class Base:
 
         '''
 
-        if self.isfini:
+        if self.finidone:
             return True
 
         if self.finievt is None:

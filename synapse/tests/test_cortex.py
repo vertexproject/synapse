@@ -8504,6 +8504,26 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.notin('Timeout waiting for pool mirror', data)
                     self.notin('Timeout waiting for query mirror', data)
 
+                    orig = s_telepath.ClientV2.proxy
+                    async def finidproxy(self, timeout=None):
+                        prox = await orig(self, timeout=timeout)
+                        await prox.fini()
+                        return prox
+
+                    with patch('synapse.telepath.ClientV2.proxy', finidproxy):
+                        with self.getLoggerStream('synapse') as stream:
+                            msgs = await alist(core00.storm('inet:asn=0'))
+                            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Proxy for pool mirror [01.core.synapse] was shutdown. Skipping.', data)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration set.', msgs)
+                    await core00.stormpool.waitready(timeout=12)
+
                     core01.nexsroot.nexslog.indx = 0
 
                     with patch('synapse.cortex.MAX_NEXUS_DELTA', 1):
