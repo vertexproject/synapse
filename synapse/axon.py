@@ -1643,7 +1643,7 @@ class Axon(s_cell.Cell):
                     else:
                         valu = field.get('value')
                         if not isinstance(valu, (bytes, str)):
-                            valu = s_json.dumps(valu)
+                            valu = s_json.dumps(valu).decode()
 
                     data.add_field(name,
                                    valu,

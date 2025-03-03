@@ -105,10 +105,12 @@ class StormOutput(s_cmds_cortex.StormCmd):
 
             if isinstance(body, (dict, list)):
                 body = s_json.dumps(body)
+            elif isinstance(body, str):
+                body = body.encode()
 
             info = {
                 'code': resp.get('code', 200),
-                'body': body.encode(),
+                'body': body,
             }
 
         return s_stormhttp.HttpResp(info)
@@ -248,10 +250,12 @@ class StormCliOutput(s_storm.StormCli):
 
             if isinstance(body, (dict, list)):
                 body = s_json.dumps(body)
+            elif isinstance(body, str):
+                body = body.encode()
 
             info = {
                 'code': resp.get('code', 200),
-                'body': body.encode(),
+                'body': body,
             }
 
         return s_stormhttp.HttpResp(info)

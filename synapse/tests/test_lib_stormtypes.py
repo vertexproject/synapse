@@ -1502,7 +1502,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             foo = {'a': 'ohhai'}
-            ghstr = s_json.dumps(foo)
+            ghstr = s_json.dumps(foo).decode()
             valu = s_common.guid()
             n2 = s_common.guid()
 
