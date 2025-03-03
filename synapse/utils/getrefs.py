@@ -16,6 +16,8 @@ import synapse.lib.config as s_config
 
 logger = logging.getLogger(__name__)
 
+BASEDIR = s_data.path('jsonschemas')
+
 def download_refs_handler(uri):
     '''
     This function downloads the JSON schema at the given URI, parses the given
@@ -34,11 +36,11 @@ async def _download_refs_handler(uri):
     except ValueError:
         raise s_exc.BadUrl(mesg=f'Malformed URI: {uri}.') from None
 
-    filename = s_data.path('jsonschemas', parts.hostname, *parts.path.split('/'))
+    filename = s_common.genpath(BASEDIR, parts.hostname, *parts.path.split('/'))
     filepath = pathlib.Path(filename)
 
     # Check for path traversal. Unlikely, but still check
-    if not str(filepath.absolute()).startswith(s_data.path('jsonschemas')):
+    if not str(filepath.absolute()).startswith(BASEDIR):
         raise s_exc.BadArg(mesg=f'Path traversal in schema URL: {uri} ?')
 
     # If we already have the file, return it
