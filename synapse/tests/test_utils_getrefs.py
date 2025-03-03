@@ -38,7 +38,7 @@ class TestUtilsGetrefs(s_utils.SynTest):
         with self.raises(s_exc.BadArg):
             s_getrefs.download_refs_handler('http://raw.githubusercontent.com/../../attack-flow/attack-flow-schema-2.0.0.json')
 
-        with self.getTestDir(copyfrom=s_data.path('jsonschemas')) as dirn:
+        with self.getTestDir(copyfrom=s_getrefs.BASEDIR) as dirn:
 
             filename = pathlib.Path(s_common.genpath(
                 dirn,
@@ -58,8 +58,8 @@ class TestUtilsGetrefs(s_utils.SynTest):
             # Clear the cached validator funcs so the ref handlers in s_getrefs get called
             s_config._JsValidators = {}
 
-            with mock.patch('synapse.utils.getrefs.BASEDIR', dirn):
-                with self.getLoggerStream('synapse.utils.getrefs') as stream:
+            with self.getLoggerStream('synapse.utils.getrefs') as stream:
+                with mock.patch('synapse.utils.getrefs.BASEDIR', dirn):
                     s_getrefs.main(args)
 
             stream.seek(0)
