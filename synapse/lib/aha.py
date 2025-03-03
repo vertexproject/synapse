@@ -123,7 +123,7 @@ class AhaServicesV1(s_httpapi.Handler):
             raise
         except Exception as e:  # pragma: no cover
             extra = self.cell.getLogExtra()
-            logger.exception(f'Error getting Aha services.', extra=extra)
+            logger.exception('Error getting Aha services.', extra=extra)
             return self.sendRestErr(e.__class__.__name__, str(e))
         return self.sendRestRetn(ret)
 
@@ -462,7 +462,7 @@ class EnrollApi:
             raise s_exc.BadArg(mesg=mesg)
 
         extra = self.aha.getLogExtra(username=username, signas=ahanetw)
-        logger.info(f'Signing user CSR.', extra=extra)
+        logger.info('Signing user CSR.', extra=extra)
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -513,7 +513,7 @@ class ProvApi:
             raise s_exc.BadArg(mesg=mesg)
 
         extra = self.aha.getLogExtra(username=username, signas=ahanetw)
-        logger.info(f'Signing user CSR.', extra=extra)
+        logger.info('Signing user CSR.', extra=extra)
 
         pkey, cert = self.aha.certdir.signUserCsr(xcsr, ahanetw, save=False)
         return self.aha.certdir._certToByts(cert)
@@ -548,7 +548,7 @@ class AhaCell(s_cell.Cell):
     # Rename the class and remove these two overrides in 3.0.0
     @classmethod
     def getEnvPrefix(cls):
-        return (f'SYN_AHA', f'SYN_{cls.__name__.upper()}', )
+        return ('SYN_AHA', f'SYN_{cls.__name__.upper()}', )
 
     async def _initCellBoot(self):
 
@@ -563,7 +563,7 @@ class AhaCell(s_cell.Cell):
             return
 
         extra = self.getLogExtra(url=curl)
-        logger.warning(f'Cloning AHA: starting.', extra=extra)
+        logger.warning('Cloning AHA: starting.', extra=extra)
 
         async with await s_telepath.openurl(curl) as proxy:
             clone = await proxy.getCloneDef()
@@ -1019,7 +1019,7 @@ class AhaCell(s_cell.Cell):
                                  host=unfo.get('host'),
                                  port=unfo.get('port'))
 
-        logger.info(f'Adding service.', extra=extra)
+        logger.info('Adding service.', extra=extra)
 
         svcinfo = {
             'name': svcfull,
@@ -1472,7 +1472,7 @@ class AhaCell(s_cell.Cell):
         await self._push('aha:clone:add', clone)
 
         extra = self.getLogExtra(iden=iden, host=host, network=network)
-        logger.info(f'Created clone provisioning info.', extra=extra)
+        logger.info('Created clone provisioning info.', extra=extra)
 
         return self._getProvClientUrl(iden)
 
@@ -1623,7 +1623,7 @@ class AhaCell(s_cell.Cell):
             self.slab.delete(lkey, db='aha:clones')
             cloninfo = s_msgpack.un(byts)
             extra = self.getLogExtra(iden=s_common.ehex(lkey), hostname=cloninfo.get('host'))
-            logger.info(f'Deleted clone enrollment info.', extra=extra)
+            logger.info('Deleted clone enrollment info.', extra=extra)
             await asyncio.sleep(0)
 
     @s_nexus.Pusher.onPushAuto('aha:svc:prov:del')
@@ -1663,8 +1663,8 @@ class AhaCell(s_cell.Cell):
 
         iden = await self._push('aha:enroll:add', userinfo)
 
-        logger.info(f'Created user provisioning for {name} with iden {iden}',
-                     extra=self.getLogExtra(iden=iden, name=name))
+        logger.info('Created user enrollment info.',
+                    extra=self.getLogExtra(iden=iden, name=name))
 
         return self._getProvClientUrl(iden)
 
