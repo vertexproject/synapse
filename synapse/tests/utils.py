@@ -340,10 +340,10 @@ testmodel = {
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
         )}), {'doc': 'A complex comp type.'}),
-        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
-        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
-        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded'}),
-        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes'}),
+        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
+        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
+        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
+        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
 
         ('test:pivtarg', ('str', {}), {}),
         ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
@@ -364,7 +364,7 @@ testmodel = {
             'interfaces': ('file:mime:msoffice',)
         }), {}),
 
-        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
+        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node.'}),
         ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
         ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
     ),
@@ -502,8 +502,8 @@ testmodel = {
         )),
 
         ('test:ro', {}, (
-            ('writeable', ('str', {}), {'doc': 'writeable property'}),
-            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
+            ('writeable', ('str', {}), {'doc': 'writeable property.'}),
+            ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
         )),
 
         ('test:hasiface', {}, ()),
