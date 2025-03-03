@@ -1447,7 +1447,10 @@ class StormTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                await stream.expect('bazfaz requirement')
+
+            logs = stream.jsonlines()
+            self.eq(logs[0]['message'], 'Storm package requirement is unmet.')
+            self.eq(logs[0]['params']['name'], 'bazfaz')
 
             pkgdef = {
                 'name': 'bazfaz',
@@ -1461,7 +1464,11 @@ class StormTest(s_t_utils.SynTest):
 
             with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addStormPkg(pkgdef)
-                await stream.expect('bazfaz optional requirement')
+
+            logs = stream.jsonlines()
+            self.eq(logs[0]['message'], 'Storm package requirement is unmet.')
+            self.eq(logs[0]['params']['name'], 'bazfaz')
+            self.true(logs[0]['params']['require']['optional'])
 
             deps = await core.callStorm('return($lib.pkg.deps($pkgdef))', opts={'vars': {'pkgdef': pkgdef}})
             self.eq({
@@ -2808,11 +2815,22 @@ class StormTest(s_t_utils.SynTest):
                 msgs = await core.stormlist(f'pkg.load --ssl-noverify --raw https://127.0.0.1:{port}/api/v1/pkgtestraw/yep')
                 self.stormIsInPrint('testload @0.3.0', msgs)
 
-            stream.seek(0)
-            buf = stream.read()
-            self.isin("testload onload output: teststring", buf)
-            self.isin("testload onload output: testwarn", buf)
-            self.isin("No var with name: newp", buf)
+            logs = stream.jsonlines()
+            self.eq(logs[0]['level'], 'INFO')
+            self.eq(logs[0]['message'], 'Storm package onload print.')
+            self.eq(logs[0]['params']['mesg'], 'teststring')
+            self.eq(logs[0]['params']['name'], 'testload')
+
+            self.eq(logs[1]['level'], 'WARNING')
+            self.eq(logs[1]['message'], 'Storm package onload warning.')
+            self.eq(logs[1]['params']['mesg'], 'testwarn')
+            self.eq(logs[1]['params']['name'], 'testload')
+
+            self.eq(logs[2]['level'], 'WARNING')
+            self.eq(logs[2]['message'], 'Storm package onload failure.')
+            self.eq(logs[2]['params']['name'], 'testload')
+            self.eq(logs[2]['error']['err'], 'AttributeError')
+
             self.len(1, await core.nodes(f'ps:contact={cont}'))
 
             evnts = await waiter.wait(timeout=4)

@@ -916,7 +916,7 @@ class TeleTest(s_t_utils.SynTest):
 
         with self.getLoggerStream('synapse.telepath', 'onlink: ') as stream:
             async with await s_telepath.open(url1, onlink=badonlink) as targ:
-                await stream.expect('onlink: ')
+                await stream.expect('onlink error')
 
         await dmon0.fini()
         await dmon1.fini()

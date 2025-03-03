@@ -264,10 +264,13 @@ class DataModelTest(s_t_utils.SynTest):
                 await core.addUnivProp('_test', ('test:dep:easy', {}), {})
                 await dstream.expect(mesg)
 
-            mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'
-            with self.getLoggerStream('synapse.cortex') as cstream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
-                await cstream.expect(mesg)
+
+            logs = stream.jsonlines()
+            self.eq(logs[0]['message'], 'Extended property is using a deprecated type which will be removed in 3.0.0.')
+            self.eq(logs[0]['params']['prop'], 'test:str:_depr')
+            self.eq(logs[0]['params']['type'], 'test:dep:easy')
 
             # Deprecated ctor information propagates upward to types and forms
             msgs = await core.stormlist('[test:dep:str=" test" :beep=" boop "]')
@@ -278,9 +281,13 @@ class DataModelTest(s_t_utils.SynTest):
 
             # Restarting the cortex warns again for various items that it loads from the hive
             # with deprecated types in them. This is a coverage test for extended properties.
-            with self.getLoggerStream('synapse.cortex') as cstream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 async with await s_cortex.Cortex.anit(dirn, conf) as core:
-                    await cstream.expect(mesg)
+                    pass
+                logs = stream.jsonlines()
+                self.eq(logs[0]['message'], 'Extended property is using a deprecated type which will be removed in 3.0.0.')
+                self.eq(logs[0]['params']['prop'], 'test:str:_depr')
+                self.eq(logs[0]['params']['type'], 'test:dep:easy')
 
     async def test_datamodel_getmodeldefs(self):
         '''
