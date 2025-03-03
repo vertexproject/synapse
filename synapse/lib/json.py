@@ -158,7 +158,7 @@ def jsload(*paths: str) -> Any:
 
         return load(fd)
 
-def jslines(*paths: list[str]) -> Iterator[bytes]:
+def jslines(*paths: list[str]) -> Iterator[Any]:
     '''
     Deserialize the JSON lines data at *paths.
 
