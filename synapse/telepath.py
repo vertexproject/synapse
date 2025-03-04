@@ -647,32 +647,25 @@ class Proxy(s_base.Base):
             if self in self._all_proxies:
                 self._all_proxies.remove(self)
 
-            if not self._all_proxies and self._link_task is not None:
-                self.__class__._link_task.cancel()
-                self.__class__._link_task = None
+            if not Proxy._all_proxies and Proxy._link_task is not None:
+                Proxy._link_task.cancel()
+                Proxy._link_task = None
 
-        self._all_proxies.add(self)
+        Proxy._all_proxies.add(self)
 
         self.onfini(fini)
         self.link.onfini(self.fini)
 
-        await self._initLinkLoop()
-
-    @classmethod
-    async def _initLinkLoop(clas):
-
-        if clas._link_task is not None:
-            return
-
-        clas._link_task = s_coro.create_task(clas._linkLoopTask())
+        if Proxy._link_task is None:
+            Proxy._link_task = s_coro.create_task(Proxy._linkLoopTask())
 
     @classmethod
     async def _linkLoopTask(clas):
         while True:
             try:
-                await s_coro.event_wait(clas._link_event, timeout=LINK_CULL_INTERVAL)
+                await s_coro.event_wait(Proxy._link_event, timeout=LINK_CULL_INTERVAL)
 
-                for proxy in list(clas._all_proxies):
+                for proxy in list(Proxy._all_proxies):
 
                     if proxy.isfini:
                         continue
@@ -685,7 +678,7 @@ class Proxy(s_base.Base):
                         # mostly to facilitate testing...
                         await proxy.fire('pool:link:fini', link=link)
 
-                clas._link_event.clear()
+                Proxy._link_event.clear()
 
             except Exception:  # pragma: no cover
                 logger.exception('synapse.telepath.Proxy.linkLoopTask()')
