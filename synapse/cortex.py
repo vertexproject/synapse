@@ -5879,7 +5879,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.warning('Storm query mirror pool is empty, running query locally.')
             return None
 
-        for i in range(size):
+        for _ in range(size):
 
             try:
                 timeout = self.stormpoolopts.get('timeout:connection')
