@@ -11,14 +11,12 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.spooled as s_spooled
 
 logger = logging.getLogger(__name__)
 
@@ -137,9 +135,29 @@ class ProtoNode:
 
         if not await self.ctx.snap.hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edges.add(tupl)
+            if len(self.edges) >= 1000:
+                await self.flushEdits()
             return True
 
         return False
+
+    async def flushEdits(self):
+        if (nodeedit := self.getNodeEdit()) is not None:
+            nodecache = {self.buid: self.node}
+            nodes = await self.ctx.snap.applyNodeEdits((nodeedit,), nodecache=nodecache, meta=self.ctx.meta)
+
+            if self.node is None:
+                if nodes and nodes[0].buid == self.buid:
+                    self.node = nodes[0]
+                else:  # pragma: no cover
+                    self.node = await self.ctx.snap.getNodeByBuid(self.buid)
+
+            self.tags.clear()
+            self.props.clear()
+            self.tagprops.clear()
+            self.edges.clear()
+            self.edgedels.clear()
+            self.nodedata.clear()
 
     async def delEdge(self, verb, n2iden):
 
@@ -168,6 +186,8 @@ class ProtoNode:
 
         if await self.ctx.snap.layers[-1].hasNodeEdge(self.buid, verb, s_common.uhex(n2iden)):
             self.edgedels.add(tupl)
+            if len(self.edgedels) >= 1000:
+                await self.flushEdits()
             return True
 
         return False
@@ -318,7 +338,7 @@ class ProtoNode:
 
         if prop.locked:
             mesg = f'Tagprop {name} is locked.'
-            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            return await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=name)
 
         try:
             norm, info = prop.type.norm(valu)
@@ -348,24 +368,24 @@ class ProtoNode:
 
         if prop.locked:
             mesg = f'Prop {prop.full} is locked due to deprecation.'
-            await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
             return False
 
         if isinstance(prop.type, s_types.Array):
             arrayform = self.ctx.snap.core.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
                 return False
 
         if norminfo is None:
             try:
                 valu, norminfo = prop.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                oldm = e.errinfo.get('mesg')
-                e.errinfo['prop'] = prop.name
-                e.errinfo['form'] = prop.form.name
-                e.errinfo['mesg'] = f'Bad prop value {prop.full}={valu!r} : {oldm}'
+                oldm = e.get('mesg')
+                e.update({'prop': prop.name,
+                          'form': prop.form.name,
+                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 if self.ctx.snap.strict:
                     raise e
                 await self.ctx.snap.warn(e)
@@ -375,7 +395,7 @@ class ProtoNode:
             ndefform = self.ctx.snap.core.model.form(valu[0])
             if ndefform.locked:
                 mesg = f'Prop {prop.full} is locked due to deprecation.'
-                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+                await self.ctx.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=prop.full)
                 return False
 
         curv = self.get(prop.name)
@@ -414,7 +434,11 @@ class ProtoNode:
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
+                subprop = self.form.props.get(full)
+                if subprop is not None and not subprop.locked:
+                    if subprop.deprecated:
+                        self.ctx.snap._skipPropDeprWarn(subprop.full)
+
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
@@ -424,10 +448,13 @@ class ProtoNode:
 
         return True
 
-    async def getSetOps(self, name, valu, norminfo=None):
+    async def getSetSubOps(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
-        if prop is None:
+        if prop is None or prop.locked:
             return ()
+
+        if prop.deprecated:
+            self.ctx.snap._skipPropDeprWarn(prop.full)
 
         retn = await self._set(prop, valu, norminfo=norminfo)
         if retn is False:
@@ -445,8 +472,7 @@ class ProtoNode:
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
-                    ops.append(self.getSetOps(full, subvalu))
+                ops.append(self.getSetSubOps(full, subvalu))
 
         propadds = norminfo.get('adds')
         if propadds is not None:
@@ -459,7 +485,8 @@ class SnapEditor:
     '''
     A SnapEditor allows tracking node edits with subs/deps as a transaction.
     '''
-    def __init__(self, snap):
+    def __init__(self, snap, meta=None):
+        self.meta = meta
         self.snap = snap
         self.protonodes = {}
         self.maxnodes = snap.core.maxnodes
@@ -477,6 +504,19 @@ class SnapEditor:
                 nodeedits.append(nodeedit)
         return nodeedits
 
+    async def flushEdits(self):
+        nodecache = {}
+        nodeedits = []
+        for protonode in self.protonodes.values():
+            if (nodeedit := protonode.getNodeEdit()) is not None:
+                nodeedits.append(nodeedit)
+                nodecache[protonode.buid] = protonode.node
+
+        if nodeedits:
+            await self.snap.applyNodeEdits(nodeedits, nodecache=nodecache, meta=self.meta)
+
+        self.protonodes.clear()
+
     async def _addNode(self, form, valu, props=None, norminfo=None):
 
         self.snap.core._checkMaxNodes()
@@ -487,13 +527,13 @@ class SnapEditor:
 
         if form.locked:
             mesg = f'Form {form.full} is locked due to deprecation for valu={valu}.'
-            return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg)
+            return await self.snap._raiseOnStrict(s_exc.IsDeprLocked, mesg, prop=form.full)
 
         if norminfo is None:
             try:
                 valu, norminfo = form.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                e.errinfo['form'] = form.name
+                e.set('form', form.name)
                 if self.snap.strict: raise e
                 await self.snap.warn(f'addNode() BadTypeValu {form.name}={valu} {e}')
                 return None
@@ -553,7 +593,7 @@ class SnapEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSetSubOps(prop, valu))
 
         adds = norminfo.get('adds')
         if adds is not None:
@@ -589,7 +629,7 @@ class SnapEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSetSubOps(prop, valu))
 
             while ops:
                 oset = ops.popleft()
@@ -846,6 +886,10 @@ class Snap(s_base.Base):
         self._warnonce_keys.add(mesg)
         await self.warn(mesg, log, **info)
 
+    def _skipPropDeprWarn(self, name):
+        mesg = f'The property {name} is deprecated or using a deprecated type and will be removed in 3.0.0'
+        self._warnonce_keys.add(mesg)
+
     async def getNodeByBuid(self, buid):
         '''
         Retrieve a node tuple by binary id.
@@ -1059,6 +1103,23 @@ class Snap(s_base.Base):
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
+        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr == '=':
+            if prop.isform:
+                if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
+                    yield node
+                return
+
+            fname = prop.type.name
+            if (form := prop.modl.form(fname)) is None:
+                mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            if (node := await self._getGuidNodeByDict(form, valu)) is None:
+                return
+
+            norm = False
+            valu = node.ndef[1]
+
         if norm:
             cmprvals = prop.type.getStorCmprs(cmpr, valu)
             # an empty return probably means ?= with invalid value
@@ -1186,11 +1247,13 @@ class Snap(s_base.Base):
         if nodes:
             return nodes[0]
 
-    async def applyNodeEdits(self, edits, nodecache=None):
+    async def applyNodeEdits(self, edits, nodecache=None, meta=None):
         '''
         Sends edits to the write layer and evaluates the consequences (triggers, node object updates)
         '''
-        meta = await self.getSnapMeta()
+        if meta is None:
+            meta = await self.getSnapMeta()
+
         saveoff, changes, nodes = await self._applyNodeEdits(edits, meta, nodecache=nodecache)
         return nodes
 
@@ -1395,53 +1458,105 @@ class Snap(s_base.Base):
 
     async def _addGuidNodeByDict(self, form, vals, props=None):
 
-        norms = {}
-        counts = []
-        proplist = []
-
         if props is None:
             props = {}
 
         trycast = vals.pop('$try', False)
         addprops = vals.pop('$props', None)
-        if addprops is not None:
-            props.update(addprops)
 
-        try:
-            for name, valu in list(props.items()):
+        if not vals:
+            mesg = f'No values provided for form {form.full}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        for name, valu in list(props.items()):
+            try:
                 props[name] = form.reqProp(name).type.norm(valu)
+            except s_exc.BadTypeValu as e:
+                mesg = e.get('mesg')
+                e.update({
+                    'prop': name,
+                    'form': form.name,
+                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                })
+                raise e
 
-            for name, valu in vals.items():
+        if addprops is not None:
+            for name, valu in addprops.items():
+                try:
+                    props[name] = form.reqProp(name).type.norm(valu)
+                except s_exc.BadTypeValu as e:
+                    mesg = e.get("mesg")
+                    if not trycast:
+                        e.update({
+                            'prop': name,
+                            'form': form.name,
+                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}'
+                        })
+                        raise e
+                    await self.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
+        norms, proplist = self._normGuidNodeDict(form, vals)
+
+        iden = s_common.guid(proplist)
+        node = await self._getGuidNodeByNorms(form, iden, norms)
+
+        async with self.getEditor() as editor:
+
+            if node is not None:
+                proto = editor.loadNode(node)
+            else:
+                proto = await editor.addNode(form.name, iden)
+                for name, (prop, valu, info) in norms.items():
+                    await proto.set(name, valu, norminfo=info)
+
+            # ensure the non-deconf props are set
+            for name, (valu, info) in props.items():
+                await proto.set(name, valu, norminfo=info)
+
+        return await self.getNodeByBuid(proto.buid)
+
+    def _normGuidNodeDict(self, form, props):
+
+        norms = {}
+        proplist = []
+
+        for name, valu in props.items():
+
+            try:
                 prop = form.reqProp(name)
                 norm, norminfo = prop.type.norm(valu)
 
                 norms[name] = (prop, norm, norminfo)
                 proplist.append((name, norm))
-        except s_exc.BadTypeValu as e:
-            if not trycast: raise
-            mesg = e.errinfo.get('mesg')
-            await self.warn(f'Bad value for prop {name}: {mesg}')
-            return
+            except s_exc.BadTypeValu as e:
+                mesg = e.get('mesg')
+                e.update({
+                    'prop': name,
+                    'form': form.name,
+                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                })
+                raise e
 
         proplist.sort()
 
+        return norms, proplist
+
+    async def _getGuidNodeByDict(self, form, props):
+        norms, proplist = self._normGuidNodeDict(form, props)
+        return await self._getGuidNodeByNorms(form, s_common.guid(proplist), norms)
+
+    async def _getGuidNodeByNorms(self, form, iden, norms):
+
         # check first for an exact match via our same deconf strategy
-        iden = s_common.guid(proplist)
 
         node = await self.getNodeByNdef((form.full, iden))
         if node is not None:
 
             # ensure we still match the property deconf criteria
-            for name, (prop, norm, info) in norms.items():
+            for (prop, norm, info) in norms.values():
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
         # TODO there is an opportunity here to populate
@@ -1450,8 +1565,10 @@ class Snap(s_base.Base):
         # if we lookup a node and it no longer passes the
         # filter...
 
+        counts = []
+
         # no exact match. lets do some counting.
-        for name, (prop, norm, info) in norms.items():
+        for (prop, norm, info) in norms.values():
             count = await self._getPropAltCount(prop, norm)
             counts.append((count, prop, norm))
 
@@ -1467,21 +1584,9 @@ class Snap(s_base.Base):
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
-        async with self.getEditor() as editor:
-            proto = await editor.addNode(form.name, iden)
-            for name, (prop, valu, info) in norms.items():
-                await proto.set(name, valu, norminfo=info)
-            for name, (valu, info) in props.items():
-                await proto.set(name, valu, norminfo=info)
-
-        return await self.getNodeByBuid(proto.buid)
+        return None
 
     async def _getPropAltCount(self, prop, valu):
         count = 0
@@ -1498,7 +1603,8 @@ class Snap(s_base.Base):
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                if valu in node.get(prop.name):
+                arryvalu = node.get(prop.name)
+                if arryvalu is not None and valu in arryvalu:
                     return True
             else:
                 if node.get(prop.name) == valu:

@@ -641,10 +641,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'Semantic Version type.',
                 }),
                 ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
-                    'doc': 'A NIST CPE 2.3 Formatted String',
+                    'doc': 'A NIST CPE 2.3 Formatted String.',
                 }),
                 ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
-                    'doc': 'A NIST CPE 2.2 Formatted String',
+                    'doc': 'A NIST CPE 2.2 Formatted String.',
                 }),
             ),
             'types': (
@@ -652,9 +652,9 @@ class ItModule(s_module.CoreModule):
                 ('it:hostname', ('str', {'strip': True, 'lower': True}), {
                     'doc': 'The name of a host or system.'}),
 
-
                 ('it:host', ('guid', {}), {
-                    'interfaces': ('inet:service:object',),
+                    'interfaces': ('inet:service:object', 'phys:object'),
+                    'template': {'service:base': 'host', 'phys:object': 'physical host'},
                     'doc': 'A GUID that represents a host or system.'}),
 
                 ('it:log:event:type:taxonomy', ('taxonomy', {}), {
@@ -697,7 +697,7 @@ class ItModule(s_module.CoreModule):
                     'ex': 'cve-2012-0158'
                 }),
                 ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
-                    'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
+                    'doc': 'NIST NVD Common Weaknesses Enumeration Specification.',
                     'ex': 'CWE-120',
                 }),
 
@@ -784,6 +784,7 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository'},
                     'doc': 'A version control system instance.',
                 }),
                 ('it:dev:repo:remote', ('guid', {}), {
@@ -791,10 +792,12 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:branch', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository branch'},
                     'doc': 'A branch in a version control system instance.',
                 }),
                 ('it:dev:repo:commit', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository commit'},
                     'doc': 'A commit to a repository.',
                 }),
                 ('it:dev:repo:diff', ('guid', {}), {
@@ -802,18 +805,22 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:dev:repo:issue:label', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository issue label'},
                     'doc': 'A label applied to a repository issue.',
                 }),
                 ('it:dev:repo:issue', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository issue'},
                     'doc': 'An issue raised in a repository.',
                 }),
                 ('it:dev:repo:issue:comment', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository issue comment'},
                     'doc': 'A comment on an issue in a repository.',
                 }),
                 ('it:dev:repo:diff:comment', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'repository diff comment'},
                     'doc': 'A comment on a diff in a repository.',
                 }),
                 ('it:prod:soft', ('guid', {}), {
@@ -849,10 +856,12 @@ class ItModule(s_module.CoreModule):
                 }),
 
                 ('it:os:ios:idfa', ('it:adid', {}), {
-                    'doc': 'An iOS advertising identification string.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:adid.'}),
 
                 ('it:os:android:aaid', ('it:adid', {}), {
-                    'doc': 'An android advertising identification string.'}),
+                    'deprecated': True,
+                    'doc': 'Deprecated. Please use it:adid.'}),
 
                 ('it:os:android:perm', ('str', {}), {
                     'doc': 'An android permission string.'}),
@@ -963,12 +972,12 @@ class ItModule(s_module.CoreModule):
                 }),
                 ('it:exec:pipe', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'A named pipe created by a process at runtime.',
-                }),
+                    'doc': 'A named pipe created by a process at runtime.'}),
+
                 ('it:exec:url', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
-                    'doc': 'An instance of a host requesting a URL.',
-                }),
+                    'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
+
                 ('it:exec:bind', ('guid', {}), {
                     'interfaces': ('it:host:activity',),
                     'doc': 'An instance of a host binding a listening port.',
@@ -1046,6 +1055,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:host:tenancy', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'host tenancy'},
                     'doc': 'A time window where a host was a tenant run by another host.'}),
 
                 ('it:software:image:type:taxonomy', ('taxonomy', {}), {
@@ -1054,6 +1064,7 @@ class ItModule(s_module.CoreModule):
 
                 ('it:software:image', ('guid', {}), {
                     'interfaces': ('inet:service:object',),
+                    'template': {'service:base': 'software image'},
                     'doc': 'The base image used to create a container or OS.'}),
 
                 ('it:storage:mount', ('guid', {}), {
@@ -1241,6 +1252,15 @@ class ItModule(s_module.CoreModule):
                     ('product', ('it:prod:softver', {}), {
                         'doc': 'The software which produced the log entry.'}),
 
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which generated the log event.'}),
+
+                    ('service:instance', ('inet:service:instance', {}), {
+                        'doc': 'The service instance which generated the log event.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which generated the log event.'}),
+
                 )),
                 ('it:domain', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1277,7 +1297,7 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
-                        'doc': 'The username associated with the account',
+                        'doc': 'The username associated with the account.',
                     }),
                     ('contact', ('ps:contact', {}), {
                         'doc': 'Additional contact information associated with this account.',
@@ -1405,6 +1425,36 @@ class ItModule(s_module.CoreModule):
                     ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                         'deprecated': True,
                         'doc': 'Deprecated. Please use risk:vuln:cve:references.'}),
+
+                    ('nist:nvd:source', ('ou:name', {}), {
+                        'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
+
+                    ('nist:nvd:published', ('time', {}), {
+                        'doc': 'The date the vulnerability was first published in the NVD.'}),
+
+                    ('nist:nvd:modified', ('time', {"ismax": True}), {
+                        'doc': 'The date the vulnerability was last modified in the NVD.'}),
+
+                    ('cisa:kev:name', ('str', {}), {
+                        'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:desc', ('str', {}), {
+                        'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:action', ('str', {}), {
+                        'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
+
+                    ('cisa:kev:vendor', ('ou:name', {}), {
+                        'doc': 'The vendor name listed in the CISA KEV database.'}),
+
+                    ('cisa:kev:product', ('it:prod:softname', {}), {
+                        'doc': 'The product name listed in the CISA KEV database.'}),
+
+                    ('cisa:kev:added', ('time', {}), {
+                        'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
+
+                    ('cisa:kev:duedate', ('time', {}), {
+                        'doc': 'The date the action is due according to the CISA KEV database.'}),
 
                 )),
                 ('it:sec:cpe', {}, (
@@ -1927,7 +1977,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The commit that produced this diff.'}),
 
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file after the commit has been applied'}),
+                        'doc': 'The file after the commit has been applied.'}),
 
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the file in the repo that the diff is being applied to.'}),
@@ -2084,7 +2134,12 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:prod:soft:taxonomy', {}, ()),
                 ('it:prod:soft', {}, (
+
+                    ('id', ('str', {'strip': True}), {
+                        'doc': 'An ID for the software.'}),
+
                     ('name', ('it:prod:softname', {}), {
+                        'alts': ('names',),
                         'doc': 'Name of the software.',
                     }),
                     ('type', ('it:prod:soft:taxonomy', {}), {
@@ -2206,6 +2261,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Deprecated. Please use it:prod:softver:name.',
                     }),
                     ('name', ('it:prod:softname', {}), {
+                        'alts': ('names',),
                         'doc': 'Name of the software version.',
                     }),
                     ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
@@ -2216,7 +2272,7 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('cpe', ('it:sec:cpe', {}), {
-                        'doc': 'The NIST CPE 2.3 string specifying this software version',
+                        'doc': 'The NIST CPE 2.3 string specifying this software version.',
                     }),
                     ('cves', ('array', {'type': 'it:sec:cve', 'uniq': True, 'sorted': True}), {
                         'doc': 'A list of CVEs that apply to this software version.',
@@ -2231,29 +2287,34 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Software architecture.',
                     }),
                     ('released', ('time', {}), {
-                        'doc': 'Timestamp for when this version of the software was released.',
-                    }),
+                        'doc': 'Timestamp for when this version of the software was released.'}),
+
                     ('semver', ('it:semver', {}), {
-                        'doc': 'System normalized semantic version number.',
-                    }),
+                        'doc': 'System normalized semantic version number.'}),
+
                     ('semver:major', ('int', {}), {
-                        'doc': 'Version major number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:minor', ('int', {}), {
-                        'doc': 'Version minor number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:patch', ('int', {}), {
-                        'doc': 'Version patch number.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use semver range queries.'}),
+
                     ('semver:pre', ('str', {}), {
-                        'doc': 'Semver prerelease string.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('semver:build', ('str', {}), {
-                        'doc': 'Semver build string.',
-                    }),
+                        'deprecated': True,
+                        'doc': 'Deprecated.'}),
+
                     ('url', ('inet:url', {}), {
-                        'doc': 'URL where a specific version of the software is available from.',
-                    }),
+                        'doc': 'URL where a specific version of the software is available from.'}),
+
                 )),
 
                 ('it:prod:softlib', {}, (
@@ -2330,6 +2391,10 @@ class ItModule(s_module.CoreModule):
                     ('signame', ('it:av:signame', {}), {
                         'doc': 'The name of the signature returned by the scanner.'}),
 
+                    ('categories', ('array', {'sorted': True, 'uniq': True,
+                            'type': 'str', 'typeopts': {'lower': True, 'onespace': True}}), {
+                        'doc': 'A list of categories for the result returned by the scanner.'}),
+
                     ('target:file', ('file:bytes', {}), {
                         'doc': 'The file that was scanned to produce the result.'}),
 
@@ -2355,7 +2420,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set if this result was part of running multiple scanners.'}),
 
                     ('multi:count', ('int', {'min': 0}), {
-                        'doc': 'The total number of scanners which were run by a multi-scanner'}),
+                        'doc': 'The total number of scanners which were run by a multi-scanner.'}),
 
                     ('multi:count:benign', ('int', {'min': 0}), {
                         'doc': 'The number of scanners which returned a benign verdict.'}),
@@ -2531,6 +2596,15 @@ class ItModule(s_module.CoreModule):
 
                     ('synuser', ('syn:user', {}), {
                         'doc': 'The synapse user who executed the query.'}),
+
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which was queried.'}),
+
+                    ('service:instance', ('inet:service:instance', {}), {
+                        'doc': 'The service instance which was queried.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which ran the query.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {

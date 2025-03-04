@@ -318,7 +318,7 @@ class NexusTest(s_t_utils.SynTest):
                     cell01.nexsiden = 'newp'
                     with self.raises(s_exc.NoSuchIden) as cm:
                         await cell01.sync()
-                    self.eq(cm.exception.get('mesg'), 'No Nexus Pusher with iden newp.')
+                    self.eq(cm.exception.get('mesg'), "No Nexus Pusher with iden newp event='sync' args=() kwargs={}")
 
                     self.none(await cell00.nexsroot.nexslog.last())
                     self.none(await cell01.nexsroot.nexslog.last())
@@ -331,7 +331,7 @@ class NexusTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.NoSuchName) as cm:
                         await cell01._push('newp')
-                    self.eq(cm.exception.get('mesg'), 'No Nexus handler for event newp.')
+                    self.eq(cm.exception.get('mesg'), 'No event handler for event newp args=() kwargs={}')
 
                     self.eq(0, (await cell00.nexsroot.nexslog.last())[0])
                     self.eq(0, (await cell01.nexsroot.nexslog.last())[0])
@@ -379,3 +379,25 @@ class NexusTest(s_t_utils.SynTest):
                     self.isin(mesg, data)
 
                 self.true(restarted)
+
+    async def test_pusher_race(self):
+
+        evnt = asyncio.Event()
+
+        async with self.getTestCore() as core:
+            orig = core._nexshands['view:delwithlayer'][0]
+
+            async def holdlock(self, viewiden, layriden, nexsitem, newparent=None):
+                evnt.set()
+                await asyncio.sleep(1)
+                await orig(self, viewiden, layriden, nexsitem, newparent=newparent)
+
+            core._nexshands['view:delwithlayer'] = (holdlock, True)
+
+            forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            core.schedCoro(core.delViewWithLayer(forkiden))
+            await asyncio.wait_for(evnt.wait(), timeout=10)
+
+            with self.raises(s_exc.NoSuchIden):
+                await core.nodes('[ it:dev:str=foo ]', opts={'view': forkiden})

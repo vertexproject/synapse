@@ -704,3 +704,31 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].get('cert'), cert3.ndef[1])
             self.isin('ssl.migration.three', nodes[0].tags)
             self.eq(nodes[0].nodedata, {'foo': None})
+
+    async def test_stormlib_model_migrations_inet_service_message_client(self):
+
+        async with self.getTestCore() as core:
+
+            await core.nodes('''[
+                (inet:service:message=* :client:address=1.2.3.4 :client=2.3.4.5)
+                (inet:service:message=* :client:address=3.4.5.6)
+                (inet:service:message=* :client=4.5.6.7)
+            ]''')
+
+            nodes = await core.nodes('''
+                inet:service:message
+                $lib.model.migration.s.inetServiceMessageClientAddress($node)
+            ''')
+
+            self.len(3, nodes)
+
+            for node in nodes:
+                self.none(node.get('client:address'))
+
+            exp = ['tcp://2.3.4.5', 'tcp://3.4.5.6', 'tcp://4.5.6.7']
+            self.sorteq(exp, [n.get('client') for n in nodes])
+
+            ndata = [n for n in nodes if await n.getData('migration:inet:service:message:client:address')]
+            self.len(1, ndata)
+            self.eq(ndata[0].get('client'), 'tcp://2.3.4.5')
+            self.eq(await ndata[0].getData('migration:inet:service:message:client:address'), 'tcp://1.2.3.4')

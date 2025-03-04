@@ -172,8 +172,12 @@ class FixedCache(s_stormtypes.StormType):
                     await asyncio.sleep(0)
             except s_stormctrl.StormReturn as e:
                 return await s_stormtypes.toprim(e.item)
-            except s_stormctrl.StormCtrlFlow:
-                pass
+            except s_stormctrl.StormCtrlFlow as e:
+                name = e.__class__.__name__
+                if hasattr(e, 'statement'):
+                    name = e.statement
+                exc = s_exc.StormRuntimeError(mesg=f'Storm control flow "{name}" not allowed in cache callbacks.')
+                raise exc from None
 
     async def _reqKey(self, key):
         if s_stormtypes.ismutable(key):

@@ -23,7 +23,15 @@ class SynUser(s_types.Guid):
             if user is not None:
                 return user.iden, {}
 
-        return s_types.Guid._normPyStr(self, text)
+        if text == '*':
+            mesg = f'{self.name} values must be a valid username or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No user named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
     def repr(self, iden):
 
@@ -51,7 +59,15 @@ class SynRole(s_types.Guid):
             if role is not None:
                 return role.iden, {}
 
-        return s_types.Guid._normPyStr(self, text)
+        if text == '*':
+            mesg = f'{self.name} values must be a valid rolename or a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text)
+
+        try:
+            return s_types.Guid._normPyStr(self, text)
+        except s_exc.BadTypeValu:
+            mesg = f'No role named {text} and value is not a guid.'
+            raise s_exc.BadTypeValu(mesg=mesg, name=self.name, valu=text) from None
 
     def repr(self, iden):
 
@@ -83,23 +99,28 @@ class SynModule(s_module.CoreModule):
 
     async def _liftRuntSynCmd(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.core.stormcmds.values
+        def iterStormCmds():
+            for item in self.core.getStormCmds():
+                yield item[1]
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(iterStormCmds, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynCron(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.core.agenda.appts.values
+        def iterAppts():
+            for item in self.core.agenda.list():
+                yield item[1]
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(iterAppts, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynForm(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.model.forms.values
+        def getForms():
+            return list(self.model.forms.values())
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(getForms, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynProp(self, full, valu=None, cmpr=None, view=None):
@@ -111,24 +132,29 @@ class SynModule(s_module.CoreModule):
 
     async def _liftRuntSynType(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.model.types.values
+        def getTypes():
+            return list(self.model.types.values())
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(getTypes, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynTagProp(self, full, valu=None, cmpr=None, view=None):
 
-        genr = self.model.tagprops.values
+        def getTagProps():
+            return list(self.model.tagprops.values())
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        async for node in self._doRuntLift(getTagProps, full, valu, cmpr):
             yield node
 
     async def _liftRuntSynTrigger(self, full, valu=None, cmpr=None, view=None):
 
         view = self.core.getView(iden=view)
-        genr = view.triggers.triggers.values
 
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
+        def iterTriggers():
+            for item in view.triggers.list():
+                yield item[1]
+
+        async for node in self._doRuntLift(iterTriggers, full, valu, cmpr):
             yield node
 
     async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
@@ -331,10 +357,13 @@ class SynModule(s_module.CoreModule):
                     ('svciden', ('guid', {'strip': True}), {
                         'doc': 'Storm service iden which provided the package.'}),
                     ('input', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
                         'doc': 'The list of forms accepted by the command as input.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('output', ('array', {'type': 'syn:form'}), {
+                        'deprecated': True,
                         'doc': 'The list of forms produced by the command as output.', 'uniq': True, 'sorted': True, 'ro': True}),
                     ('nodedata', ('array', {'type': 'syn:nodedata'}), {
+                        'deprecated': True,
                         'doc': 'The list of nodedata that may be added by the command.', 'uniq': True, 'sorted': True, 'ro': True}),
                 )),
             ),

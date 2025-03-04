@@ -82,6 +82,11 @@ class CryptoModule(s_module.CoreModule):
                     'ex': 'btc',
                 }),
                 ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str')), 'sepr': '/'}), {
+
+                    'interfaces': ('econ:pay:instrument',),
+                    'template': {
+                        'instrument': 'crypto currency address'},
+
                     'doc': 'An individual crypto currency address.',
                     'ex': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
                 }),
@@ -364,8 +369,6 @@ class CryptoModule(s_module.CoreModule):
                         'doc': 'The coin specific address identifier.', 'ro': True, }),
                     ('desc', ('str', {}), {
                         'doc': 'A free-form description of the address.'}),
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'Contact information associated with the address.'}),
                 )),
 
                 ('crypto:algorithm', {}, ()),

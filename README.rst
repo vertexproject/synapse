@@ -9,7 +9,7 @@ Learn More About Synapse
 ------------------------
 
 * Visit our website_ to learn more about Synapse. 
-* Watch `Synapse 101`_! 
+* Watch the `Synapse Guided Tour`_!
 
 
 Installation & Documentation
@@ -40,7 +40,7 @@ Connect With Us
 
 .. _website: https://v.vtx.lk/vertex
 
-.. _Synapse 101: https://v.vtx.lk/new-syn101
+.. _Synapse Guided Tour: https://v.vtx.lk/synapse-tour
 
 .. _pypi: https://v.vtx.lk/synapse-pypi
 

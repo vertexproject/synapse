@@ -49,3 +49,41 @@ class DocModelTest(s_tests.SynTest):
             self.eq('V-99', nodes[0].get('id'))
             self.nn(nodes[0].get('policy'))
             self.len(1, await core.nodes('doc:standard -> doc:policy'))
+
+            nodes = await core.nodes('''
+                [ doc:requirement=*
+                    :id=V-99
+                    :priority=low
+                    :optional=(false)
+                    :summary="Some requirement text."
+                    :standard={doc:standard}
+                ]
+            ''')
+            self.eq('V-99', nodes[0].get('id'))
+            self.eq('Some requirement text.', nodes[0].get('summary'))
+            self.eq(20, nodes[0].get('priority'))
+            self.false(nodes[0].get('optional'))
+            self.nn(nodes[0].get('standard'))
+            self.len(1, await core.nodes('doc:requirement -> doc:standard'))
+
+            nodes = await core.nodes('''
+                [ doc:resume=*
+                    :id=V-99
+                    :contact={[ ps:contact=* :name=visi ]}
+                    :summary="Thought leader seeks..."
+                    :workhist={[ ps:workhist=* ]}
+                    :education={[ ps:education=* ]}
+                    :achievements={[ ps:achievement=* ]}
+                ]
+            ''')
+            self.eq('V-99', nodes[0].get('id'))
+            self.eq('Thought leader seeks...', nodes[0].get('summary'))
+            self.nn(nodes[0].get('contact'))
+            self.len(1, nodes[0].get('workhist'))
+            self.len(1, nodes[0].get('education'))
+            self.len(1, nodes[0].get('achievements'))
+
+            self.len(1, await core.nodes('doc:resume :contact -> ps:contact'))
+            self.len(1, await core.nodes('doc:resume :workhist -> ps:workhist'))
+            self.len(1, await core.nodes('doc:resume :education -> ps:education'))
+            self.len(1, await core.nodes('doc:resume :achievements -> ps:achievement'))

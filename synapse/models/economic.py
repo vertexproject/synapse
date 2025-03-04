@@ -23,6 +23,11 @@ class EconModule(s_module.CoreModule):
                     'doc': 'An Issuer Id Number (IIN).'}),
 
                 ('econ:pay:card', ('guid', {}), {
+
+                    'interfaces': ('econ:pay:instrument',),
+                    'template': {
+                        'instrument': 'payment card'},
+
                     'doc': 'A single payment card.'}),
 
                 ('econ:purchase', ('guid', {}), {
@@ -62,15 +67,20 @@ class EconModule(s_module.CoreModule):
                     'doc': 'A financial security which is typically traded on an exchange.'}),
 
                 ('econ:fin:bar', ('guid', {}), {
-                    'doc': 'A sample of the open, close, high, low prices of a security in a specific time window'}),
+                    'doc': 'A sample of the open, close, high, low prices of a security in a specific time window.'}),
 
                 ('econ:fin:tick', ('guid', {}), {
-                    'doc': 'A sample of the price of a security at a single moment in time'}),
+                    'doc': 'A sample of the price of a security at a single moment in time.'}),
 
                 ('econ:bank:account:type:taxonomy', ('taxonomy', {}), {
                     'doc': 'A bank account type taxonomy.'}),
 
                 ('econ:bank:account', ('guid', {}), {
+
+                    'interfaces': ('econ:pay:instrument',),
+                    'template': {
+                        'instrument': 'bank account'},
+
                     'doc': 'A bank account.'}),
 
                 ('econ:bank:balance', ('guid', {}), {
@@ -87,6 +97,25 @@ class EconModule(s_module.CoreModule):
 
                 ('econ:bank:swift:bic', ('str', {'regex': '[A-Z]{6}[A-Z0-9]{5}'}), {
                     'doc': 'A Society for Worldwide Interbank Financial Telecommunication (SWIFT) Business Identifier Code (BIC).'}),
+
+                ('econ:pay:instrument', ('ndef', {'interface': 'econ:pay:instrument'}), {
+                    'doc': 'A node which may act as a payment instrument.'}),
+            ),
+
+            'interfaces': (
+                ('econ:pay:instrument', {
+
+                    'doc': 'An interface for forms which may act as a payment instrument.',
+                    'template': {
+                        'instrument': 'instrument',
+                    },
+
+                    'props': (
+
+                        ('contact', ('ps:contact', {}), {
+                            'doc': 'The primary contact for the {instrument}.'}),
+                    ),
+                }),
             ),
 
             'edges': (
@@ -134,9 +163,6 @@ class EconModule(s_module.CoreModule):
 
                     ('account', ('econ:bank:account', {}), {
                         'doc': 'A bank account associated with the payment card.'}),
-
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact information associated with the payment card.'}),
                 )),
 
                 ('econ:purchase', {}, (
@@ -166,10 +192,10 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The campaign that the purchase was in support of.'}),
 
                     ('price', ('econ:price', {}), {
-                        'doc': 'The econ:price of the purchase'}),
+                        'doc': 'The econ:price of the purchase.'}),
 
                     ('currency', ('econ:currency', {}), {
-                        'doc': 'The econ:price of the purchase'}),
+                        'doc': 'The econ:price of the purchase.'}),
 
                     ('listing', ('biz:listing', {}), {
                         'doc': 'The purchase was made based on the given listing.'}),
@@ -209,17 +235,26 @@ class EconModule(s_module.CoreModule):
                     ('from:cash', ('bool', {}), {
                         'doc': 'Set to true if the payment input was in cash.'}),
 
+                    ('to:instrument', ('econ:pay:instrument', {}), {
+                        'doc': 'The payment instrument which received funds from the payment.'}),
+
+                    ('from:instrument', ('econ:pay:instrument', {}), {
+                        'doc': 'The payment instrument used to make the payment.'}),
+
                     ('from:account', ('econ:bank:account', {}), {
-                        'doc': 'The bank account which made the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :from:instrument.'}),
 
                     ('from:pay:card', ('econ:pay:card', {}), {
-                        'doc': 'The payment card making the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :from:instrument.'}),
 
                     ('from:contract', ('ou:contract', {}), {
                         'doc': 'A contract used as an aggregate payment source.'}),
 
                     ('from:coinaddr', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address making the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :from:instrument.'}),
 
                     ('from:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the entity making the payment.'}),
@@ -228,10 +263,12 @@ class EconModule(s_module.CoreModule):
                         'doc': 'Set to true if the payment output was in cash.'}),
 
                     ('to:account', ('econ:bank:account', {}), {
-                        'doc': 'The bank account which received the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :to:instrument.'}),
 
                     ('to:coinaddr', ('crypto:currency:address', {}), {
-                        'doc': 'The crypto currency address receiving the payment.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use :to:instrument.'}),
 
                     ('to:contact', ('ps:contact', {}), {
                         'doc': 'Contact information for the person/org being paid.'}),
@@ -246,10 +283,10 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The purchase which the payment was paying for.'}),
 
                     ('amount', ('econ:price', {}), {
-                        'doc': 'The amount of money transferred in the payment'}),
+                        'doc': 'The amount of money transferred in the payment.'}),
 
                     ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency of the payment'}),
+                        'doc': 'The currency of the payment.'}),
 
                     ('memo', ('str', {}), {
                         'doc': 'A small note specified by the payer common in financial transactions.'}),
@@ -302,66 +339,66 @@ class EconModule(s_module.CoreModule):
                 ('econ:fin:exchange', {}, (
 
                     ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A simple name for the exchange',
+                        'doc': 'A simple name for the exchange.',
                         'ex': 'nasdaq'}),
 
                     ('org', ('ou:org', {}), {
-                        'doc': 'The organization that operates the exchange'}),
+                        'doc': 'The organization that operates the exchange.'}),
 
                     ('currency', ('econ:currency', {}), {
-                        'doc': 'The currency used for all transactions in the exchange',
+                        'doc': 'The currency used for all transactions in the exchange.',
                         'ex': 'usd'}),
                 )),
 
                 ('econ:fin:security', {}, (
 
                     ('exchange', ('econ:fin:exchange', {}), {
-                        'doc': 'The exchange on which the security is traded'}),
+                        'doc': 'The exchange on which the security is traded.'}),
 
                     ('ticker', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The identifier for this security within the exchange'}),
+                        'doc': 'The identifier for this security within the exchange.'}),
 
                     ('type', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'A user defined type such as stock, bond, option, future, or forex'}),
+                        'doc': 'A user defined type such as stock, bond, option, future, or forex.'}),
 
                     ('price', ('econ:price', {}), {
-                        'doc': 'The last known/available price of the security'}),
+                        'doc': 'The last known/available price of the security.'}),
 
                     ('time', ('time', {}), {
-                        'doc': 'The time of the last know price sample'}),
+                        'doc': 'The time of the last know price sample.'}),
                 )),
 
                 ('econ:fin:tick', {}, (
 
                     ('security', ('econ:fin:security', {}), {
-                        'doc': 'The security measured by the tick'}),
+                        'doc': 'The security measured by the tick.'}),
 
                     ('time', ('time', {}), {
-                        'doc': 'The time the price was sampled'}),
+                        'doc': 'The time the price was sampled.'}),
 
                     ('price', ('econ:price', {}), {
-                        'doc': 'The price of the security at the time'}),
+                        'doc': 'The price of the security at the time.'}),
                 )),
 
                 ('econ:fin:bar', {}, (
 
                     ('security', ('econ:fin:security', {}), {
-                        'doc': 'The security measured by the bar'}),
+                        'doc': 'The security measured by the bar.'}),
 
                     ('ival', ('ival', {}), {
-                        'doc': 'The interval of measurement'}),
+                        'doc': 'The interval of measurement.'}),
 
                     ('price:open', ('econ:price', {}), {
-                        'doc': 'The opening price of the security'}),
+                        'doc': 'The opening price of the security.'}),
 
                     ('price:close', ('econ:price', {}), {
-                        'doc': 'The closing price of the security'}),
+                        'doc': 'The closing price of the security.'}),
 
                     ('price:low', ('econ:price', {}), {
-                        'doc': 'The low price of the security'}),
+                        'doc': 'The low price of the security.'}),
 
                     ('price:high', ('econ:price', {}), {
-                        'doc': 'The high price of the security'}),
+                        'doc': 'The high price of the security.'}),
                 )),
 
                 ('econ:acct:invoice', {}, (
@@ -447,9 +484,6 @@ class EconModule(s_module.CoreModule):
 
                     ('iban', ('econ:bank:iban', {}), {
                         'doc': 'The IBAN for the account.'}),
-
-                    ('contact', ('ps:contact', {}), {
-                        'doc': 'The contact information associated with the bank account.'}),
 
                     ('issuer', ('ou:org', {}), {
                         'doc': 'The bank which issued the account.'}),

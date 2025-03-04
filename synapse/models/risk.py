@@ -88,7 +88,7 @@ class RiskModule(s_module.CoreModule):
                     'doc': 'An instance of an alert which indicates the presence of a risk.',
                 }),
                 ('risk:compromise', ('guid', {}), {
-                    'doc': 'An instance of a compromise and its aggregate impact.',
+                    'doc': 'A compromise and its aggregate impact. The compromise is the result of a successful attack.',
                     'display': {
                         'columns': (
                             {'type': 'prop', 'opts': {'name': 'name'}},
@@ -97,7 +97,7 @@ class RiskModule(s_module.CoreModule):
                     },
                 }),
                 ('risk:mitigation:type:taxonomy', ('taxonomy', {}), {
-                    'interaces': ('taxonomy',),
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of mitigation types.',
                 }),
                 ('risk:mitigation', ('guid', {}), {
@@ -242,8 +242,17 @@ class RiskModule(s_module.CoreModule):
                 (('risk:mitigation', 'uses', 'inet:service:rule'), {
                     'doc': 'The mitigation uses the service rule.'}),
 
+                (('risk:mitigation', 'uses', 'it:prod:softver'), {
+                    'doc': 'The mitigation uses the software version.'}),
+
+                (('risk:mitigation', 'uses', 'it:prod:hardware'), {
+                    'doc': 'The mitigation uses the hardware.'}),
+
                 (('risk:leak', 'leaked', None), {
                     'doc': 'The leak included the disclosure of the target node.'}),
+
+                (('risk:leak', 'enabled', 'risk:leak'), {
+                    'doc': 'The source leak enabled the target leak to occur.'}),
 
                 (('risk:extortion', 'leveraged', None), {
                     'doc': 'The extortion event was based on attacker access to the target node.'}),
@@ -279,6 +288,9 @@ class RiskModule(s_module.CoreModule):
                     ('active', ('ival', {}), {
                         'doc': 'An interval for when the threat cluster is assessed to have been active.'}),
 
+                    ('activity', ('meta:activity', {}), {
+                        'doc': 'The most recently assessed activity level of the threat cluster.'}),
+
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the threat cluster.'}),
 
@@ -298,6 +310,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': "The reporting organization's assessed location of the threat cluster."}),
 
                     ('org:name', ('ou:name', {}), {
+                        'alts': ('org:names',),
                         'ex': 'apt1',
                         'doc': "The reporting organization's name for the threat cluster."}),
 
@@ -371,6 +384,7 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'The authoritative software family for the tool.'}),
 
                     ('soft:name', ('it:prod:softname', {}), {
+                        'alts': ('soft:names',),
                         'doc': 'The reporting organization\'s name for the tool.'}),
 
                     ('soft:names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
@@ -404,10 +418,12 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'A description of the mitigation approach for the vulnerability.'}),
 
                     ('software', ('it:prod:softver', {}), {
-                        'doc': 'A software version which implements a fix for the vulnerability.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:softver.'}),
 
                     ('hardware', ('it:prod:hardware', {}), {
-                        'doc': 'A hardware version which implements a fix for the vulnerability.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use risk:mitigation -(uses)> it:prod:hardware.'}),
 
                     ('reporter', ('ou:org', {}), {
                         'doc': 'The organization reporting on the mitigation.'}),
@@ -427,6 +443,7 @@ class RiskModule(s_module.CoreModule):
                 ('risk:vuln', {}, (
 
                     ('name', ('risk:vulnname', {}), {
+                        'alts': ('names',),
                         'doc': 'A user specified name for the vulnerability.'}),
 
                     ('names', ('array', {'type': 'risk:vulnname', 'sorted': True, 'uniq': True}), {
@@ -475,6 +492,9 @@ class RiskModule(s_module.CoreModule):
                     ('id', ('str', {'strip': True}), {
                         'doc': 'An identifier for the vulnerability.'}),
 
+                    ('tag', ('syn:tag', {}), {
+                        'doc': 'A tag used to annotate the presence or use of the vulnerability.'}),
+
                     ('cve', ('it:sec:cve', {}), {
                         'doc': 'The CVE ID of the vulnerability.'}),
 
@@ -489,34 +509,44 @@ class RiskModule(s_module.CoreModule):
                         'doc': 'An array of documentation URLs provided by the CVE database.'}),
 
                     ('nist:nvd:source', ('ou:name', {}), {
-                        'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:source.'}),
 
                     ('nist:nvd:published', ('time', {}), {
-                        'doc': 'The date the vulnerability was first published in the NVD.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:published.'}),
 
                     ('nist:nvd:modified', ('time', {"ismax": True}), {
-                        'doc': 'The date the vulnerability was last modified in the NVD.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:nist:nvd:modified.'}),
 
                     ('cisa:kev:name', ('str', {}), {
-                        'doc': 'The name of the vulnerability according to the CISA KEV database.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:name.'}),
 
                     ('cisa:kev:desc', ('str', {}), {
-                        'doc': 'The description of the vulnerability according to the CISA KEV database.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:desc.'}),
 
                     ('cisa:kev:action', ('str', {}), {
-                        'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:action.'}),
 
                     ('cisa:kev:vendor', ('ou:name', {}), {
-                        'doc': 'The vendor name listed in the CISA KEV database.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:vendor.'}),
 
                     ('cisa:kev:product', ('it:prod:softname', {}), {
-                        'doc': 'The product name listed in the CISA KEV database.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:product.'}),
 
                     ('cisa:kev:added', ('time', {}), {
-                        'doc': 'The date the vulnerability was added to the CISA KEV database.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:added.'}),
 
                     ('cisa:kev:duedate', ('time', {}), {
-                        'doc': 'The date the action is due according to the CISA KEV database.'}),
+                        'deprecated': True,
+                        'doc': 'Deprecated. Please use it:sec:cve:cisa:kev:duedate.'}),
 
                     ('cvss:v2', ('cvss:v2', {}), {
                         'doc': 'The CVSS v2 vector for the vulnerability.'}),
@@ -709,6 +739,9 @@ class RiskModule(s_module.CoreModule):
                     ('vuln', ('risk:vuln', {}), {
                         'doc': 'The vulnerability that the node is susceptible to.'}),
 
+                    ('technique', ('ou:technique', {}), {
+                        'doc': 'The technique that the node is susceptible to.'}),
+
                     ('period', ('ival', {}), {
                         'doc': 'The time window where the node was vulnerable.'}),
 
@@ -777,6 +810,15 @@ class RiskModule(s_module.CoreModule):
 
                     ('host', ('it:host', {}), {
                         'doc': 'The host which generated the alert.'}),
+
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which generated the alert.'}),
+
+                    ('service:instance', ('inet:service:instance', {}), {
+                        'doc': 'The service instance which generated the alert.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which generated the alert.'}),
                 )),
                 ('risk:compromisetype', {}, ()),
                 ('risk:compromise', {}, (
@@ -1028,6 +1070,9 @@ class RiskModule(s_module.CoreModule):
                     ('leaker', ('ps:contact', {}), {
                         'doc': 'The identity which leaked the information.'}),
 
+                    ('recipient', ('ps:contact', {}), {
+                        'doc': 'The identity which received the leaked information.'}),
+
                     ('type', ('risk:leak:type:taxonomy', {}), {
                         'doc': 'A type taxonomy for the leak.'}),
 
@@ -1074,6 +1119,9 @@ class RiskModule(s_module.CoreModule):
                     ('cause', ('risk:outage:cause:taxonomy', {}), {
                         'ex': 'nature.earthquake',
                         'doc': 'The outage cause type.'}),
+
+                    ('attack', ('risk:attack', {}), {
+                        'doc': 'An attack which caused the outage.'}),
 
                     ('provider', ('ou:org', {}), {
                         'doc': 'The organization which experienced the outage event.'}),

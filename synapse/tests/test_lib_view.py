@@ -547,7 +547,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.nodes('inet:ipv4=0 | delnode')
 
             edits = await core.callStorm('''
-                $nodeedits = $lib.list()
+                $nodeedits = ()
                 for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
                     $nodeedits.extend($edits)
                 }

@@ -515,6 +515,7 @@ class CvssLib(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'calculate', 'desc': 'Calculate the CVSS score values for an input risk:vuln node.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': 'calculate',
                   'args': (
                       {'name': 'node', 'type': 'node',
@@ -527,6 +528,7 @@ class CvssLib(s_stormtypes.Lib):
                   'returns': {'type': 'dict', 'desc': 'A dictionary containing the computed score and subscores.', }
         }},
         {'name': 'calculateFromProps', 'desc': 'Calculate the CVSS score values from a props dict.',
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': 'calculateFromProps',
                   'args': (
                       {'name': 'props', 'type': 'dict',

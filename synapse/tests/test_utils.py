@@ -1,5 +1,6 @@
 import os
 import time
+import json
 import logging
 import unittest
 
@@ -109,13 +110,13 @@ class TestUtils(s_t_utils.SynTest):
     def test_syntest_logstream_event(self):
 
         @s_common.firethread
-        def logathing():
+        def logathing(mesg):
             time.sleep(0.01)
-            logger.error('StreamEvent Test Message')
+            logger.error(mesg)
 
         logger.error('notthere')
         with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
-            thr = logathing()
+            thr = logathing('StreamEvent Test Message')
             self.true(stream.wait(10))
             thr.join()
 
@@ -124,15 +125,33 @@ class TestUtils(s_t_utils.SynTest):
         self.isin('StreamEvent Test Message', mesgs)
         self.notin('notthere', mesgs)
 
+        with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
+            thr = logathing(json.dumps({'mesg': 'Test Message'}))
+            self.true(stream.wait(10))
+            thr.join()
+
+        msgs = stream.jsonlines()
+        self.len(1, msgs)
+        self.eq(msgs[0], {'mesg': 'Test Message'})
+
     def test_syntest_envars(self):
         os.environ['foo'] = '1'
         os.environ['bar'] = '2'
 
-        with self.setTstEnvars(foo=1, bar='joke', baz=1234) as cm:
+        with self.setTstEnvars(foo=1, bar='joke', baz=1234, FOO_THING=1, BAR_THING=0) as cm:
             self.none(cm)
             self.eq(os.environ.get('foo'), '1')
             self.eq(os.environ.get('bar'), 'joke')
             self.eq(os.environ.get('baz'), '1234')
+
+            self.thisEnvMust('FOO_THING', 'baz')
+            self.thisEnvMustNot('BAR_THING', 'NEWP_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMust('MEWP_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMust('BAR_THING')
+            with self.raises(unittest.SkipTest):
+                self.thisEnvMustNot('FOO_THING')
 
         self.eq(os.environ.get('foo'), '1')
         self.eq(os.environ.get('bar'), '2')
@@ -225,24 +244,6 @@ class TestUtils(s_t_utils.SynTest):
             with self.raises(AssertionError):
                 self.stormHasNoWarnErr(msgs)
 
-    async def test_stable_uids(self):
-        with self.withStableUids():
-            guid = s_common.guid()
-            self.eq('000000', guid[:6])
-            guid2 = s_common.guid()
-            self.ne(guid, guid2)
-
-            guid = s_common.guid(42)
-            self.ne('000000', guid[:6])
-
-            buid = s_common.buid()
-            self.eq(b'\00\00\00\00\00\00', buid[:6])
-            buid2 = s_common.buid()
-            self.ne(buid, buid2)
-
-            buid = s_common.buid(42)
-            self.ne(b'\00\00\00\00\00\00', buid[:6])
-
     def test_utils_certdir(self):
         oldcertdirn = s_certdir.getCertDirn()
         oldcertdir = s_certdir.getCertDir()
@@ -278,3 +279,20 @@ class TestUtils(s_t_utils.SynTest):
         # Patch is removed and singleton behavior is restored
         self.true(oldcertdir is s_certdir.getCertDir())
         self.eq(oldcertdirn, s_certdir.getCertDirn())
+
+    async def test_checknode(self):
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('[test:comp=(1, test)]')
+            self.len(1, nodes)
+            self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'test'}))
+            with self.raises(AssertionError):
+                self.checkNode(nodes[0], (('test:comp', (1, 'newp')), {'hehe': 1, 'haha': 'test'}))
+            with self.raises(AssertionError):
+                self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'newp'}))
+            with self.getAsyncLoggerStream('synapse.tests.utils', 'untested properties') as stream:
+                self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1}))
+                self.true(await stream.wait(timeout=12))
+
+            await self.checkNodes(core, [('test:comp', (1, 'test')),])
+            with self.raises(AssertionError):
+                await self.checkNodes(core, [('test:comp', (1, 'newp')),])

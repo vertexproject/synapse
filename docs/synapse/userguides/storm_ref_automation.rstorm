@@ -2,18 +2,18 @@
 
 .. storm-cortex:: default
 
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.file.enrich, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.file.behavior, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=virustotal.commfiles, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.files, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.domain, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.pdns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=alienvault.otx.ip, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=nettools.dns, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=nettools.whois, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=maxmind, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=censys.hosts.enrich, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'virustotal.file.enrich', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'virustotal.file.behavior', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'virustotal.pdns', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'virustotal.commfiles', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'alienvault.otx.files', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'alienvault.otx.domain', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'alienvault.otx.pdns', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'alienvault.otx.ip', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'nettools.dns', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'nettools.whois', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'maxmind', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'censys.hosts.enrich', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
 
 
 .. _storm-ref-automation:
@@ -363,7 +363,7 @@ The output of ``cron.list`` includes the following columns:
 
 You want to create a cron job that will run every hour to download the latest MISP data using the ``misp.sync`` command.
 
-.. storm-pre:: $pkg=$lib.dict(name='docs', version='0.0.1', commands=($lib.dict(name=misp.sync, storm=${} ),)) $lib.print($pkg) $lib.pkg.add($pkg)
+.. storm-pre:: $pkg=({'name': 'docs', 'version': '0.0.1', 'commands': [{'name': 'misp.sync', 'storm': ${}}]}) $lib.print($pkg) $lib.pkg.add($pkg)
 .. storm-pre:: cron.add --hour +1 { misp.sync }
 
 ::

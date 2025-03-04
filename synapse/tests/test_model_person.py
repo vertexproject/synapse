@@ -60,6 +60,9 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('names'), ['billy bob'])
             self.eq(node.get('photo'), file0)
 
+            self.len(1, nodes := await core.nodes('[ ps:person=({"name": "billy bob"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
+
             props = {
                 'dob': '2000',
                 'img': file0,
@@ -147,9 +150,11 @@ class PsModelTest(s_t_utils.SynTest):
                 'id:numbers': (('*', 'asdf'), ('*', 'qwer')),
                 'users': ('visi', 'invisigoth'),
                 'crypto:address': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
+                'langs': (lang00 := s_common.guid(),),
             }
             opts = {'vars': {'valu': con0, 'p': props}}
             q = '''[(ps:contact=$valu
+                    :bio="I am ironman."
                     :org=$p.org :asof=$p.asof :person=$p.person
                     :place=$p.place :place:name=$p."place:name" :name=$p.name
                     :title=$p.title :orgname=$p.orgname :user=$p.user
@@ -165,7 +170,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :birth:place:name=$p."birth:place:name"
                     :death:place=$p."death:place" :death:place:loc=$p."death:place:loc"
                     :death:place:name=$p."death:place:name"
-                    :service:accounts=(*, *)
+                    :service:accounts=(*, *) :langs=$p.langs
                         )]'''
             nodes = await core.nodes(q, opts=opts)
             self.len(1, nodes)
@@ -178,6 +183,7 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(node.get('place'), place)
             self.eq(node.get('place:name'), 'the shire')
             self.eq(node.get('name'), 'tony stark')
+            self.eq(node.get('bio'), 'I am ironman.')
             self.eq(node.get('title'), 'ceo')
             self.eq(node.get('titles'), ('haha', 'hehe'))
             self.eq(node.get('orgname'), 'stark industries, inc')
@@ -210,6 +216,22 @@ class PsModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ps:contact :birth:place -> geo:place'))
             self.len(1, await core.nodes('ps:contact :death:place -> geo:place'))
             self.len(2, await core.nodes('ps:contact :service:accounts -> inet:service:account'))
+
+            opts = {
+                'vars': {
+                    'ctor': {
+                        'email': 'v@vtx.lk',
+                        'id:number': node.get('id:numbers')[0],
+                        'lang': lang00,
+                        'name': 'vi',
+                        'orgname': 'vertex',
+                        'title': 'haha',
+                        'user': 'invisigoth',
+                    },
+                },
+            }
+            self.len(1, nodes := await core.nodes('[ ps:contact=$ctor ]', opts=opts))
+            self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''[
                 ps:achievement=*
@@ -278,12 +300,14 @@ class PsModelTest(s_t_utils.SynTest):
                     :source:host=*
                     :source:file=*
                     :source:acct=(twitter.com, invisig0th)
+                    :source:account=(twitter.com, invisig0th)
             ]''')
             self.len(1, nodes)
             self.len(1, await core.nodes('ps:contactlist -> it:host'))
             self.len(1, await core.nodes('ps:contactlist -> file:bytes'))
             self.len(2, await core.nodes('ps:contactlist -> ps:contact'))
             self.len(1, await core.nodes('ps:contactlist -> inet:web:acct'))
+            self.len(1, await core.nodes('ps:contactlist -> inet:service:account'))
 
             nodes = await core.nodes('''[
                 ps:workhist = *
@@ -345,6 +369,7 @@ class PsModelTest(s_t_utils.SynTest):
                     :econ:currency=usd
                     :econ:net:worth=100
                     :econ:annual:income=1000
+                    :phys:mass=100lbs
                 ]
                 { -> ps:person [ :vitals={ps:vitals} ] }
                 { -> ps:contact [ :vitals={ps:vitals} ] }
@@ -353,6 +378,8 @@ class PsModelTest(s_t_utils.SynTest):
             self.eq(1660521600000, nodes[0].get('asof'))
             self.eq(1828, nodes[0].get('height'))
             self.eq('90718.4', nodes[0].get('weight'))
+
+            self.eq('45359.2', nodes[0].get('phys:mass'))
 
             self.eq('usd', nodes[0].get('econ:currency'))
             self.eq('100', nodes[0].get('econ:net:worth'))

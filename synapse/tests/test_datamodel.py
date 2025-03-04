@@ -2,6 +2,7 @@ import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.module as s_module
+import synapse.lib.schemas as s_schemas
 
 import synapse.cortex as s_cortex
 
@@ -43,6 +44,8 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_basics(self):
         async with self.getTestCore() as core:
+            iface = core.model.ifaces.get('phys:object')
+            self.eq('object', iface['template']['phys:object'])
             core.model.addType('woot:one', 'guid', {}, {
                 'display': {
                     'columns': (
@@ -334,3 +337,39 @@ class DataModelTest(s_t_utils.SynTest):
             self.none(core.model.edge(('meta:rule', 'matches', None)))
 
             core.model.delEdge(('meta:rule', 'matches', None))
+
+    async def test_datamodel_locked_subs(self):
+
+        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
+        async with self.getTestCore(conf=conf) as core:
+
+            msgs = await core.stormlist('[ test:deprsub=bar :range=(1, 5) ]')
+            self.stormHasNoWarnErr(msgs)
+
+            msgs = await core.stormlist('[ test:deprsub2=(foo, (2, 6)) ]')
+            self.stormHasNoWarnErr(msgs)
+
+            nodes = await core.nodes('test:deprsub=bar')
+            self.eq(1, nodes[0].get('range:min'))
+            self.eq(5, nodes[0].get('range:max'))
+
+            nodes = await core.nodes('test:deprsub2=(foo, (2, 6))')
+            self.eq(2, nodes[0].get('range:min'))
+            self.eq(6, nodes[0].get('range:max'))
+
+            await core.setDeprLock('test:deprsub:range:min', True)
+            nodes = await core.nodes('[ test:deprsub=foo :range=(1, 5) ]')
+            self.none(nodes[0].get('range:min'))
+            self.eq(5, nodes[0].get('range:max'))
+
+            await core.nodes('test:deprsub2 | delnode')
+            await core.setDeprLock('test:deprsub2:range:max', True)
+            nodes = await core.nodes('[ test:deprsub2=(foo, (2, 6)) ]')
+            self.none(nodes[0].get('range:max'))
+            self.eq(2, nodes[0].get('range:min'))
+
+    def test_datamodel_schema_basetypes(self):
+        # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
+        # in sync with the default s_datamodel.Datamodel().types
+        basetypes = list(s_datamodel.Model().types)
+        self.eq(s_schemas.datamodel_basetypes, basetypes)

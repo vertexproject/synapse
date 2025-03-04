@@ -62,7 +62,7 @@ import synapse.tools.backup as s_t_backup
 
 logger = logging.getLogger(__name__)
 
-NEXUS_VERSION = (2, 177)
+NEXUS_VERSION = (2, 198)
 
 SLAB_MAP_SIZE = 128 * s_const.mebibyte
 SSLCTX_CACHE_SIZE = 64
@@ -83,6 +83,8 @@ permnames = {
     PERM_ADMIN: 'admin',
 }
 
+feat_aha_callpeers_v1 = ('callpeers', 1)
+
 diskspace = "Insufficient free space on disk."
 
 def adminapi(log=False):
@@ -96,16 +98,16 @@ def adminapi(log=False):
     def decrfunc(func):
 
         @functools.wraps(func)
-        def wrapped(*args, **kwargs):
+        def wrapped(self, *args, **kwargs):
 
-            if args[0].user is not None and not args[0].user.isAdmin():
-                raise s_exc.AuthDeny(mesg='User is not an admin.',
-                                     user=args[0].user.name)
+            if self.user is not None and not self.user.isAdmin():
+                raise s_exc.AuthDeny(mesg=f'User is not an admin [{self.user.name}]',
+                                     user=self.user.iden, username=self.user.name)
             if log:
-                logger.info('Executing [%s] as [%s] with args [%s][%s]',
-                            func.__qualname__, args[0].user.name, args[1:], kwargs)
+                logger.info(f'Executing [{func.__qualname__}] as [{self.user.name}] with args [{args}[{kwargs}]',
+                            extra={'synapse': {'wrapped_func': func.__qualname__}})
 
-            return func(*args, **kwargs)
+            return func(self, *args, **kwargs)
 
         wrapped.__syn_wrapped__ = 'adminapi'
 
@@ -439,6 +441,19 @@ class CellApi(s_base.Base):
     async def kill(self, iden):
         return await self.cell.kill(self.user, iden)
 
+    @adminapi()
+    async def getTasks(self, peers=True, timeout=None):
+        async for task in self.cell.getTasks(peers=peers, timeout=timeout):
+            yield task
+
+    @adminapi()
+    async def getTask(self, iden, peers=True, timeout=None):
+        return await self.cell.getTask(iden, peers=peers, timeout=timeout)
+
+    @adminapi()
+    async def killTask(self, iden, peers=True, timeout=None):
+        return await self.cell.killTask(iden, peers=peers, timeout=timeout)
+
     @adminapi(log=True)
     async def behold(self):
         '''
@@ -462,6 +477,43 @@ class CellApi(s_base.Base):
     @adminapi(log=True)
     async def delRole(self, iden):
         return await self.cell.delRole(iden)
+
+    async def addUserApiKey(self, name, duration=None, useriden=None):
+        if useriden is None:
+            useriden = self.user.iden
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.addUserApiKey(useriden, name, duration=duration)
+
+    async def listUserApiKeys(self, useriden=None):
+        if useriden is None:
+            useriden = self.user.iden
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.listUserApiKeys(useriden)
+
+    async def delUserApiKey(self, iden):
+        apikey = await self.cell.getUserApiKey(iden)
+        if apikey is None:
+            mesg = f'User API key with {iden=} does not exist.'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=iden)
+
+        useriden = apikey.get('user')
+
+        if self.user.iden == useriden:
+            self.user.confirm(('auth', 'self', 'set', 'apikey'), default=True)
+        else:
+            self.user.confirm(('auth', 'user', 'set', 'apikey'))
+
+        return await self.cell.delUserApiKey(iden)
 
     @adminapi()
     async def dyncall(self, iden, todo, gatekeys=()):
@@ -732,8 +784,8 @@ class CellApi(s_base.Base):
         return await self.cell.saveHiveTree(path=path)
 
     @adminapi()
-    async def getNexusChanges(self, offs, tellready=False):
-        async for item in self.cell.getNexusChanges(offs, tellready=tellready):
+    async def getNexusChanges(self, offs, tellready=False, wait=True):
+        async for item in self.cell.getNexusChanges(offs, tellready=tellready, wait=wait):
             yield item
 
     @adminapi()
@@ -1099,6 +1151,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     }
     SYSCTL_CHECK_FREQ = 60.0
 
+    LOGGED_HTTPAPI_HEADERS = ('User-Agent',)
+
     async def __anit__(self, dirn, conf=None, readonly=False, parent=None):
 
         # phase 1
@@ -1130,6 +1184,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.netready = asyncio.Event()
 
         self.conf = self._initCellConf(conf)
+        self.features = {
+            'tellready': 1,
+            'dynmirror': 1,
+            'tasks': 1,
+        }
 
         self.minfree = self.conf.get('limit:disk:free')
         if self.minfree is not None:
@@ -1611,15 +1670,33 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pass
 
     async def setNexsVers(self, vers):
-        if self.nexsvers < NEXUS_VERSION:
-            await self._push('nexs:vers:set', NEXUS_VERSION)
+        if self.nexsvers < vers:
+            await self._push('nexs:vers:set', vers)
 
     @s_nexus.Pusher.onPush('nexs:vers:set')
     async def _setNexsVers(self, vers):
         if vers > self.nexsvers:
-            self.cellvers.set('nexus:version', vers)
+            await self._migrNexsVers(vers)
+            self.cellinfo.set('nexus:version', vers)
             self.nexsvers = vers
             await self.configNexsVers()
+
+    async def _migrNexsVers(self, newvers):
+        if self.nexsvers < (2, 198) and newvers >= (2, 198) and self.conf.get('auth:ctor') is None:
+            # This "migration" will lock all archived users. Once the nexus version is bumped to
+            # >=2.198, then the bottom-half nexus handler for user:info (Auth._setUserInfo()) will
+            # begin rejecting unlock requests for archived users.
+
+            authkv = self.slab.getSafeKeyVal('auth')
+            userkv = authkv.getSubKeyVal('user:info:')
+
+            for iden, info in userkv.items():
+                if info.get('archived') and not info.get('locked'):
+                    info['locked'] = True
+                    userkv.set(iden, info)
+
+            # Clear the auth caches so the changes get picked up by the already running auth subsystem
+            self.auth.clearAuthCache()
 
     async def configNexsVers(self):
         for meth, orig in self.nexspatches:
@@ -2391,8 +2468,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def initServicePassive(self):  # pragma: no cover
         pass
 
-    async def getNexusChanges(self, offs, tellready=False):
-        async for item in self.nexsroot.iter(offs, tellready=tellready):
+    async def getNexusChanges(self, offs, tellready=False, wait=True):
+        async for item in self.nexsroot.iter(offs, tellready=tellready, wait=wait):
             yield item
 
     def _reqBackDirn(self, name):
@@ -2632,18 +2709,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         walkpath(self.backdirn)
         return backups
 
-    async def iterBackupArchive(self, name, user):
-
-        success = False
-        loglevel = logging.WARNING
-
-        path = self._reqBackDirn(name)
-        cellguid = os.path.join(path, 'cell.guid')
-        if not os.path.isfile(cellguid):
-            mesg = 'Specified backup path has no cell.guid file.'
-            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
-
+    async def _streamBackupArchive(self, path, user, name):
         link = s_scope.get('link')
+        if link is None:
+            mesg = 'Link not found in scope. This API must be called via a CellApi.'
+            raise s_exc.SynErr(mesg=mesg)
+
         linkinfo = await link.getSpawnInfo()
         linkinfo['logconf'] = await self._getSpawnLogConf()
 
@@ -2651,42 +2722,42 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ctx = multiprocessing.get_context('spawn')
 
-        proc = None
-        mesg = 'Streaming complete'
-
         def getproc():
             proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
             proc.start()
             return proc
 
+        mesg = 'Streaming complete'
+        proc = await s_coro.executor(getproc)
+        cancelled = False
         try:
-            proc = await s_coro.executor(getproc)
-
             await s_coro.executor(proc.join)
+            self.backlastuploaddt = datetime.datetime.now()
+            logger.debug(f'Backup streaming completed successfully for {name}')
 
-        except (asyncio.CancelledError, Exception) as e:
+        except asyncio.CancelledError:
+            logger.warning('Backup streaming was cancelled.')
+            cancelled = True
+            raise
 
-            # We want to log all exceptions here, an asyncio.CancelledError
-            # could be the result of a remote link terminating due to the
-            # backup stream being completed, prior to this function
-            # finishing.
+        except Exception as e:
             logger.exception('Error during backup streaming.')
-
-            if proc:
-                proc.terminate()
-
             mesg = repr(e)
             raise
 
-        else:
-            success = True
-            loglevel = logging.DEBUG
-            self.backlastuploaddt = datetime.datetime.now()
-
         finally:
-            phrase = 'successfully' if success else 'with failure'
-            logger.log(loglevel, f'iterBackupArchive completed {phrase} for {name}')
-            raise s_exc.DmonSpawn(mesg=mesg)
+            proc.terminate()
+
+            if not cancelled:
+                raise s_exc.DmonSpawn(mesg=mesg)
+
+    async def iterBackupArchive(self, name, user):
+        path = self._reqBackDirn(name)
+        cellguid = os.path.join(path, 'cell.guid')
+        if not os.path.isfile(cellguid):
+            mesg = 'Specified backup path has no cell.guid file.'
+            raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
+        await self._streamBackupArchive(path, user, name)
 
     async def iterNewBackupArchive(self, user, name=None, remove=False):
 
@@ -2697,9 +2768,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if remove:
                 self.backupstreaming = True
 
-            success = False
-            loglevel = logging.WARNING
-
             if name is None:
                 name = time.strftime('%Y%m%d%H%M%S', datetime.datetime.now().timetuple())
 
@@ -2707,10 +2775,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             if os.path.isdir(path):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
-
-            link = s_scope.get('link')
-            linkinfo = await link.getSpawnInfo()
-            linkinfo['logconf'] = await self._getSpawnLogConf()
 
             try:
                 await self.runBackup(name)
@@ -2721,54 +2785,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     logger.debug(f'Removed {path}')
                 raise
 
-            await self.boss.promote('backup:stream', user=user, info={'name': name})
-
-            ctx = multiprocessing.get_context('spawn')
-
-            proc = None
-            mesg = 'Streaming complete'
-
-            def getproc():
-                proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
-                proc.start()
-                return proc
-
-            try:
-                proc = await s_coro.executor(getproc)
-
-                await s_coro.executor(proc.join)
-
-            except (asyncio.CancelledError, Exception) as e:
-
-                # We want to log all exceptions here, an asyncio.CancelledError
-                # could be the result of a remote link terminating due to the
-                # backup stream being completed, prior to this function
-                # finishing.
-                logger.exception('Error during backup streaming.')
-
-                if proc:
-                    proc.terminate()
-
-                mesg = repr(e)
-                raise
-
-            else:
-                success = True
-                loglevel = logging.DEBUG
-                self.backlastuploaddt = datetime.datetime.now()
-
-            finally:
-                if remove:
-                    logger.debug(f'Removing {path}')
-                    await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-                    logger.debug(f'Removed {path}')
-
-                phrase = 'successfully' if success else 'with failure'
-                logger.log(loglevel, f'iterNewBackupArchive completed {phrase} for {name}')
-                raise s_exc.DmonSpawn(mesg=mesg)
+            await self._streamBackupArchive(path, user, name)
 
         finally:
             if remove:
+                logger.debug(f'Removing {path}')
+                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+                logger.debug(f'Removed {path}')
                 self.backupstreaming = False
 
     async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
@@ -3295,6 +3318,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'uri': uri,
                 'remoteip': remote_ip,
                 }
+
+        headers = {}
+
+        for header in self.LOGGED_HTTPAPI_HEADERS:
+            if (valu := handler.request.headers.get(header)) is not None:
+                headers[header.lower()] = valu
+
+        if headers:
+            enfo['headers'] = headers
 
         extra = {'synapse': enfo}
 
@@ -4469,6 +4501,111 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         return retn
 
+    async def getAhaProxy(self, timeout=None, feats=None):
+
+        if self.ahaclient is None:
+            return
+
+        proxy = await self.ahaclient.proxy(timeout=timeout)
+        if proxy is None:
+            logger.warning('AHA client connection failed.')
+            return
+
+        if feats is not None:
+            for name, vers in feats:
+                if not proxy._hasTeleFeat(name, vers):
+                    logger.warning(f'AHA server does not support feature: {name} >= {vers}')
+                    return None
+
+        return proxy
+
+    async def callPeerApi(self, todo, timeout=None):
+        '''
+        Yield responses from our peers via the AHA gather call API.
+        '''
+        proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
+        if proxy is None:
+            return
+
+        async for item in proxy.callAhaPeerApi(self.iden, todo, timeout=timeout, skiprun=self.runid):
+            yield item
+
+    async def callPeerGenr(self, todo, timeout=None):
+        '''
+        Yield responses from invoking a generator via the AHA gather API.
+        '''
+        proxy = await self.getAhaProxy(timeout=timeout, feats=(feat_aha_callpeers_v1,))
+        if proxy is None:
+            return
+
+        async for item in proxy.callAhaPeerGenr(self.iden, todo, timeout=timeout, skiprun=self.runid):
+            yield item
+
+    async def getTasks(self, peers=True, timeout=None):
+
+        for task in self.boss.ps():
+
+            item = task.packv2()
+            item['service'] = self.ahasvcname
+
+            yield item
+
+        if not peers:
+            return
+
+        todo = s_common.todo('getTasks', peers=False)
+        # we can ignore the yielded aha names because we embed it in the task
+        async for (ahasvc, (ok, retn)) in self.callPeerGenr(todo, timeout=timeout):
+
+            if not ok: # pragma: no cover
+                logger.warning(f'getTasks() on {ahasvc} failed: {retn}')
+                continue
+
+            yield retn
+
+    async def getTask(self, iden, peers=True, timeout=None):
+
+        task = self.boss.get(iden)
+        if task is not None:
+            item = task.packv2()
+            item['service'] = self.ahasvcname
+            return item
+
+        if not peers:
+            return
+
+        todo = s_common.todo('getTask', iden, peers=False, timeout=timeout)
+        async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
+
+            if not ok: # pragma: no cover
+                logger.warning(f'getTask() on {ahasvc} failed: {retn}')
+                continue
+
+            if retn is not None:
+                return retn
+
+    async def killTask(self, iden, peers=True, timeout=None):
+
+        task = self.boss.get(iden)
+        if task is not None:
+            await task.kill()
+            return True
+
+        if not peers:
+            return False
+
+        todo = s_common.todo('killTask', iden, peers=False, timeout=timeout)
+        async for ahasvc, (ok, retn) in self.callPeerApi(todo, timeout=timeout):
+
+            if not ok: # pragma: no cover
+                logger.warning(f'killTask() on {ahasvc} failed: {retn}')
+                continue
+
+            if retn:
+                return True
+
+        return False
+
     async def kill(self, user, iden):
         perm = ('task', 'del')
         isallowed = await self.isUserAllowed(user.iden, perm)
@@ -4543,12 +4680,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                     'https': self.https_listeners,
                 }
             },
-            'features': {
-                'tellready': True,
-                'dynmirror': True,
-            },
+            'features': self.features,
         }
         return ret
+
+    async def getTeleFeats(self):
+        return dict(self.features)
 
     async def getSystemInfo(self):
         '''

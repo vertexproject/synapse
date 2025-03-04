@@ -4,6 +4,7 @@ import csv
 import sys
 import base64
 import shutil
+import struct
 import asyncio
 import hashlib
 import logging
@@ -489,6 +490,28 @@ bar baz",vv
             with self.raises(s_exc.BadArg):
                 bytslist = [b async for b in axon.get(sha256, 0, size=0)]
 
+        # test unpack
+        intdata = struct.pack('>QQQ', 1, 2, 3)
+        size, sha256 = await axon.put(intdata)
+        self.eq((1,), await axon.unpack(sha256, '>Q'))
+        self.eq((2,), await axon.unpack(sha256, '>Q', offs=8))
+        self.eq((3,), await axon.unpack(sha256, '>Q', offs=16))
+        self.eq((2, 3), await axon.unpack(sha256, '>QQ', offs=8))
+
+        fmt = 'Q' * 150_000
+        with self.raises(s_exc.BadArg) as cm:
+            await axon.unpack(sha256, '>' + fmt)
+        self.isin('Struct format would read too much data', cm.exception.get('mesg'))
+
+        with self.raises(s_exc.BadArg):
+            await axon.unpack(sha256, 'not a valid format')
+
+        with self.raises(s_exc.BadArg):
+            await axon.unpack(sha256, 123)
+
+        with self.raises(s_exc.BadDataValu):
+            await axon.unpack(sha256, '>Q', offs=24)
+
     async def test_axon_base(self):
         async with self.getTestAxon() as axon:
             self.isin('axon', axon.dmon.shared)
@@ -945,9 +968,15 @@ bar baz",vv
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
 
+                resp = await proxy.wget('http://vertex.link/', proxy=None)
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('mesg', ''))
+
             resp = await proxy.wget('vertex.link')
             self.false(resp.get('ok'))
             self.isin('InvalidUrlClientError: vertex.link', resp.get('mesg', ''))
+
+            await self.asyncraises(s_exc.BadArg, proxy.wget('http://vertex.link', proxy=1.1))
 
     async def test_axon_wput(self):
 
@@ -984,12 +1013,12 @@ bar baz",vv
             self.isinstance(resp.get('err'), tuple)
 
             q = f'''
-            $fields = $lib.list(
-                ({{'name':'file', 'sha256':$sha256, 'filename':'file'}}),
-                ({{'name':'zip_password', 'value':'test'}}),
-                ({{'name':'dict', 'value':({{'foo':'bar'}}) }}),
-                ({{'name':'bytes', 'value':$bytes}})
-            )
+            $fields = ([
+                {{'name':'file', 'sha256':$sha256, 'filename':'file'}},
+                {{'name':'zip_password', 'value':'test'}},
+                {{'name':'dict', 'value':{{'foo':'bar'}} }},
+                {{'name':'bytes', 'value':$bytes}}
+            ])
             $resp = $lib.inet.http.post("https://127.0.0.1:{port}/api/v1/pushfile",
                                         fields=$fields, ssl_verify=(0))
             return($resp)
@@ -1022,6 +1051,10 @@ bar baz",vv
 
             async with axon.getLocalProxy() as proxy:
                 resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False)
+                self.false(resp.get('ok'))
+                self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
+
+                resp = await proxy.postfiles(fields, f'https://127.0.0.1:{port}/api/v1/pushfile', ssl=False, proxy=None)
                 self.false(resp.get('ok'))
                 self.isin('connect to proxy 127.0.0.1:1', resp.get('reason'))
 

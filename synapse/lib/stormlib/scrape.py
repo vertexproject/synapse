@@ -71,7 +71,7 @@ class LibScrape(s_stormtypes.Lib):
                 $form="ps:name"
 
                 function scrape(text, form) {
-                        $ret = $lib.list()
+                        $ret = ()
                         for ($valu, $info) in $lib.scrape.genMatches($text, $re) {
                             $ret.append(($form, $valu, $info))
                         }

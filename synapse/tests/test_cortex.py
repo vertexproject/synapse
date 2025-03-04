@@ -1,11 +1,9 @@
 import os
 import copy
-import json
 import time
 import asyncio
 import hashlib
 import logging
-import textwrap
 
 import regex
 
@@ -16,13 +14,13 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
-import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
+import synapse.lib.storm as s_storm
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
@@ -442,7 +440,7 @@ class CortexTest(s_t_utils.SynTest):
                  'interfaces': ['lookup'],
                  'storm': '''
                      function lookup(tokens) {
-                        $looks = $lib.list()
+                        $looks = ()
                         for $token in $tokens { $looks.append( (inet:fqdn, $token) ) }
                         return($looks)
                      }
@@ -486,7 +484,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(0, mods)
             self.len(0, core.modsbyiface.get('lookup'))
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
 
             mods = await core.getStormIfaces('lookup')
             self.len(1, mods)
@@ -515,7 +513,7 @@ class CortexTest(s_t_utils.SynTest):
             vals = [r async for r in core.view.callStormIface('boom', todo)]
             self.eq((), vals)
 
-            await core._dropStormPkg(pkgdef)
+            core._dropStormPkg(pkgdef)
             self.none(core.modsbyiface.get('lookup'))
 
             mods = await core.getStormIfaces('lookup')
@@ -560,7 +558,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('foo@bar.com foo@bar.com', opts={'mode': 'lookup'})
             self.eq(['inet:email', 'inet:email'], [n.ndef[0] for n in nodes])
 
-            await core.loadStormPkg(pkgdef)
+            core.loadStormPkg(pkgdef)
             self.len(1, await core.getStormIfaces('search'))
 
             todo = s_common.todo('search', ('foo@bar.com',))
@@ -681,7 +679,7 @@ class CortexTest(s_t_utils.SynTest):
             # functions that don't return a generator
             storm = '''
             function x() {
-                $lst = $lib.list()
+                $lst = ()
                 [ ou:org=* ou:org=* +#cat ]
                 $lst.append($node)
                 fini { return($lst) }
@@ -694,7 +692,7 @@ class CortexTest(s_t_utils.SynTest):
 
             storm = '''
             function x() {
-                $lst = $lib.list()
+                $lst = ()
                 [ ou:org=* ou:org=* +#dog ]
                 $lst.append($node)
                 fini { return($lst) }
@@ -976,7 +974,7 @@ class CortexTest(s_t_utils.SynTest):
                 await core.nodes('media:news -(refs)> $(10)')
 
             self.eq(1, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 for $edge in $lib.view.get().getEdges() { $list.append($edge) }
                 return($list.size())
             '''))
@@ -984,7 +982,7 @@ class CortexTest(s_t_utils.SynTest):
             # check that auto-deleting a node's edges works
             await core.nodes('media:news | delnode')
             self.eq(0, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 for $edge in $lib.view.get().getEdges() { $list.append($edge) }
                 return($list.size())
             '''))
@@ -1003,6 +1001,114 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(cm.exception.get('mesg'),
                     'walk operation expected a string or list.  got: 0.')
 
+            await core.nodes('[media:news=*]')
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ +(refs)> $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(1, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ +(refs)> $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:int')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ -(refs)> $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(0, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ -(refs)> $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:int')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ <(refs)+ $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:str')
+            self.len(1, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ <(refs)+ $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:int')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ <(refs)- $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:str')
+            self.len(0, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ <(refs)- $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:int')
+            self.len(0, nodes)
+
+            await core.nodes('[media:news=*]')
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} $edge=refs media:news [ +($edge)> $n ]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} $edge=refs media:news [ -($edge)> $n ]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(0, nodes)
+
     async def test_cortex_callstorm(self):
 
         async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:
@@ -1019,7 +1125,7 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(('1', '2'), retn)
 
                 with self.raises(s_exc.StormRuntimeError):
-                    q = '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'
+                    q = '$foo=() $bar=$foo.index(10) return ( $bar )'
                     await proxy.callStorm(q)
 
                 with self.raises(s_exc.SynErr) as cm:
@@ -1034,6 +1140,26 @@ class CortexTest(s_t_utils.SynTest):
                 self.eq(cm.exception.get('mesg'), 'bar')
                 self.eq(cm.exception.get('hehe'), 'haha')
                 self.eq(cm.exception.get('key'), 1)
+
+                # We convert StormLoopCtrl and StormGenrCtrl into StormRuntimeError
+                opts = {'vars': {'i': 2}}
+                q = 'if ($i = 2) { break }'
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(q, opts=opts)
+                self.eq(cm.exception.get('mesg'),
+                        'Loop control statement "break" used outside of a loop.')
+
+                q = 'if ($i = 2) { continue }'
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(q, opts=opts)
+                self.eq(cm.exception.get('mesg'),
+                        'Loop control statement "continue" used outside of a loop.')
+
+                q = 'if ($i = 2) { stop }'
+                with self.raises(s_exc.StormRuntimeError) as cm:
+                    await core.callStorm(q, opts=opts)
+                self.eq(cm.exception.get('mesg'),
+                        'Generator control statement "stop" used outside of a generator function.')
 
             with self.getAsyncLoggerStream('synapse.lib.view', 'callStorm cancelled') as stream:
                 async with core.getLocalProxy() as proxy:
@@ -1071,7 +1197,7 @@ class CortexTest(s_t_utils.SynTest):
                     self.eq('ok', retn.get('status'))
                     self.eq('asdf', retn['result'])
 
-                body = {'query': '$foo=$lib.list() $bar=$foo.index(10) return ( $bar )'}
+                body = {'query': '$foo=() $bar=$foo.index(10) return ( $bar )'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
@@ -1083,7 +1209,7 @@ class CortexTest(s_t_utils.SynTest):
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormExit', retn.get('code'))
-                    self.eq('', retn.get('mesg'))
+                    self.eq('StormExit: ', retn.get('mesg'))
 
                 # No body
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call') as resp:
@@ -1114,8 +1240,7 @@ class CortexTest(s_t_utils.SynTest):
                 ''')
                 self.true(await stream.wait(6))
 
-            buf = stream.getvalue()
-            mesg = json.loads(buf.split('\n')[0])
+            mesg = stream.jsonlines()[0]
             self.eq(mesg.get('message'), f'Running dmon {iden}')
             self.eq(mesg.get('iden'), iden)
 
@@ -1763,7 +1888,7 @@ class CortexTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
 
-            nodes = await wcore.nodes('$foo=$lib.list("foo", "bar.baz") [test:int=4 +#$foo]')
+            nodes = await wcore.nodes('$foo=(["foo", "bar.baz"]) [test:int=4 +#$foo]')
             self.len(1, nodes)
             self.eq(set(nodes[0].tags.keys()), {'foo', 'bar', 'bar.baz'})
 
@@ -3031,7 +3156,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             depr = [x for x in coreinfo['stormdocs']['libraries'] if x['path'] == ('lib', 'infosec', 'cvss')]
             self.len(1, depr)
-            self.len(2, [x for x in depr[0]['locals'] if x.get('deprecated')])
+            self.len(4, [x for x in depr[0]['locals'] if x.get('deprecated')])
 
     async def test_cortex_model_dict(self):
 
@@ -3089,6 +3214,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.nn(model['univs'].get('.created'))
             self.nn(model['univs'].get('.seen'))
+
+            self.true(model['types']['edge']['info'].get('deprecated'))
+            self.true(model['types']['timeedge']['info'].get('deprecated'))
 
     async def test_storm_graph(self):
 
@@ -3365,8 +3493,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await alist(core.storm('help foo', opts={'show': ('init', 'fini', 'print',)}))
                 self.true(await stream.wait(4))
 
-            buf = stream.getvalue()
-            mesg = json.loads(buf.split('\n')[0])
+            mesg = stream.jsonlines()[0]
             self.eq(mesg.get('view'), view)
 
     async def test_strict(self):
@@ -3502,6 +3629,97 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:ipv4')
             for node in nodes:
                 self.nn(node.getTag('hehe'))
+
+            # Break and Continue cannot cross function boundaries and will instead raise a catchable StormRuntimeError
+            keywords = ('break', 'continue')
+            base_func_q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    KEYWORD
+                }
+                return ( $v )
+            }
+            $N = (5)
+
+            for $valu in $lib.range($N) {
+                $lib.print(`{$inner($valu)}/{$N}`)
+            }
+            '''
+            func_catch_q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    KEYWORD
+                }
+                return ( $v )
+            }
+            $N = (5)
+            try {
+                for $valu in $lib.range($N) {
+                    $lib.print(`{$inner($valu)}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            for keyword in keywords:
+                q = base_func_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'function inner - Loop control statement "{keyword}" used outside of a loop.',
+                                  msgs)
+
+                q = func_catch_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInPrint(f'function inner - Loop control statement "{keyword}" used outside of a loop.',
+                                    msgs)
+
+            # The toplevel use of the keywords will convert them into StormRuntimeError in the message stream
+            # but prevent them from being caught.
+            base_top_q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) { break }
+                $lib.print(`{$j}/{$N}`)
+            }
+            if ($j = 2) {
+                KEYWORD
+            }
+            '''
+            top_catch_q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) { break }
+                $lib.print(`{$j}/{$N}`)
+            }
+            try {
+                if ($j = 2) {
+                    KEYWORD
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            for keyword in keywords:
+                q = base_top_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'Loop control statement "{keyword}" used outside of a loop.',
+                                  msgs)
+                errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+                self.eq(errname, 'StormRuntimeError')
+
+                q = top_catch_q.replace('KEYWORD', keyword)
+                msgs = await core.stormlist(q)
+                self.stormIsInPrint('1/5', msgs)
+                self.stormNotInPrint('2/5', msgs)
+                self.stormIsInErr(f'Loop control statement "{keyword}" used outside of a loop.',
+                                    msgs)
+                errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+                self.eq(errname, 'StormRuntimeError')
 
     async def test_storm_varcall(self):
 
@@ -4027,6 +4245,58 @@ class CortexBasicTest(s_t_utils.SynTest):
                 gdef = await core.callStorm('return($lib.graph.add(({"name": "def", "permissions": {"default": 0}})))')
                 self.eq(0, gdef['permissions']['default'])
 
+    async def test_graph_projection_query_validation(self):
+        async with self.getTestCore() as core:
+            valid = {
+                'name': 'valid',
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': ['<- *'],
+                        'filters': []
+                    }
+                }
+            }
+
+            self.nn(await core.addStormGraph(valid))
+
+            bad_form_pivot = {
+                'name': 'bad form pivot',
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': ['<- * |||'],
+                        'filters': []
+                    }
+                }
+            }
+
+            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_form_pivot))
+
+            bad_form_filter = {
+                'name': 'bad form filter',
+                'forms': {
+                    'inet:fqdn': {
+                        'pivots': [],
+                        'filters': ['+++:wat']
+                    }
+                }
+            }
+
+            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_form_filter))
+
+            bad_global_filter = {
+                'name': 'bad global filter',
+                'filters': ['+++:wat']
+            }
+
+            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_global_filter))
+
+            bad_global_pivot = {
+                'name': 'bad global pivot',
+                'pivots': ['-> * |||']
+            }
+
+            await self.asyncraises(s_exc.BadSyntax, core.addStormGraph(bad_global_pivot))
+
     async def test_storm_two_level_assignment(self):
         async with self.getTestCore() as core:
             q = '$foo=baz $bar=$foo [test:str=$bar]'
@@ -4358,12 +4628,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             self.len(2, await core.nodes('[ inet:dns:a=(vertex.link,1.2.3.4) inet:dns:a=(woot.com,5.6.7.8)]'))
             self.len(4, await core.nodes('inet:dns:a inet:fqdn=:fqdn'))
-
-    async def test_cortex_hive(self):
-        async with self.getTestCore() as core:
-            await core.hive.set(('visi',), 200)
-            async with core.getLocalProxy(share='cortex/hive') as hive:
-                self.eq(200, await hive.get(('visi',)))
 
     async def test_cortex_delnode_perms(self):
 
@@ -5071,6 +5335,14 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.eq(('inet:fqdn', 'nest.com'), nodes[0].ndef)
             self.eq(('inet:fqdn', 'nest.com'), nodes[1].ndef)
 
+            with self.raises(s_exc.StormRuntimeError) as err:
+                await core.nodes('[ it:dev:int=1 ] for $n in $node.value() { }')
+            self.isin("'int' object is not iterable: 1", err.exception.errinfo.get('mesg'))
+
+            with self.raises(s_exc.StormRuntimeError) as err:
+                await core.nodes('for $n in { .created return($node) } { }')
+            self.isin("'node' object is not iterable", err.exception.errinfo.get('mesg'))
+
     async def test_storm_whileloop(self):
 
         async with self.getTestCore() as core:
@@ -5412,7 +5684,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
     async def test_storm_order(self):
-        q = '''[test:str=foo :hehe=bar] $tvar=$lib.text() $tvar.add(1) $tvar.add(:hehe) $lib.print($tvar.str()) '''
+        q = '''[test:str=foo :hehe=bar] $tvar=() $tvar.append(1) $tvar.append(:hehe) $lib.print($lib.str.join('', $tvar)) '''
         async with self.getTestCore() as core:
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('1bar', mesgs)
@@ -5636,7 +5908,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         url02 = core02.getLocalUrl()
                         opts = {'vars': {'url01': url01, 'url02': url02}}
-                        strim = 'return($lib.cell.trimNexsLog(consumers=$lib.list($url01, $url02), timeout=$lib.null))'
+                        strim = 'return($lib.cell.trimNexsLog(consumers=($url01, $url02), timeout=$lib.null))'
 
                         await core00.nodes('[ inet:ipv4=11.0.0.0/28 ]')
                         ips00 = await core00.count('inet:ipv4')
@@ -7125,6 +7397,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
                 self.eq(2, await proxy.feedFromAxon(sha256))
 
+                opts['limit'] = 1
+                self.len(1, await alist(proxy.exportStorm('media:news inet:email', opts=opts)))
+
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
                 self.eq(401, resp.status)
@@ -7901,8 +8176,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.eq('admin', whoami)
                     self.eq('lowuser', udef.get('name'))
 
-                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Added user' in m.get('message')][0]
                 self.eq('Added user=lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
@@ -7916,8 +8190,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                         msgs.append(mesg)
                     self.stormHasNoWarnErr(msgs)
 
-                raw_mesgs = [m for m in stream.getvalue().split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 mesg = [m for m in msgs if 'Set admin' in m.get('message')][0]
                 self.isin('Set admin=True for lowuser', mesg.get('message'))
                 self.eq('admin', mesg.get('username'))
@@ -8072,6 +8345,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestAha() as aha:
 
+            ahanet = aha.conf.req('aha:network')
+
             async with await s_base.Base.anit() as base:
 
                 with self.getTestDir() as dirn:
@@ -8107,43 +8382,89 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.stormIsInPrint('Storm pool configuration set.', msgs)
 
                     await core00.fini()
+                    await core01.fini()
 
                     core00 = await base.enter_context(self.getTestCore(dirn=dirn00))
+                    core01 = await base.enter_context(self.getTestCore(dirn=dirn01, conf={'storm:log': True}))
 
                     await core00.stormpool.waitready(timeout=12)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        msgs = await alist(core00.storm('inet:asn=0'))
+                    # storm()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        msgs = await alist(core00.storm(q))
                         self.len(1, [m for m in msgs if m[0] == 'node'])
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = stream.jsonlines()
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.true(await core00.callStorm('inet:asn=0 return($lib.true)'))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # callStorm()
+                    q = 'inet:asn=0 return($lib.true)'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.true(await core00.callStorm(q))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = stream.jsonlines()
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.len(1, await alist(core00.exportStorm('inet:asn=0')))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # exportStorm()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.len(1, await alist(core00.exportStorm(q)))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = stream.jsonlines()
+                    self.len(2, msgs)
 
-                    with self.getLoggerStream('synapse') as stream:
-                        self.eq(1, await core00.count('inet:asn=0'))
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
 
-                    stream.seek(0)
-                    data = stream.read()
-                    self.isin('Offloading Storm query', data)
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
+
+                    # count()
+                    q = 'inet:asn=0'
+                    qhash = s_storm.queryhash(q)
+                    with self.getStructuredAsyncLoggerStream('synapse') as stream:
+                        self.eq(1, await core00.count(q))
+
+                    data = stream.getvalue()
                     self.notin('Timeout', data)
+                    msgs = stream.jsonlines()
+                    self.len(2, msgs)
+
+                    self.eq(msgs[0].get('message'), f'Offloading Storm query to mirror 01.core.{ahanet}.')
+                    self.eq(msgs[0].get('hash'), qhash)
+                    self.eq(msgs[0].get('mirror'), f'01.core.{ahanet}')
+
+                    self.eq(msgs[1].get('message'), f'Executing storm query {{{q}}} as [root]')
+                    self.eq(msgs[1].get('hash'), qhash)
+                    self.eq(msgs[1].get('pool:from'), f'00.core.{ahanet}')
 
                     with patch('synapse.cortex.CoreApi.getNexsIndx', _hang):
 

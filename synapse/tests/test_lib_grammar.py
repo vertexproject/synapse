@@ -728,6 +728,26 @@ Queries = [
     '$pvar=stuff test:arrayprop +:$pvar*[=neato]',
     '$pvar=ints test:arrayprop +:$pvar*[=$othervar]',
     '$foo = ({"foo": ${ inet:fqdn }})',
+    '[test:str=foo :hehe*unset=heval]',
+    '[test:str=foo :hehe*$foo=heval]',
+    '[test:str=foo :$foo*unset=heval]',
+    '[test:str=foo :$foo*$bar=heval]',
+    '[test:str=foo :$foo*$bar.baz=heval]',
+    '[test:str=foo :$foo*$bar.("baz")=heval]',
+    '[test:str=foo :$foo*$bar.baz()=heval]',
+    '[test:str=foo +(refs)> $n]',
+    '[test:str=foo +(refs)> $n.baz()]',
+    '[test:str=foo -(refs)> $n]',
+    '[test:str=foo <(refs)+ $n]',
+    '[test:str=foo <(refs)+ $n.baz()]',
+    '[test:str=foo <(refs)- $n]',
+    '[test:str=foo :bar++=([1, 2])]',
+    '[test:str=foo :$foo++=([1, 2])]',
+    '[test:str=foo :bar--=(foo, bar)]',
+    '[test:str=foo :bar?++=$baz]',
+    '[test:str=foo :bar?--={[it:dev:str=foo]}]',
+    '$foo=(notime,)',
+    '$foo=(nulltime,)',
 ]
 
 # Generated with print_parse_list below
@@ -771,7 +791,7 @@ _ParseResults = [
     'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: TypeError, Const: err, Query: []]]]',
     'Query: [TryCatch: [Query: [LiftPropBy: [Const: inet:ipv4, Const: =, Const: asdf]], CatchBlock: [Const: FooBar, Const: err, Query: []], CatchBlock: [Const: *, Const: err, Query: []]]]',
     'Query: [LiftByArray: [Const: test:array, Const: =, Const: 1.2.3.4]]',
-    'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery: inet:ipv4]]]',
+    'Query: [CmdOper: [Const: macro.set, List: [Const: hehe, EmbedQuery:  inet:ipv4 ]]]',
     'Query: [SetVarOper: [Const: q, EmbedQuery: #foo.bar]]',
     'Query: [CmdOper: [Const: metrics.edits.byprop, List: [Const: inet:fqdn:domain, Const: --newv, VarDeref: [VarValue: [Const: lib], Const: null]]]]',
     'Query: [CmdOper: [Const: tee, Const: ()]]',
@@ -1357,7 +1377,27 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: p, Const: names], LiftPropBy: [Const: ps:contact:name, Const: =, Const: foo], EditPropSet: [RelProp: [VarValue: [Const: p]], Const: ?-=, Const: bar]]',
     'Query: [SetVarOper: [Const: pvar, Const: stuff], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Const: =, Const: neato]]]',
     'Query: [SetVarOper: [Const: pvar, Const: ints], LiftProp: [Const: test:arrayprop], FiltOper: [Const: +, ArrayCond: [RelProp: [VarValue: [Const: pvar]], Const: =, VarValue: [Const: othervar]]]]',
-    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: foo, EmbedQuery: inet:fqdn]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprDict: [Const: foo, EmbedQuery:  inet:fqdn ]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [Const: hehe], CondSetOper: [Const: unset], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [Const: hehe], CondSetOper: [VarValue: [Const: foo]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [Const: unset], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarValue: [Const: bar]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarDeref: [VarValue: [Const: bar], Const: baz]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [VarDeref: [VarValue: [Const: bar], DollarExpr: [Const: baz]]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [FuncCall: [VarDeref: [VarValue: [Const: bar], Const: baz], CallArgs: [], CallKwargs: []]], Const: heval]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeAdd: [Const: refs, VarValue: [Const: n]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeAdd: [Const: refs, FuncCall: [VarDeref: [VarValue: [Const: n], Const: baz], CallArgs: [], CallKwargs: []]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeDel: [Const: refs, VarValue: [Const: n]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeAdd: [Const: refs, VarValue: [Const: n]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeAdd: [Const: refs, FuncCall: [VarDeref: [VarValue: [Const: n], Const: baz], CallArgs: [], CallKwargs: []]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditEdgeDel: [Const: refs, VarValue: [Const: n]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ++=, DollarExpr: [ExprList: [Const: 1, Const: 2]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [VarValue: [Const: foo]], Const: ++=, DollarExpr: [ExprList: [Const: 1, Const: 2]]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: --=, List: [Const: foo, Const: bar]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ?++=, VarValue: [Const: baz]]]',
+    'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ?--=, SubQuery: [Query: [EditNodeAdd: [FormName: [Const: it:dev:str], Const: =, Const: foo]]]]]',
+    'Query: [SetVarOper: [Const: foo, List: [Const: notime]]]',
+    'Query: [SetVarOper: [Const: foo, List: [Const: nulltime]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1649,6 +1689,27 @@ class GrammarTest(s_t_utils.SynTest):
         errinfo = cm.exception.errinfo
         self.eq(1, errinfo.get('mesg').count('#'))
 
+        query = '$q = ${ /* secret comment */ $lib.print([hello) } $lib.macro.set(hehe, $q)'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        info = cm.exception.errinfo.get('highlight')
+        self.eq((40, 41), info['offsets'])
+        self.eq((1, 1), info['lines'])
+        self.eq((41, 42), info['columns'])
+
+        query = """function test(hello) {
+                    +'''asdf
+                    asdfasdf'''
+        }"""
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        info = cm.exception.errinfo.get('highlight')
+        self.eq((44, 83), info['offsets'])
+        self.eq((2, 3), info['lines'])
+        self.eq((22, 31), info['columns'])
+
     async def test_quotes(self):
 
         # Test vectors
@@ -1751,6 +1812,15 @@ class GrammarTest(s_t_utils.SynTest):
         self.false(s_grammar.isPropName('2t:str'))
         self.false(s_grammar.isPropName('.hehe'))
         self.false(s_grammar.isPropName('testcmd'))
+
+    async def test_embed_offsets(self):
+
+        embq = ' /* secret comment */ $lib.print(hello) /* haha */ $lib.print(goodbye) /*foo */ '
+        query = f'$q = ${{{embq}}} $lib.print($q)'
+        parser = s_parser.Parser(query)
+        q = parser.query()
+        embed = q.kids[0].kids[1]
+        self.eq(embq, embed.getAstText())
 
 def gen_parse_list():
     '''

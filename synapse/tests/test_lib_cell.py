@@ -115,8 +115,20 @@ class EchoAuthApi(s_cell.CellApi):
         await self._reqUserAllowed(path)
         return True
 
+    @s_cell.adminapi()
+    async def adminOnly(self):
+        return True
+
+    @s_cell.adminapi(log=True)
+    async def adminOnlyLog(self, arg1, arg2, **kwargs):
+        return arg1, arg2, kwargs
+
 class EchoAuth(s_cell.Cell):
     cellapi = EchoAuthApi
+    # non-default commit / version / verstring
+    COMMIT = 'mycommit'
+    VERSION = (1, 2, 3)
+    VERSTRING = '1.2.3'
 
     async def answer(self):
         return 42
@@ -428,6 +440,16 @@ class CellTest(s_t_utils.SynTest):
                     self.eq(info.get('user').get('name'), 'root')
                     self.eq(info.get('user').get('iden'), root.iden)
 
+                    # @adminApi methods are allowed
+                    self.true(await proxy.adminOnly())
+                    mesg = "Executing [EchoAuthApi.adminOnlyLog] as [root] with args [(1, 2)[{'three': 4}]"
+                    with self.getStructuredAsyncLoggerStream('synapse.lib.cell', mesg) as stream:
+                        self.eq(await proxy.adminOnlyLog(1, 2, three=4), (1, 2, {'three': 4}))
+                        self.true(await stream.wait(timeout=10))
+                    msgs = stream.jsonlines()
+                    self.len(1, msgs)
+                    self.eq('EchoAuthApi.adminOnlyLog', msgs[0].get('wrapped_func'))
+
                 visi = await echo.auth.addUser('visi')
                 await visi.setPasswd('foo')
                 await visi.addRule((True, ('foo', 'bar')))
@@ -453,6 +475,15 @@ class CellTest(s_t_utils.SynTest):
 
                     with self.raises(s_exc.NoSuchUser):
                         await proxy.getUserInfo('newp')
+
+                    # @adminApi methods are not allowed
+                    with self.raises(s_exc.AuthDeny) as cm:
+                        await proxy.adminOnly()
+                    self.eq(cm.exception.get('mesg'), 'User is not an admin [visi]')
+                    self.eq(cm.exception.get('user'), visi.iden)
+                    self.eq(cm.exception.get('username'), visi.name)
+                    with self.raises(s_exc.AuthDeny) as cm:
+                        await proxy.adminOnlyLog(1, 2, three=4)
 
                     # User cannot get authinfo for other items since they are
                     # not an admin or do not have those roles.
@@ -753,6 +784,10 @@ class CellTest(s_t_utils.SynTest):
             cell.VERSION = (1, 2, 3)
             cell.VERSTRING = '1.2.3'
 
+            cell.features.update({
+                'testvalu': 2
+            })
+
             http_info = []
             host, port = await cell.addHttpsPort(0)
             http_info.append({'host': host, 'port': port})
@@ -776,6 +811,9 @@ class CellTest(s_t_utils.SynTest):
                 # A Cortex populated cellvers
                 self.isin('cortex:defaults', cnfo.get('cellvers', {}))
 
+                self.eq(info.get('features'), cell.features)
+                self.eq(info.get('features', {}).get('testvalu'), 2)
+
                 # Defaults aha data is
                 self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
 
@@ -787,6 +825,37 @@ class CellTest(s_t_utils.SynTest):
                 netw = cnfo.get('network')
                 https = netw.get('https')
                 self.eq(https, http_info)
+
+        # Mirrors & ready flags
+        async with self.getTestAha() as aha:  # type: s_aha.AhaCell
+
+            with self.getTestDir() as dirn:
+                cdr0 = s_common.genpath(dirn, 'cell00')
+                cdr1 = s_common.genpath(dirn, 'cell01')
+                cell00 = await aha.enter_context(self.addSvcToAha(aha, '00.cell', EchoAuth,
+                                                                  dirn=cdr0))  # type: EchoAuth
+                # Ensure we have a nexus transaction
+                await cell00.sync()
+                cell01 = await aha.enter_context(self.addSvcToAha(aha, '01.cell', EchoAuth,
+                                                                  dirn=cdr1,
+                                                                  provinfo={'mirror': 'cell'}))  # type: EchoAuth
+
+                self.true(await asyncio.wait_for(cell01.nexsroot.ready.wait(), timeout=12))
+                await cell01.sync()
+
+                cnfo0 = await cell00.getCellInfo()
+                cnfo1 = await cell01.getCellInfo()
+                self.true(cnfo0['cell']['ready'])
+                self.false(cnfo0['cell']['uplink'])
+                self.none(cnfo0['cell']['mirror'])
+                self.eq(cnfo0['cell']['version'], (1, 2, 3))
+
+                self.true(cnfo1['cell']['ready'])
+                self.true(cnfo1['cell']['uplink'])
+                self.eq(cnfo1['cell']['mirror'], 'aha://root@cell...')
+                self.eq(cnfo1['cell']['version'], (1, 2, 3))
+
+                self.eq(cnfo0['cell']['nexsindx'], cnfo1['cell']['nexsindx'])
 
     async def test_cell_dyncall(self):
 
@@ -1065,8 +1134,18 @@ class CellTest(s_t_utils.SynTest):
                 await proxy.addUserRole(visi['iden'], ninjas['iden'])
                 await proxy.setUserEmail(visi['iden'], 'visi@vertex.link')
 
+                def1 = await core.getUserDef(visi['iden'])
+                def2 = await core.getUserDef(visi['iden'])
+                self.false(def1['authgates'] is def2['authgates'])
+                self.eq(def1, def2)
+
                 visi = await proxy.getUserDefByName('visi')
                 self.eq(visi['email'], 'visi@vertex.link')
+
+                def1 = await core.getRoleDef(ninjas['iden'])
+                def2 = await core.getRoleDef(ninjas['iden'])
+                self.false(def1['authgates'] is def2['authgates'])
+                self.eq(def1, def2)
 
                 self.true(await proxy.isUserAllowed(visi['iden'], ('foo', 'bar')))
                 self.true(await proxy.isUserAllowed(visi['iden'], ('hehe', 'haha')))
@@ -1124,12 +1203,12 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_hiveapi(self):
 
-        async with self.getTestCore() as core:
+        async with self.getTestCell() as cell:
 
-            await core.setHiveKey(('foo', 'bar'), 10)
-            await core.setHiveKey(('foo', 'baz'), 30)
+            await cell.setHiveKey(('foo', 'bar'), 10)
+            await cell.setHiveKey(('foo', 'baz'), 30)
 
-            async with core.getLocalProxy() as proxy:
+            async with cell.getLocalProxy() as proxy:
                 self.eq((), await proxy.getHiveKeys(('lulz',)))
                 self.eq((('bar', 10), ('baz', 30)), await proxy.getHiveKeys(('foo',)))
 
@@ -1370,6 +1449,11 @@ class CellTest(s_t_utils.SynTest):
 
                         with mock.patch('os.stat', diffdev):
                             await self.asyncraises(s_exc.LowSpace, proxy.runBackup())
+
+                user = await core.auth.getUserByName('root')
+                with self.raises(s_exc.SynErr) as cm:
+                    await core.iterNewBackupArchive(user)
+                self.isin('This API must be called via a CellApi', cm.exception.get('mesg'))
 
             async def err(*args, **kwargs):
                 raise RuntimeError('boom')
@@ -2237,11 +2321,13 @@ class CellTest(s_t_utils.SynTest):
                             # Backup the mirror (core01) which points to the core00
                             async with await axon00.upload() as upfd:
                                 async with core01.getLocalProxy() as prox:
+                                    tot_chunks = 0
                                     async for chunk in prox.iterNewBackupArchive():
                                         await upfd.write(chunk)
+                                        tot_chunks += len(chunk)
 
                                     size, sha256 = await upfd.save()
-                                    await asyncio.sleep(0)
+                                    self.eq(size, tot_chunks)
 
                     furl = f'{url}{s_common.ehex(sha256)}'
                     purl = await aha.addAhaSvcProv('00.mynewcortex')
@@ -3066,10 +3152,7 @@ class CellTest(s_t_utils.SynTest):
                 async with self.getTestCore(conf={'health:sysctl:checks': True}):
                     pass
 
-        stream.seek(0)
-        data = stream.getvalue()
-        raw_mesgs = [m for m in data.split('\n') if m]
-        msgs = [json.loads(m) for m in raw_mesgs]
+        msgs = stream.jsonlines()
 
         self.len(1, msgs)
 
@@ -3219,3 +3302,163 @@ class CellTest(s_t_utils.SynTest):
                     with self.raises(s_exc.BadState) as cm:
                         await cell00.promote(graceful=True)
                     self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
+
+    async def test_cell_get_aha_proxy(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+
+            class MockAhaClient:
+                def __init__(self, proxy=None):
+                    self._proxy = proxy
+
+                async def proxy(self, timeout=None):
+                    return self._proxy
+
+            with self.getAsyncLoggerStream('synapse.lib.cell', 'AHA client connection failed.') as stream:
+                cell.ahaclient = MockAhaClient()
+                self.none(await cell.getAhaProxy())
+                self.true(await stream.wait(timeout=1))
+
+            class MockProxyHasNot:
+                def _hasTeleFeat(self, name, vers):
+                    return False
+
+            cell.ahaclient = MockAhaClient(proxy=MockProxyHasNot())
+            self.none(await cell.getAhaProxy(feats=(('test', 1),)))
+
+            class MockProxyHas:
+                def _hasTeleFeat(self, name, vers):
+                    return True
+
+            mock_proxy = MockProxyHas()
+            cell.ahaclient = MockAhaClient(proxy=mock_proxy)
+            self.eq(await cell.getAhaProxy(), mock_proxy)
+            self.eq(await cell.getAhaProxy(feats=(('test', 1),)), mock_proxy)
+
+    async def test_lib_cell_sadaha(self):
+
+        async with self.getTestCell() as cell:
+
+            self.none(await cell.getAhaProxy())
+            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
+
+            # coverage for failure of aha client to connect
+            with self.raises(TimeoutError):
+                self.none(await cell.getAhaProxy(timeout=0.1))
+
+    async def test_stream_backup_exception(self):
+
+        with self.getTestDir() as dirn:
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+
+                    await proxy.runBackup(name='bkup')
+
+                    mock_proc = mock.Mock()
+                    mock_proc.join = mock.Mock()
+
+                    async def mock_executor(func, *args, **kwargs):
+                        if isinstance(func, mock.Mock) and func is mock_proc.join:
+                            raise Exception('boom')
+                        return mock_proc
+
+                    with mock.patch('synapse.lib.cell.s_coro.executor', mock_executor):
+                        with self.getAsyncLoggerStream('synapse.lib.cell', 'Error during backup streaming') as stream:
+                            with self.raises(Exception) as cm:
+                                async for _ in proxy.iterBackupArchive('bkup'):
+                                    pass
+                            self.true(await stream.wait(timeout=6))
+
+    async def test_iter_new_backup_archive(self):
+
+        with self.getTestDir() as dirn:
+            backdirn = os.path.join(dirn, 'backups')
+            coredirn = os.path.join(dirn, 'cortex')
+
+            conf = {'backup:dir': backdirn}
+            s_common.yamlsave(conf, coredirn, 'cell.yaml')
+
+            async with self.getTestCore(dirn=coredirn) as core:
+                async with core.getLocalProxy() as proxy:
+
+                    async def mock_runBackup(*args, **kwargs):
+                        raise Exception('backup failed')
+
+                    with mock.patch.object(s_cell.Cell, 'runBackup', mock_runBackup):
+                        with self.getAsyncLoggerStream('synapse.lib.cell', 'Removing') as stream:
+                            with self.raises(s_exc.SynErr) as cm:
+                                async for _ in proxy.iterNewBackupArchive('failedbackup', remove=True):
+                                    pass
+
+                            self.isin('backup failed', str(cm.exception))
+                            self.true(await stream.wait(timeout=6))
+
+                            path = os.path.join(backdirn, 'failedbackup')
+                            self.false(os.path.exists(path))
+
+                    self.false(core.backupstreaming)
+
+                    core.backupstreaming = True
+                    with self.raises(s_exc.BackupAlreadyRunning):
+                        async for _ in proxy.iterNewBackupArchive('newbackup', remove=True):
+                            pass
+
+    async def test_cell_peer_noaha(self):
+
+        todo = s_common.todo('newp')
+        async with self.getTestCell() as cell:
+            async for item in cell.callPeerApi(todo):
+                pass
+            async for item in cell.callPeerGenr(todo):
+                pass
+
+    async def test_cell_task_apis(self):
+        async with self.getTestAha() as aha:
+
+            # test some of the gather API implementations...
+            purl00 = await aha.addAhaSvcProv('00.cell')
+            purl01 = await aha.addAhaSvcProv('01.cell', provinfo={'mirror': 'cell'})
+
+            cell00 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl00}))
+            cell01 = await aha.enter_context(self.getTestCell(conf={'aha:provision': purl01}))
+
+            await cell01.sync()
+
+            async def sleep99(cell):
+                await cell.boss.promote('sleep99', cell.auth.rootuser)
+                await cell00.fire('sleep99')
+                await asyncio.sleep(99)
+
+            async with cell00.waiter(2, 'sleep99', timeout=6):
+                task00 = cell00.schedCoro(sleep99(cell00))
+                task01 = cell01.schedCoro(sleep99(cell01))
+
+            tasks = [task async for task in cell00.getTasks(timeout=6)]
+
+            self.len(2, tasks)
+            self.eq(tasks[0]['service'], '00.cell.synapse')
+            self.eq(tasks[1]['service'], '01.cell.synapse')
+            self.eq(('sleep99', 'sleep99'), [task.get('name') for task in tasks])
+            self.eq(('root', 'root'), [task.get('username') for task in tasks])
+
+            self.eq(tasks[0], await cell00.getTask(tasks[0].get('iden')))
+            self.eq(tasks[1], await cell00.getTask(tasks[1].get('iden')))
+            self.none(await cell00.getTask(tasks[1].get('iden'), peers=False))
+
+            self.true(await cell00.killTask(tasks[0].get('iden')))
+
+            task01 = tasks[1].get('iden')
+            self.false(await cell00.killTask(task01, peers=False))
+
+            self.true(await cell00.killTask(task01))
+
+            self.none(await cell00.getTask(task01))
+            self.false(await cell00.killTask(task01))

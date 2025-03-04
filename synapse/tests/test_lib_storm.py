@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import itertools
 import urllib.parse as u_parse
+import unittest.mock as mock
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -52,10 +53,6 @@ class StormTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('[ ou:org=({"hq": "woot"}) ]')
 
-            msgs = await core.stormlist('[ ou:org=({"hq": "woot", "$try": true}) ]')
-            self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInWarn('Bad value for prop hq: valu is not a guid', msgs)
-
             nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
             self.len(1, nodes05)
             self.eq('vertex', nodes05[0].get('name'))
@@ -94,6 +91,87 @@ class StormTest(s_t_utils.SynTest):
             nodes12 = await core.nodes('[ ou:org=({"name": "vertex", "type": "hehe"}) ]')
             self.len(1, nodes12)
             self.ne(nodes11[0].ndef, nodes12[0].ndef)
+
+            # GUID ctor has a short-circuit where it tries to find an existing ndef before it does,
+            # some property deconfliction, and `<form>=({})` when pushed through guid generation gives
+            # back the same guid as `<form>=()`, which if we're not careful could lead to an
+            # inconsistent case where you fail to make a node because you don't provide any props,
+            # make a node with that matching ndef, and then run that invalid GUID ctor query again,
+            # and have it return back a node due to the short circuit. So test that we're consistent here.
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({}) ]')
+
+            self.len(1, await core.nodes('[ ou:org=() ]'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({}) ]')
+
+            msgs = await core.stormlist('[ ou:org=({"$props": {"desc": "lol"}})]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('No values provided for form ou:org', msgs)
+
+            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$props": {"phone": "lolnope"}})]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('Bad value for prop ou:org:phone: requires a digit string', msgs)
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=({"$try": true}) ]')
+
+            # $try only affects $props
+            msgs = await core.stormlist('[ ou:org=({"founded": "lolnope", "$try": true}) ]')
+            self.len(0, [m for m in msgs if m[0] == 'node'])
+            self.stormIsInErr('Bad value for prop ou:org:founded: Unknown time format for lolnope', msgs)
+
+            msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
+            nodes = [m for m in msgs if m[0] == 'node']
+            self.len(1, nodes)
+            node = nodes[0][1]
+            props = node[1]['props']
+            self.none(props.get('phone'))
+            self.eq(props.get('name'), 'burrito corp')
+            self.eq(props.get('desc'), 'burritos man')
+            self.stormIsInWarn('Skipping bad value for prop ou:org:phone: requires a digit string', msgs)
+
+            await self.asyncraises(s_exc.BadTypeValu, core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77', 'phone': 'lolnope'}, props={'desc': 'an org desc'}))
+
+            await self.asyncraises(s_exc.BadTypeValu, core.addNode(core.auth.rootuser, 'ou:org', {'name': 'org name 77'}, props={'desc': 'an org desc', 'phone': 'lolnope'}))
+
+            node = await core.addNode(core.auth.rootuser, 'ou:org', {'$try': True, '$props': {'phone': 'invalid'}, 'name': 'org name 77'}, props={'desc': 'an org desc'})
+            self.nn(node)
+            props = node[1]['props']
+            self.none(props.get('phone'))
+            self.eq(props.get('name'), 'org name 77')
+            self.eq(props.get('desc'), 'an org desc')
+
+            nodes = await core.nodes('ou:org=({"name": "the vertex project", "type": "lulz"})')
+            self.len(1, nodes)
+            orgn = nodes[0].ndef
+            self.eq(orgn, nodes11[0].ndef)
+
+            q = '[ ps:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            cont = nodes[0]
+            self.eq(cont.get('org'), orgn[1])
+
+            nodes = await core.nodes('ps:contact:org=({"name": "the vertex project", "type": "lulz"})')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, cont.ndef)
+
+            self.len(0, await core.nodes('ps:contact:org=({"name": "vertex", "type": "newp"})'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
+
+            await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
+            self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
+
+            nodes = await core.nodes('[ it:exec:proc=(notime,) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
+            self.len(1, nodes)
 
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
@@ -253,7 +331,7 @@ class StormTest(s_t_utils.SynTest):
                     emit bar
                 }
                 function makelist() {
-                    $retn = $lib.list()
+                    $retn = ()
                     for $item in $generate() { $retn.append($item) }
                     return($retn)
                 }
@@ -266,7 +344,7 @@ class StormTest(s_t_utils.SynTest):
                     emit $node.repr()
                 }
                 function makelist() {
-                    $retn = $lib.list()
+                    $retn = ()
                     for $item in $generate() { $retn.append($item) }
                     return($retn)
                 }
@@ -338,9 +416,135 @@ class StormTest(s_t_utils.SynTest):
             prnt = [m[1]['mesg'] for m in msgs if m[0] == 'print']
             self.eq(prnt, ['inner 0', 'outer 0'])
 
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes('emit foo'))
+            # Emit outside an emitter function raises a runtime error with posinfo
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('emit foo')
+            self.nn(cm.exception.get('highlight'))
 
-            # include a quick test for using stop in a node yielder
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes('[test:str=emit] emit foo')
+            self.nn(cm.exception.get('highlight'))
+
+            # stop cannot cross function boundaries
+            q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    stop
+                }
+                return ( $v )
+            }
+            function outer(n) {
+                for $i in $lib.range($n) {
+                    emit $inner($i)
+                }
+            }
+            $N = (5)
+            for $valu in $outer($N) {
+                $lib.print(`{$valu}/{$N}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInErr('function inner - Generator control statement "stop" used outside of a generator '
+                              'function.',
+                              msgs)
+
+            # The function exception raised can be caught.
+            q = '''
+            function inner(v) {
+                if ( $v = 2 ) {
+                    stop
+                }
+                return ( $v )
+            }
+            function outer(n) {
+                for $i in $lib.range($n) {
+                    emit $inner($i)
+                }
+            }
+            $N = (5)
+            try {
+                for $valu in $outer($N) {
+                    $lib.print(`{$valu}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInPrint('caught: function inner - Generator control statement "stop" used outside of a'
+                                ' generator function.',
+                                msgs)
+
+            # Outside a function, StopStorm is caught and converted into a StormRuntimeError for the message stream.
+            # Since this is tearing down the runtime, it cannot be caught.
+            q = '''
+            $N = (5)
+            for $j in $lib.range($N) {
+                if ($j = 2) {
+                    stop
+                }
+                $lib.print(`{$j}/{$N}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormIsInErr('Generator control statement "stop" used outside of a generator function.',
+                              msgs)
+            errname = [m[1][0] for m in msgs if m[0] == 'err'][0]
+            self.eq(errname, 'StormRuntimeError')
+
+            q = '''
+            $N = (5)
+            try {
+                for $j in $lib.range($N) {
+                    if ($j = 2) {
+                        stop
+                    }
+                    $lib.print(`{$j}/{$N}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('1/5', msgs)
+            self.stormNotInPrint('2/5', msgs)
+            self.stormNotInPrint('caught:', msgs)
+            self.stormIsInErr('Generator control statement "stop" used outside of a generator function.',
+                              msgs)
+
+            # Mixing a Loop control flow statement in an emitter to stop its processing
+            # will be converted into a catchable StormRuntimeError
+            q = '''
+            function inner(n) {
+                emit $n
+                $n = ( $n + 1 )
+                emit $n
+                $n = ( $n + 1 )
+                if ( $n >= 2 ) {
+                    break
+                }
+                emit $n
+            }
+            $N = (0)
+            try {
+                for $valu in $inner($N) {
+                    $lib.print(`got {$valu}`)
+                }
+            } catch StormRuntimeError as err {
+                $lib.print(`caught: {$err.mesg}`)
+            }
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('got 1', msgs)
+            self.stormNotInPrint('got 2', msgs)
+            self.stormIsInPrint('caught: function inner - Loop control statement "break" used outside of a loop.',
+                                msgs)
 
     async def test_lib_storm_intersect(self):
         async with self.getTestCore() as core:
@@ -579,7 +783,7 @@ class StormTest(s_t_utils.SynTest):
                   return((0))
                 }
 
-                $alerts = $lib.list()
+                $alerts = ()
                 { $alerts.append($node.repr()) }
 
                 $bool = $stuff($alerts)
@@ -645,32 +849,6 @@ class StormTest(s_t_utils.SynTest):
             self.nn(task)
             self.none(task['info'].get('opts'))
             self.eq(core.view.iden, task['info'].get('view'))
-
-            # test the parallel command
-            nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
-            self.len(4, nodes)
-
-            # check that subquery validation happens
-            with self.raises(s_exc.NoSuchVar):
-                await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
-
-            # check that an exception on inbound percolates correctly
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=* ou:org=foo ] | parallel { [:name=bar] }')
-
-            # check that an exception in the parallel pipeline percolates correctly
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('parallel { [ou:org=foo] }')
-
-            nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
-            self.true(all([n.get('name') == 'foo' for n in nodes]))
-
-            # Runtsafety test
-            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
-            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
-
-            nodes = await core.nodes('ou:org | parallel ${ $foo=bar [ :name=$foo ]}')
-            self.true(all([n.get('name') == 'bar' for n in nodes]))
 
             # test $lib.exit() and the StormExit handlers
             msgs = [m async for m in core.view.storm('$lib.exit()')]
@@ -789,10 +967,10 @@ class StormTest(s_t_utils.SynTest):
                     },
                 )
             }
-            await core.loadStormPkg(emptypkg)
+            core.loadStormPkg(emptypkg)
             await core.addStormPkg(strverpkg)
 
-            await core.loadStormPkg(pkg0)
+            core.loadStormPkg(pkg0)
 
             await core.nodes('$lib.import(foo.baz)', opts=opts)
             await core.nodes('$lib.import(foo.baz, reqvers="==0.0.1")', opts=opts)
@@ -862,14 +1040,23 @@ class StormTest(s_t_utils.SynTest):
             pkg1 = {'name': 'haha', 'version': '1.2.3'}
             await core.addStormPkg(pkg1)
             msgs = await core.stormlist('pkg.list')
-            self.isin('haha', msgs[2][1]['mesg'])
-            self.isin('hehe', msgs[3][1]['mesg'])
+            self.stormIsInPrint('haha', msgs)
+            self.stormIsInPrint('hehe', msgs)
 
             self.true(await core.callStorm('return($lib.pkg.has(haha))'))
 
             await core.delStormPkg('haha')
             self.none(await core.callStorm('return($lib.pkg.get(haha))'))
             self.false(await core.callStorm('return($lib.pkg.has(haha))'))
+
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('not available', msgs)
+
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            await core.addStormPkg(pkg2)
+            self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
+            msgs = await core.stormlist('pkg.list --verbose')
+            self.stormIsInPrint('2024-11-19 12:00:00', msgs)
 
             # test for $lib.queue.gen()
             self.eq(0, await core.callStorm('return($lib.queue.gen(woot).size())'))
@@ -925,7 +1112,7 @@ class StormTest(s_t_utils.SynTest):
 
             opts = {'view': view}
             self.len(0, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for $item in $layr.getStorNodes() {
                     $list.append($item)
@@ -938,7 +1125,7 @@ class StormTest(s_t_utils.SynTest):
             await core.callStorm('inet:ipv4=11.22.33.44 [ +(blahverb)> { inet:asn=99 } ]', opts=opts)
 
             sodes = await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for $item in $layr.getStorNodes() {
                     $list.append($item)
@@ -947,7 +1134,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(2, sodes)
 
             ipv4 = await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 $layr = $lib.view.get().layers.0
                 for ($buid, $sode) in $layr.getStorNodes() {
                     yield $buid
@@ -1089,7 +1276,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('diff', opts=opts))
 
             self.len(0, await core.callStorm('''
-                $list = $lib.list()
+                $list = ()
                 for ($buid, $sode) in $lib.view.get().layers.0.getStorNodes() {
                     $list.append($buid)
                 }
@@ -1370,9 +1557,9 @@ class StormTest(s_t_utils.SynTest):
             '''))
 
             self.eq(('foo', 'bar', 'baz'), await core.callStorm('''
-                return($lib.list( // do foo thing
-                    /* hehe */ foo /* hehe */ , /* hehe */ bar /* hehe */ , /* hehe */ baz /* hehe */
-                ))
+                return(([ // do foo thing
+                    /* hehe */ "foo" /* hehe */ , /* hehe */ "bar" /* hehe */ , /* hehe */ "baz" /* hehe */
+                ]))
             '''))
 
             # surrogate escapes are allowed
@@ -1579,6 +1766,10 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('test:ro | merge', opts=altview)
             self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
+
+            await core.nodes('[ test:str=foo +(refs)> { for $i in $lib.range(1001) {[ test:int=$i ]}}]', opts=altview)
+            await core.nodes('test:str=foo -(refs)+> * merge --apply', opts=altview)
+            self.len(1001, await core.nodes('test:str=foo -(refs)> *'))
 
     async def test_storm_merge_stricterr(self):
 
@@ -2585,6 +2776,7 @@ class StormTest(s_t_utils.SynTest):
         class PkgHandler(s_httpapi.Handler):
 
             async def get(self, name):
+                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
 
                 if name == 'notok':
                     self.sendRestErr('FooBar', 'baz faz')
@@ -2594,6 +2786,8 @@ class StormTest(s_t_utils.SynTest):
 
         class PkgHandlerRaw(s_httpapi.Handler):
             async def get(self, name):
+                assert self.request.headers.get('X-Synapse-Version') == s_version.verstring
+
                 self.set_header('Content-Type', 'application/json')
                 return self.write(pkg)
 
@@ -3270,7 +3464,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # Queries can be a heavy list
-            q = '$list = $lib.list(${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }) inet:ipv4=1.2.3.4 | tee --join $list'
+            q = '$list = ([${ -> * }, ${ <- * }, ${ -> edge:refs:n2 :n1 -> * }]) inet:ipv4=1.2.3.4 | tee --join $list'
             nodes = await core.nodes(q)
             self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
@@ -3280,22 +3474,22 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[4].ndef, ('inet:ipv4', 0x01020304))
 
             # A empty list of queries still works as an nop
-            q = '$list = $lib.list() | tee $list'
+            q = '$list = () | tee $list'
             msgs = await core.stormlist(q)
             self.len(2, msgs)
             self.eq(('init', 'fini'), [m[0] for m in msgs])
 
-            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --join $list'
+            q = 'inet:ipv4=1.2.3.4 $list = () | tee --join $list'
             msgs = await core.stormlist(q)
             self.len(3, msgs)
             self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
 
-            q = '$list = $lib.list() | tee --parallel $list'
+            q = '$list = () | tee --parallel $list'
             msgs = await core.stormlist(q)
             self.len(2, msgs)
             self.eq(('init', 'fini'), [m[0] for m in msgs])
 
-            q = 'inet:ipv4=1.2.3.4 $list = $lib.list() | tee --parallel --join $list'
+            q = 'inet:ipv4=1.2.3.4 $list = () | tee --parallel --join $list'
             msgs = await core.stormlist(q)
             self.len(3, msgs)
             self.eq(('init', 'node', 'fini'), [m[0] for m in msgs])
@@ -3428,6 +3622,73 @@ class StormTest(s_t_utils.SynTest):
             q = '[ inet:fqdn=www.vertex.link ] $q=:domain | tee $q'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
+    async def test_storm_parallel(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('parallel --size 4 { [ ou:org=* ] }')
+            self.len(4, nodes)
+
+            # check that subquery validation happens
+            with self.raises(s_exc.NoSuchVar):
+                await core.nodes('parallel --size 4 { [ ou:org=$foo ] }')
+
+            # check that an exception on inbound percolates correctly
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=(foo,) ou:org=foo ] | parallel { [:name=bar] }')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[ ou:org=(foo,) ou:org=foo ] | parallel --size 1 { [:name=bar] }')
+
+            # check that an exception in the parallel pipeline percolates correctly
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('parallel { [ou:org=foo] }')
+
+            nodes = await core.nodes('ou:org | parallel {[ :name=foo ]}')
+            self.true(all([n.get('name') == 'foo' for n in nodes]))
+
+            # Runtsafety test
+            q = '[ inet:fqdn=www.vertex.link ] $q=:domain | parallel $q'
+            await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
+
+            nodes = await core.nodes('ou:org | parallel ${ $foo=bar [ :name=$foo ]}')
+            self.true(all([n.get('name') == 'bar' for n in nodes]))
+
+            orig = s_storm.ParallelCmd.pipeline
+            tsks = {'cnt': 0}
+
+            async def pipecnt(self, runt, query, inq, outq):
+                tsks['cnt'] += 1
+                await orig(self, runt, query, inq, outq)
+
+            with mock.patch('synapse.lib.storm.ParallelCmd.pipeline', pipecnt):
+
+                nodes = await core.nodes('ou:org parallel --size 4 {[ :name=bar ]}')
+                self.len(5, nodes)
+                self.true(all([n.get('name') == 'bar' for n in nodes]))
+                self.eq(4, tsks['cnt'])
+
+                tsks['cnt'] = 0
+
+                nodes = await core.nodes('ou:org parallel --size 5 {[ :name=bar ]}')
+                self.len(5, nodes)
+                self.true(all([n.get('name') == 'bar' for n in nodes]))
+                self.eq(5, tsks['cnt'])
+
+                tsks['cnt'] = 0
+
+                # --size greater than number of nodes only creates a pipeline for each node
+                nodes = await core.nodes('ou:org parallel --size 10 {[ :name=foo ]}')
+                self.len(5, nodes)
+                self.true(all([n.get('name') == 'foo' for n in nodes]))
+                self.eq(5, tsks['cnt'])
+
+                tsks['cnt'] = 0
+
+                nodes = await core.nodes('parallel --size 4 {[ ou:org=* ]}')
+                self.len(4, nodes)
+                self.eq(4, tsks['cnt'])
+
     async def test_storm_yieldvalu(self):
 
         async with self.getTestCore() as core:
@@ -3482,7 +3743,7 @@ class StormTest(s_t_utils.SynTest):
             fork = await core.callStorm('return( $lib.view.get().fork().iden )')
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
                 yield $n
@@ -3492,7 +3753,7 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInErr('Node is not from the current view.', msgs)
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
                 yield $n
@@ -3507,7 +3768,7 @@ class StormTest(s_t_utils.SynTest):
 
             # Nodes lifted from another view and referred to by iden() works
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { inet:ipv4=1.2.3.4 $nodes.append($node) } |
             for $n in $nodes {
                 yield $n.iden()
@@ -3517,7 +3778,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             q = '''
-            $nodes = $lib.list()
+            $nodes = ()
             view.exec $view { for $x in ${ inet:ipv4=1.2.3.4 } { $nodes.append($x) } } |
             for $n in $nodes {
                 yield $n.iden()
@@ -3870,13 +4131,19 @@ class StormTest(s_t_utils.SynTest):
                     {'name': 'woot', 'cmdinputs': (
                         {'form': 'hehe:haha'},
                         {'form': 'hoho:lol', 'help': 'We know whats up'}
+                    ), 'endpoints': (
+                        {'path': '/v1/test/one', 'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'},
+                        {'path': '/v1/test/two', 'host': 'vertex.link', 'desc': 'Single line endpoint description.'},
                     )},
                 ),
             }
-            await core.loadStormPkg(pdef)
+            core.loadStormPkg(pdef)
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
+            self.isin('Endpoints:\n\n    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.', helptext)
+            self.isin('This is the second line of the description.', helptext)
+            self.isin('/v1/test/two              : Single line endpoint description.', helptext)
 
     async def test_storm_help_cmd(self):
 
@@ -4647,7 +4914,7 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_cmdscope(self):
 
         async with self.getTestCore() as core:
-            await core.loadStormPkg({
+            core.loadStormPkg({
                 'name': 'testpkg',
                 'version': '0.0.1',
                 'commands': (
@@ -4777,7 +5044,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''
                 for $i in $lib.range(12) {[ test:str=$i ]}
 
-                batch $lib.true --size 5 {
+                batch $lib.true --size 5 ${
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
                     $lib.print($lib.str.join(',', $vals))

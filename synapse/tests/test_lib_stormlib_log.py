@@ -1,5 +1,3 @@
-import json
-
 import synapse.exc as s_exc
 
 import synapse.tests.utils as s_test
@@ -49,10 +47,7 @@ class LogTest(s_test.SynTest):
                 await core.callStorm('$lib.log.debug("struct1 message")')
                 await core.callStorm('$lib.log.debug("struct2 message", extra=({"key": "valu"}))')
                 self.true(await stream.wait(6))
-
-            data = stream.getvalue()
-            raw_mesgs = [m for m in data.split('\n') if m]
-            msgs = [json.loads(m) for m in raw_mesgs]
+            msgs = stream.jsonlines()
             self.len(2, msgs)
             mesg = msgs[0]
             self.eq(mesg.get('logger').get('name'), 'synapse.storm.log')

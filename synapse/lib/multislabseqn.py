@@ -150,7 +150,7 @@ class MultiSlabSeqn(s_base.Base):
                     firstidx = firstitem[0]  # might not match the separately stored first index due to culling
 
                     if firstidx < fnstartidx:
-                        raise s_exc.BadCoreStore('Multislab:  filename inconsistent with contents')
+                        raise s_exc.BadCoreStore(mesg='Multislab:  filename inconsistent with contents')
 
                     lastidx = seqn.index() - 1
 
@@ -161,7 +161,7 @@ class MultiSlabSeqn(s_base.Base):
             self.firstindx = lowindx
 
         if self.firstindx > self.indx:
-            raise s_exc.BadCoreStore('Invalid firstindx value')
+            raise s_exc.BadCoreStore(mesg='Invalid firstindx value')
 
         await self._initTailSlab(fnstartidx)
 

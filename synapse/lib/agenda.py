@@ -5,9 +5,7 @@ import asyncio
 import logging
 import calendar
 import datetime
-import functools
 import itertools
-import collections
 from datetime import timezone as tz
 from collections.abc import Iterable, Mapping
 
@@ -262,6 +260,7 @@ class _Appt:
         'created',
         'enabled',
         'errcount',
+        'loglevel',
         'nexttime',
         'lasterrs',
         'isrunning',
@@ -271,7 +270,7 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False):
+    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False, loglevel=None):
         self.doc = ''
         self.name = ''
         self.task = None
@@ -286,6 +285,7 @@ class _Appt:
         self._recidxnexttime = None  # index of rec who is up next
         self.view = view
         self.created = created
+        self.loglevel = loglevel
 
         if self.recur and not self.recs:
             raise s_exc.BadTime(mesg='A recurrent appointment with no records')
@@ -366,7 +366,10 @@ class _Appt:
         if val['ver'] != 1:
             raise s_exc.BadStorageVersion(mesg=f"Found version {val['ver']}")  # pragma: no cover
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
-        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs, nexttime=val['nexttime'], view=val.get('view'))
+        # TODO: MOAR INSANITY
+        loglevel = val.get('loglevel', 'WARNING')
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs,
+                   nexttime=val['nexttime'], view=val.get('view'), loglevel=loglevel)
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
         appt.pool = val.get('pool', False)
@@ -375,6 +378,7 @@ class _Appt:
         appt.lastfinishtime = val['lastfinishtime']
         appt.lastresult = val['lastresult']
         appt.enabled = val['enabled']
+        appt.lasterrs = list(val.get('lasterrs', []))
 
         return appt
 
@@ -424,8 +428,10 @@ class _Appt:
                 logger.warning('_Appt.edits() Invalid attribute received: %s = %r', name, valu, extra=extra)
                 continue
 
-            else:
-                setattr(self, name, valu)
+            if name == 'lasterrs' and not isinstance(valu, list):
+                valu = list(valu)
+
+            setattr(self, name, valu)
 
         await self.save()
 
@@ -561,6 +567,7 @@ class Agenda(s_base.Base):
         creator = cdef.get('creator')
         view = cdef.get('view')
         created = cdef.get('created')
+        loglevel = cdef.get('loglevel', 'WARNING')
 
         pool = cdef.get('pool', False)
 
@@ -605,7 +612,9 @@ class Agenda(s_base.Base):
                 incvals = (incvals, )
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
-        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view, created=created, pool=pool)
+        # TODO: this is insane. Make _Appt take the cdef directly...
+        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view,
+                           created=created, pool=pool, loglevel=loglevel)
         self._addappt(iden, appt)
 
         appt.doc = cdef.get('doc', '')
@@ -681,6 +690,11 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
+        self._delete_appt_from_heap(appt)
+        del self.appts[iden]
+        self.apptdefs.delete(iden)
+
+    def _delete_appt_from_heap(self, appt):
         try:
             heappos = self.apptheap.index(appt)
         except ValueError:
@@ -694,9 +708,6 @@ class Agenda(s_base.Base):
                 self.apptheap[heappos] = self.apptheap.pop()
                 heapq.heapify(self.apptheap)
 
-        del self.appts[iden]
-        self.apptdefs.delete(iden)
-
     def _getNowTick(self):
         return time.time() + self.tickoff
 
@@ -709,12 +720,23 @@ class Agenda(s_base.Base):
         for appt in list(self.appts.values()):
             if appt.isrunning:
                 logger.debug(f'Clearing the isrunning flag for {appt.iden}')
-                await self.core.addCronEdits(appt.iden, {'isrunning': False})
+
+                edits = {
+                    'isrunning': False,
+                    'lastfinishtime': self._getNowTick(),
+                    'lasterrs': ['aborted'] + appt.lasterrs[-4:]
+                }
+                await self.core.addCronEdits(appt.iden, edits)
+                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+
+                if appt.nexttime is None:
+                    self._delete_appt_from_heap(appt)
 
     async def runloop(self):
         '''
         Task loop to issue query tasks at the right times.
         '''
+        await self.clearRunningStatus()
         while not self.isfini:
 
             timeout = None
@@ -830,7 +852,10 @@ class Agenda(s_base.Base):
                     extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
                                        'username': user.name, 'view': appt.view}})
         starttime = self._getNowTick()
+
         success = False
+        loglevel = s_common.normLogLevel(appt.loglevel)
+
         try:
             opts = {
                 'user': user.iden,
@@ -849,6 +874,11 @@ class Agenda(s_base.Base):
 
                 if mesg[0] == 'node':
                     count += 1
+
+                elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
+                    text = mesg[1].get('mesg', '<missing message>')
+                    extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
+                    logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
 
                 elif mesg[0] == 'err':
                     excname, errinfo = mesg[1]

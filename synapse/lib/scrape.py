@@ -128,6 +128,8 @@ _cpe23_regex = r'''(?P<valu>cpe:2\.3:[aho\*-]
 (?::(([?]+|\*)?([a-z0-9-._]|\\[\\?*!"#$%&\'()+,/:;<=>@\[\]^`{|}~])+([?]+|\*)?|[*-])){4})
 '''
 
+path_parts_limit = 1024
+
 linux_path_regex = r'''
 (?<![\w\d]+)
 (?P<valu>
@@ -142,9 +144,15 @@ linux_path_rootdirs = (
     'sys', 'tmp', 'usr', 'var'
 )
 
+# https://docs.kernel.org/filesystems/path-lookup.html#the-symlink-stack
+linux_path_limit = 4096
+
 def linux_path_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
+
+    if len(valu) > linux_path_limit:
+        return None, {}
 
     path = pathlib.PurePosixPath(valu)
     parts = path.parts
@@ -152,7 +160,7 @@ def linux_path_check(match: regex.Match):
     if parts[0] != '/':
         return None, {}
 
-    if len(parts) < 2:
+    if len(parts) < 2 or len(parts) > path_parts_limit:
         return None, {}
 
     if parts[1] not in linux_path_rootdirs:
@@ -177,15 +185,24 @@ windows_path_reserved = (
 
 windows_drive_paths = [f'{letter}:\\' for letter in string.ascii_lowercase]
 
+# https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
+windows_path_limit = 32_767
+
 # https://learn.microsoft.com/en-us/windows/win32/fileio/naming-a-file#naming-conventions
 def windows_path_check(match: regex.Match):
     mnfo = match.groupdict()
     valu = mnfo.get('valu')
 
+    if len(valu) > windows_path_limit:
+        return None, {}
+
     path = pathlib.PureWindowsPath(valu)
     parts = path.parts
 
     if parts[0].lower() not in windows_drive_paths:
+        return None, {}
+
+    if len(parts) > path_parts_limit:
         return None, {}
 
     for part in parts:

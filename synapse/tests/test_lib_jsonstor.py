@@ -116,6 +116,7 @@ class JsonStorTest(s_test.SynTest):
                     self.eq({'hehe': 'haha', 'zip': {}}, await prox.getPathObj('foo/bar'))
 
                     self.false(await prox.delPathObjProp('newp/newp', 'newp'))
+                    self.false(await prox.delPathObjProp('foo/bar', 'nested/newp'))
 
                     await prox.delPathObj('foo/bar')
                     self.none(await prox.getPathObj('foo/bar'))

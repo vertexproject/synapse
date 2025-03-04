@@ -21,9 +21,11 @@ import io
 import os
 import sys
 import copy
+import json
 import math
 import types
 import shutil
+import typing
 import asyncio
 import hashlib
 import inspect
@@ -96,6 +98,10 @@ def norm(z):
 
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
+
+def jsonlines(text: str):
+    lines = [k for k in text.split('\n') if k]
+    return [json.loads(line) for line in lines]
 
 async def waitForBehold(core, events):
     async for mesg in core.behold():
@@ -335,10 +341,10 @@ testmodel = {
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
         )}), {'doc': 'A complex comp type.'}),
-        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
-        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
-        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded'}),
-        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes'}),
+        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
+        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
+        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
+        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
 
         ('test:pivtarg', ('str', {}), {}),
         ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
@@ -359,7 +365,7 @@ testmodel = {
             'interfaces': ('file:mime:msoffice',)
         }), {}),
 
-        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
+        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node.'}),
         ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
         ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
     ),
@@ -497,8 +503,8 @@ testmodel = {
         )),
 
         ('test:ro', {}, (
-            ('writeable', ('str', {}), {'doc': 'writeable property'}),
-            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
+            ('writeable', ('str', {}), {'doc': 'writeable property.'}),
+            ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
         )),
 
         ('test:hasiface', {}, ()),
@@ -513,6 +519,12 @@ deprmodel = {
         ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
         ('test:deprform', ('test:str', {}), {}),
         ('test:deprndef', ('ndef', {}), {}),
+        ('test:deprsub', ('str', {}), {}),
+        ('test:range', ('range', {}), {}),
+        ('test:deprsub2', ('comp', {'fields': (
+            ('name', 'test:str'),
+            ('range', 'test:range'))
+        }), {}),
     ),
     'forms': (
         ('test:deprprop', {}, ()),
@@ -520,6 +532,17 @@ deprmodel = {
             ('ndefprop', ('test:deprndef', {}), {}),
             ('deprprop', ('test:deprarray', {}), {}),
             ('okayprop', ('str', {}), {}),
+        )),
+        ('test:deprsub', {}, (
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {'deprecated': True}),
+            ('range:max', ('int', {}), {}),
+        )),
+        ('test:deprsub2', {}, (
+            ('name', ('str', {}), {}),
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {}),
+            ('range:max', ('int', {}), {'deprecated': True}),
         )),
     ),
 
@@ -789,6 +812,10 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
+    def jsonlines(self) -> typing.List[dict]:
+        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
+        return jsonlines(self.getvalue())
+
 class AsyncStreamEvent(io.StringIO, asyncio.Event):
     '''
     A combination of a io.StringIO object and an asyncio.Event object.
@@ -820,6 +847,10 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
         if timeout is None:
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
+
+    def jsonlines(self) -> typing.List[dict]:
+        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
+        return jsonlines(self.getvalue())
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''
@@ -991,8 +1022,6 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
-        self._NextBuid = 0
-        self._NextGuid = 0
 
         for s in dir(self):
             attr = getattr(self, s, None)
@@ -1125,6 +1154,28 @@ class SynTest(unittest.TestCase):
             TstOutPut: A TstOutPut instance.
         '''
         return TstOutPut()
+
+    def thisEnvMust(self, *envvars):
+        '''
+        Requires a host must have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being present.
+        '''
+        for envar in envvars:
+            if not s_common.envbool(envar):
+                self.skip(f'Envar {envar} is not set to a truthy value.')
+
+    def thisEnvMustNot(self, *envvars):
+        '''
+        Requires a host must not have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being absent or set to falsey values.
+        '''
+        for envar in envvars:
+            if s_common.envbool(envar):
+                self.skip(f'Envar {envar} is set to a truthy value.')
 
     def thisHostMust(self, **props):  # pragma: no cover
         '''
@@ -1719,7 +1770,7 @@ class SynTest(unittest.TestCase):
             slogger.setLevel(level)
 
     @contextlib.contextmanager
-    def getAsyncLoggerStream(self, logname, mesg=''):
+    def getAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[StreamEvent, None, None]:
         '''
         Async version of getLoggerStream.
 
@@ -1764,7 +1815,7 @@ class SynTest(unittest.TestCase):
             slogger.setLevel(level)
 
     @contextlib.contextmanager
-    def getStructuredAsyncLoggerStream(self, logname, mesg=''):
+    def getStructuredAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[AsyncStreamEvent, None, None]:
         '''
         Async version of getLoggerStream which uses structured logging.
 
@@ -1787,9 +1838,7 @@ class SynTest(unittest.TestCase):
                     # Wait for the mesg to be written to the stream
                     await stream.wait(timeout=10)
 
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 # Do something with messages
 
         Returns:
@@ -2323,58 +2372,6 @@ class SynTest(unittest.TestCase):
 
             async with await s_hive.SlabHive.anit(slab) as hive:
                 yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveDmon(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                async with self.getTestDmon() as dmon:
-                    dmon.share('hive', hive)
-                    yield dmon
-
-    @contextlib.asynccontextmanager
-    async def getTestTeleHive(self):
-
-        async with self.getTestHiveDmon() as dmon:
-
-            turl = self.getTestUrl(dmon, 'hive')
-
-            async with await s_hive.openurl(turl) as hive:
-
-                yield hive
-
-    def stablebuid(self, valu=None):
-        '''
-        A stable buid generation for testing purposes
-        '''
-        if valu is None:
-            retn = self._NextBuid.to_bytes(32, 'big')
-            self._NextBuid += 1
-            return retn
-
-        byts = s_msgpack.en(valu)
-        return hashlib.sha256(byts).digest()
-
-    def stableguid(self, valu=None):
-        '''
-        A stable guid generation for testing purposes
-        '''
-        if valu is None:
-            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
-            self._NextGuid += 1
-            return retn
-
-        byts = s_msgpack.en(valu)
-        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
-
-    @contextlib.contextmanager
-    def withStableUids(self):
-        '''
-        A context manager that generates guids and buids in sequence so that successive test runs use the same
-        data
-        '''
-        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
-            yield
 
     async def runCoreNodes(self, core, query, opts=None):
         '''

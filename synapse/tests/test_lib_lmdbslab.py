@@ -1,5 +1,4 @@
 import os
-import json
 import asyncio
 import pathlib
 import multiprocessing
@@ -15,7 +14,6 @@ import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
 import synapse.tests.utils as s_t_utils
-from synapse.tests.utils import alist
 
 def getFileMapCount(filename):
     filename = str(filename)
@@ -340,9 +338,9 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
             # Ensure that our envar override for memory locking is acknowledged
             with self.setTstEnvars(SYN_LOCKMEM_DISABLE='1'):
-                slab = await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True)
-                self.false(slab.lockmemory)
-                self.none(slab.memlocktask)
+                async with await s_lmdbslab.Slab.anit(path, map_size=1000000, lockmemory=True) as slab:
+                    self.false(slab.lockmemory)
+                    self.none(slab.memlocktask)
 
     def simplenow(self):
         self._nowtime += 1000
@@ -360,8 +358,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
                 self.true(await stream.wait(timeout=1))
 
-            data = stream.getvalue()
-            msgs = [json.loads(m) for m in data.split('\\n') if m]
+            msgs = stream.jsonlines()
             self.gt(len(msgs), 0)
             self.nn(msgs[0].get('delta'))
             self.nn(msgs[0].get('path'))
@@ -373,6 +370,30 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 'vm.dirty_background_ratio',
                 'vm.dirty_ratio',
             ], msgs[0].get('sysctls', {}).keys())
+
+    async def test_lmdbslab_commit_over_max_xactops(self):
+
+        # Make sure that we don't confuse the periodic commit with the max replay log commit
+        with (self.getTestDir() as dirn,
+              patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1),
+              patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 100)
+              ):
+            path = os.path.join(dirn, 'test.lmdb')
+
+            async with await s_lmdbslab.Slab.anit(path, max_replay_log=100, map_size=100_000_000) as slab:
+                foo = slab.initdb('foo', dupsort=True)
+
+                byts = b'\x00' * 256
+                for i in range(1000):
+                    slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
+                    await asyncio.sleep(0)
+
+            # Let the slab close and then grab its stats
+            stats = slab.statinfo()
+            commitstats = stats.get('commitstats', ())
+            self.gt(len(commitstats), 0)
+            commitstats = [x[1] for x in commitstats if x[1] != 0]
+            self.eq(commitstats, (100, 100, 100, 100, 100, 100, 100, 100, 100, 100))
 
     async def test_lmdbslab_max_replay(self):
         with self.getTestDir() as dirn:

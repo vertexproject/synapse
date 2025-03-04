@@ -583,11 +583,25 @@ stormcmds = (
     {
         'name': 'auth.perms.list',
         'descr': 'Display a list of the current permissions defined within the Cortex.',
-        'cmdargs': (),
+        'cmdargs': (
+            ('--find', {'type': 'str', 'help': 'A search string for permissions.'}),
+        ),
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
                 $perm = $lib.str.join(".", $pdef.perm)
+
+                if $cmdopts.find {
+                    $find = $cmdopts.find.lower()
+                    $match = (
+                        $perm.lower().find($find) != (null) or
+                        $pdef.desc.lower().find($find) != (null) or
+                        $pdef.gate.lower().find($find) != (null) or
+                        ($pdef.ex and $pdef.ex.lower().find($find) != (null))
+                    )
+
+                    if (not $match) { continue }
+                }
 
                 $lib.print($perm)
                 $lib.print(`    {$pdef.desc}`)
