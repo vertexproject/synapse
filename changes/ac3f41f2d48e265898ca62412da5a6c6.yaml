@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue where Storm query pool timeouts would cancel other queries to
+  that pool member.
+prs: []
+type: bug
+...

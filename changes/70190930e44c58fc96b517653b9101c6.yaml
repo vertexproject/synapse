@@ -1,0 +1,5 @@
+---
+desc: Updated Telepath proxy behavior to dynamically adjust the size of the link pool.
+prs: []
+type: feat
+...
