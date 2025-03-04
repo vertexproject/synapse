@@ -6,6 +6,142 @@
 Synapse Changelog
 *****************
 
+v2.201.0 - 2025-02-28
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_201_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated cron job execution to emit container warnings when the cron job uses
+  ``$lib.warn()``.
+  (`#4152 <https://github.com/vertexproject/synapse/pull/4152>`_)
+- Updated ``synapse.tools.autodoc`` to include the list of interfaces
+  implemented by a type.
+  (`#4158 <https://github.com/vertexproject/synapse/pull/4158>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the ``risk:mitigation:type:taxonomy`` form did not
+  inherit the ``meta:taxonomy`` interface.
+  (`#4156 <https://github.com/vertexproject/synapse/pull/4156>`_)
+- Fixed an issue where interface properties which were overridden by a form
+  specific property were not liftable by the interface property.
+  (`#4161 <https://github.com/vertexproject/synapse/pull/4161>`_)
+- Fixed a bug where the ``lasterrs`` in cron jobs could be a tuple, which
+  caused issues appending new errors.
+  (`#4163 <https://github.com/vertexproject/synapse/pull/4163>`_)
+- Fixed an issue where the Storm ``batch`` command failed to accept
+  ``storm:query`` objects as query arguments.
+  (`#4164 <https://github.com/vertexproject/synapse/pull/4164>`_)
+
+v2.200.0 - 2025-02-21
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated the ``lmdb`` library constraints to ``>=1.2.1,<1.7.0``.
+  (`#4145 <https://github.com/vertexproject/synapse/pull/4145>`_)
+- Added Endpoints section with path and description to Storm command help
+  output when defined.
+  (`#4149 <https://github.com/vertexproject/synapse/pull/4149>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the guid dictionary syntax could raise an exception when
+  attempting to filter by alternate property values.
+  (`#4147 <https://github.com/vertexproject/synapse/pull/4147>`_)
+- Fixed bug where data model interface template values were modified by
+  inheritors.
+  (`#4148 <https://github.com/vertexproject/synapse/pull/4148>`_)
+
+Deprecations
+------------
+- Removed ``hiveauth.py`` and related APIs which depended on it.
+  (`#4140 <https://github.com/vertexproject/synapse/pull/4140>`_)
+
+v2.199.0 - 2025-02-18
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated property set behavior to avoid warning when deprecated properties are
+  set as subs.
+  (`#4143 <https://github.com/vertexproject/synapse/pull/4143>`_)
+- Increased performance of the Storm ``merge`` command and ``View.merge()``
+  method.
+  (`#4144 <https://github.com/vertexproject/synapse/pull/4144>`_)
+
+Bugfixes
+--------
+- Fixed an issue with Snap construction in the Storm ``merge`` command.
+  (`#4144 <https://github.com/vertexproject/synapse/pull/4144>`_)
+
+v2.198.0 - 2025-02-14
+=====================
+
+Automatic Migrations
+--------------------
+- Added a migration to lock any service users which are marked as archived but
+  are not locked.
+  (`#4100 <https://github.com/vertexproject/synapse/pull/4100>`_)
+- See :ref:`datamigration` for more information about automatic migrations.
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_198_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added brief I/O yields for various LMDB operations to help improve
+  responsiveness when handling certain transactions.
+  (`#3937 <https://github.com/vertexproject/synapse/pull/3937>`_)
+- Added edit syntax for adding/removing node edges using a variable value
+  rather than a subquery.
+  (`#4117 <https://github.com/vertexproject/synapse/pull/4117>`_)
+- Added new endpoints section in the package definition schema, allowing the
+  configuration of multiple endpoints and details.
+  (`#4127 <https://github.com/vertexproject/synapse/pull/4127>`_)
+- Added ``++=``, ``--=``, ``?++=``, and ``?--=`` edit operators to Storm for
+  adding or removing multiple values from an array property in a single
+  operation.
+  (`#4130 <https://github.com/vertexproject/synapse/pull/4130>`_)
+- Updated Storm lift behavior to allow lifting guid forms and properties using
+  the property dictionary syntax.
+  (`#4132 <https://github.com/vertexproject/synapse/pull/4132>`_)
+
+Bugfixes
+--------
+- Fixed bug where archived users could be unlocked.
+  (`#4100 <https://github.com/vertexproject/synapse/pull/4100>`_)
+- Fixed an issue in ``$lib.regex`` where Python regex exceptions were leaking
+  into the Storm runtime.
+  (`#4118 <https://github.com/vertexproject/synapse/pull/4118>`_)
+- Fixed bug with ``syn:user`` and ``syn:role`` nodes when queried name does not
+  exist and the value is not a valid ``guid``.
+  (`#4119 <https://github.com/vertexproject/synapse/pull/4119>`_)
+- Fixed an issue where certain ``BadSyntax`` exceptions had incomplete error
+  highlighting information.
+  (`#4120 <https://github.com/vertexproject/synapse/pull/4120>`_)
+- Fixed an issue where leading/trailing whitespace and comments were not
+  included in the string representation of embedded Storm query objects.
+  (`#4121 <https://github.com/vertexproject/synapse/pull/4121>`_)
+- Fixed a bug where ``syn:user`` and ``syn:role`` types could take a ``*`` and
+  return a new ``guid``.
+  (`#4122 <https://github.com/vertexproject/synapse/pull/4122>`_)
+- Fixed an issue where the Axon failed to yield when calling the ``history()``
+  or ``get()`` APIs.
+  (`#4131 <https://github.com/vertexproject/synapse/pull/4131>`_)
+
+Deprecations
+------------
+- Deprecated ``synapse/lib/hiveauth.py`` and added deprecation messages to
+  related APIs. This file and related APIs will be removed in ``v2.199.0``.
+  (`#4100 <https://github.com/vertexproject/synapse/pull/4100>`_)
+  (`#4141 <https://github.com/vertexproject/synapse/pull/4141>`_)
+
 v2.197.0 - 2025-02-05
 =====================
 

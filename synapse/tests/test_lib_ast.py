@@ -492,6 +492,63 @@ class AstTest(s_test.SynTest):
                 q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
                 nodes = await core.nodes(q)
 
+    async def test_ast_setmultioper(self):
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:arrayprop="*" :ints=(1,) ]')
+            self.eq(nodes[0].get('ints'), (1,))
+
+            nodes = await core.nodes('test:arrayprop [ :ints++=([3, 4]) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('test:arrayprop [ :ints++=(null) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('test:arrayprop [ :ints--=(null) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('test:arrayprop [ :strs++=(foo, bar, baz) ]')
+            self.eq(nodes[0].get('strs'), ('foo', 'bar', 'baz'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:arrayprop [ :ints++=(["newp", 5, 6]) ]')
+
+            nodes = await core.nodes('test:arrayprop [ :ints?++=(["newp", 5, 6]) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4, 5, 6))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:arrayprop [ :ints--=(["newp", 5, 6]) ]')
+
+            nodes = await core.nodes('test:arrayprop [ :ints?--=(["newp", 5, 6, 7]) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('[ test:str=foo :ndefs++={[ test:str=bar ]} ]')
+            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'),))
+
+            nodes = await core.nodes('test:str=foo  [ :ndefs++={[ test:str=baz test:str=faz ]} ]')
+            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'), ('test:str', 'baz'), ('test:str', 'faz')))
+
+            nodes = await core.nodes('test:str=foo  [ :ndefs--={ test:str=baz test:str=faz } ]')
+            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'),))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:arrayprop [ :newp++=(["newp", 5, 6]) ]')
+
+            badq = [
+                'test:str [ :hehe++=([3, 4]) ]',
+                'test:str [ :hehe?++=([3, 4]) ]',
+                'test:str [ :hehe--=([3, 4]) ]',
+                'test:str [ :hehe?--=([3, 4]) ]',
+                'test:arrayprop [ :ints++=(3) ]',
+                'test:arrayprop [ :ints?++=(3) ]',
+                'test:arrayprop [ :ints--=(3) ]',
+                'test:arrayprop [ :ints?--=(3) ]',
+            ]
+
+            for q in badq:
+                with self.raises(s_exc.StormRuntimeError):
+                    await core.nodes(q)
+
     async def test_ast_editparens(self):
 
         async with self.getTestCore() as core:
@@ -1019,6 +1076,9 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('test:interface:sandbox:file'))
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
             self.len(1, await core.nodes('it:host:activity:sandbox:file'))
+
+            self.len(1, await core.nodes('[ it:exec:reg:get=* :host=(host,) ]'))
+            self.len(4, await core.nodes('it:host:activity:host=(host,)'))
 
     async def test_ast_edge_walknjoin(self):
 

@@ -97,6 +97,7 @@ _CronJobSchema = {
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
         'doc': {'type': 'string'},
+        'loglevel': {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())},
         'incunit': {
             'oneOf': [
                 {'type': 'null'},
@@ -879,6 +880,19 @@ _reqValidPkgdefSchema = {
                 'name': {
                     'type': 'string',
                     'pattern': s_grammar.re_scmd
+                },
+                'endpoints': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'path': {'type': 'string'},
+                            'host': {'type': 'string'},
+                            'desc': {'type': 'string'},
+                        },
+                        'required': ['path'],
+                        'additionalProperties': False
+                    }
                 },
                 'cmdargs': {
                     'type': ['array', 'null'],
