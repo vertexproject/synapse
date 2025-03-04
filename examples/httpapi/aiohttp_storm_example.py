@@ -1,9 +1,10 @@
 import sys
-import json
 import pprint
 import asyncio
 
 import aiohttp
+
+import synapse.lib.json as s_json
 
 # Examples for using the Cortex HTTP API to call Storm queries.
 # For more information about these APIs, refer to the following documentation.
@@ -45,7 +46,7 @@ async def main(argv):
                 if not byts:
                     break
 
-                mesg = json.loads(byts)
+                mesg = s_json.loads(byts)
                 pprint.pprint(mesg)
 
         # storm/call - this is intended for use with the Storm return() syntax

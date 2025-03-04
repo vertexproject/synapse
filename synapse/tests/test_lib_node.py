@@ -1,9 +1,9 @@
-import json
 import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 
 import synapse.tests.utils as s_t_utils
@@ -220,7 +220,7 @@ class NodeTest(s_t_utils.SynTest):
                     async for byts, x in resp.content.iter_chunks():
                         if not byts:
                             break
-                        mesg = json.loads(byts)
+                        mesg = s_json.loads(byts)
                         if mesg[0] == 'node':
                             https_nodes.append(mesg[1])
 

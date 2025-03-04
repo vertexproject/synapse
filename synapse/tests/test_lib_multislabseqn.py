@@ -5,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.multislabseqn as s_multislabseqn
 
@@ -314,7 +315,7 @@ class MultiSlabSeqn(s_t_utils.SynTest):
             # Make a slab a non-dir
             slab0dirn = s_common.genpath(baddirn, f'seqn{"0" * 16}.lmdb')
             shutil.rmtree(slab0dirn)
-            s_common.jssave('{}', slab0dirn)
+            s_json.jssave('{}', slab0dirn)
 
             with self.getAsyncLoggerStream('synapse.lib.multislabseqn', 'non-directory') as stream:
                 async with await s_multislabseqn.MultiSlabSeqn.anit(baddirn) as msqn:

@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Stdlib
 import os
-import json
 import logging
 
 log = logging.getLogger(__name__)

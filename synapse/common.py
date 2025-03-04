@@ -3,7 +3,6 @@ import os
 import ssl
 import sys
 import enum
-import json
 import http
 import stat
 import time
@@ -30,6 +29,7 @@ import contextlib
 import collections
 
 import http.cookies
+import tornado.escape
 
 import yaml
 import regex
@@ -38,6 +38,9 @@ import synapse.exc as s_exc
 import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
+
+# Import these into the namespace for convenience
+from synapse.lib.json import jsload, jslines, jssave, reqjsonsafe
 
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
 import synapse.vendor.cpython.lib.http.cookies as v_cookies
@@ -511,24 +514,6 @@ def getDirSize(*paths):
 
     return realsum, apprsum
 
-def jsload(*paths):
-    with genfile(*paths) as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-
-        return json.loads(byts.decode('utf8'))
-
-def jslines(*paths):
-    with genfile(*paths) as fd:
-        for line in fd:
-            yield json.loads(line)
-
-def jssave(js, *paths):
-    path = genpath(*paths)
-    with io.open(path, 'wb') as fd:
-        fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
-
 def yamlloads(data):
     return yaml.load(data, Loader)
 
@@ -959,16 +944,6 @@ def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
     warnings.warn(mesg, DeprecationWarning)
 
-def reqjsonsafe(item):
-    '''
-    Returns None if item is json serializable, otherwise raises an exception.
-    Uses default type coercion from built-in json.dumps.
-    '''
-    try:
-        json.dumps(item)
-    except TypeError as e:
-        raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
-
 def jsonsafe_nodeedits(nodeedits):
     '''
     Hexlify the buid of each node:edits
@@ -1234,7 +1209,22 @@ def _patch_http_cookies():
         return
     http.cookies._unquote = v_cookies._unquote
 
+def _patch_tornado_json():
+    import synapse.lib.json as s_json
+
+    if hasattr(tornado.escape, 'json_encode'):
+        # This exists for a specific reason. See the following URL for explanation:
+        # https://github.com/tornadoweb/tornado/blob/master/tornado/escape.py#L83-L96
+        def _tornado_json_encode(value):
+            return s_json.dumps(value).replace(b'</', b'<\\/').decode()
+
+        tornado.escape.json_encode = _tornado_json_encode
+
+    if hasattr(tornado.escape, 'json_decode'):
+        tornado.escape.json_decode = s_json.loads
+
 _patch_http_cookies()
+_patch_tornado_json()
 
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up
