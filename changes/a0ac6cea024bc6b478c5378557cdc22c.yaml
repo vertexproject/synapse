@@ -1,6 +1,0 @@
----
-desc: Fixed an issue where streaming backups with ``remove=True`` could fail to remove
-  the local backup.
-prs: []
-type: bug
-...
