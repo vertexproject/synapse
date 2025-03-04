@@ -1011,7 +1011,6 @@ class TeleTest(s_t_utils.SynTest):
                 # Add a fini'd proxy for coverage
                 prox2 = await s_telepath.openurl(url)
                 await prox2.fini()
-                await prox2.waitfini(5)
                 prox2._all_proxies.add(prox2)
 
                 wait = prox.waiter(1, 'pool:link:fini')
