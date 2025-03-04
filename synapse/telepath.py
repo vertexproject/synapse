@@ -675,8 +675,9 @@ class Proxy(s_base.Base):
                     if len(proxy.links) > proxy._links_max:
                         link = proxy.links.popleft()
                         await link.fini()
-                        # mostly to facilitate testing...
-                        await proxy.fire('pool:link:fini', link=link)
+
+                        if __debug__:
+                            await proxy.fire('pool:link:fini', link=link)
 
                 Proxy._link_event.clear()
 
