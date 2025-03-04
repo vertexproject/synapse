@@ -1,6 +1,0 @@
----
-desc: Updated Storm query pool behavior to fallback to other mirrors first before
-  running queries locally.
-prs: []
-type: feat
-...
