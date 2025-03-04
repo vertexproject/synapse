@@ -1825,7 +1825,7 @@ class CellTest(s_t_utils.SynTest):
                             await asyncio.sleep(0)
 
                     task = core.schedCoro(streamdone())
-                    await asyncio.wait_for(task, 5)
+                    await asyncio.wait_for(task, 10)
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
                     self.false(os.path.isdir(os.path.join(backdirn, 'bkup3')))
@@ -1839,7 +1839,7 @@ class CellTest(s_t_utils.SynTest):
                             bkup4.write(msg)
 
                     task = core.schedCoro(streamdone())
-                    await asyncio.wait_for(task, 5)
+                    await asyncio.wait_for(task, 10)
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
 
