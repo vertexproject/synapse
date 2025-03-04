@@ -125,8 +125,12 @@ def _task_scope() -> Scope:
     Returns:
         Scope: A Scope object.
     '''
-    task = asyncio.current_task()
-    if task is None:
+    try:
+        task = asyncio.current_task()
+        if task is None:
+            return None
+    except RuntimeError:
+        # no running loop...
         return None
 
     scope = getattr(task, '_syn_scope', None)
