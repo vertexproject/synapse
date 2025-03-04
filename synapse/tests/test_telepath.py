@@ -1008,6 +1008,11 @@ class TeleTest(s_t_utils.SynTest):
                 [await genr.list() for genr in genrs]
                 self.len(13, prox.links)
 
+                # Add a fini'd proxy for coverage
+                prox2 = await s_telepath.openurl(url)
+                await prox2.fini()
+                prox2._all_proxies.add(prox2)
+
                 wait = prox.waiter(1, 'pool:link:fini')
                 await wait.wait(timeout=5)
                 self.len(12, prox.links)

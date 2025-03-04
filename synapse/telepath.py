@@ -636,7 +636,7 @@ class Proxy(s_base.Base):
                 await item.fini()
 
             mesg = ('task:fini', {'retn': (False, ('IsFini', {}))})
-            for iden, task in list(self.tasks.items()):
+            for iden, task in list(self.tasks.items()):  # pragma: no cover
                 task.reply(mesg)
                 del self.tasks[iden]
 
