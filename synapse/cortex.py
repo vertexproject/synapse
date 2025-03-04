@@ -5889,7 +5889,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     # we are part of the pool and were selected. Convert to local use.
                     return None
 
-            except TimeoutError as e:
+            except TimeoutError:
                 logger.warning('Timeout waiting for pool mirror proxy.')
                 continue
 
