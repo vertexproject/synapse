@@ -128,9 +128,8 @@ class Base:
 
         self.isfini = False
         self.anitted = True  # For assertion purposes
-        self.finievt = None
+        self.finievt = asyncio.Event()
         self.entered = False
-        self.finidone = False
 
         # hold a weak ref to other bases we should fini if they
         # are still around when we go down...
@@ -432,11 +431,7 @@ class Base:
         self._syn_funcs.clear()
         self._fini_funcs.clear()
 
-        self.finidone = True
-        fevt = self.finievt
-
-        if fevt is not None:
-            fevt.set()
+        self.finievt.set()
 
         return 0
 
@@ -470,13 +465,6 @@ class Base:
             base.waitfini(timeout=30)
 
         '''
-
-        if self.finidone:
-            return True
-
-        if self.finievt is None:
-            self.finievt = asyncio.Event()
-
         return await s_coro.event_wait(self.finievt, timeout)
 
     def schedCoro(self, coro):
