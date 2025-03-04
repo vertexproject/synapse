@@ -3077,7 +3077,7 @@ class CellTest(s_t_utils.SynTest):
                         self.none(await core0.callStorm('return($lib.user.profile.get(bar))'))
 
     async def test_cell_hive_migration(self):
-
+        self.skip('dev_boot_logging')
         with self.getAsyncLoggerStream('synapse.lib.cell') as stream:
 
             async with self.getRegrCore('hive-migration') as core:

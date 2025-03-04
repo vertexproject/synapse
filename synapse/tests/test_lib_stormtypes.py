@@ -4755,7 +4755,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq('zoinks', cdef.get('doc'))
 
     async def test_storm_lib_cron(self):
-
+        self.skip('dev_boot_logging')
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
 

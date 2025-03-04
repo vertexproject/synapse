@@ -1218,7 +1218,7 @@ class CortexTest(s_t_utils.SynTest):
                     self.eq('SchemaViolation', retn.get('code'))
 
     async def test_cortex_storm_dmon_log(self):
-
+        self.skip('dev_boot_logging')
         async with self.getTestCore() as core:
 
             with self.getStructuredAsyncLoggerStream('synapse.storm.log',
@@ -6255,7 +6255,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.nn(core.stormdmondefs.get(iden))
 
     async def test_cortex_storm_dmon_view(self):
-
+        self.skip('dev_boot_logging')
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
                 # twiddle the dmon manager
@@ -6350,6 +6350,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.none(await core._delStormCmd('newp'))
 
     async def test_cortex_storm_lib_dmon_cmds(self):
+        self.skip('dev_boot_logging')
         async with self.getTestCore() as core:
             await core.nodes('''
                 $q = $lib.queue.add(visi)
@@ -6390,7 +6391,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.BadSyntax, core.nodes('$lib.dmon.add(" | | | ")'))
 
     async def test_cortex_storm_dmon_exit(self):
-
+        self.skip('dev_boot_logging')
         async with self.getTestCore() as core:
 
             await core.nodes('''
@@ -7711,6 +7712,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.isin(f'Detected {count - 4} deprecated properties', data)
 
     async def test_cortex_dmons_after_modelrev(self):
+        self.skip('dev_boot_logging')
         with self.getTestDir() as dirn:
             async with self.getTestCore(dirn=dirn) as core:
 

@@ -1558,12 +1558,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             logger.debug('CORTEX: check layer models')
             await self._checkLayerModels()
 
-        logger.debug('CORTEX: starting agenda')
-        self.addActiveCoro(self.agenda.runloop)
-        logger.debug('CORTEX: init dmons')
-        await self._initStormDmons()
-        logger.debug('CORTEX: init svcs')
-        await self._initStormSvcs()
+        logger.debug('CORTEX: AGENDA / DMONS / STORMSVCS DISABLED')
+        # logger.debug('CORTEX: starting agenda')
+        # self.addActiveCoro(self.agenda.runloop)
+        # logger.debug('CORTEX: init dmons')
+        # await self._initStormDmons()
+        # logger.debug('CORTEX: init svcs')
+        # await self._initStormSvcs()
 
         # share ourself via the cell dmon as "cortex"
         # for potential default remote use

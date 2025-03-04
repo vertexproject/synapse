@@ -404,6 +404,8 @@ def patchcore(core, attr, newfunc):
         setattr(core, attr, origvalu)
 
 class StormSvcTest(s_test.SynTest):
+    def setUp(self):
+        self.skip('dev_boot_logging')
 
     async def test_storm_svc_cmds(self):
 

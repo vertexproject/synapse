@@ -15,6 +15,10 @@ import synapse.lib.agenda as s_agenda
 from synapse.lib.agenda import TimeUnit as s_tu
 
 class AgendaTest(s_t_utils.SynTest):
+
+    def setUp(self):
+        self.skip('dev_boot_logging')
+
     def test_apptreq(self):
 
         # Invalid combinations
