@@ -184,20 +184,15 @@ async def _iterBackupWork(path, linkinfo):
 
     logger.info(f'Backup streaming for [{path}] completed.')
 
-def _iterBackupProc(path, linkinfo):
+def _iterBackupProc(path, linkinfo, logconf):
     '''
     Multiprocessing target for streaming a backup.
     '''
     # This logging call is okay to run since we're executing in
     # our own process space and no logging has been configured.
-    logconf = linkinfo.get('logconf')
-
-    level = logconf.get('level')
-    structlog = logconf.get('structlog')
-
-    s_logging.setup(level=level, structlog=structlog)
-
-    logger.info(f'Backup streaming process for [{path}] starting.')
+    s_logging.setup(**logconf)
+    extra = s_logging.getLogExtra(path=path)
+    logger.info('Backup streaming process starting.', extra=extra)
     asyncio.run(_iterBackupWork(path, linkinfo))
 
 class CellApi(s_base.Base):
@@ -1139,7 +1134,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'hidedocs': True,
         },
         '_log_conf': {
-            'description': 'Opaque structure used for logging by spawned processes.',
+            'description': 'Deprecated. Remove in 3.0.0.',
             'type': 'object',
             'hideconf': True
         }
@@ -1220,6 +1215,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         ahanetw = self.conf.get('aha:network')
         if ahaname is not None and ahanetw is not None:
             self.ahasvcname = f'{ahaname}.{ahanetw}'
+            s_logging.setLogInfo('service', self.ahasvcname)
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -2077,8 +2073,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         ahalead = self.conf.get('aha:leader')
 
-        self.ahasvcname = f'{ahaname}.{ahanetw}'
-
         async def _runAhaRegLoop():
 
             while not self.isfini:
@@ -2561,7 +2555,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
-        logconf = await self._getSpawnLogConf()
+        logconf = self.getLogConf()
         proc = None
 
         try:
@@ -2620,10 +2614,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         (In a separate process) Actually do the backup
         '''
         # This is a new process: configure logging
-        level = logconf.get('level')
-        structlog = logconf.get('structlog')
-
-        s_logging.setup(level=level, structlog=structlog)
+        s_logging.setup(**logconf)
 
         try:
 
@@ -2682,15 +2673,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Link not found in scope. This API must be called via a CellApi.'
             raise s_exc.SynErr(mesg=mesg)
 
+        logconf = self.getLogConf()
         linkinfo = await link.getSpawnInfo()
-        linkinfo['logconf'] = await self._getSpawnLogConf()
 
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
         ctx = multiprocessing.get_context('spawn')
 
         def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, logconf))
             proc.start()
             return proc
 
@@ -3650,6 +3641,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         return await self.cellapi.anit(self, link, user)
 
+    def getLogConf(self):
+        logconf = s_logging.getLogConf()
+        if self.ahasvcname is not None:
+            logconf['loginfo']['service'] = self.ahasvcname
+        return logconf
+
     def getLogExtra(self, **kwargs):
         '''
         Get an extra dictionary for structured logging which can be used as a extra argument for loggers.
@@ -3664,9 +3661,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if self.ahasvcname is not None:
             extra['loginfo']['service'] = self.ahasvcname
         return extra
-
-    async def _getSpawnLogConf(self):
-        return self.conf.get('_log_conf', {})
 
     def modCellConf(self, conf):
         '''
@@ -3771,7 +3765,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
-        pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
+        pars.add_argument('--log-level', default='WARNING', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
                           type=s_logging.normLogLevel,
                           help='Deprecated. Please use SYN_LOG_LEVEL environment variable.')
 
@@ -4050,7 +4044,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         # replace our runtime config with the updated config with provconf data
         new_conf = self.initCellConf(self.conf)
-        new_conf.setdefault('_log_conf', await self._getSpawnLogConf())
 
         # Load any opts we have and environment variables.
         new_conf.setConfFromOpts()
@@ -4216,9 +4209,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'structlog': opts.structured_logging
         }
 
-        # if (logarchive := conf.get('log:archive')) is not None:
-            # logconf['archive'] = logarchive
-
         logconf = s_logging.setup(**logconf)
 
         extra = s_logging.getLogExtra(service_type=cls.getCellType(),
@@ -4230,7 +4220,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await cls._initBootRestore(opts.dirn)
 
         try:
-            conf['_log_conf'] = logconf
             conf.setConfFromOpts(opts)
             conf.setConfFromEnvs()
             conf.setConfFromFile(path)
@@ -4238,8 +4227,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except:
             logger.exception(f'Error while bootstrapping cell config.')
             raise
-
-        # s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)
@@ -4296,9 +4283,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             outp = s_output.stdout
 
         cell = await cls.initFromArgv(argv, outp=outp)
-
-        if cell.ahasvcname is not None:
-            s_logging.setLogGlobal('service', cell.ahasvcname)
 
         await cell.main()
 

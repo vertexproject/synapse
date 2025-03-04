@@ -62,14 +62,14 @@ def _backupSleep(path, linkinfo):
 async def _doEOFBackup(path):
     return
 
-async def _iterBackupEOF(path, linkinfo):
+async def _iterBackupEOF(path, linkinfo, logconf):
     link = await s_link.fromspawn(linkinfo)
     await s_daemon.t2call(link, _doEOFBackup, (path,), {})
     link.writer.write_eof()
     await link.fini()
 
-def _backupEOF(path, linkinfo):
-    asyncio.run(_iterBackupEOF(path, linkinfo))
+def _backupEOF(path, linkinfo, logconf):
+    asyncio.run(_iterBackupEOF(path, linkinfo, logconf))
 
 def lock_target(dirn, evt1):  # pragma: no cover
     '''
@@ -3458,7 +3458,7 @@ class CellTest(s_t_utils.SynTest):
 
     async def test_cell_logs(self):
 
-        s_logging.setLogGlobal('woot', 'hehe')
+        s_logging.setLogInfo('woot', 'hehe')
         async with self.getTestAha() as aha:
 
             async with aha.getLocalProxy() as proxy:

@@ -45,7 +45,7 @@ async def _feedLogTask():
             await wind.puts(todo)
 
 _glob_loginfo = {}
-def setLogGlobal(name, valu):
+def setLogInfo(name, valu):
     '''
     Configure global values which should be added to every log.
     '''
@@ -87,20 +87,14 @@ class Formatter(logging.Formatter):
         if hasattr(record, 'loginfo'):
             loginfo.update(record.loginfo)
 
-        try:
+        if (user := s_scope.get('user')) is not None:
+            loginfo['user'] = user.iden
+            loginfo['username'] = user.name
 
-            if (user := s_scope.get('user')) is not None:
-                loginfo['user'] = user.iden
-                loginfo['username'] = user.name
-
-            elif (sess := s_scope.get('sess')) is not None:
-                if sess.user is not None:
-                    loginfo['user'] = sess.user.iden
-                    loginfo['username'] = sess.user.name
-
-        except RuntimeError:
-            # if there is no running loop, there can be no scope vars...
-            pass
+        elif (sess := s_scope.get('sess')) is not None:
+            if sess.user is not None:
+                loginfo['user'] = sess.user.iden
+                loginfo['username'] = sess.user.name
 
         if record.exc_info:
             loginfo['error'] = s_common.excinfo(record.exc_info[1])
@@ -145,19 +139,30 @@ def setup(**conf):
     if not conf.get('structlog'):
         fmtclass = TextFormatter
 
+    # this is used to pass things like service name
+    # to child processes and forked workers...
+    loginfo = conf.pop('loginfo', None)
+    if loginfo is not None:
+        _glob_loginfo.update(loginfo)
+
     handler = logging.StreamHandler()
     handler.setFormatter(fmtclass(datefmt=conf.get('datefmt')))
 
     level = normLogLevel(conf.get('level'))
 
+    _glob_logconf.clear()
+    _glob_logconf.update(conf)
+
     logging.basicConfig(level=level, handlers=(handler,))
 
     logger.info('log level set to %s', s_const.LOG_LEVEL_INVERSE_CHOICES.get(level))
 
-    _glob_logconf.clear()
-    _glob_logconf.update(conf)
-
     return conf
+
+def getLogConf():
+    logconf = _glob_logconf.copy()
+    logconf['loginfo'] = _glob_loginfo.copy()
+    return logconf
 
 def getLogConfFromEnv():
 
