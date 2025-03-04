@@ -1,0 +1,182 @@
+interactions:
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.31.0
+    method: GET
+    uri: http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json
+  response:
+    body:
+      string: ''
+    headers:
+      Accept-Ranges:
+      - bytes
+      Access-Control-Allow-Origin:
+      - '*'
+      Connection:
+      - close
+      Content-Length:
+      - '0'
+      Cross-Origin-Resource-Policy:
+      - cross-origin
+      Date:
+      - Thu, 05 Oct 2023 16:57:44 GMT
+      Expires:
+      - Thu, 05 Oct 2023 17:02:44 GMT
+      Location:
+      - https://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json
+      Retry-After:
+      - '0'
+      Server:
+      - Varnish
+      Vary:
+      - Authorization,Accept-Encoding
+      Via:
+      - 1.1 varnish
+      X-Cache:
+      - HIT
+      X-Cache-Hits:
+      - '0'
+      X-Served-By:
+      - cache-iad-kiad7000049-IAD
+      X-Timer:
+      - S1696525065.947516,VS0,VE0
+    status:
+      code: 301
+      message: Moved Permanently
+- request:
+    body: null
+    headers:
+      Accept:
+      - '*/*'
+      Accept-Encoding:
+      - gzip, deflate, br
+      Connection:
+      - keep-alive
+      User-Agent:
+      - python-requests/2.31.0
+    method: GET
+    uri: https://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json
+  response:
+    body:
+      string: "{\n  \"$id\": \"http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json\",\n
+        \ \"$schema\": \"https://json-schema.org/draft/2020-12/schema\",\n  \"title\":
+        \"core\",\n  \"description\": \"Common properties and behavior across all
+        STIX Domain Objects and STIX Relationship Objects.\",\n  \"type\": \"object\",\n
+        \ \"properties\": {\n    \"type\": {\n      \"title\": \"type\",\n      \"type\":
+        \"string\",\n      \"pattern\": \"^([a-z][a-z0-9]*)+(-[a-z0-9]+)*\\\\-?$\",\n
+        \     \"minLength\": 3,\n      \"maxLength\": 250,\n      \"description\":
+        \"The type property identifies the type of STIX Object (SDO, Relationship
+        Object, etc). The value of the type field MUST be one of the types defined
+        by a STIX Object (e.g., indicator).\",\n      \"not\": {\n        \"enum\":
+        [\n          \"action\"\n        ]\n      }\n    },\n    \"spec_version\":
+        {\n      \"type\": \"string\",\n      \"enum\": [\n        \"2.0\",\n        \"2.1\"\n
+        \     ],\n      \"description\": \"The version of the STIX specification used
+        to represent this object.\"\n    },\n    \"id\": {\n      \"$ref\": \"../common/identifier.json\",\n
+        \     \"description\": \"The id property universally and uniquely identifies
+        this object.\"\n    },\n    \"created_by_ref\": {\n      \"$ref\": \"../common/identifier.json\",\n
+        \     \"description\": \"The ID of the Source object that describes who created
+        this object.\"\n    },\n    \"labels\": {\n      \"type\": \"array\",\n      \"description\":
+        \"The labels property specifies a set of terms used to describe this object.\",\n
+        \     \"items\": {\n        \"type\": \"string\"\n      },\n      \"minItems\":
+        1\n    },\n    \"created\": {\n      \"description\": \"The created property
+        represents the time at which the first version of this object was created.
+        The timstamp value MUST be precise to the nearest millisecond.\",\n      \"allOf\":
+        [\n        {\n          \"$ref\": \"../common/timestamp.json\"\n        },\n
+        \       {\n          \"title\": \"timestamp_millis\",\n          \"pattern\":
+        \"T\\\\d{2}:\\\\d{2}:\\\\d{2}\\\\.\\\\d{3,}Z$\"\n        }\n      ]\n    },\n
+        \   \"modified\": {\n      \"description\": \"The modified property represents
+        the time that this particular version of the object was modified. The timstamp
+        value MUST be precise to the nearest millisecond.\",\n      \"allOf\": [\n
+        \       {\n          \"$ref\": \"../common/timestamp.json\"\n        },\n
+        \       {\n          \"title\": \"timestamp_millis\",\n          \"pattern\":
+        \"T\\\\d{2}:\\\\d{2}:\\\\d{2}\\\\.\\\\d{3,}Z$\"\n        }\n      ]\n    },\n
+        \   \"revoked\": {\n      \"type\": \"boolean\",\n      \"description\": \"The
+        revoked property indicates whether the object has been revoked.\"\n    },\n
+        \   \"confidence\": {\n      \"type\": \"integer\",\n      \"minimum\": 0,\n
+        \     \"maximum\": 100,\n      \"description\": \"Identifies the confidence
+        that the creator has in the correctness of their data.\"\n    },\n    \"lang\":
+        {\n      \"type\": \"string\",\n      \"description\": \"Identifies the language
+        of the text content in this object.\"\n    },\n    \"external_references\":
+        {\n      \"type\": \"array\",\n      \"description\": \"A list of external
+        references which refers to non-STIX information.\",\n      \"items\": {\n
+        \       \"$ref\": \"../common/external-reference.json\"\n      },\n      \"minItems\":
+        1\n    },\n    \"object_marking_refs\": {\n      \"type\": \"array\",\n      \"description\":
+        \"The list of marking-definition objects to be applied to this object.\",\n
+        \     \"items\": {\n        \"$ref\": \"../common/identifier.json\"\n      },\n
+        \     \"minItems\": 1\n    },\n    \"granular_markings\": {\n      \"type\":
+        \"array\",\n      \"description\": \"The set of granular markings that apply
+        to this object.\",\n      \"items\": {\n        \"$ref\": \"../common/granular-marking.json\"\n
+        \     },\n      \"minItems\": 1\n    },\n    \"extensions\": {\n      \"description\":
+        \"Specifies any extensions of the object, as a dictionary.\",\n      \"type\":
+        \"object\",\n      \"minProperties\": 1,\n      \"patternProperties\": {\n
+        \         \"^extension-definition--[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$\":
+        {\n            \"allOf\": [{ \"$ref\": \"../common/extension.json\" }]\n          }\n
+        \       },\n        \"additionalProperties\": false\n    }\n  },\n  \"allOf\":
+        [{ \"$ref\": \"../common/properties.json\" }],\n  \"not\": {\n    \"anyOf\":
+        [\n      {\n        \"required\": [\n          \"severity\"\n        ]\n      },\n
+        \     {\n        \"required\": [\n          \"action\"\n        ]\n      },\n
+        \     {\n        \"required\": [\n          \"username\"\n        ]\n      },\n
+        \     {\n        \"required\": [\n          \"phone_numbers\"\n        ]\n
+        \     }\n    ]\n  },\n  \"required\": [\n    \"type\",\n    \"spec_version\",\n
+        \   \"id\",\n    \"created\",\n    \"modified\"\n  ]\n}"
+    headers:
+      Accept-Ranges:
+      - bytes
+      Access-Control-Allow-Origin:
+      - '*'
+      Cache-Control:
+      - max-age=300
+      Connection:
+      - keep-alive
+      Content-Security-Policy:
+      - default-src 'none'; style-src 'unsafe-inline'; sandbox
+      Content-Type:
+      - text/plain; charset=utf-8
+      Cross-Origin-Resource-Policy:
+      - cross-origin
+      Date:
+      - Thu, 05 Oct 2023 16:57:45 GMT
+      ETag:
+      - W/"1c7b5bb5bccbe47d5c249875ac322f6251c62ece9791ff56b482c6c7b4f5af23"
+      Expires:
+      - Thu, 05 Oct 2023 17:02:45 GMT
+      Source-Age:
+      - '0'
+      Strict-Transport-Security:
+      - max-age=31536000
+      Vary:
+      - Authorization,Accept-Encoding,Origin
+      Via:
+      - 1.1 varnish
+      X-Cache:
+      - HIT
+      X-Cache-Hits:
+      - '1'
+      X-Content-Type-Options:
+      - nosniff
+      X-Fastly-Request-ID:
+      - bdd7bb062e6ae88c26f260b4cecc53efc01c6151
+      X-Frame-Options:
+      - deny
+      X-GitHub-Request-Id:
+      - E90C:19A7:4A2B21:5A993C:651EE090
+      X-Served-By:
+      - cache-iad-kiad7000107-IAD
+      X-Timer:
+      - S1696525065.017690,VS0,VE63
+      X-XSS-Protection:
+      - 1; mode=block
+      content-length:
+      - '4453'
+    status:
+      code: 200
+      message: OK
+version: 1

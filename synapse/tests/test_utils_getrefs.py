@@ -1,6 +1,8 @@
 import os
 import pathlib
 
+import vcr
+
 from unittest import mock
 
 import synapse.exc as s_exc
@@ -10,12 +12,20 @@ import synapse.common as s_common
 import synapse.lib.config as s_config
 
 import synapse.tests.utils as s_utils
+import synapse.tests.files as s_test_files
 
 import synapse.utils.getrefs as s_getrefs
 
 CORE_URL = 'http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json'
 
 class TestUtilsGetrefs(s_utils.SynTest):
+
+    def getVcr(self):
+        fn = f'{self.__class__.__name__}.{self._testMethodName}.yaml'
+        fp = os.path.join(s_test_files.ASSETS, fn)
+        myvcr = vcr.VCR(decode_compressed_response=True)
+        cm = myvcr.use_cassette(fp)
+        return cm
 
     def test_basics(self):
 
@@ -60,7 +70,8 @@ class TestUtilsGetrefs(s_utils.SynTest):
 
             with self.getLoggerStream('synapse.utils.getrefs') as stream:
                 with mock.patch('synapse.utils.getrefs.BASEDIR', dirn):
-                    s_getrefs.main(args)
+                    with self.getVcr():
+                        s_getrefs.main(args)
 
             stream.seek(0)
             mesgs = stream.read()
