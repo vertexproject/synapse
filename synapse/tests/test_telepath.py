@@ -1014,7 +1014,7 @@ class TeleTest(s_t_utils.SynTest):
                 prox2._all_proxies.add(prox2)
 
                 wait = prox.waiter(1, 'pool:link:fini')
-                await wait.wait(timeout=5)
+                self.len(1, await wait.wait(timeout=5))
                 self.len(12, prox.links)
 
     async def test_link_fini_breaking_tasks(self):
