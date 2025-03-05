@@ -33,12 +33,30 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('int valu           ', s)
             self.isin('1   RT_CURSOR      ', s)
 
-            # enusm for str
+            # Enums for str
             self.isin('``it:mitre:attack:status``', s)
             self.isin('+----------+', s)
             self.isin('+valu      +', s)
             self.isin('+==========+', s)
             self.isin('+deprecated+', s)
+
+            self.isin('''The ``ival`` type has the following virtual properties:
+
+ * ``min``
+ * ``max``
+ * ``duration``''', s)
+
+            self.isin('''The ``ival`` type supports lifting using the following operators:
+
+ * ``=``
+ * ``~=``
+ * ``?=``
+ * ``in=``''', s)
+
+            self.isin('''The ``it:host`` type implements the interfaces:
+
+ * ``inet:service:object``
+ * ``phys:object``''', s)
 
             with s_common.genfile(path, 'datamodel_forms.rst') as fd:
                 buf = fd.read()
@@ -52,7 +70,7 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.notin('..created\n', s)
             self.isin('An example of ``inet:dns:a``\\:', s)
 
-            # Ipv4 property
+            # IP property
             self.isin('''* - ``:asn``
         - :ref:`dm-type-inet-asn`
         - The ASN to which the IP address is currently assigned.''', s)
