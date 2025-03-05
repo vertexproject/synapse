@@ -675,11 +675,12 @@ class ReqValidStormV1(StormHandler):
         query = body.get('query')
 
         try:
-            valid = await self.cell.reqValidStorm(query, opts)
-        except s_exc.SynErr as e:
+            ret = await self.cell.reqValidStorm(query, opts)
+        except Exception as e:
+            self.set_status(400)
             return self.sendRestExc(e)
         else:
-            return self.sendRestRetn(valid)
+            return self.sendRestRetn(ret)
 
 class BeholdSockV1(WebSocket):
 
