@@ -145,10 +145,10 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         })
 
                         // Optionally enable PKCE
-                        $conf.extensions = ({"pkce": $lib.true})
+                        $conf.extensions = ({"pkce": true})
 
                         // Optionally disable SSL verification
-                        $conf.ssl_verify = $lib.false
+                        $conf.ssl_verify = (false)
 
                         // Optionally provide additional key-val parameters
                         // to include when calling the auth URI
@@ -234,7 +234,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         })
 
                         // Optionally enable PKCE
-                        $conf.extensions = ({"pkce": $lib.true})
+                        $conf.extensions = ({"pkce": true})
 
                         $lib.inet.http.oauth.v2.addProvider($conf)
             ''',
