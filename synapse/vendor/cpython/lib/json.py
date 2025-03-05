@@ -2,7 +2,7 @@ import codecs
 
 # vendored from:
 # https://github.com/python/cpython/blob/4f6218959e35f649061484cce9de7fc810586533/Lib/json/__init__.py#L244-L271
-def detect_encoding(b): # pragma: no cover
+def detect_encoding(b):
     bstartswith = b.startswith
     if bstartswith((codecs.BOM_UTF32_BE, codecs.BOM_UTF32_LE)):
         return 'utf-32'
