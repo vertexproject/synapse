@@ -33,6 +33,7 @@ class BaseModule(s_module.CoreModule):
                     'doc': 'A data source unique identifier.'}),
 
                 ('meta:seen', ('comp', {'fields': (('source', 'meta:source'), ('node', 'ndef'))}), {
+                    'deprecated': True,
                     'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
 
                 ('meta:note', ('guid', {}), {
