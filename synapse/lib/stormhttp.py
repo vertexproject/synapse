@@ -561,7 +561,7 @@ class HttpResp(s_stormtypes.Prim):
             errors = await s_stormtypes.tostr(errors)
 
             if encoding is None:
-                encoding = s_json._detect_encoding(valu)
+                encoding = s_json.detect_encoding(valu)
             else:
                 encoding = await s_stormtypes.tostr(encoding)
 
