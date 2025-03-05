@@ -39,9 +39,6 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
-# Import these into the namespace for convenience
-from synapse.lib.json import jsload, jslines, jssave, reqjsonsafe
-
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
 import synapse.vendor.cpython.lib.http.cookies as v_cookies
 
@@ -972,35 +969,6 @@ def reprauthrule(rule):
     if not rule[0]:
         text = '!' + text
     return text
-
-def reqJsonSafeStrict(item):
-    '''
-    Require the item to be safe to serialize to JSON without type coercion issues.
-
-    Args:
-        item: The python primitive to check.
-
-    Returns:
-        None
-
-    Raise:
-        s_exc.BadArg: If the item contains invalid data.
-    '''
-    if item is None:
-        return
-    if isinstance(item, (str, int,)):
-        return
-    if isinstance(item, (list, tuple)):
-        for valu in item:
-            reqJsonSafeStrict(valu)
-        return
-    if isinstance(item, dict):
-        for key, valu in item.items():
-            if not isinstance(key, str):
-                raise s_exc.BadArg(mesg='Non-string keys are not valid json', key=key)
-            reqJsonSafeStrict(valu)
-        return
-    raise s_exc.BadArg(mesg=f'Invalid item type encountered: {item.__class__.__name__}')
 
 async def merggenr(genrs, cmprkey):
     '''

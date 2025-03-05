@@ -145,16 +145,34 @@ class JsonTest(s_test.SynTest):
         self.none(s_json.reqjsonsafe({'foo': 'bar'}))
         self.none(s_json.reqjsonsafe(['foo', 'bar']))
 
-        with open('/dev/null', 'rb') as fp:
+        buf = io.BytesIO()
 
-            with self.raises(s_exc.MustBeJsonSafe) as exc:
-                s_json.reqjsonsafe(fp)
-            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.reqjsonsafe(buf)
+        self.isin('Type is not JSON serializable: _io.BytesIO', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.MustBeJsonSafe) as exc:
-                s_json.reqjsonsafe({'foo': fp})
-            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.reqjsonsafe({'foo': buf})
+        self.isin('Type is not JSON serializable: _io.BytesIO', exc.exception.get('mesg'))
 
-            with self.raises(s_exc.MustBeJsonSafe) as exc:
-                s_json.reqjsonsafe(['foo', fp])
-            self.isin('Type is not JSON serializable: _io.BufferedReader', exc.exception.get('mesg'))
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.reqjsonsafe(['foo', buf])
+        self.isin('Type is not JSON serializable: _io.BytesIO', exc.exception.get('mesg'))
+
+        items = (
+            (None, None),
+            (1234, None),
+            ('1234', None),
+            ({'asdf': 'haha'}, None),
+            ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
+            (b'1234', s_exc.MustBeJsonSafe),
+            ({'a': 'a', 2: 2}, s_exc.MustBeJsonSafe),
+            ({'a', 'b', 'c'}, s_exc.MustBeJsonSafe),
+            (s_common.novalu, s_exc.MustBeJsonSafe),
+        )
+        for (item, eret) in items:
+            if eret is None:
+                self.none(s_json.reqjsonsafe(item))
+            else:
+                with self.raises(eret):
+                    s_json.reqjsonsafe(item)
