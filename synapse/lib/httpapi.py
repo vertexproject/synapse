@@ -157,7 +157,7 @@ class HandlerBase:
         self.set_header('Content-Type', 'application/json')
         return self.sendRestErr(e.__class__.__name__, mesg)
 
-    def sendRestRetn(self, valu):
+    def sendRestRetn(self, valu) -> None:
         '''
         Sent a successful JSON REST response.
 
