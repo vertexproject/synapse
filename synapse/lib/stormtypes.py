@@ -1,7 +1,6 @@
 import bz2
 import copy
 import gzip
-import json
 import time
 
 import regex
@@ -4987,7 +4986,7 @@ class Bytes(Prim):
             errors = await tostr(errors)
 
             if encoding is None:
-                encoding = json.detect_encoding(valu)
+                encoding = s_json._detect_encoding(valu)
             else:
                 encoding = await tostr(encoding)
 
