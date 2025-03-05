@@ -1214,7 +1214,7 @@ def _patch_tornado_json():
 
     if hasattr(tornado.escape, 'json_encode'):
         # This exists for a specific reason. See the following URL for explanation:
-        # https://github.com/tornadoweb/tornado/blob/master/tornado/escape.py#L83-L96
+        # https://github.com/tornadoweb/tornado/blob/d5ac65c1f1453c2aeddd089d8e68c159645c13e1/tornado/escape.py#L83-L96
         def _tornado_json_encode(value):
             return s_json.dumps(value).replace(b'</', b'<\\/').decode()
 
