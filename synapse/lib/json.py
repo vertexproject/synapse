@@ -200,7 +200,7 @@ def jssave(js: Any, *paths: list[str]) -> None:
 
 def reqjsonsafe(item: Any, strict: bool = False) -> None:
     '''
-    Check if a python is safe to be serialized to JSON.
+    Check if a python object is safe to be serialized to JSON.
 
     Uses default type coercion from synapse.lib.json.dumps.
 
