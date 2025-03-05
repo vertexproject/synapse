@@ -128,7 +128,7 @@ class Base:
 
         self.isfini = False
         self.anitted = True  # For assertion purposes
-        self.finievt = None
+        self.finievt = asyncio.Event()
         self.entered = False
 
         # hold a weak ref to other bases we should fini if they
@@ -431,10 +431,7 @@ class Base:
         self._syn_funcs.clear()
         self._fini_funcs.clear()
 
-        fevt = self.finievt
-
-        if fevt is not None:
-            fevt.set()
+        self.finievt.set()
 
         return 0
 
@@ -468,13 +465,6 @@ class Base:
             base.waitfini(timeout=30)
 
         '''
-
-        if self.isfini:
-            return True
-
-        if self.finievt is None:
-            self.finievt = asyncio.Event()
-
         return await s_coro.event_wait(self.finievt, timeout)
 
     def schedCoro(self, coro):

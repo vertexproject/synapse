@@ -6,6 +6,30 @@
 Synapse Changelog
 *****************
 
+v2.202.0 - 2025-03-04
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Storm query pool behavior to fallback to other mirrors first before
+  running queries locally.
+  (`#4166 <https://github.com/vertexproject/synapse/pull/4166>`_)
+- Updated Telepath proxy behavior to dynamically adjust the size of the link
+  pool.
+  (`#4166 <https://github.com/vertexproject/synapse/pull/4166>`_)
+
+Bugfixes
+--------
+- Added word boundary checks in Storm for ``null`` and ``not`` to prevent
+  matching these terms when they appear within other words.
+  (`#4162 <https://github.com/vertexproject/synapse/pull/4162>`_)
+- Fixed an issue where Storm query pool timeouts would cancel other queries to
+  that pool member.
+  (`#4166 <https://github.com/vertexproject/synapse/pull/4166>`_)
+- Fixed an issue where streaming backups with ``remove=True`` could fail to
+  remove the local backup.
+  (`#4166 <https://github.com/vertexproject/synapse/pull/4166>`_)
+
 v2.201.0 - 2025-02-28
 =====================
 

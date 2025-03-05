@@ -167,6 +167,12 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
             self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
 
+            nodes = await core.nodes('[ it:exec:proc=(notime,) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
+            self.len(1, nodes)
+
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
 
