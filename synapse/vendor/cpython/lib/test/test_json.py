@@ -1,4 +1,8 @@
-import codecs
+# From the python source, tests/test_json/test_unicode.py does not have a
+# direct test for detect_encoding. It instead tests the various encoding
+# schemes in test_bytes_decode, which uses the detection in json.loads().
+# Since there is not a standalone test to vendor, we have written a simple
+# test on its own.
 
 import synapse.vendor.cpython.lib.json as v_json
 
