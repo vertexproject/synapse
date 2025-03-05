@@ -198,9 +198,27 @@ def jssave(js: Any, *paths: list[str]) -> None:
     with io.open(path, 'wb') as fd:
         dump(js, fd, sort_keys=True, indent=True)
 
-def reqjsonsafe(item: Any) -> None:
+def reqjsonsafe(item: Any, strict: bool = False) -> None:
     '''
-    Returns None if item is json serializable, otherwise raises an exception.
+    Check if a python is safe to be serialized to JSON.
+
     Uses default type coercion from synapse.lib.json.dumps.
+
+    Arguments:
+        item (any): The python object to check.
+        strict (bool): If specified, do not fallback to python json library which is
+                more permissive of unicode strings. Default: False
+
+    Returns: None if item is json serializable, otherwise raises an exception.
+
+    Raises:
+        synapse.exc.MustBeJsonSafe: This exception is raised when the item
+        cannot be serialized.
     '''
-    dumps(item)
+    if strict:
+        try:
+            orjson.dumps(item)
+        except Exception as exc:
+            raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
+    else:
+        dumps(item)

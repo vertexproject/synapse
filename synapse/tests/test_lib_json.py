@@ -176,3 +176,9 @@ class JsonTest(s_test.SynTest):
             else:
                 with self.raises(eret):
                     s_json.reqjsonsafe(item)
+
+        text = '😀\ud83d\ude47'
+        s_json.reqjsonsafe(text)
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.reqjsonsafe(text, strict=True)
+        self.eq(exc.exception.get('mesg'), 'str is not valid UTF-8: surrogates not allowed')

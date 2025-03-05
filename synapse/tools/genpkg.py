@@ -225,7 +225,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     s_schemas.reqValidPkgdef(pkgdef)
 
     # Ensure the package is json safe and tuplify it.
-    s_json.reqjsonsafe(pkgdef)
+    s_json.reqjsonsafe(pkgdef, strict=True)
     pkgdef = s_common.tuplify(pkgdef)
     return pkgdef
 
