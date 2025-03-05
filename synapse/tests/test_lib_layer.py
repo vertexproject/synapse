@@ -1945,7 +1945,7 @@ class LayerTest(s_t_utils.SynTest):
                     $layer.set(readonly, $lib.true)
                 ''')
 
-                info00 = await core.callStorm('return($lib.layer.get().pack())')
+                info00 = await core.callStorm('return($lib.layer.get())')
                 self.eq('foo', info00['name'])
                 self.eq('foodesc', info00['desc'])
                 self.false(info00['logedits'])
@@ -1953,7 +1953,7 @@ class LayerTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                self.eq(info00, await core.callStorm('return($lib.layer.get().pack())'))
+                self.eq(info00, await core.callStorm('return($lib.layer.get())'))
 
     async def test_layer_edit_perms(self):
 

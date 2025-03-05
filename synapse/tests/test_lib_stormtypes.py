@@ -3422,7 +3422,7 @@ class StormTypesTest(s_test.SynTest):
             mesgs = await core.stormlist(q)
             self.stormIsInPrint(mainlayr, mesgs)
 
-            info = await core.callStorm('return ($lib.layer.get().pack())')
+            info = await core.callStorm('return ($lib.layer.get())')
             size = info.get('totalsize')
 
             self.gt(size, 1)
@@ -3554,8 +3554,8 @@ class StormTypesTest(s_test.SynTest):
                 self.eq(fire[0]['data']['sode']['tagprops'], {'test': {'risk': (50, 9)}})
 
                 q = '''
-                $lib.print($lib.layer.get().pack())
-                $lib.fire(layrfire, layr=$lib.layer.get().pack())
+                $lib.print($lib.layer.get())
+                $lib.fire(layrfire, layr=$lib.layer.get())
                 '''
                 gotn = [mesg[1] async for mesg in asvisi.storm(q)]
                 fire = [mesg for mesg in gotn if mesg.get('type') == 'layrfire']
@@ -3788,7 +3788,7 @@ class StormTypesTest(s_test.SynTest):
             # Fork the forked view
             q = f'''
                 $forkview=$lib.view.get({forkiden}).fork()
-                return($forkview.pack().iden)
+                return($forkview.iden)
             '''
             childiden = await core.callStorm(q)
             self.nn(childiden)
@@ -3941,14 +3941,14 @@ class StormTypesTest(s_test.SynTest):
 
                 q = f'''
                     $newview=$lib.view.add(({newlayer.iden},))
-                    return($newview.pack().iden)
+                    return($newview.iden)
                 '''
                 addiden = await asvisi.callStorm(q)
                 self.isin(addiden, core.views)
 
                 q = f'''
                     $forkview=$lib.view.get({mainiden}).fork()
-                    $lib.print($forkview.pack().iden)
+                    $lib.print($forkview.iden)
                 '''
                 mesgs = await asvisi.storm(q).list()
                 for mesg in mesgs:
@@ -4324,8 +4324,8 @@ class StormTypesTest(s_test.SynTest):
             else:
                 raise Exception("Didn't find 'Added trigger' mesg")
 
-            # Trigger pack
-            q = f'return ($lib.trigger.get({trigiden}).pack())'
+            # Trigger toprim
+            q = f'return ($lib.trigger.get({trigiden}))'
             trigdef = await core.callStorm(q)
             self.notin('disabled', trigdef)
             self.true(trigdef.get('enabled'))
@@ -4345,7 +4345,7 @@ class StormTypesTest(s_test.SynTest):
 
             await core.nodes('[ test:str=foo5 ]')
 
-            q = f'return ($lib.trigger.get({trigiden}).pack())'
+            q = f'return ($lib.trigger.get({trigiden}))'
             trigdef = await core.callStorm(q)
             self.eq(trigdef.get('startcount'), 2)
             self.eq(trigdef.get('errcount'), 1)
@@ -4362,17 +4362,17 @@ class StormTypesTest(s_test.SynTest):
                     "doc": 'some trigger'
                 })
                 $trig = $lib.trigger.add($tdef)
-                return($trig.pack())
+                return($trig)
             '''
             tdef = await core.callStorm(q)
             self.eq(tdef.get('doc'), 'some trigger')
             trig = tdef.get('iden')
-            q = '''$t = $lib.trigger.get($trig) $t.set("doc", "awesome trigger") return ( $t.pack() )'''
+            q = '''$t = $lib.trigger.get($trig) $t.set("doc", "awesome trigger") return ( $t )'''
             tdef = await core.callStorm(q, opts={'vars': {'trig': trig}})
             self.eq(tdef.get('doc'), 'awesome trigger')
 
             with self.raises(s_exc.BadArg):
-                q = '$t = $lib.trigger.get($trig) $t.set("created", "woot") return ( $t.pack() )'
+                q = '$t = $lib.trigger.get($trig) $t.set("created", "woot") return ( $t )'
                 await core.callStorm(q, opts={'vars': {'trig': trig}})
 
             with self.raises(s_exc.BadArg):
@@ -4566,7 +4566,7 @@ class StormTypesTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            cdef = await core.callStorm('return($lib.cron.add(query="{[tel:mob:telem=*]}", hourly=30).pack())')
+            cdef = await core.callStorm('return($lib.cron.add(query="{[tel:mob:telem=*]}", hourly=30))')
             self.eq('', cdef.get('doc'))
             self.eq('', cdef.get('name'))
 
@@ -4594,7 +4594,7 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core._killCronTask('newp'))
             self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
 
-            cdef = await core.callStorm('return($lib.cron.get($iden).pack())', opts=opts)
+            cdef = await core.callStorm('return($lib.cron.get($iden))', opts=opts)
             self.eq('mydoc', cdef.get('doc'))
             self.eq('myname', cdef.get('name'))
 
