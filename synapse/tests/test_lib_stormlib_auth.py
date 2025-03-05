@@ -1,8 +1,9 @@
-import json
 import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.json as s_json
 
 import synapse.tests.utils as s_test
 
@@ -961,7 +962,7 @@ class StormLibAuthTest(s_test.SynTest):
             '''
             retn = await core.callStorm(q)
             self.eq(retn[0], retn[1])
-            self.eq(json.loads(retn[0]), {'hehe': 'haha', 'd': {'foo': 'bar'}})
+            self.eq(s_json.loads(retn[0]), {'hehe': 'haha', 'd': {'foo': 'bar'}})
 
             q = '''$u=$lib.auth.users.byname(puser) $profile=$u.profile
             for $valu in $profile {

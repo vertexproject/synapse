@@ -5,10 +5,10 @@ import synapse.lib.cmdr as s_cmdr
 import synapse.tests.utils as s_t_utils
 
 _json_output = '''[
-    1,
-    2,
-    3,
-    4
+  1,
+  2,
+  3,
+  4
 ]'''
 
 class CmdHiveTest(s_t_utils.SynTest):

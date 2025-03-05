@@ -1,12 +1,17 @@
 import os
+import http
 import asyncio
 import logging
 import subprocess
 
 import yaml
+import aiohttp
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.httpapi as s_httpapi
+
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
@@ -426,25 +431,6 @@ class CommonTest(s_t_utils.SynTest):
         retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], reverse=True)
         self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
 
-    def test_jsonsafe(self):
-        items = (
-            (None, None),
-            (1234, None),
-            ('1234', None),
-            ({'asdf': 'haha'}, None),
-            ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
-            (b'1234', s_exc.BadArg),
-            ({'a': 'a', 2: 2}, s_exc.BadArg),
-            ({'a', 'b', 'c'}, s_exc.BadArg),
-            (s_common.novalu, s_exc.BadArg),
-        )
-        for (item, eret) in items:
-            if eret is None:
-                self.none(s_common.reqJsonSafeStrict(item))
-            else:
-                with self.raises(eret):
-                    s_common.reqJsonSafeStrict(item)
-
     def test_sslctx(self):
         with self.getTestDir(mirror='certdir') as dirn:
             cadir = s_common.genpath(dirn, 'cas')
@@ -481,3 +467,27 @@ class CommonTest(s_t_utils.SynTest):
             v = s_common.trimText(iv, n=n)
             self.le(len(v), n)
             self.eq(v, ev)
+
+    async def test_tornado_monkeypatch(self):
+        class JsonHandler(s_httpapi.Handler):
+            async def get(self):
+                resp = {
+                    'foo': 'bar',
+                    'html': '<html></html>'
+                }
+                self.write(resp)
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/test_tornado/', JsonHandler, {'cell': core})
+            _, port = await core.addHttpsPort(0)
+            url = f'https://127.0.0.1:{port}/api/v1/test_tornado/'
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, ssl=False) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+
+                    text = await resp.text()
+                    self.eq(text, '{"foo":"bar","html":"<html><\\/html>"}')
+
+                    json = await resp.json()
+                    self.eq(json, {'foo': 'bar', 'html': '<html></html>'})

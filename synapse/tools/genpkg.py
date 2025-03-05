@@ -12,6 +12,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.telepath as s_telepath
 
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
@@ -224,7 +225,7 @@ def loadPkgProto(path, opticdir=None, no_docs=False, readonly=False):
     s_schemas.reqValidPkgdef(pkgdef)
 
     # Ensure the package is json safe and tuplify it.
-    s_common.reqJsonSafeStrict(pkgdef)
+    s_json.reqjsonsafe(pkgdef, strict=True)
     pkgdef = s_common.tuplify(pkgdef)
     return pkgdef
 
@@ -286,7 +287,7 @@ async def main(argv, outp=s_output.stdout):
         return 1
 
     if opts.save:
-        s_common.jssave(pkgdef, opts.save)
+        s_json.jssave(pkgdef, opts.save)
 
     if opts.push:
 

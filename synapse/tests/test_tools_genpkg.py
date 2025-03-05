@@ -65,7 +65,7 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badcmdname.yaml')
             await s_genpkg.main((ymlpath,))
 
-        with self.raises(s_exc.BadArg):
+        with self.raises(s_exc.MustBeJsonSafe):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badjsonpkg.yaml')
             await s_genpkg.main((ymlpath,))
 
