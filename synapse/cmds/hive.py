@@ -149,7 +149,7 @@ A Hive is a hierarchy persistent storage mechanism typically used for configurat
             rend = valu
             prend = pprint.pformat(valu)
         else:
-            rend = s_json.dumps(valu, indent=True, sort_keys=True).decode()
+            rend = s_json.dumps(valu, indent=True, sort_keys=True)
             prend = pprint.pformat(valu)
 
         if opts.file:
