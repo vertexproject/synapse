@@ -287,7 +287,7 @@ async def main(argv, outp=s_output.stdout):
         return 1
 
     if opts.save:
-        s_common.jssave(pkgdef, opts.save)
+        s_json.jssave(pkgdef, opts.save)
 
     if opts.push:
 
