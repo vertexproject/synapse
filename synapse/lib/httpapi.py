@@ -118,15 +118,59 @@ class HandlerBase:
     def getJsonBody(self, validator=None):
         return self.loadJsonMesg(self.request.body, validator=validator)
 
-    def sendRestErr(self, code, mesg):
+    def sendRestErr(self, code: str, mesg: str) -> None:
+        '''
+        Sent a JSON REST error message with a code and message.
+
+        Args:
+            code: The error code.
+            mesg: The error message.
+
+        Notes:
+            This does not set the HTTP status code. The default code of 200 will be
+            used unless``self.set_status()`` is called prior to this.
+
+            This does write the response stream. No further content should be written
+            in the response after calling this.
+        '''
         self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'err', 'code': code, 'mesg': mesg})
 
-    def sendRestExc(self, e):
-        self.set_header('Content-Type', 'application/json')
-        return self.sendRestErr(e.__class__.__name__, str(e))
+    def sendRestExc(self, e: Exception) -> None:
+        '''
+        Sent a JSON REST error message based on the exception.
 
-    def sendRestRetn(self, valu):
+        Args:
+            e: The exception to send. The exception class name will be used as the error code.
+
+        Notes:
+            This does not set the HTTP status code. The default code of 200 will be
+            used unless``self.set_status()`` is called prior to this.
+
+            This does write the response stream. No further content should be written
+            in the response after calling this.
+        '''
+        if isinstance(e, s_exc.SynErr):
+            mesg = e.get('mesg', str(e))
+        else:
+            mesg = str(e)
+        self.set_header('Content-Type', 'application/json')
+        return self.sendRestErr(e.__class__.__name__, mesg)
+
+    def sendRestRetn(self, valu) -> None:
+        '''
+        Sent a successful JSON REST response.
+
+        Args:
+            valu: The JSON compatible value to send.
+
+        Notes:
+            This does not set the HTTP status code. The default code of 200 will be
+            used unless``self.set_status()`` is called prior to this.
+
+            This does write the response stream. No further content should be written
+            in the response after calling this.
+        '''
         self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'ok', 'result': valu})
 
@@ -442,7 +486,8 @@ class Handler(HandlerBase, t_web.RequestHandler):
         if hasattr(self, 'task'):
             self.task.cancel()
 
-    async def _reqValidOpts(self, opts):
+    async def _reqValidOpts(self, opts) -> tuple[bool, dict]:
+        # Validate pre-conditions for executing a Storm query
 
         if opts is None:
             opts = {}
@@ -543,12 +588,17 @@ class StormV1(StormHandler):
             return
 
         opts.setdefault('editformat', 'nodeedits')
-
-        async for mesg in self.getCore().storm(query, opts=opts):
-            self.write(json.dumps(mesg))
-            if jsonlines:
-                self.write("\n")
-            await self.flush()
+        mesg = None
+        try:
+            async for mesg in self.getCore().storm(query, opts=opts):
+                self.write(json.dumps(mesg))
+                if jsonlines:
+                    self.write("\n")
+                await self.flush()
+        except Exception as e:
+            if mesg is None:
+                self.set_status(400)
+                return self.sendRestExc(e)
 
 class StormCallV1(StormHandler):
 
@@ -573,14 +623,9 @@ class StormCallV1(StormHandler):
 
         try:
             ret = await self.getCore().callStorm(query, opts=opts)
-        except s_exc.SynErr as e:
-            mesg = e.get('mesg', str(e))
-            return self.sendRestErr(e.__class__.__name__, mesg)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
         except Exception as e:
-            mesg = str(e)
-            return self.sendRestErr(e.__class__.__name__, mesg)
+            self.set_status(400)
+            return self.sendRestExc(e)
         else:
             return self.sendRestRetn(ret)
 
@@ -612,6 +657,7 @@ class StormExportV1(StormHandler):
                 await self.flush()
 
         except Exception as e:
+            self.set_status(400)
             return self.sendRestExc(e)
 
 class ReqValidStormV1(StormHandler):
@@ -629,12 +675,12 @@ class ReqValidStormV1(StormHandler):
         query = body.get('query')
 
         try:
-            valid = await self.cell.reqValidStorm(query, opts)
-        except s_exc.SynErr as e:
-            mesg = e.get('mesg', str(e))
-            return self.sendRestErr(e.__class__.__name__, mesg)
+            ret = await self.cell.reqValidStorm(query, opts)
+        except Exception as e:
+            self.set_status(400)
+            return self.sendRestExc(e)
         else:
-            return self.sendRestRetn(valid)
+            return self.sendRestRetn(ret)
 
 class BeholdSockV1(WebSocket):
 
