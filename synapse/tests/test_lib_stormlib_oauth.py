@@ -1099,6 +1099,19 @@ class OAuthTest(s_test.SynTest):
         # Specifically test bad configs here
         async with self.getTestCore() as core:
 
+            # Coverage for invalid configs ( we should never get into this state though! )
+            # These checks would be triggered during future addition of new auth_schemes or
+            # additional client_assertion providers.
+            conf = {'auth_scheme': 'dne'}
+            isok, info = await core._getAuthData(conf, '')
+            self.false(isok)
+            self.eq(info.get('error'), 'unknown authorization scheme: dne')
+
+            conf = {'auth_scheme': 'client_assertion', 'client_id': '1234', 'client_assertion': {'key': 'dne'}}
+            isok, info = await core._getAuthData(conf, '')
+            self.false(isok)
+            self.eq(info.get('error'), "unknown client_assertions data: {'key': 'dne'}")
+
             view = await core.callStorm('return($lib.view.get().iden)')
 
             providerconf00 = {

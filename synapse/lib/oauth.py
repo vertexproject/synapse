@@ -239,9 +239,9 @@ class OAuthMixin(s_nexus.Pusher):
                     return ok, {'error': valu}
                 assertion = valu
 
-            else:  # pragma: no cover
+            else:
                 isok = False
-                ret['error'] = f'unknown client_assertions data: {client_assertion=}'
+                ret['error'] = f'unknown client_assertions data: {client_assertion}'
 
             if assertion:
                 formdata = {
@@ -252,7 +252,7 @@ class OAuthMixin(s_nexus.Pusher):
                 ret['formdata'] = formdata
                 isok = True
 
-        else:  # pragma: no cover
+        else:
             isok = False
             ret['error'] = f'unknown authorization scheme: {auth_scheme}'
 
