@@ -6,6 +6,61 @@
 Synapse Changelog
 *****************
 
+v2.202.0 - 2025-03-04
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Storm query pool behavior to fallback to other mirrors first before
+  running queries locally.
+  (`#4166 <https://github.com/vertexproject/synapse/pull/4166>`_)
+- Updated Telepath proxy behavior to dynamically adjust the size of the link
+  pool.
+  (`#4166 <https://github.com/vertexproject/synapse/pull/4166>`_)
+
+Bugfixes
+--------
+- Added word boundary checks in Storm for ``null`` and ``not`` to prevent
+  matching these terms when they appear within other words.
+  (`#4162 <https://github.com/vertexproject/synapse/pull/4162>`_)
+- Fixed an issue where Storm query pool timeouts would cancel other queries to
+  that pool member.
+  (`#4166 <https://github.com/vertexproject/synapse/pull/4166>`_)
+- Fixed an issue where streaming backups with ``remove=True`` could fail to
+  remove the local backup.
+  (`#4166 <https://github.com/vertexproject/synapse/pull/4166>`_)
+
+v2.201.0 - 2025-02-28
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_201_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated cron job execution to emit container warnings when the cron job uses
+  ``$lib.warn()``.
+  (`#4152 <https://github.com/vertexproject/synapse/pull/4152>`_)
+- Updated ``synapse.tools.autodoc`` to include the list of interfaces
+  implemented by a type.
+  (`#4158 <https://github.com/vertexproject/synapse/pull/4158>`_)
+
+Bugfixes
+--------
+- Fixed an issue where the ``risk:mitigation:type:taxonomy`` form did not
+  inherit the ``meta:taxonomy`` interface.
+  (`#4156 <https://github.com/vertexproject/synapse/pull/4156>`_)
+- Fixed an issue where interface properties which were overridden by a form
+  specific property were not liftable by the interface property.
+  (`#4161 <https://github.com/vertexproject/synapse/pull/4161>`_)
+- Fixed a bug where the ``lasterrs`` in cron jobs could be a tuple, which
+  caused issues appending new errors.
+  (`#4163 <https://github.com/vertexproject/synapse/pull/4163>`_)
+- Fixed an issue where the Storm ``batch`` command failed to accept
+  ``storm:query`` objects as query arguments.
+  (`#4164 <https://github.com/vertexproject/synapse/pull/4164>`_)
+
 v2.200.0 - 2025-02-21
 =====================
 

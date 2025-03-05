@@ -40,6 +40,11 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('+==========+', s)
             self.isin('+deprecated+', s)
 
+            self.isin('''This type implements the following interfaces:
+
+ * ``inet:service:object``
+ * ``phys:object``''', s)
+
             with s_common.genfile(path, 'datamodel_forms.rst') as fd:
                 buf = fd.read()
 

@@ -1160,10 +1160,9 @@ class Model:
         for propname, typedef, propinfo in iface.get('props', ()):
 
             # allow form props to take precedence
-            if form.prop(propname) is not None:
-                continue
+            if (prop := form.prop(propname)) is None:
+                prop = self._addFormProp(form, propname, typedef, propinfo)
 
-            prop = self._addFormProp(form, propname, typedef, propinfo)
             self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
             if subifaces is not None:

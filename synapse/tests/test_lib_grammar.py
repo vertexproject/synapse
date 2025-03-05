@@ -746,6 +746,8 @@ Queries = [
     '[test:str=foo :bar--=(foo, bar)]',
     '[test:str=foo :bar?++=$baz]',
     '[test:str=foo :bar?--={[it:dev:str=foo]}]',
+    '$foo=(notime,)',
+    '$foo=(nulltime,)',
 ]
 
 # Generated with print_parse_list below
@@ -1394,6 +1396,8 @@ _ParseResults = [
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: --=, List: [Const: foo, Const: bar]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ?++=, VarValue: [Const: baz]]]',
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ?--=, SubQuery: [Query: [EditNodeAdd: [FormName: [Const: it:dev:str], Const: =, Const: foo]]]]]',
+    'Query: [SetVarOper: [Const: foo, List: [Const: notime]]]',
+    'Query: [SetVarOper: [Const: foo, List: [Const: nulltime]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
