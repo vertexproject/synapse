@@ -1185,7 +1185,7 @@ def _patch_tornado_json():
         # https://github.com/tornadoweb/tornado/blob/d5ac65c1f1453c2aeddd089d8e68c159645c13e1/tornado/escape.py#L83-L96
         # https://github.com/tornadoweb/tornado/pull/706
         def _tornado_json_encode(value):
-            return s_json.dumps(value).replace(b'</', b'<\\/').decode()
+            return s_json.dumps(value).replace(b'</', br'<\/').decode()
 
         tornado.escape.json_encode = _tornado_json_encode
 
