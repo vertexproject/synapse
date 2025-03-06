@@ -690,11 +690,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'description': 'A telepath URL for a remote jsonstor.',
             'type': 'string'
         },
-        'layers:lockmemory': {
-            'default': False,
-            'description': 'Should new layers lock memory for performance by default.',
-            'type': 'boolean'
-        },
         'layers:logedits': {
             'default': True,
             'description': 'Whether nodeedits are logged in each layer.',
@@ -4597,7 +4592,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ldef['created'] = s_common.now()
 
         ldef.setdefault('creator', self.auth.rootuser.iden)
-        ldef.setdefault('lockmemory', self.conf.get('layers:lockmemory'))
         ldef.setdefault('logedits', self.conf.get('layers:logedits'))
         ldef.setdefault('readonly', False)
 

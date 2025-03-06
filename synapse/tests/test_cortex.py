@@ -4552,17 +4552,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             self.eq(0, await layr.getEditIndx())
 
-    async def test_cortex_layer_settings(self):
-        '''
-        Make sure settings make it down to the slab
-        '''
-        conf = {'layers:lockmemory': True}
-        async with self.getTestCore(conf=conf) as core:
-            layr = core.getLayer()
-            slab = layr.layrslab
-
-            self.true(slab.lockmemory)
-
     async def test_feed_syn_nodes(self):
 
         conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
@@ -5979,20 +5968,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             # This fails because viewb has more than one layer
             with self.raises(s_exc.BadArg):
                 await viewb.setViewInfo('parent', videnc)
-
-    async def test_cortex_lockmemory(self):
-        '''
-        Verify that dedicated configuration setting impacts the layer
-        '''
-        conf = {'layers:lockmemory': False}
-        async with self.getTestCore(conf=conf) as core:
-            layr = core.view.layers[0]
-            self.false(layr.lockmemory)
-
-        conf = {'layers:lockmemory': True}
-        async with self.getTestCore(conf=conf) as core:
-            layr = core.view.layers[0]
-            self.true(layr.lockmemory)
 
     async def test_cortex_storm_lib_dmon(self):
 

@@ -3431,8 +3431,6 @@ class StormTypesTest(s_test.SynTest):
             self.lt(size, 1000000000)
 
             # Try to create an invalid layer
-            msgs = await core.stormlist('$lib.layer.add(ldef=({"lockmemory": (42)}))')
-            self.stormIsInErr('lockmemory must be boolean', msgs)
             msgs = await core.stormlist('$lib.layer.add(ldef=({"readonly": "False"}))')
             self.stormIsInErr('readonly must be boolean', msgs)
 
@@ -3534,12 +3532,12 @@ class StormTypesTest(s_test.SynTest):
 
                 # Test add layer opts
                 layers = set(core.layers.keys())
-                q = f'layer.add --lockmemory --growsize 5000'
+                q = f'layer.add --growsize 5000'
                 mesgs = await core.stormlist(q)
-                locklayr = list(set(core.layers.keys()) - layers)[0]
+                growlayr = list(set(core.layers.keys()) - layers)[0]
 
-                layr = core.getLayer(locklayr)
-                self.true(layr.lockmemory)
+                layr = core.getLayer(growlayr)
+                self.eq(5000, layr.growsize)
 
                 q = '''
                 for ($buid, $sode) in $lib.layer.get().getStorNodes() {
