@@ -156,7 +156,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
                         $lib.inet.http.oauth.v2.addProvider($conf)
 
-                    Add a new provider which uses the Microsfot Azure Federated Workflow Identify token credentials.
+                    Add a new provider which uses the Microsoft Azure Federated Workflow Identify token credentials.
                     This resolves the client_assertion from the AZURE_FEDERATED_TOKEN_FILE environment variable::
 
                         $iden = $lib.guid(azureexample, provider, oauth)
@@ -190,7 +190,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
                     Add a new provider which uses a custom Storm callback to obtain the client_assertion data. These
                     callbacks are executed as the user who is performing the authorization_code workflow. The Storm
                     callback must return data in a tuple of ``bool`` and a dictionary containing the assertion in the
-                    key ``token``. Error messagess should be in the key ``error``::
+                    key ``token``. Error messages should be in the key ``error``::
 
                         $iden = $lib.guid(callstormexample, provider, oauth)
 
@@ -199,9 +199,9 @@ class OAuthV2Lib(s_stormtypes.Lib):
                             $url = `{$baseurl}/api/oauth/getAssertion`
                             $resp = $lib.inet.http.get($url, ssl_verify=$ssl_verify)
                             if ($resp.code = 200) {
-                                $resp = ( (true), ({'token': $resp.json().assertion}))
+                                $resp = ([true, {'token': $resp.json().assertion}])
                             } else {
-                                $resp = ( (false), ({"error": `Failed to get assertion from {$url}`}) )
+                                $resp = ([false, {"error": `Failed to get assertion from {$url}`}])
                             }
                             return ( $resp )
                         }
