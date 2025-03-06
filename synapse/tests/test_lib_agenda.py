@@ -1080,6 +1080,15 @@ class AgendaTest(s_t_utils.SynTest):
                     self.gt(cdef00['laststarttime'], 0)
                     self.eq(cdef00['laststarttime'], cdef01['laststarttime'])
 
+    async def test_agenda_warnings(self):
+
+        async with self.getTestCore() as core:
+            with self.getAsyncLoggerStream('synapse.lib.agenda', 'issued warning: oh hai') as stream:
+                q = '$lib.warn("oh hai")'
+                msgs = await core.stormlist('cron.at --now $q', opts={'vars': {'q': q}})
+                self.stormHasNoWarnErr(msgs)
+                self.true(await stream.wait(timeout=6))
+
     async def test_agenda_graceful_promotion_with_running_cron(self):
 
         async with self.getTestAha() as aha:
@@ -1203,3 +1212,35 @@ class AgendaTest(s_t_utils.SynTest):
 
             crons = await core.callStorm('return($lib.cron.list())')
             self.len(1, crons)
+
+    async def test_agenda_lasterrs(self):
+
+        async with self.getTestCore() as core:
+
+            cdef = {
+                'iden': 'test',
+                'creator': core.auth.rootuser.iden,
+                'storm': '[ test:str=foo ]',
+                'reqs': {},
+                'incunit': s_tu.MINUTE,
+                'incvals': 1
+            }
+
+            await core.agenda.add(cdef)
+            appt = await core.agenda.get('test')
+
+            self.true(isinstance(appt.lasterrs, list))
+            self.eq(appt.lasterrs, [])
+
+            edits = {
+                'lasterrs': ('error1', 'error2'),
+            }
+            await appt.edits(edits)
+
+            self.true(isinstance(appt.lasterrs, list))
+            self.eq(appt.lasterrs, ['error1', 'error2'])
+
+            await core.agenda._load_all()
+            appt = await core.agenda.get('test')
+            self.true(isinstance(appt.lasterrs, list))
+            self.eq(appt.lasterrs, ['error1', 'error2'])

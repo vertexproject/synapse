@@ -40,20 +40,20 @@ class TestAutoDoc(s_t_utils.SynTest):
             self.isin('+==========+', s)
             self.isin('+deprecated+', s)
 
-            self.isin('''The ``ival`` type has the following virtual properties:
+            self.isin('''This type has the following virtual properties:
 
  * ``min``
  * ``max``
  * ``duration``''', s)
 
-            self.isin('''The ``ival`` type supports lifting using the following operators:
+            self.isin('''This type supports lifting using the following operators:
 
  * ``=``
  * ``~=``
  * ``?=``
  * ``in=``''', s)
 
-            self.isin('''The ``it:host`` type implements the interfaces:
+            self.isin('''This type implements the following interfaces:
 
  * ``inet:service:object``
  * ``phys:object``''', s)

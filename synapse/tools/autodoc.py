@@ -45,6 +45,7 @@ info_ignores = (
     'custom',
     'template',
     'display',
+    'deprecated',
 )
 
 raw_back_slash_colon = r'\:'
@@ -132,11 +133,11 @@ def processCtors(rst, dochelp, ctors, types):
 
         tnfo = types.get(name)
         if (virts := tnfo.get('virts')) is not None:
-            rst.addLines('', f'The ``{name}`` type has the following virtual properties:', '')
+            rst.addLines('', f'This type has the following virtual properties:', '')
             for virt in virts:
                 rst.addLines(f' * ``{virt}``')
 
-        rst.addLines('', f'The ``{name}`` type supports lifting using the following operators:', '')
+        rst.addLines('', f'This type supports lifting using the following operators:', '')
         for cmpr in tnfo.get('lift_cmprs'):
             rst.addLines(f' * ``{cmpr}``')
 
@@ -194,7 +195,7 @@ def processTypes(rst, dochelp, types):
 
         ifaces = info.pop('interfaces', None)
         if ifaces:
-            rst.addLines('', f'The ``{name}`` type implements the interfaces:', '')
+            rst.addLines('', 'This type implements the following interfaces:', '')
             for iface in ifaces:
                 rst.addLines(f' * ``{iface}``')
 
@@ -209,7 +210,7 @@ def processTypes(rst, dochelp, types):
 
         if (opts := tnfo.get('opts')):
             rst.addLines('',
-                         f'The type ``{name}`` has the following options set:',
+                         f'This type has the following options set:',
                          ''
                          )
 
@@ -431,6 +432,9 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
+                    for key in info_ignores:
+                        enfo.pop(key, None)
+
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
                     _edges.append((src, enam, dst, doc))
@@ -467,6 +471,9 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                         src = '*'
                     if dst is None:
                         dst = '*'
+
+                    for key in info_ignores:
+                        enfo.pop(key, None)
 
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')

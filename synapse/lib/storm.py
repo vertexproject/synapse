@@ -1,7 +1,6 @@
 import types
 import pprint
 import asyncio
-import hashlib
 import logging
 import argparse
 import contextlib
@@ -21,14 +20,11 @@ import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
-import synapse.lib.config as s_config
 import synapse.lib.editor as s_editor
 import synapse.lib.autodoc as s_autodoc
-import synapse.lib.grammar as s_grammar
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
-import synapse.lib.version as s_version
 import synapse.lib.hashitem as s_hashitem
 import synapse.lib.stormctrl as s_stormctrl
 import synapse.lib.stormtypes as s_stormtypes
@@ -1711,9 +1707,6 @@ class Runtime(s_base.Base):
         self.bus._warnonce_keys.add(mesg)
         await self.warn(mesg, log, **info)
 
-    def tick(self):
-        pass
-
     def cancel(self):
         self.task.cancel()
 
@@ -1950,7 +1943,6 @@ class Runtime(s_base.Base):
                     nodegenr = subgraph.run(self, nodegenr)
 
                 async for item in nodegenr:
-                    self.tick()
                     yield item
 
         except RecursionError:
@@ -2862,7 +2854,8 @@ class BatchCmd(Cmd):
             mesg = f'Specified batch size ({size}) is above the maximum (10000).'
             raise s_exc.StormRuntimeError(mesg=mesg)
 
-        query = await runt.getStormQuery(self.opts.query)
+        _query = await s_stormtypes.tostr(self.opts.query)
+        query = await runt.getStormQuery(_query)
         doyield = await s_stormtypes.tobool(self.opts.cond)
 
         async with runt.getSubRuntime(query, opts={'vars': {'nodes': []}}) as subr:

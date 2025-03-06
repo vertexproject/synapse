@@ -7182,6 +7182,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
                 self.eq(2, await proxy.feedFromAxon(sha256))
 
+                opts['limit'] = 1
+                self.len(1, await alist(proxy.exportStorm('media:news inet:email', opts=opts)))
+
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
                 self.eq(401, resp.status)
@@ -8259,6 +8262,26 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.notin('Timeout waiting for pool mirror', data)
                     self.notin('Timeout waiting for query mirror', data)
 
+                    orig = s_telepath.ClientV2.proxy
+                    async def finidproxy(self, timeout=None):
+                        prox = await orig(self, timeout=timeout)
+                        await prox.fini()
+                        return prox
+
+                    with mock.patch('synapse.telepath.ClientV2.proxy', finidproxy):
+                        with self.getLoggerStream('synapse') as stream:
+                            msgs = await alist(core00.storm('inet:asn=0'))
+                            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Proxy for pool mirror [01.core.synapse] was shutdown. Skipping.', data)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration set.', msgs)
+                    await core00.stormpool.waitready(timeout=12)
+
                     core01.nexsroot.nexslog.indx = 0
 
                     with mock.patch('synapse.cortex.MAX_NEXUS_DELTA', 1):
@@ -8271,8 +8294,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         stream.seek(0)
                         data = stream.read()
-                        explog = (f'Pool mirror [01.core.synapse] Nexus offset delta too large '
-                                  f'({nexsoffs} > 1), running query locally')
+                        explog = ('Pool mirror [01.core.synapse] is too far out of sync. Skipping.')
                         self.isin(explog, data)
                         self.notin('Offloading Storm query', data)
 
@@ -8330,7 +8352,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Timeout waiting for pool mirror, running query locally', data)
+                    self.isin('Timeout waiting for pool mirror proxy.', data)
+                    self.isin('Pool members exhausted. Running query locally.', data)
 
                     await core01.fini()
 
