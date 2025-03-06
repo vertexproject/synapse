@@ -405,7 +405,7 @@ class _Appt:
                     # We blew by and missed a fixed-year appointment, either due to clock shenanigans, this query going
                     # really long, or the initial requirement being in the past
                     extra = self.getLogExtra()
-                    logger.warning('Missed an appointment', extra=extra)
+                    logger.warning('Missed an appointment.', extra=extra)
                     del self.recs[i]
                     continue
                 if nexttime < lowtime:
@@ -436,7 +436,7 @@ class _Appt:
         for name, valu in edits.items():
             if name not in self.__class__._synced_attrs:
                 extra = self.getLogExtra(prop=name, valu=valu)
-                logger.warning('Invalid cron property edit', extra=extra)
+                logger.warning('Invalid cron property edit.', extra=extra)
                 continue
 
             if name == 'lasterrs' and not isinstance(valu, list):
@@ -491,7 +491,7 @@ class Agenda(s_base.Base):
             except (s_exc.InconsistentStorage, s_exc.BadStorageVersion, s_exc.BadTime, TypeError, KeyError,
                     UnicodeDecodeError) as e:
                 extra = self.core.getLogExtra(cron={'iden': iden}, err=str(e))
-                logger.warning('Removing invalid cron job', extra=extra)
+                logger.warning('Removing invalid cron job.', extra=extra)
                 to_delete.append(iden)
                 continue
 
@@ -732,7 +732,7 @@ class Agenda(s_base.Base):
         for appt in list(self.appts.values()):
             if appt.isrunning:
                 extra = appt.getLogExtra()
-                logger.debug('Clearing isrunning flag', extra=extra)
+                logger.debug('Clearing isrunning flag.', extra=extra)
 
                 edits = {
                     'isrunning': False,
@@ -788,7 +788,7 @@ class Agenda(s_base.Base):
                         await self._execute(appt)
                     except Exception as e:
                         extra = appt.getLogExtra()
-                        logger.exception('Cron job error', extra=extra)
+                        logger.exception('Cron job error.', extra=extra)
                         await self._markfailed(appt, f'error: {e}')
 
     async def _execute(self, appt):
@@ -797,19 +797,19 @@ class Agenda(s_base.Base):
         '''
         user = self.core.auth.user(appt.creator)
         if user is None:
-            logger.warning('Cron job has unknown user', extra=appt.getLogExtra())
+            logger.warning('Cron job has unknown user.', extra=appt.getLogExtra())
             await self._markfailed(appt, 'unknown user')
             return
 
         locked = user.info.get('locked')
         if locked:
-            logger.warning('Cron job has locked user', extra=appt.getLogExtra())
+            logger.warning('Cron job has locked user.', extra=appt.getLogExtra())
             await self._markfailed(appt, 'locked user')
             return
 
         view = self.core.getView(iden=appt.view, user=user)
         if view is None:
-            logger.warning('Cron job has unknown view', extra=appt.getLogExtra())
+            logger.warning('Cron job has unknown view.', extra=appt.getLogExtra())
             await self._markfailed(appt, 'unknown view')
             return
 
@@ -850,7 +850,7 @@ class Agenda(s_base.Base):
             await self.core.addCronEdits(appt.iden, edits)
 
             extra = appt.getLogExtra(text=appt.query)
-            logger.info('Cron job starting', extra=extra)
+            logger.info('Cron job starting.', extra=extra)
 
             starttime = self._getNowTick()
 
@@ -878,7 +878,7 @@ class Agenda(s_base.Base):
 
                     elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
                         extra = appt.getLogExtra(**mesg[1])
-                        logger.warning('Cron job emitted warning', extra=extra)
+                        logger.warning('Cron job emitted warning.', extra=extra)
 
                     elif mesg[0] == 'err':
                         excname, errinfo = mesg[1]
@@ -893,7 +893,7 @@ class Agenda(s_base.Base):
 
             except Exception as e:
                 result = f'raised exception {e}'
-                logger.exception('Cron job raised an exception', extra=extra)
+                logger.exception('Cron job raised an exception.', extra=extra)
 
             else:
                 success = True
@@ -915,7 +915,7 @@ class Agenda(s_base.Base):
                 took = finishtime - starttime
 
                 extra = appt.getLogExtra(result=result, took=took)
-                logger.info('Cron job completed', extra=extra)
+                logger.info('Cron job completed.', extra=extra)
 
                 if not self.core.isactive:
                     logger.warning('Cron job status is not saved. We are no longer the leader.', extra=extra)

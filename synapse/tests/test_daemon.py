@@ -91,7 +91,7 @@ class DaemonTest(s_t_utils.SynTest):
                 async with await prox.getPoolLink() as link:
                     mesg = ('newp', {})
                     emsg = "Dmon.onLinkMesg Invalid mesg: mesg=('newp', {})"
-                    with self.getLoggerStream('synapse.daemon', emsg) as stream:
+                    with self.getLoggerStream('synapse.daemon') as stream:
                         await link.tx(mesg)
                         await stream.expect(emsg)
 
@@ -106,7 +106,7 @@ class DaemonTest(s_t_utils.SynTest):
                 async with await prox.getPoolLink() as link:
                     mesg = ('t2:init', {})
                     emsg = "Error on t2:init:"
-                    with self.getLoggerStream('synapse.daemon', emsg) as stream:
+                    with self.getLoggerStream('synapse.daemon') as stream:
                         await link.tx(mesg)
                         await stream.expect(emsg)
 

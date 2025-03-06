@@ -123,7 +123,7 @@ class AhaServicesV1(s_httpapi.Handler):
             raise
         except Exception as e:  # pragma: no cover
             extra = self.cell.getLogExtra()
-            logger.exception('Error getting Aha services.', extra=extra)
+            logger.exception('Error getting AHA services.', extra=extra)
             return self.sendRestErr(e.__class__.__name__, str(e))
         return self.sendRestRetn(ret)
 
@@ -911,7 +911,7 @@ class AhaCell(s_cell.Cell):
             self.provdmon = await ProvDmon.anit(self)
             self.onfini(self.provdmon)
             extra = self.getLogExtra(url=provurl)
-            logger.info('Provisioning serivce listening.', extra=extra)
+            logger.info('Provisioning service listening.', extra=extra)
             self.provaddr = await self.provdmon.listen(provurl)
 
     async def _clearInactiveSessions(self):

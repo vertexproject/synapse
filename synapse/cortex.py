@@ -4351,7 +4351,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         async def onlink(proxy: s_telepath.Proxy):
 
             extra = self.getLogExtra(url=s_urlhelp.sanitizeUrl(turl))
-            logger.debug('Connected to remote axon.', extra=extra)
+            logger.debug('Connected to remote Axon.', extra=extra)
 
             async def fini():
                 self.axready.clear()
