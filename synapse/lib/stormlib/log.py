@@ -141,7 +141,7 @@ class LoggerLib(s_stormtypes.Lib):
 
         extra = await s_stormtypes.toprim(extra)
         if extra and not isinstance(extra, dict):
-            mesg = '$lib.log argument extra= must be a dictionary'
+            mesg = '$lib.log argument extra= must be a dictionary.'
             raise s_exc.BadArg(mesg=mesg, arg='extra', got=extra.__class__.__name__)
 
         return self.runt.snap.core.getLogExtra(**extra)

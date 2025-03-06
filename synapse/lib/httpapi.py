@@ -165,7 +165,7 @@ class HandlerBase:
             username=username,
             user=user)
 
-        logger.log(level, 'Failed to authenticate HTTP request', extra=extra)
+        logger.log(level, 'Failed to authenticate HTTP request.', extra=extra)
 
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')

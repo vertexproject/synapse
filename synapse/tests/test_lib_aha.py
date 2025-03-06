@@ -681,7 +681,7 @@ class AhaTest(s_test.SynTest):
                 self.eq(overconf2, {'nexslog:async': True})
 
                 # tests startup logic that recognizes it's already done
-                with self.getLoggerStream('synapse.lib.cell', ) as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
                         pass
                     stream.seek(0)

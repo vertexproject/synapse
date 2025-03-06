@@ -4211,7 +4211,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                                       service_version=cls.VERSTRING,
                                       synapse_version=s_version.verstring)
 
-        logger.info('Starting synapse service.', extra=extra)
+        logger.info('Starting Synapse service.', extra=extra)
 
         await cls._initBootRestore(opts.dirn)
 

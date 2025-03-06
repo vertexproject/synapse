@@ -917,7 +917,7 @@ class TeleTest(s_t_utils.SynTest):
         async def badonlink(proxy, urlinfo):
             raise ValueError('oopsie')
 
-        with self.getLoggerStream('synapse.telepath', 'onlink: ') as stream:
+        with self.getLoggerStream('synapse.telepath') as stream:
             async with await s_telepath.open(url1, onlink=badonlink) as targ:
                 await stream.expect('onlink error')
 
