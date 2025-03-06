@@ -1505,7 +1505,9 @@ class Axon(s_cell.Cell):
                 await feedtask
 
     async def jsonlines(self, sha256, errors='ignore'):
+
         async for line in self.readlines(sha256, errors=errors):
+
             line = line.strip()
             if not line:
                 continue
@@ -1513,8 +1515,7 @@ class Axon(s_cell.Cell):
             try:
                 yield s_json.loads(line)
             except s_exc.BadJsonText as e:
-                # TODO: this feels like it should not be a log...
-                extra = self.getLogExtra(sha256=sha256, err=str(e))
+                extra = self.getLogExtra(line=line, sha256=sha256, err=str(e))
                 logger.warning('Bad JSON line encountered.', extra=extra)
                 mesg = f'Bad JSON line while processing {sha256}: {e}'
                 raise s_exc.BadJsonText(mesg=mesg, sha256=sha256) from None
