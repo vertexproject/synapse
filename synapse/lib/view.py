@@ -1904,7 +1904,6 @@ class View(s_nexus.Pusher):  # type: ignore
             'iden': layriden,
             'created': ctime,
             'creator': useriden,
-            'lockmemory': self.core.conf.get('layers:lockmemory'),
             'logedits': self.core.conf.get('layers:logedits'),
             'readonly': False
         }

@@ -100,14 +100,13 @@ reqValidLdef = s_config.getJsValidator({
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
-        'lockmemory': {'type': 'boolean'},
-        'lmdb:growsize': {'type': 'integer'},
+        'growsize': {'type': 'integer'},
         'logedits': {'type': 'boolean', 'default': True},
         'name': {'type': 'string'},
         'readonly': {'type': 'boolean', 'default': False},
     },
     'additionalProperties': True,
-    'required': ['iden', 'creator', 'lockmemory'],
+    'required': ['iden', 'creator'],
 })
 
 WINDOW_MAXSIZE = 10_000
@@ -1794,7 +1793,6 @@ class Layer(s_nexus.Pusher):
         self.dirn = s_common.gendir(core.dirn, 'layers', self.iden)
         self.readonly = False
 
-        self.lockmemory = self.layrinfo.get('lockmemory')
         self.growsize = self.layrinfo.get('growsize')
         self.logedits = self.layrinfo.get('logedits')
 
@@ -2440,18 +2438,11 @@ class Layer(s_nexus.Pusher):
                 dstpath = s_common.genpath(newdirn, relpath, name)
                 shutil.copy(srcpath, dstpath)
 
-    async def waitForHot(self):
-        '''
-        Wait for the layer's slab to be prefaulted and locked into memory if lockmemory is true, otherwise return.
-        '''
-        await self.layrslab.lockdoneevent.wait()
-
     async def _initSlabs(self, slabopts):
 
         otherslabopts = {
             **slabopts,
             'readahead': False,   # less-used slabs don't need readahead
-            'lockmemory': False,  # less-used slabs definitely don't get dedicated memory
         }
 
         path = s_common.genpath(self.dirn, 'layer_v2.lmdb')
@@ -2488,7 +2479,6 @@ class Layer(s_nexus.Pusher):
 
         slabopts = {
             'readahead': s_common.envbool('SYNDEV_CORTEX_LAYER_READAHEAD', 'true'),
-            'lockmemory': self.lockmemory,
         }
 
         if self.growsize is not None:

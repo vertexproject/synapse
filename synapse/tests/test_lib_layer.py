@@ -1674,19 +1674,6 @@ class LayerTest(s_t_utils.SynTest):
             nodes = await core.nodes('[test:str=bar +#test:score=100]')
             self.true(await layr.hasTagProp('score'))
 
-    async def test_layer_waitForHot(self):
-        self.thisHostMust(hasmemlocking=True)
-
-        async with self.getTestCore() as core:
-            layr = core.getLayer()
-
-            await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
-
-        conf = {'layers:lockmemory': True}
-        async with self.getTestCore(conf=conf) as core:
-            layr = core.getLayer()
-            await asyncio.wait_for(layr.waitForHot(), timeout=1.0)
-
     async def test_layer_no_extra_logging(self):
 
         async with self.getTestCore() as core:

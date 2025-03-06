@@ -1109,7 +1109,6 @@ class CellTest(s_t_utils.SynTest):
                 self.nn(slab['mapsize'])
                 self.nn(slab['readonly'])
                 self.nn(slab['readahead'])
-                self.nn(slab['lockmemory'])
                 self.nn(slab['recovering'])
 
     async def test_cell_system_info(self):
