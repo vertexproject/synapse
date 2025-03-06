@@ -1,6 +1,5 @@
 import os
 import ssl
-import json
 import socket
 import asyncio
 import logging

@@ -1,8 +1,8 @@
 import os
 import sys
-import json
 import argparse
 
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 
@@ -37,7 +37,7 @@ def main(argv, outp=None):
         with open(path, 'r', encoding='utf8') as fd:
             with open(newp, 'wb') as pk:
                 for line in fd:
-                    item = json.loads(line)
+                    item = s_json.loads(line)
                     pk.write(s_msgpack.en(item))
 
         if opts.rm:
