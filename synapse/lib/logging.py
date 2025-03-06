@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import asyncio
 import logging
 import weakref
@@ -10,6 +9,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 
@@ -112,7 +112,7 @@ class Formatter(logging.Formatter):
 
     def format(self, record):
         loginfo = self.genLogInfo(record)
-        return json.dumps(loginfo, default=str)
+        return s_json.dumps(loginfo, default=str).decode()
 
 class TextFormatter(Formatter):
 
