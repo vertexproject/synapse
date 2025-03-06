@@ -476,7 +476,7 @@ async def gen(opts: argparse.Namespace,
     if opts.verbose:
         outp.printf('Validating data against schema')
 
-    s_schemas._reqChanglogSchema(data)
+    s_schemas._reqChangelogSchema(data)
 
     if opts.verbose:
         outp.printf('Saving the following information:')
@@ -835,7 +835,7 @@ async def format(opts: argparse.Namespace,
 
         files_processed.append(fp)
 
-        s_schemas._reqChanglogSchema(data)
+        s_schemas._reqChangelogSchema(data)
 
         data.setdefault('prs', [])
         prs = data.get('prs')

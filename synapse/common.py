@@ -3,7 +3,6 @@ import os
 import ssl
 import sys
 import enum
-import json
 import http
 import stat
 import time
@@ -30,6 +29,7 @@ import contextlib
 import collections
 
 import http.cookies
+import tornado.escape
 
 import yaml
 import regex
@@ -511,24 +511,6 @@ def getDirSize(*paths):
 
     return realsum, apprsum
 
-def jsload(*paths):
-    with genfile(*paths) as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-
-        return json.loads(byts.decode('utf8'))
-
-def jslines(*paths):
-    with genfile(*paths) as fd:
-        for line in fd:
-            yield json.loads(line)
-
-def jssave(js, *paths):
-    path = genpath(*paths)
-    with io.open(path, 'wb') as fd:
-        fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
-
 def yamlloads(data):
     return yaml.load(data, Loader)
 
@@ -959,16 +941,6 @@ def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
     warnings.warn(mesg, DeprecationWarning)
 
-def reqjsonsafe(item):
-    '''
-    Returns None if item is json serializable, otherwise raises an exception.
-    Uses default type coercion from built-in json.dumps.
-    '''
-    try:
-        json.dumps(item)
-    except TypeError as e:
-        raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
-
 def jsonsafe_nodeedits(nodeedits):
     '''
     Hexlify the buid of each node:edits
@@ -997,35 +969,6 @@ def reprauthrule(rule):
     if not rule[0]:
         text = '!' + text
     return text
-
-def reqJsonSafeStrict(item):
-    '''
-    Require the item to be safe to serialize to JSON without type coercion issues.
-
-    Args:
-        item: The python primitive to check.
-
-    Returns:
-        None
-
-    Raise:
-        s_exc.BadArg: If the item contains invalid data.
-    '''
-    if item is None:
-        return
-    if isinstance(item, (str, int,)):
-        return
-    if isinstance(item, (list, tuple)):
-        for valu in item:
-            reqJsonSafeStrict(valu)
-        return
-    if isinstance(item, dict):
-        for key, valu in item.items():
-            if not isinstance(key, str):
-                raise s_exc.BadArg(mesg='Non-string keys are not valid json', key=key)
-            reqJsonSafeStrict(valu)
-        return
-    raise s_exc.BadArg(mesg=f'Invalid item type encountered: {item.__class__.__name__}')
 
 async def merggenr(genrs, cmprkey):
     '''
@@ -1234,7 +1177,23 @@ def _patch_http_cookies():
         return
     http.cookies._unquote = v_cookies._unquote
 
+def _patch_tornado_json():
+    import synapse.lib.json as s_json
+
+    if hasattr(tornado.escape, 'json_encode'):
+        # This exists for a specific reason. See the following URL for explanation:
+        # https://github.com/tornadoweb/tornado/blob/d5ac65c1f1453c2aeddd089d8e68c159645c13e1/tornado/escape.py#L83-L96
+        # https://github.com/tornadoweb/tornado/pull/706
+        def _tornado_json_encode(value):
+            return s_json.dumps(value).replace(b'</', br'<\/').decode()
+
+        tornado.escape.json_encode = _tornado_json_encode
+
+    if hasattr(tornado.escape, 'json_decode'):
+        tornado.escape.json_decode = s_json.loads
+
 _patch_http_cookies()
+_patch_tornado_json()
 
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up

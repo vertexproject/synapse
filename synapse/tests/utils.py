@@ -21,13 +21,11 @@ import io
 import os
 import sys
 import copy
-import json
 import math
 import types
 import shutil
 import typing
 import asyncio
-import hashlib
 import inspect
 import logging
 import tempfile
@@ -59,6 +57,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
+import synapse.lib.json as s_json
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
@@ -101,7 +100,7 @@ def deguidify(x):
 
 def jsonlines(text: str):
     lines = [k for k in text.split('\n') if k]
-    return [json.loads(line) for line in lines]
+    return [s_json.loads(line) for line in lines]
 
 async def waitForBehold(core, events):
     async for mesg in core.behold():
