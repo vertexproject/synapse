@@ -3482,11 +3482,11 @@ class CellTest(s_t_utils.SynTest):
                     logger.warning('oh hai', extra=aha.getLogExtra())
 
                     # test the non-wait version quick...
-                    logs = [loginfo async for loginfo in proxy.logs(last=-1)]
+                    logs = [loginfo async for loginfo in proxy.logs(last=1)]
                     self.eq('oh hai', logs[0]['message'])
 
                     logs = []
-                    async for loginfo in proxy.logs(wait=True, last=-1):
+                    async for loginfo in proxy.logs(wait=True, last=1):
 
                         logs.append(loginfo)
 

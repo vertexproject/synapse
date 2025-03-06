@@ -5078,13 +5078,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initLogBase()
 
         if not wait:
-            for loginfo in list(s_logging.logfifo)[last:]:
+            for loginfo in list(s_logging.logfifo)[-last:]:
                 yield loginfo
             return
 
         async with await s_queue.Window.anit(maxsize=2000) as window:
 
-            await window.puts(list(s_logging.logfifo)[last:])
+            await window.puts(list(s_logging.logfifo)[-last:])
 
             s_logging.logwindows.add(window)
 
