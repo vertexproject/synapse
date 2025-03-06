@@ -456,6 +456,7 @@ testmodel = {
             ('tick', ('test:time', {}), {}),
             ('hehe', ('str', {}), {}),
             ('ndefs', ('array', {'type': 'ndef'}), {}),
+            ('somestr', ('test:str', {}), {}),
         )),
 
         ('test:migr', {}, (

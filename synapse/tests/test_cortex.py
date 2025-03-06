@@ -1558,8 +1558,8 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
             self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
 
-            self.len(1, await core.nodes('[meta:seen=($sorc, $valu)]',
-                                         opts={'vars': {'sorc': sorc, 'valu': node.ndef}}))
+            self.len(1, await core.nodes('[test:str=testndef :somestr=$somestr :bar=$valu]',
+                                         opts={'vars': {'somestr': sorc, 'valu': node.ndef}}))
 
             # test un-populated properties
             nodes = await core.nodes('[ps:contact="*"]')
@@ -1591,13 +1591,13 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(ints, (('test:int', 1), ('test:int', 2), ('test:int', 3)))
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = await core.nodes('meta:seen:source=$sorc -> *', opts=opts)
+            nodes = await core.nodes('test:str:somestr=$sorc -> *', opts=opts)
 
             self.len(2, nodes)
             self.isin('inet:dns:a', {n.ndef[0] for n in nodes})
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = await core.nodes('meta:seen:source=$sorc :node -> *', opts=opts)
+            nodes = await core.nodes('test:str:somestr=$sorc :bar -> *', opts=opts)
 
             self.len(1, nodes)
             self.eq('inet:dns:a', nodes[0].ndef[0])
@@ -3943,7 +3943,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'refs': True,
                 'edges': False,
                 'forms': {},
-                'pivots': ['<- meta:seen'],
+                'pivots': ['<(seen)- meta:source'],
                 'degrees': 3,
                 'filters': ['+#nope'],
                 'filterinput': False,
