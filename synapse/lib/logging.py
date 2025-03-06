@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import asyncio
 import logging
@@ -8,6 +9,7 @@ import collections
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.coro as s_coro
 import synapse.lib.const as s_const
 import synapse.lib.scope as s_scope
 
@@ -122,10 +124,59 @@ class TextFormatter(Formatter):
         loginfo = self.genLogInfo(record)
         return logging.Formatter.format(self, record)
 
+class StreamHandler(logging.StreamHandler):
+
+    _pump_task = None
+    _pump_fifo = collections.deque(maxlen=10000)
+    _pump_event = asyncio.Event()
+
+    def emit(self, record):
+
+        if self._pump_task is None:
+            return logging.StreamHandler.emit(self, record)
+
+        try:
+            text = self.format(record)
+            self._pump_fifo.append(text)
+            self._pump_event.set()
+
+        # emulating behavior of parent class
+        except RecursionError:
+            raise
+
+        except Exception as e:
+            self.handleError(record)
+
+def _writestderr(text):
+    sys.stderr.write(text)
+    sys.stderr.flush()
+
+async def _pumpLogStream():
+
+    while True:
+
+        await StreamHandler._pump_event.wait()
+
+        StreamHandler._pump_event.clear()
+
+        if not StreamHandler._pump_fifo:
+            continue
+
+        todo = list(StreamHandler._pump_fifo)
+        text = '\n'.join(todo) + '\n'
+
+        StreamHandler._pump_fifo.clear()
+        await s_coro.executor(_writestderr, text)
+
 _glob_logconf = {}
 def setup(**conf):
     '''
     Configure synapse logging.
+
+    NOTE: If this API is invoked while there is a running
+          asyncio loop, it will automatically enter async
+          mode and fire a task to pump log events without
+          blocking.
     '''
     conf.update(getLogConfFromEnv())
 
@@ -139,13 +190,16 @@ def setup(**conf):
     if not conf.get('structlog'):
         fmtclass = TextFormatter
 
+    if s_coro.has_running_loop() and StreamHandler._pump_task is None:
+        StreamHandler._pump_task = s_coro.create_task(_pumpLogStream())
+
     # this is used to pass things like service name
     # to child processes and forked workers...
     loginfo = conf.pop('loginfo', None)
     if loginfo is not None:
         _glob_loginfo.update(loginfo)
 
-    handler = logging.StreamHandler()
+    handler = StreamHandler()
     handler.setFormatter(fmtclass(datefmt=conf.get('datefmt')))
 
     level = normLogLevel(conf.get('level'))

@@ -164,6 +164,13 @@ async def ornot(func, *args, **kwargs):
         return await retn
     return retn
 
+def has_running_loop():
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        return False
+
 bgtasks = set()
 def create_task(coro):
 
