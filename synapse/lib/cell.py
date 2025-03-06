@@ -16,6 +16,7 @@ import platform
 import tempfile
 import functools
 import contextlib
+import collections
 import multiprocessing
 
 import aiohttp
@@ -905,6 +906,11 @@ class CellApi(s_base.Base):
     async def reload(self, subsystem=None):
         return await self.cell.reload(subsystem=subsystem)
 
+    @adminapi(log=True)
+    async def iterCellLogs(self):
+        async for mesg in self.cell.iterCellLogs():
+            yield mesg
+
 class Cell(s_nexus.Pusher, s_telepath.Aware):
     '''
     A Cell() implements a synapse micro-service.
@@ -1178,6 +1184,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         self.nexslock = asyncio.Lock()
         self.netready = asyncio.Event()
+
+        self._syn_log_queue = None  # type: collections.deque
+        for handler in logging.getLogger('').handlers:
+            if hasattr(handler, '_syn_log_queue'):
+                self._syn_log_queue = handler._syn_log_queue
+                break
 
         self.conf = self._initCellConf(conf)
         self.features = {
@@ -1531,6 +1543,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         retn = await s_nexus.Pusher.fini(self)
         if retn == 0:
             self._onFiniCellGuid()
+            if self._syn_log_queue is not None:
+                self._syn_log_queue = None
         return retn
 
     def _onFiniCellGuid(self):
@@ -5079,6 +5093,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def iterCellLogs(self):
+        if self._syn_log_queue is None:
+            raise s_exc.SynErr(mesg='no queue available')
+        for mesg in list(self._syn_log_queue):
+            yield mesg
 
     async def freeze(self, timeout=30):
 
