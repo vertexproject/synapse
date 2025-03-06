@@ -2717,6 +2717,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             raise s_exc.BadArg(mesg=mesg, arg='path', valu=path)
         await self._streamBackupArchive(path, user, name)
 
+    async def _removeStreamingBackup(self, path):
+        logger.debug(f'Removing {path}')
+        await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
+        logger.debug(f'Removed {path}')
+        self.backupstreaming = False
+
     async def iterNewBackupArchive(self, user, name=None, remove=False):
 
         if self.backupstreaming:
@@ -2734,23 +2740,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 mesg = 'Backup with name already exists'
                 raise s_exc.BadArg(mesg=mesg)
 
-            try:
-                await self.runBackup(name)
-            except Exception:
-                if remove:
-                    logger.debug(f'Removing {path}')
-                    await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-                    logger.debug(f'Removed {path}')
-                raise
-
+            await self.runBackup(name)
             await self._streamBackupArchive(path, user, name)
 
         finally:
             if remove:
-                logger.debug(f'Removing {path}')
-                await s_coro.executor(shutil.rmtree, path, ignore_errors=True)
-                logger.debug(f'Removed {path}')
-                self.backupstreaming = False
+                self.removetask = asyncio.create_task(self._removeStreamingBackup(path))
+                await asyncio.shield(self.removetask)
 
     async def isUserAllowed(self, iden, perm, gateiden=None, default=False):
         user = self.auth.user(iden)  # type: s_auth.User

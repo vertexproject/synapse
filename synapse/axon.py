@@ -1,5 +1,4 @@
 import csv
-import json
 import struct
 import asyncio
 import hashlib
@@ -16,6 +15,7 @@ import synapse.common as s_common
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.link as s_link
 import synapse.lib.const as s_const
 import synapse.lib.nexus as s_nexus
@@ -1511,11 +1511,11 @@ class Axon(s_cell.Cell):
                 continue
 
             try:
-                yield json.loads(line)
-            except json.JSONDecodeError as e:
+                yield s_json.loads(line)
+            except s_exc.BadJsonText as e:
                 # TODO: this feels like it should not be a log...
                 extra = self.getLogExtra(sha256=sha256, err=str(e))
-                logger.exception('Bad JSON line encountered.', extra=extra)
+                logger.warning('Bad JSON line encountered.', extra=extra)
                 mesg = f'Bad JSON line while processing {sha256}: {e}'
                 raise s_exc.BadJsonText(mesg=mesg, sha256=sha256) from None
 
@@ -1647,7 +1647,7 @@ class Axon(s_cell.Cell):
                     else:
                         valu = field.get('value')
                         if not isinstance(valu, (bytes, str)):
-                            valu = json.dumps(valu)
+                            valu = s_json.dumps(valu).decode()
 
                     data.add_field(name,
                                    valu,

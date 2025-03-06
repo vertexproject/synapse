@@ -5892,51 +5892,47 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.stormpool is None:  # pragma: no cover
             return None
 
-        if self.stormpool.size() == 0:
-            logger.info('Storm query mirror pool is empty. (running locally)', extra=self.getLogExtra())
+        size = self.stormpool.size()
+        if size == 0:
+            extra = self.getLogExtra()
+            logger.info('Storm query mirror pool is empty. Running query locally.', extra=extra)
             return None
 
-        timeout = self.stormpoolopts.get('timeout:connection')
+        for _ in range(size):
 
-        try:
+            try:
+                timeout = self.stormpoolopts.get('timeout:connection')
+                proxy = await self.stormpool.proxy(timeout=timeout)
+                proxyname = proxy._ahainfo.get('name')
+                if proxyname is not None and proxyname == self.ahasvcname:
+                    # we are part of the pool and were selected. Convert to local use.
+                    return None
 
-            proxy = await self.stormpool.proxy(timeout=timeout)
-            proxyname = proxy._ahainfo.get('name')
-            if proxyname is not None and proxyname == self.ahasvcname:
-                # we are part of the pool and were selected. Convert to local use.
-                return None
+            except TimeoutError:
+                extra = self.getLogExtra(timeout=timeout)
+                logger.warning('Timeout waiting for pool mirror proxy.', extra=extra)
+                continue
 
-        except s_exc.IsFini:
-            return None
+            try:
 
-        except TimeoutError as e:
-            extra = self.getLogExtra(timeout=timeout)
-            logger.warning('Timeout waiting for pool mirror connection. (running locally)', extra=extra)
-            return None
+                curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
+                miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
+                if (delta := curoffs - miroffs) <= MAX_NEXUS_DELTA:
+                    return proxy
 
-        try:
+                extra = self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs)
+                logger.warning('Pool mirror is too far out of sync. Skipping.', extra=extra)
 
-            curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
-            miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
+            except s_exc.IsFini:
+                extra = self.getLogExtra(mirror=proxyname)
+                logger.warning('Proxy for pool mirror was shutdown. Skipping.', extra=extra)
 
-            if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
-                extra = self.getLogExtra(mirror=proxyname, offset=miroffs,
-                                         delta=delta, maxdelta=MAX_NEXUS_DELTA)
-                mesg = 'Storm query pool mirror nexus offset delta is too large. (running locally)'
-                logger.warning(mesg, extra=extra)
-                return None
+            except TimeoutError:
+                extra = self.getLogExtra(mirror=proxyname)
+                logger.warning('Timeout waiting for pool mirror Nexus offset. Skipping.', extra=extra)
 
-            return proxy
-
-        except s_exc.IsFini: # pragma: no cover
-            extra = self.getLogExtra(mirror=proxyname)
-            logger.warning('Proxy closed waiting for pool mirror nexus offset. (running locally)', extra=extra)
-            return None
-
-        except TimeoutError:
-            extra = self.getLogExtra(mirror=proxyname, timeout=timeout)
-            logger.warning('Timeout waiting for pool mirror nexus offset. (running locally)', extra=extra)
-            return None
+        logger.warning('Pool members exhausted. Running query locally.', extra=self.getLogExtra())
+        return None
 
     async def storm(self, text, opts=None):
 

@@ -1,6 +1,5 @@
 import os
 import time
-import json
 import logging
 import unittest
 
@@ -8,6 +7,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 

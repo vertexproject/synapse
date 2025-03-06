@@ -1,12 +1,17 @@
 import os
+import http
 import asyncio
 import logging
 import subprocess
 
 import yaml
+import aiohttp
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.httpapi as s_httpapi
+
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
@@ -468,3 +473,27 @@ class CommonTest(s_t_utils.SynTest):
             v = s_common.trimText(iv, n=n)
             self.le(len(v), n)
             self.eq(v, ev)
+
+    async def test_tornado_monkeypatch(self):
+        class JsonHandler(s_httpapi.Handler):
+            async def get(self):
+                resp = {
+                    'foo': 'bar',
+                    'html': '<html></html>'
+                }
+                self.write(resp)
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/test_tornado/', JsonHandler, {'cell': core})
+            _, port = await core.addHttpsPort(0)
+            url = f'https://127.0.0.1:{port}/api/v1/test_tornado/'
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, ssl=False) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+
+                    text = await resp.text()
+                    self.eq(text, '{"foo":"bar","html":"<html><\\/html>"}')
+
+                    json = await resp.json()
+                    self.eq(json, {'foo': 'bar', 'html': '<html></html>'})
