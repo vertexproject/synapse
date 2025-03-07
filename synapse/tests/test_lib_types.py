@@ -1068,9 +1068,9 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'C' * 32}}))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'F' * 32}}))
-            self.len(1, await core.nodes('[meta:seen=((meta:source, (foo,)), (test:comp, (2048, horton)))]'))
-            self.len(1, await core.nodes('[meta:seen=((meta:source, (bar,)), (test:comp, (9001, "A mean one")))]'))
-            self.len(1, await core.nodes('[meta:seen=((meta:source, (baz,)), (test:int, 16))]'))
+            self.len(1, await core.nodes('[test:str=n1 :bar=(test:comp, (2048, horton))]'))
+            self.len(1, await core.nodes('[test:str=n2 :bar=(test:comp, (9001, "A mean one"))]'))
+            self.len(1, await core.nodes('[test:str=n3 :bar=(test:int, 16)]'))
             self.len(1, await core.nodes('[test:comp=(4096, whoville)]'))
             self.len(1, await core.nodes('[test:comp=(9999, greenham)]'))
             self.len(1, await core.nodes('[test:comp=(40000, greeneggs)]'))
@@ -1090,9 +1090,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await core.nodes('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await core.nodes('meta:seen +:node*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
-            self.eq({node.ndef[1] for node in nodes},
-                    {('aeac1223f48231cabf258f1f67f052a5', ('test:comp', (2048, 'horton')))})
+            nodes = await core.nodes('test:str +:bar*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
+            self.eq({node.ndef[1] for node in nodes}, {'n1'})
 
             # The following tests show range working against a string
             self.len(2, await core.nodes('test:str*range=(b, m)'))

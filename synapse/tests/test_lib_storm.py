@@ -3396,9 +3396,7 @@ class StormTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            guid = s_common.guid()
-            self.len(1, await core.nodes('[meta:seen=((meta:source, $valu), (inet:ip, 1.2.3.4))]',
-                                         opts={'vars': {'valu': guid}}))
+            self.len(1, await core.nodes('[test:str=foo :bar=(inet:ip, 1.2.3.4)]'))
             self.len(1, await core.nodes('[inet:dns:a=(woot.com, 1.2.3.4)]'))
             self.len(1, await core.nodes('inet:ip=1.2.3.4 [ :asn=0 ]'))
 
@@ -3444,33 +3442,33 @@ class StormTest(s_t_utils.SynTest):
             self.len(1, links)
             self.eq({'type': 'prop', 'prop': 'ip', 'reverse': True}, links[0][1])
 
-            self.eq(nodes[2][0][0], ('meta:seen'))
+            self.eq(nodes[2][0][0], ('test:str'))
             links = nodes[2][1]['links']
             self.len(1, links)
-            self.eq({'type': 'prop', 'prop': 'node', 'reverse': True}, links[0][1])
+            self.eq({'type': 'prop', 'prop': 'bar', 'reverse': True}, links[0][1])
 
             self.eq(nodes[3][0], ('inet:ip', (4, 0x01020304)))
             links = nodes[2][1]['links']
             self.len(1, links)
-            self.eq({'type': 'prop', 'prop': 'node', 'reverse': True}, links[0][1])
+            self.eq({'type': 'prop', 'prop': 'bar', 'reverse': True}, links[0][1])
 
-            q = 'inet:ip=1.2.3.4 | tee --join { -> * } { <- * } { -> meta:seen:node :source -> * }'
+            q = 'inet:ip=1.2.3.4 | tee --join { -> * } { <- * } { -> test:str:bar }'
             nodes = await core.nodes(q)
             self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('meta:seen'))
-            self.eq(nodes[3].ndef[0], ('meta:source'))
+            self.eq(nodes[2].ndef[0], ('test:str'))
+            self.eq(nodes[3].ndef[0], ('test:str'))
             self.eq(nodes[4].ndef, ('inet:ip', (4, 0x01020304)))
 
             # Queries can be a heavy list
-            q = '$list = ([${ -> * }, ${ <- * }, ${ -> meta:seen:node :source -> * }]) inet:ip=1.2.3.4 | tee --join $list'
+            q = '$list = ([${ -> * }, ${ <- * }, ${ -> test:str:bar }]) inet:ip=1.2.3.4 | tee --join $list'
             nodes = await core.nodes(q)
             self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('meta:seen'))
-            self.eq(nodes[3].ndef[0], ('meta:source'))
+            self.eq(nodes[2].ndef[0], ('test:str'))
+            self.eq(nodes[3].ndef[0], ('test:str'))
             self.eq(nodes[4].ndef, ('inet:ip', (4, 0x01020304)))
 
             # A empty list of queries still works as an nop
@@ -3496,13 +3494,13 @@ class StormTest(s_t_utils.SynTest):
 
             # Queries can be a input list
             q = 'inet:ip=1.2.3.4 | tee --join $list'
-            queries = ('-> *', '<- *', '-> meta:seen:node :source -> *')
+            queries = ('-> *', '<- *', '-> test:str:bar')
             nodes = await core.nodes(q, {'vars': {'list': queries}})
             self.len(5, nodes)
             self.eq(nodes[0].ndef, ('inet:asn', 0))
             self.eq(nodes[1].ndef[0], ('inet:dns:a'))
-            self.eq(nodes[2].ndef[0], ('meta:seen'))
-            self.eq(nodes[3].ndef[0], ('meta:source'))
+            self.eq(nodes[2].ndef[0], ('test:str'))
+            self.eq(nodes[3].ndef[0], ('test:str'))
             self.eq(nodes[4].ndef, ('inet:ip', (4, 0x01020304)))
 
             # Empty queries are okay - they will just return the input node

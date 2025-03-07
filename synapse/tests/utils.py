@@ -345,6 +345,11 @@ testmodel = {
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
         )}), {'doc': 'A complex comp type.'}),
+        ('test:ndefcomp', ('comp', {'fields': (
+            ('hehe', 'test:int'),
+            ('ndef', 'test:ndef'))
+        }), {'doc': 'A comp type with an ndef.'}),
+
         ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
         ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
         ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
@@ -425,6 +430,11 @@ testmodel = {
         ('test:complexcomp', {}, (
             ('foo', ('test:int', {}), {'ro': True}),
             ('bar', ('str', {'lower': 1}), {'ro': True})
+        )),
+
+        ('test:ndefcomp', {}, (
+            ('hehe', ('test:int', {}), {'ro': True}),
+            ('ndef', ('test:ndef', {}), {'ro': True}),
         )),
 
         ('test:int', {}, (

@@ -823,17 +823,17 @@ class AstTest(s_test.SynTest):
     async def test_ast_pivot_ndef(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ meta:seen=((meta:source, *), (test:str, woot)) ]')
-            nodes = await core.nodes('meta:seen -> test:str')
-            self.eq(nodes[0].ndef, ('test:str', 'woot'))
+            nodes = await core.nodes('[ test:str=foo :bar=(test:int, 5) ]')
+            nodes = await core.nodes('test:str -> test:int')
+            self.eq(nodes[0].ndef, ('test:int', 5))
 
-            nodes = await core.nodes('[ meta:seen=(*, (inet:fqdn, woot.com)) ]')
+            nodes = await core.nodes('[ test:str=bar :bar=(inet:fqdn, woot.com) ]')
             self.len(1, nodes)
 
             # test a reverse ndef pivot
-            nodes = await core.nodes('inet:fqdn=woot.com -> meta:seen')
+            nodes = await core.nodes('inet:fqdn=woot.com -> test:str')
             self.len(1, nodes)
-            self.eq('meta:seen', nodes[0].ndef[0])
+            self.eq('test:str', nodes[0].ndef[0])
 
             await core.nodes('[ test:str=ndefs :ndefs=((it:dev:int, 1), (it:dev:int, 2)) ]')
             await core.nodes('test:str=ndefs [ :ndefs += (inet:fqdn, woot.com) ]')

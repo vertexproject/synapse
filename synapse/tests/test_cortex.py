@@ -1478,7 +1478,7 @@ class CortexTest(s_t_utils.SynTest):
             node = nodes[0]
             self.len(0, node.getNodeRefs())
             # test ndef field
-            nodes = await core.nodes('[meta:seen=(*, (inet:fqdn, woot.com))]')
+            nodes = await core.nodes('[test:str=foo :bar=(inet:fqdn, woot.com)]')
             self.len(1, nodes)
             node = nodes[0]
             refs = dict(node.getNodeRefs())
@@ -2188,9 +2188,9 @@ class CortexTest(s_t_utils.SynTest):
             # seed a node for pivoting
 
             await core.nodes('[ test:pivcomp=(foo,bar) :tick=2018 ]')
-            await wcore.nodes('[ meta:seen=((meta:source, "*"), (test:pivcomp,(foo,bar))) ]')
+            await wcore.nodes('[ test:str=foo :bar=(meta:source, "*") ]')
 
-            self.len(1, await core.nodes('meta:source -> meta:seen:source'))
+            self.len(1, await core.nodes('meta:source -> test:str:bar'))
 
             q = 'test:pivcomp=(foo,bar) -> test:pivtarg'
             nodes = await getPackNodes(core, q)
@@ -2370,23 +2370,25 @@ class CortexTest(s_t_utils.SynTest):
 
             q = 'test:str -+> #'
             nodes = await getPackNodes(core, q)
-            self.len(5, nodes)
+            self.len(6, nodes)
             self.eq(nodes[0][0], ('syn:tag', 'biz.meta'))
             self.eq(nodes[1][0], ('syn:tag', 'test.bar'))
             self.eq(nodes[2][0], ('test:str', 'bar'))
-            self.eq(nodes[3][0], ('test:str', 'tagyourtags'))
-            self.eq(nodes[4][0], ('test:str', 'yyy'))
+            self.eq(nodes[3][0], ('test:str', 'foo'))
+            self.eq(nodes[4][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[5][0], ('test:str', 'yyy'))
 
             q = 'test:str -+> #*'
             nodes = await getPackNodes(core, q)
-            self.len(7, nodes)
+            self.len(8, nodes)
             self.eq(nodes[0][0], ('syn:tag', 'biz'))
             self.eq(nodes[1][0], ('syn:tag', 'biz.meta'))
             self.eq(nodes[2][0], ('syn:tag', 'test'))
             self.eq(nodes[3][0], ('syn:tag', 'test.bar'))
             self.eq(nodes[4][0], ('test:str', 'bar'))
-            self.eq(nodes[5][0], ('test:str', 'tagyourtags'))
-            self.eq(nodes[6][0], ('test:str', 'yyy'))
+            self.eq(nodes[5][0], ('test:str', 'foo'))
+            self.eq(nodes[6][0], ('test:str', 'tagyourtags'))
+            self.eq(nodes[7][0], ('test:str', 'yyy'))
 
             q = 'test:str=bar -+> #'
             nodes = await getPackNodes(core, q)
@@ -4156,9 +4158,9 @@ class CortexBasicTest(s_t_utils.SynTest):
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ps:person="*" meta:seen=((meta:source, *), $node) ]')
+            nodes = await core.nodes('[ ps:person="*" test:ndefcomp=(5, $node) ]')
             self.len(2, nodes)
-            self.eq('meta:seen', nodes[0].ndef[0])
+            self.eq('test:ndefcomp', nodes[0].ndef[0])
 
             nodes = await core.nodes('[ test:int=1234 ] [test:str=$node.value()] -test:int')
             self.len(1, nodes)
@@ -5381,7 +5383,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # Filter by var as node
-            q = '[ps:person=*] $person = $node { [meta:seen=((meta:source,  *), $person)] } -ps:person meta:seen +:node=$person'
+            q = '[ps:person=*] $person = $node { [(test:str=foo :bar=$person)] } -ps:person test:str +:bar=$person'
             nodes = await core.nodes(q)
             self.len(1, nodes)
 

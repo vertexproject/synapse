@@ -32,10 +32,6 @@ class BaseModule(s_module.CoreModule):
                 ('meta:source', ('guid', {}), {
                     'doc': 'A data source unique identifier.'}),
 
-                ('meta:seen', ('comp', {'fields': (('source', 'meta:source'), ('node', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'Annotates that the data in a node was obtained from or observed by a given source.'}),
-
                 ('meta:note', ('guid', {}), {
                     'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
 
@@ -168,16 +164,6 @@ class BaseModule(s_module.CoreModule):
 
                     ('ingest:offset', ('int', {}), {
                         'doc': 'Used by ingest logic to capture the current ingest offset within a feed.'}),
-                )),
-
-                ('meta:seen', {}, (
-
-                    ('source', ('meta:source', {}), {'ro': True,
-                        'doc': 'The source which observed or provided the node.'}),
-
-                    ('node', ('ndef', {}), {'ro': True,
-                        'doc': 'The node which was observed by or received from the source.'}),
-
                 )),
 
                 ('meta:note:type:taxonomy', {}, ()),

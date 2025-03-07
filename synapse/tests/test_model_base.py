@@ -103,12 +103,6 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(sorc.get('ingest:latest'), 1733356800000)
 
             valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
-            nodes = await core.nodes('[meta:seen=$valu]', opts={'vars': {'valu': valu}})
-            self.len(1, nodes)
-            seen = nodes[0]
-
-            self.eq(seen.get('source'), sorc.ndef[1])
-            self.eq(seen.get('node'), ('inet:fqdn', 'woot.com'))
 
     async def test_model_base_rules(self):
 
