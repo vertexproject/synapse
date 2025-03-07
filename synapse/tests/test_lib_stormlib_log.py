@@ -43,7 +43,7 @@ class LogTest(s_test.SynTest):
                 await core.callStorm('$lib.log.debug("debug message", extra=(foo, bar, baz))')
 
             # structlog test
-            with self.getStructuredAsyncLoggerStream(logname, '"key": "valu"') as stream:
+            with self.getStructuredAsyncLoggerStream(logname, '"key":"valu"') as stream:
                 await core.callStorm('$lib.log.debug("struct1 message")')
                 await core.callStorm('$lib.log.debug("struct2 message", extra=({"key": "valu"}))')
                 self.true(await stream.wait(6))

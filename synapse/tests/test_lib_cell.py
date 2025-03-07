@@ -1,7 +1,6 @@
 import os
 import ssl
 import sys
-import json
 import time
 import base64
 import signal
@@ -26,6 +25,7 @@ import synapse.lib.auth as s_auth
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.link as s_link
 import synapse.lib.drive as s_drive
 import synapse.lib.nexus as s_nexus

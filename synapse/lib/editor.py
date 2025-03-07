@@ -6,6 +6,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
@@ -380,7 +381,7 @@ class ProtoNode(s_node.NodeBase):
         if await self.getData(name) == valu:
             return
 
-        s_common.reqjsonsafe(valu)
+        s_json.reqjsonsafe(valu)
 
         self.nodedata[name] = valu
         self.nodedatadels.discard(name)

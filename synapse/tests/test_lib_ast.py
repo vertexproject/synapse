@@ -1,4 +1,3 @@
-import json
 import math
 import asyncio
 
@@ -10,6 +9,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
 import synapse.lib.view as s_view
+import synapse.lib.json as s_json
 
 import synapse.tests.utils as s_test
 
@@ -1549,7 +1549,7 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('stormpkg', msgs)
 
             # Make sure a JSON package loads
-            jsonpkg = json.loads(json.dumps(jsonpkg))
+            jsonpkg = s_json.loads(s_json.dumps(jsonpkg))
             await core.stormlist('$lib.pkg.add($pkg)',
                                  opts={'vars': {'pkg': jsonpkg}})
             msgs = await core.stormlist('pkg.list')
@@ -1757,7 +1757,7 @@ class AstTest(s_test.SynTest):
             prints = list(filter(lambda m: m[0] == 'print', msgs))
             self.eq(len(prints), 3)
 
-            jmsgs = list(map(lambda m: json.loads(m[1]['mesg']), prints))
+            jmsgs = list(map(lambda m: s_json.loads(m[1]['mesg']), prints))
             omsgs = sorted(jmsgs, key=lambda m: m[0])
             self.eq(omsgs[0][1], 'this should be first')
             self.eq(omsgs[1][1], 'toreturn called')

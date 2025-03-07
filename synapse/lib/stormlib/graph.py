@@ -36,7 +36,7 @@ class GraphLib(s_stormtypes.Lib):
                         "name": "Test Projection",
                         "desc": "My test projection",
                         "degrees": 2,
-                        "pivots": ["-> meta:seen"],
+                        "pivots": [" <(seen)- meta:source "],
                         "filters": ["-#nope"],
                         "forms": {
                             "inet:fqdn": {
