@@ -66,7 +66,7 @@ def check_changelogs(dirn):
         data = yaml.load(bytz, yaml.SafeLoader)
         # And validate the schema.
         if s_schemas is not None:
-            s_schemas._reqChanglogSchema(data)
+            s_schemas._reqChangelogSchema(data)
 
 def main():
 

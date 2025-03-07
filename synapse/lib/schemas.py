@@ -383,6 +383,7 @@ _changelogTypes = {'migration': 'Automatic Migrations',
                    'model': 'Model Changes',
                    'feat': 'Features and Enhancements',
                    'bug': 'Bugfixes',
+                   'note': 'Notes',
                    'doc': 'Improved documentation',
                    'deprecation': 'Deprecations'}
 
@@ -407,7 +408,7 @@ _changelogSchema = {
     'additionalProperties': False,
     'required': ['type', 'desc']
 }
-_reqChanglogSchema = s_config.getJsValidator(_changelogSchema)
+_reqChangelogSchema = s_config.getJsValidator(_changelogSchema)
 
 tabularConfSchema = {
     'type': 'object',
