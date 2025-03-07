@@ -1,6 +1,0 @@
----
-desc: Updated the JSON library used by Synapse to orjson which is more strict to the
-  JSON standards and shown to be more performant than the builtin Python JSON library.
-prs: []
-type: feat
-...

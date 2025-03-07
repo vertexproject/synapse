@@ -264,27 +264,27 @@ class OAuthV2Lib(s_stormtypes.Lib):
             raise s_exc.AuthDeny(mesg='addProvider() requires admin privs.',
                                  user=self.runt.user.iden, username=self.runt.user.name)
         conf = await s_stormtypes.toprim(conf)
-        await self.runt.snap.core.addOAuthProvider(conf)
+        await self.runt.view.core.addOAuthProvider(conf)
 
     async def _delProvider(self, iden):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='delProvider() requires admin privs.',
                                  user=self.runt.user.iden, username=self.runt.user.name)
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.delOAuthProvider(iden)
+        return await self.runt.view.core.delOAuthProvider(iden)
 
     async def _getProvider(self, iden):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='getProvider() requires admin privs.',
                                  user=self.runt.user.iden, username=self.runt.user.name)
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.getOAuthProvider(iden)
+        return await self.runt.view.core.getOAuthProvider(iden)
 
     async def _listProviders(self):
         if not self.runt.isAdmin():
             raise s_exc.AuthDeny(mesg='listProviders() requires admin privs.',
                                  user=self.runt.user.iden, username=self.runt.user.name)
-        return await self.runt.snap.core.listOAuthProviders()
+        return await self.runt.view.core.listOAuthProviders()
 
     async def _setUserAuthCode(self, iden, authcode, code_verifier=None):
         iden = await s_stormtypes.tostr(iden)
@@ -292,12 +292,12 @@ class OAuthV2Lib(s_stormtypes.Lib):
         code_verifier = await s_stormtypes.tostr(code_verifier, True)
 
         useriden = self.runt.user.iden
-        await self.runt.snap.core.setOAuthAuthCode(iden, useriden, authcode, code_verifier=code_verifier)
+        await self.runt.view.core.setOAuthAuthCode(iden, useriden, authcode, code_verifier=code_verifier)
 
     async def _getUserAccessToken(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.getOAuthAccessToken(iden, self.runt.user.iden)
+        return await self.runt.view.core.getOAuthAccessToken(iden, self.runt.user.iden)
 
     async def _clearUserAccessToken(self, iden):
         iden = await s_stormtypes.tostr(iden)
-        return await self.runt.snap.core.clearOAuthAccessToken(iden, self.runt.user.iden)
+        return await self.runt.view.core.clearOAuthAccessToken(iden, self.runt.user.iden)

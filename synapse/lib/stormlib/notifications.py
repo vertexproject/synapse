@@ -68,7 +68,7 @@ class NotifyLib(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def get(self, indx):
         indx = await s_stormtypes.toint(indx)
-        mesg = await self.runt.snap.core.getUserNotif(indx)
+        mesg = await self.runt.view.core.getUserNotif(indx)
         if mesg[0] != self.runt.user.iden and not self.runt.isAdmin():
             mesg = 'You may only get notifications which belong to you.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
@@ -76,14 +76,14 @@ class NotifyLib(s_stormtypes.Lib):
 
     async def _del(self, indx):
         indx = await s_stormtypes.toint(indx)
-        mesg = await self.runt.snap.core.getUserNotif(indx)
+        mesg = await self.runt.view.core.getUserNotif(indx)
         if mesg[0] != self.runt.user.iden and not self.runt.isAdmin():
             mesg = 'You may only delete notifications which belong to you.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
-        await self.runt.snap.core.delUserNotif(indx)
+        await self.runt.view.core.delUserNotif(indx)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def list(self, size=None):
         size = await s_stormtypes.toint(size, noneok=True)
-        async for mesg in self.runt.snap.core.iterUserNotifs(self.runt.user.iden, size=size):
+        async for mesg in self.runt.view.core.iterUserNotifs(self.runt.user.iden, size=size):
             yield mesg

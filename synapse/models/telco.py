@@ -183,6 +183,10 @@ class TelcoModule(s_module.CoreModule):
                     'doc': 'The fusion of a MCC/MNC.'
                 }),
 
+                ('tel:mob:cell:radio:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of cell radio types.'}),
+
                 ('tel:mob:cell', ('comp', {'fields': (('carrier', 'tel:mob:carrier'),
                                                       ('lac', ('int', {})),
                                                       ('cid', ('int', {})))}), {
@@ -312,6 +316,7 @@ class TelcoModule(s_module.CoreModule):
                         'doc': 'Location the carrier operates from.'
                     }),
                 )),
+                ('tel:mob:cell:radio:type:taxonomy', {}, ()),
                 ('tel:mob:cell', {}, (
                     ('carrier', ('tel:mob:carrier', {}), {'doc': 'Mobile carrier.', 'ro': True, }),
                     ('carrier:mcc', ('tel:mob:mcc', {}), {'doc': 'Mobile Country Code.', 'ro': True, }),
@@ -319,7 +324,7 @@ class TelcoModule(s_module.CoreModule):
                     ('lac', ('int', {}), {'doc': 'Location Area Code. LTE networks may call this a TAC.',
                                           'ro': True, }),
                     ('cid', ('int', {}), {'doc': 'The Cell ID.', 'ro': True, }),
-                    ('radio', ('str', {'lower': 1, 'onespace': 1}), {'doc': 'Cell radio type.'}),
+                    ('radio', ('tel:mob:cell:radio:type:taxonomy', {}), {'doc': 'Cell radio type.'}),
                     ('latlong', ('geo:latlong', {}), {'doc': 'Last known location of the cell site.'}),
 
                     ('loc', ('loc', {}), {
@@ -361,31 +366,25 @@ class TelcoModule(s_module.CoreModule):
 
                     # inet protocol addresses
                     ('mac', ('inet:mac', {}), {}),
-                    ('ipv4', ('inet:ipv4', {}), {}),
-                    ('ipv6', ('inet:ipv6', {}), {}),
+                    ('ip', ('inet:ip', {}), {
+                        'prevnames': ('ipv4', 'ipv6')}),
 
-                    ('wifi', ('inet:wifi:ap', {}), {}),
-                    ('wifi:ssid', ('inet:wifi:ssid', {}), {}),
-                    ('wifi:bssid', ('inet:mac', {}), {}),
+                    ('wifi:ap', ('inet:wifi:ap', {}), {
+                        'prevnames': ('wifi')}),
+
+                    ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
+                        'prevnames': ('wifi:ssid')}),
+
+                    ('wifi:ap:bssid', ('inet:mac', {}), {
+                        'prevnames': ('wifi:bssid')}),
 
                     # host specific data
                     ('adid', ('it:adid', {}), {
                         'doc': 'The advertising ID of the mobile telemetry sample.'}),
 
-                    ('aaid', ('it:os:android:aaid', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :adid.'}),
-
-                    ('idfa', ('it:os:ios:idfa', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :adid.'}),
-
                     # User related data
                     ('name', ('ps:name', {}), {}),
                     ('email', ('inet:email', {}), {}),
-                    ('acct', ('inet:web:acct', {}), {
-                        'doc': 'Deprecated, use :account.',
-                        'deprecated': True}),
 
                     ('account', ('inet:service:account', {}), {
                         'doc': 'The service account which is associated with the tracked device.'}),

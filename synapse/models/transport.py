@@ -51,6 +51,10 @@ class TransportModule(s_module.CoreModule):
                 ('transport:land:license', ('guid', {}), {
                     'doc': 'A license to operate a land vehicle issued to a contact.'}),
 
+                ('transport:air:craft:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of aircraft types.'}),
+
                 ('transport:land:drive', ('guid', {}), {
                     'interfaces': ('transport:trip',),
                     'template': {
@@ -64,6 +68,10 @@ class TransportModule(s_module.CoreModule):
                     'interfaces': ('transport:vehicle',),
                     'template': {'phys:object': 'aircraft'},
                     'doc': 'An individual aircraft.'}),
+
+                ('transport:air:tailnum:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of aircraft registration number types.'}),
 
                 ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
                     'doc': 'An aircraft registration number or military aircraft serial number.',
@@ -84,10 +92,6 @@ class TransportModule(s_module.CoreModule):
                         'place': 'airport',
                         'vehicle': 'aircraft'},
                     'doc': 'An individual instance of a flight.'}),
-
-                ('transport:air:occupant', ('guid', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use transport:occupant.'}),
 
                 ('transport:air:port', ('str', {'lower': True}), {
                     'doc': 'An IATA assigned airport code.'}),
@@ -327,25 +331,17 @@ class TransportModule(s_module.CoreModule):
                     ('serial', ('str', {'strip': True}), {
                         'doc': 'The serial number or VIN of the vehicle.'}),
 
-                    ('make', ('ou:name', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :manufacturer:name.'}),
-
                     ('registration', ('transport:land:registration', {}), {
                         'doc': 'The current vehicle registration information.'}),
                 )),
+                ('transport:air:craft:type:taxonomy', {}, ()),
                 ('transport:air:craft', {}, (
 
                     ('tailnum', ('transport:air:tailnum', {}), {
                         'doc': 'The aircraft tail number.'}),
 
-                    # TODO 3.x modify type to being a taxonomy.
-                    ('type', ('str', {'lower': True, 'strip': True}), {
+                    ('type', ('transport:air:craft:type:taxonomy', {}), {
                         'doc': 'The type of aircraft.'}),
-
-                    ('make', ('str', {'lower': True, 'strip': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :manufacturer:name.'}),
                 )),
                 ('transport:air:port', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -353,10 +349,11 @@ class TransportModule(s_module.CoreModule):
                     ('place', ('geo:place', {}), {
                         'doc': 'The place where the IATA airport code is assigned.'}),
                 )),
+                ('transport:air:tailnum:type:taxonomy', {}, ()),
                 ('transport:air:tailnum', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location that the tailnumber is allocated to.'}),
-                    ('type', ('str', {'lower': True, 'strip': True}), {
+                    ('type', ('transport:air:tailnum:type:taxonomy', {}), {
                         'doc': 'A type which may be specific to the country prefix.'}),
                 )),
                 ('transport:air:flightnum', {}, (
@@ -376,31 +373,6 @@ class TransportModule(s_module.CoreModule):
 
                     ('tailnum', ('transport:air:tailnum', {}), {
                         'doc': 'The tail/registration number at the time the aircraft flew this flight.'}),
-
-                    ('cancelled', ('bool', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :status.'}),
-
-                    ('carrier', ('ou:org', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :operator.'}),
-
-                    ('craft', ('transport:air:craft', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :vehicle.'}),
-
-                    ('to:port', ('transport:air:port', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :arrival:place.'}),
-
-                    ('from:port', ('transport:air:port', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :departure:place.'}),
-
-                    ('stops', ('array', {'type': 'transport:air:port'}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use transport:stop.'}),
-
                 )),
                 ('transport:air:telem', {}, (
                     ('flight', ('transport:air:flight', {}), {
@@ -430,20 +402,6 @@ class TransportModule(s_module.CoreModule):
                     ('time', ('time', {}), {
                         'doc': 'The time the telemetry sample was taken.'})
                 )),
-                ('transport:air:occupant', {}, (
-                    ('type', ('str', {'lower': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use transport:occupant.'}),
-                    ('flight', ('transport:air:flight', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use transport:occupant.'}),
-                    ('seat', ('str', {'lower': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use transport:occupant.'}),
-                    ('contact', ('ps:contact', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use transport:occupant.'}),
-                )),
                 # TODO ais numbers
                 ('transport:sea:vessel:type:taxonomy', {}, ()),
                 ('transport:sea:vessel', {}, (
@@ -457,10 +415,6 @@ class TransportModule(s_module.CoreModule):
                     ('name', ('entity:name', {}), {
                         'doc': 'The name of the vessel.'}),
 
-                    ('length', ('geo:dist', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :phys:length.'}),
-
                     ('beam', ('geo:dist', {}), {
                         'doc': 'The official overall vessel beam.'}),
 
@@ -469,10 +423,6 @@ class TransportModule(s_module.CoreModule):
 
                     ('mmsi', ('transport:sea:mmsi', {}), {
                         'doc': 'The Maritime Mobile Service Identifier assigned to the vessel.'}),
-
-                    ('make', ('str', {'lower': True, 'strip': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use :manufacturer:name.'}),
 
                     ('operator', ('ps:contact', {}), {
                         'doc': 'The contact information of the operator.'}),

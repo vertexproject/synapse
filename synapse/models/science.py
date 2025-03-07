@@ -6,12 +6,14 @@ class ScienceModule(s_module.CoreModule):
         return (('sci', {
             'types': (
                 ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of hypothesis types.'}),
                 ('sci:hypothesis', ('guid', {}), {
                     'doc': 'A hypothesis or theory.'}),
 
                 # TODO link experiment to eventual procedure node
                 ('sci:experiment:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
                     'doc': 'A taxonomy of experiment types.'}),
                 ('sci:experiment', ('guid', {}), {
                     'doc': 'An instance of running an experiment.'}),

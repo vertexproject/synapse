@@ -97,14 +97,12 @@ class ProjectEpics(s_stormtypes.Prim):
         if epic is None:
             return False
 
-        nodeedits = []
-        async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:epic', '=', epic.node.ndef[1]):
-            nodeedits.append(
-                (tick.buid, 'proj:ticket', await tick._getPropDelEdits('epic'))
-            )
-            await asyncio.sleep(0)
+        async with self.proj.runt.view.getEditor() as editor:
+            async for tick in self.proj.runt.view.nodesByPropValu('proj:ticket:epic', '=', epic.node.ndef[1]):
+                proto = editor.loadNode(tick)
+                await proto.pop('epic')
+                await asyncio.sleep(0)
 
-        await self.proj.runt.snap.applyNodeEdits(nodeedits)
         await epic.node.delete()
         return True
 
@@ -117,7 +115,7 @@ class ProjectEpics(s_stormtypes.Prim):
             'creator': self.proj.runt.user.iden,
             'project': self.proj.node.ndef[1],
         }
-        node = await self.proj.runt.snap.addNode('proj:epic', '*', props=props)
+        node = await self.proj.runt.view.addNode('proj:epic', '*', props=props)
         return ProjectEpic(self.proj, node)
 
     async def iter(self):
@@ -245,7 +243,7 @@ class ProjectTicketComments(s_stormtypes.Prim):
             'updated': tick,
             'creator': self.proj.runt.user.iden,
         }
-        node = await self.proj.runt.snap.addNode('proj:comment', '*', props=props)
+        node = await self.proj.runt.view.addNode('proj:comment', '*', props=props)
         return ProjectTicketComment(self.ticket, node)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -434,7 +432,7 @@ class ProjectTicket(s_stormtypes.Prim):
             await self.node.set('updated', s_common.now())
             return
 
-        udef = await self.proj.runt.snap.core.getUserDefByName(strvalu)
+        udef = await self.proj.runt.view.core.getUserDefByName(strvalu)
         if udef is None:
             mesg = f'No user found by the name {strvalu}'
             raise s_exc.NoSuchUser(mesg=mesg, username=strvalu)
@@ -533,7 +531,7 @@ class ProjectTickets(s_stormtypes.Prim):
             self.proj.confirm(('project', 'ticket', 'del'))
 
         # cascade delete comments
-        async for node in self.proj.runt.snap.nodesByPropValu('proj:comment:ticket', '=', tick.node.ndef[1]):
+        async for node in self.proj.runt.view.nodesByPropValu('proj:comment:ticket', '=', tick.node.ndef[1]):
             await node.delete()
 
         await tick.node.delete()
@@ -552,7 +550,7 @@ class ProjectTickets(s_stormtypes.Prim):
             'creator': self.proj.runt.user.iden,
             'project': self.proj.node.ndef[1],
         }
-        node = await self.proj.runt.snap.addNode('proj:ticket', '*', props=props)
+        node = await self.proj.runt.view.addNode('proj:ticket', '*', props=props)
         return ProjectTicket(self.proj, node)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -637,7 +635,7 @@ class ProjectSprint(s_stormtypes.Prim):
             await self.node.set('name', valu)
 
     async def _getSprintTickets(self, path=None):
-        async for node in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', self.node.ndef[1]):
+        async for node in self.proj.runt.view.nodesByPropValu('proj:ticket:sprint', '=', self.node.ndef[1]):
             yield ProjectTicket(self.proj, node)
 
     @s_stormtypes.stormfunc(readonly=True)
@@ -701,14 +699,14 @@ class ProjectSprints(s_stormtypes.Prim):
             'name': await tostr(name),
             'created': s_common.now(),
             'project': self.proj.node.ndef[1],
-            'creator': self.proj.runt.snap.user.iden,
+            'creator': self.proj.runt.user.iden,
             'status': 'planned',
         }
 
         if period is not None:
             props['period'] = period
 
-        node = await self.proj.runt.snap.addNode('proj:sprint', '*', props=props)
+        node = await self.proj.runt.view.addNode('proj:sprint', '*', props=props)
         return ProjectSprint(self.proj, node)
 
     async def _delProjSprint(self, name):
@@ -720,14 +718,12 @@ class ProjectSprints(s_stormtypes.Prim):
 
         sprintiden = sprint.node.ndef[1]
 
-        nodeedits = []
-        async for tick in self.proj.runt.snap.nodesByPropValu('proj:ticket:sprint', '=', sprintiden):
-            nodeedits.append(
-                (tick.buid, 'proj:ticket', await tick._getPropDelEdits('sprint'))
-            )
-            await asyncio.sleep(0)
+        async with self.proj.runt.view.getEditor() as editor:
+            async for tick in self.proj.runt.view.nodesByPropValu('proj:ticket:sprint', '=', sprintiden):
+                proto = editor.loadNode(tick)
+                await proto.pop('sprint')
+                await asyncio.sleep(0)
 
-        await self.proj.runt.snap.applyNodeEdits(nodeedits)
         await sprint.node.delete()
         return True
 
@@ -878,7 +874,7 @@ class LibProjects(s_stormtypes.Lib):
             yield Project(self.runt, node)
 
     async def _funcProjDel(self, name):
-        gateiden = self.runt.snap.view.iden
+        gateiden = self.runt.view.iden
         # do not use self.runt.confirm() to avoid asroot
         self.runt.user.confirm(('project', 'del'), gateiden=gateiden)
         proj = await self._funcProjGet(name)
@@ -902,7 +898,7 @@ class LibProjects(s_stormtypes.Lib):
 
     async def _funcProjAdd(self, name, desc=''):
 
-        gateiden = self.runt.snap.view.iden
+        gateiden = self.runt.view.iden
         # do not use self.runt.confirm() to avoid asroot
         self.runt.user.confirm(('project', 'add'), gateiden=gateiden)
 
@@ -911,8 +907,7 @@ class LibProjects(s_stormtypes.Lib):
             'name': await tostr(name),
             'desc': await tostr(desc),
             'created': tick,
-            'updated': tick,
             'creator': self.runt.user.iden,
         }
-        node = await self.runt.snap.addNode('proj:project', '*', props=props)
+        node = await self.runt.view.addNode('proj:project', '*', props=props)
         return Project(self.runt, node)

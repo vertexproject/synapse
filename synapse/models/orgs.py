@@ -45,6 +45,10 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
+                ('ou:org:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of organization types.'}),
+
                 ('ou:asset:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
                     'doc': 'An asset type taxonomy.'}),
@@ -63,20 +67,12 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
-                ('ou:orgtype', ('taxonomy', {}), {
-                    'doc': 'An org type taxonomy.',
-                    'interfaces': ('meta:taxonomy',),
-                }),
                 ('ou:contract', ('guid', {}), {
                     'doc': 'An contract between multiple entities.',
                 }),
-                ('ou:conttype', ('taxonomy', {}), {
-                    'doc': 'A contract type taxonomy.',
+                ('ou:contract:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                }),
-                ('ou:contract:type', ('str', {'enum': contracttypes}), {
-                    'deprecated': True,
-                    'doc': 'A pre-defined set of contract types.',
+                    'doc': 'A hierarchical taxonomy of contract types.',
                 }),
                 ('ou:industry', ('guid', {}), {
                     'doc': 'An industry classification type.',
@@ -88,45 +84,24 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An industry type taxonomy.',
+                    'doc': 'A hierarchical taxonomy of industry types.',
                 }),
                 ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of an industry.',
                 }),
-                ('ou:alias', ('str', {'lower': True, 'regex': r'^[\w0-9_]+$'}), {
-                    'deprecated': True,
-                    'ex': 'vertexproject',
-                    'doc': 'Deprecated. Please use ou:name.',
-                }),
-                ('ou:hasalias', ('comp', {'fields': (('org', 'ou:org'), ('alias', 'ou:alias'))}), {
-                    'deprecated': True,
-                    'doc': 'The knowledge that an organization has an alias.',
-                }),
-                ('ou:orgnet4', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net4'))}), {
+                ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
                     'doc': "An organization's IPv4 netblock.",
-                }),
-                ('ou:orgnet6', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net6'))}), {
-                    'doc': "An organization's IPv6 netblock.",
                 }),
                 ('ou:name', ('str', {'lower': True, 'strip': True}), {
                     'doc': 'The name of an organization. This may be a formal name or informal name of the '
                            'organization.',
                     'ex': 'acme corporation',
                 }),
-                ('ou:member', ('comp', {'fields': (('org', 'ou:org'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:position.',
-                }),
                 ('ou:position', ('guid', {}), {
                     'doc': 'A position within an org.  May be organized into an org chart.',
                 }),
                 ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
                     'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
-                }),
-                ('ou:org:has', ('comp', {'fields': (('org', 'ou:org'), ('node', 'ndef'))}), {
-                    'deprecated': True,
-                    'doc': 'An org owns, controls, or has exclusive use of an object or resource, '
-                           'potentially during a specific period of time.',
                 }),
                 ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
                     'doc': 'A user name within an organization.',
@@ -144,10 +119,6 @@ class OuModule(s_module.CoreModule):
                 ('ou:preso', ('guid', {}), {
                     'doc': 'A webinar, conference talk, or other type of presentation.',
                 }),
-                ('ou:meet:attendee', ('comp', {'fields': (('meet', 'ou:meet'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
-                }),
                 ('ou:conference', ('guid', {}), {
                     'doc': 'A conference with a name and sponsoring org.',
                     'display': {
@@ -157,20 +128,17 @@ class OuModule(s_module.CoreModule):
                         ),
                     },
                 }),
-                ('ou:conference:attendee', ('comp', {'fields': (('conference', 'ou:conference'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
-                }),
                 ('ou:conference:event', ('guid', {}), {
                     'doc': 'A conference event with a name and associated conference.',
                 }),
-                ('ou:conference:event:attendee', ('comp', {'fields': (('conference', 'ou:conference:event'), ('person', 'ps:person'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:attendee.',
-                }),
+
+                ('ou:contest:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of contest types.'}),
+
                 ('ou:contest', ('guid', {}), {
-                    'doc': 'A competitive event resulting in a ranked set of participants.',
-                }),
+                    'doc': 'A competitive event resulting in a ranked set of participants.'}),
+
                 ('ou:contest:result', ('comp', {'fields': (('contest', 'ou:contest'), ('participant', 'ps:contact'))}), {
                     'doc': 'The results from a single contest participant.',
                 }),
@@ -187,15 +155,11 @@ class OuModule(s_module.CoreModule):
                 }),
                 ('ou:goal:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'A taxonomy of goal types.',
+                    'doc': 'A hierarchical taxonomy of goal types.',
                 }),
-                ('ou:hasgoal', ('comp', {'fields': (('org', 'ou:org'), ('goal', 'ou:goal'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use ou:org:goals.',
-                }),
-                ('ou:camptype', ('taxonomy', {}), {
-                    'doc': 'An campaign type taxonomy.',
+                ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of campaign types.',
                 }),
                 ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A campaign name.'}),
@@ -227,9 +191,9 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
-                ('ou:technique:taxonomy', ('taxonomy', {}), {
+                ('ou:technique:type:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
-                    'doc': 'An analyst defined taxonomy to classify techniques in different disciplines.',
+                    'doc': 'A hierarchical taxonomy of technique types.',
                 }),
                 ('ou:id:type', ('guid', {}), {
                     'doc': 'A type of id number issued by an org.',
@@ -243,14 +207,24 @@ class OuModule(s_module.CoreModule):
                 ('ou:id:update', ('guid', {}), {
                     'doc': 'A status update to an org:id:number.',
                 }),
+
+                ('ou:award:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of award types.'}),
+
                 ('ou:award', ('guid', {}), {
-                    'doc': 'An award issued by an organization.',
-                }),
+                    'doc': 'An award issued by an organization.'}),
+
                 ('ou:vitals', ('guid', {}), {
-                    'doc': 'Vital statistics about an org for a given time period.',
-                }),
+                    'doc': 'Vital statistics about an org for a given time period.'}),
+
                 ('ou:opening', ('guid', {}), {
                     'doc': 'A job/work opening within an org.'}),
+
+                ('ou:job:type:taxonomy', ('taxonomy', {}), {
+                    'ex': 'it.dev.python',
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A hierarchical taxonomy of job types.'}),
 
                 ('ou:candidate:method:taxonomy', ('taxonomy', {}), {
                     'interfaces': ('meta:taxonomy',),
@@ -268,16 +242,11 @@ class OuModule(s_module.CoreModule):
                         ),
                     }}),
 
-                ('ou:jobtype', ('taxonomy', {}), {
-                    'ex': 'it.dev.python',
-                    'doc': 'A taxonomy of job types.',
-                    'interfaces': ('meta:taxonomy',),
-                }),
-                ('ou:employment', ('taxonomy', {}), {
+                ('ou:employment:type:taxonomy', ('taxonomy', {}), {
                     'ex': 'fulltime.salary',
-                    'doc': 'An employment type taxonomy.',
                     'interfaces': ('meta:taxonomy',),
-                }),
+                    'doc': 'A hierarchical taxonomy of employment types.'}),
+
                 ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'A title for a position within an org.'}),
 
@@ -325,9 +294,13 @@ class OuModule(s_module.CoreModule):
                     'doc': 'The organization owns or owned the target node.'}),
             ),
             'forms': (
-                ('ou:jobtype', {}, ()),
+                ('ou:job:type:taxonomy', {
+                    'prevnames': ('ou:jobtype',)}, ()),
+
                 ('ou:jobtitle', {}, ()),
-                ('ou:employment', {}, ()),
+                ('ou:employment:type:taxonomy', {
+                    'prevnames': ('ou:employment',)}, ()),
+
                 ('ou:opening', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which has the opening.',
@@ -353,12 +326,14 @@ class OuModule(s_module.CoreModule):
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical boundary of the opening.',
                     }),
-                    ('jobtype', ('ou:jobtype', {}), {
+                    ('job:type', ('ou:job:type:taxonomy', {}), {
                         'doc': 'The job type taxonomy.',
-                    }),
-                    ('employment', ('ou:employment', {}), {
+                        'prevnames': ('jobtype',)}),
+
+                    ('employment:type', ('ou:employment:type:taxonomy', {}), {
                         'doc': 'The type of employment.',
-                    }),
+                        'prevnames': ('employment',)}),
+
                     ('jobtitle', ('ou:jobtitle', {}), {
                         'doc': 'The title of the opening.',
                     }),
@@ -371,7 +346,6 @@ class OuModule(s_module.CoreModule):
                     ('paycurrency', ('econ:currency', {}), {
                         'doc': 'The currency that the yearly pay was delivered in.',
                     }),
-                    # TODO a way to encode/normalize requirements.
                 )),
                 ('ou:candidate:method:taxonomy', {}, ()),
                 ('ou:candidate', {}, (
@@ -416,8 +390,6 @@ class OuModule(s_module.CoreModule):
                     ('asof', ('time', {}), {
                         'doc': 'The time that the vitals represent.',
                     }),
-                    # TODO is modulo time a type?
-                    # ('period', ('sec', 'min', 'hour', 'day', 'week', 'month', 'quarter', 'year'
                     ('org', ('ou:org', {}), {
                         'doc': 'The resolved org.',
                     }),
@@ -467,12 +439,13 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The change in population over last period.',
                     }),
                 )),
+                ('ou:award:type:taxonomy', {}, ()),
                 ('ou:award', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the award.',
                         'ex': 'Bachelors of Science',
                     }),
-                    ('type', ('str', {'lower': True, 'onespace': True}), {
+                    ('type', ('ou:award:type:taxonomy', {}), {
                         'doc': 'The type of award.',
                         'ex': 'certification',
                     }),
@@ -542,26 +515,10 @@ class OuModule(s_module.CoreModule):
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'A description of the goal.'}),
+                )),
+                ('ou:campaign:type:taxonomy', {
+                    'prevnames': ('ou:camptype',)}, ()),
 
-                    ('prev', ('ou:goal', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:goal:type taxonomy.'}),
-                )),
-                ('ou:hasgoal', {}, (
-                    ('org', ('ou:org', {}), {
-                        'doc': 'The org which has the goal.', 'ro': True,
-                    }),
-                    ('goal', ('ou:goal', {}), {
-                        'doc': 'The goal which the org has.', 'ro': True,
-                    }),
-                    ('stated', ('bool', {}), {
-                        'doc': 'Set to true/false if the goal is known to be self stated.',
-                    }),
-                    ('window', ('ival', {}), {
-                        'doc': 'Set if a goal has a limited time window.',
-                    }),
-                )),
-                ('ou:camptype', {}, ()),
                 ('ou:campname', {}, ()),
                 ('ou:campaign', {}, (
                     # political campaign, funding round, ad campaign, fund raising
@@ -604,10 +561,6 @@ class OuModule(s_module.CoreModule):
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the campaign.'}),
 
-                    ('type', ('str', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Use the :camptype taxonomy.', }),
-
                     ('sophistication', ('meta:sophistication', {}), {
                         'doc': 'The assessed sophistication of the campaign.',
                     }),
@@ -615,9 +568,9 @@ class OuModule(s_module.CoreModule):
                     ('timeline', ('meta:timeline', {}), {
                         'doc': 'A timeline of significant events related to the campaign.'}),
 
-                    ('camptype', ('ou:camptype', {}), {
-                        'disp': {'hint': 'taxonomy'},
-                        'doc': 'The campaign type taxonomy.'}),
+                    ('type', ('ou:campaign:type:taxonomy', {}), {
+                        'doc': 'The campaign type taxonomy.',
+                        'prevnames': ('camptype',)}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
@@ -652,10 +605,6 @@ class OuModule(s_module.CoreModule):
 
                     ('conflict', ('ou:conflict', {}), {
                         'doc': 'The conflict in which this campaign is a primary participant.'}),
-
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.'}),
 
                     ('tag', ('syn:tag', {}), {
                         'doc': 'The tag used to annotate nodes that are associated with the campaign.'}),
@@ -703,7 +652,7 @@ class OuModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The normalized name of the technique.'}),
 
-                    ('type', ('ou:technique:taxonomy', {}), {
+                    ('type', ('ou:technique:type:taxonomy', {}), {
                         'doc': 'The taxonomy classification of the technique.'}),
 
                     ('sophistication', ('meta:sophistication', {}), {
@@ -728,8 +677,12 @@ class OuModule(s_module.CoreModule):
                     ('ext:id', ('str', {'strip': True}), {
                         'doc': 'An external identifier for the technique.'}),
                 )),
-                ('ou:technique:taxonomy', {}, ()),
-                ('ou:orgtype', {}, ()),
+                ('ou:technique:type:taxonomy', {
+                    'prevnames': ('ou:technique:taxonomy',)}, ()),
+
+                ('ou:org:type:taxonomy', {
+                    'prevnames': ('ou:orgtype',)}, ()),
+
                 ('ou:org', {}, (
                     ('loc', ('loc', {}), {
                         'doc': 'Location for an organization.'
@@ -738,17 +691,13 @@ class OuModule(s_module.CoreModule):
                         'alts': ('names',),
                         'doc': 'The localized name of an organization.',
                     }),
-                    ('type', ('str', {'lower': True, 'strip': True}), {
-                        'deprecated': True,
-                        'doc': 'The type of organization.',
-                    }),
                     ('motto', ('lang:phrase', {}), {
                         'doc': 'The motto used by the organization.'}),
 
-                    ('orgtype', ('ou:orgtype', {}), {
+                    ('type', ('ou:org:type:taxonomy', {}), {
                         'doc': 'The type of organization.',
-                        'disp': {'hint': 'taxonomy'},
-                    }),
+                        'prevnames': ('orgtype',)}),
+
                     ('vitals', ('ou:vitals', {}), {
                         'doc': 'The most recent/accurate ou:vitals for the org.',
                     }),
@@ -762,20 +711,8 @@ class OuModule(s_module.CoreModule):
                     ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
                        'doc': 'A list of alternate names for the organization.',
                     }),
-                    ('alias', ('ou:alias', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:org:names.',
-                    }),
                     ('phone', ('tel:phone', {}), {
                         'doc': 'The primary phone number for the organization.',
-                    }),
-                    ('sic', ('ou:sic', {}), {
-                        'deprecated': True,
-                        'doc': 'The Standard Industrial Classification code for the organization.',
-                    }),
-                    ('naics', ('ou:naics', {}), {
-                        'deprecated': True,
-                        'doc': 'The North American Industry Classification System code for the organization.',
                     }),
                     ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
                         'doc': 'The industries associated with the org.',
@@ -810,10 +747,6 @@ class OuModule(s_module.CoreModule):
 
                     ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of MX domains used by email addresses issued by the org.',
-                    }),
-                    ('techniques', ('array', {'type': 'ou:technique', 'sorted': True, 'uniq': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated for scalability. Please use -(uses)> ou:technique.',
                     }),
                     ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                         'doc': 'The assessed goals of the organization.'}),
@@ -892,11 +825,13 @@ class OuModule(s_module.CoreModule):
                     }),
                 )),
                 ('ou:name', {}, ()),
-                ('ou:conttype', {}, ()),
+                ('ou:contract:type:taxonomy', {
+                    'prevnames': ('ou:conttype',)}, ()),
+
                 ('ou:contract', {}, (
                     ('title', ('str', {}), {
                         'doc': 'A terse title for the contract.'}),
-                    ('type', ('ou:conttype', {}), {
+                    ('type', ('ou:contract:type:taxonomy', {}), {
                         'doc': 'The type of contract.'}),
                     ('sponsor', ('ps:contact', {}), {
                         'doc': 'The contract sponsor.'}),
@@ -924,9 +859,6 @@ class OuModule(s_module.CoreModule):
                         'doc': 'Purchase details of the contract.'}),
                     ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
                         'doc': 'The requirements levied upon the parties.'}),
-                    ('types', ('array', {'type': 'ou:contract:type', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'A list of types that apply to the contract.'}),
                 )),
                 ('ou:industry:type:taxonomy', {}, ()),
                 ('ou:industry', {}, (
@@ -947,10 +879,6 @@ class OuModule(s_module.CoreModule):
                     ('reporter:name', ('ou:name', {}), {
                         'doc': 'The name of the organization reporting on the industry.'}),
 
-                    ('subs', ('array', {'type': 'ou:industry', 'split': ',', 'uniq': True, 'sorted': True}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ou:industry:type taxonomy.'}),
-
                     ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of SIC codes that map to the industry.'}),
 
@@ -965,60 +893,20 @@ class OuModule(s_module.CoreModule):
                         'doc': 'A description of the industry.'}),
                 )),
                 ('ou:industryname', {}, ()),
-                ('ou:hasalias', {}, (
-                    ('org', ('ou:org', {}), {
-                        'ro': True,
-                        'doc': 'The org guid which has the alias.',
-                    }),
-                    ('alias', ('ou:alias', {}), {
-                        'ro': True,
-                        'doc': 'Alias for the organization.',
-                    }),
-                )),
-                ('ou:orgnet4', {}, (
+                ('ou:orgnet', {
+                    'prevnames': ('ou:orgnet4', 'ou:orgnet6')}, (
+
                     ('org', ('ou:org', {}), {
                         'ro': True,
                         'doc': 'The org guid which owns the netblock.',
                     }),
-                    ('net', ('inet:net4', {}), {
+                    ('net', ('inet:net', {}), {
                         'ro': True,
                         'doc': 'Netblock owned by the organization.',
                     }),
                     ('name', ('str', {'lower': True, 'strip': True}), {
                         'doc': 'The name that the organization assigns to this netblock.'
                     }),
-                )),
-                ('ou:orgnet6', {}, (
-                    ('org', ('ou:org', {}), {
-                        'ro': True,
-                        'doc': 'The org guid which owns the netblock.',
-                    }),
-                    ('net', ('inet:net6', {}), {
-                        'ro': True,
-                        'doc': 'Netblock owned by the organization.',
-                    }),
-                    ('name', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The name that the organization assigns to this netblock.'
-                    }),
-                )),
-                ('ou:member', {}, (
-                    ('org', ('ou:org', {}), {
-                        'ro': True,
-                        'doc': 'The GUID of the org the person is a member of.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The GUID of the person that is a member of an org.',
-                    }),
-                    ('title', ('str', {'lower': True, 'strip': True}), {
-                        'doc': 'The persons normalized title.'
-                    }),
-                    ('start', ('time', {'ismin': True}), {
-                        'doc': 'Earliest known association of the person with the org.',
-                    }),
-                    ('end', ('time', {'ismax': True}), {
-                        'doc': 'Most recent known association of the person with the org.',
-                    })
                 )),
                 ('ou:suborg', {}, (
                     ('org', ('ou:org', {}), {
@@ -1040,20 +928,6 @@ class OuModule(s_module.CoreModule):
                     }),
                     ('current', ('bool', {}), {
                         'doc': 'Bool indicating if the suborg relationship still current.',
-                    }),
-                )),
-                ('ou:org:has', {}, (
-                    ('org', ('ou:org', {}), {
-                        'ro': True,
-                        'doc': 'The org who owns or controls the object or resource.',
-                    }),
-                    ('node', ('ndef', {}), {
-                        'ro': True,
-                        'doc': 'The object or resource that is owned or controlled by the org.',
-                    }),
-                    ('node:form', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The form of the object or resource that is owned or controlled by the org.',
                     }),
                 )),
                 ('ou:user', {}, (
@@ -1158,22 +1032,6 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The geo:place node where the meet was held.',
                     }),
                 )),
-                ('ou:meet:attendee', {}, (
-                    ('meet', ('ou:meet', {}), {
-                        'ro': True,
-                        'doc': 'The meeting which was attended.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The person who attended the meeting.',
-                    }),
-                    ('arrived', ('time', {}), {
-                        'doc': 'The time when a person arrived to the meeting.',
-                    }),
-                    ('departed', ('time', {}), {
-                        'doc': 'The time when a person departed from the meeting.',
-                    }),
-                )),
                 ('ou:conference', {}, (
                     ('org', ('ou:org', {}), {
                         'doc': 'The org which created/managed the conference.',
@@ -1214,31 +1072,6 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The inet:url node for the conference website.',
                     }),
                 )),
-                ('ou:conference:attendee', {}, (
-                    ('conference', ('ou:conference', {}), {
-                        'ro': True,
-                        'doc': 'The conference which was attended.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The person who attended the conference.',
-                    }),
-                    ('arrived', ('time', {}), {
-                        'doc': 'The time when a person arrived to the conference.',
-                    }),
-                    ('departed', ('time', {}), {
-                        'doc': 'The time when a person departed from the conference.',
-                    }),
-                    ('role:staff', ('bool', {}), {
-                        'doc': 'The person worked as staff at the conference.',
-                    }),
-                    ('role:speaker', ('bool', {}), {
-                        'doc': 'The person was a speaker or presenter at the conference.',
-                    }),
-                    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
-                        'doc': 'List of the roles the person had at the conference.',
-                    }),
-                 )),
                 ('ou:conference:event', {}, (
                     ('conference', ('ou:conference', {}), {
                         'ro': True,
@@ -1275,34 +1108,15 @@ class OuModule(s_module.CoreModule):
                         'doc': 'The event end date / time.',
                     }),
                 )),
-                ('ou:conference:event:attendee', {}, (
-
-                    ('event', ('ou:conference:event', {}), {
-                        'ro': True,
-                        'doc': 'The conference event which was attended.',
-                    }),
-                    ('person', ('ps:person', {}), {
-                        'ro': True,
-                        'doc': 'The person who attended the conference event.',
-                    }),
-                    ('arrived', ('time', {}), {
-                        'doc': 'The time when a person arrived to the conference event.',
-                    }),
-                    ('departed', ('time', {}), {
-                        'doc': 'The time when a person departed from the conference event.',
-                    }),
-                    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
-                        'doc': 'List of the roles the person had at the conference event.',
-                    }),
-                )),
+                ('ou:contest:type:taxonomy', {}, ()),
                 ('ou:contest', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'The name of the contest.',
                         'ex': 'defcon ctf 2020',
                     }),
-                    ('type', ('str', {'lower': True, 'onespace': True}), {
+                    ('type', ('ou:contest:type:taxonomy', {}), {
                         'doc': 'The type of contest.',
-                        'ex': 'cyber ctf',
+                        'ex': 'cyber.ctf',
                     }),
                     ('family', ('str', {'lower': True, 'onespace': True}), {
                         'doc': 'A name for a series of recurring contests.',

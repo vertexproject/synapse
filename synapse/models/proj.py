@@ -1,3 +1,4 @@
+import synapse.lib.scope as s_scope
 import synapse.lib.module as s_module
 
 statusenums = (
@@ -23,10 +24,9 @@ class ProjectModule(s_module.CoreModule):
 
         await self.core.auth.addAuthGate(node.ndef[1], 'storm:project')
 
-        useriden = node.snap.user.iden
-
-        rule = (True, ('project', 'admin'))
-        await node.snap.user.addRule(rule, gateiden=gateiden)
+        if (user := s_scope.get('user')) is not None:
+            rule = (True, ('project', 'admin'))
+            await user.addRule(rule, gateiden=gateiden)
 
     def getModelDefs(self):
         return (
@@ -86,6 +86,10 @@ class ProjectModule(s_module.CoreModule):
                     ('proj:epic', ('guid', {}), {
                         'doc': 'A collection of tickets related to a topic.'}),
 
+                    ('proj:ticket:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
+                        'doc': 'A hierarchical taxonomy of project ticket types.'}),
+
                     ('proj:ticket', ('guid', {}), {
                         'interfaces': ('proj:task',),
                         'template': {
@@ -93,6 +97,7 @@ class ProjectModule(s_module.CoreModule):
                         'doc': 'A ticket in a ticketing system.'}),
 
                     ('proj:project:type:taxonomy', ('taxonomy', {}), {
+                        'interfaces': ('meta:taxonomy',),
                         'doc': 'A type taxonomy for projects.'}),
 
                     ('proj:sprint', ('guid', {}), {
@@ -216,11 +221,8 @@ class ProjectModule(s_module.CoreModule):
                             'doc': 'The comment the attachment was added to.'}),
                     )),
 
+                    ('proj:ticket:type:taxonomy', {}, {}),
                     ('proj:ticket', {}, (
-
-                        ('ext:id', ('str', {'strip': True}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use :id.'}),
 
                         ('ext:url', ('inet:url', {}), {
                             'doc': 'A URL to the ticket in an external system.'}),
@@ -243,7 +245,7 @@ class ProjectModule(s_module.CoreModule):
                         ('sprint', ('proj:sprint', {}), {
                             'doc': 'The sprint that contains the ticket.'}),
 
-                        ('type', ('str', {'lower': True, 'strip': True}), {
+                        ('type', ('proj:ticket:type:taxonomy', {}), {
                             'doc': 'The type of ticket.',
                             'ex': 'bug'}),
                     )),

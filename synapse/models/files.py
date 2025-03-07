@@ -34,16 +34,62 @@ class FilePath(s_types.Str):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
 
+        self.exttype = self.modl.type('str')
+        self.basetype = self.modl.type('file:base')
+
+        self.virtindx |= {
+            'dir': 'dir',
+            'ext': 'ext',
+            'base': 'base',
+        }
+
+        self.virts |= {
+            'dir': (self, self._getDir),
+            'ext': (self.exttype, self._getExt),
+            'base': (self.basetype, self._getBase),
+        }
+
+    def _getDir(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('dir')) is None:
+            return None
+
+        return valu[0]
+
+    def _getExt(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('ext')) is None:
+            return None
+
+        return valu[0]
+
+    def _getBase(self, valu):
+        if (virts := valu[2]) is None:
+            return None
+
+        if (valu := virts.get('base')) is None:
+            return None
+
+        return valu[0]
+
     def _normPyStr(self, valu):
 
         if len(valu) == 0:
+            return '', {}
+
+        valu = valu.strip().lower().replace('\\', '/')
+        if not valu:
             return '', {}
 
         lead = ''
         if valu[0] == '/':
             lead = '/'
 
-        valu = valu.strip().lower().replace('\\', '/').strip('/')
+        valu = valu.strip('/')
         if not valu:
             return '', {}
 
@@ -72,12 +118,19 @@ class FilePath(s_types.Str):
 
         base = path[-1]
         subs = {'base': base}
-        if '.' in base:
-            subs['ext'] = base.rsplit('.', 1)[1]
-        if len(path) > 1:
-            subs['dir'] = lead + '/'.join(path[:-1])
+        virts = {'base': (base, self.basetype.stortype)}
 
-        return fullpath, {'subs': subs}
+        if '.' in base:
+            ext = base.rsplit('.', 1)[1]
+            subs['ext'] = ext
+            virts['ext'] = (ext, self.exttype.stortype)
+
+        if len(path) > 1:
+            dirn = lead + '/'.join(path[:-1])
+            subs['dir'] = dirn
+            virts['dir'] = (dirn, self.stortype)
+
+        return fullpath, {'subs': subs, 'virts': virts}
 
 class FileBytes(s_types.Str):
 
@@ -194,7 +247,7 @@ class FileModule(s_module.CoreModule):
         name = node.get('mime')
         if name == '??':
             return
-        await node.snap.addNode('file:ismime', (node.ndef[1], name))
+        await node.view.addNode('file:ismime', (node.ndef[1], name))
 
     def getModelDefs(self):
         modl = {
@@ -274,7 +327,7 @@ class FileModule(s_module.CoreModule):
                         ('size', ('int', {}), {
                             'doc': 'The size of the load command structure in bytes.'}),
                     ),
-                    'doc': 'Properties common to all Mach-O load commands',
+                    'doc': 'Properties common to all Mach-O load commands.',
                 })
             ),
 
@@ -378,12 +431,6 @@ class FileModule(s_module.CoreModule):
                         ('file', 'file:bytes'),
                         ('keyval', 'file:mime:pe:vsvers:keyval'))}), {
                     'doc': 'knowledge of a file:bytes node containing vsvers info.',
-                }),
-                ('file:string', ('comp', {'fields': (
-                        ('file', 'file:bytes'),
-                        ('string', 'str'))}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use the edge -(refs)> it:dev:str.',
                 }),
 
                 ('pe:resource:type', ('int', {'enums': s_l_pe.getRsrcTypes()}), {
@@ -572,17 +619,6 @@ class FileModule(s_module.CoreModule):
                     }),
                 )),
 
-                ('file:string', {}, (
-                    ('file', ('file:bytes', {}), {
-                        'ro': True,
-                        'doc': 'The file containing the string.',
-                    }),
-                    ('string', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The string contained in this file:bytes node.',
-                    }),
-                )),
-
                 ('file:base', {}, (
                     ('ext', ('str', {}), {'ro': True,
                         'doc': 'The file extension (if any).'}),
@@ -596,18 +632,6 @@ class FileModule(s_module.CoreModule):
                     ('path', ('file:path', {}), {
                         'ro': True,
                         'doc': 'The path a file was seen at.',
-                    }),
-                    ('path:dir', ('file:path', {}), {
-                        'ro': True,
-                        'doc': 'The parent directory.',
-                    }),
-                    ('path:base', ('file:base', {}), {
-                        'ro': True,
-                        'doc': 'The name of the file.',
-                    }),
-                    ('path:base:ext', ('str', {}), {
-                        'ro': True,
-                        'doc': 'The extension of the file name.',
                     }),
                 )),
 
@@ -670,10 +694,6 @@ class FileModule(s_module.CoreModule):
                     ('child', ('file:bytes', {}), {
                         'ro': True,
                         'doc': 'The child file contained in the parent file.',
-                    }),
-                    ('name', ('file:base', {}), {
-                        'deprecated': True,
-                        'doc': 'Deprecated, please use the :path property.',
                     }),
                     ('path', ('file:path', {}), {
                         'doc': 'The path that the parent uses to refer to the child file.',
