@@ -37,7 +37,7 @@ csvstorm_export = b'''
 test:int $lib.csv.emit($node, $node.props.loc) | count
 '''
 
-class CsvToolTest(s_t_utils.SynTest):
+class CsvToolTest(s_t_utils.SynTestA):
 
     def _getOldSynVers(self):
         return (0, 0, 0)

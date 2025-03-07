@@ -589,7 +589,7 @@ cpe:2.3:*:langtest:*:*:*:*:usa-12:*:*:*:*
 cpe:2.3:*:langtest:*:*:*:*:usa-1234:*:*:*:*
 '''
 
-class ScrapeTest(s_t_utils.SynTest):
+class ScrapeTest(s_t_utils.SynTestA):
 
     def test_scrape_basic(self):
         forms = s_scrape.getForms()

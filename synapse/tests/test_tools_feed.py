@@ -12,7 +12,7 @@ import synapse.tools.feed as s_feed
 
 import synapse.tests.utils as s_t_utils
 
-class FeedTest(s_t_utils.SynTest):
+class FeedTest(s_t_utils.SynTestA):
 
     def _getOldSynVers(self):
         return (0, 0, 0)

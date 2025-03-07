@@ -14,7 +14,7 @@ logger = s_cryotank.logger
 
 cryodata = (('foo', {'bar': 10}), ('baz', {'faz': 20}))
 
-class CryoTest(s_t_utils.SynTest):
+class CryoTest(s_t_utils.SynTestA):
 
     async def test_cryo_cell_async(self):
         async with self.getTestCryo() as cryo:

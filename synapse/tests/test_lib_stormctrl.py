@@ -4,7 +4,7 @@ import synapse.lib.stormctrl as s_stormctrl
 
 import synapse.tests.utils as s_t_utils
 
-class StormctrlTest(s_t_utils.SynTest):
+class StormctrlTest(s_t_utils.SynTestA):
     def test_basic(self):
 
         # Classes inherit as expected

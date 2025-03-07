@@ -10,7 +10,7 @@ import synapse.lib.certdir as s_certdir
 import synapse.tests.utils as s_t_utils
 import synapse.tools.docker.validate as s_t_d_validate
 
-class TestDockerValidate(s_t_utils.SynTest):
+class TestDockerValidate(s_t_utils.SynTestA):
 
     def test_tool_docker_validate(self):
 

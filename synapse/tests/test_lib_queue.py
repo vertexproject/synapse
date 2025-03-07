@@ -4,7 +4,7 @@ import synapse.lib.queue as s_queue
 
 import synapse.tests.utils as s_t_utils
 
-class QueueTest(s_t_utils.SynTest):
+class QueueTest(s_t_utils.SynTestA):
 
     async def test_queue_aqueue(self):
 

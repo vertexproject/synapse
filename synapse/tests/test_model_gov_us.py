@@ -1,6 +1,6 @@
 import synapse.tests.utils as s_t_utils
 
-class UsGovTest(s_t_utils.SynTest):
+class UsGovTest(s_t_utils.SynTestA):
 
     async def test_models_usgov_cage(self):
 

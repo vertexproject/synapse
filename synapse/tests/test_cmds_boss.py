@@ -7,7 +7,7 @@ import synapse.lib.cmdr as s_cmdr
 import synapse.tests.utils as s_t_utils
 
 
-class CmdBossTest(s_t_utils.SynTest):
+class CmdBossTest(s_t_utils.SynTestA):
 
     async def test_ps_kill(self):
 

@@ -2,7 +2,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.hashitem as s_hashitem
 
-class HashItemTest(s_t_utils.SynTest):
+class HashItemTest(s_t_utils.SynTestA):
 
     def test_lib_hashitem(self):
         x = {

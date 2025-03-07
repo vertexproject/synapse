@@ -12,7 +12,7 @@ import synapse.lib.coro as s_coro
 from synapse.tests.utils import alist
 import synapse.tests.utils as s_t_utils
 
-class SnapTest(s_t_utils.SynTest):
+class SnapTest(s_t_utils.SynTestA):
 
     async def test_snap_eval_storm(self):
 

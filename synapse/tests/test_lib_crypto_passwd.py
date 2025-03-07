@@ -9,7 +9,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.crypto.passwd as s_passwd
 
-class PasswdTest(s_t_utils.SynTest):
+class PasswdTest(s_t_utils.SynTestA):
     async def test_shadow_passwords(self):
         passwd = 'the quick brown fox jumps over the lazy dog.'
         shadow = await s_passwd.getShadowV2(passwd)

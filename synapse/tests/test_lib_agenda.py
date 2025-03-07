@@ -14,7 +14,7 @@ import synapse.tools.backup as s_tools_backup
 import synapse.lib.agenda as s_agenda
 from synapse.lib.agenda import TimeUnit as s_tu
 
-class AgendaTest(s_t_utils.SynTest):
+class AgendaTest(s_t_utils.SynTestA):
     def test_apptreq(self):
 
         # Invalid combinations

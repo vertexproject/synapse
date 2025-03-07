@@ -6,7 +6,7 @@ import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_t_utils
 
-class AutodocTest(s_t_utils.SynTest):
+class AutodocTest(s_t_utils.SynTestA):
 
     def test_autodoc_rsthelp(self):
 

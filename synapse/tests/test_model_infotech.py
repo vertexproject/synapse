@@ -13,7 +13,7 @@ import synapse.tests.files as s_t_files
 import synapse.tests.utils as s_t_utils
 import synapse.tests.test_lib_scrape as s_t_scrape
 
-class InfotechModelTest(s_t_utils.SynTest):
+class InfotechModelTest(s_t_utils.SynTestA):
 
     async def test_infotech_basics(self):
 

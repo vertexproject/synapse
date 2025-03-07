@@ -10,7 +10,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.tests.utils as s_t_utils
 import synapse.tools.cryo.cat as s_cryocat
 
-class CryoCatTest(s_t_utils.SynTest):
+class CryoCatTest(s_t_utils.SynTestA):
 
     async def test_cryocat(self):
 

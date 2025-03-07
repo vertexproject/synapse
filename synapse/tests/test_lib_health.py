@@ -3,7 +3,7 @@ import synapse.lib.health as s_healthcheck
 import synapse.tests.utils as s_t_utils
 
 
-class HealthcheckTest(s_t_utils.SynTest):
+class HealthcheckTest(s_t_utils.SynTestA):
 
     async def test_healthcheck(self):
 

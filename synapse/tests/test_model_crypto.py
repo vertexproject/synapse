@@ -33,7 +33,7 @@ TEST_SHA256 = hashlib.sha256(b'test').hexdigest()
 TEST_SHA384 = hashlib.sha384(b'test').hexdigest()
 TEST_SHA512 = hashlib.sha512(b'test').hexdigest()
 
-class CryptoModelTest(s_t_utils.SynTest):
+class CryptoModelTest(s_t_utils.SynTestA):
 
     async def test_model_crypto_currency(self):
 

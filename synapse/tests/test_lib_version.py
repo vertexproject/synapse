@@ -7,7 +7,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.lib.version as s_version
 
 
-class VersionTest(s_t_utils.SynTest):
+class VersionTest(s_t_utils.SynTestA):
 
     def _runreqtest(self, valu, reqver, exp):
         if exp is None:

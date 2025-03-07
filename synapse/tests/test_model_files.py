@@ -4,7 +4,7 @@ import synapse.lib.time as s_time
 
 import synapse.tests.utils as s_t_utils
 
-class FileTest(s_t_utils.SynTest):
+class FileTest(s_t_utils.SynTestA):
 
     async def test_model_filebytes(self):
 

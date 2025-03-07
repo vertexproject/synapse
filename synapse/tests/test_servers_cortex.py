@@ -4,7 +4,7 @@ import synapse.telepath as s_telepath
 
 import synapse.tests.utils as s_t_utils
 
-class CortexServerTest(s_t_utils.SynTest):
+class CortexServerTest(s_t_utils.SynTestA):
 
     async def test_server(self):
         with self.getTestDir() as dirn:

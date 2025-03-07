@@ -27,7 +27,7 @@ foo.com
 bar.com
 '''
 
-class EncTest(s_t_utils.SynTest):
+class EncTest(s_t_utils.SynTestA):
 
     def test_lib_encoding_en(self):
         self.eq(s_encoding.encode('base64', b'visi'), b'dmlzaQ==')

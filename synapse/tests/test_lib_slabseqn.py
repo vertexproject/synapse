@@ -10,7 +10,7 @@ import synapse.lib.slabseqn as s_slabseqn
 
 import synapse.tests.utils as s_t_utils
 
-class SlabSeqn(s_t_utils.SynTest):
+class SlabSeqn(s_t_utils.SynTestA):
 
     def chk_size(self, seqn):
         self.eq(seqn.stat()['entries'], seqn.size)

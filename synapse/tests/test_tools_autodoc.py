@@ -7,7 +7,7 @@ import synapse.lib.autodoc as s_l_autodoc
 
 import synapse.tools.autodoc as s_autodoc
 
-class TestAutoDoc(s_t_utils.SynTest):
+class TestAutoDoc(s_t_utils.SynTestA):
 
     async def test_tools_autodoc_docmodel(self):
 

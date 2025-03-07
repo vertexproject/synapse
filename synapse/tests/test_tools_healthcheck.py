@@ -11,7 +11,7 @@ import synapse.tools.healthcheck as s_t_healthcheck
 
 logger = logging.getLogger(__name__)
 
-class HealthcheckTest(s_t_utils.SynTest):
+class HealthcheckTest(s_t_utils.SynTestA):
 
     # Patch out the default password handler iterations to a value that runs quickly.
     @mock.patch('synapse.lib.crypto.passwd.PBKDF2_ITERATIONS', 10_000)

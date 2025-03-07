@@ -2,7 +2,7 @@ import synapse.glob as s_glob
 
 import synapse.tests.utils as s_t_utils
 
-class GlobTest(s_t_utils.SynTest):
+class GlobTest(s_t_utils.SynTestA):
 
     def test_glob_sync(self):
 

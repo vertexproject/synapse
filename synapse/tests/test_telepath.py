@@ -224,7 +224,7 @@ def run_telepath_sync_genr_break(url: str,
         evt2.set()
         sys.exit(137)
 
-class TeleTest(s_t_utils.SynTest):
+class TeleTest(s_t_utils.SynTestA):
 
     async def test_telepath_basics(self):
 

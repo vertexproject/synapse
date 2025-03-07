@@ -39,7 +39,7 @@ def nopickle():
     class Bar: pass
     return Bar()
 
-class CoroTest(s_t_utils.SynTest):
+class CoroTest(s_t_utils.SynTestA):
 
     async def test_coro_chunks(self):
         async def agen():

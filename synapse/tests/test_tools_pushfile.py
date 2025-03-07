@@ -12,7 +12,7 @@ visihash = hashlib.sha256(b'visi').digest()
 foohash = hashlib.sha256(b'foo').digest()
 barhash = hashlib.sha256(b'bar').digest()
 
-class TestPushFile(s_t_utils.SynTest):
+class TestPushFile(s_t_utils.SynTestA):
 
     async def test_pushfile(self):
 

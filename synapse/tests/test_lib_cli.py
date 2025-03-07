@@ -26,7 +26,7 @@ class TstThrowKeyboard(s_cli.Cmd):
         raise asyncio.CancelledError()
 
 
-class CliTest(s_t_utils.SynTest):
+class CliTest(s_t_utils.SynTestA):
 
     async def test_cli_prompt(self):
         outp = self.getTestOutp()

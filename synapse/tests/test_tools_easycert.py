@@ -8,7 +8,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.tools.easycert as s_easycert
 
 
-class TestEasyCert(s_t_utils.SynTest):
+class TestEasyCert(s_t_utils.SynTestA):
 
     def make_testca(self, path):
         '''

@@ -15,7 +15,7 @@ class Foo:
     def woot(self):
         return 10
 
-class DaemonTest(s_t_utils.SynTest):
+class DaemonTest(s_t_utils.SynTestA):
 
     async def test_unixsock_longpath(self):
 
@@ -171,7 +171,7 @@ class Svc(s_cell.Cell):
             event.set()
 
 
-class GenrCloseTest(s_t_utils.SynTest):
+class GenrCloseTest(s_t_utils.SynTestA):
 
     async def test_close(self):
 

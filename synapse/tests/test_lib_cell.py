@@ -191,7 +191,7 @@ testDataSchema_v1 = {
     'additionalProperties': False,
 }
 
-class CellTest(s_t_utils.SynTest):
+class CellTest(s_t_utils.SynTestA):
 
     async def test_cell_drive(self):
 

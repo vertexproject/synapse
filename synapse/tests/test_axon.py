@@ -106,7 +106,7 @@ class HttpPushFile(s_httpapi.StreamHandler):
         assert args.get('dict') == [b'{"foo":"bar"}']
         self.sendRestRetn(self.gotsize)
 
-class AxonTest(s_t_utils.SynTest):
+class AxonTest(s_t_utils.SynTestA):
 
     async def check_blob(self, axon, fhash):
         chunks = [chunk async for chunk in axon.get(fhash)]

@@ -35,7 +35,7 @@ class BarMod(s_module.CoreModule):
 foo_ctor = 'synapse.tests.test_lib_module.FooMod'
 bar_ctor = 'synapse.tests.test_lib_module.BarMod'
 
-class CoreModTest(s_t_utils.SynTest):
+class CoreModTest(s_t_utils.SynTestA):
 
     async def test_basics(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex

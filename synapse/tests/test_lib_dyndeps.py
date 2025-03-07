@@ -11,7 +11,7 @@ class Foo:
 def woot(x, y=30):
     return x + y
 
-class DynDepsTest(s_t_utils.SynTest):
+class DynDepsTest(s_t_utils.SynTestA):
 
     def test_dyndeps_dynmod(self):
         with self.getLoggerStream('synapse.lib.dyndeps', 'Failed to import "- -"') as stream:

@@ -1,7 +1,7 @@
 
 import synapse.tests.utils as s_t_utils
 
-class InitTest(s_t_utils.SynTest):
+class InitTest(s_t_utils.SynTestA):
     pass
 
     '''

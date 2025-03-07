@@ -6,7 +6,7 @@ import synapse.telepath as s_telepath
 import synapse.tests.utils as s_t_utils
 import synapse.tools.backup as s_tools_backup
 
-class TrigTest(s_t_utils.SynTest):
+class TrigTest(s_t_utils.SynTestA):
 
     async def test_trigger_async(self):
 

@@ -8,7 +8,7 @@ import synapse.tools.promote as s_tools_promote
 import synapse.tests.utils as s_t_utils
 
 
-class PromoteToolTest(s_t_utils.SynTest):
+class PromoteToolTest(s_t_utils.SynTestA):
 
     async def test_tool_promote_simple(self):
         async with self.getTestAha() as aha:

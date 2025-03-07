@@ -5,7 +5,7 @@ import synapse.exc as s_exc
 import synapse.tests.utils as s_t_utils
 import synapse.lib.thisplat as s_thisplat
 
-class LinuxTest(s_t_utils.SynTest):
+class LinuxTest(s_t_utils.SynTestA):
     def test_mlocking(self):
         self.thisHostMust(hasmemlocking=True)
         with self.getTestDir() as dirn:

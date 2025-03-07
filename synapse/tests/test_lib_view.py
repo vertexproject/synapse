@@ -9,7 +9,7 @@ import synapse.lib.time as s_time
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-class ViewTest(s_t_utils.SynTest):
+class ViewTest(s_t_utils.SynTestA):
 
     async def test_view_protected(self):
         async with self.getTestCore() as core:

@@ -1018,28 +1018,7 @@ class ReloadCell(s_cell.Cell):
 
         self.addReloadableSystem('badreload', func)
 
-class SynTest(unittest.IsolatedAsyncioTestCase):
-
-    def _setupAsyncioRunner(self):
-        assert self._asyncioRunner is None, 'asyncio runner is already initialized'
-        # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
-        runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG)
-        self._asyncioRunner = runner
-
-    def tearDown(self):
-        '''
-        Test teardown method which clears globals in ``synapse.glob`` which may have been set.
-
-        Implementors who define their own ``teardown`` method should also call this via ``super()``.
-
-        Examples:
-            Teardown a custom resource created in ``setUp()`` or ``asyncSetUp()``::
-
-                def teardown():
-                    super().tearDown()
-                    self.my_custom_resource.close()
-        '''
-        s_glob._clearGlobals()
+class _SynTestBase:
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -2392,6 +2371,38 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         async def coro():
             return await core.nodes(query, opts)
         return await core.schedCoro(coro())
+
+class SynTest(_SynTestBase, unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        unittest.TestCase.__init__(self, *args, **kwargs)
+        for s in dir(self):
+            attr = getattr(self, s, None)
+            # If s is an instance method and starts with 'test_', synchelp wrap it
+            if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
+                setattr(self, s, s_glob.synchelp(attr))
+
+class SynTestA(_SynTestBase, unittest.IsolatedAsyncioTestCase):
+
+    def _setupAsyncioRunner(self):
+        assert self._asyncioRunner is None, 'asyncio runner is already initialized'
+        # TODO When moving to 3.13+, we have to update this to account for self.loop_factory
+        runner = asyncio.Runner(debug=_SYN_ASYNCIO_DEBUG)
+        self._asyncioRunner = runner
+
+    def tearDown(self):
+        '''
+        Test teardown method which clears globals in ``synapse.glob`` which may have been set.
+
+        Implementors who define their own ``teardown`` method should also call this via ``super()``.
+
+        Examples:
+            Teardown a custom resource created in ``setUp()`` or ``asyncSetUp()``::
+
+                def teardown():
+                    super().tearDown()
+                    self.my_custom_resource.close()
+        '''
+        s_glob._clearGlobals()
 
 ONLOAD_TIMEOUT = int(os.getenv('SYNDEV_PKG_LOAD_TIMEOUT', 30))  # seconds
 

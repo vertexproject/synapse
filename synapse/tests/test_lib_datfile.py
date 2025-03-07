@@ -7,7 +7,7 @@ import synapse.tests.utils as s_t_utils
 
 syndir = os.path.dirname(synapse.__file__)
 
-class DatFileTest(s_t_utils.SynTest):
+class DatFileTest(s_t_utils.SynTestA):
 
     def test_datfile_basic(self):
         with s_datfile.openDatFile('synapse.tests/files/test.dat') as fd:

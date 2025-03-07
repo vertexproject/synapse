@@ -4,7 +4,7 @@ import synapse.tools.json2mpk as s_json2mpk
 
 import synapse.tests.utils as s_t_utils
 
-class Json2MpkTest(s_t_utils.SynTest):
+class Json2MpkTest(s_t_utils.SynTestA):
 
     def test_tools_json2mpk(self):
 

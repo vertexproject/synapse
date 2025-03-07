@@ -6,7 +6,7 @@ import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
-class MediaModelTest(s_t_utils.SynTest):
+class MediaModelTest(s_t_utils.SynTestA):
 
     async def test_news(self):
         formname = 'media:news'

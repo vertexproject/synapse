@@ -15,7 +15,7 @@ ratios = {
 km = 1000000.0  # using mm as base units
 gchq = (51.8994, -2.0783)
 
-class GisTest(s_t_utils.SynTest):
+class GisTest(s_t_utils.SynTestA):
 
     def test_lib_gis_haversine(self):
         px = (36.12, -86.67)
