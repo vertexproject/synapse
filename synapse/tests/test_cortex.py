@@ -1001,6 +1001,114 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(cm.exception.get('mesg'),
                     'walk operation expected a string or list.  got: 0.')
 
+            await core.nodes('[media:news=*]')
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ +(refs)> $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(1, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ +(refs)> $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:int')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ -(refs)> $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(0, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ -(refs)> $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:int')
+            self.len(0, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ <(refs)+ $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:str')
+            self.len(1, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ <(refs)+ $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:int')
+            self.len(5, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} media:news [ <(refs)- $n ]')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:str')
+            self.len(0, nodes)
+
+            q = '''
+            function foo() {
+                for $x in $lib.range(5) {
+                    [ it:dev:int=$x ]
+                    emit $node
+                }
+            }
+            media:news [ <(refs)- $foo() ]
+            '''
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef[0], 'media:news')
+
+            nodes = await core.nodes('media:news <(refs)- it:dev:int')
+            self.len(0, nodes)
+
+            await core.nodes('[media:news=*]')
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} $edge=refs media:news [ +($edge)> $n ]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('$n = {[it:dev:str=foo]} $edge=refs media:news [ -($edge)> $n ]')
+            self.len(2, nodes)
+
+            nodes = await core.nodes('media:news -(refs)> it:dev:str')
+            self.len(0, nodes)
+
     async def test_cortex_callstorm(self):
 
         async with self.getTestCore(conf={'auth:passwd': 'root'}) as core:
@@ -1451,8 +1559,8 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(refs.get('fqdn'), ('inet:fqdn', 'woot.com'))
             self.eq(refs.get('ipv4'), ('inet:ipv4', 0x01020304))
 
-            self.len(1, await core.nodes('[meta:seen=($sorc, $valu)]',
-                                         opts={'vars': {'sorc': sorc, 'valu': node.ndef}}))
+            self.len(1, await core.nodes('[test:str=testndef :somestr=$somestr :bar=$valu]',
+                                         opts={'vars': {'somestr': sorc, 'valu': node.ndef}}))
 
             # test un-populated properties
             nodes = await core.nodes('[ps:contact="*"]')
@@ -1484,13 +1592,13 @@ class CortexTest(s_t_utils.SynTest):
             self.eq(ints, (('test:int', 1), ('test:int', 2), ('test:int', 3)))
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = await core.nodes('meta:seen:source=$sorc -> *', opts=opts)
+            nodes = await core.nodes('test:str:somestr=$sorc -> *', opts=opts)
 
             self.len(2, nodes)
             self.isin('inet:dns:a', {n.ndef[0] for n in nodes})
 
             opts = {'vars': {'sorc': sorc}}
-            nodes = await core.nodes('meta:seen:source=$sorc :node -> *', opts=opts)
+            nodes = await core.nodes('test:str:somestr=$sorc :bar -> *', opts=opts)
 
             self.len(1, nodes)
             self.eq('inet:dns:a', nodes[0].ndef[0])
@@ -3847,7 +3955,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 'refs': True,
                 'edges': False,
                 'forms': {},
-                'pivots': ['<- meta:seen'],
+                'pivots': ['<(seen)- meta:source'],
                 'degrees': 3,
                 'filters': ['+#nope'],
                 'filterinput': False,
@@ -4520,12 +4628,6 @@ class CortexBasicTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
             self.len(2, await core.nodes('[ inet:dns:a=(vertex.link,1.2.3.4) inet:dns:a=(woot.com,5.6.7.8)]'))
             self.len(4, await core.nodes('inet:dns:a inet:fqdn=:fqdn'))
-
-    async def test_cortex_hive(self):
-        async with self.getTestCore() as core:
-            await core.hive.set(('visi',), 200)
-            async with core.getLocalProxy(share='cortex/hive') as hive:
-                self.eq(200, await hive.get(('visi',)))
 
     async def test_cortex_delnode_perms(self):
 
@@ -7295,6 +7397,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.len(1, await core.nodes('media:news -(refs)> *', opts={'view': altview}))
                 self.eq(2, await proxy.feedFromAxon(sha256))
 
+                opts['limit'] = 1
+                self.len(1, await alist(proxy.exportStorm('media:news inet:email', opts=opts)))
+
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
                 self.eq(401, resp.status)
@@ -8399,6 +8504,26 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.notin('Timeout waiting for pool mirror', data)
                     self.notin('Timeout waiting for query mirror', data)
 
+                    orig = s_telepath.ClientV2.proxy
+                    async def finidproxy(self, timeout=None):
+                        prox = await orig(self, timeout=timeout)
+                        await prox.fini()
+                        return prox
+
+                    with patch('synapse.telepath.ClientV2.proxy', finidproxy):
+                        with self.getLoggerStream('synapse') as stream:
+                            msgs = await alist(core00.storm('inet:asn=0'))
+                            self.len(1, [m for m in msgs if m[0] == 'node'])
+
+                    stream.seek(0)
+                    data = stream.read()
+                    self.isin('Proxy for pool mirror [01.core.synapse] was shutdown. Skipping.', data)
+
+                    msgs = await core00.stormlist('cortex.storm.pool.set --connection-timeout 1 --sync-timeout 1 aha://pool00...')
+                    self.stormHasNoWarnErr(msgs)
+                    self.stormIsInPrint('Storm pool configuration set.', msgs)
+                    await core00.stormpool.waitready(timeout=12)
+
                     core01.nexsroot.nexslog.indx = 0
 
                     with patch('synapse.cortex.MAX_NEXUS_DELTA', 1):
@@ -8411,8 +8536,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                         stream.seek(0)
                         data = stream.read()
-                        explog = (f'Pool mirror [01.core.synapse] Nexus offset delta too large '
-                                  f'({nexsoffs} > 1), running query locally')
+                        explog = ('Pool mirror [01.core.synapse] is too far out of sync. Skipping.')
                         self.isin(explog, data)
                         self.notin('Offloading Storm query', data)
 
@@ -8470,7 +8594,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     stream.seek(0)
                     data = stream.read()
-                    self.isin('Timeout waiting for pool mirror, running query locally', data)
+                    self.isin('Timeout waiting for pool mirror proxy.', data)
+                    self.isin('Pool members exhausted. Running query locally.', data)
 
                     await core01.fini()
 

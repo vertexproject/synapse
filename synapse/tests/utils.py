@@ -21,13 +21,11 @@ import io
 import os
 import sys
 import copy
-import json
 import math
 import types
 import shutil
 import typing
 import asyncio
-import hashlib
 import inspect
 import logging
 import tempfile
@@ -59,6 +57,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
+import synapse.lib.json as s_json
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
@@ -106,7 +105,7 @@ def deguidify(x):
 
 def jsonlines(text: str):
     lines = [k for k in text.split('\n') if k]
-    return [json.loads(line) for line in lines]
+    return [s_json.loads(line) for line in lines]
 
 async def waitForBehold(core, events):
     async for mesg in core.behold():
@@ -346,10 +345,10 @@ testmodel = {
             ('foo', 'test:int'),
             ('bar', ('str', {'lower': True}),),
         )}), {'doc': 'A complex comp type.'}),
-        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
-        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
-        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded'}),
-        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes'}),
+        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
+        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
+        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
+        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
 
         ('test:pivtarg', ('str', {}), {}),
         ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
@@ -370,7 +369,7 @@ testmodel = {
             'interfaces': ('file:mime:msoffice',)
         }), {}),
 
-        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
+        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node.'}),
         ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
         ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
     ),
@@ -462,6 +461,7 @@ testmodel = {
             ('tick', ('test:time', {}), {}),
             ('hehe', ('str', {}), {}),
             ('ndefs', ('array', {'type': 'ndef'}), {}),
+            ('somestr', ('test:str', {}), {}),
         )),
 
         ('test:migr', {}, (
@@ -508,8 +508,8 @@ testmodel = {
         )),
 
         ('test:ro', {}, (
-            ('writeable', ('str', {}), {'doc': 'writeable property'}),
-            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
+            ('writeable', ('str', {}), {'doc': 'writeable property.'}),
+            ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
         )),
 
         ('test:hasiface', {}, ()),
@@ -524,6 +524,12 @@ deprmodel = {
         ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
         ('test:deprform', ('test:str', {}), {}),
         ('test:deprndef', ('ndef', {}), {}),
+        ('test:deprsub', ('str', {}), {}),
+        ('test:range', ('range', {}), {}),
+        ('test:deprsub2', ('comp', {'fields': (
+            ('name', 'test:str'),
+            ('range', 'test:range'))
+        }), {}),
     ),
     'forms': (
         ('test:deprprop', {}, ()),
@@ -531,6 +537,17 @@ deprmodel = {
             ('ndefprop', ('test:deprndef', {}), {}),
             ('deprprop', ('test:deprarray', {}), {}),
             ('okayprop', ('str', {}), {}),
+        )),
+        ('test:deprsub', {}, (
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {'deprecated': True}),
+            ('range:max', ('int', {}), {}),
+        )),
+        ('test:deprsub2', {}, (
+            ('name', ('str', {}), {}),
+            ('range', ('test:range', {}), {}),
+            ('range:min', ('int', {}), {}),
+            ('range:max', ('int', {}), {'deprecated': True}),
         )),
     ),
 
@@ -2366,25 +2383,6 @@ class SynTest(unittest.IsolatedAsyncioTestCase):
         async with await s_lmdbslab.Slab.anit(dirn, map_size=map_size) as slab:
 
             async with await s_hive.SlabHive.anit(slab) as hive:
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveDmon(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                async with self.getTestDmon() as dmon:
-                    dmon.share('hive', hive)
-                    yield dmon
-
-    @contextlib.asynccontextmanager
-    async def getTestTeleHive(self):
-
-        async with self.getTestHiveDmon() as dmon:
-
-            turl = self.getTestUrl(dmon, 'hive')
-
-            async with await s_hive.openurl(turl) as hive:
-
                 yield hive
 
     async def runCoreNodes(self, core, query, opts=None):

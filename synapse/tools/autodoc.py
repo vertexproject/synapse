@@ -1,6 +1,5 @@
 import sys
 import copy
-import json
 import asyncio
 import logging
 import argparse
@@ -13,6 +12,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
 import synapse.lib.config as s_config
 import synapse.lib.output as s_output
@@ -43,6 +43,9 @@ info_ignores = (
     'stortype',
     'bases',
     'custom',
+    'template',
+    'display',
+    'deprecated',
 )
 
 raw_back_slash_colon = r'\:'
@@ -177,6 +180,12 @@ def processTypes(rst, dochelp, types):
         rst.addLines(doc,
                      f'The ``{name}`` type is derived from the base type: ``{ttyp}``.')
 
+        ifaces = info.pop('interfaces', None)
+        if ifaces:
+            rst.addLines('', 'This type implements the following interfaces:', '')
+            for iface in ifaces:
+                rst.addLines(f' * ``{iface}``')
+
         _ = info.pop('doc', None)
         ex = info.pop('ex', None)
         if ex:
@@ -188,7 +197,7 @@ def processTypes(rst, dochelp, types):
 
         if topt:
             rst.addLines('',
-                         f'The type ``{name}`` has the following options set:',
+                         f'This type has the following options set:',
                          ''
                          )
 
@@ -253,7 +262,7 @@ def processTypes(rst, dochelp, types):
                         rst.addLines(f' * {key}: ``{valu}``')
                         continue
                     lines = [f' * {key}:\n', '  ::\n\n']
-                    json_lines = json.dumps(valu, indent=1, sort_keys=True)
+                    json_lines = s_json.dumps(valu, indent=True, sort_keys=True).decode()
                     json_lines = ['   ' + line for line in json_lines.split('\n')]
                     lines.extend(json_lines)
                     lines.append('\n')
@@ -410,6 +419,9 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                     if dst is None:
                         dst = '*'
 
+                    for key in info_ignores:
+                        enfo.pop(key, None)
+
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
                     _edges.append((src, enam, dst, doc))
@@ -446,6 +458,9 @@ def processFormsProps(rst, dochelp, forms, univ_names, alledges):
                         src = '*'
                     if dst is None:
                         dst = '*'
+
+                    for key in info_ignores:
+                        enfo.pop(key, None)
 
                     if enfo:
                         logger.warning(f'{name} => Light edge {enam} has unhandled info: {enfo}')
@@ -795,7 +810,7 @@ async def docConfdefs(ctor):
                 data = {k: v for k, v in conf.items() if k not in (
                     'description', 'default', 'type', 'hideconf', 'hidecmdl',
                 )}
-                parts = json.dumps(data, sort_keys=True, indent=2).split('\n')
+                parts = s_json.dumps(data, sort_keys=True, indent=True).decode().split('\n')
                 lines.append('    ::')
                 lines.append('\n')
                 lines.extend([f'      {p}' for p in parts])

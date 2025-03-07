@@ -1,5 +1,4 @@
 import copy
-import json
 import asyncio
 import datetime
 import itertools
@@ -13,6 +12,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -142,6 +142,36 @@ class StormTest(s_t_utils.SynTest):
             self.none(props.get('phone'))
             self.eq(props.get('name'), 'org name 77')
             self.eq(props.get('desc'), 'an org desc')
+
+            nodes = await core.nodes('ou:org=({"name": "the vertex project", "type": "lulz"})')
+            self.len(1, nodes)
+            orgn = nodes[0].ndef
+            self.eq(orgn, nodes11[0].ndef)
+
+            q = '[ ps:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
+            nodes = await core.nodes(q)
+            self.len(1, nodes)
+            cont = nodes[0]
+            self.eq(cont.get('org'), orgn[1])
+
+            nodes = await core.nodes('ps:contact:org=({"name": "the vertex project", "type": "lulz"})')
+            self.len(1, nodes)
+            self.eq(nodes[0].ndef, cont.ndef)
+
+            self.len(0, await core.nodes('ps:contact:org=({"name": "vertex", "type": "newp"})'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
+
+            await core.nodes('[ ou:org=({"name": "origname"}) ]')
+            self.len(1, await core.nodes('ou:org=({"name": "origname"}) [ :name=newname ]'))
+            self.len(0, await core.nodes('ou:org=({"name": "origname"})'))
+
+            nodes = await core.nodes('[ it:exec:proc=(notime,) ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('[ it:exec:proc=(nulltime,) ]')
+            self.len(1, nodes)
 
     async def test_lib_storm_jsonexpr(self):
         async with self.getTestCore() as core:
@@ -1737,6 +1767,10 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('test:ro | merge', opts=altview)
             self.stormIsInWarn("Cannot merge read only property with conflicting value", msgs)
 
+            await core.nodes('[ test:str=foo +(refs)> { for $i in $lib.range(1001) {[ test:int=$i ]}}]', opts=altview)
+            await core.nodes('test:str=foo -(refs)+> * merge --apply', opts=altview)
+            self.len(1001, await core.nodes('test:str=foo -(refs)> *'))
+
     async def test_storm_merge_stricterr(self):
 
         conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
@@ -2354,7 +2388,7 @@ class StormTest(s_t_utils.SynTest):
             async for bytz in core.axon.get(s_common.uhex(sha)):
                 buf += bytz
 
-            resp = json.loads(buf.decode('utf8'))
+            resp = s_json.loads(buf)
             return resp
 
         async with self.getTestCore() as core:
@@ -4097,6 +4131,9 @@ class StormTest(s_t_utils.SynTest):
                     {'name': 'woot', 'cmdinputs': (
                         {'form': 'hehe:haha'},
                         {'form': 'hoho:lol', 'help': 'We know whats up'}
+                    ), 'endpoints': (
+                        {'path': '/v1/test/one', 'desc': 'My multi-line endpoint description which spans multiple lines and has a second line. This is the second line of the description.'},
+                        {'path': '/v1/test/two', 'host': 'vertex.link', 'desc': 'Single line endpoint description.'},
                     )},
                 ),
             }
@@ -4104,6 +4141,9 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('woot --help')
             helptext = '\n'.join([m[1].get('mesg') for m in msgs if m[0] == 'print'])
             self.isin('Inputs:\n\n    hehe:haha\n    hoho:lol  - We know whats up', helptext)
+            self.isin('Endpoints:\n\n    /v1/test/one              : My multi-line endpoint description which spans multiple lines and has a second line.', helptext)
+            self.isin('This is the second line of the description.', helptext)
+            self.isin('/v1/test/two              : Single line endpoint description.', helptext)
 
     async def test_storm_help_cmd(self):
 
@@ -5004,7 +5044,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''
                 for $i in $lib.range(12) {[ test:str=$i ]}
 
-                batch $lib.true --size 5 {
+                batch $lib.true --size 5 ${
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
                     $lib.print($lib.str.join(',', $vals))

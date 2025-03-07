@@ -299,6 +299,9 @@ class RiskModelTest(s_t_utils.SynTest):
                     :host=*
                     :priority=high
                     :severity=highest
+                    :service:platform=*
+                    :service:instance=*
+                    :service:account=*
                 ]
             ''')
             self.len(1, nodes)
@@ -318,6 +321,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:alert -> risk:vuln'))
             self.len(1, await core.nodes('risk:alert -> risk:attack'))
             self.len(1, await core.nodes('risk:alert :engine -> it:prod:softver'))
+            self.len(1, await core.nodes('risk:alert :service:account -> inet:service:account'))
+            self.len(1, await core.nodes('risk:alert :service:platform -> inet:service:platform'))
+            self.len(1, await core.nodes('risk:alert :service:instance -> inet:service:instance'))
 
             nodes = await core.nodes('''[
                     risk:compromise=*
@@ -603,6 +609,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:mitigation -> it:prod:hardware'))
             self.len(1, await core.nodes('risk:mitigation -> it:mitre:attack:mitigation'))
             self.len(1, await core.nodes('risk:mitigation -> risk:mitigation:type:taxonomy'))
+
+            nodes = await core.nodes('risk:mitigation:type:taxonomy=foo.bar [ :desc="foo that bars"]')
+            self.len(1, nodes)
+            self.eq('foo that bars', nodes[0].get('desc'))
 
     async def test_model_risk_tool_software(self):
 

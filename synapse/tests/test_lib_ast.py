@@ -1,4 +1,3 @@
-import json
 import math
 import asyncio
 
@@ -9,6 +8,7 @@ import synapse.common as s_common
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.ast as s_ast
+import synapse.lib.json as s_json
 import synapse.lib.snap as s_snap
 
 import synapse.tests.utils as s_test
@@ -491,6 +491,63 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
                 nodes = await core.nodes(q)
+
+    async def test_ast_setmultioper(self):
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ test:arrayprop="*" :ints=(1,) ]')
+            self.eq(nodes[0].get('ints'), (1,))
+
+            nodes = await core.nodes('test:arrayprop [ :ints++=([3, 4]) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('test:arrayprop [ :ints++=(null) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('test:arrayprop [ :ints--=(null) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('test:arrayprop [ :strs++=(foo, bar, baz) ]')
+            self.eq(nodes[0].get('strs'), ('foo', 'bar', 'baz'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:arrayprop [ :ints++=(["newp", 5, 6]) ]')
+
+            nodes = await core.nodes('test:arrayprop [ :ints?++=(["newp", 5, 6]) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4, 5, 6))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('test:arrayprop [ :ints--=(["newp", 5, 6]) ]')
+
+            nodes = await core.nodes('test:arrayprop [ :ints?--=(["newp", 5, 6, 7]) ]')
+            self.eq(nodes[0].get('ints'), (1, 3, 4))
+
+            nodes = await core.nodes('[ test:str=foo :ndefs++={[ test:str=bar ]} ]')
+            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'),))
+
+            nodes = await core.nodes('test:str=foo  [ :ndefs++={[ test:str=baz test:str=faz ]} ]')
+            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'), ('test:str', 'baz'), ('test:str', 'faz')))
+
+            nodes = await core.nodes('test:str=foo  [ :ndefs--={ test:str=baz test:str=faz } ]')
+            self.eq(nodes[0].get('ndefs'), (('test:str', 'bar'),))
+
+            with self.raises(s_exc.NoSuchProp):
+                await core.nodes('test:arrayprop [ :newp++=(["newp", 5, 6]) ]')
+
+            badq = [
+                'test:str [ :hehe++=([3, 4]) ]',
+                'test:str [ :hehe?++=([3, 4]) ]',
+                'test:str [ :hehe--=([3, 4]) ]',
+                'test:str [ :hehe?--=([3, 4]) ]',
+                'test:arrayprop [ :ints++=(3) ]',
+                'test:arrayprop [ :ints?++=(3) ]',
+                'test:arrayprop [ :ints--=(3) ]',
+                'test:arrayprop [ :ints?--=(3) ]',
+            ]
+
+            for q in badq:
+                with self.raises(s_exc.StormRuntimeError):
+                    await core.nodes(q)
 
     async def test_ast_editparens(self):
 
@@ -1020,6 +1077,9 @@ class AstTest(s_test.SynTest):
             self.len(1, await core.nodes('inet:proto:request:sandbox:file'))
             self.len(1, await core.nodes('it:host:activity:sandbox:file'))
 
+            self.len(1, await core.nodes('[ it:exec:reg:get=* :host=(host,) ]'))
+            self.len(4, await core.nodes('it:host:activity:host=(host,)'))
+
     async def test_ast_edge_walknjoin(self):
 
         async with self.getTestCore() as core:
@@ -1463,7 +1523,7 @@ class AstTest(s_test.SynTest):
             self.stormIsInPrint('stormpkg', msgs)
 
             # Make sure a JSON package loads
-            jsonpkg = json.loads(json.dumps(jsonpkg))
+            jsonpkg = s_json.loads(s_json.dumps(jsonpkg))
             await core.stormlist('$lib.pkg.add($pkg)',
                                  opts={'vars': {'pkg': jsonpkg}})
             msgs = await core.stormlist('pkg.list')
@@ -1671,7 +1731,7 @@ class AstTest(s_test.SynTest):
             prints = list(filter(lambda m: m[0] == 'print', msgs))
             self.eq(len(prints), 3)
 
-            jmsgs = list(map(lambda m: json.loads(m[1]['mesg']), prints))
+            jmsgs = list(map(lambda m: s_json.loads(m[1]['mesg']), prints))
             omsgs = sorted(jmsgs, key=lambda m: m[0])
             self.eq(omsgs[0][1], 'this should be first')
             self.eq(omsgs[1][1], 'toreturn called')

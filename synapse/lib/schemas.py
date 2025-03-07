@@ -97,6 +97,7 @@ _CronJobSchema = {
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
         'doc': {'type': 'string'},
+        'loglevel': {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())},
         'incunit': {
             'oneOf': [
                 {'type': 'null'},
@@ -382,6 +383,7 @@ _changelogTypes = {'migration': 'Automatic Migrations',
                    'model': 'Model Changes',
                    'feat': 'Features and Enhancements',
                    'bug': 'Bugfixes',
+                   'note': 'Notes',
                    'doc': 'Improved documentation',
                    'deprecation': 'Deprecations'}
 
@@ -406,7 +408,7 @@ _changelogSchema = {
     'additionalProperties': False,
     'required': ['type', 'desc']
 }
-_reqChanglogSchema = s_config.getJsValidator(_changelogSchema)
+_reqChangelogSchema = s_config.getJsValidator(_changelogSchema)
 
 tabularConfSchema = {
     'type': 'object',
@@ -879,6 +881,19 @@ _reqValidPkgdefSchema = {
                 'name': {
                     'type': 'string',
                     'pattern': s_grammar.re_scmd
+                },
+                'endpoints': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'path': {'type': 'string'},
+                            'host': {'type': 'string'},
+                            'desc': {'type': 'string'},
+                        },
+                        'required': ['path'],
+                        'additionalProperties': False
+                    }
                 },
                 'cmdargs': {
                     'type': ['array', 'null'],

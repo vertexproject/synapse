@@ -13,7 +13,7 @@ def chopurl(url):
     '''
     ret = {}
     if url.find('://') == -1:
-        raise s_exc.BadUrl(':// not found in [{}]!'.format(url))
+        raise s_exc.BadUrl(mesg=':// not found in [{}]!'.format(url))
 
     scheme, remain = url.split('://', 1)
     ret['scheme'] = scheme.lower()

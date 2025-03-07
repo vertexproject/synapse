@@ -1,0 +1,7 @@
+name: test
+version: 0.0.1
+commands:
+  - name: 'foo.bar'
+    storm: (null)
+    endpoints:
+      - host: vertex.link

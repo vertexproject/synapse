@@ -1,7 +1,6 @@
 import bz2
 import copy
 import gzip
-import json
 import time
 
 import regex
@@ -25,6 +24,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
@@ -1782,7 +1782,7 @@ class LibBase(Lib):
         name = await tostr(name)
         mesg = await tostr(mesg)
         info = await toprim(info)
-        s_common.reqjsonsafe(info)
+        s_json.reqjsonsafe(info)
 
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
@@ -1841,7 +1841,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _fire(self, name, **info):
         info = await toprim(info)
-        s_common.reqjsonsafe(info)
+        s_json.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
 @registry.registerLib
@@ -3490,7 +3490,11 @@ class LibRegx(Lib):
         lkey = (pattern, flags)
         regx = self.compiled.get(lkey)
         if regx is None:
-            regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+            try:
+                regx = self.compiled[lkey] = regex.compile(pattern, flags=flags)
+            except (regex.error, ValueError) as e:
+                mesg = f'Error compiling regex pattern: {e}: pattern="{s_common.trimText(pattern)}"'
+                raise s_exc.BadArg(mesg=mesg) from None
         return regx
 
     @stormfunc(readonly=True)
@@ -3500,7 +3504,12 @@ class LibRegx(Lib):
         pattern = await tostr(pattern)
         replace = await tostr(replace)
         regx = await self._getRegx(pattern, flags)
-        return regx.sub(replace, text)
+
+        try:
+            return regx.sub(replace, text)
+        except (regex.error, IndexError) as e:
+            mesg = f'$lib.regex.replace() error: {e}'
+            raise s_exc.BadArg(mesg=mesg) from None
 
     @stormfunc(readonly=True)
     async def matches(self, pattern, text, flags=0):
@@ -4788,11 +4797,7 @@ class Str(Prim):
 
     @stormfunc(readonly=True)
     async def _methStrJson(self):
-        try:
-            return json.loads(self.valu, strict=True)
-        except Exception as e:
-            mesg = f'Text is not valid JSON: {self.valu}'
-            raise s_exc.BadJsonText(mesg=mesg)
+        return s_json.loads(self.valu)
 
 @registry.registerType
 class Bytes(Prim):
@@ -4981,18 +4986,14 @@ class Bytes(Prim):
             errors = await tostr(errors)
 
             if encoding is None:
-                encoding = json.detect_encoding(valu)
+                encoding = s_json.detect_encoding(valu)
             else:
                 encoding = await tostr(encoding)
 
-            return json.loads(valu.decode(encoding, errors))
+            return s_json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
-
-        except json.JSONDecodeError as e:
-            mesg = f'Unable to decode bytes as json: {e.args[0]}'
-            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Dict(Prim):
@@ -6253,7 +6254,7 @@ class NodeData(Prim):
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
-        s_common.reqjsonsafe(valu)
+        s_json.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
@@ -6839,7 +6840,8 @@ class Layer(Prim):
     Implements the Storm api for a layer instance.
     '''
     _storm_locals = (
-        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str', },
+        {'name': 'iden', 'desc': 'The iden of the Layer.', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Layer.', 'type': 'str'},
         {'name': 'set', 'desc': 'Set an arbitrary value in the Layer definition.',
          'type': {'type': 'function', '_funcname': '_methLayerSet',
                   'args': (
@@ -7194,6 +7196,7 @@ class Layer(Prim):
 
         self.locls.update(self.getObjLocals())
         self.locls['iden'] = self.valu.get('iden')
+        self.locls['name'] = self.valu.get('name')
 
     def __hash__(self):
         return hash((self._storm_typename, self.locls['iden']))
@@ -9866,7 +9869,7 @@ async def tostor(valu, isndef=False):
         retn = []
         for v in valu:
             try:
-                retn.append(await tostor(v))
+                retn.append(await tostor(v, isndef=isndef))
             except s_exc.NoSuchType:
                 pass
         return tuple(retn)
@@ -9875,7 +9878,7 @@ async def tostor(valu, isndef=False):
         retn = {}
         for k, v in valu.items():
             try:
-                retn[k] = await tostor(v)
+                retn[k] = await tostor(v, isndef=isndef)
             except s_exc.NoSuchType:
                 pass
         return retn

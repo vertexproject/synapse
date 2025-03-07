@@ -1,6 +1,7 @@
 '''
 An API to assist with the creation and enforcement of cortex data models.
 '''
+import sys
 import asyncio
 import logging
 import collections
@@ -15,6 +16,7 @@ import synapse.lib.cache as s_cache
 import synapse.lib.types as s_types
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -142,6 +144,9 @@ class Prop:
             async def depfunc(node, oldv):
                 mesg = f'The property {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
+                if __debug__:
+                    sys.audit('synapse.datamodel.Prop.deprecated', mesg, self.full)
+
             self.onSet(depfunc)
 
     def __repr__(self):
@@ -306,6 +311,8 @@ class Form:
             async def depfunc(node):
                 mesg = f'The form {self.full} is deprecated or using a deprecated type and will be removed in 3.0.0'
                 await node.snap.warnonce(mesg)
+                if __debug__:
+                    sys.audit('synapse.datamodel.Form.deprecated', mesg, self.full)
             self.onAdd(depfunc)
 
     def getStorNode(self, form):
@@ -1107,7 +1114,7 @@ class Model:
 
     def _prepFormIface(self, form, iface):
 
-        template = iface.get('template', {})
+        template = s_msgpack.deepcopy(iface.get('template', {}))
         template.update(form.type.info.get('template', {}))
 
         def convert(item):
@@ -1153,10 +1160,9 @@ class Model:
         for propname, typedef, propinfo in iface.get('props', ()):
 
             # allow form props to take precedence
-            if form.prop(propname) is not None:
-                continue
+            if (prop := form.prop(propname)) is None:
+                prop = self._addFormProp(form, propname, typedef, propinfo)
 
-            prop = self._addFormProp(form, propname, typedef, propinfo)
             self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
             if subifaces is not None:

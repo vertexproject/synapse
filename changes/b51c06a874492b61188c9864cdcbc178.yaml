@@ -1,5 +1,0 @@
----
-desc: Added Unicode word character support for the ``ou:org:alias`` property.
-prs: []
-type: feat
-...

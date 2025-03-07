@@ -341,6 +341,7 @@ class TeleTest(s_t_utils.SynTest):
             proc = ctx.Process(target=run_telepath_sync_genr_break, args=(url, evt1, evt2))
             proc.start()
 
+            # TODO Reconcile this with master???
             self.true(await s_coro.executor(evt1.wait, timeout=30))
             self.true(await s_coro.executor(evt2.wait, timeout=30))
             proc.join(timeout=30)
@@ -946,7 +947,6 @@ class TeleTest(s_t_utils.SynTest):
 
             # Validate the Proxy behavior then the client override
             prox = await s_telepath.openurl(url)  # type: Foo
-            prox._link_poolsize = 2
 
             # Start with no links
             self.len(0, prox.links)
@@ -958,53 +958,72 @@ class TeleTest(s_t_utils.SynTest):
             genr = await prox.genr()  # type: s_coro.GenrHelp
             self.eq(await genr.genr.__anext__(), 10)
 
-            # The link is being used by the genr
-            self.len(0, prox.links)
+            # A new link is in the pool
+            self.len(1, prox.links)
 
-            # and upon exhuastion, that link is put back
+            # and upon exhuastion, the first link is put back
             self.eq(await genr.list(), (20, 30))
-            self.len(1, prox.links)
-            self.true(prox.links[0] is l0)
+            self.len(2, prox.links)
+            self.true(prox.links[1] is l0)
 
-            # Grab the existing link, then do two more calls
-            genr0 = await prox.genr()  # contains l0
-            genr1 = await prox.genr()
-            genr2 = await prox.genr()
-            self.len(0, prox.links)
-            # Consume two of the three generators
-            self.eq(await genr2.list(), (10, 20, 30))
-            self.len(1, prox.links)
-            self.eq(await genr1.list(), (10, 20, 30))
+            # Grabbing a link will still spin up another since we are below low watermark
+            genr = await prox.genr()  # type: s_coro.GenrHelp
+            self.eq(await genr.genr.__anext__(), 10)
+
             self.len(2, prox.links)
-            # Exhausting the lsat generator results in his
-            # link not being placed back into the pool
-            self.eq(await genr0.list(), (10, 20, 30))
-            self.len(2, prox.links)
-            links = set(lnk for lnk in prox.links)
-            self.notin(l0, links)
-            # And that link l0 has been fini'd
-            self.true(l0.isfini)
+
+            self.eq(await genr.list(), (20, 30))
+            self.len(3, prox.links)
+
+            # Fill up pool above low watermark
+            genrs = [await prox.genr() for _ in range(2)]
+            [await genr.list() for genr in genrs]
+            self.len(5, prox.links)
+
+            # Grabbing a link no longer spins up a replacement
+            genr = await prox.genr()  # type: s_coro.GenrHelp
+            self.eq(await genr.genr.__anext__(), 10)
+            self.len(4, prox.links)
+
+            self.eq(await genr.list(), (20, 30))
+            self.len(5, prox.links)
 
             # Tear down a link by hand and place it back
             # into the pool - that will fail b/c the link
             # has been down down.
             l1 = await prox.getPoolLink()
-            self.len(1, prox.links)
+            self.len(4, prox.links)
             await l1.fini()
             await prox._putPoolLink(l1)
-            self.len(1, prox.links)
+            self.len(4, prox.links)
 
             # And all our links are torn down on fini
             await prox.fini()
-            self.len(1, prox.links)
-            for link in prox.links:
-                self.true(link.isfini)
+            self.len(4, prox.links)
+            for link in list(prox.links):
+                self.true(await link.waitfini(1))
+            self.len(0, prox.links)
 
-            # The telepath Client passes through this value as a configuration parameter
-            conf = {'link_poolsize': 2, 'timeout': 2}
-            async with await s_telepath.Client.anit(url, conf=conf) as client:
-                await client.waitready()
-                self.true(client._t_proxy._link_poolsize, 2)
+        with mock.patch('synapse.telepath.LINK_CULL_INTERVAL', 1):
+            async with self.getTestDmon() as dmon:
+                dmon.share('foo', foo)
+                url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+                prox = await s_telepath.openurl(url)
+
+                # Fill up pool above high watermark
+                genrs = [await prox.genr() for _ in range(13)]
+                [await genr.list() for genr in genrs]
+                self.len(13, prox.links)
+
+                # Add a fini'd proxy for coverage
+                prox2 = await s_telepath.openurl(url)
+                await prox2.fini()
+                prox2._all_proxies.add(prox2)
+
+                wait = prox.waiter(1, 'pool:link:fini')
+                self.len(1, await wait.wait(timeout=5))
+                self.len(12, prox.links)
 
     async def test_link_fini_breaking_tasks(self):
         foo = Foo()
@@ -1073,7 +1092,7 @@ class TeleTest(s_t_utils.SynTest):
 
                 self.eq(vals, (40, 50, 60))
 
-                self.eq(1, len(proxy.links))
+                self.eq(2, len(proxy.links))
                 self.eq(160, await proxy.bar(80, 80))
 
                 async def boomgenr():

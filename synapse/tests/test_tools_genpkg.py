@@ -65,12 +65,16 @@ class GenPkgTest(s_test.SynTest):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badcmdname.yaml')
             await s_genpkg.main((ymlpath,))
 
-        with self.raises(s_exc.BadArg):
+        with self.raises(s_exc.MustBeJsonSafe):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badjsonpkg.yaml')
             await s_genpkg.main((ymlpath,))
 
         with self.raises(s_exc.SchemaViolation):
             ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badapidef.yaml')
+            await s_genpkg.main((ymlpath,))
+
+        with self.raises(s_exc.SchemaViolation):
+            ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'badendpoints.yaml')
             await s_genpkg.main((ymlpath,))
 
         ymlpath = s_common.genpath(dirname, 'files', 'stormpkg', 'testpkg.yaml')
@@ -110,6 +114,12 @@ class GenPkgTest(s_test.SynTest):
             self.eq(pdef['modules'][3]['storm'], 'inet:fqdn\n')
             self.eq(pdef['commands'][0]['name'], 'testpkgcmd')
             self.eq(pdef['commands'][0]['storm'], 'inet:ipv6\n')
+
+            self.eq(pdef['commands'][0]['endpoints'], [
+                {'path': '/v1/test/one'},
+                {'path': '/v1/test/two', 'host': 'vertex.link'},
+                {'path': '/v1/test/three', 'desc': 'endpoint three'},
+            ])
 
             self.eq(pdef['perms'][0]['perm'], ['power-ups', 'testpkg', 'user'])
             self.eq(pdef['perms'][0]['gate'], 'cortex')

@@ -20,7 +20,6 @@ import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
-import synapse.lib.hive as s_hive
 import synapse.lib.view as s_view
 import synapse.lib.cache as s_cache
 import synapse.lib.const as s_const
@@ -77,6 +76,7 @@ import synapse.lib.stormlib.yaml as s_stormlib_yaml  # NOQA
 import synapse.lib.stormlib.basex as s_stormlib_basex  # NOQA
 import synapse.lib.stormlib.cache as s_stormlib_cache  # NOQA
 import synapse.lib.stormlib.graph as s_stormlib_graph  # NOQA
+import synapse.lib.stormlib.index as s_stormlib_index  # NOQA
 import synapse.lib.stormlib.iters as s_stormlib_iters  # NOQA
 import synapse.lib.stormlib.macro as s_stormlib_macro
 import synapse.lib.stormlib.model as s_stormlib_model
@@ -854,7 +854,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     cellapi = CoreApi
     viewapi = s_view.ViewApi
     layerapi = s_layer.LayerApi
-    hiveapi = s_hive.HiveApi
 
     viewctor = s_view.View.anit
     layrctor = s_layer.Layer.anit
@@ -4421,6 +4420,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         for cdef in s_stormlib_vault.stormcmds:
             await self._trySetStormCmd(cdef.get('name'), cdef)
 
+        for cdef in s_stormlib_index.stormcmds:
+            await self._trySetStormCmd(cdef.get('name'), cdef)
+
     async def _initPureStormCmds(self):
         oldcmds = []
         for name, cdef in self.cmddefs.items():
@@ -4651,12 +4653,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if not path:
             return await self.cellapi.anit(self, link, user)
-
-        # allow an admin to directly open the cortex hive
-        # (perhaps this should be a Cell() level pattern)
-        if path[0] == 'hive' and user.isAdmin():
-            s_common.deprecated('Cortex /hive telepath path', curv='2.167.0')
-            return await self.hiveapi.anit(self.hive, user)
 
         if path[0] == 'layer':
 
@@ -5878,38 +5874,45 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.stormpool is None:  # pragma: no cover
             return None
 
-        if self.stormpool.size() == 0:
+        size = self.stormpool.size()
+        if size == 0:
             logger.warning('Storm query mirror pool is empty, running query locally.')
             return None
 
-        proxy = None
+        for _ in range(size):
 
-        try:
-            timeout = self.stormpoolopts.get('timeout:connection')
-            proxy = await self.stormpool.proxy(timeout=timeout)
-            proxyname = proxy._ahainfo.get('name')
-            if proxyname is not None and proxyname == self.ahasvcname:
-                # we are part of the pool and were selected. Convert to local use.
-                return None
+            try:
+                timeout = self.stormpoolopts.get('timeout:connection')
+                proxy = await self.stormpool.proxy(timeout=timeout)
+                proxyname = proxy._ahainfo.get('name')
+                if proxyname is not None and proxyname == self.ahasvcname:
+                    # we are part of the pool and were selected. Convert to local use.
+                    return None
 
-            curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
-            miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
-            if (delta := curoffs - miroffs) > MAX_NEXUS_DELTA:
-                mesg = (f'Pool mirror [{proxyname}] Nexus offset delta too large '
-                        f'({delta} > {MAX_NEXUS_DELTA}), running query locally.')
+            except TimeoutError:
+                logger.warning('Timeout waiting for pool mirror proxy.')
+                continue
+
+            try:
+
+                curoffs = opts.setdefault('nexsoffs', await self.getNexsIndx() - 1)
+                miroffs = await s_common.wait_for(proxy.getNexsIndx(), timeout) - 1
+                if (delta := curoffs - miroffs) <= MAX_NEXUS_DELTA:
+                    return proxy
+
+                mesg = f'Pool mirror [{proxyname}] is too far out of sync. Skipping.'
                 logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
-                return None
 
-            return proxy
-
-        except (TimeoutError, s_exc.IsFini):
-            if proxy is None:
-                logger.warning('Timeout waiting for pool mirror, running query locally.')
-            else:
-                mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset, running query locally.'
+            except s_exc.IsFini:
+                mesg = f'Proxy for pool mirror [{proxyname}] was shutdown. Skipping.'
                 logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
-                await proxy.fini()
-            return None
+
+            except TimeoutError:
+                mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset.'
+                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+
+        logger.warning('Pool members exhausted. Running query locally.', extra=await self.getLogExtra())
+        return None
 
     async def storm(self, text, opts=None):
 

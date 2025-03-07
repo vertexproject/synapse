@@ -1,7 +1,6 @@
 import re
 import bz2
 import gzip
-import json
 import base64
 import struct
 import asyncio
@@ -16,6 +15,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.time as s_time
 import synapse.lib.storm as s_storm
 import synapse.lib.hashset as s_hashset
@@ -585,7 +585,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(0x01020304, await core.callStorm('return($lib.trycast(inet:ipv4, 1.2.3.4).1)'))
 
             # trycast/cast a property instead of a form/type
-            flow = json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
+            flow = s_json.loads(s_test_files.getAssetStr('attack_flow/CISA AA22-138B VMWare Workspace (Alt).json'))
             opts = {'vars': {'flow': flow}}
             self.true(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, $flow).0)', opts=opts))
             self.false(await core.callStorm('return($lib.trycast(it:mitre:attack:flow:data, {}).0)'))
@@ -749,7 +749,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint("['1', 2, '3']", mesgs)
 
             mesgs = await core.stormlist('$lib.print(${ $foo=bar })')
-            self.stormIsInPrint('storm:query: "$foo=bar"', mesgs)
+            self.stormIsInPrint('storm:query: " $foo=bar "', mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.set(1,2,3))')
             self.stormIsInPrint("'1'", mesgs)
@@ -1168,7 +1168,7 @@ class StormTypesTest(s_test.SynTest):
             fires = [m for m in msgs if m[0] == 'storm:fire']
             self.len(1, fires)
             self.eq(fires[0][1].get('data').get('q'),
-                    "$lib.print('fire in the hole')")
+                    " $lib.print('fire in the hole') ")
 
             q = '''
             $q=${ [test:int=1 test:int=2] }
@@ -1409,6 +1409,18 @@ class StormTypesTest(s_test.SynTest):
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return(("foo").json())')
 
+            with self.raises(s_exc.BadArg):
+                await core.nodes("$lib.regex.search('?id=([0-9]+)', 'foo')")
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes("$lib.regex.search('(?au)\\w', 'foo')")
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes("$lib.regex.replace('(?P<a>x)', '\\g<ab>', 'xx')")
+
+            with self.raises(s_exc.BadArg):
+                await core.nodes("$lib.regex.replace('(?P<a>x)', '(?au)\\w', 'xx')")
+
     async def test_storm_lib_bytes_gzip(self):
         async with self.getTestCore() as core:
             hstr = 'ohhai'
@@ -1490,7 +1502,7 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
 
             foo = {'a': 'ohhai'}
-            ghstr = json.dumps(foo)
+            ghstr = s_json.dumps(foo).decode()
             valu = s_common.guid()
             n2 = s_common.guid()
 
@@ -6220,7 +6232,7 @@ words\tword\twrd'''
 
             self.eq({
                 'file:count': 9,
-                'size:bytes': 651,
+                'size:bytes': 646,
             }, await core.callStorm('return($lib.axon.metrics())'))
 
             bin_buf = b'\xbb/$\xc0A\xf1\xbf\xbc\x00_\x82v4\xf6\xbd\x1b'

@@ -641,10 +641,10 @@ class ItModule(s_module.CoreModule):
                     'doc': 'Semantic Version type.',
                 }),
                 ('it:sec:cpe', 'synapse.models.infotech.Cpe23Str', {}, {
-                    'doc': 'A NIST CPE 2.3 Formatted String',
+                    'doc': 'A NIST CPE 2.3 Formatted String.',
                 }),
                 ('it:sec:cpe:v2_2', 'synapse.models.infotech.Cpe22Str', {}, {
-                    'doc': 'A NIST CPE 2.2 Formatted String',
+                    'doc': 'A NIST CPE 2.2 Formatted String.',
                 }),
             ),
             'types': (
@@ -697,7 +697,7 @@ class ItModule(s_module.CoreModule):
                     'ex': 'cve-2012-0158'
                 }),
                 ('it:sec:cwe', ('str', {'regex': r'^CWE-[0-9]{1,8}$'}), {
-                    'doc': 'NIST NVD Common Weaknesses Enumeration Specification',
+                    'doc': 'NIST NVD Common Weaknesses Enumeration Specification.',
                     'ex': 'CWE-120',
                 }),
 
@@ -1252,6 +1252,15 @@ class ItModule(s_module.CoreModule):
                     ('product', ('it:prod:softver', {}), {
                         'doc': 'The software which produced the log entry.'}),
 
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which generated the log event.'}),
+
+                    ('service:instance', ('inet:service:instance', {}), {
+                        'doc': 'The service instance which generated the log event.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which generated the log event.'}),
+
                 )),
                 ('it:domain', {}, (
                     ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1288,7 +1297,7 @@ class ItModule(s_module.CoreModule):
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
-                        'doc': 'The username associated with the account',
+                        'doc': 'The username associated with the account.',
                     }),
                     ('contact', ('ps:contact', {}), {
                         'doc': 'Additional contact information associated with this account.',
@@ -1968,7 +1977,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'The commit that produced this diff.'}),
 
                     ('file', ('file:bytes', {}), {
-                        'doc': 'The file after the commit has been applied'}),
+                        'doc': 'The file after the commit has been applied.'}),
 
                     ('path', ('file:path', {}), {
                         'doc': 'The path to the file in the repo that the diff is being applied to.'}),
@@ -2263,7 +2272,7 @@ class ItModule(s_module.CoreModule):
                         'disp': {'hint': 'text'},
                     }),
                     ('cpe', ('it:sec:cpe', {}), {
-                        'doc': 'The NIST CPE 2.3 string specifying this software version',
+                        'doc': 'The NIST CPE 2.3 string specifying this software version.',
                     }),
                     ('cves', ('array', {'type': 'it:sec:cve', 'uniq': True, 'sorted': True}), {
                         'doc': 'A list of CVEs that apply to this software version.',
@@ -2411,7 +2420,7 @@ class ItModule(s_module.CoreModule):
                         'doc': 'Set if this result was part of running multiple scanners.'}),
 
                     ('multi:count', ('int', {'min': 0}), {
-                        'doc': 'The total number of scanners which were run by a multi-scanner'}),
+                        'doc': 'The total number of scanners which were run by a multi-scanner.'}),
 
                     ('multi:count:benign', ('int', {'min': 0}), {
                         'doc': 'The number of scanners which returned a benign verdict.'}),
@@ -2587,6 +2596,15 @@ class ItModule(s_module.CoreModule):
 
                     ('synuser', ('syn:user', {}), {
                         'doc': 'The synapse user who executed the query.'}),
+
+                    ('service:platform', ('inet:service:platform', {}), {
+                        'doc': 'The service platform which was queried.'}),
+
+                    ('service:instance', ('inet:service:instance', {}), {
+                        'doc': 'The service instance which was queried.'}),
+
+                    ('service:account', ('inet:service:account', {}), {
+                        'doc': 'The service account which ran the query.'}),
                 )),
                 ('it:exec:thread', {}, (
                     ('proc', ('it:exec:proc', {}), {
