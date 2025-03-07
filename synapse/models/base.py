@@ -234,20 +234,26 @@ class BaseModule(s_module.CoreModule):
                     ('name', ('str', {'lower': True}), {
                         'doc': 'A name for the feed.'}),
 
-                    ('type', ('meta:feed:type:taxonomy', {}, {
+                    ('type', ('meta:feed:type:taxonomy', {}), {
                         'doc': 'The type of data feed.'}),
 
                     ('source', ('meta:source', {}), {
-                        'doc': 'The meta:source which provides the feed.'),
+                        'doc': 'The meta:source which provides the feed.'}),
 
                     ('url', ('inet:url', {}), {
                         'doc': 'The URL of the feed API endpoint.'}),
+
+                    ('query', ('str', {}), {
+                        'doc': 'The query logic associated with generating the feed output.'}),
 
                     ('opts', ('data', {}), {
                         'doc': 'An opaque JSON object containing feed parameters and options.'}),
 
                     ('period', ('ival', {}), {
                         'doc': 'The time window over which results have been ingested.'}),
+
+                    ('latest', ('time', {}), {
+                        'doc': 'The time of the last record consumed from the feed.'}),
 
                     ('offset', ('int', {}), {
                         'doc': 'The offset of the last record consumed from the feed.'}),
