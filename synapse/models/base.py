@@ -258,7 +258,7 @@ class BaseModule(s_module.CoreModule):
                     ('offset', ('int', {}), {
                         'doc': 'The offset of the last record consumed from the feed.'}),
 
-                    ('cursor', ('str', {}), {
+                    ('cursor', ('str', {'strip': True}), {
                         'doc': 'A cursor used to track ingest offset within the feed.'}),
                 )),
 
