@@ -19,6 +19,8 @@ import synapse.exc as s_exc
 import synapse.glob as s_glob
 import synapse.common as s_common
 
+import synapse.lib.logging as s_logging
+
 def iscoro(item):
     return inspect.iscoroutine(item)
 
@@ -162,6 +164,13 @@ async def ornot(func, *args, **kwargs):
         return await retn
     return retn
 
+def has_running_loop():
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        return False
+
 bgtasks = set()
 def create_task(coro):
 
@@ -215,8 +224,10 @@ def genrhelp(f):
     return func
 
 def _exectodo(que, todo, logconf):
+
     # This is a new process: configure logging
-    s_common.setlogging(logger, **logconf)
+    s_logging.setup(**logconf)
+
     func, args, kwargs = todo
     try:
         ret = func(*args, **kwargs)
@@ -232,7 +243,7 @@ def _exectodo(que, todo, logconf):
         exc = s_exc.SynErr(mesg=mesg, name=name, info=info)
         que.put(exc)
 
-async def spawn(todo, timeout=None, ctx=None, log_conf=None):
+async def spawn(todo, timeout=None, ctx=None, logconf=None):
     '''
     Run a todo (func, args, kwargs) tuple in a multiprocessing subprocess.
 
@@ -240,7 +251,7 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
         todo (tuple): A tuple of function, ``*args``, and ``**kwargs``.
         timeout (int): The timeout to wait for the todo function to finish.
         ctx (multiprocess.Context): A optional multiprocessing context object.
-        log_conf (dict): An optional logging configuration for the spawned process.
+        logconf (dict): An optional logging configuration for the spawned process.
 
     Notes:
         The contents of the todo tuple must be able to be pickled for execution.
@@ -251,12 +262,12 @@ async def spawn(todo, timeout=None, ctx=None, log_conf=None):
     '''
     if ctx is None:
         ctx = multiprocessing.get_context('spawn')
-    if log_conf is None:
-        log_conf = {}
+
+    if logconf is None:
+        logconf = s_logging.getLogConf()
 
     que = ctx.Queue()
-    proc = ctx.Process(target=_exectodo,
-                       args=(que, todo, log_conf))
+    proc = ctx.Process(target=_exectodo, args=(que, todo, logconf))
 
     def execspawn():
 
@@ -311,9 +322,10 @@ def _runtodo(todo):
     return todo[0](*todo[1], **todo[2])
 
 def _init_pool_worker(logger_, logconf):
-    s_common.setlogging(logger_, **logconf)
+    s_logging.setup(**logconf)
     p = multiprocessing.current_process()
-    logger.debug(f'Initialized new forkserver pool worker: name={p.name} pid={p.ident}')
+    extra = s_logging.getLogExtra(name=p.name, pid=p.ident)
+    logger.debug('Initialized new forkserver pool worker.', extra=extra)
 
 _pool_logconf = None
 def set_pool_logging(logger_, logconf):
@@ -347,7 +359,7 @@ async def forked(func, *args, **kwargs):
             logger.exception(f'Shared forkserver pool is broken, fallback enabled: {func}')
 
     logger.debug(f'Forkserver pool using spawn fallback: {func}')
-    return await spawn(todo, log_conf=_pool_logconf)
+    return await spawn(todo, logconf=s_logging.getLogConf())
 
 async def semafork(func, *args, **kwargs):
     '''
