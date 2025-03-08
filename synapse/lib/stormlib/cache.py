@@ -24,7 +24,7 @@ class LibCache(s_stormtypes.Lib):
             to the key argument provided to .get().
 
             The callback Storm query must contain a return statement, and if it does not return a value
-            when executed with the input, $lib.null will be set as the value.
+            when executed with the input, ``(null)`` will be set as the value.
 
             The fixed cache uses FIFO to evict items once the maximum size is reached.
 
@@ -114,7 +114,7 @@ class FixedCache(s_stormtypes.StormType):
                       {'name': 'key', 'type': 'any', 'desc': 'The key to pop.'},
                   ),
                   'returns': {'type': 'any',
-                              'desc': 'The value from the cache, or $lib.null if it does not exist', }}},
+                              'desc': 'The value from the cache, or ``(null)`` if it does not exist', }}},
         {'name': 'put', 'desc': 'Put an item into the cache.',
          'type': {'type': 'function', '_funcname': '_methPut',
                   'args': (

@@ -41,7 +41,7 @@ class NotifyLib(s_stormtypes.Lib):
         {
             'name': 'get',
             'desc': '''
-            Return a notification by ID (or $lib.null).
+            Return a notification by ID (or ``(null)`` ).
 
             ''',
             'type': {
@@ -51,7 +51,7 @@ class NotifyLib(s_stormtypes.Lib):
                 ),
                 'returns': {
                     'name': 'retn', 'type': 'dict',
-                    'desc': 'The requested notification or $lib.null.'},
+                    'desc': 'The requested notification or ``(null)``.'},
             },
         },
     )

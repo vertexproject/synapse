@@ -47,7 +47,7 @@ class AhaLib(s_stormtypes.Lib):
                        'desc': 'An optional dictionary of filters to use when resolving the AHA service.'}
                   ),
                   'returns': {'type': ('null', 'dict'),
-                              'desc': 'The AHA service information dictionary, or $lib.null.', }}},
+                              'desc': 'The AHA service information dictionary, or ``(null))``.', }}},
         {'name': 'list', 'desc': 'Enumerate all of the AHA services.',
          'type': {'type': 'function', '_funcname': '_methAhaList', 'args': (),
                   'returns': {'name': 'Yields', 'type': 'list',
@@ -97,14 +97,14 @@ class AhaLib(s_stormtypes.Lib):
         Examples:
             Call getNexusChanges on an AHA service::
 
-                $todo = $lib.utils.todo('getNexusChanges', (0), wait=$lib.false)
+                $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
                 for $info in $lib.aha.callPeerGenr(cortex..., $todo) {
                     $lib.print($info)
                 }
 
             Call getNexusChanges on an AHA service, skipping the invoking service::
 
-                $todo = $lib.utils.todo('getNexusChanges', (0), wait=$lib.false)
+                $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
                 for $info in $lib.aha.callPeerGenr(cortex..., $todo, skiprun=$lib.cell.getCellInfo().cell.run) {
                     $lib.print($info)
                 }
@@ -259,7 +259,7 @@ class AhaPoolLib(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the pool to get. It is easiest to use the relative name of a pool, ending with "...".', },
                   ),
-                  'returns': {'type': ['null', 'aha:pool'], 'desc': 'The pool if it exists, or $lib.null.'}}},
+                  'returns': {'type': ['null', 'aha:pool'], 'desc': 'The pool if it exists, or ``(null)``.'}}},
         {'name': 'list', 'desc': 'Enumerate all of the AHA service pools.',
          'type': {'type': 'function', '_funcname': '_methPoolList',
                   'returns': {'name': 'yields', 'type': 'aha:pool'}}},

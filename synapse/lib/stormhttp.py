@@ -98,9 +98,9 @@ class LibHttp(s_stormtypes.Lib):
 
     For APIs that accept a proxy argument, the following values are supported::
 
-        $lib.null: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
-        $lib.true: Use the proxy defined by the http:proxy configuration option if set.
-        $lib.false: Do not use the proxy defined by the http:proxy configuration option if set.
+        (null): Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+        (true): Use the proxy defined by the http:proxy configuration option if set.
+        (false): Do not use the proxy defined by the http:proxy configuration option if set.
         <str>: A proxy URL string.
     '''
     _storm_locals = (

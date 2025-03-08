@@ -56,7 +56,7 @@ shave'''
             )
         }
         callsig = s_autodoc.genCallsig(rtype)
-        self.eq(callsig, '(foo, bar=$lib.null, **kwargs)')
+        self.eq(callsig, '(foo, bar=(null), **kwargs)')
         self.eq(s_autodoc.genCallsig({}), '()')
         self.eq(s_autodoc.genCallsig({'args': ({'name': 'beep'},)}), '(beep)')
 
@@ -176,8 +176,8 @@ Returns:
 
 .. _test-lib-test-someargs:
 
-someargs(valu, bar=$lib.true, faz=$lib.null)
-============================================
+someargs(valu, bar=(true), faz=(null))
+======================================
 
 .. warning::
    ``$lib.test.someargs`` has been deprecated and will be removed in version v3.0.0.
@@ -252,8 +252,8 @@ Returns:
 
 .. _test-lib-test-someargs:
 
-$lib.test.someargs(valu, bar=$lib.true, faz=$lib.null)
-======================================================
+$lib.test.someargs(valu, bar=(true), faz=(null))
+================================================
 
 .. warning::
    ``$lib.test.someargs`` has been deprecated and will be removed in version v3.0.0.

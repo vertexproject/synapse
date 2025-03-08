@@ -321,7 +321,7 @@ class LibVault(s_stormtypes.Lib):
                       {'name': 'vtype', 'type': 'str',
                        'desc': 'The type of this vault.'},
                       {'name': 'scope', 'type': 'str',
-                       'desc': 'Scope for this vault. One of "user", "role", "global", or $lib.null for unscoped vaults.'},
+                       'desc': 'Scope for this vault. One of "user", "role", "global", or ``(null)`` for unscoped vaults.'},
                       {'name': 'owner', 'type': 'str',
                        'desc': 'User/role iden for this vault if scope is "user" or "role". None for "global" scope vaults.'},
                       {'name': 'secrets', 'type': 'dict',
@@ -359,9 +359,9 @@ class LibVault(s_stormtypes.Lib):
                   'args': (
                       {'name': 'vtype', 'type': 'str', 'desc': 'The vault type to retrieved.'},
                       {'name': 'scope', 'type': 'str', 'default': None,
-                       'desc': 'The scope for the specified type. If $lib.null, then getByType will search.'},
+                       'desc': 'The scope for the specified type. If ``(null)``, then getByType will search.'},
                   ),
-                  'returns': {'type': 'vault', 'desc': 'Vault or $lib.null if the vault could not be retrieved.'}}},
+                  'returns': {'type': 'vault', 'desc': 'Vault or ``(null)`` if the vault could not be retrieved.'}}},
         {'name': 'list', 'desc': 'List vaults accessible to the current user.',
          'type': {'type': 'function', '_funcname': '_listVaults',
                   'args': (),
@@ -649,14 +649,14 @@ class Vault(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methSetPerm',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The user or role to modify.'},
-                      {'name': 'level', 'type': 'str', 'desc': 'The easyperm level for the iden. $lib.null to remove an existing permission.'},
+                      {'name': 'level', 'type': 'str', 'desc': 'The easyperm level for the iden. ``(null)`` to remove an existing permission.'},
                   ),
-                  'returns': {'type': 'boolean', 'desc': '$lib.true if the permission was set, $lib.false otherwise.', }}},
+                  'returns': {'type': 'boolean', 'desc': '``(true)`` if the permission was set, ``(false)`` otherwise.', }}},
 
         {'name': 'delete', 'desc': 'Delete the Vault.',
          'type': {'type': 'function', '_funcname': '_methDelete',
                   'args': (),
-                  'returns': {'type': 'boolean', 'desc': '$lib.true if the vault was deleted, $lib.false otherwise.', }}},
+                  'returns': {'type': 'boolean', 'desc': '``(true)`` if the vault was deleted, ``(false)`` otherwise.', }}},
     )
     _storm_typename = 'vault'
     _ismutable = False

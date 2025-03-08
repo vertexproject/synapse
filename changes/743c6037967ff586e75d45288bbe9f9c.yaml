@@ -1,0 +1,6 @@
+---
+desc: Updated Storm library and type documentation to use ``(true)``, ``(false)``
+  and ``(null)`` instead of ``$lib.true``, ``$lib.false``, and ``$lib.null``.
+prs: []
+type: doc
+...
