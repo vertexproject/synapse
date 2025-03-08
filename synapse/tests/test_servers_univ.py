@@ -7,7 +7,7 @@ import synapse.servers.cell as s_s_univ
 
 import synapse.tests.utils as s_t_utils
 
-class UnivServerTest(s_t_utils.SynTest):
+class UnivServerTest(s_t_utils.SynTestA):
 
     async def test_server(self):
         with self.getTestDir() as dirn:

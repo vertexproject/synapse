@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 def raiseNoSuchForm(name, mesg=None):
     raise s_exc.NoSuchForm.init(name, mesg)
 
-class ExcTest(s_t_utils.SynTest):
+class ExcTest(s_t_utils.SynTestA):
     def test_basic(self):
         e = s_exc.SynErr(mesg='words', foo='bar')
         self.eq(e.get('foo'), 'bar')

@@ -6,7 +6,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.tools.cellauth as s_cellauth
 
-class CellAuthTest(s_t_utils.SynTest):
+class CellAuthTest(s_t_utils.SynTestA):
 
     async def test_cellauth_bad(self):
 
