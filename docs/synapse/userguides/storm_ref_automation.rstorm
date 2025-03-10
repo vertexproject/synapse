@@ -229,7 +229,7 @@ Configuration and Management
 - **Execution.** Cron jobs must be assigned to a specific **view** where they execute. By default, this is the
   view where the cron job is created. If the view that a cron job runs in is deleted, the cron job **remains**
   (within the Cortex) but is effectively orphaned until it is assigned to a new view (i.e., using the
-  :ref:`stormlibs-lib-cron-move` library) or deleted if no longer needed.
+  :ref:`stormlibs-lib-cron-mod` library) or deleted if no longer needed.
  
 - **Permissions.** Cron jobs execute with the privileges of a designated user (by default, the user who creates the
   cron job). We strongly encourage the use of least privilege; the cron job's account should have the permissions

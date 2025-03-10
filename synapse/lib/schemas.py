@@ -90,13 +90,27 @@ reqValidPull = reqValidPush
 _CronJobSchema = {
     'type': 'object',
     'properties': {
-        'storm': {'type': 'string'},
+        'storm': {'type': 'string', 'minlen': 1},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'created': {'type': 'integer', 'minimum': 0},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
         'name': {'type': 'string'},
         'pool': {'type': 'boolean'},
         'doc': {'type': 'string'},
+        'ver': {'type': 'integer'},
+        'indx': {'type': 'integer'},
+        'errcount': {'type': 'integer'},
+        'startcount': {'type': 'integer'},
+        'lasterrs': {'type': 'array', 'items': {'type': 'string'}},
+        'recs': {'type': 'array'},
+        'recur': {'type': 'boolean'},
+        'enabled': {'type': 'boolean'},
+        'isrunning': {'type': 'boolean'},
+        'nexttime': {'type': ['number', 'null']},
+        'laststarttime': {'type': ['number', 'null']},
+        'lastfinishtime': {'type': ['number', 'null']},
+        'lastresult': {'type': ['string', 'null']},
         'loglevel': {'type': 'string', 'enum': list(s_const.LOG_LEVEL_CHOICES.keys())},
         'incunit': {
             'oneOf': [
