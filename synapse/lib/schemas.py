@@ -90,7 +90,7 @@ reqValidPull = reqValidPush
 _CronJobSchema = {
     'type': 'object',
     'properties': {
-        'storm': {'type': 'string'},
+        'storm': {'type': 'string', 'minlen': 1},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},

@@ -610,42 +610,6 @@ class Agenda(s_base.Base):
         mesg = f'No cron job with iden {iden}'
         raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-    async def enable(self, iden):
-        appt = self.appts.get(iden)
-        if appt is None:
-            mesg = f'No cron job with iden: {iden}'
-            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
-
-        await self.mod(iden, appt.storm)
-
-    async def disable(self, iden):
-        appt = self.appts.get(iden)
-        if appt is None:
-            mesg = f'No cron job with iden: {iden}'
-            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
-
-        appt.enabled = False
-        await appt.save()
-
-    async def mod(self, iden, query):
-        '''
-        Change the query of an appointment
-        '''
-        appt = self.appts.get(iden)
-        if appt is None:
-            mesg = f'No cron job with iden: {iden}'
-            raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
-
-        if not query:
-            raise ValueError('empty query')
-
-        await self.core.getStormQuery(query)
-
-        appt.storm = query
-        appt.enabled = True  # in case it was disabled for a bad query
-
-        await appt.save()
-
     async def delete(self, iden):
         '''
         Delete an appointment

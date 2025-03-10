@@ -305,11 +305,6 @@ class AgendaTest(s_t_utils.SynTest):
                 unixtime = datetime.datetime(year=2019, month=1, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
                 self.eq((9, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
-                # Modify the last appointment
-                await self.asyncraises(ValueError, agenda.mod(guid2, '', ))
-                await agenda.mod(guid2, '#baz')
-                self.eq(agenda.appts[guid2].storm, '#baz')
-
                 # Delete the other recurring appointment
                 await agenda.delete(guid2)
 
