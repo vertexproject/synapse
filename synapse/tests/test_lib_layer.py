@@ -27,7 +27,7 @@ async def iterPropForm(self, form=None, prop=None):
     for buid, valu in bad_valu:
         yield buid, valu
 
-class LayerTest(s_t_utils.SynTest):
+class LayerTest(s_t_utils.SynTestA):
 
     def checkLayrvers(self, core):
         for layr in core.layers.values():

@@ -35,7 +35,7 @@ from synapse.tests.utils import alist
 
 logger = logging.getLogger(__name__)
 
-class CortexTest(s_t_utils.SynTest):
+class CortexTest(s_t_utils.SynTestA):
     '''
     The tests that should be run with different types of layers
     '''
@@ -3105,7 +3105,7 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchProp):
                 nodes = await core.nodes('ou:org:hq::email::newp=a')
 
-class CortexBasicTest(s_t_utils.SynTest):
+class CortexBasicTest(s_t_utils.SynTestA):
     '''
     The tests that are unlikely to break with different types of layers installed
     '''

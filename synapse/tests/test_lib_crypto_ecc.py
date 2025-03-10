@@ -12,7 +12,7 @@ import synapse.lib.const as s_const
 import synapse.tests.utils as s_t_utils
 import synapse.lib.crypto.ecc as s_ecc
 
-class EccTest(s_t_utils.SynTest):
+class EccTest(s_t_utils.SynTestA):
 
     def test_lib_crypto_ecc_keys(self):
 

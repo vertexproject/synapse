@@ -2,7 +2,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.interval as s_interval
 
-class IvalTest(s_t_utils.SynTest):
+class IvalTest(s_t_utils.SynTestA):
 
     def test_ival_fold(self):
         vals = [None, 100, 20, None]

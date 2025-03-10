@@ -32,7 +32,7 @@ class TstCellApi(s_cell.CellApi):
 class TstCell(s_cell.Cell):
     cellapi = TstCellApi
 
-class ReflectTest(s_t_utils.SynTest):
+class ReflectTest(s_t_utils.SynTestA):
 
     def test_reflect_getClsNames(self):
         foo = Foo()

@@ -89,7 +89,7 @@ async def acountPodes(genr):
             count += 1
     return count
 
-syntest = s_t_utils.SynTest()
+syntest = s_t_utils.SynTestA()
 
 async def layerByName(prox: s_telepath.Proxy, name: str):
     retn = await prox.callStorm('''

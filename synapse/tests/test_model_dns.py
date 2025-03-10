@@ -2,7 +2,7 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
-class DnsModelTest(s_t_utils.SynTest):
+class DnsModelTest(s_t_utils.SynTestA):
 
     async def test_model_dns_name_type(self):
         async with self.getTestCore() as core:
