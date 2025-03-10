@@ -4602,7 +4602,7 @@ class StormTypesTest(s_test.SynTest):
             cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
             self.eq('zoinks', cdef.get('doc'))
 
-    async def test_storm_lib_cron2(self):
+    async def test_storm_lib_cron(self):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
