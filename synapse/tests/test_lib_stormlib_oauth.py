@@ -1111,6 +1111,9 @@ class OAuthTest(s_test.SynTest):
     async def test_storm_oauth_v2_badconfigs(self):
         # Specifically test bad configs here
         async with self.getTestCore() as core:
+            tokenfile = s_common.genpath(core.dirn, 'file.txt')
+            with s_common.genfile(tokenfile) as fd:
+                fd.write('token'.encode('utf-8'))
 
             # Coverage for invalid configs ( we should never get into this state though! )
             # These checks would be triggered during future addition of new auth_schemes or
@@ -1124,6 +1127,17 @@ class OAuthTest(s_test.SynTest):
             isok, info = await core._getAuthData(conf, '')
             self.false(isok)
             self.eq(info.get('error'), "Unknown client_assertions data: {'key': 'dne'}")
+
+            # Coverage for a weird configuration of azure workload identity
+            with self.setTstEnvars(AZURE_FEDERATED_TOKEN_FILE=tokenfile):
+                conf = {'auth_scheme': 'client_assertion',
+                        'client_assertion': {'msft:azure:workloadidentity': {
+                            'token': True,
+                            'client_id': True,
+                        }}}
+                isok, info = await core._getAuthData(conf, '')
+                self.false(isok)
+                self.eq(info.get('error'), "AZURE_CLIENT_ID environment variable is not set.")
 
             view = await core.callStorm('return($lib.view.get().iden)')
 
@@ -1156,7 +1170,14 @@ class OAuthTest(s_test.SynTest):
                 await core.nodes(q, opts=opts)
             self.isin('Must provide client_secret for auth_scheme=basic', cm.exception.get('mesg'))
 
+            providerconf00['client_secret'] = 'secret'
+            providerconf00.pop('client_id')
             providerconf00.pop('client_assertion')
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes(q, opts=opts)
+            self.isin('Must provide client_id for auth_scheme=basic', cm.exception.get('mesg'))
+            providerconf00['client_id'] = 'root'
+
             providerconf00['auth_scheme'] = 'client_assertion'
 
             callstormopts = {
@@ -1176,10 +1197,7 @@ class OAuthTest(s_test.SynTest):
                 await core.nodes(q, opts=opts)
             self.eq('msft:azure:workloadidentity token key must be true', cm.exception.get('mesg'))
 
-            fp = s_common.genpath(core.dirn, 'file.txt')
-            with s_common.genfile(fp) as fd:
-                fd.write('token'.encode('utf-8'))
-            with self.setTstEnvars(AZURE_FEDERATED_TOKEN_FILE=fp):
+            with self.setTstEnvars(AZURE_FEDERATED_TOKEN_FILE=tokenfile):
                 assertions['msft:azure:workloadidentity'] = {'token': True, 'client_id': True}
 
                 with self.raises(s_exc.BadArg) as cm:
@@ -1210,6 +1228,12 @@ class OAuthTest(s_test.SynTest):
             with self.raises(s_exc.BadArg) as cm:
                 await core.nodes(q, opts=opts)
             self.isin('Bad storm query', cm.exception.get('mesg'))
+
+            callstormopts['query'] = ' return ( ) '
+            providerconf00.pop('client_id')
+            with self.raises(s_exc.BadArg) as cm:
+                await core.nodes(q, opts=opts)
+            self.eq('Must provide client_id for with cortex:callstorm provider.', cm.exception.get('mesg'))
 
             class NotACortex(s_oauth.OAuthMixin, s_cell.Cell):
                 async def initServiceStorage(self):
