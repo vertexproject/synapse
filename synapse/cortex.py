@@ -5941,24 +5941,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('cron:add', cdef, gates=[iden])
         return cdef
 
-    async def moveCronJob(self, useriden, croniden, viewiden):
-        view = self._viewFromOpts({'view': viewiden, 'user': useriden})
-
-        appt = self.agenda.appts.get(croniden)
-        if appt is None:
-            raise s_exc.NoSuchIden(iden=croniden)
-
-        if appt.view == view.iden:
-            return croniden
-
-        return await self._push('cron:move', croniden, viewiden)
-
-    @s_nexus.Pusher.onPush('cron:move')
-    async def _onMoveCronJob(self, croniden, viewiden):
-        await self.agenda.move(croniden, viewiden)
-        await self.feedBeholder('cron:move', {'iden': croniden, 'view': viewiden}, gates=[croniden])
-        return croniden
-
     @s_nexus.Pusher.onPushAuto('cron:del')
     async def delCronJob(self, iden):
         '''
@@ -5976,41 +5958,92 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.feedBeholder('cron:del', {'iden': iden}, gates=[iden])
         await self.auth.delAuthGate(iden)
 
-    @s_nexus.Pusher.onPushAuto('cron:mod')
-    async def updateCronJob(self, iden, query):
+    async def editCronJob(self, iden, edits):
+
+        appt = await self.agenda.get(iden)
+        if appt is None:
+            raise s_exc.NoSuchIden(mesg='Cron Job not found.', iden=iden)
+
+        cdef = appt.pack()
+
+        for name, valu in edits.items():
+            if name == 'creator':
+                await self.auth.reqUser(valu)
+
+            elif name == 'view':
+                self.reqView(valu)
+
+            elif name == 'storm':
+                await self.getStormQuery(valu)
+
+            elif name not in ('name', 'enabled', 'pool', 'doc', 'loglevel'):
+                raise s_exc.BadOptValu(mesg='Cron Job does not support setting specified property.', prop=name)
+
+            cdef[name] = valu
+
+        s_schemas.reqValidCronDef(cdef)
+
+        return await self._push('cron:edit', iden, edits)
+
+    @s_nexus.Pusher.onPush('cron:edit')
+    async def _editCronJob(self, iden, edits):
         '''
-        Change an existing cron job's query
+        Edit properties on an existing cron job.
 
         Args:
-            iden (bytes):  The iden of the cron job to be changed
+            iden (str):  The iden of the cron job to edit.
         '''
-        await self.agenda.mod(iden, query)
-        await self.feedBeholder('cron:edit:query', {'iden': iden, 'query': query}, gates=[iden])
+        enabled = edits.pop('enabled', None)
 
-    @s_nexus.Pusher.onPushAuto('cron:enable')
-    async def enableCronJob(self, iden):
-        '''
-        Enable a cron job
+        appt = await self.agenda.get(iden)
+        if appt is None:
+            raise s_exc.NoSuchIden(mesg='Cron Job not found.', iden=iden)
 
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        await self.agenda.enable(iden)
-        await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
-        logger.info(f'Enabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+        for name, valu in edits.items():
+            if name == 'creator':
+                await self.auth.reqUser(valu)
+                appt.creator = valu
 
-    @s_nexus.Pusher.onPushAuto('cron:disable')
-    async def disableCronJob(self, iden):
-        '''
-        Enable a cron job
+            elif name == 'view':
+                self.reqView(valu)
+                appt.view = valu
 
-        Args:
-            iden (bytes):  The iden of the cron job to be changed
-        '''
-        await self.agenda.disable(iden)
-        await self._killCronTask(iden)
-        await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
-        logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+            elif name == 'storm':
+                await self.getStormQuery(valu)
+                appt.storm = valu
+
+            elif name == 'name':
+                appt.name = valu
+
+            elif name == 'doc':
+                appt.doc = valu
+
+            elif name == 'pool':
+                appt.pool = bool(valu)
+
+            elif name == 'loglevel':
+                appt.loglevel = valu
+
+            else:
+                mesg = f'editCronJob name {name} is not supported for editing.'
+                raise s_exc.BadArg(mesg=mesg)
+
+        if enabled is True:
+            await self.agenda.enable(iden)
+            logger.info(f'Enabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+
+        elif enabled is False:
+            await self.agenda.disable(iden)
+            await self._killCronTask(iden)
+            logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+
+        else:
+            await appt.save()
+
+        cdef = appt.pack()
+        await self.feedBeholder('cron:edit', cdef, gates=[iden])
+
+        return cdef
 
     async def killCronTask(self, iden):
         if self.agenda.appts.get(iden) is None:
@@ -6048,37 +6081,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             crons.append(info)
 
         return crons
-
-    @s_nexus.Pusher.onPushAuto('cron:edit')
-    async def editCronJob(self, iden, name, valu):
-        '''
-        Modify a cron job definition.
-        '''
-        appt = await self.agenda.get(iden)
-        # TODO make this generic and check cdef
-
-        if name == 'creator':
-            await self.auth.reqUser(valu)
-            appt.creator = valu
-
-        elif name == 'name':
-            appt.name = str(valu)
-
-        elif name == 'doc':
-            appt.doc = str(valu)
-
-        elif name == 'pool':
-            appt.pool = bool(valu)
-
-        else:
-            mesg = f'editCronJob name {name} is not supported for editing.'
-            raise s_exc.BadArg(mesg=mesg)
-
-        await appt.save()
-
-        pckd = appt.pack()
-        await self.feedBeholder(f'cron:edit:{name}', {'iden': iden, name: pckd.get(name)}, gates=[iden])
-        return pckd
 
     @s_nexus.Pusher.onPushAuto('cron:edits')
     async def addCronEdits(self, iden, edits):

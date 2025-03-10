@@ -270,7 +270,7 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, query, creator, recs, nexttime=None, view=None, created=None, pool=False, loglevel=None):
+    def __init__(self, stor, iden, recur, indx, storm, creator, recs, nexttime=None, view=None, created=None, pool=False, loglevel=None):
         self.doc = ''
         self.name = ''
         self.task = None
@@ -279,7 +279,7 @@ class _Appt:
         self.iden = iden
         self.recur = recur  # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
-        self.query = query  # query to run
+        self.storm = storm  # query to run
         self.creator = creator  # user iden to run query as
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None  # index of rec who is up next
@@ -325,7 +325,7 @@ class _Appt:
             'iden': self.iden,
             'view': self.view,
             'indx': self.indx,
-            'query': self.query,
+            'storm': self.storm,
             'creator': self.creator,
             'created': self.created,
             'recs': [d.pack() for d in self.recs],
@@ -346,7 +346,7 @@ class _Appt:
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
         # TODO: MOAR INSANITY
         loglevel = val.get('loglevel', 'WARNING')
-        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['query'], val['creator'], recs,
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['storm'], val['creator'], recs,
                    nexttime=val['nexttime'], view=val.get('view'), loglevel=loglevel)
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
@@ -541,7 +541,7 @@ class Agenda(s_base.Base):
         incunit = cdef.get('incunit')
         incvals = cdef.get('incvals')
         reqs = cdef.get('reqs', {})
-        query = cdef.get('storm')
+        storm = cdef.get('storm')
         creator = cdef.get('creator')
         view = cdef.get('view')
         created = cdef.get('created')
@@ -557,10 +557,10 @@ class Agenda(s_base.Base):
             mesg = f'Cron job already exists with iden: {iden}'
             raise s_exc.DupIden(iden=iden, mesg=mesg)
 
-        if not query:
-            raise ValueError('"query" key of cdef parameter is not present or empty')
+        if not storm:
+            raise ValueError('"storm" key of cdef parameter is not present or empty')
 
-        await self.core.getStormQuery(query)
+        await self.core.getStormQuery(storm)
 
         if not creator:
             raise ValueError('"creator" key is cdef parameter is not present or empty')
@@ -591,7 +591,7 @@ class Agenda(s_base.Base):
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
         # TODO: this is insane. Make _Appt take the cdef directly...
-        appt = _Appt(self, iden, recur, indx, query, creator, recs, nexttime=nexttime, view=view,
+        appt = _Appt(self, iden, recur, indx, storm, creator, recs, nexttime=nexttime, view=view,
                            created=created, pool=pool, loglevel=loglevel)
         self._addappt(iden, appt)
 
@@ -616,7 +616,7 @@ class Agenda(s_base.Base):
             mesg = f'No cron job with iden: {iden}'
             raise s_exc.NoSuchIden(iden=iden, mesg=mesg)
 
-        await self.mod(iden, appt.query)
+        await self.mod(iden, appt.storm)
 
     async def disable(self, iden):
         appt = self.appts.get(iden)
@@ -641,21 +641,8 @@ class Agenda(s_base.Base):
 
         await self.core.getStormQuery(query)
 
-        appt.query = query
+        appt.storm = query
         appt.enabled = True  # in case it was disabled for a bad query
-
-        await appt.save()
-
-    async def move(self, croniden, viewiden):
-        '''
-        Move a cronjob from one view to another
-        '''
-        appt = self.appts.get(croniden)
-        if appt is None:
-            mesg = f'No cron job with iden: {croniden}'
-            raise s_exc.NoSuchIden(iden=croniden, mesg=mesg)
-
-        appt.view = viewiden
 
         await appt.save()
 
@@ -792,7 +779,7 @@ class Agenda(s_base.Base):
             await self._markfailed(appt, 'unknown view')
             return
 
-        info = {'iden': appt.iden, 'query': appt.query, 'view': view.iden}
+        info = {'iden': appt.iden, 'storm': appt.storm, 'view': view.iden}
 
         coro = self._runJob(user, appt)
         task = self.core.runActiveTask(coro)
@@ -826,8 +813,8 @@ class Agenda(s_base.Base):
         }
         await self.core.addCronEdits(appt.iden, edits)
 
-        logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
+        logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, storm={appt.storm}',
+                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.storm,
                                        'username': user.name, 'view': appt.view}})
         starttime = self._getNowTick()
 
@@ -848,7 +835,7 @@ class Agenda(s_base.Base):
 
             await self.core.feedBeholder('cron:start', {'iden': appt.iden})
 
-            async for mesg in self.core.storm(appt.query, opts=opts):
+            async for mesg in self.core.storm(appt.storm, opts=opts):
 
                 if mesg[0] == 'node':
                     count += 1

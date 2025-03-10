@@ -8792,45 +8792,19 @@ class LibCron(Lib):
                                'Only a single matching prefix will be retrieved.', },
                   ),
                   'returns': {'type': 'cronjob', 'desc': 'The requested cron job.', }}},
-        {'name': 'mod', 'desc': 'Modify the Storm query for a CronJob in the Cortex.',
+        {'name': 'mod', 'desc': 'Modify a CronJob in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronMod',
                   'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a cron job to modify. '
-                               'Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'query'],
-                       'desc': 'The new Storm query for the Cron Job.', }
+                               'Only a single matching prefix will be modified.'},
+                      {'name': 'edits', 'type': 'dict',
+                       'desc': 'A dictionary of properties and their values to update on the Cron Job.'}
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was modified.'}}},
-        {'name': 'move', 'desc': 'Move a cron job to a new view.',
-         'type': {'type': 'function', '_funcname': '_methCronMove',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a cron job to move. '
-                               'Only a single matching prefix will be modified.', },
-                      {'name': 'view', 'type': 'str',
-                       'desc': 'The iden of the view to move the CrobJob to', }
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was moved.'}}},
         {'name': 'list', 'desc': 'List CronJobs in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methCronList',
                   'returns': {'type': 'list', 'desc': 'A list of ``cronjob`` objects.', }}},
-        {'name': 'enable', 'desc': 'Enable a CronJob in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methCronEnable',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a cron job to enable. '
-                               'Only a single matching prefix will be enabled.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was enabled.', }}},
-        {'name': 'disable', 'desc': 'Disable a CronJob in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methCronDisable',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a cron job to disable. '
-                               'Only a single matching prefix will be disabled.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the CronJob which was disabled.', }}},
     )
     _storm_lib_path = ('cron',)
     _storm_lib_perms = (
@@ -8856,9 +8830,6 @@ class LibCron(Lib):
             'get': self._methCronGet,
             'mod': self._methCronMod,
             'list': self._methCronList,
-            'move': self._methCronMove,
-            'enable': self._methCronEnable,
-            'disable': self._methCronDisable,
         }
 
     async def _matchIdens(self, prefix, perm):
@@ -9217,27 +9188,18 @@ class LibCron(Lib):
         cron = await self._matchIdens(prefix, ('cron', 'del'))
         iden = cron['iden']
 
-        todo = s_common.todo('delCronJob', iden)
-        gatekeys = ((self.runt.user.iden, ('cron', 'del'), iden),)
-        return await self.dyncall('cortex', todo, gatekeys=gatekeys)
+        return await self.runt.view.core.delCronJob(iden)
 
-    async def _methCronMod(self, prefix, query):
-        cron = await self._matchIdens(prefix, ('cron', 'set'))
-        iden = cron['iden']
+    async def _methCronMod(self, prefix, edits):
+        cdef = await self._matchIdens(prefix, ('cron', 'set'))
+        iden = cdef['iden']
+        edits = await toprim(edits)
 
-        query = await tostr(query)
+        if 'creator' in edits:
+            # this permission must be granted cortex wide to prevent abuse...
+            self.runt.confirm(('cron', 'set', 'creator'))
 
-        todo = s_common.todo('updateCronJob', iden, query)
-        gatekeys = ((self.runt.user.iden, ('cron', 'set'), iden),)
-        await self.dyncall('cortex', todo, gatekeys=gatekeys)
-        return iden
-
-    async def _methCronMove(self, prefix, view):
-        cron = await self._matchIdens(prefix, ('cron', 'set'))
-        iden = cron['iden']
-
-        self.runt.confirm(('cron', 'set'), gateiden=iden)
-        return await self.runt.view.core.moveCronJob(self.runt.user.iden, iden, view)
+        return await self.runt.view.core.editCronJob(iden, edits)
 
     @stormfunc(readonly=True)
     async def _methCronList(self):
@@ -9252,24 +9214,6 @@ class LibCron(Lib):
         cdef = await self._matchIdens(prefix, ('cron', 'get'))
 
         return CronJob(self.runt, cdef, path=self.path)
-
-    async def _methCronEnable(self, prefix):
-        cron = await self._matchIdens(prefix, ('cron', 'set'))
-        iden = cron['iden']
-
-        todo = ('enableCronJob', (iden,), {})
-        await self.runt.dyncall('cortex', todo)
-
-        return iden
-
-    async def _methCronDisable(self, prefix):
-        cron = await self._matchIdens(prefix, ('cron', 'set'))
-        iden = cron['iden']
-
-        todo = ('disableCronJob', (iden,), {})
-        await self.runt.dyncall('cortex', todo)
-
-        return iden
 
 @registry.registerType
 class CronJob(Prim):
@@ -9343,7 +9287,7 @@ class CronJob(Prim):
         else:
             self.runt.confirm(('cron', 'set', name), gateiden=iden)
 
-        self.valu = await self.runt.view.core.editCronJob(iden, name, valu)
+        self.valu = await self.runt.view.core.editCronJob(iden, {name: valu})
 
         return self
 
@@ -9378,7 +9322,7 @@ class CronJob(Prim):
             'user': user or '<None>',
             'view': view,
             'viewshort': view[:8] + '..',
-            'query': self.valu.get('query') or '<missing>',
+            'storm': self.valu.get('storm') or '<missing>',
             'pool': self.valu.get('pool', False),
             'isrecur': 'Y' if self.valu.get('recur') else 'N',
             'isrunning': 'Y' if self.valu.get('isrunning') else 'N',
