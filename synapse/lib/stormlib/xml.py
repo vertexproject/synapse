@@ -21,7 +21,7 @@ class XmlElement(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the XML tag.'},
                       {'name': 'nested', 'type': 'bool', 'default': True,
-                        'desc': 'Set to $lib.false to only find direct children.'},
+                        'desc': 'Set to ``(false)`` to only find direct children.'},
                   ),
                   'returns': {'type': 'generator', 'desc': 'A generator which yields xml:elements.'}}},
 
@@ -30,7 +30,7 @@ class XmlElement(s_stormtypes.Prim):
                   'args': (
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the child XML element tag.'},
                   ),
-                  'returns': {'type': 'xml:element', 'desc': 'The child XML element or $lib.null'}}},
+                  'returns': {'type': 'xml:element', 'desc': 'The child XML element or ``(null)``.'}}},
     )
 
     def __init__(self, runt, elem):
