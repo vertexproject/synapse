@@ -257,7 +257,7 @@ class OAuthMixin(s_nexus.Pusher):
 
             else:
                 isok = False
-                ret['error'] = f'unknown client_assertions data: {client_assertion}'
+                ret['error'] = f'Unknown client_assertions data: {client_assertion}'
 
             if assertion:
                 formdata = {
@@ -270,7 +270,7 @@ class OAuthMixin(s_nexus.Pusher):
 
         else:
             isok = False
-            ret['error'] = f'unknown authorization scheme: {auth_scheme}'
+            ret['error'] = f'Unknown authorization scheme: {auth_scheme}'
 
         return isok, ret
 
@@ -361,9 +361,9 @@ class OAuthMixin(s_nexus.Pusher):
         client_id = conf.get('client_id')
         if auth_scheme == 'basic':
             if not client_id:
-                raise s_exc.BadArg(mesg='must provide client_id for auth_scheme=basic')
+                raise s_exc.BadArg(mesg='Must provide client_id for auth_scheme=basic')
             if not client_secret:
-                raise s_exc.BadArg(mesg='must provide client_secret for auth_scheme=basic')
+                raise s_exc.BadArg(mesg='Must provide client_secret for auth_scheme=basic')
 
         elif auth_scheme == 'client_assertion':
             if (info := client_assertion.get('cortex:callstorm')) is not None:
@@ -372,7 +372,7 @@ class OAuthMixin(s_nexus.Pusher):
                     raise s_exc.BadArg(mesg=mesg)
 
                 if not client_id:
-                    raise s_exc.BadArg(mesg='must provide client_id for with cortex:callstorm provider.')
+                    raise s_exc.BadArg(mesg='Must provide client_id for with cortex:callstorm provider.')
 
                 text = info['query']
                 # Validate the query text
@@ -391,12 +391,12 @@ class OAuthMixin(s_nexus.Pusher):
                     raise s_exc.BadArg(mesg=f'Failed to get the client_assertion data: {tknkvalu}')
                 if info.get('client_id'):
                     if client_id:
-                        raise s_exc.BadArg(mesg=f'Cannot specify a fixed client_id and a dynamic client_id value.')
+                        raise s_exc.BadArg(mesg='Cannot specify a fixed client_id and a dynamic client_id value.')
                     ok, idvalu = _getAzureClientId()
                     if not ok:
                         raise s_exc.BadArg(mesg=f'Failed to get the client_id data: {idvalu}')
         else:  # pragma: no cover
-            raise s_exc.BadArg(mesg=f'unknown auth_scheme={auth_scheme}')
+            raise s_exc.BadArg(mesg=f'Unknown auth_scheme={auth_scheme}')
 
         await self._push('oauth:provider:add', conf)
 

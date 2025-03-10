@@ -1,6 +1,6 @@
 ---
-desc: Added support to the Oauth2 providers to use ``client_assertion`` values to
-  authenticate to Oauth2 endpoints. These can be used instead of providing a
+desc: Added support to the OAuth2 providers to use ``client_assertion`` values to
+  authenticate to OAuth2 endpoints. These can be used instead of providing a
   ``client_secret`` value if the OAuth2 provider supports ``client_assertion``
   authentication. This update includes support for obtaining the assertion values
   via user defined Storm callbacks; as well as obtaining the assertions from
