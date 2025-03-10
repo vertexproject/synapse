@@ -13,6 +13,7 @@ import synapse.common as s_common
 
 import synapse.lib.json as s_json
 import synapse.lib.config as s_config
+import synapse.lib.logging as s_logging
 
 logger = logging.getLogger(__name__)
 
@@ -92,6 +93,6 @@ def parse_args(argv):
     return args
 
 if __name__ == '__main__':  # pragma: no cover
-    s_common.setlogging(logger, defval='DEBUG')
+    s_logging.setup(level=logging.DEBUG)
     argv = parse_args(sys.argv[1:])
     sys.exit(main(argv))
