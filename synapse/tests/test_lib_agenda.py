@@ -489,7 +489,13 @@ class AgendaTest(s_t_utils.SynTest):
                 adef = await core.addCronJob(cdef)
                 guid3 = adef.get('iden')
 
+                indx = await core.getNexsIndx()
                 await core.editCronJob(guid3, {'storm': '#bahhumbug'})
+                self.eq(indx + 1, await core.getNexsIndx())
+
+                # Edits which result in no changes are a noop
+                await core.editCronJob(guid3, {'storm': '#bahhumbug'})
+                self.eq(indx + 1, await core.getNexsIndx())
 
                 # Add a job with invalid storage version
                 cdef = (await core.listCronJobs())[0]

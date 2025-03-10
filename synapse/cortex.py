@@ -5961,9 +5961,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def editCronJob(self, iden, edits):
 
         appt = await self.agenda.get(iden)
-        if appt is None:
-            raise s_exc.NoSuchIden(mesg='Cron Job not found.', iden=iden)
-
         cdef = appt.pack()
 
         realedits = {}
@@ -6003,8 +6000,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             iden (str):  The iden of the cron job to edit.
         '''
         appt = await self.agenda.get(iden)
-        if appt is None:
-            raise s_exc.NoSuchIden(mesg='Cron Job not found.', iden=iden)
 
         for name, valu in edits.items():
             if name == 'creator':

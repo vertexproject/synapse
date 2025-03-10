@@ -4602,7 +4602,7 @@ class StormTypesTest(s_test.SynTest):
             cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
             self.eq('zoinks', cdef.get('doc'))
 
-    async def test_storm_lib_cron(self):
+    async def test_storm_lib_cron2(self):
 
         MONO_DELT = 1543827303.0
         unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=0, tzinfo=tz.utc).timestamp()
@@ -5132,12 +5132,19 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('user', mesgs)
                     self.stormIsInPrint('root', mesgs)
 
-                    await prox.addUserRule(bond.iden, (True, ('cron', 'set')))
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'set')), gateiden=guid)
 
                     mesgs = await asbond.storm(f'cron.mod {guid[:6]} --storm {{#foo}}').list()
                     self.stormIsInPrint('Modified cron job', mesgs)
 
-                    await prox.addUserRule(bond.iden, (True, ('cron', 'del')))
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --creator $lib.user.iden').list()
+                    self.stormIsInErr('must have permission cron.set.creator', mesgs)
+
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'set', 'creator')))
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --creator $lib.user.iden').list()
+                    self.stormIsInPrint('Modified cron job', mesgs)
+
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'del')), gateiden=guid)
 
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
                     self.stormIsInPrint('Deleted cron job', mesgs)
