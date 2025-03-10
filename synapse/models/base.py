@@ -29,6 +29,13 @@ class BaseModule(s_module.CoreModule):
 
             'types': (
 
+                ('meta:feed', ('guid', {}), {
+                    'doc': 'A data feed provided by a specific source.'}),
+
+                ('meta:feed:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A data feed type taxonomy.'}),
+
                 ('meta:source', ('guid', {}), {
                     'doc': 'A data source unique identifier.'}),
 
@@ -168,15 +175,22 @@ class BaseModule(s_module.CoreModule):
             'edges': (
                 ((None, 'refs', None), {
                     'doc': 'The source node contains a reference to the target node.'}),
+
                 (('meta:source', 'seen', None), {
                     'doc': 'The meta:source observed the target node.'}),
+
+                (('meta:feed', 'found', None), {
+                    'doc': 'The meta:feed produced the target node.'}),
+
                 (('meta:note', 'about', None), {
-                    'doc': 'The meta:note is about the target node.'
-                }),
+                    'doc': 'The meta:note is about the target node.'}),
+
                 (('meta:ruleset', 'has', 'meta:rule'), {
                     'doc': 'The meta:ruleset includes the meta:rule.'}),
+
                 (('meta:rule', 'matches', None), {
                     'doc': 'The meta:rule has matched on target node.'}),
+
                 (('meta:rule', 'detects', None), {
                     'doc': 'The meta:rule is designed to detect instances of the target node.'}),
             ),
@@ -212,6 +226,40 @@ class BaseModule(s_module.CoreModule):
                     ('node', ('ndef', {}), {'ro': True,
                         'doc': 'The node which was observed by or received from the source.'}),
 
+                )),
+
+                ('meta:feed:type:taxonomy', {}, ()),
+                ('meta:feed', {}, (
+
+                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                        'doc': 'A name for the feed.'}),
+
+                    ('type', ('meta:feed:type:taxonomy', {}), {
+                        'doc': 'The type of data feed.'}),
+
+                    ('source', ('meta:source', {}), {
+                        'doc': 'The meta:source which provides the feed.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'The URL of the feed API endpoint.'}),
+
+                    ('query', ('str', {}), {
+                        'doc': 'The query logic associated with generating the feed output.'}),
+
+                    ('opts', ('data', {}), {
+                        'doc': 'An opaque JSON object containing feed parameters and options.'}),
+
+                    ('period', ('ival', {}), {
+                        'doc': 'The time window over which results have been ingested.'}),
+
+                    ('latest', ('time', {}), {
+                        'doc': 'The time of the last record consumed from the feed.'}),
+
+                    ('offset', ('int', {}), {
+                        'doc': 'The offset of the last record consumed from the feed.'}),
+
+                    ('cursor', ('str', {'strip': True}), {
+                        'doc': 'A cursor used to track ingest offset within the feed.'}),
                 )),
 
                 ('meta:note:type:taxonomy', {}, ()),
