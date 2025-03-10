@@ -1118,12 +1118,12 @@ class OAuthTest(s_test.SynTest):
             conf = {'auth_scheme': 'dne'}
             isok, info = await core._getAuthData(conf, '')
             self.false(isok)
-            self.eq(info.get('error'), 'unknown authorization scheme: dne')
+            self.eq(info.get('error'), 'Unknown authorization scheme: dne')
 
             conf = {'auth_scheme': 'client_assertion', 'client_id': '1234', 'client_assertion': {'key': 'dne'}}
             isok, info = await core._getAuthData(conf, '')
             self.false(isok)
-            self.eq(info.get('error'), "unknown client_assertions data: {'key': 'dne'}")
+            self.eq(info.get('error'), "Unknown client_assertions data: {'key': 'dne'}")
 
             view = await core.callStorm('return($lib.view.get().iden)')
 
@@ -1154,7 +1154,7 @@ class OAuthTest(s_test.SynTest):
             providerconf00['client_assertion'] = {'msft:azure:workloadidentity': {'token': True}}
             with self.raises(s_exc.BadArg) as cm:
                 await core.nodes(q, opts=opts)
-            self.isin('must provide client_secret for auth_scheme=basic', cm.exception.get('mesg'))
+            self.isin('Must provide client_secret for auth_scheme=basic', cm.exception.get('mesg'))
 
             providerconf00.pop('client_assertion')
             providerconf00['auth_scheme'] = 'client_assertion'
