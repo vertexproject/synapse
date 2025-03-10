@@ -191,7 +191,7 @@ class OAuthV2Lib(s_stormtypes.Lib):
 
                     If the ``client_id`` value should come from the AZURE_CLIENT_ID environment variable, use the
                     following configuration::
-                    
+
                         $conf = ({
                             "iden": $iden,
                             "name": "example_provider",

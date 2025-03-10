@@ -1191,7 +1191,7 @@ class OAuthTest(s_test.SynTest):
                 with self.raises(s_exc.BadArg) as cm:
                     await core.nodes(q, opts=opts)
                 m = 'Failed to get the client_id data: AZURE_CLIENT_ID environment variable is not set.'
-                self.eq(m,cm.exception.get('mesg'))
+                self.eq(m, cm.exception.get('mesg'))
 
             providerconf00['client_id'] = 'root'
             assertions['cortex:callstorm'] = callstormopts
