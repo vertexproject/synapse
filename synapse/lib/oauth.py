@@ -37,7 +37,7 @@ def normOAuthTokenData(issued_at, data):
 az_tfile_envar = 'AZURE_FEDERATED_TOKEN_FILE'
 def _getAzureTokenFile() -> tuple[bool, str]:
     fp = os.getenv(az_tfile_envar, None)
-    if not fp:
+    if fp is None:
         return False, f'{az_tfile_envar} environment variable is not set.'
     if os.path.exists(fp):
         with open(fp, 'r') as fd:
@@ -45,6 +45,17 @@ def _getAzureTokenFile() -> tuple[bool, str]:
             return True, assertion
     else:
         return False, f'{az_tfile_envar} file does not exist {fp}'
+
+az_clientid_envar = 'AZURE_CLIENT_ID'
+def _getAzureClientId() -> tuple[bool, str]:
+    valu = os.getenv(az_clientid_envar, None)
+    if valu is None:
+        return False, f'{az_clientid_envar} environment variable is not set.'
+    if valu:
+        return True, valu
+    else:
+        return False, f'{az_clientid_envar} is set to an empty string.'
+
 
 class OAuthMixin(s_nexus.Pusher):
     '''
@@ -214,7 +225,7 @@ class OAuthMixin(s_nexus.Pusher):
 
         elif auth_scheme == 'client_assertion':
             assertion = None
-            client_id = providerconf['client_id']
+            client_id = providerconf.get('client_id', None)
             client_assertion = providerconf['client_assertion']
 
             if (info := client_assertion.get('cortex:callstorm')):
@@ -233,11 +244,16 @@ class OAuthMixin(s_nexus.Pusher):
                         return ok, info
                     assertion = info.get('token')
 
-            elif client_assertion.get('msft:azure:workloadidentity'):
+            elif (info := client_assertion.get('msft:azure:workloadidentity')):
                 ok, valu = _getAzureTokenFile()
                 if not ok:
                     return ok, {'error': valu}
                 assertion = valu
+                if info.get('client_id'):
+                    ok, valu = _getAzureClientId()
+                    if not ok:
+                        return ok, {'error': valu}
+                    client_id = valu
 
             else:
                 isok = False
@@ -342,7 +358,10 @@ class OAuthMixin(s_nexus.Pusher):
             raise s_exc.BadArg(mesg=mesg)
 
         auth_scheme = conf.get('auth_scheme')
+        client_id = conf.get('client_id')
         if auth_scheme == 'basic':
+            if not client_id:
+                raise s_exc.BadArg(mesg='must provide client_id for auth_scheme=basic')
             if not client_secret:
                 raise s_exc.BadArg(mesg='must provide client_secret for auth_scheme=basic')
 
@@ -351,6 +370,10 @@ class OAuthMixin(s_nexus.Pusher):
                 if not hasattr(self, 'callStorm'):
                     mesg = f'cortex:callstorm client assertion not supported by {self.__class__.__name__}'
                     raise s_exc.BadArg(mesg=mesg)
+
+                if not client_id:
+                    raise s_exc.BadArg(mesg='must provide client_id for with cortex:callstorm provider.')
+
                 text = info['query']
                 # Validate the query text
                 try:
@@ -360,12 +383,18 @@ class OAuthMixin(s_nexus.Pusher):
                 view = self.getView(info['view'])
                 if view is None:
                     raise s_exc.BadArg(mesg=f'View {info["view"]} does not exist.')
-            elif (valu := client_assertion.get('msft:azure:workloadidentity')) is not None:
-                if not valu:
-                    raise s_exc.BadArg(mesg='msft:azure:workloadidentity valu must be true')
+            elif (info := client_assertion.get('msft:azure:workloadidentity')) is not None:
+                if not info.get('token'):
+                    raise s_exc.BadArg(mesg='msft:azure:workloadidentity token key must be true')
                 ok, tknkvalu = _getAzureTokenFile()
                 if not ok:
                     raise s_exc.BadArg(mesg=f'Failed to get the client_assertion data: {tknkvalu}')
+                if info.get('client_id'):
+                    if client_id:
+                        raise s_exc.BadArg(mesg=f'Cannot specify a fixed client_id and a dynamic client_id value.')
+                    ok, idvalu = _getAzureClientId()
+                    if not ok:
+                        raise s_exc.BadArg(mesg=f'Failed to get the client_id data: {idvalu}')
         else:  # pragma: no cover
             raise s_exc.BadArg(mesg=f'unknown auth_scheme={auth_scheme}')
 

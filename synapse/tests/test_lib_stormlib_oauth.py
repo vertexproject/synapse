@@ -967,14 +967,18 @@ class OAuthTest(s_test.SynTest):
                     isok, valu = s_oauth._getAzureTokenFile()
                     self.false(isok)
                     self.eq(valu, 'AZURE_FEDERATED_TOKEN_FILE environment variable is not set.')
+
+                    isok, valu = s_oauth._getAzureClientId()
+                    self.false(isok)
+                    self.eq(valu, 'AZURE_CLIENT_ID environment variable is not set.')
+
                     tokenpath = s_common.genpath(dirn, 'tokenfile')
 
                     providerconf00 = {
                         'iden': s_common.guid('providerconf00'),
                         'name': 'providerconf00',
-                        'client_id': 'root',
                         'client_assertion': {
-                            'msft:azure:workloadidentity': True
+                            'msft:azure:workloadidentity': {'token': True, 'client_id': True}
                         },
                         'auth_scheme': 'client_assertion',
                         'scope': 'allthethings',
@@ -998,7 +1002,12 @@ class OAuthTest(s_test.SynTest):
                         await core01.nodes('$lib.inet.http.oauth.v2.addProvider($providerconf)', opts=opts)
                     self.isin('Failed to get the client_assertion data', cm.exception.get('mesg'))
 
-                    with self.setTstEnvars(AZURE_FEDERATED_TOKEN_FILE=tokenpath):
+                    with self.setTstEnvars(AZURE_CLIENT_ID=''):
+                        isok, valu = s_oauth._getAzureClientId()
+                        self.false(isok)
+                        self.eq(valu, 'AZURE_CLIENT_ID is set to an empty string.')
+
+                    with self.setTstEnvars(AZURE_FEDERATED_TOKEN_FILE=tokenpath, AZURE_CLIENT_ID='root'):
                         isok, valu = s_oauth._getAzureTokenFile()
                         self.false(isok)
                         self.eq(valu, f'AZURE_FEDERATED_TOKEN_FILE file does not exist {tokenpath}')
@@ -1009,6 +1018,10 @@ class OAuthTest(s_test.SynTest):
                         isok, valu = s_oauth._getAzureTokenFile()
                         self.true(isok)
                         self.eq(valu, EASSERTION)
+
+                        isok, valu = s_oauth._getAzureClientId()
+                        self.true(isok)
+                        self.eq(valu, 'root')
 
                         expconf00 = {
                             # default values
@@ -1138,7 +1151,7 @@ class OAuthTest(s_test.SynTest):
                 await core.nodes(q, opts=opts)
             self.isin('client_assertion and client_secret missing', cm.exception.get('mesg'))
 
-            providerconf00['client_assertion'] = {'msft:azure:workloadidentity': False}
+            providerconf00['client_assertion'] = {'msft:azure:workloadidentity': {'token': True}}
             with self.raises(s_exc.BadArg) as cm:
                 await core.nodes(q, opts=opts)
             self.isin('must provide client_secret for auth_scheme=basic', cm.exception.get('mesg'))
@@ -1150,7 +1163,7 @@ class OAuthTest(s_test.SynTest):
                 'query': 'version',
                 'view': view,
             }
-            assertions = {'msft:azure:workloadidentity': True}
+            assertions = {'msft:azure:workloadidentity': {'token': True}}
             providerconf00['client_secret'] = 'secret'
             providerconf00['client_assertion'] = assertions
             with self.raises(s_exc.BadArg) as cm:
@@ -1158,11 +1171,29 @@ class OAuthTest(s_test.SynTest):
             self.isin('client_assertion and client_secret provided.', cm.exception.get('mesg'))
 
             providerconf00.pop('client_secret')
-            assertions['msft:azure:workloadidentity'] = False
+            assertions['msft:azure:workloadidentity'] = {'token': False}
             with self.raises(s_exc.BadArg) as cm:
                 await core.nodes(q, opts=opts)
-            self.eq('msft:azure:workloadidentity valu must be true', cm.exception.get('mesg'))
+            self.eq('msft:azure:workloadidentity token key must be true', cm.exception.get('mesg'))
 
+            fp = s_common.genpath(core.dirn, 'file.txt')
+            with s_common.genfile(fp) as fd:
+                fd.write('token'.encode('utf-8'))
+            with self.setTstEnvars(AZURE_FEDERATED_TOKEN_FILE=fp):
+                assertions['msft:azure:workloadidentity'] = {'token': True, 'client_id': True}
+
+                with self.raises(s_exc.BadArg) as cm:
+                    await core.nodes(q, opts=opts)
+                m = 'Cannot specify a fixed client_id and a dynamic client_id value.'
+                self.eq(m, cm.exception.get('mesg'))
+
+                providerconf00.pop('client_id')
+                with self.raises(s_exc.BadArg) as cm:
+                    await core.nodes(q, opts=opts)
+                m = 'Failed to get the client_id data: AZURE_CLIENT_ID environment variable is not set.'
+                self.eq(m,cm.exception.get('mesg'))
+
+            providerconf00['client_id'] = 'root'
             assertions['cortex:callstorm'] = callstormopts
             with self.raises(s_exc.SchemaViolation) as cm:
                 await core.nodes(q, opts=opts)

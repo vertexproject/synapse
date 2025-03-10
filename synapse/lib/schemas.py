@@ -1069,7 +1069,15 @@ _client_assertion_schema = {
         {
             'required': ['msft:azure:workloadidentity'],
             'properties': {
-                'msft:azure:workloadidentity': {'type': 'boolean'}
+                'msft:azure:workloadidentity': {
+                    'type': 'object',
+                    'properties': {
+                        'token': {'type': 'boolean'},
+                        'client_id': {'type': 'boolean'},
+                    },
+                    'required': ['token'],
+                    'additionalProperties': False,
+                }
             },
             'additionalProperties': False,
             'not': {
@@ -1106,7 +1114,7 @@ _reqValidOauth2ProviderSchema = {
         },
     },
     'additionalProperties': False,
-    'required': ['iden', 'name', 'client_id', 'scope', 'auth_uri', 'token_uri', 'redirect_uri'],
+    'required': ['iden', 'name', 'scope', 'auth_uri', 'token_uri', 'redirect_uri'],
 }
 reqValidOauth2Provider = s_config.getJsValidator(_reqValidOauth2ProviderSchema)
 

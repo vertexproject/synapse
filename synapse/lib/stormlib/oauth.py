@@ -167,7 +167,9 @@ class OAuthV2Lib(s_stormtypes.Lib):
                             "auth_scheme": "client_assertion",
                             "client_id": "yourclientid",
                             "client_assertion": {
-                                "msft:azure:workloadidentity": true,
+                                "msft:azure:workloadidentity": {
+                                    "token": true,
+                                },
                             },
                             "scope": "first_scope second_scope",
                             "auth_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/authorize`,
@@ -186,6 +188,25 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         $conf.extra_auth_params = ({"customparam": "foo"})
 
                         $lib.inet.http.oauth.v2.addProvider($conf)
+
+                    If the ``client_id`` value should come from the AZURE_CLIENT_ID environment variable, use the
+                    following configuration::
+                    
+                        $conf = ({
+                            "iden": $iden,
+                            "name": "example_provider",
+                            "auth_scheme": "client_assertion",
+                            "client_assertion": {
+                                "msft:azure:workloadidentity": {
+                                    "token": true,
+                                    "client_id": true,
+                                },
+                            },
+                            "scope": "first_scope second_scope",
+                            "auth_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/authorize`,
+                            "token_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/token`,
+                            "redirect_uri": "https://local.redirect.com/oauth",
+                        })
 
                     Add a new provider which uses a custom Storm callback to obtain the client_assertion data. These
                     callbacks are executed as the user who is performing the authorization_code workflow. The Storm
