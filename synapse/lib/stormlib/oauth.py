@@ -155,6 +155,109 @@ class OAuthV2Lib(s_stormtypes.Lib):
                         $conf.extra_auth_params = ({"customparam": "foo"})
 
                         $lib.inet.http.oauth.v2.addProvider($conf)
+
+                    Add a new provider which uses the Microsoft Azure Federated Workflow Identify token credentials.
+                    This resolves the client_assertion from the AZURE_FEDERATED_TOKEN_FILE environment variable::
+
+                        $iden = $lib.guid(azureexample, provider, oauth)
+                        $authority_id = '4b70ee6f-d47b-3262-baa1-41cd7faed71b'
+                        $conf = ({
+                            "iden": $iden,
+                            "name": "example_provider",
+                            "auth_scheme": "client_assertion",
+                            "client_id": "yourclientid",
+                            "client_assertion": {
+                                "msft:azure:workloadidentity": {
+                                    "token": true,
+                                },
+                            },
+                            "scope": "first_scope second_scope",
+                            "auth_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/authorize`,
+                            "token_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/token`,
+                            "redirect_uri": "https://local.redirect.com/oauth",
+                        })
+
+                        // Optionally enable PKCE
+                        $conf.extensions = ({"pkce": true})
+
+                        // Optionally disable SSL verification
+                        $conf.ssl_verify = (false)
+
+                        // Optionally provide additional key-val parameters
+                        // to include when calling the auth URI
+                        $conf.extra_auth_params = ({"customparam": "foo"})
+
+                        $lib.inet.http.oauth.v2.addProvider($conf)
+
+                    If the ``client_id`` value should come from the AZURE_CLIENT_ID environment variable, use the
+                    following configuration::
+
+                        $conf = ({
+                            "iden": $iden,
+                            "name": "example_provider",
+                            "auth_scheme": "client_assertion",
+                            "client_assertion": {
+                                "msft:azure:workloadidentity": {
+                                    "token": true,
+                                    "client_id": true,
+                                },
+                            },
+                            "scope": "first_scope second_scope",
+                            "auth_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/authorize`,
+                            "token_uri": `https://login.microsoftonline.com/{$authority_id}/oauth2/v2.0/token`,
+                            "redirect_uri": "https://local.redirect.com/oauth",
+                        })
+
+                    Add a new provider which uses a custom Storm callback to obtain the client_assertion data. These
+                    callbacks are executed as the user who is performing the authorization_code workflow. The Storm
+                    callback must return data in a tuple of ``bool`` and a dictionary containing the assertion in the
+                    key ``token``. Error messages should be in the key ``error``::
+
+                        $iden = $lib.guid(callstormexample, provider, oauth)
+
+                        // Example callback
+                        $callbackQuery = ${
+                            $url = `{$baseurl}/api/oauth/getAssertion`
+                            $resp = $lib.inet.http.get($url, ssl_verify=$ssl_verify)
+                            if ($resp.code = 200) {
+                                $resp = ([true, {'token': $resp.json().assertion}])
+                            } else {
+                                $resp = ([false, {"error": `Failed to get assertion from {$url}`}])
+                            }
+                            return ( $resp )
+                        }
+
+                        // Specify any variables that need to be provided to $callbackQuery
+                        $myCallbackVars = ({
+                            'baseurl': 'https://local.assertion.provider.corp',
+                            'ssl_verify': true,
+                        })
+
+                        // Specify the view the callback is run in.
+                        $view = $lib.view.get().iden
+
+                        $conf = ({
+                            "iden": $iden,
+                            "name": "example_provider",
+                            "auth_scheme": "client_assertion",
+                            "client_id": "yourclientid",
+                            "client_assertion": {
+                                "cortex:callstorm": {
+                                    "query": $callbackQuery,
+                                    "view": $view,
+                                    "vars": $myCallbackVars,
+                                },
+                            },
+                            "scope": "first_scope second_scope",
+                            "auth_uri": "https://provider.com/auth",
+                            "token_uri": "https://provider.com/token",
+                            "redirect_uri": "https://local.redirect.com/oauth",
+                        })
+
+                        // Optionally enable PKCE
+                        $conf.extensions = ({"pkce": true})
+
+                        $lib.inet.http.oauth.v2.addProvider($conf)
             ''',
             'type': {
                 'type': 'function', '_funcname': '_addProvider',
