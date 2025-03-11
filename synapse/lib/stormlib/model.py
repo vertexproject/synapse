@@ -129,7 +129,7 @@ class LibModelTags(s_stormtypes.Lib):
         Examples:
             Create a tag model for the ``cno.cve`` tag::
 
-                $regx = ($lib.null, $lib.null, "[0-9]{4}", "[0-9]{5}")
+                $regx = ([null, null, "[0-9]{4}", "[0-9]{5}"])
                 $lib.model.tags.set(cno.cve, regex, $regx)''',
          'type': {'type': 'function', '_funcname': '_setTagModel',
                   'args': (

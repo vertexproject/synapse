@@ -1113,7 +1113,7 @@ class CortexHttpApi(s_stormtypes.Lib):
                       {'name': 'path', 'type': 'string',
                        'desc': 'Path to use to retrieve an object.'},
                   ),
-                  'returns': {'type': ['http:api', 'null'], 'desc': 'The ``http:api`` object or ``$lib.null`` if there is no match.'}}},
+                  'returns': {'type': ['http:api', 'null'], 'desc': 'The ``http:api`` object or ``(null)`` if there is no match.'}}},
         {'name': 'list', 'desc': 'Get all the Extended HTTP APIs on the Cortex',
          'type': {'type': 'function', '_funcname': 'listHttpApis', 'args': (),
                  'returns': {'type': 'list', 'desc': 'A list of ``http:api`` objects'}}},

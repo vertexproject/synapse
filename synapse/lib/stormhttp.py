@@ -98,8 +98,8 @@ class LibHttp(s_stormtypes.Lib):
 
     For APIs that accept a proxy argument, the following values are supported::
 
-        $lib.true: Use the proxy defined by the http:proxy configuration option if set.
-        $lib.false: Do not use the proxy defined by the http:proxy configuration option if set.
+        (true): Use the proxy defined by the http:proxy configuration option if set.
+        (false): Do not use the proxy defined by the http:proxy configuration option if set.
         <str>: A proxy URL string.
     '''
     _storm_locals = (
