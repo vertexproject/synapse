@@ -24,6 +24,15 @@ ipaddress = s_common.ipaddress
 
 logger = logging.getLogger(__name__)
 
+urilist = list(s_data.get('iana.uris'))
+urilist.extend([
+    'ftps',
+    'tcp'
+])
+urilist.sort(key=lambda x: len(x))
+urilist.reverse()
+uricat = '|'.join(urilist)
+
 tldlist = list(s_data.get('iana.tlds'))
 tldlist.extend([
     'bit',
@@ -52,18 +61,6 @@ inverse_prefixs = {
 }
 
 cve_dashes = ''.join(('-',) + s_chop.unicode_dashes)
-
-def fqdn_prefix_check(match: regex.Match):
-    mnfo = match.groupdict()
-    valu = mnfo.get('valu')
-    prefix = mnfo.get('prefix')
-    cbfo = {}
-    if prefix is not None:
-        new_valu = valu.rstrip(inverse_prefixs.get(prefix))
-        if new_valu != valu:
-            valu = new_valu
-            cbfo['match'] = valu
-    return valu, cbfo
 
 def fqdn_check(match: regex.Match):
     mnfo = match.groupdict()
@@ -261,12 +258,31 @@ def unc_path_check(match: regex.Match):
 
     return valu, {}
 
+def url_scheme_check(match: regex.Match):
+    mnfo = match.groupdict()
+    valu = mnfo.get('valu')
+    prefix = mnfo.get('prefix')
+
+    cbfo = {}
+    if prefix is not None:
+        new_valu = valu.rstrip(inverse_prefixs.get(prefix))
+        if new_valu != valu:
+            valu = new_valu
+            cbfo['match'] = valu
+
+    scheme = valu.split('://')[0].lower()
+    if scheme not in urilist:
+        return None, {}
+
+    cbfo['match'] = valu
+    return valu, cbfo
+
 # these must be ordered from most specific to least specific to allow first=True to work
 scrape_types = [  # type: ignore
     ('file:path', linux_path_regex, {'callback': linux_path_check, 'flags': regex.VERBOSE}),
     ('file:path', windows_path_regex, {'callback': windows_path_check, 'flags': regex.VERBOSE}),
-    ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
-     {'callback': fqdn_prefix_check}),
+    ('inet:url', r'(?P<prefix>[\\{<\(\[]?)(?P<valu>[a-zA-Z][a-zA-Z0-9]*(?:\[s\])?://(?(?=[,.]+[ \'\"\t\n\r\f\v])|[^ \'\"\t\n\r\f\v])+)',
+     {'callback': url_scheme_check}),
     ('inet:url', r'(["\'])?(?P<valu>\\[^\n]+?)(?(1)\1|\s)', {'callback': unc_path_check}),
     ('inet:email', r'(?=(?:[^a-z0-9_.+-]|^)(?P<valu>[a-z0-9_\.\-+]{1,256}@(?:[a-z0-9_-]{1,63}\.){1,10}(?:%s))(?:[^a-z0-9_.-]|[.\s]|$))' % tldcat, {}),
     ('inet:server', fr'(?P<valu>(?:(?<!\d|\d\.|[0-9a-f:]:)((?P<addr>{ipv4_match})|\[(?P<v6addr>{ipv6_match})\]):(?P<port>\d{{1,5}})(?!\d|\.\d)))',
