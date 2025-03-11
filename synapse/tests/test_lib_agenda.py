@@ -635,11 +635,23 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(('test:guid', retn[1]), node[0].ndef)
             self.ne(guidnode[0].ndef, node[0].ndef)
 
+            appt = core.agenda.appts.get(croniden)
+            self.eq(appt.loglevel, 'WARNING')
+            await core.callStorm('cron.mod $croniden --loglevel DEBUG', opts=opts)
+            self.eq(appt.loglevel, 'DEBUG')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('cron.mod $croniden --loglevel NEWP', opts=opts)
+            self.eq(appt.loglevel, 'DEBUG')
+
             # reach in, monkey with the view a bit
             appt = core.agenda.appts.get(croniden)
             appt.view = "ThisViewStillDoesntExist"
             await core.agenda._execute(appt)
             self.eq(appt.lastresult, 'Failed due to unknown view')
+
+            with self.raises(s_exc.BadArg):
+                await core._editCronJob(croniden, {'newp': 'newp'})
 
             await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
 

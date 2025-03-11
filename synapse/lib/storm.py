@@ -18,6 +18,7 @@ import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.editor as s_editor
@@ -944,11 +945,12 @@ stormcmds = (
             ('--view', {'help': 'View to move the cron job to.'}),
             ('--storm', {'help': 'New Storm query for the cron job.'}),
             ('--creator', {'help': 'New user for the cron job to run as.'}),
-            ('--doc', {'help': 'New doc string for the cron job.'}),
-            ('--name', {'help': 'New name for the cron job.'}),
-            ('--loglevel', {'help': 'New logging level for the cron job.'}),
+            ('--doc', {'help': 'New doc string for the cron job.', 'type': 'str'}),
+            ('--name', {'help': 'New name for the cron job.', 'type': 'str'}),
             ('--pool', {'help': 'True to enable offloading the job to the Storm pool, False to disable.'}),
             ('--enabled', {'help': 'True to enable the cron job, False to disable.'}),
+            ('--loglevel', {'help': 'New logging level for the cron job.',
+                            'choices': list(s_const.LOG_LEVEL_CHOICES.keys())}),
         ),
         'storm': '''
             $iden = $cmdopts.iden
