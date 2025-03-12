@@ -383,6 +383,12 @@ class FileTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
 
+            nodes = await core.nodes('[ file:bytes=(nomime,) :mime="??" ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('file:ismime:file=(nomime,)')
+            self.len(0, nodes)
+
     async def test_model_file_mime_msoffice(self):
 
         async with self.getTestCore() as core:
