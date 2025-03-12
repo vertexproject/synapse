@@ -24,14 +24,11 @@ ipaddress = s_common.ipaddress
 
 logger = logging.getLogger(__name__)
 
-urilist = list(s_data.get('iana.uris'))
-urilist.extend([
+urilist = set(s_data.get('iana.uris'))
+urilist.update([
     'ftps',
     'tcp'
 ])
-urilist.sort(key=lambda x: len(x))
-urilist.reverse()
-uricat = '|'.join(urilist)
 
 tldlist = list(s_data.get('iana.tlds'))
 tldlist.extend([
