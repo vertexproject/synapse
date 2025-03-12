@@ -1,5 +1,3 @@
-import synapse.lib.scope as s_scope
-
 statusenums = (
     (0, 'new'),
     (10, 'in validation'),
