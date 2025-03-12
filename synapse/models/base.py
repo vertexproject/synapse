@@ -126,8 +126,7 @@ modeldefs = (
                         'doc': 'The taxonomy parent.'}),
                 ),
             }),
-        ), 
-=======
+        ),
         'edges': (
             ((None, 'refs', None), {
                 'doc': 'The source node contains a reference to the target node.'}),
