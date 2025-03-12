@@ -12,7 +12,7 @@ statusenums = (
     (80, 'blocked'),
 )
 
-modeldefs =  (
+modeldefs = (
     ('proj', {
 
         'interfaces': (
