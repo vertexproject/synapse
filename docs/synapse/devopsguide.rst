@@ -1946,9 +1946,9 @@ inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment
     uses a naming convention starting with ``aha`` followed by a two-digit number (e.g., ``aha00``) to support multiple instances.
     The service's DNS name is configured using the ``SYN_AHA_DNS_NAME`` environment variable, which follows the pattern
     ``<service-name>.<namespace>.svc.cluster.local``. For example, with the default namespace, the DNS name would be
-    ``aha00.default.svc.cluster.local``. The Aha service is configured to listen on ``0.0.0.0`` since we cannot bind the
+    ``aha00.default.svc.cluster.local``. The Aha service will automatically bind on ``0.0.0.0`` since we cannot bind the
     DNS label provided by Kubernetes prior to the Pod running Aha being available. The ``SYN_AHA_AHA_NETWORK`` value can be
-    set to any desired Certificate Authority name (e.g., ``dev.synapse``) and is used for SSL certificate validation.
+    set to any desired Certificate Authority name (e.g., ``dev.synapse``) and is used for SSL certificate validation between Synapse services.
 
 Aha
 ^^^
