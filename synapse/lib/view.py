@@ -1361,9 +1361,10 @@ class View(s_nexus.Pusher):  # type: ignore
         }
 
         if name is None:
-            name = f'inserted fork of {self.parent.iden}'
             if (pname := self.parent.info.get('name')) is not None:
-                name += f': {pname}'
+                name = f'inserted fork of {pname}'
+            else:
+                name = f'inserted fork of {self.parent.iden}'
 
         vdef = {
             'iden': s_common.guid(),
