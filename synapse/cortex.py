@@ -1265,7 +1265,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             byts = self.slab.get(newname.encode(), db=self.macrodb)
             if byts is not None:
-                raise s_exc.DupName(mesg='A macro named {newname} already exists!')
+                raise s_exc.DupName(mesg=f'A macro named {newname} already exists!')
 
             self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
             self.slab.pop(name.encode(), db=self.macrodb)
