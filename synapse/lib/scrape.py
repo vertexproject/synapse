@@ -274,7 +274,6 @@ def url_scheme_check(match: regex.Match):
     if scheme not in urilist:
         return None, {}
 
-    cbfo['match'] = valu
     return valu, cbfo
 
 # these must be ordered from most specific to least specific to allow first=True to work
