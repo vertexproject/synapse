@@ -2697,6 +2697,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model.addDataModels(mdefs)
 
+    async def _addDataModels(self, mods):
+        self.model.addDataModels(mods)
+        await self._initDeprLocks()
+        await self._warnDeprLocks()
+
     async def _loadExtModel(self):
 
         self.exttypes = self.cortexdata.getSubKeyVal('model:types:')

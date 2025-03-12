@@ -4382,7 +4382,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core0:
 
-            core0.model.addDataModels(s_t_utils.deprmodel)
+            await core0._addDataModels(s_t_utils.deprmodel)
 
             podes = []
 
@@ -4410,7 +4410,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core1:
 
-            core1.model.addDataModels(s_t_utils.deprmodel)
+            await core1._addDataModels(s_t_utils.deprmodel)
 
             await core1.addFeedData(podes)
             self.len(4, await core1.nodes('test:int'))
@@ -7241,8 +7241,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 async with self.getTestCore(dirn=dirn) as core:
 
-                    core.model.addDataModels(s_t_utils.deprmodel)
-                    await core._warnDeprLocks()
+                    await core._addDataModels(s_t_utils.deprmodel)
 
                     # Create a test:deprprop so it doesn't generate a warning
                     await core.callStorm('[test:dep:easy=foobar :guid=*]')
@@ -7264,8 +7263,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 here = stream.tell()
 
                 async with self.getTestCore(dirn=dirn) as core:
-                    core.model.addDataModels(s_t_utils.deprmodel)
-                    await core._warnDeprLocks()
+                    await core._addDataModels(s_t_utils.deprmodel)
 
                 # Check that the warnings are gone now
                 stream.seek(here)

@@ -834,9 +834,7 @@ class Model:
 
         # load all the types in order...
         for _, mdef in mods:
-            custom = mdef.get('custom', False)
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                typeinfo['custom'] = custom
                 self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
 
         # finish initializing types
@@ -855,7 +853,6 @@ class Model:
         # Load all the universal properties
         for _, mdef in mods:
             for univname, typedef, univinfo in mdef.get('univs', ()):
-                univinfo['custom'] = custom
                 self.addUnivProp(univname, typedef, univinfo)
 
         # Load all the tagprops
@@ -940,7 +937,7 @@ class Model:
 
         newtype = base.extend(typename, typeopts, typeinfo, skipinit=skipinit)
 
-        if newtype.deprecated and typeinfo.get('custom'):
+        if newtype.deprecated:
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
                    f'will be removed in 4.0.0.'
             logger.warning(mesg)

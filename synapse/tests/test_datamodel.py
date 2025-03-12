@@ -217,13 +217,12 @@ class DataModelTest(s_t_utils.SynTest):
             with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
                     self.getAsyncLoggerStream('synapse.datamodel') as dstream:
                 core = await s_cortex.Cortex.anit(dirn)
-                core.model.addDataModels(s_t_utils.testmodel)
-                core.model.addDataModels(s_t_utils.deprmodel)
+                await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
 
             dstream.seek(0)
             ds = dstream.read()
             self.isin('universal property .udep is using a deprecated type', ds)
-#            self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
+            self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
             tstream.seek(0)
             ts = tstream.read()
             self.isin('Array type test:dep:array is based on a deprecated type test:dep:easy', ts)
@@ -268,7 +267,9 @@ class DataModelTest(s_t_utils.SynTest):
             # Restarting the cortex warns again for various items that it loads
             # with deprecated types in them. This is a coverage test for extended properties.
             with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
-                async with await s_cortex.Cortex.anit(dirn, conf) as core:
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
+                    await core._loadExtModel()
                     self.true(await cstream.wait(6))
 
     async def test_datamodel_getmodeldefs(self):
@@ -332,7 +333,7 @@ class DataModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.model.addDataModels(s_t_utils.deprmodel)
+            await core._addDataModels(s_t_utils.deprmodel)
 
             nodes = await core.nodes('[ test:deprsub=bar :range=(1, 5) ]')
             self.eq(1, nodes[0].get('range:min'))

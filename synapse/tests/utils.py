@@ -1300,7 +1300,7 @@ class SynTest(unittest.TestCase):
             with self.mayTestDir(dirn) as dirn:
 
                 async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
-                    core.model.addDataModels(testmodel)
+                    await core._addDataModels(testmodel)
                     yield core
 
     @contextlib.asynccontextmanager

@@ -398,7 +398,7 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.model.addDataModels(geotestmodel)
+            await core._addDataModels(geotestmodel)
 
             # Lift behavior for a node whose has a latlong as their primary property
             nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
@@ -455,7 +455,7 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            core.model.addDataModels(geotestmodel)
+            await core._addDataModels(geotestmodel)
             nodes = await core.nodes('[ test:distoff=-3cm ]')
             self.eq(970, nodes[0].ndef[1])
             self.eq('-3.0 cm', await core.callStorm('test:distoff return($node.repr())'))

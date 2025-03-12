@@ -490,10 +490,9 @@ class Array(Type):
             raise s_exc.BadTypeDef(mesg)
 
         if self.arraytype.deprecated:
-            if self.info.get('custom'):
-                mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
-                       f'which will be removed in 4.0.0'
-                logger.warning(mesg)
+            mesg = f'The Array type {self.name} is based on a deprecated type {self.arraytype.name} type which ' \
+                   f'which will be removed in 4.0.0'
+            logger.warning(mesg)
 
         self.setNormFunc(str, self._normPyStr)
         self.setNormFunc(list, self._normPyTuple)
