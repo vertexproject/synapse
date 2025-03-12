@@ -28,13 +28,13 @@ class ProjModelTest(s_test.SynTest):
             opts = {'user': visi.iden, 'vars': {'proj': proj}}
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.projects.get($proj).epics.add(bar))', opts=opts)
-            await visi.addRule((True, ('project', 'epic', 'add')), gateiden=proj)
+            await visi.addRule((True, ('project', 'epic', 'add')), gateiden=core.view.iden)
             epic = await core.callStorm('return($lib.projects.get($proj).epics.add(bar))', opts=opts)
             self.nn(epic)
 
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return($lib.projects.get($proj).tickets.add(baz))', opts=opts)
-            await visi.addRule((True, ('project', 'ticket', 'add')), gateiden=proj)
+            await visi.addRule((True, ('project', 'ticket', 'add')), gateiden=core.view.iden)
             tick = await core.callStorm('return($lib.projects.get($proj).tickets.add(baz))', opts=opts)
             self.nn(tick)
 

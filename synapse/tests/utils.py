@@ -62,7 +62,6 @@ import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
@@ -284,286 +283,300 @@ class TestRunt:
             'props': pnorms,
         })
 
-testmodel = {
+testmodel = (
+    ('test', {
 
-    'ctors': (
-        ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
-        ('test:type', 'synapse.tests.utils.TestType', {}, {}),
-        ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
-    ),
-    'interfaces': (
-        ('test:interface', {
-            'doc': 'test interface',
-            'props': (
-                ('size', ('int', {}), {}),
-                ('seen', ('ival', {}), {}),
-                ('names', ('array', {'type': 'str'}), {}),
-            ),
-            'interfaces': ('inet:proto:request',)
-        }),
-        ('test:virtarray', {
-            'doc': 'test interface',
-            'props': (
-                ('server', ('inet:server', {}), {'alts': ('servers',)}),
-                ('servers', ('array', {'type': 'inet:server'}), {}),
-            )
-        }),
-    ),
-    'types': (
-        ('test:type10', ('test:type', {'foo': 10}), {
-            'doc': 'A fake type.'}),
+        'ctors': (
+            ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
+            ('test:type', 'synapse.tests.utils.TestType', {}, {}),
+            ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
+        ),
+        'interfaces': (
+            ('test:interface', {
+                'doc': 'test interface',
+                'props': (
+                    ('size', ('int', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                    ('names', ('array', {'type': 'str'}), {}),
+                ),
+                'interfaces': ('inet:proto:request',)
+            }),
+            ('test:virtarray', {
+                'doc': 'test interface',
+                'props': (
+                    ('server', ('inet:server', {}), {'alts': ('servers',)}),
+                    ('servers', ('array', {'type': 'inet:server'}), {}),
+                )
+            }),
+        ),
+        'types': (
+            ('test:type10', ('test:type', {'foo': 10}), {
+                'doc': 'A fake type.'}),
 
-        ('test:lower', ('str', {'lower': True}), {}),
+            ('test:lower', ('str', {'lower': True}), {}),
 
-        ('test:time', ('time', {}), {}),
+            ('test:time', ('time', {}), {}),
 
-        ('test:ival', ('ival', {}), {}),
+            ('test:ival', ('ival', {}), {}),
 
-        ('test:ro', ('str', {}), {}),
-        ('test:int', ('int', {}), {}),
-        ('test:float', ('float', {}), {}),
-        ('test:str', ('str', {}), {}),
-        ('test:migr', ('str', {}), {}),
-        ('test:auto', ('str', {}), {}),
-        ('test:guid', ('guid', {}), {}),
-        ('test:data', ('data', {}), {}),
-        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
-        ('test:hugenum', ('hugenum', {}), {}),
+            ('test:ro', ('str', {}), {}),
+            ('test:int', ('int', {}), {}),
+            ('test:float', ('float', {}), {}),
+            ('test:str', ('str', {}), {}),
+            ('test:migr', ('str', {}), {}),
+            ('test:auto', ('str', {}), {}),
+            ('test:guid', ('guid', {}), {}),
+            ('test:data', ('data', {}), {}),
+            ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
+            ('test:hugenum', ('hugenum', {}), {}),
 
-        ('test:arrayprop', ('guid', {}), {}),
-        ('test:arrayform', ('array', {'type': 'int'}), {}),
+            ('test:arrayprop', ('guid', {}), {}),
+            ('test:arrayform', ('array', {'type': 'int'}), {}),
 
-        ('test:comp', ('comp', {'fields': (
-            ('hehe', 'test:int'),
-            ('haha', 'test:lower'))
-        }), {'doc': 'A fake comp type.'}),
-        ('test:compcomp', ('comp', {'fields': (
-            ('comp1', 'test:comp'),
-            ('comp2', 'test:comp'))
-        }), {}),
-        ('test:complexcomp', ('comp', {'fields': (
-            ('foo', 'test:int'),
-            ('bar', ('str', {'lower': True}),),
-        )}), {'doc': 'A complex comp type.'}),
-        ('test:ndefcomp', ('comp', {'fields': (
-            ('hehe', 'test:int'),
-            ('ndef', 'test:ndef'))
-        }), {'doc': 'A comp type with an ndef.'}),
+            ('test:comp', ('comp', {'fields': (
+                ('hehe', 'test:int'),
+                ('haha', 'test:lower'))
+            }), {'doc': 'A fake comp type.'}),
+            ('test:compcomp', ('comp', {'fields': (
+                ('comp1', 'test:comp'),
+                ('comp2', 'test:comp'))
+            }), {}),
+            ('test:complexcomp', ('comp', {'fields': (
+                ('foo', 'test:int'),
+                ('bar', ('str', {'lower': True}),),
+            )}), {'doc': 'A complex comp type.'}),
+            ('test:ndefcomp', ('comp', {'fields': (
+                ('hehe', 'test:int'),
+                ('ndef', 'test:ndef'))
+            }), {'doc': 'A comp type with an ndef.'}),
 
-        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
-        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
-        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
-        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
+            ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
+            ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
+            ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
+            ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
 
-        ('test:pivtarg', ('str', {}), {}),
-        ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
-        ('test:haspivcomp', ('int', {}), {}),
+            ('test:pivtarg', ('str', {}), {}),
+            ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
+            ('test:haspivcomp', ('int', {}), {}),
 
-        ('test:cycle0', ('str', {}), {}),
-        ('test:cycle1', ('str', {}), {}),
+            ('test:cycle0', ('str', {}), {}),
+            ('test:cycle1', ('str', {}), {}),
 
-        ('test:ndef', ('ndef', {}), {}),
-        ('test:ndef:formfilter1', ('ndef', {
-            'forms': ('inet:ip',)
-        }), {}),
-        ('test:ndef:formfilter2', ('ndef', {
-            'interfaces': ('meta:taxonomy',)
-        }), {}),
-        ('test:ndef:formfilter3', ('ndef', {
-            'forms': ('inet:ip',),
-            'interfaces': ('file:mime:msoffice',)
-        }), {}),
+            ('test:ndef', ('ndef', {}), {}),
+            ('test:ndef:formfilter1', ('ndef', {
+                'forms': ('inet:ip',)
+            }), {}),
+            ('test:ndef:formfilter2', ('ndef', {
+                'interfaces': ('meta:taxonomy',)
+            }), {}),
+            ('test:ndef:formfilter3', ('ndef', {
+                'forms': ('inet:ip',),
+                'interfaces': ('file:mime:msoffice',)
+            }), {}),
 
-        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node.'}),
-        ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
-        ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
-        ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
-        ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
-    ),
+            ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
+            ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
+            ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+        ),
 
-    'univs': (
-        ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
-        ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
-        ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props.'}),
-        ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props.'}),
-    ),
+        'univs': (
+            ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+            ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
+            ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props.'}),
+            ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props.'}),
+        ),
 
-    'forms': (
+        'forms': (
 
-        ('test:arrayprop', {}, (
-            ('ints', ('array', {'type': 'test:int'}), {}),
-            ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
-            ('strsnosplit', ('array', {'type': 'test:str'}), {}),
-        )),
-        ('test:arrayform', {}, (
-        )),
-        ('test:taxonomy', {}, ()),
-        ('test:type10', {}, (
+            ('test:arrayprop', {}, (
+                ('ints', ('array', {'type': 'test:int'}), {}),
+                ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
+                ('strsnosplit', ('array', {'type': 'test:str'}), {}),
+            )),
+            ('test:arrayform', {}, (
+            )),
+            ('test:taxonomy', {}, ()),
+            ('test:type10', {}, (
 
-            ('intprop', ('int', {'min': 20, 'max': 30}), {}),
-            ('int2', ('int', {}), {}),
-            ('strprop', ('str', {'lower': 1}), {}),
-            ('guidprop', ('guid', {'lower': 1}), {}),
-            ('locprop', ('loc', {}), {}),
-        )),
+                ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+                ('int2', ('int', {}), {}),
+                ('strprop', ('str', {'lower': 1}), {}),
+                ('guidprop', ('guid', {'lower': 1}), {}),
+                ('locprop', ('loc', {}), {}),
+            )),
 
-        ('test:cycle0', {}, (
-            ('cycle1', ('test:cycle1', {}), {}),
-        )),
+            ('test:cycle0', {}, (
+                ('cycle1', ('test:cycle1', {}), {}),
+            )),
 
-        ('test:cycle1', {}, (
-            ('cycle0', ('test:cycle0', {}), {}),
-        )),
+            ('test:cycle1', {}, (
+                ('cycle0', ('test:cycle0', {}), {}),
+            )),
 
-        ('test:type', {}, ()),
+            ('test:type', {}, ()),
 
-        ('test:comp', {}, (
-            ('hehe', ('test:int', {}), {'ro': True}),
-            ('haha', ('test:lower', {}), {'ro': True}),
-        )),
+            ('test:comp', {}, (
+                ('hehe', ('test:int', {}), {'ro': True}),
+                ('haha', ('test:lower', {}), {'ro': True}),
+            )),
 
-        ('test:compcomp', {}, (
-            ('comp1', ('test:comp', {}), {'ro': True}),
-            ('comp2', ('test:comp', {}), {'ro': True}),
-        )),
+            ('test:compcomp', {}, (
+                ('comp1', ('test:comp', {}), {'ro': True}),
+                ('comp2', ('test:comp', {}), {'ro': True}),
+            )),
 
-        ('test:complexcomp', {}, (
-            ('foo', ('test:int', {}), {'ro': True}),
-            ('bar', ('str', {'lower': 1}), {'ro': True})
-        )),
+            ('test:complexcomp', {}, (
+                ('foo', ('test:int', {}), {'ro': True}),
+                ('bar', ('str', {'lower': 1}), {'ro': True})
+            )),
 
-        ('test:ndefcomp', {}, (
-            ('hehe', ('test:int', {}), {'ro': True}),
-            ('ndef', ('test:ndef', {}), {'ro': True}),
-        )),
+            ('test:ndefcomp', {}, (
+                ('hehe', ('test:int', {}), {'ro': True}),
+                ('ndef', ('test:ndef', {}), {'ro': True}),
+            )),
 
-        ('test:int', {}, (
-            ('loc', ('loc', {}), {}),
-            ('int2', ('int', {}), {}),
-        )),
+            ('test:int', {}, (
+                ('loc', ('loc', {}), {}),
+                ('int2', ('int', {}), {}),
+            )),
 
-        ('test:float', {}, (
-            ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
-            ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
-        )),
+            ('test:float', {}, (
+                ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+                ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
+            )),
 
-        ('test:guid', {}, (
-            ('size', ('test:int', {}), {}),
-            ('tick', ('test:time', {}), {}),
-            ('posneg', ('test:sub', {}), {}),
-            ('posneg:isbig', ('bool', {}), {}),
-        )),
+            ('test:guid', {}, (
+                ('size', ('test:int', {}), {}),
+                ('tick', ('test:time', {}), {}),
+                ('posneg', ('test:sub', {}), {}),
+                ('posneg:isbig', ('bool', {}), {}),
+            )),
 
-        ('test:data', {}, (
-            ('data', ('test:data', {}), {}),
-        )),
+            ('test:data', {}, (
+                ('data', ('test:data', {}), {}),
+            )),
 
-        ('test:hugenum', {}, (
-            ('huge', ('test:hugenum', {}), {}),
-        )),
+            ('test:hugenum', {}, (
+                ('huge', ('test:hugenum', {}), {}),
+            )),
 
-        ('test:str', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('test:time', {}), {}),
-            ('hehe', ('str', {}), {}),
-            ('ndefs', ('array', {'type': 'ndef'}), {}),
-            ('cidr', ('inet:cidr', {}), {}),
-            ('somestr', ('test:str', {}), {}),
-        )),
+            ('test:str', {}, (
+                ('bar', ('ndef', {}), {}),
+                ('baz', ('nodeprop', {}), {}),
+                ('tick', ('test:time', {}), {}),
+                ('hehe', ('str', {}), {}),
+                ('ndefs', ('array', {'type': 'ndef'}), {}),
+                ('cidr', ('inet:cidr', {}), {}),
+                ('somestr', ('test:str', {}), {}),
+            )),
 
-        ('test:migr', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('test:time', {}), {}),
-        )),
+            ('test:migr', {}, (
+                ('bar', ('ndef', {}), {}),
+                ('baz', ('nodeprop', {}), {}),
+                ('tick', ('test:time', {}), {}),
+            )),
 
-        ('test:threetype', {}, (
-            ('three', ('int', {}), {}),
-        )),
-        ('test:auto', {}, ()),
-        ('test:hexa', {}, ()),
-        ('test:hex4', {}, ()),
-        ('test:zeropad', {}, ()),
-        ('test:ival', {}, (
-            ('interval', ('ival', {}), {}),
-        )),
+            ('test:threetype', {}, (
+                ('three', ('int', {}), {}),
+            )),
+            ('test:auto', {}, ()),
+            ('test:hexa', {}, ()),
+            ('test:hex4', {}, ()),
+            ('test:zeropad', {}, ()),
+            ('test:ival', {}, (
+                ('interval', ('ival', {}), {}),
+            )),
 
-        ('test:pivtarg', {}, (
-            ('name', ('str', {}), {}),
-        )),
+            ('test:pivtarg', {}, (
+                ('name', ('str', {}), {}),
+            )),
 
-        ('test:pivcomp', {}, (
-            ('targ', ('test:pivtarg', {}), {'ro': True}),
-            ('lulz', ('test:str', {}), {'ro': True}),
-            ('tick', ('time', {}), {}),
-            ('size', ('test:int', {}), {}),
-            ('width', ('test:int', {}), {}),
-        )),
+            ('test:pivcomp', {}, (
+                ('targ', ('test:pivtarg', {}), {'ro': True}),
+                ('lulz', ('test:str', {}), {'ro': True}),
+                ('tick', ('time', {}), {}),
+                ('size', ('test:int', {}), {}),
+                ('width', ('test:int', {}), {}),
+            )),
 
-        ('test:haspivcomp', {}, (
-            ('have', ('test:pivcomp', {}), {}),
-        )),
+            ('test:haspivcomp', {}, (
+                ('have', ('test:pivcomp', {}), {}),
+            )),
 
-        ('test:ndef', {}, (
-            ('form', ('str', {}), {'ro': True}),
-        )),
+            ('test:ndef', {}, (
+                ('form', ('str', {}), {'ro': True}),
+            )),
 
-        ('test:runt', {'runt': True}, (
-            ('tick', ('time', {}), {'ro': True}),
-            ('lulz', ('str', {}), {}),
-            ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
-        )),
+            ('test:ro', {}, (
+                ('writeable', ('str', {}), {'doc': 'writeable property.'}),
+                ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
+            )),
 
-        ('test:ro', {}, (
-            ('writeable', ('str', {}), {'doc': 'writeable property.'}),
-            ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
-        )),
+            ('test:hasiface', {}, ()),
+            ('test:hasiface2', {}, ()),
+            ('test:virtiface', {}, ()),
+            ('test:virtiface2', {}, ()),
+        ),
+    }),
+)
 
-        ('test:hasiface', {}, ()),
-        ('test:hasiface2', {}, ()),
-        ('test:virtiface', {}, ()),
-        ('test:virtiface2', {}, ()),
-    ),
-}
-
-deprmodel = {
-    'types': (
-        ('test:deprprop', ('test:str', {}), {'deprecated': True}),
-        ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
-        ('test:deprform', ('test:str', {}), {}),
-        ('test:deprndef', ('ndef', {}), {}),
-        ('test:deprform2', ('test:str', {}), {'deprecated': True}),
-        ('test:deprsub', ('str', {}), {}),
-        ('test:range', ('range', {}), {}),
-        ('test:deprsub2', ('comp', {'fields': (
-            ('name', 'test:str'),
-            ('range', 'test:range'))
-        }), {}),
-    ),
-    'forms': (
-        ('test:deprprop', {}, ()),
-        ('test:deprform', {}, (
-            ('ndefprop', ('test:deprndef', {}), {}),
-            ('deprprop', ('test:deprarray', {}), {}),
-            ('okayprop', ('str', {}), {}),
-            ('deprprop2', ('test:str', {}), {'deprecated': True}),
-        )),
-        ('test:deprform2', {}, ()),
-        ('test:deprsub', {}, (
-            ('range', ('test:range', {}), {}),
-            ('range:min', ('int', {}), {'deprecated': True}),
-            ('range:max', ('int', {}), {}),
-        )),
-        ('test:deprsub2', {}, (
-            ('name', ('str', {}), {}),
-            ('range', ('test:range', {}), {}),
-            ('range:min', ('int', {}), {}),
-            ('range:max', ('int', {}), {'deprecated': True}),
-        )),
-    ),
-
-}
+deprmodel = (
+    ('depr', {
+        'ctors': (
+            ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
+        ),
+        'types': (
+            ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
+            ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
+            ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),
+            ('test:deprprop', ('test:str', {}), {'deprecated': True}),
+            ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
+            ('test:deprform', ('test:str', {}), {}),
+            ('test:deprndef', ('ndef', {}), {}),
+            ('test:deprform2', ('test:str', {}), {'deprecated': True}),
+            ('test:deprsub', ('str', {}), {}),
+            ('test:range', ('range', {}), {}),
+            ('test:deprsub2', ('comp', {'fields': (
+                ('name', 'test:str'),
+                ('range', 'test:range'))
+            }), {}),
+        ),
+        'forms': (
+            ('test:deprprop', {}, ()),
+            ('test:deprform', {}, (
+                ('ndefprop', ('test:deprndef', {}), {}),
+                ('deprprop', ('test:deprarray', {}), {}),
+                ('okayprop', ('str', {}), {}),
+                ('deprprop2', ('test:str', {}), {'deprecated': True}),
+            )),
+            ('test:deprform2', {}, ()),
+            ('test:deprsub', {}, (
+                ('range', ('test:range', {}), {}),
+                ('range:min', ('int', {}), {'deprecated': True}),
+                ('range:max', ('int', {}), {}),
+            )),
+            ('test:deprsub2', {}, (
+                ('name', ('str', {}), {}),
+                ('range', ('test:range', {}), {}),
+                ('range:min', ('int', {}), {}),
+                ('range:max', ('int', {}), {'deprecated': True}),
+            )),
+            ('test:dep:easy', {'deprecated': True}, (
+                ('guid', ('test:guid', {}), {'deprecated': True}),
+                ('array', ('test:dep:array', {}), {}),
+                ('comp', ('test:dep:comp', {}), {}),
+            )),
+            ('test:dep:str', {}, (
+                ('beep', ('test:dep:str', {}), {}),
+            )),
+        ),
+        'univs': (
+            ('udep', ('test:dep:easy', {}), {}),
+            ('pdep', ('test:str', {}), {'deprecated': True})
+        )
+    }),
+)
 
 class TestCmd(s_storm.Cmd):
     '''
@@ -593,91 +606,6 @@ class TestCmd(s_storm.Cmd):
         async for node, path in genr:
             await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
-
-class DeprModule(s_module.CoreModule):
-    def getModelDefs(self):
-        return (
-            ('depr', deprmodel),
-        )
-
-class TestModule(s_module.CoreModule):
-    testguid = '8f1401de15918358d5247e21ca29a814'
-
-    async def initCoreModule(self):
-
-        data = [(('meta:source', self.testguid), {'props': {'name': 'test'}})]
-        await self.core.addFeedData(data)
-
-        self.core.addStormLib(('test',), LibTst)
-
-        self.healthy = True
-        self.core.addHealthFunc(self._testModHealth)
-
-        form = self.model.form('test:runt')
-        self.core.addRuntLift(form.full, self._testRuntLift)
-
-        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
-        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
-
-    async def _testModHealth(self, health):
-        if self.healthy:
-            health.update(self.getModName(), 'nominal',
-                          'Test module is healthy', data={'beep': 0})
-        else:
-            health.update(self.getModName(), 'failed',
-                          'Test module is unhealthy', data={'beep': 1})
-
-    async def addTestRecords(self, view, items, user=None):
-        for name in items:
-            await view.addNode('test:str', name, user=user)
-
-    async def _testRuntLift(self, view, prop, cmprvalu=None):
-
-        now = s_common.now()
-        timetype = self.core.model.type('time')
-
-        podes = [
-            (('test:runt', 'beep'), {'props': {'tick': timetype.norm('2001')[0], 'lulz': 'beep.sys', '.created': now}}),
-            (('test:runt', 'boop'), {'props': {'tick': timetype.norm('2010')[0], '.created': now}}),
-            (('test:runt', 'blah'), {'props': {'tick': timetype.norm('2010')[0], 'lulz': 'blah.sys'}}),
-            (('test:runt', 'woah'), {'props': {}}),
-        ]
-
-        for p in podes:
-            yield p
-
-    async def _testRuntPropSetLulz(self, node, prop, valu):
-        curv = node.get(prop.name)
-        valu, _ = prop.type.norm(valu)
-        if curv == valu:
-            return False
-        if not valu.endswith('.sys'):
-            raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
-                                    valu=valu, name=prop.full)
-        node.pode[1]['props'][prop.name] = valu
-        # In this test helper, we do NOT persist the change to our in-memory
-        # storage of row data, so a re-lift of the node would not reflect the
-        # change that a user made here.
-        return True
-
-    async def _testRuntPropDelLulz(self, node, prop,):
-        curv = node.pode[1]['props'].pop(prop.name, s_common.novalu)
-        if curv is s_common.novalu:
-            return False
-
-        # In this test helper, we do NOT persist the change to our in-memory
-        # storage of row data, so a re-lift of the node would not reflect the
-        # change that a user made here.
-        return True
-
-    def getModelDefs(self):
-        return (
-            ('test', testmodel),
-        )
-
-    def getStormCmds(self):
-        return (TestCmd,
-                )
 
 class TstEnv:
 
@@ -1367,16 +1295,12 @@ class SynTest(unittest.TestCase):
         '''
         conf = self.getCellConf(conf=conf)
 
-        mods = list(conf.get('modules', ()))
-        conf['modules'] = mods
-
-        mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
-
         with self.withNexusReplay():
 
             with self.mayTestDir(dirn) as dirn:
 
                 async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    core.model.addDataModels(testmodel)
                     yield core
 
     @contextlib.asynccontextmanager

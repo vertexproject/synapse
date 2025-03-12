@@ -1,14 +1,6 @@
-import synapse.lib.module as s_module
-
-
-class MediaModule(s_module.CoreModule):
-
-    def getModelDefs(self):
-        name = 'media'
-
-        ctors = ()
-
-        forms = (
+modeldefs = (
+    ('media', {
+        'forms': (
             ('media:news:type:taxonomy', {'prevnames': ('media:news:taxonomy',)}, ()),
             ('media:news', {}, (
                 ('url', ('inet:url', {}), {
@@ -66,9 +58,9 @@ class MediaModule(s_module.CoreModule):
                 ('desc', ('str', {}), {
                     'doc': 'A brief description of the topic.'}),
             )),
-        )
+        ),
 
-        types = (
+        'types': (
             ('media:news', ('guid', {}), {
                 'doc': 'A GUID for a news article or report.'}),
 
@@ -80,10 +72,5 @@ class MediaModule(s_module.CoreModule):
             ('media:topic', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'A topic string.'}),
         )
-
-        modldef = (name, {
-            'ctors': ctors,
-            'forms': forms,
-            'types': types,
-        })
-        return (modldef, )
+    }),
+)

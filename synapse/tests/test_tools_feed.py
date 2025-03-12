@@ -36,7 +36,6 @@ class FeedTest(s_t_utils.SynTest):
                         _ = fd.write(s_json.dumps(pode, newline=True))
 
                 argv = ['--cortex', curl,
-                        '--modules', 'synapse.tests.utils.TestModule',
                         '--chunksize', '3',
                         jsonlfp]
 
@@ -68,7 +67,6 @@ class FeedTest(s_t_utils.SynTest):
                         fd.write(s_msgpack.en(pode))
 
                 argv = ['--cortex', curl,
-                        '--modules', 'synapse.tests.utils.TestModule',
                         '--chunksize', '4',
                         '--offset', '15',
                         mpkfp]
@@ -104,8 +102,7 @@ class FeedTest(s_t_utils.SynTest):
                         pode = (('test:int', i), {})
                         fd.write(s_msgpack.en(pode))
 
-                base = ['--cortex', curl,
-                        '--modules', 'synapse.tests.utils.TestModule']
+                base = ['--cortex', curl]
 
                 argv = base + ['--view', newview, mpkfp]
 

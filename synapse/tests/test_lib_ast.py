@@ -3392,19 +3392,19 @@ class AstTest(s_test.SynTest):
             msgs = await core.stormlist('media:news inet:ip', opts={'graph': True})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(2, nodes)
-            self.eq(nodes[1][1]['path']['edges'], ((1, {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
+            self.eq(nodes[1][1]['path']['edges'], ((0, {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
 
             opts = {'graph': {'existing': (s_common.int64un(news.nid),)}}
             msgs = await core.stormlist('inet:ip', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
-            self.eq(nodes[0][1]['path']['edges'], ((1, {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
+            self.eq(nodes[0][1]['path']['edges'], ((0, {'type': 'edge', 'verb': 'refs', 'reverse': True}),))
 
             opts = {'graph': {'existing': (s_common.int64un(ipv4.nid),)}}
             msgs = await core.stormlist('media:news', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(1, nodes)
-            self.eq(nodes[0][1]['path']['edges'], ((2, {'type': 'edge', 'verb': 'refs'}),))
+            self.eq(nodes[0][1]['path']['edges'], ((1, {'type': 'edge', 'verb': 'refs'}),))
 
             msgs = await core.stormlist('media:news inet:ip', opts={'graph': {'maxsize': 1}})
             self.len(1, [m[1] for m in msgs if m[0] == 'node'])

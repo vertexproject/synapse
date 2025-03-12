@@ -1,166 +1,163 @@
-import synapse.lib.module as s_module
+modeldefs = (
+    ('plan', {
+        'types': (
+            ('plan:system', ('guid', {}), {
+                'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
 
-class PlanModule(s_module.CoreModule):
+            ('plan:phase', ('guid', {}), {
+                'doc': 'A phase within a planning system which may be used to group steps within a procedure.'}),
 
-    def getModelDefs(self):
-        return (('plan', {
-            'types': (
-                ('plan:system', ('guid', {}), {
-                    'doc': 'A planning or behavioral analysis system that defines phases and procedures.'}),
+            ('plan:procedure', ('guid', {}), {
+                'doc': 'A procedure consisting of steps.'}),
 
-                ('plan:phase', ('guid', {}), {
-                    'doc': 'A phase within a planning system which may be used to group steps within a procedure.'}),
+            ('plan:procedure:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': ('meta:taxonomy',),
+                'doc': 'A hierarchical taxonomy of procedure types.'}),
 
-                ('plan:procedure', ('guid', {}), {
-                    'doc': 'A procedure consisting of steps.'}),
+            ('plan:procedure:variable', ('guid', {}), {
+                'doc': 'A variable used by a procedure.'}),
 
-                ('plan:procedure:type:taxonomy', ('taxonomy', {}), {
-                    'interfaces': ('meta:taxonomy',),
-                    'doc': 'A hierarchical taxonomy of procedure types.'}),
+            ('plan:procedure:step', ('guid', {}), {
+                'doc': 'A step within a procedure.'}),
 
-                ('plan:procedure:variable', ('guid', {}), {
-                    'doc': 'A variable used by a procedure.'}),
+            ('plan:procedure:link', ('guid', {}), {
+                'doc': 'A link between steps in a procedure.'}),
+        ),
 
-                ('plan:procedure:step', ('guid', {}), {
-                    'doc': 'A step within a procedure.'}),
+        'edges': (
+            (('plan:procedure:step', 'uses', None), {
+                'doc': 'The step in the procedure makes use of the target node.'}),
+        ),
 
-                ('plan:procedure:link', ('guid', {}), {
-                    'doc': 'A link between steps in a procedure.'}),
-            ),
+        'forms': (
+            ('plan:system', {}, (
 
-            'edges': (
-                (('plan:procedure:step', 'uses', None), {
-                    'doc': 'The step in the procedure makes use of the target node.'}),
-            ),
+                ('name', ('str', {'lower': True, 'onespace': True}), {
+                    'ex': 'mitre att&ck flow',
+                    'doc': 'The name of the planning system.'}),
 
-            'forms': (
-                ('plan:system', {}, (
+                ('summary', ('str', {}), {
+                    'disp': {'hint': 'text'},
+                    'doc': 'A summary of the purpose and use case for the planning system.'}),
 
-                    ('name', ('str', {'lower': True, 'onespace': True}), {
-                        'ex': 'mitre att&ck flow',
-                        'doc': 'The name of the planning system.'}),
+                ('author', ('ps:contact', {}), {
+                    'doc': 'The contact of the person or organization which authored the system.'}),
 
-                    ('summary', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'A summary of the purpose and use case for the planning system.'}),
+                ('created', ('time', {}), {
+                    'doc': 'The time the planning system was first created.'}),
 
-                    ('author', ('ps:contact', {}), {
-                        'doc': 'The contact of the person or organization which authored the system.'}),
+                ('updated', ('time', {}), {
+                    'doc': 'The time the planning system was last updated.'}),
 
-                    ('created', ('time', {}), {
-                        'doc': 'The time the planning system was first created.'}),
+                ('version', ('it:semver', {}), {
+                    'doc': 'The version of the planning system.'}),
 
-                    ('updated', ('time', {}), {
-                        'doc': 'The time the planning system was last updated.'}),
+                ('url', ('inet:url', {}), {
+                    'doc': 'The primary URL which documents the planning system.'}),
+            )),
+            ('plan:phase', {}, (
+                ('title', ('str', {}), {
+                    'ex': 'Reconnaissance Phase',
+                    'doc': 'The title of the phase.'}),
 
-                    ('version', ('it:semver', {}), {
-                        'doc': 'The version of the planning system.'}),
+                ('summary', ('str', {}), {
+                    'disp': {'hint': 'text'},
+                    'doc': 'A summary of the definition of the phase.'}),
 
-                    ('url', ('inet:url', {}), {
-                        'doc': 'The primary URL which documents the planning system.'}),
-                )),
-                ('plan:phase', {}, (
-                    ('title', ('str', {}), {
-                        'ex': 'Reconnaissance Phase',
-                        'doc': 'The title of the phase.'}),
+                ('index', ('int', {}), {
+                    'doc': 'The index of this phase within the phases of the system.'}),
 
-                    ('summary', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'A summary of the definition of the phase.'}),
+                ('url', ('inet:url', {}), {
+                    'doc': 'A URL which links to the full documentation about the phase.'}),
 
-                    ('index', ('int', {}), {
-                        'doc': 'The index of this phase within the phases of the system.'}),
+                ('system', ('plan:system', {}), {
+                    'doc': 'The planning system which defines this phase.'}),
+            )),
+            ('plan:procedure:type:taxonomy', {}, ()),
+            ('plan:procedure', {}, (
 
-                    ('url', ('inet:url', {}), {
-                        'doc': 'A URL which links to the full documentation about the phase.'}),
+                ('title', ('str', {}), {
+                    'ex': 'Network Reconnaissance Procedure',
+                    'doc': 'The name of the procedure.'}),
 
-                    ('system', ('plan:system', {}), {
-                        'doc': 'The planning system which defines this phase.'}),
-                )),
-                ('plan:procedure:type:taxonomy', {}, ()),
-                ('plan:procedure', {}, (
+                ('summary', ('str', {}), {
+                    'disp': {'hint': 'text'},
+                    'doc': 'A summary of the purpose and use cases for the procedure.'}),
 
-                    ('title', ('str', {}), {
-                        'ex': 'Network Reconnaissance Procedure',
-                        'doc': 'The name of the procedure.'}),
+                ('author', ('ps:contact', {}), {
+                    'doc': 'The contact of the person or organization which authored the procedure.'}),
 
-                    ('summary', ('str', {}), {
-                        'disp': {'hint': 'text'},
-                        'doc': 'A summary of the purpose and use cases for the procedure.'}),
+                ('created', ('time', {}), {
+                    'doc': 'The time the procedure was created.'}),
 
-                    ('author', ('ps:contact', {}), {
-                        'doc': 'The contact of the person or organization which authored the procedure.'}),
+                ('updated', ('time', {}), {
+                    'doc': 'The time the procedure was last updated.'}),
 
-                    ('created', ('time', {}), {
-                        'doc': 'The time the procedure was created.'}),
+                ('version', ('it:semver', {}), {
+                    'doc': 'The version of the procedure.'}),
 
-                    ('updated', ('time', {}), {
-                        'doc': 'The time the procedure was last updated.'}),
+                ('system', ('plan:system', {}), {
+                    'doc': 'The planning system which defines this procedure.'}),
 
-                    ('version', ('it:semver', {}), {
-                        'doc': 'The version of the procedure.'}),
+                ('type', ('plan:procedure:type:taxonomy', {}), {
+                    'doc': 'A type classification for the procedure.'}),
 
-                    ('system', ('plan:system', {}), {
-                        'doc': 'The planning system which defines this procedure.'}),
+                ('inputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of inputs required to execute the procedure.'}),
 
-                    ('type', ('plan:procedure:type:taxonomy', {}), {
-                        'doc': 'A type classification for the procedure.'}),
+                ('firststep', ('plan:procedure:step', {}), {
+                    'doc': 'The first step in the procedure.'}),
+            )),
+            ('plan:procedure:variable', {}, (
 
-                    ('inputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of inputs required to execute the procedure.'}),
+                ('name', ('str', {}), {
+                    'doc': 'The name of the variable.'}),
 
-                    ('firststep', ('plan:procedure:step', {}), {
-                        'doc': 'The first step in the procedure.'}),
-                )),
-                ('plan:procedure:variable', {}, (
+                ('type', ('str', {}), {
+                    'doc': 'The type for the input. Types are specific to the planning system.'}),
 
-                    ('name', ('str', {}), {
-                        'doc': 'The name of the variable.'}),
+                ('default', ('data', {}), {
+                    'doc': 'The optional default value if the procedure is invoked without the input.'}),
 
-                    ('type', ('str', {}), {
-                        'doc': 'The type for the input. Types are specific to the planning system.'}),
+                ('procedure', ('plan:procedure', {}), {
+                    'doc': 'The procedure which defines the variable.'}),
+            )),
+            ('plan:procedure:step', {}, (
 
-                    ('default', ('data', {}), {
-                        'doc': 'The optional default value if the procedure is invoked without the input.'}),
+                ('phase', ('plan:phase', {}), {
+                    'doc': 'The phase that the step belongs within.'}),
 
-                    ('procedure', ('plan:procedure', {}), {
-                        'doc': 'The procedure which defines the variable.'}),
-                )),
-                ('plan:procedure:step', {}, (
+                ('procedure', ('plan:procedure', {}), {
+                    'doc': 'The procedure which defines the step.'}),
 
-                    ('phase', ('plan:phase', {}), {
-                        'doc': 'The phase that the step belongs within.'}),
+                ('title', ('str', {}), {
+                    'ex': 'Scan the IPv4 address range for open ports',
+                    'doc': 'The title of the step.'}),
 
-                    ('procedure', ('plan:procedure', {}), {
-                        'doc': 'The procedure which defines the step.'}),
+                ('summary', ('str', {}), {
+                    'doc': 'A summary of the tasks executed within the step.'}),
 
-                    ('title', ('str', {}), {
-                        'ex': 'Scan the IPv4 address range for open ports',
-                        'doc': 'The title of the step.'}),
+                ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of variables defined in this step.'}),
 
-                    ('summary', ('str', {}), {
-                        'doc': 'A summary of the tasks executed within the step.'}),
+                ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of techniques used when executing this step.'}),
 
-                    ('outputs', ('array', {'type': 'plan:procedure:variable', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of variables defined in this step.'}),
+                ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True}), {
+                    'doc': 'An array of links to subsequent steps.'}),
 
-                    ('techniques', ('array', {'type': 'ou:technique', 'uniq': True, 'sorted': True}), {
-                        'doc': 'An array of techniques used when executing this step.'}),
+            )),
+            ('plan:procedure:link', {}, (
 
-                    ('links', ('array', {'type': 'plan:procedure:link', 'uniq': True}), {
-                        'doc': 'An array of links to subsequent steps.'}),
+                ('condition', ('bool', {}), {
+                    'doc': 'Set to true/false if this link is conditional based on a decision step.'}),
 
-                )),
-                ('plan:procedure:link', {}, (
+                ('next', ('plan:procedure:step', {}), {
+                    'doc': 'The next step in the plan.'}),
 
-                    ('condition', ('bool', {}), {
-                        'doc': 'Set to true/false if this link is conditional based on a decision step.'}),
-
-                    ('next', ('plan:procedure:step', {}), {
-                        'doc': 'The next step in the plan.'}),
-
-                    ('procedure', ('plan:procedure', {}), {
-                        'doc': 'The procedure which defines the link.'}),
-                )),
-            ),
-        }),)
+                ('procedure', ('plan:procedure', {}), {
+                    'doc': 'The procedure which defines the link.'}),
+            )),
+        ),
+    }),
+)

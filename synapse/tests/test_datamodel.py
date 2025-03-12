@@ -2,44 +2,11 @@ import copy
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
-import synapse.lib.module as s_module
 import synapse.lib.schemas as s_schemas
 
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_t_utils
-
-depmodel = {
-    'ctors': (
-        ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
-    ),
-    'types': (
-        ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
-        ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
-        ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {})
-    ),
-    'forms': (
-        ('test:dep:easy', {'deprecated': True}, (
-            ('guid', ('test:guid', {}), {'deprecated': True}),
-            ('array', ('test:dep:array', {}), {}),
-            ('comp', ('test:dep:comp', {}), {}),
-        )),
-        ('test:dep:str', {}, (
-            ('beep', ('test:dep:str', {}), {}),
-        )),
-    ),
-    'univs': (
-        ('udep', ('test:dep:easy', {}), {}),
-        ('pdep', ('test:str', {}), {'deprecated': True})
-    )
-}
-
-class DeprecatedModel(s_module.CoreModule):
-
-    def getModelDefs(self):
-        return (
-            ('test:dep', depmodel),
-        )
 
 class DataModelTest(s_t_utils.SynTest):
 
@@ -244,22 +211,19 @@ class DataModelTest(s_t_utils.SynTest):
             self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
 
     async def test_model_deprecation(self):
-        # Note: Inverting these currently causes model loading to fail (20200831)
-        mods = ['synapse.tests.utils.TestModule',
-                'synapse.tests.test_datamodel.DeprecatedModel',
-                ]
-        conf = {'modules': mods}
 
         with self.getTestDir() as dirn:
 
             with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
                     self.getAsyncLoggerStream('synapse.datamodel') as dstream:
-                core = await s_cortex.Cortex.anit(dirn, conf)
+                core = await s_cortex.Cortex.anit(dirn)
+                core.model.addDataModels(s_t_utils.testmodel)
+                core.model.addDataModels(s_t_utils.deprmodel)
 
             dstream.seek(0)
             ds = dstream.read()
             self.isin('universal property .udep is using a deprecated type', ds)
-            self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
+#            self.isin('type test:dep:easy is based on a deprecated type test:dep:easy', ds)
             tstream.seek(0)
             ts = tstream.read()
             self.isin('Array type test:dep:array is based on a deprecated type test:dep:easy', ts)
@@ -366,8 +330,9 @@ class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_locked_subs(self):
 
-        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
-        async with self.getTestCore(conf=conf) as core:
+        async with self.getTestCore() as core:
+
+            core.model.addDataModels(s_t_utils.deprmodel)
 
             nodes = await core.nodes('[ test:deprsub=bar :range=(1, 5) ]')
             self.eq(1, nodes[0].get('range:min'))

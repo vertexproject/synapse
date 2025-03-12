@@ -96,7 +96,7 @@ async def main(argv, outp=None):
                     f' to get to that location in the input file.')
 
     if opts.test:
-        async with s_cortex.getTempCortex(mods=opts.modules) as prox:
+        async with s_cortex.getTempCortex() as prox:
             await addFeedData(prox, outp, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
@@ -136,8 +136,6 @@ def makeargparser():
 
     pars.add_argument('--debug', '-d', default=False, action='store_true',
                       help='Drop to interactive prompt to inspect cortex after loading data.')
-    pars.add_argument('--modules', '-m', type=str, action='append', default=[],
-                      help='Additional modules to load locally with a test Cortex.')
     pars.add_argument('--chunksize', type=int, action='store', default=1000,
                       help='Default chunksize for iterating over items.')
     pars.add_argument('--offset', type=int, action='store', default=0,

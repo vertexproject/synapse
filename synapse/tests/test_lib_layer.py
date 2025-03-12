@@ -793,7 +793,7 @@ class LayerTest(s_t_utils.SynTest):
                     nodelist1 = [node.pack() for node in nodelist1]
                     self.eq(nodelist0, nodelist1)
 
-                    self.len(6, await alist(layrprox.syncNodeEdits2(0, wait=False)))
+                    self.len(4, await alist(layrprox.syncNodeEdits2(0, wait=False)))
 
                 layr = core1.view.layers[0]  # type: s_layer.Layer
 
@@ -832,17 +832,17 @@ class LayerTest(s_t_utils.SynTest):
             layer0 = core0.getLayer()
 
             await core0.nodes('[ test:str=foo ]')
-            self.len(2, await core0.nodes('.created'))
+            self.len(1, await core0.nodes('.created'))
 
             nodeedits = [ne async for ne in layer0.iterLayerNodeEdits()]
-            self.len(2, nodeedits)
+            self.len(1, nodeedits)
 
             await core0.nodes('.created | delnode --force')
 
             flatedits = await layer0._storNodeEdits(nodeedits, {}, None)
-            self.len(2, flatedits)
+            self.len(1, flatedits)
 
-            self.len(2, await core0.nodes('.created'))
+            self.len(1, await core0.nodes('.created'))
 
     async def test_layer_syncindexevents(self):
 

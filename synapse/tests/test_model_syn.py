@@ -171,6 +171,8 @@ class SynModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('syn:type:ctor')
             self.gt(len(nodes), 1)
 
+            self.len(0, await core.nodes('.created'))
+
             nodes = await core.nodes('syn:type=comp')
             self.len(1, nodes)
             node = nodes[0]
@@ -361,6 +363,27 @@ class SynModelTest(s_t_utils.SynTest):
 
             self.eq((), await core.callStorm('syn:form=inet:fqdn return($node.tags())'))
 
+            # Ensure that delete a read-only runt prop fails, whether or not it exists.
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form:doc [-:doc]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:type -:subof [-:ctor]')
+
+            # # Ensure that adding tags on runt nodes fails
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form [+#hehe]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form [-#hehe]')
+
+            # Ensure that adding / deleting runt nodes fails
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('[syn:form=newp]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form | delnode')
+
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:
 
@@ -370,13 +393,7 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:form=syn:tag')
                 self.len(1, nodes)
 
-                nodes = await core.nodes('syn:form=test:runt')
-                self.len(0, nodes)
-
-                await core.loadCoreModule('synapse.tests.utils.TestModule')
-
-                nodes = await core.nodes('syn:form=test:runt')
-                self.len(1, nodes)
+                core.model.addDataModels(s_t_utils.testmodel)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)

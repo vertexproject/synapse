@@ -29,15 +29,6 @@ class HealthcheckTest(s_t_utils.SynTest):
             resp = s_json.loads(str(outp))
             self.isinstance(resp, dict)
 
-            mod = core.modules.get('synapse.tests.utils.TestModule')  # type: s_t_utils.TestModule
-            mod.healthy = False
-
-            outp.clear()
-            retn = await s_t_healthcheck.main(argv, outp)
-            self.eq(retn, 1)
-            resp = s_json.loads(str(outp))
-            self.isinstance(resp, dict)
-
             # Sad paths
 
             # timeout during check
