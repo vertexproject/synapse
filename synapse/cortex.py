@@ -6992,7 +6992,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         vault = self.getVault(iden)
         if vault is None:
-            raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.')
+            raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.', iden=iden)
 
         return vault
 
@@ -7345,7 +7345,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             scope = 'roles'
             ident = self.auth.role(iden)
             if ident is None:
-                raise s_exc.NoSuchIden(mesg=f'Iden {iden} is not a valid user or role.')
+                raise s_exc.NoSuchIden(mesg=f'Iden {iden} is not a valid user or role.', iden=iden)
 
         await self._setEasyPerm(vault, scope, ident.iden, level)
         permissions = vault.get('permissions')
