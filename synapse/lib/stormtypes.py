@@ -8743,7 +8743,7 @@ class LibTrigger(Lib):
                     pass
 
         if trigger is None:
-            raise s_exc.NoSuchIden('Trigger not found')
+            raise s_exc.NoSuchIden(mesg='Trigger not found')
 
         self.runt.confirm(('trigger', 'get'), gateiden=iden)
 

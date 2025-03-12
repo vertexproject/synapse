@@ -1265,7 +1265,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             byts = self.slab.get(newname.encode(), db=self.macrodb)
             if byts is not None:
-                raise s_exc.DupName('A macro named {newname} already exists!')
+                raise s_exc.DupName(mesg='A macro named {newname} already exists!')
 
             self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
             self.slab.pop(name.encode(), db=self.macrodb)
@@ -6535,7 +6535,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             cdef['reqs'] = reqs
         except KeyError:
-            raise s_exc.BadConfValu('Unrecognized time unit')
+            raise s_exc.BadConfValu(mesg='Unrecognized time unit')
 
         if not cdef.get('iden'):
             cdef['iden'] = s_common.guid()
@@ -7373,7 +7373,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('vault:set')
     async def _setVault(self, iden, key, valu):
         if key not in ('name', 'permissions'):  # pragma: no cover
-            raise s_exc.BadArg('Only vault names and permissions can be changed.')
+            raise s_exc.BadArg(mesg='Only vault names and permissions can be changed.')
 
         vault = self.reqVault(iden)
         oldv = vault.get(key)
