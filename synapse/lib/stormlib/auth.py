@@ -688,7 +688,7 @@ class UserJson(s_stormtypes.Prim):
                         {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
                         {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
-                    'returns': {'type': 'prim', 'desc': 'The previously stored value or $lib.null'}}},
+                    'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': 'set',

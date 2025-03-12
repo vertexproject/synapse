@@ -193,7 +193,7 @@ class ImapServer(s_stormtypes.StormType):
                     {'type': 'str', 'name': '*args',
                      'desc': 'A set of search criteria to use.'},
                     {'type': ['str', 'null'], 'name': 'charset', 'default': 'utf-8',
-                     'desc': 'The CHARSET used for the search. May be set to $lib.null to disable CHARSET.'},
+                     'desc': 'The CHARSET used for the search. May be set to ``(null)`` to disable CHARSET.'},
                 ),
                 'returns': {
                     'type': 'list',
