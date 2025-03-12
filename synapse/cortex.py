@@ -1265,7 +1265,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             byts = self.slab.get(newname.encode(), db=self.macrodb)
             if byts is not None:
-                raise s_exc.DupName(mesg=f'A macro named {newname} already exists!')
+                raise s_exc.DupName(mesg=f'A macro named {newname} already exists!', name=newname)
 
             self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
             self.slab.pop(name.encode(), db=self.macrodb)
@@ -7366,7 +7366,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns: Updated vault.
         '''
         if self.getVaultByName(name) is not None:
-            raise s_exc.DupName(mesg=f'Vault with name {name} already exists.')
+            raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
 
         return await self._push(('vault:set'), iden, 'name', name)
 
