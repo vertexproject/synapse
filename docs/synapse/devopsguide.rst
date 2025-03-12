@@ -1976,15 +1976,18 @@ You can see the startup logs as well:
 ::
 
     $ kubectl logs -l app.kubernetes.io/instance=aha00
-    2025-03-11 21:00:13,018 [DEBUG] Set config valu from envar: [SYN_AHA_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:13,018 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NETWORK] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:13,023 [INFO] Adding CA certificate for dev.synapse [aha.py:initServiceRuntime:MainThread:MainProcess]
-    2025-03-11 21:00:13,023 [INFO] Generating CA certificate for dev.synapse [aha.py:genCaCert:MainThread:MainProcess]
-    2025-03-11 21:00:13,667 [INFO] Adding user certificate for root@dev.synapse [aha.py:_genUserCert:MainThread:MainProcess]
-    2025-03-11 21:00:14,864 [INFO] dmon listening: ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
-    2025-03-11 21:00:14,865 [INFO] provision listening: ssl://0.0.0.0:27272?hostname=aha00.default.svc.cluster.local [aha.py:initServiceNetwork:MainThread:MainProcess]
-    2025-03-11 21:00:14,867 [INFO] ...ahacell API (telepath): ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-11 21:00:14,867 [INFO] ...ahacell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:30:49,620 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2025-03-12 20:30:49,620 [INFO] Starting ahacell version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_DNS_NAME] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NETWORK] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:30:49,637 [INFO] Adding CA certificate for dev.synapse [aha.py:initServiceRuntime:MainThread:MainProcess]
+    2025-03-12 20:30:49,637 [INFO] Generating CA certificate for dev.synapse [aha.py:genCaCert:MainThread:MainProcess]
+    2025-03-12 20:30:49,782 [INFO] Adding user certificate for root@dev.synapse [aha.py:_genUserCert:MainThread:MainProcess]
+    2025-03-12 20:30:50,654 [INFO] dmon listening: ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:30:50,656 [INFO] provision listening: ssl://0.0.0.0:27272?hostname=aha00.default.svc.cluster.local [aha.py:initServiceNetwork:MainThread:MainProcess]
+    2025-03-12 20:30:50,657 [INFO] ...ahacell API (telepath): ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:30:50,657 [INFO] ...ahacell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 Axon
 ^^^^
@@ -2031,15 +2034,17 @@ You can see the Axon logs as well. These show provisioning and listening for tra
 ::
 
     $ kubectl logs -l app.kubernetes.io/instance=axon00
-    2025-03-11 21:00:15,277 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:15,277 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:15,278 [INFO] Provisioning axon from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2025-03-11 21:00:15,313 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:15,313 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:16,679 [INFO] Done provisioning axon AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2025-03-11 21:00:16,729 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.axon.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
-    2025-03-11 21:00:16,731 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-11 21:00:16,731 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [INFO] Starting axon version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [INFO] Provisioning axon from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:31:56,937 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:56,937 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:58,273 [INFO] Done provisioning axon AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:31:58,334 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.axon.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:31:58,335 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:31:58,335 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 The hostname ``00.axon.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
 internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
@@ -2092,15 +2097,17 @@ You can see the JSONStor logs as well. These show provisioning and listening for
 ::
 
     $ kubectl logs -l app.kubernetes.io/instance=jsonstor00
-    2025-03-11 21:00:17,712 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:17,712 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:17,713 [INFO] Provisioning jsonstorcell from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2025-03-11 21:00:17,752 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:17,752 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:18,797 [INFO] Done provisioning jsonstorcell AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2025-03-11 21:00:18,845 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.jsonstor.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
-    2025-03-11 21:00:18,847 [INFO] ...jsonstorcell API (telepath): ssl://0.0.0.0:0?hostname=00.jsonstor.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-11 21:00:18,847 [INFO] ...jsonstorcell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:29,606 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [INFO] Starting jsonstorcell version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [INFO] Provisioning jsonstorcell from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:32:29,640 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:29,640 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:30,570 [INFO] Done provisioning jsonstorcell AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:32:30,633 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.jsonstor.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:32:30,635 [INFO] ...jsonstorcell API (telepath): ssl://0.0.0.0:0?hostname=00.jsonstor.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:30,635 [INFO] ...jsonstorcell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 The hostname ``00.jsonstor.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
 internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
@@ -2154,15 +2161,26 @@ made to the Axon and JSONStor services:
 ::
 
     $ kubectl logs -l app.kubernetes.io/instance=cortex00
-    2025-03-11 21:00:19,119 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:19,119 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2025-03-11 21:00:19,255 [INFO] Done provisioning cortex AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2025-03-11 21:00:19,580 [WARNING] Detected 255 deprecated properties unlocked and not in use, recommend locking (https://v.vtx.lk/deprlock). [cortex.py:_warnDeprLocks:MainThread:MainProcess]
-    2025-03-11 21:00:19,712 [INFO] dmon listening: ssl://0.0.0.0:27492?hostname=00.cortex.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
-    2025-03-11 21:00:19,714 [INFO] ...cortex API (telepath): ssl://0.0.0.0:27492?hostname=00.cortex.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-11 21:00:19,714 [INFO] ...cortex API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
-    2025-03-11 21:00:19,715 [DEBUG] Connected to remote jsonstor aha://jsonstor... [cortex.py:onlink:MainThread:MainProcess]
-    2025-03-11 21:00:19,739 [DEBUG] Connected to remote axon aha://axon... [cortex.py:onlink:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [INFO] Starting cortex version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [INFO] Provisioning cortex from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:55,169 [INFO] Done provisioning cortex AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:33:55,533 [WARNING] Detected 255 deprecated properties unlocked and not in use, recommend locking (https://v.vtx.lk/deprlock). [cortex.py:_warnDeprLocks:MainThread:MainProcess]
+    2025-03-12 20:33:55,660 [INFO] dmon listening: ssl://0.0.0.0:27492?hostname=00.cortex.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:33:55,661 [INFO] ...cortex API (telepath): ssl://0.0.0.0:27492?hostname=00.cortex.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:33:55,661 [INFO] ...cortex API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:33:55,664 [DEBUG] Connected to remote axon aha://axon... [cortex.py:onlink:MainThread:MainProcess]
+    2025-03-12 20:33:55,697 [DEBUG] Connected to remote jsonstor aha://jsonstor... [cortex.py:onlink:MainThread:MainProcess]
 
 The hostname ``00.cortex.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
 internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
