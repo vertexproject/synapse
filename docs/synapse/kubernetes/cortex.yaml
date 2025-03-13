@@ -67,7 +67,8 @@ spec:
           - name: SYN_LOG_STRUCT
             value: "false"
           - name: SYN_CORTEX_AHA_PROVISION
-            value: "ssl://aha.default.svc.cluster.local:27272/..."
+            # This value is the Aha provisioning URL from the Aha service output, see below for more details
+            value: "ssl://aha00.default.svc.cluster.local:27272/..."
           - name: SYN_CORTEX_HTTPS_PORT
             value: null
           - name: SYN_CORTEX_STORM_LOG
