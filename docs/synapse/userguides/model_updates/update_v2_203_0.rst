@@ -26,7 +26,7 @@ Light Edges
 ***********
 
 ``found``
-    When used with a ``meta:feed`` node, the edge indicates The meta:feed
+    When used with a ``meta:feed`` node, the edge indicates the meta:feed
     produced the target node.
 
 
