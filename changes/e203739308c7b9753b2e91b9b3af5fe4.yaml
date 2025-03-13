@@ -1,0 +1,6 @@
+---
+desc: Updated URL pattern matching to validate schemes against IANA standards for
+  the ``scrape`` command.
+prs: []
+type: feat
+...
