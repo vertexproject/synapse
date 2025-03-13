@@ -26,8 +26,18 @@ logger = logging.getLogger(__name__)
 
 urilist = set(s_data.get('iana.uris'))
 urilist.update([
+    'aha',
     'ftps',
-    'tcp'
+    'mysql',
+    'postgresql',
+    'slack',
+    'socks4',
+    'socks4a',
+    'socks5',
+    'socks5h',
+    'tcp',
+    'unk',
+    'webpack'
 ])
 
 tldlist = list(s_data.get('iana.tlds'))
