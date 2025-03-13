@@ -26,9 +26,9 @@ Features and Enhancements
   values via user defined Storm callbacks; as well as obtaining the assertions
   from Azure Managed Identity Workloads.
   (`#4125 <https://github.com/vertexproject/synapse/pull/4125>`_)
-- Updated the JSON library used by Synapse to orjson which is more strict to
-  the JSON standards and shown to be more performant than the builtin Python
-  JSON library.
+- Updated the JSON library used by Synapse to ``orjson`` which is more strict
+  to the JSON standards and shown to be more performant than the builtin
+  Python ``json`` library.
   (`#4129 <https://github.com/vertexproject/synapse/pull/4129>`_)
 - Updated URL pattern matching to validate schemes against IANA standards for
   the ``scrape`` command.
