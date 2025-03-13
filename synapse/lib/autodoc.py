@@ -286,11 +286,11 @@ def genCallsig(rtype):
         if defv is s_common.novalu:
             item = name
         elif defv is None:
-            item = f'{name}=$lib.null'
+            item = f'{name}=(null)'
         elif defv is True:
-            item = f'{name}=$lib.true'
+            item = f'{name}=(true)'
         elif defv is False:
-            item = f'{name}=$lib.false'
+            item = f'{name}=(false)'
         elif isinstance(defv, str):
             item = f'{name}={defv}'
         elif isinstance(defv, int):
