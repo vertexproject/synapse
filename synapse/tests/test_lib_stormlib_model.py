@@ -91,7 +91,7 @@ class StormlibModelTest(s_test.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                core.model.addDataModels((('depr', s_test.deprmodel),))
+                await core._addDataModels(s_test.deprmodel)
 
                 # create both a deprecated form and a node with a deprecated prop
                 await core.nodes('[ test:deprform=* :deprprop2=foo test:deprprop=baz ]')
@@ -131,7 +131,7 @@ class StormlibModelTest(s_test.SynTest):
             # ensure that the locks persisted and got loaded correctly
             async with self.getTestCore(dirn=dirn) as core:
 
-                core.model.addDataModels((('depr', s_test.deprmodel),))
+                await core._addDataModels(s_test.deprmodel)
 
                 mesgs = await core.stormlist('model.deprecated.check')
                 # warn due to unlocked
@@ -154,18 +154,14 @@ class StormlibModelTest(s_test.SynTest):
 
     async def test_stormlib_model_depr_check(self):
 
-        conf = {
-            'modules': [
-                'synapse.tests.test_datamodel.DeprecatedModel',
-            ]
-        }
+        async with self.getTestCore() as core:
 
-        with self.getTestDir() as dirn:
-            async with self.getTestCore(conf=conf, dirn=dirn) as core:
-                mesgs = await core.stormlist('model.deprecated.check')
+            await core._addDataModels(s_test.deprmodel)
 
-                self.stormIsInWarn('.pdep is not yet locked', mesgs)
-                self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)
+            mesgs = await core.stormlist('model.deprecated.check')
+
+            self.stormIsInWarn('.pdep is not yet locked', mesgs)
+            self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)
 
     async def test_stormlib_model_migration(self):
 

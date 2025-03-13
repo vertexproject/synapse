@@ -3,27 +3,25 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
-import synapse.lib.module as s_module
+geotestmodel = (
+    ('geo:test', {
 
-geotestmodel = {
+        'types': (
+            ('test:latlong', ('geo:latlong', {}), {}),
+            ('test:distoff', ('geo:dist', {'baseoff': 1000}), {}),
+        ),
 
-    'ctors': (),
+        'forms': (
 
-    'types': (
-        ('test:latlong', ('geo:latlong', {}), {}),
-        ('test:distoff', ('geo:dist', {'baseoff': 1000}), {}),
-    ),
-
-    'forms': (
-
-        ('test:latlong', {}, (
-            ('lat', ('geo:latitude', {}), {}),
-            ('long', ('geo:longitude', {}), {}),
-            ('dist', ('geo:dist', {}), {}),
-        )),
-        ('test:distoff', {}, ()),
-    ),
-}
+            ('test:latlong', {}, (
+                ('lat', ('geo:latitude', {}), {}),
+                ('long', ('geo:longitude', {}), {}),
+                ('dist', ('geo:dist', {}), {}),
+            )),
+            ('test:distoff', {}, ()),
+        ),
+    }),
+)
 
 geojson0 = {
   "type": "GeometryCollection",
@@ -106,12 +104,6 @@ geojson2 = {
     }
   ]
 }
-
-class GeoTstModule(s_module.CoreModule):
-    def getModelDefs(self):
-        return (
-            ('geo:test', geotestmodel),
-        )
 
 
 class GeoTest(s_t_utils.SynTest):
@@ -406,7 +398,8 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
+            await core._addDataModels(geotestmodel)
+
             # Lift behavior for a node whose has a latlong as their primary property
             nodes = await core.nodes('[(test:latlong=(10, 10) :dist=10m) '
                                     '(test:latlong=(10.1, 10.1) :dist=20m) '
@@ -462,7 +455,7 @@ class GeoTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            await core.loadCoreModule('synapse.tests.test_model_geospace.GeoTstModule')
+            await core._addDataModels(geotestmodel)
             nodes = await core.nodes('[ test:distoff=-3cm ]')
             self.eq(970, nodes[0].ndef[1])
             self.eq('-3.0 cm', await core.callStorm('test:distoff return($node.repr())'))

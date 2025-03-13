@@ -13,6 +13,7 @@ import synapse
 import synapse.exc as s_exc
 import synapse.axon as s_axon
 import synapse.common as s_common
+import synapse.models as s_models
 import synapse.telepath as s_telepath
 import synapse.datamodel as s_datamodel
 
@@ -36,7 +37,6 @@ import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.modules as s_modules
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
 import synapse.lib.version as s_version
@@ -208,10 +208,6 @@ class CoreApi(s_cell.CellApi):
         })
 
     '''
-    @s_cell.adminapi()
-    def getCoreMods(self):
-        return self.cell.getCoreMods()
-
     async def getModelDict(self):
         '''
         Return a dictionary which describes the data model.
@@ -701,11 +697,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             'minimum': 1,
             'hidecmdl': True,
         },
-        'modules': {
-            'default': [],
-            'description': 'A list of module classes to load.',
-            'type': 'array'
-        },
         'storm:log': {
             'default': False,
             'description': 'Log storm queries via system logger.',
@@ -769,7 +760,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.layers = {}
         self.viewsbylayer = collections.defaultdict(list)
 
-        self.modules = {}
         self.stormcmds = {}
 
         self.maxnodes = self.conf.get('max:nodes')
@@ -840,8 +830,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.model = s_datamodel.Model(core=self)
 
-        # Perform module loading
-        await self._loadCoreMods()
+        await self._loadModels()
         await self._loadExtModel()
         await self._initStormCmds()
 
@@ -876,7 +865,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._initDeprLocks()
         await self._warnDeprLocks()
 
-        # Finalize coremodule loading
         await self._initPureStormCmds()
 
         self.dynitems.update({
@@ -1283,8 +1271,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # do any post-nexus initialization here...
         if self.isactive:
             await self._checkNexsIndx()
-
-        await self._initCoreMods()
 
         if self.isactive:
             await self._checkLayerModels()
@@ -2701,6 +2687,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     async def _cortexHealth(self, health):
         health.update('cortex', 'nominal')
+
+    async def _loadModels(self):
+        mdefs = []
+
+        for path in s_models.modeldefs:
+            if (defs := s_dyndeps.getDynLocal(path)) is not None:
+                mdefs.extend(defs)
+
+        self.model.addDataModels(mdefs)
+
+    async def _addDataModels(self, mods):
+        self.model.addDataModels(mods)
+        await self._initDeprLocks()
+        await self._warnDeprLocks()
 
     async def _loadExtModel(self):
 
@@ -5206,15 +5206,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self._bumpUserDmons(iden)
         return retn
 
-    def getCoreMod(self, name):
-        return self.modules.get(name)
-
-    def getCoreMods(self):
-        ret = []
-        for modname, mod in self.modules.items():
-            ret.append((modname, mod.conf))
-        return ret
-
     def _initStormOpts(self, opts):
         if opts is None:
             opts = {}
@@ -5681,114 +5672,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         async for node in view.addNodes(items, user=user):
             await asyncio.sleep(0)
-
-    async def loadCoreModule(self, ctor, conf=None):
-        '''
-        Load a single cortex module with the given ctor and conf.
-
-        Args:
-            ctor (str): The python module class path
-            conf (dict):Config dictionary for the module
-        '''
-        if conf is None:
-            conf = {}
-
-        modu = self._loadCoreModule(ctor, conf=conf)
-
-        try:
-            await s_coro.ornot(modu.preCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-        except Exception:
-            logger.exception(f'module preCoreModule failed: {ctor}')
-            self.modules.pop(ctor, None)
-            return
-
-        mdefs = modu.getModelDefs()
-        self.model.addDataModels(mdefs)
-
-        cmds = modu.getStormCmds()
-        [self.addStormCmd(c) for c in cmds]
-
-        try:
-            await s_coro.ornot(modu.initCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-        except Exception:
-            logger.exception(f'module initCoreModule failed: {ctor}')
-            self.modules.pop(ctor, None)
-            return
-
-        await self.fire('core:module:load', module=ctor)
-
-        return modu
-
-    async def _loadCoreMods(self):
-
-        mods = []
-        cmds = []
-        mdefs = []
-
-        for ctor in list(s_modules.coremods):
-            await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
-        for ctor in self.conf.get('modules'):
-            await self._preLoadCoreModule(ctor, mods, cmds, mdefs, custom=True)
-
-        self.model.addDataModels(mdefs)
-        [self.addStormCmd(c) for c in cmds]
-
-    async def _preLoadCoreModule(self, ctor, mods, cmds, mdefs, custom=False):
-        conf = None
-        # allow module entry to be (ctor, conf) tuple
-        if isinstance(ctor, (list, tuple)):
-            ctor, conf = ctor
-
-        modu = self._loadCoreModule(ctor, conf=conf)
-        if modu is None:
-            return
-
-        mods.append(modu)
-
-        try:
-            await s_coro.ornot(modu.preCoreModule)
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-        except Exception:
-            logger.exception(f'module preCoreModule failed: {ctor}')
-            self.modules.pop(ctor, None)
-            return
-
-        cmds.extend(modu.getStormCmds())
-        model_defs = modu.getModelDefs()
-        if custom:
-            for _mdef, mnfo in model_defs:
-                mnfo['custom'] = True
-        mdefs.extend(model_defs)
-
-    async def _initCoreMods(self):
-
-        for ctor, modu in list(self.modules.items()):
-
-            try:
-                await s_coro.ornot(modu.initCoreModule)
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-            except Exception:
-                logger.exception(f'module initCoreModule failed: {ctor}')
-                self.modules.pop(ctor, None)
-
-    def _loadCoreModule(self, ctor, conf=None):
-
-        if ctor in self.modules:
-            raise s_exc.ModAlreadyLoaded(mesg=f'{ctor} already loaded')
-        try:
-            modu = s_dyndeps.tryDynFunc(ctor, self, conf=conf)
-            self.modules[ctor] = modu
-            return modu
-
-        except Exception:
-            logger.exception('mod load fail: %s' % (ctor,))
-            return None
 
     async def getPropNorm(self, prop, valu, typeopts=None):
         '''
@@ -6794,12 +6677,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self.slab.delete(bidn, db=self.vaultsdb)
 
 @contextlib.asynccontextmanager
-async def getTempCortex(mods=None):
+async def getTempCortex():
     '''
     Get a proxy to a cortex backed by a temporary directory.
-
-    Args:
-        mods (list): A list of modules which are loaded into the cortex.
 
     Notes:
         The cortex and temporary directory are town down on exit.
@@ -6814,8 +6694,5 @@ async def getTempCortex(mods=None):
             'health:sysctl:checks': False,
         }
         async with await Cortex.anit(dirn, conf=conf) as core:
-            if mods:
-                for mod in mods:
-                    await core.loadCoreModule(mod)
             async with core.getLocalProxy() as prox:
                 yield prox

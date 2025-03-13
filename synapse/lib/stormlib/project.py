@@ -37,7 +37,7 @@ class ProjectEpic(s_stormtypes.Prim):
         yield self.node
 
     async def _setEpicName(self, valu):
-        self.proj.confirm(('project', 'epic', 'set', 'name'))
+        self.proj.runt.confirmPropSet(self.node.form.prop('name'))
         name = await tostr(valu, noneok=True)
         if name is None:
             await self.node.pop('name')
@@ -92,7 +92,8 @@ class ProjectEpics(s_stormtypes.Prim):
 
     async def _delProjEpic(self, name):
 
-        self.proj.confirm(('project', 'epic', 'del'))
+        self.proj.runt.layerConfirm(('node', 'del', 'proj:epic'))
+
         epic = await self.proj._getProjEpic(name)
         if epic is None:
             return False
@@ -107,7 +108,7 @@ class ProjectEpics(s_stormtypes.Prim):
         return True
 
     async def _addProjEpic(self, name):
-        self.proj.confirm(('project', 'epic', 'add'))
+        self.proj.runt.layerConfirm(('node', 'add', 'proj:epic'))
         tick = s_common.now()
         props = {
             'name': await tostr(name),
@@ -190,7 +191,7 @@ class ProjectTicketComment(s_stormtypes.Prim):
             raise s_exc.StormRuntimeError(mesg='Comment has been deleted')
 
         if self.node.get('creator') != self.proj.runt.user.iden:
-            self.proj.confirm(('project', 'comment', 'del'))
+            self.proj.runt.layerConfirm(('node', 'del', 'proj:comment'))
 
         await self.node.delete()
         self.node = None
@@ -234,7 +235,7 @@ class ProjectTicketComments(s_stormtypes.Prim):
         }
 
     async def _addTicketComment(self, text):
-        self.proj.confirm(('project', 'comment', 'add'))
+        self.proj.runt.layerConfirm(('node', 'add', 'proj:comment'))
         tick = s_common.now()
         props = {
             'text': await tostr(text),
@@ -358,39 +359,38 @@ class ProjectTicket(s_stormtypes.Prim):
         yield self.node
 
     async def _setName(self, valu):
-
-        useriden = self.proj.runt.user.iden
-        if useriden != self.node.get('creator'):
-            self.proj.confirm(('project', 'ticket', 'set', 'name'))
-
         strvalu = await tostr(valu, noneok=True)
+
+        self.proj.runt.confirmPropSet(self.node.form.prop('updated'))
+
         if strvalu is None:
+            self.proj.runt.confirmPropDel(self.node.form.prop('name'))
             await self.node.pop('name')
         else:
+            self.proj.runt.confirmPropSet(self.node.form.prop('name'))
             await self.node.set('name', strvalu)
         await self.node.set('updated', s_common.now())
 
     async def _setDesc(self, valu):
-
-        useriden = self.proj.runt.user.iden
-        if useriden != self.node.get('creator'):
-            self.proj.confirm(('project', 'ticket', 'set', 'desc'))
-
         strvalu = await tostr(valu, noneok=True)
+
+        self.proj.runt.confirmPropSet(self.node.form.prop('updated'))
+
         if strvalu is None:
+            self.proj.runt.confirmPropDel(self.node.form.prop('desc'))
             await self.node.pop('desc')
         else:
+            self.proj.runt.confirmPropSet(self.node.form.prop('desc'))
             await self.node.set('desc', strvalu)
         await self.node.set('updated', s_common.now())
 
     async def _setEpic(self, valu):
-
-        useriden = self.proj.runt.user.iden
-        if useriden != self.node.get('creator'):
-            self.proj.confirm(('project', 'ticket', 'set', 'epic'))
-
         strvalu = await tostr(valu, noneok=True)
+
+        self.proj.runt.confirmPropSet(self.node.form.prop('updated'))
+
         if strvalu is None:
+            self.proj.runt.confirmPropDel(self.node.form.prop('epic'))
             await self.node.pop('epic')
             await self.node.set('updated', s_common.now())
             return
@@ -400,34 +400,33 @@ class ProjectTicket(s_stormtypes.Prim):
             mesg = 'No epic found by that name/iden.'
             raise s_exc.NoSuchName(mesg=mesg)
 
+        self.proj.runt.confirmPropSet(self.node.form.prop('epic'))
         await self.node.set('epic', epic.node.ndef[1])
         await self.node.set('updated', s_common.now())
 
     async def _setStatus(self, valu):
-
-        useriden = self.proj.runt.user.iden
-        if useriden != self.node.get('assignee'):
-            self.proj.confirm(('project', 'ticket', 'set', 'status'))
-
         strvalu = await tostr(valu)
+
+        self.proj.runt.confirmPropSet(self.node.form.prop('status'))
+        self.proj.runt.confirmPropSet(self.node.form.prop('updated'))
         await self.node.set('status', strvalu)
         await self.node.set('updated', s_common.now())
 
     async def _setPriority(self, valu):
-
-        self.proj.confirm(('project', 'ticket', 'set', 'priority'))
-
         strvalu = await tostr(valu)
+
+        self.proj.runt.confirmPropSet(self.node.form.prop('priority'))
+        self.proj.runt.confirmPropSet(self.node.form.prop('updated'))
         await self.node.set('priority', strvalu)
         await self.node.set('updated', s_common.now())
 
     async def _setAssignee(self, valu):
-
-        self.proj.confirm(('project', 'ticket', 'set', 'assignee'))
-
         strvalu = await tostr(valu, noneok=True)
 
+        self.proj.runt.confirmPropSet(self.node.form.prop('updated'))
+
         if strvalu is None:
+            self.proj.runt.confirmPropDel(self.node.form.prop('assignee'))
             await self.node.pop('assignee')
             await self.node.set('updated', s_common.now())
             return
@@ -436,16 +435,18 @@ class ProjectTicket(s_stormtypes.Prim):
         if udef is None:
             mesg = f'No user found by the name {strvalu}'
             raise s_exc.NoSuchUser(mesg=mesg, username=strvalu)
+
+        self.proj.runt.confirmPropSet(self.node.form.prop('assignee'))
         await self.node.set('assignee', udef['iden'])
         await self.node.set('updated', s_common.now())
 
     async def _setSprint(self, valu):
-
-        self.proj.confirm(('project', 'ticket', 'set', 'sprint'))
-
         strvalu = await tostr(valu, noneok=True)
 
+        self.proj.runt.confirmPropSet(self.node.form.prop('updated'))
+
         if strvalu is None:
+            self.proj.runt.confirmPropDel(self.node.form.prop('sprint'))
             await self.node.pop('sprint')
             await self.node.set('updated', s_common.now())
             return
@@ -455,6 +456,7 @@ class ProjectTicket(s_stormtypes.Prim):
             mesg = f'No sprint found by that name/iden ({strvalu}).'
             raise s_exc.NoSuchName(mesg=mesg)
 
+        self.proj.runt.confirmPropSet(self.node.form.prop('sprint'))
         await self.node.set('sprint', sprint.node.ndef[1])
         await self.node.set('updated', s_common.now())
 
@@ -527,8 +529,7 @@ class ProjectTickets(s_stormtypes.Prim):
         if tick is None:
             return False
 
-        if tick.node.get('creator') != self.proj.runt.user.iden:
-            self.proj.confirm(('project', 'ticket', 'del'))
+        self.proj.runt.layerConfirm(('node', 'del', 'proj:ticket'))
 
         # cascade delete comments
         async for node in self.proj.runt.view.nodesByPropValu('proj:comment:ticket', '=', tick.node.ndef[1]):
@@ -538,7 +539,7 @@ class ProjectTickets(s_stormtypes.Prim):
         return True
 
     async def _addProjTicket(self, name, desc=''):
-        self.proj.confirm(('project', 'ticket', 'add'))
+        self.proj.runt.layerConfirm(('node', 'add', 'proj:ticket'))
         tick = s_common.now()
         props = {
             'name': await tostr(name),
@@ -610,28 +611,30 @@ class ProjectSprint(s_stormtypes.Prim):
         return self.node.get('status')
 
     async def _setSprintStatus(self, valu):
-        self.proj.confirm(('project', 'sprint', 'set', 'status'))
         valu = await tostr(valu, noneok=True)
         if valu is None:
+            self.proj.runt.confirmPropDel(self.node.form.prop('status'))
             await self.node.pop('status')
         else:
+            self.proj.runt.confirmPropSet(self.node.form.prop('status'))
             await self.node.set('status', valu)
 
     async def _setSprintDesc(self, valu):
-        self.proj.confirm(('project', 'sprint', 'set', 'desc'))
         valu = await tostr(valu, noneok=True)
         if valu is None:
+            self.proj.runt.confirmPropDel(self.node.form.prop('desc'))
             await self.node.pop('desc')
         else:
+            self.proj.runt.confirmPropSet(self.node.form.prop('desc'))
             await self.node.set('desc', valu)
 
     async def _setSprintName(self, valu):
-
-        self.proj.confirm(('project', 'sprint', 'set', 'name'))
         valu = await tostr(valu, noneok=True)
         if valu is None:
+            self.proj.runt.confirmPropDel(self.node.form.prop('name'))
             await self.node.pop('name')
         else:
+            self.proj.runt.confirmPropSet(self.node.form.prop('name'))
             await self.node.set('name', valu)
 
     async def _getSprintTickets(self, path=None):
@@ -693,7 +696,7 @@ class ProjectSprints(s_stormtypes.Prim):
 
     async def _addProjSprint(self, name, period=None):
 
-        self.proj.confirm(('project', 'sprint', 'add'))
+        self.proj.runt.layerConfirm(('node', 'add', 'proj:sprint'))
 
         props = {
             'name': await tostr(name),
@@ -711,7 +714,8 @@ class ProjectSprints(s_stormtypes.Prim):
 
     async def _delProjSprint(self, name):
 
-        self.proj.confirm(('project', 'sprint', 'del'))
+        self.proj.runt.layerConfirm(('node', 'del', 'proj:sprint'))
+
         sprint = await self.proj._getProjSprint(name)
         if sprint is None:
             return False
@@ -780,13 +784,8 @@ class Project(s_stormtypes.Prim):
     def _ctorProjTickets(self, path=None):
         return ProjectTickets(self)
 
-    def confirm(self, perm):
-        gateiden = self.node.ndef[1]
-        # bypass runt.confirm() here to avoid asroot
-        return self.runt.user.confirm(perm, gateiden=gateiden)
-
     async def _setName(self, valu):
-        self.confirm(('project', 'set', 'name'))
+        self.runt.confirmPropSet(self.node.form.prop('name'))
         await self.node.set('name', await tostr(valu))
 
     async def _getName(self):
@@ -874,9 +873,7 @@ class LibProjects(s_stormtypes.Lib):
             yield Project(self.runt, node)
 
     async def _funcProjDel(self, name):
-        gateiden = self.runt.view.iden
-        # do not use self.runt.confirm() to avoid asroot
-        self.runt.user.confirm(('project', 'del'), gateiden=gateiden)
+        self.runt.layerConfirm(('node', 'del', 'proj:project'))
         proj = await self._funcProjGet(name)
         if proj is None:
             return False
@@ -897,11 +894,7 @@ class LibProjects(s_stormtypes.Lib):
             return Project(self.runt, node)
 
     async def _funcProjAdd(self, name, desc=''):
-
-        gateiden = self.runt.view.iden
-        # do not use self.runt.confirm() to avoid asroot
-        self.runt.user.confirm(('project', 'add'), gateiden=gateiden)
-
+        self.runt.layerConfirm(('node', 'add', 'proj:project'))
         tick = s_common.now()
         props = {
             'name': await tostr(name),

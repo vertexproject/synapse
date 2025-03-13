@@ -299,6 +299,10 @@ class Form:
 
             self.onAdd(depfunc)
 
+        if self.isrunt and (liftfunc := self.info.get('liftfunc')) is not None:
+            func = s_dyndeps.tryDynLocal(liftfunc)
+            modl.core.addRuntLift(name, func)
+
     def getRuntPode(self):
 
         return (('syn:form', self.full), {
@@ -830,9 +834,7 @@ class Model:
 
         # load all the types in order...
         for _, mdef in mods:
-            custom = mdef.get('custom', False)
             for typename, (basename, typeopts), typeinfo in mdef.get('types', ()):
-                typeinfo['custom'] = custom
                 self.addType(typename, basename, typeopts, typeinfo, skipinit=True)
 
         # finish initializing types
@@ -851,7 +853,6 @@ class Model:
         # Load all the universal properties
         for _, mdef in mods:
             for univname, typedef, univinfo in mdef.get('univs', ()):
-                univinfo['custom'] = custom
                 self.addUnivProp(univname, typedef, univinfo)
 
         # Load all the tagprops
@@ -864,6 +865,21 @@ class Model:
 
             for formname, forminfo, propdefs in mdef.get('forms', ()):
                 self.addForm(formname, forminfo, propdefs, checks=False)
+
+        # load form/prop hooks
+        for _, mdef in mods:
+
+            if (hdef := mdef.get('hooks')) is not None:
+                if (prehooks := hdef.get('pre')) is not None:
+                    for propname, func in prehooks.get('props', ()):
+                        self.core._setPropSetHook(propname, func)
+
+                if (posthooks := hdef.get('post')) is not None:
+                    for formname, func in posthooks.get('forms', ()):
+                        self.form(formname).onAdd(func)
+
+                    for propname, func in posthooks.get('props', ()):
+                        self.prop(propname).onSet(func)
 
         # now we can load edge definitions...
         for _, mdef in mods:
@@ -921,7 +937,7 @@ class Model:
 
         newtype = base.extend(typename, typeopts, typeinfo, skipinit=skipinit)
 
-        if newtype.deprecated and typeinfo.get('custom'):
+        if newtype.deprecated:
             mesg = f'The type {typename} is based on a deprecated type {newtype.name} which ' \
                    f'will be removed in 4.0.0.'
             logger.warning(mesg)

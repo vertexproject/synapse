@@ -934,14 +934,14 @@ class ViewTest(s_t_utils.SynTest):
             view = core.getView()
 
             original_node0 = await view.addNode('test:str', 'node0')
-            self.len(2, view.nodecache)
-            self.len(2, view.livenodes)
+            self.len(1, view.nodecache)
+            self.len(1, view.livenodes)
             self.len(0, view.tagcache)
             self.len(0, core.tagnorms)
 
             await original_node0.addTag('foo.bar.baz')
-            self.len(5, view.nodecache)
-            self.len(5, view.livenodes)
+            self.len(4, view.nodecache)
+            self.len(4, view.livenodes)
             self.len(3, core.tagnorms)
 
             new_node0 = await view.getNodeByNdef(('test:str', 'node0'))

@@ -723,6 +723,9 @@ class CortexTest(s_t_utils.SynTest):
     async def test_cortex_edges(self):
 
         async with self.getTestCore() as core:
+
+            await core.nodes('[ meta:source=* :name=test ]')
+
             nodes = await core.nodes('[media:news=*]')
             self.len(1, nodes)
             news = nodes[0]
@@ -1896,9 +1899,6 @@ class CortexTest(s_t_utils.SynTest):
 
         async with self.getTestReadWriteCores() as (core, wcore):
 
-            # Make sure new nodes get different creation times than nodes created in the test CoreModule
-            await asyncio.sleep(0.001)
-
             # Test some default values
             nodes = await wcore.nodes('[test:type10=one]')
             self.len(1, nodes)
@@ -1906,14 +1906,14 @@ class CortexTest(s_t_utils.SynTest):
             tick = node.get('.created')
             created = node.repr('.created')
 
-            self.len(2, await core.nodes('.created'))
+            self.len(1, await core.nodes('.created'))
             self.len(1, await core.nodes('.created=$tick', opts={'vars': {'tick': tick}}))
-            self.len(2, await core.nodes('.created>=2010'))
-            self.len(2, await core.nodes('.created>2010'))
+            self.len(1, await core.nodes('.created>=2010'))
+            self.len(1, await core.nodes('.created>2010'))
             self.len(0, await core.nodes('.created<2010'))
             # The year the monolith returns
-            self.len(2, await core.nodes('.created*range=(2010, 3001)'))
-            self.len(2, await core.nodes('.created*range=("2010", "?")'))
+            self.len(1, await core.nodes('.created*range=(2010, 3001)'))
+            self.len(1, await core.nodes('.created*range=("2010", "?")'))
 
             # The .created time is ro
             with self.raises(s_exc.ReadOnlyProp):
@@ -2977,19 +2977,6 @@ class CortexBasicTest(s_t_utils.SynTest):
     '''
     The tests that are unlikely to break with different types of layers installed
     '''
-    async def test_cortex_bad_config(self):
-        '''
-        Try to load the TestModule twice
-        '''
-        conf = {'modules': [('synapse.tests.utils.TestModule', {'key': 'valu'})]}
-        with self.raises(s_exc.ModAlreadyLoaded):
-            async with self.getTestCore(conf=conf):
-                pass
-
-        async with self.getTestCore() as core:
-            with self.raises(s_exc.ModAlreadyLoaded):
-                await core.loadCoreModule('synapse.tests.utils.TestModule')
-
     async def test_cortex_coreinfo(self):
 
         async with self.getTestCoreAndProxy() as (core, prox):
@@ -3091,11 +3078,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.len(0, node[1]['path']['edges'])
                 elif node[0][0] == 'inet:ip':
                     self.eq(node[1]['path']['edges'], (
-                        (1, {'type': 'prop', 'prop': 'ip', 'reverse': True}),
+                        (0, {'type': 'prop', 'prop': 'ip', 'reverse': True}),
                     ))
                 elif node[0] == ('inet:fqdn', 'woot.com'):
                     self.eq(node[1]['path']['edges'], (
-                        (1, {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
+                        (0, {'type': 'prop', 'prop': 'fqdn', 'reverse': True}),
                     ))
 
     async def test_onadd(self):
@@ -3297,21 +3284,6 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             mesg = stream.jsonlines()[0]
             self.eq(mesg.get('view'), view)
-
-    async def test_getcoremods(self):
-
-        async with self.getTestCoreAndProxy() as (core, prox):
-
-            self.nn(core.getCoreMod('synapse.tests.utils.TestModule'))
-
-            # Ensure that the module load creates a node.
-            self.len(1, await core.nodes('meta:source=8f1401de15918358d5247e21ca29a814'))
-
-            mods = dict(await prox.getCoreMods())
-
-            conf = mods.get('synapse.tests.utils.TestModule')
-            self.nn(conf)
-            self.eq(conf.get('key'), 'valu')
 
     async def test_storm_mustquote(self):
 
@@ -4131,30 +4103,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq('2', nodes[0].ndef[1])
 
-    async def test_storm_lib_custom(self):
-
-        async with self.getTestCore() as core:
-            # Test the registered function from test utils
-            q = '[ ps:person="*" :name = $lib.test.beep(loud) ]'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq('a loud beep!', nodes[0].get('name'))
-
-            q = '$test = $lib.test.beep(test) [test:str=$test]'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq('A test beep!', nodes[0].ndef[1])
-
-            # Regression:  variable substitution in function raises exception
-            q = '$foo=baz $test = $lib.test.beep($foo) [test:str=$test]'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq('A baz beep!', nodes[0].ndef[1])
-
-            q = 'return ( $lib.test.someargs(hehe, bar=haha, faz=wow) )'
-            valu = await core.callStorm(q)
-            self.eq(valu, 'A hehe beep which haha the wow!')
-
     async def test_storm_type_node(self):
 
         async with self.getTestCore() as core:
@@ -4274,130 +4222,6 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(2, await core.nodes('test:str +test:str*in=(a, c)'))
             self.len(1, await core.nodes('test:str +test:str*in=(a, d)'))
             self.len(3, await core.nodes('test:str +test:str*in=(a, b, c)'))
-
-    async def test_runt(self):
-        async with self.getTestCore() as core:
-
-            # Ensure that lifting by form/prop/values works.
-            nodes = await core.nodes('test:runt')
-            self.len(4, nodes)
-
-            nodes = await core.nodes('test:runt.created')
-            self.len(4, nodes)
-
-            nodes = await core.nodes('test:runt:tick=2010')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('test:runt:tick=2001')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('test:runt:tick=2019')
-            self.len(0, nodes)
-
-            nodes = await core.nodes('test:runt:lulz="beep.sys"')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('test:runt:lulz')
-            self.len(2, nodes)
-
-            nodes = await core.nodes('test:runt:tick=$foo', {'vars': {'foo': '2010'}})
-            self.len(2, nodes)
-
-            # Ensure that non-equality based lift comparators for the test runt nodes work.
-            nodes = await core.nodes('test:runt~="b.*"')
-            self.len(3, nodes)
-
-            nodes = await core.nodes('test:runt:tick*range=(1999, 2001)')
-            self.len(1, nodes)
-
-            # Ensure that a lift by a universal property doesn't lift a runt node
-            # accidentally.
-            nodes = await core.nodes('.created')
-            self.ge(len(nodes), 1)
-            self.notin('test:ret', {node.ndef[0] for node in nodes})
-
-            # Ensure we can do filter operations on runt nodes
-            nodes = await core.nodes('test:runt +:tick*range=(1999, 2003)')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('test:runt -:tick*range=(1999, 2003)')
-            self.len(3, nodes)
-
-            # Ensure we can pivot to/from runt nodes
-            nodes = await core.nodes('[test:str=beep.sys]')
-            self.len(1, nodes)
-
-            nodes = await core.nodes('test:runt :lulz -> test:str')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'beep.sys'))
-
-            nodes = await core.nodes('test:str -> test:runt:lulz')
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:runt', 'beep'))
-
-            # Lift by ndef/iden/opts does not work since runt support is not plumbed
-            # into any caching which those lifts perform.
-            ndef = ('test:runt', 'blah')
-            iden = '15e33ccff08f9f96b5cea9bf0bcd2a55a96ba02af87f8850ba656f2a31429224'
-            nodes = await core.nodes(f'iden {iden}')
-            self.len(0, nodes)
-
-            nodes = await core.nodes('', {'idens': [iden]})
-            self.len(0, nodes)
-
-            nodes = await core.nodes('', {'ndefs': [ndef]})
-            self.len(0, nodes)
-
-            # Ensure that add/edit a read-only runt prop fails, whether or not it exists.
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=beep [:tick=3001]'))
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=woah [:tick=3001]'))
-
-            # Ensure that we can add/edit secondary props which has a callback.
-            nodes = await core.nodes('test:runt=beep [:lulz=beepbeep.sys]')
-            self.eq(nodes[0].get('lulz'), 'beepbeep.sys')
-            await nodes[0].set('lulz', 'beepbeep.sys')  # We can do no-operation edits
-            self.eq(nodes[0].get('lulz'), 'beepbeep.sys')
-
-            # We can set props which were not there previously
-            nodes = await core.nodes('test:runt=woah [:lulz=woah.sys]')
-            self.eq(nodes[0].get('lulz'), 'woah.sys')
-
-            # A edit may throw an exception due to some prop-specific normalization reason.
-            await self.asyncraises(s_exc.BadTypeValu, core.nodes('test:runt=woah [:lulz=no.way]'))
-
-            # Setting a property which has no callback or ro fails.
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=woah [:newp=pennywise]'))
-
-            # Ensure that delete a read-only runt prop fails, whether or not it exists.
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=beep [-:tick]'))
-            await self.asyncraises(s_exc.IsRuntForm,
-                                   core.nodes('test:runt=woah [-:tick]'))
-
-            # Ensure that we can delete a secondary prop which has a callback.
-            nodes = await core.nodes('test:runt=beep [-:lulz]')
-            self.none(nodes[0].get('lulz'))
-
-            nodes = await core.nodes('test:runt=woah [-:lulz]')
-            self.none(nodes[0].get('lulz'))
-
-            # Deleting a property which has no callback or ro fails.
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=woah [-:newp]'))
-
-            # # Ensure that adding tags on runt nodes fails
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep [+#hehe]'))
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep [-#hehe]'))
-
-            # Ensure that adding / deleting test runt nodes fails
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('[test:runt=" oh MY! "]'))
-            await self.asyncraises(s_exc.IsRuntForm, core.nodes('test:runt=beep | delnode'))
-
-            # Sad path for underlying view.getRuntPodes()
-            form = core.model.form('inet:ip')
-            nodes = await alist(core.view.getRuntPodes(form))
-            self.len(0, nodes)
 
     async def test_cortex_view_invalid(self):
 
@@ -4556,8 +4380,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_feed_syn_nodes(self):
 
-        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
-        async with self.getTestCore(conf=copy.deepcopy(conf)) as core0:
+        async with self.getTestCore() as core0:
+
+            await core0._addDataModels(s_t_utils.deprmodel)
 
             podes = []
 
@@ -4583,7 +4408,9 @@ class CortexBasicTest(s_t_utils.SynTest):
             pack[1]['edges'] = [('refs', ('inet:ip', f'{y}')) for y in range(500)]
             podes.append(pack)
 
-        async with self.getTestCore(conf=copy.deepcopy(conf)) as core1:
+        async with self.getTestCore() as core1:
+
+            await core1._addDataModels(s_t_utils.deprmodel)
 
             await core1.addFeedData(podes)
             self.len(4, await core1.nodes('test:int'))
@@ -6245,11 +6072,11 @@ class CortexBasicTest(s_t_utils.SynTest):
                 await core.addFormProp('_hehe:haha', 'visi', ('str', {}), {})
                 self.len(1, await core.nodes('_hehe:haha [ :visi=lolz ]'))
 
-                await core.addEdge(('test:int', '_goes', None), {})
-                await core._addEdge(('test:int', '_goes', None), {})
+                await core.addEdge(('inet:fqdn', '_goes', None), {})
+                await core._addEdge(('inet:fqdn', '_goes', None), {})
 
                 with self.raises(s_exc.DupEdgeType):
-                    await core.addEdge(('test:int', '_goes', None), {})
+                    await core.addEdge(('inet:fqdn', '_goes', None), {})
 
                 await core.addType('_test:type', 'str', {}, {'interfaces': ['taxonomy']})
                 self.eq(['meta:taxonomy'], core.model.type('_test:type').info.get('interfaces'))
@@ -6270,7 +6097,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.none(core.model.form('_hehe:bork'))
                 self.none(core.model.edge((None, '_does', 'newp')))
 
-                self.nn(core.model.edge(('test:int', '_goes', None)))
+                self.nn(core.model.edge(('inet:fqdn', '_goes', None)))
 
                 self.len(1, await core.nodes('_hehe:haha=10'))
                 self.len(1, await core.nodes('_hehe:haha:visi=lolz'))
@@ -6851,7 +6678,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             baseoffs = await core.getNexsIndx()
             baselayr = core.getLayer()
             items = await alist(proxy.syncLayersEvents(offsdict={}, wait=False))
-            self.len(1, items)
+            self.len(0, items)
 
             offsdict = {baselayr.iden: baseoffs}
             genr = core.syncLayersEvents(offsdict=offsdict, wait=True)
@@ -7409,16 +7236,12 @@ class CortexBasicTest(s_t_utils.SynTest):
 
     async def test_cortex_depr_props_warning(self):
 
-        conf = {
-            'modules': [
-                'synapse.tests.test_datamodel.DeprecatedModel',
-            ]
-        }
-
         with self.getTestDir() as dirn:
             with self.getLoggerStream('synapse.cortex') as stream:
 
-                async with self.getTestCore(conf=conf, dirn=dirn) as core:
+                async with self.getTestCore(dirn=dirn) as core:
+
+                    await core._addDataModels(s_t_utils.deprmodel)
 
                     # Create a test:deprprop so it doesn't generate a warning
                     await core.callStorm('[test:dep:easy=foobar :guid=*]')
@@ -7439,8 +7262,8 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                 here = stream.tell()
 
-                async with self.getTestCore(conf=conf, dirn=dirn) as core:
-                    pass
+                async with self.getTestCore(dirn=dirn) as core:
+                    await core._addDataModels(s_t_utils.deprmodel)
 
                 # Check that the warnings are gone now
                 stream.seek(here)

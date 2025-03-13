@@ -14,7 +14,7 @@ class ModelRevTest(s_tests.SynTest):
 
     async def test_cortex_modelrev_init(self):
 
-        with self.getTestDir(mirror='testcore') as dirn:
+        with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
                 layr = core.getLayer()

@@ -1768,8 +1768,9 @@ class StormTest(s_t_utils.SynTest):
 
     async def test_storm_merge_stricterr(self):
 
-        conf = {'modules': [('synapse.tests.utils.DeprModule', {})]}
-        async with self.getTestCore(conf=copy.deepcopy(conf)) as core:
+        async with self.getTestCore() as core:
+
+            core.model.addDataModels(s_t_utils.deprmodel)
 
             await core.nodes('$lib.model.ext.addFormProp(test:deprprop, _str, (str, ({})), ({}))')
 
@@ -1793,7 +1794,6 @@ class StormTest(s_t_utils.SynTest):
             self.stormHasNoErr(msgs)
 
             self.eq({
-                'meta:source': 1,
                 'syn:tag': 1,
                 'test:deprprop': 1,
                 'test:str': 1,
@@ -2248,7 +2248,6 @@ class StormTest(s_t_utils.SynTest):
 
             node = nodes[0]
             self.eq('hehe', node[1]['embeds']['asn']['name'])
-            self.eq(1, node[1]['embeds']['asn']['*'])
 
             opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
             msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
@@ -2256,7 +2255,7 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
 
             self.eq('visi', node[1]['embeds']['hq::email']['user'])
-            self.eq(6, node[1]['embeds']['hq::email']['*'])
+            self.eq(5, node[1]['embeds']['hq::email']['*'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -4160,6 +4159,8 @@ class StormTest(s_t_utils.SynTest):
     async def test_storm_help_cmd(self):
 
         async with self.getTestCore() as core:
+
+            await core.nodes('[test:str=foo]')
 
             msgs = await core.stormlist('.created | limit 1 | help')
             self.printed(msgs, 'package: synapse')
