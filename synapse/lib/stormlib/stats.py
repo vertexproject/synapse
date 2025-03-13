@@ -220,11 +220,13 @@ class StatTally(s_stormtypes.Prim):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def inc(self, name, valu=1):
+        name = await s_stormtypes.tostr(name)
         valu = await s_stormtypes.toint(valu)
         self.counters[name] += valu
 
     @s_stormtypes.stormfunc(readonly=True)
     async def get(self, name):
+        name = await s_stormtypes.tostr(name)
         return self.counters.get(name, 0)
 
     def value(self):
@@ -236,6 +238,8 @@ class StatTally(s_stormtypes.Prim):
 
     @s_stormtypes.stormfunc(readonly=True)
     async def sorted(self, byname=False, reverse=False):
+        byname = await s_stormtypes.tobool(byname)
+        reverse = await s_stormtypes.tobool(reverse)
         if byname:
             return list(sorted(self.counters.items(), reverse=reverse))
         else:
