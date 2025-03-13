@@ -1,7 +1,0 @@
----
-desc: Updated Kubernetes example documentation by renaming ``aha` to ``aha00``
-  to support future instances, simplifed the use of automatic DNS matching via ``SYN_AHA_DNS_NAME``,
-  and allow for independent Certificate Authority naming via ``SYN_AHA_AHA_NETWORK``.
-prs: []
-type: doc
-...
