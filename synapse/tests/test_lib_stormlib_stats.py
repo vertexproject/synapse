@@ -242,7 +242,7 @@ class StatsTest(s_test.SynTest):
                 $tally.inc(foo, 1)
                 $tally.inc(bar, 2)
                 $tally.inc(baz, 3)
-                return($tally.sorted(reverse=$lib.true))
+                return($tally.sorted(reverse=(true)))
             '''
             vals = await core.callStorm(q)
             self.eq(vals, [('baz', 3), ('bar', 2), ('foo', 1)])
@@ -252,7 +252,7 @@ class StatsTest(s_test.SynTest):
                 $tally.inc(foo, 1)
                 $tally.inc(bar, 2)
                 $tally.inc(baz, 3)
-                return($tally.sorted(byname=$lib.true))
+                return($tally.sorted(byname=(true)))
             '''
             vals = await core.callStorm(q)
             self.eq(vals, [('bar', 2), ('baz', 3), ('foo', 1)])
@@ -262,10 +262,20 @@ class StatsTest(s_test.SynTest):
                 $tally.inc(foo, 1)
                 $tally.inc(bar, 2)
                 $tally.inc(baz, 3)
-                return($tally.sorted(byname=$lib.true, reverse=$lib.true))
+                return($tally.sorted(byname=(true), reverse=(true)))
             '''
             vals = await core.callStorm(q)
             self.eq(vals, [('foo', 1), ('baz', 3), ('bar', 2)])
+
+            q = '''
+                $tally = $lib.stats.tally()
+                $tally.inc(foo, 1)
+                $tally.inc(bar, 1)
+                $tally.inc(foo, 1)
+                return($tally.sorted(reverse=true)) // String coercion to true
+            '''
+            vals = await core.callStorm(q)
+            self.eq(vals, [('foo', 2), ('bar', 1)])
 
             tally = s_stormlib_stats.StatTally()
             await tally.inc('foo')

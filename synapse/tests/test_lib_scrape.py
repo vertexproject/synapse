@@ -1187,3 +1187,53 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:*why*:*:*:*:*:*:*:*:*:*'))
 
         self.len(0, nodes)
+
+    def test_scrape_uris(self):
+
+        nodes = list(s_scrape.scrape('http://vertex.link https://woot.com'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'http://vertex.link'), nodes)
+        self.isin(('inet:url', 'https://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('ftps://files.vertex.link tcp://1.2.3.4:8080'))
+        self.len(5, nodes)
+        self.isin(('inet:url', 'ftps://files.vertex.link'), nodes)
+        self.isin(('inet:url', 'tcp://1.2.3.4:8080'), nodes)
+        self.isin(('inet:fqdn', 'files.vertex.link'), nodes)
+        self.isin(('inet:ipv4', '1.2.3.4'), nodes)
+        self.isin(('inet:server', '1.2.3.4:8080'), nodes)
+
+        nodes = list(s_scrape.scrape('invalidscheme://vertex.link newp://woot.com'))
+        self.len(2, nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('[https://vertex.link] (http://woot.com)'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'https://vertex.link'), nodes)
+        self.isin(('inet:url', 'http://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('HTTP://vertex.link HTTPS://woot.com'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'HTTP://vertex.link'), nodes)
+        self.isin(('inet:url', 'HTTPS://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('hxxps://vertex[.]link hXXp://woot[.]com'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'https://vertex.link'), nodes)
+        self.isin(('inet:url', 'http://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('hxxp[:]//vertex(.)link hXXps[://]woot[.]com'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'http://vertex.link'), nodes)
+        self.isin(('inet:url', 'https://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
