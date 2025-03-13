@@ -1,7 +1,7 @@
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-class CnGovTest(s_t_utils.SynTest):
+class CnGovTest(s_t_utils.SynTestA):
 
     async def test_models_cngov_mucd(self):
 

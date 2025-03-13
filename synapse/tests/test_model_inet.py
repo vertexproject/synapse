@@ -6,7 +6,7 @@ import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
-class InetModelTest(s_t_utils.SynTest):
+class InetModelTest(s_t_utils.SynTestA):
 
     async def test_model_inet_basics(self):
         async with self.getTestCore() as core:

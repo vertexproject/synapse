@@ -21,7 +21,7 @@ import cryptography.hazmat.primitives.serialization as c_serialization
 import cryptography.hazmat.primitives.serialization.pkcs12 as c_pkcs12
 
 
-class CertDirTest(s_t_utils.SynTest):
+class CertDirTest(s_t_utils.SynTestA):
 
     @contextlib.contextmanager
     def getCertDir(self) -> contextlib.AbstractContextManager[s_certdir.CertDir, None, None]:

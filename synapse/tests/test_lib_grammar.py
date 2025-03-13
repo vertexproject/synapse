@@ -1400,7 +1400,7 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, List: [Const: nulltime]]]',
 ]
 
-class GrammarTest(s_t_utils.SynTest):
+class GrammarTest(s_t_utils.SynTestA):
 
     def test_grammar(self):
         '''

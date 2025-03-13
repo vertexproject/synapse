@@ -23,7 +23,7 @@ from synapse.tests.utils import alist
 
 import synapse.tools.backup as s_tools_backup
 
-class StormTest(s_t_utils.SynTest):
+class StormTest(s_t_utils.SynTestA):
 
     async def test_lib_storm_guidctor(self):
         async with self.getTestCore() as core:

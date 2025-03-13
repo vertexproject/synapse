@@ -3,7 +3,7 @@ import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 import synapse.tools.guid as s_guid
 
-class TestGuid(s_t_utils.SynTest):
+class TestGuid(s_t_utils.SynTestA):
 
     def test_tools_guid(self):
         argv = []

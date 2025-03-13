@@ -5,7 +5,7 @@ import synapse.lookup.timezones as s_l_timezones
 
 import synapse.tests.utils as s_t_utils
 
-class TimeTest(s_t_utils.SynTest):
+class TimeTest(s_t_utils.SynTestA):
 
     def test_time_delta(self):
 

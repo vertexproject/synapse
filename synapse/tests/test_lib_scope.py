@@ -4,7 +4,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.scope as s_scope
 
-class ScopeTest(s_t_utils.SynTest):
+class ScopeTest(s_t_utils.SynTestA):
 
     def test_lib_scope(self):
 

@@ -12,7 +12,7 @@ import synapse.lib.multislabseqn as s_multislabseqn
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-class MultiSlabSeqn(s_t_utils.SynTest):
+class MultiSlabSeqn(s_t_utils.SynTestA):
 
     async def test_multislabseqn_base(self):
 

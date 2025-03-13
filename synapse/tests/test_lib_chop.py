@@ -5,7 +5,7 @@ import synapse.lookup.cvss as s_cvss
 
 import synapse.tests.utils as s_t_utils
 
-class ChopTest(s_t_utils.SynTest):
+class ChopTest(s_t_utils.SynTestA):
     def test_chop_digits(self):
         self.eq(s_chop.digits('a1b2c3'), '123')
 
