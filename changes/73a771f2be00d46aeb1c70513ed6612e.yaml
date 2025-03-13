@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue with some exceptions missing a ``mesg`` value. Thank you ``colingrady``
+  for the contribution.
+prs: [ 4179 ]
+type: bug
+...
