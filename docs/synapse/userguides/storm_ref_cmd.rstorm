@@ -744,9 +744,6 @@ Within Synapse, jobs are Storm queries that execute on a recurring or one-time (
 - `cron.list`_
 - `cron.stat`_
 - `cron.mod`_
-- `cron.move`_
-- `cron.disable`_
-- `cron.enable`_
 - `cron.del`_
 
 Help for individual ``cron.*`` commands can be displayed using:
@@ -826,62 +823,18 @@ iden that the job can be uniquely identified), which can be obtained using ``cro
 cron.mod
 ++++++++
 
-The ``cron.mod`` command modifies the Storm query associated with a specific cron job. To modify a job,
+The ``cron.mod`` command modifies properties of an existing cron job. To modify a job,
 you must provide the first portion of the job's iden (i.e., enough of the iden that the job can be uniquely
 identified), which can be obtained using ``cron.list``.
 
 .. NOTE::
   
-  Other aspects of the cron job, such as its schedule for execution, cannot be modified once the job has
+  Some aspects of the cron job, such as its schedule for execution, cannot be modified once the job has
   been created. To change these aspects you must delete and re-add the job.
 
 **Syntax:**
 
 .. storm-cli:: cron.mod --help
-
-
-.. _storm-cron-move:
-
-cron.move
-+++++++++
-
-The ``cron.move`` command moves a cron job from one :ref:`gloss-view` to another.
-
-**Syntax:**
-
-.. storm-cli:: cron.move --help
-
-
-.. _storm-cron-disable:
-
-cron.disable
-++++++++++++
-
-The ``cron.disable`` command disables a job and prevents it from executing without removing it from the
-Cortex. To disable a job, you must provide the first portion of the job's iden (i.e., enough of the iden
-that the job can be uniquely identified), which can be obtained using ``cron.list``.
-
-**Syntax:**
-
-.. storm-cli:: cron.disable --help
-
-
-.. _storm-cron-enable:
-
-cron.enable
-+++++++++++
-
-The ``cron.enable`` command enables a disabled cron job. To enable a job, you must provide the first portion
-of the job's iden (i.e., enough of the iden that the job can be uniquely identified), which can be obtained
-using ``cron.list``.
-
-.. NOTE::
-
-  Cron jobs, including non-recurring jobs added with ``cron.at``, are enabled by default upon creation.
-
-**Syntax:**
-
-.. storm-cli:: cron.enable --help
 
 
 .. _storm-cron-del:

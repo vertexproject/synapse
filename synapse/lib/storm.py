@@ -18,6 +18,7 @@ import synapse.lib.chop as s_chop
 import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
+import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.scope as s_scope
 import synapse.lib.editor as s_editor
@@ -937,27 +938,27 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'cron.move',
-        'descr': "Move a cron job from one view to another",
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-            ('view', {'help': 'View to move the cron job to.'}),
-        ),
-        'storm': '''
-            $iden = $lib.cron.move($cmdopts.iden, $cmdopts.view)
-            $lib.print("Moved cron job {iden} to view {view}", iden=$iden, view=$cmdopts.view)
-        ''',
-    },
-    {
         'name': 'cron.mod',
-        'descr': "Modify an existing cron job's query.",
+        'descr': "Modify an existing cron job.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-            ('query', {'help': 'New storm query for the cron job.'}),
+            ('--view', {'help': 'View to move the cron job to.'}),
+            ('--storm', {'help': 'New Storm query for the cron job.'}),
+            ('--creator', {'help': 'New user for the cron job to run as.'}),
+            ('--doc', {'help': 'New doc string for the cron job.', 'type': 'str'}),
+            ('--name', {'help': 'New name for the cron job.', 'type': 'str'}),
+            ('--pool', {'help': 'True to enable offloading the job to the Storm pool, False to disable.'}),
+            ('--enabled', {'help': 'True to enable the cron job, False to disable.'}),
+            ('--loglevel', {'help': 'New logging level for the cron job.',
+                            'choices': list(s_const.LOG_LEVEL_CHOICES.keys())}),
         ),
         'storm': '''
-            $iden = $lib.cron.mod($cmdopts.iden, $cmdopts.query)
-            $lib.print("Modified cron job: {iden}", iden=$iden)
+            $iden = $cmdopts.iden
+            $edits = $lib.copy($cmdopts)
+            $edits.help = $lib.undef
+            $edits.iden = $lib.undef
+            $cdef = $lib.cron.mod($cmdopts.iden, $edits)
+            $lib.print(`Modified cron job: {$cdef.iden}`)
         ''',
     },
     {
@@ -1018,7 +1019,7 @@ stormcmds = (
                     $row = (
                         $job.user, $job.idenshort, $job.viewshort, $job.enabled,
                         $job.isrecur, $job.isrunning, $job.iserr, `{$job.startcount}`,
-                        $job.laststart, $job.lastend, $job.query
+                        $job.laststart, $job.lastend, $job.storm
                     )
                     $lib.print($printer.row($row))
                 }
@@ -1072,28 +1073,6 @@ stormcmds = (
                     $lib.print('entries:         <None>')
                 }
             }
-        ''',
-    },
-    {
-        'name': 'cron.enable',
-        'descr': 'Enable a cron job in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.cron.enable($cmdopts.iden)
-            $lib.print("Enabled cron job: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'cron.disable',
-        'descr': 'Disable a cron job in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid cron job iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.cron.disable($cmdopts.iden)
-            $lib.print("Disabled cron job: {iden}", iden=$iden)
         ''',
     },
     {

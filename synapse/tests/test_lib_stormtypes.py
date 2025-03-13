@@ -4577,7 +4577,7 @@ class StormTypesTest(s_test.SynTest):
             cdef = await core.callStorm('return($lib.cron.get($iden).set(doc, foodoc))', opts=opts)
             self.eq('foodoc', cdef.get('doc'))
 
-            with self.raises(s_exc.BadArg):
+            with self.raises(s_exc.BadOptValu):
                 await core.callStorm('return($lib.cron.get($iden).set(hehe, haha))', opts=opts)
 
             mesgs = await core.stormlist('cron.add --hour +1 {[tel:mob:telem=*]} --name myname --doc mydoc')
@@ -4734,11 +4734,11 @@ class StormTypesTest(s_test.SynTest):
                 await layr.waitEditOffs(nextlayroffs, timeout=5)
                 self.eq(1, await prox.count('meta:note:type=m1'))
 
-                q = "cron.mod $guid { [meta:note='*' :type=m2] }"
+                q = "cron.mod $guid --storm { [meta:note='*' :type=m2] }"
                 mesgs = await core.stormlist(q, opts={'vars': {'guid': guid[:6]}})
                 self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
-                q = "cron.mod xxx { [meta:note='*' :type=m2] }"
+                q = "cron.mod xxx --storm { [meta:note='*' :type=m2] }"
                 mesgs = await core.stormlist(q)
                 self.stormIsInErr('does not match', mesgs)
 
@@ -4943,20 +4943,14 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInErr('Provided iden does not match any', mesgs)
 
                     # Test 'enable' 'disable' commands
-                    mesgs = await core.stormlist(f'cron.enable xxx')
-                    self.stormIsInErr('Provided iden does not match any', mesgs)
-
-                    mesgs = await core.stormlist(f'cron.disable xxx')
-                    self.stormIsInErr('Provided iden does not match any', mesgs)
-
-                    mesgs = await core.stormlist(f'cron.disable {guid[:6]}')
-                    self.stormIsInPrint(f'Disabled cron job: {guid}', mesgs)
+                    mesgs = await core.stormlist(f'cron.mod {guid[:6]} --enabled (false)')
+                    self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                     self.stormIsInPrint('enabled:         N', mesgs)
 
-                    mesgs = await core.stormlist(f'cron.enable {guid[:6]}')
-                    self.stormIsInPrint(f'Enabled cron job: {guid}', mesgs)
+                    mesgs = await core.stormlist(f'cron.mod {guid[:6]} --enabled (true)')
+                    self.stormIsInPrint(f'Modified cron job: {guid}', mesgs)
 
                     mesgs = await core.stormlist(f'cron.stat {guid[:6]}')
                     self.stormIsInPrint('enabled:         Y', mesgs)
@@ -5115,13 +5109,7 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm('cron.list').list()
                     self.isin('err', (m[0] for m in mesgs))
 
-                    mesgs = await asbond.storm(f'cron.disable {guid[:6]}').list()
-                    self.stormIsInErr('iden does not match any', mesgs)
-
-                    mesgs = await asbond.storm(f'cron.enable {guid[:6]}').list()
-                    self.stormIsInErr('iden does not match any', mesgs)
-
-                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} {{#foo}}').list()
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]}').list()
                     self.stormIsInErr('iden does not match any', mesgs)
 
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
@@ -5144,18 +5132,19 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('user', mesgs)
                     self.stormIsInPrint('root', mesgs)
 
-                    await prox.addUserRule(bond.iden, (True, ('cron', 'set')))
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'set')), gateiden=guid)
 
-                    mesgs = await asbond.storm(f'cron.disable {guid[:6]}').list()
-                    self.stormIsInPrint('Disabled cron job', mesgs)
-
-                    mesgs = await asbond.storm(f'cron.enable {guid[:6]}').list()
-                    self.stormIsInPrint('Enabled cron job', mesgs)
-
-                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} {{#foo}}').list()
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --storm {{#foo}}').list()
                     self.stormIsInPrint('Modified cron job', mesgs)
 
-                    await prox.addUserRule(bond.iden, (True, ('cron', 'del')))
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --creator $lib.user.iden').list()
+                    self.stormIsInErr('must have permission cron.set.creator', mesgs)
+
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'set', 'creator')))
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --creator $lib.user.iden').list()
+                    self.stormIsInPrint('Modified cron job', mesgs)
+
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'del')), gateiden=guid)
 
                     mesgs = await asbond.storm(f'cron.del {guid[:6]}').list()
                     self.stormIsInPrint('Deleted cron job', mesgs)
