@@ -629,7 +629,7 @@ OCTNUMBER.1: /
 
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
 NULL.2: /null(?=$|[\s\),\]}\|\=])/
-NOTOP.2: /not(?=$|[\s\),\]}\|\=])/
+NOTOP.2: /not(?=$|\s|\(|\[|\{)/
 OR.2: "or"
 AND.2: "and"
 

@@ -1,0 +1,5 @@
+---
+desc: Fixed a regression where ``not`` expressions required spaces before parentheses.
+prs: []
+type: bug
+...

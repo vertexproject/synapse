@@ -5453,3 +5453,13 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             self.eq(['foo', 'bar'], await core.callStorm('return($lib.queue.gen(hoho).get().1)'))
+
+    async def test_lib_storm_minification(self):
+        async with self.getTestCore() as core:
+
+            msgs = await core.stormlist('''
+                $x=(false)
+                if (not($x)){$lib.print("pass")}
+            ''')
+            self.stormHasNoWarnErr(msgs)
+            self.stormIsInPrint("pass", msgs)
