@@ -383,33 +383,34 @@ class ProvDmon(s_daemon.Daemon):
         self.aha = aha
         await s_daemon.Daemon.__anit__(self)
 
-    async def _getSharedItem(self, name):
-        provinfo = await self.aha.getAhaSvcProv(name)
+    async def _getSharedItem(self, iden):
+
+        provinfo = await self.aha.getAhaSvcProv(iden)
         if provinfo is not None:
-            await self.aha.delAhaSvcProv(name)
+            await self.aha.delAhaSvcProv(iden)
             conf = provinfo.get('conf', {})
-            anam = conf.get('aha:name')
-            anet = conf.get('aha:network')
-            extra = self.aha.getLogExtra(name=name)
+            name = conf.get('aha:name')
+            netw = conf.get('aha:network')
+            extra = self.aha.getLogExtra(name=f'{name}.{netw}', iden=iden)
             logger.info('Retrieved service provisioning info.', extra=extra)
             return ProvApi(self.aha, provinfo)
 
-        userinfo = await self.aha.getAhaUserEnroll(name)
+        userinfo = await self.aha.getAhaUserEnroll(iden)
         if userinfo is not None:
-            unam = userinfo.get('name')
-            extra = self.aha.getLogExtra(name=name)
+            name = userinfo.get('name')
+            extra = self.aha.getLogExtra(name=name, iden=iden)
             logger.info('Retrieved user provisioning info.', extra=extra)
-            await self.aha.delAhaUserEnroll(name)
+            await self.aha.delAhaUserEnroll(iden)
             return EnrollApi(self.aha, userinfo)
 
-        clone = await self.aha.getAhaClone(name)
+        clone = await self.aha.getAhaClone(iden)
         if clone is not None:
             host = clone.get('host')
             mesg = f'Retrieved clone provisioning info.'
-            logger.info(mesg, extra=self.aha.getLogExtra(iden=name, host=host))
+            logger.info(mesg, extra=self.aha.getLogExtra(iden=iden, host=host))
             return CloneApi(self.aha, clone)
 
-        mesg = f'Invalid provisioning identifier name={name}. This could be' \
+        mesg = f'Invalid provisioning identifier iden={iden}. This could be' \
                f' caused by the re-use of a provisioning URL.'
         raise s_exc.NoSuchName(mesg=mesg, name=name)
 

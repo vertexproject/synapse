@@ -145,7 +145,7 @@ class HandlerBase:
             self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
             return None
 
-    async def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
+    def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
         '''
         Helper to log issues related to request authentication.
 
@@ -314,15 +314,15 @@ class HandlerBase:
 
         udef = await authcell.getUserDefByName(name)
         if udef is None:
-            await self.logAuthIssue(mesg='No such user.', username=name)
+            self.logAuthIssue(mesg='No such user.', username=name)
             return None
 
         if udef.get('locked'):
-            await self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
+            self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
             return None
 
         if not await authcell.tryUserPasswd(name, passwd):
-            await self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
+            self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return None
 
         self.web_useriden = udef.get('iden')
@@ -334,7 +334,7 @@ class HandlerBase:
         key = self.request.headers.get('X-API-KEY')
         isok, info = await authcell.checkUserApiKey(key)  # errfo or dict with tdef + udef
         if isok is False:
-            await self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
+            self.logAuthIssue(mesg=info.get('mesg'), user=info.get('user'), username=info.get('name'))
             return
 
         udef = info.get('udef')
@@ -674,15 +674,15 @@ class LoginV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDefByName(name)
         if udef is None:
-            await self.logAuthIssue(mesg='No such user.', username=name)
+            self.logAuthIssue(mesg='No such user.', username=name)
             return self.sendRestErr('AuthDeny', 'No such user.')
 
         if udef.get('locked'):
-            await self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
+            self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
             return self.sendRestErr('AuthDeny', 'User is locked.')
 
         if not await authcell.tryUserPasswd(name, passwd):
-            await self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
+            self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
             return self.sendRestErr('AuthDeny', 'Incorrect password.')
 
         iden = udef.get('iden')
@@ -1411,9 +1411,7 @@ class ExtApiHandler(StormHandler):
 
         except Exception as e:
             rcode = True
-            errname, errinfo = s_common.err(e)
-            extra = core.getLogExtra(httpapi=iden, errname=errname, **errinfo)
-            logger.exception(f'Extended HTTP API encountered a fatal error.', extra=extra)
+            logger.exception('Extended HTTP API encountered a fatal error.', extra=extra, exc_info=e)
             if rbody is False:
                 self.clear()
                 self.set_status(500)

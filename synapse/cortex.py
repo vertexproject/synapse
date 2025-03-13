@@ -2174,8 +2174,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self.runStormDmon(iden, ddef)
 
             except Exception as e: # pragma: no cover
-                extra = self.getLogExtra(iden=iden, exc=e)
-                logger.warning('Failed to start Storm dmon.', extra=extra)
+                extra = self.getLogExtra(iden=iden)
+                logger.warning('Failed to start Storm dmon.', extra=extra, exc_info=e)
 
     async def _initStormSvcs(self):
 
@@ -2185,8 +2185,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 await self._setStormSvc(sdef)
 
             except Exception as e: # pragma: no cover
-                extra = self.getLogExtra(iden=iden, exc=e)
-                logger.warning('Failed to initialize Storm service.', extra=extra)
+                extra = self.getLogExtra(iden=iden)
+                logger.warning('Failed to initialize Storm service.', extra=extra, exc_info=e)
 
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
@@ -2710,7 +2710,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         except Exception as e: # pragma: no cover
             name = pkgdef.get('name', '')
-            extra = self.getLogExtra(name=name, exc=e)
+            extra = self.getLogExtra(name=name)
             logger.exception('Error loading Storm package.', extra=extra)
 
     async def verifyStormPkgDeps(self, pkgdef):
@@ -2935,8 +2935,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         await asyncio.sleep(0)
 
                 except Exception as e:
-                    extra = self.getLogExtra(name=name, exc=e)
-                    logger.warning('Storm package onload failure.', extra=extra)
+                    extra = self.getLogExtra(name=name)
+                    logger.warning('Storm package onload failure.', extra=extra, exc_info=e)
 
                 await self.fire('core:pkg:onload:complete', pkg=name)
 
@@ -3031,8 +3031,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if self.isactive:
                 await self.runStormSvcEvent(iden, 'del')
         except Exception as e:
-            extra = self.getLogExtra(iden=iden, exc=e)
-            logger.warning('Service delete hook failed.', extra=extra)
+            extra = self.getLogExtra(iden=iden)
+            logger.warning('Service delete hook failed.', extra=extra, exc_info=e)
 
         sdef = self.svcdefs.pop(iden)
 
@@ -3198,8 +3198,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await extforms.set(formname, (formname, basetype, typeopts, typeinfo))
 
             except Exception as e:  # pragma: no cover
-                extra = self.getLogExtra(form=formname, exc=e)
-                logger.warning('Taxonomy migration error (skipped).', extra=extra)
+                extra = self.getLogExtra(form=formname)
+                logger.warning('Taxonomy migration error (skipped).', extra=extra, exc_info=e)
 
     async def _loadExtModel(self):
 
@@ -3214,16 +3214,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 self.model.addType(typename, basetype, typeopts, typeinfo)
             except Exception as e:
-                extra = self.getLogExtra(type=typename, exc=e)
-                logger.warning(f'Extended type definition error.', extra=extra)
+                extra = self.getLogExtra(type=typename)
+                logger.warning(f'Extended type definition error.', extra=extra, exc_info=e)
 
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
             try:
                 self.model.addType(formname, basetype, typeopts, typeinfo)
                 form = self.model.addForm(formname, {}, ())
             except Exception as e:
-                extra = self.getLogExtra(form=formname, exc=e)
-                logger.warning('Extended form definition error.', extra=extra)
+                extra = self.getLogExtra(form=formname)
+                logger.warning('Extended form definition error.', extra=extra, exc_info=e)
             else:
                 if form.type.deprecated:
                     mesg = 'Extended form is using a deprecated type which will be removed in 3.0.0.'
@@ -3233,8 +3233,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 prop = self.model.addFormProp(form, prop, tdef, info)
             except Exception as e: # pragma: no cover
-                extra = self.getLogExtra(prop=f'{form}:{prop}', exc=e)
-                logger.warning('Extended property definition error.', extra=extra)
+                extra = self.getLogExtra(prop=f'{form}:{prop}')
+                logger.warning('Extended property definition error.', extra=extra, exc_info=e)
             else:
                 if prop.type.deprecated:
                     mesg = 'Extended property is using a deprecated type which will be removed in 3.0.0.'
@@ -3244,22 +3244,22 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 self.model.addUnivProp(prop, tdef, info)
             except Exception as e: # pragma: no cover
-                extra = self.getLogExtra(univ=prop, exc=e)
-                logger.warning('Extended universal property definition error.', extra=extra)
+                extra = self.getLogExtra(univ=prop)
+                logger.warning('Extended universal property definition error.', extra=extra, exc_info=e)
 
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
             except Exception as e: # pragma: no cover
-                extra = self.getLogExtra(prop=prop, exc=e)
-                logger.warning('Tag property definition error.', extra=extra)
+                extra = self.getLogExtra(prop=prop)
+                logger.warning('Tag property definition error.', extra=extra, exc_info=e)
 
         for edge, info in self.extedges.values():
             try:
                 self.model.addEdge(edge, info)
             except Exception as e:
-                extra = self.getLogExtra(edge=edge, exc=e)
-                logger.warning('Extended edge definition error.', extra=extra)
+                extra = self.getLogExtra(edge=edge)
+                logger.warning('Extended edge definition error.', extra=extra, exc_info=e)
 
     async def getExtModel(self):
         '''
@@ -4458,8 +4458,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             self._setStormCmd(cdef)
         except Exception as e: # pragma: no cover
-            extra = self.getLogExtra(name=name, exc=e)
-            logger.warning('Storm command load failed.', extra=extra)
+            extra = self.getLogExtra(name=name)
+            logger.warning('Storm command load failed.', extra=extra, exc_info=e)
 
     def _initStormLibs(self):
         '''
@@ -5476,8 +5476,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await queue.close()
 
                 except Exception as e:
-                    extra = self.getLogExtra(push=iden, exc=e)
-                    logger.warning('Error while pushing bulk edits to remote layer.', extra=extra)
+                    extra = self.getLogExtra(push=iden)
+                    logger.warning('Error while pushing bulk edits to remote layer.', extra=extra, exc_info=e)
                     await queue.close()
 
             base.schedCoro(fill())

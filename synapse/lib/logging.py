@@ -23,6 +23,25 @@ logwindows = weakref.WeakSet()
 
 logfifo = collections.deque(maxlen=1000)
 
+def excinfo(e):
+
+    ret = {
+        'code': e.__class__.__name__,
+        'traceback': []
+    }
+
+    for path, line, func, sorc in traceback.extract_tb(e.__traceback__):
+        ret['traceback'].append({'path': path, 'line': line, 'func': func})
+
+    if isinstance(e, s_exc.SynErr):
+        ret['mesg'] = e.errinfo.pop('mesg', None)
+        ret['info'] = e.errinfo
+
+    if ret.get('mesg') is None:
+        ret['mesg'] = str(e)
+
+    return ret
+
 def _addLogInfo(info):
     logfifo.append(info)
     if logbase is not None:
@@ -60,12 +79,7 @@ def getLogExtra(**kwargs):
     NOTE: If the key "exc" is specified, it will be used as
           an exception to generate standardized error info.
     '''
-    exc = kwargs.pop('exc', None)
     extra = {'params': kwargs, 'loginfo': {}}
-
-    if exc is not None:
-        extra['loginfo']['error'] = s_common.excinfo(exc)
-
     return extra
 
 class Formatter(logging.Formatter):
@@ -99,7 +113,7 @@ class Formatter(logging.Formatter):
                 loginfo['username'] = sess.user.name
 
         if record.exc_info:
-            loginfo['error'] = s_common.excinfo(record.exc_info[1])
+            loginfo['error'] = excinfo(record.exc_info[1])
 
         if not hasattr(record, 'params'):
             record.params = {}
