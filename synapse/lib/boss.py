@@ -27,16 +27,14 @@ class Boss(s_base.Base):
     def get(self, iden):
         return self.tasks.get(iden)
 
-    def getParent(self):
-        task = asyncio.current_task()
-
-        synt = getattr(task, '_syn_task', None)
+    def getRoot(self):
+        synt = s_task.current()
         if synt is None:
             return None
 
         return synt.root
 
-    async def promote(self, name, user, info=None, taskiden=None, parent=None):
+    async def promote(self, name, user, info=None, taskiden=None, root=None):
         '''
         Promote the currently running task.
 
@@ -50,13 +48,13 @@ class Boss(s_base.Base):
             s_task.Task: The Synapse Task object.
         '''
         task = asyncio.current_task()
-        return await self.promotetask(task, name, user, info=info, taskiden=taskiden, parent=parent)
+        return await self.promotetask(task, name, user, info=info, taskiden=taskiden, root=root)
 
-    async def promotetask(self, task, name, user, info=None, taskiden=None, parent=None):
+    async def promotetask(self, task, name, user, info=None, taskiden=None, root=None):
 
-        if parent is not None:
-            kid = await s_task.Task.anit(self, task, name, user, info=info, root=parent, iden=taskiden)
-            parent.kids[kid.iden] = kid
+        if root is not None:
+            kid = await s_task.Task.anit(self, task, name, user, info=info, root=root, iden=taskiden)
+            root.kids[kid.iden] = kid
             return kid
 
         synt = getattr(task, '_syn_task', None)
