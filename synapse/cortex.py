@@ -6360,7 +6360,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for ctor in list(s_modules.coremods):
             await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
-        for ctor in self.conf.get('modules'):
+
+        coremods = self.conf.get('modules')
+        if coremods is not None:
+            mesg = "The 'modules' Cortex config value is deprecated and will be removed in v3.0.0."
+            logger.warning(mesg, extra=await self.getLogExtra(modules=coremods))
+
+        for ctor in coremods:
             await self._preLoadCoreModule(ctor, mods, cmds, mdefs, custom=True)
 
         self.model.addDataModels(mdefs)
