@@ -1010,7 +1010,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             byts = self.slab.get(newname.encode(), db=self.macrodb)
             if byts is not None:
-                raise s_exc.DupName('A macro named {newname} already exists!')
+                raise s_exc.DupName(mesg=f'A macro named {newname} already exists!', name=newname)
 
             self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
             self.slab.pop(name.encode(), db=self.macrodb)
@@ -5789,7 +5789,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             cdef['reqs'] = reqs
         except KeyError:
-            raise s_exc.BadConfValu('Unrecognized time unit')
+            raise s_exc.BadConfValu(mesg='Unrecognized time unit')
 
         if not cdef.get('iden'):
             cdef['iden'] = s_common.guid()
@@ -6250,7 +6250,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         vault = self.getVault(iden)
         if vault is None:
-            raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.')
+            raise s_exc.NoSuchIden(mesg=f'Vault not found for iden: {iden}.', iden=iden)
 
         return vault
 
@@ -6603,7 +6603,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             scope = 'roles'
             ident = self.auth.role(iden)
             if ident is None:
-                raise s_exc.NoSuchIden(mesg=f'Iden {iden} is not a valid user or role.')
+                raise s_exc.NoSuchIden(mesg=f'Iden {iden} is not a valid user or role.', iden=iden)
 
         await self._setEasyPerm(vault, scope, ident.iden, level)
         permissions = vault.get('permissions')
@@ -6624,14 +6624,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         Returns: Updated vault.
         '''
         if self.getVaultByName(name) is not None:
-            raise s_exc.DupName(mesg=f'Vault with name {name} already exists.')
+            raise s_exc.DupName(mesg=f'Vault with name {name} already exists.', name=name)
 
         return await self._push(('vault:set'), iden, 'name', name)
 
     @s_nexus.Pusher.onPush('vault:set')
     async def _setVault(self, iden, key, valu):
         if key not in ('name', 'permissions'):  # pragma: no cover
-            raise s_exc.BadArg('Only vault names and permissions can be changed.')
+            raise s_exc.BadArg(mesg='Only vault names and permissions can be changed.')
 
         vault = self.reqVault(iden)
         oldv = vault.get(key)

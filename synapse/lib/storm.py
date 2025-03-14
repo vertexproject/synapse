@@ -2603,7 +2603,7 @@ class Cmd:
 
     async def execStormCmd(self, runt, genr):  # pragma: no cover
         ''' Abstract base method '''
-        raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
+        raise s_exc.NoSuchImpl(mesg='Subclass must implement execStormCmd')
         for item in genr:
             yield item
 

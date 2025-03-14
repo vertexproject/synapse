@@ -1202,7 +1202,7 @@ class ScrapeTest(s_t_utils.SynTest):
         self.isin(('inet:url', 'ftps://files.vertex.link'), nodes)
         self.isin(('inet:url', 'tcp://1.2.3.4:8080'), nodes)
         self.isin(('inet:fqdn', 'files.vertex.link'), nodes)
-        self.isin(('inet:ipv4', '1.2.3.4'), nodes)
+        self.isin(('inet:ip', '1.2.3.4'), nodes)
         self.isin(('inet:server', '1.2.3.4:8080'), nodes)
 
         nodes = list(s_scrape.scrape('invalidscheme://vertex.link newp://woot.com'))
