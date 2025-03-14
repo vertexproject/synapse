@@ -3144,8 +3144,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.sessstor.set(iden, name, valu)
         return info
 
-    @s_nexus.Pusher.onPushAuto('http:sess:del')
+    @s_nexus.Pusher.onPush('http:sess:del')
     async def delHttpSess(self, iden):
+        await self._delHttpSess(iden)
+
+    async def _delHttpSess(self, iden):
         await self.sessstor.del_(iden)
         sess = self.sessions.pop(iden, None)
         if sess:
@@ -5027,7 +5030,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         for iden, sess in list(self.sessions.items()):
             if sess.info.get('user') == useriden:
                 username = sess.info.get('username', '<unknown>')
-                await self.delHttpSess(iden)
+                await self._delHttpSess(iden)
                 logger.info(f'Invalidated HTTP session for locked user {username}',
                             extra=await self.getLogExtra(target_user=useriden))
 

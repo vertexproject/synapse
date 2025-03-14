@@ -423,6 +423,9 @@ class Auth(s_nexus.Pusher):
 
         await self.feedBeholder('user:info', mesg, gateiden=gateiden, logged=logged)
 
+        if name == 'locked':
+            await self.fire('user:lock', user=iden, locked=valu)
+
         # since any user info *may* effect auth
         user.clearAuthCache()
 
