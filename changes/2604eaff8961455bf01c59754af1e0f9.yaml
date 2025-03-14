@@ -1,5 +1,0 @@
----
-desc: Added ``meta:feed`` to track ingest progress from multi-feed sources.
-prs: []
-type: model
-...
