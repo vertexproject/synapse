@@ -1360,16 +1360,20 @@ class View(s_nexus.Pusher):  # type: ignore
             'readonly': False
         }
 
+        if name is None:
+            if (pname := self.parent.info.get('name')) is not None:
+                name = f'inserted fork of {pname}'
+            else:
+                name = f'inserted fork of {self.parent.iden}'
+
         vdef = {
             'iden': s_common.guid(),
+            'name': name,
             'created': ctime,
             'creator': useriden,
             'parent': self.parent.iden,
             'layers': [layriden] + [lyr.iden for lyr in self.parent.layers]
         }
-
-        if name is not None:
-            vdef['name'] = name
 
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
