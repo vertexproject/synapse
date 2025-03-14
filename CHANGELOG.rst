@@ -13,7 +13,7 @@ Model Changes
 -------------
 - Deprecated the ``meta:seen`` form.
   (`#4170 <https://github.com/vertexproject/synapse/pull/4170>`_)
-- Addedg ``meta:feed`` to track ingest progress from multi-feed sources.
+- Added ``meta:feed`` to track ingest progress from multi-feed sources.
   (`#4172 <https://github.com/vertexproject/synapse/pull/4172>`_)
 - See :ref:`userguide_model_v2_203_0` for more detailed model changes.
 
