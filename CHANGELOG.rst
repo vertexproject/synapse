@@ -6,14 +6,14 @@
 Synapse Changelog
 *****************
 
-v2.203.0 - 2025-03-13
+v2.203.0 - 2025-03-14
 =====================
 
 Model Changes
 -------------
 - Deprecated the ``meta:seen`` form.
   (`#4170 <https://github.com/vertexproject/synapse/pull/4170>`_)
-- Added ``meta:feed`` to track ingest progress from multi-feed sources.
+- Addedg ``meta:feed`` to track ingest progress from multi-feed sources.
   (`#4172 <https://github.com/vertexproject/synapse/pull/4172>`_)
 - See :ref:`userguide_model_v2_203_0` for more detailed model changes.
 
@@ -30,6 +30,10 @@ Features and Enhancements
   to the JSON standards and shown to be more performant than the builtin
   Python ``json`` library.
   (`#4129 <https://github.com/vertexproject/synapse/pull/4129>`_)
+- Added a default name when inserting a parent fork to a view. The default name
+  is now ``inserted fork of {oldparent.name}`` or ``inserted fork of
+  {oldparent.iden}`` if the view doesn't have a name.
+  (`#4175 <https://github.com/vertexproject/synapse/pull/4175>`_)
 - Updated URL pattern matching to validate schemes against IANA standards for
   the ``scrape`` command.
   (`#4177 <https://github.com/vertexproject/synapse/pull/4177>`_)
