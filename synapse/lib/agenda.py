@@ -14,6 +14,8 @@ import synapse.common as s_common
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.scope as s_scope
+import synapse.lib.logging as s_logging
 
 # Agenda: manages running one-shot and periodic tasks in the future ("appointments")
 
@@ -402,7 +404,8 @@ class _Appt:
                 if nexttime == 0.0:
                     # We blew by and missed a fixed-year appointment, either due to clock shenanigans, this query going
                     # really long, or the initial requirement being in the past
-                    logger.warning(f'Missed an appointment: {rec}')
+                    extra = self.getLogExtra()
+                    logger.warning('Missed an appointment.', extra=extra)
                     del self.recs[i]
                     continue
                 if nexttime < lowtime:
@@ -421,11 +424,19 @@ class _Appt:
 
         return self.nexttime
 
+    def getLogExtra(self, **kwargs):
+        kwargs['cron'] = {
+            'iden': self.iden,
+            'name': self.name,
+            'view': self.view,
+        }
+        return self.stor.core.getLogExtra(**kwargs)
+
     async def edits(self, edits):
         for name, valu in edits.items():
             if name not in self.__class__._synced_attrs:
-                extra = await self.stor.core.getLogExtra(name=name, valu=valu)
-                logger.warning('_Appt.edits() Invalid attribute received: %s = %r', name, valu, extra=extra)
+                extra = self.getLogExtra(prop=name, valu=valu)
+                logger.warning('Invalid cron property edit.', extra=extra)
                 continue
 
             if name == 'lasterrs' and not isinstance(valu, list):
@@ -479,7 +490,8 @@ class Agenda(s_base.Base):
                 self._next_indx = max(self._next_indx, appt.indx + 1)
             except (s_exc.InconsistentStorage, s_exc.BadStorageVersion, s_exc.BadTime, TypeError, KeyError,
                     UnicodeDecodeError) as e:
-                logger.warning('Invalid appointment %r found in storage: %r.  Removing.', iden, e)
+                extra = self.core.getLogExtra(cron={'iden': iden}, err=str(e))
+                logger.warning('Removing invalid cron job.', extra=extra)
                 to_delete.append(iden)
                 continue
 
@@ -719,7 +731,8 @@ class Agenda(s_base.Base):
         '''Used for clearing the running state at startup or change of leadership.'''
         for appt in list(self.appts.values()):
             if appt.isrunning:
-                logger.debug(f'Clearing the isrunning flag for {appt.iden}')
+                extra = appt.getLogExtra()
+                logger.debug('Clearing isrunning flag.', extra=extra)
 
                 edits = {
                     'isrunning': False,
@@ -767,24 +780,15 @@ class Agenda(s_base.Base):
                     continue
 
                 if appt.isrunning:  # pragma: no cover
-                    mesg = f'Appointment {appt.iden} {appt.name} is still running from previous time when scheduled' \
-                           f' to run. Skipping.'
-                    logger.warning(mesg,
-                                   extra={'synapse': {'iden': appt.iden, 'name': appt.name}})
+                    extra = appt.getLogExtra()
+                    logger.warning('Cron job is still running. Skipping.', extra=extra)
+
                 else:
                     try:
                         await self._execute(appt)
                     except Exception as e:
-                        extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.creator, 'view': appt.view}
-                        user = self.core.auth.user(appt.creator)
-                        if user is not None:
-                            extra['username'] = user.name
-                        if isinstance(e, s_exc.SynErr):
-                            mesg = e.get('mesg', str(e))
-                        else:  # pragma: no cover
-                            mesg = str(e)
-                        logger.exception(f'Agenda error running appointment {appt.iden} {appt.name}: {mesg}',
-                                         extra={'synapse': extra})
+                        extra = appt.getLogExtra()
+                        logger.exception('Cron job error.', extra=extra)
                         await self._markfailed(appt, f'error: {e}')
 
     async def _execute(self, appt):
@@ -793,24 +797,19 @@ class Agenda(s_base.Base):
         '''
         user = self.core.auth.user(appt.creator)
         if user is None:
-            logger.warning(f'Unknown user {appt.creator} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator}})
+            logger.warning('Cron job has unknown user.', extra=appt.getLogExtra())
             await self._markfailed(appt, 'unknown user')
             return
 
         locked = user.info.get('locked')
         if locked:
-            logger.warning(f'Cron {appt.iden} {appt.name} failed because creator {user.name} is locked',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
-                                              'username': user.name}})
+            logger.warning('Cron job has locked user.', extra=appt.getLogExtra())
             await self._markfailed(appt, 'locked user')
             return
 
         view = self.core.getView(iden=appt.view, user=user)
         if view is None:
-            logger.warning(f'Unknown view {appt.view} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
-                                              'username': user.name, 'view': appt.view}})
+            logger.warning('Cron job has unknown view.', extra=appt.getLogExtra())
             await self._markfailed(appt, 'unknown view')
             return
 
@@ -840,94 +839,94 @@ class Agenda(s_base.Base):
         '''
         Actually run the storm query, updating the appropriate statistics and results
         '''
-        count = 0
-        edits = {
-            'isrunning': True,
-            'laststarttime': self._getNowTick(),
-            'startcount': appt.startcount + 1,
-        }
-        await self.core.addCronEdits(appt.iden, edits)
+        with s_scope.enter({'user': user}):
 
-        logger.info(f'Agenda executing for iden={appt.iden}, name={appt.name} user={user.name}, view={appt.view}, query={appt.query}',
-                    extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden, 'text': appt.query,
-                                       'username': user.name, 'view': appt.view}})
-        starttime = self._getNowTick()
-
-        success = False
-        loglevel = s_common.normLogLevel(appt.loglevel)
-
-        try:
-            opts = {
-                'user': user.iden,
-                'view': appt.view,
-                'mirror': appt.pool,
-                'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
-                '_loginfo': {
-                    'cron': appt.iden
-                }
+            count = 0
+            edits = {
+                'isrunning': True,
+                'laststarttime': self._getNowTick(),
+                'startcount': appt.startcount + 1,
             }
-            opts = self.core._initStormOpts(opts)
+            await self.core.addCronEdits(appt.iden, edits)
 
-            await self.core.feedBeholder('cron:start', {'iden': appt.iden})
+            extra = appt.getLogExtra(text=appt.query)
+            logger.info('Cron job starting.', extra=extra)
 
-            async for mesg in self.core.storm(appt.query, opts=opts):
+            starttime = self._getNowTick()
 
-                if mesg[0] == 'node':
-                    count += 1
+            success = False
+            loglevel = s_logging.normLogLevel(appt.loglevel)
 
-                elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
-                    text = mesg[1].get('mesg', '<missing message>')
-                    extra = await self.core.getLogExtra(cron=appt.iden, **mesg[1])
-                    logger.warning(f'Cron job {appt.iden} issued warning: {text}', extra=extra)
-
-                elif mesg[0] == 'err':
-                    excname, errinfo = mesg[1]
-                    errinfo.pop('eline', None)
-                    errinfo.pop('efile', None)
-                    excctor = getattr(s_exc, excname, s_exc.SynErr)
-                    raise excctor(**errinfo)
-
-        except asyncio.CancelledError:
-            result = 'cancelled'
-            raise
-
-        except Exception as e:
-            result = f'raised exception {e}'
-            logger.exception(f'Agenda job {appt.iden} {appt.name} raised exception',
-                             extra={'synapse': {'iden': appt.iden, 'name': appt.name}}
-                             )
-        else:
-            success = True
-            result = f'finished successfully with {count} nodes'
-
-        finally:
-            finishtime = self._getNowTick()
-            if not success:
-                appt.lasterrs.append(result)
-                edits = {
-                    'errcount': appt.errcount + 1,
-                    # we only care about the last five errors
-                    'lasterrs': list(appt.lasterrs[-5:]),
+            try:
+                opts = {
+                    'user': user.iden,
+                    'view': appt.view,
+                    'mirror': appt.pool,
+                    'vars': {'auto': {'iden': appt.iden, 'type': 'cron'}},
+                    '_loginfo': {
+                        'cron': appt.iden
+                    }
                 }
+                opts = self.core._initStormOpts(opts)
 
+                await self.core.feedBeholder('cron:start', {'iden': appt.iden})
+
+                async for mesg in self.core.storm(appt.query, opts=opts):
+
+                    if mesg[0] == 'node':
+                        count += 1
+
+                    elif mesg[0] == 'warn' and loglevel <= logging.WARNING:
+                        extra = appt.getLogExtra(**mesg[1])
+                        logger.warning('Cron job emitted warning.', extra=extra)
+
+                    elif mesg[0] == 'err':
+                        excname, errinfo = mesg[1]
+                        errinfo.pop('eline', None)
+                        errinfo.pop('efile', None)
+                        excctor = getattr(s_exc, excname, s_exc.SynErr)
+                        raise excctor(**errinfo)
+
+            except asyncio.CancelledError:
+                result = 'cancelled'
+                raise
+
+            except Exception as e:
+                result = f'raised exception {e}'
+                logger.exception('Cron job raised an exception.', extra=extra)
+
+            else:
+                success = True
+                result = f'finished successfully with {count} nodes'
+
+            finally:
+                finishtime = self._getNowTick()
+                if not success:
+                    appt.lasterrs.append(result)
+                    edits = {
+                        'errcount': appt.errcount + 1,
+                        # we only care about the last five errors
+                        'lasterrs': list(appt.lasterrs[-5:]),
+                    }
+
+                    if self.core.isactive:
+                        await self.core.addCronEdits(appt.iden, edits)
+
+                took = finishtime - starttime
+
+                extra = appt.getLogExtra(result=result, took=took)
+                logger.info('Cron job completed.', extra=extra)
+
+                if not self.core.isactive:
+                    logger.warning('Cron job status is not saved. We are no longer the leader.', extra=extra)
+
+                edits = {
+                    'lastfinishtime': finishtime,
+                    'isrunning': False,
+                    'lastresult': result,
+                }
                 if self.core.isactive:
                     await self.core.addCronEdits(appt.iden, edits)
 
-            took = finishtime - starttime
-            mesg = f'Agenda completed query for iden={appt.iden} name={appt.name} with result "{result}" ' \
-                   f'took {took:.3f}s'
-            if not self.core.isactive:
-                mesg = mesg + ' Agenda status will not be saved since the Cortex is no longer the leader.'
-            logger.info(mesg, extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': user.iden,
-                                                 'result': result, 'username': user.name, 'took': took}})
-            edits = {
-                'lastfinishtime': finishtime,
-                'isrunning': False,
-                'lastresult': result,
-            }
-            if self.core.isactive:
-                await self.core.addCronEdits(appt.iden, edits)
-
-            if not self.isfini:
-                # fire beholder event before invoking nexus change (in case readonly)
-                await self.core.feedBeholder('cron:stop', {'iden': appt.iden})
+                if not self.isfini:
+                    await self.core.feedBeholder('cron:stop', {'iden': appt.iden})

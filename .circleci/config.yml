@@ -611,6 +611,7 @@ workflows:
             branches:
               only:
                 - master
+                - visi-link-errinfo
 
       - build_docker_tag:
           requires:

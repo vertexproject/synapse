@@ -3,6 +3,7 @@ import time
 import logging
 import unittest
 
+import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
@@ -107,7 +108,7 @@ class TestUtils(s_t_utils.SynTest):
         mesgs = stream.read()
         self.isin('ruh roh', mesgs)
 
-    def test_syntest_logstream_event(self):
+    async def test_syntest_logstream_event(self):
 
         @s_common.firethread
         def logathing(mesg):
@@ -115,9 +116,9 @@ class TestUtils(s_t_utils.SynTest):
             logger.error(mesg)
 
         logger.error('notthere')
-        with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
+        with self.getLoggerStream('synapse.tests.test_utils') as stream:
             thr = logathing('StreamEvent Test Message')
-            self.true(stream.wait(10))
+            await stream.expect('Test Message')
             thr.join()
 
         stream.seek(0)
@@ -125,14 +126,10 @@ class TestUtils(s_t_utils.SynTest):
         self.isin('StreamEvent Test Message', mesgs)
         self.notin('notthere', mesgs)
 
-        with self.getLoggerStream('synapse.tests.test_utils', 'Test Message') as stream:
-            thr = logathing(s_json.dumps({'mesg': 'Test Message'}).decode())
-            self.true(stream.wait(10))
-            thr.join()
-
-        msgs = stream.jsonlines()
-        self.len(1, msgs)
-        self.eq(msgs[0], {'mesg': 'Test Message'})
+        # coverage for the stream sad path...
+        with self.getLoggerStream('synapse.tests.test_utils') as stream:
+            with self.raises(s_exc.SynErr):
+                await stream.expect('newp', timeout=0.0001)
 
     def test_syntest_envars(self):
         os.environ['foo'] = '1'
@@ -289,9 +286,9 @@ class TestUtils(s_t_utils.SynTest):
                 self.checkNode(nodes[0], (('test:comp', (1, 'newp')), {'hehe': 1, 'haha': 'test'}))
             with self.raises(AssertionError):
                 self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1, 'haha': 'newp'}))
-            with self.getAsyncLoggerStream('synapse.tests.utils', 'untested properties') as stream:
+            with self.getLoggerStream('synapse.tests.utils') as stream:
                 self.checkNode(nodes[0], (('test:comp', (1, 'test')), {'hehe': 1}))
-                self.true(await stream.wait(timeout=12))
+                await stream.expect('untested properties')
 
             await self.checkNodes(core, [('test:comp', (1, 'test')),])
             with self.raises(AssertionError):
