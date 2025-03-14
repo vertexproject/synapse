@@ -441,7 +441,7 @@ jobs:
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_FILE: test_reports/${CIRCLE_SHA1}/.coverage
+          COVERAGE_FILE: test-reports/${CIRCLE_SHA1}/.coverage
           COVERAGE_ARGS: --cov synapse --cov-append
 
     working_directory: ~/repo
