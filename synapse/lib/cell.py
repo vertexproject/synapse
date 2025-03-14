@@ -2971,7 +2971,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.setLocked(locked)
         logger.info(f'Set lock={locked} for user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
-        await self.fire('user:lock', user=user.iden, locked=locked)
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
