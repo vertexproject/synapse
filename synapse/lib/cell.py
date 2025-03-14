@@ -3143,10 +3143,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.sessstor.set(iden, name, valu)
         return info
 
-    @s_nexus.Pusher.onPush('http:sess:del')
     async def delHttpSess(self, iden):
-        await self._delHttpSess(iden)
+        await self._push('http:sess:del', iden)
 
+    @s_nexus.Pusher.onPush('http:sess:del')
     async def _delHttpSess(self, iden):
         await self.sessstor.del_(iden)
         sess = self.sessions.pop(iden, None)
