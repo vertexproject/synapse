@@ -1,0 +1,7 @@
+---
+desc: Added a default name when inserting a parent fork to a view. The default
+  name is now ``inserted fork of {oldparent.name}`` or ``inserted fork of
+  {oldparent.iden}`` if the view doesn't have a name.
+prs: []
+type: feat
+...

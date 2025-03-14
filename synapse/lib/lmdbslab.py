@@ -870,7 +870,7 @@ class Slab(s_base.Base):
 
         initial_mapsize = opts.get('map_size')
         if initial_mapsize is None:
-            raise s_exc.BadArg('Slab requires map_size')
+            raise s_exc.BadArg(mesg='Slab requires map_size')
 
         mdbpath = s_common.genpath(path, 'data.mdb')
         if os.path.isfile(mdbpath):
