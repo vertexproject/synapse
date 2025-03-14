@@ -83,6 +83,13 @@ class CortexTest(s_t_utils.SynTest):
 
                 await core.nodes('[ inet:ipv4=1.2.3.4 :asn=99 .seen=now +#foo:score=10 ]')
 
+            with self.getLoggerStream('synapse.cortex') as stream:
+                async with self.getTestCore(dirn=dirn) as core:
+                    pass
+
+            stream.seek(0)
+            self.isin("The 'modules' Cortex config value is deprecated", stream.read())
+
     async def test_cortex_cellguid(self):
         iden = s_common.guid()
         conf = {'cell:guid': iden}
@@ -7695,7 +7702,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(1, data.count('deprecated properties unlocked'))
                 self.isin('deprecated properties unlocked and not in use', data)
 
-                match = regex.match(r'Detected (?P<count>\d+) deprecated properties', data)
+                match = regex.search(r'Detected (?P<count>\d+) deprecated properties', data)
                 count = int(match.groupdict().get('count'))
 
                 here = stream.tell()
