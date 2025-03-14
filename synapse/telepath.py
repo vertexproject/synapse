@@ -394,7 +394,7 @@ class Share(s_base.Base):
             This should never be used by synapse core code.  This is for sync client code convenience only.
         '''
         if s_threads.iden() == self.tid:
-            raise s_exc.SynErr('Use of synchronous context manager in async code')
+            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
 
         self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
@@ -823,7 +823,7 @@ class Proxy(s_base.Base):
             This must not be used from async code, and it should never be used in core synapse code.
         '''
         if s_threads.iden() == self.tid:
-            raise s_exc.SynErr('Use of synchronous context manager in async code')
+            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
         self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
 
