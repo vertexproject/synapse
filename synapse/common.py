@@ -932,7 +932,7 @@ def config(conf, confdefs):
 
     return conf
 
-def deprecated(name, curv='2.x', eolv='3.0.0'):
+def deprecated(name, curv='3.x', eolv='4.0.0'):
     mesg = f'"{name}" is deprecated in {curv} and will be removed in {eolv}'
     warnings.warn(mesg, DeprecationWarning)
     return mesg
@@ -940,29 +940,6 @@ def deprecated(name, curv='2.x', eolv='3.0.0'):
 def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
     warnings.warn(mesg, DeprecationWarning)
-
-def jsonsafe_nodeedits(nodeedits):
-    '''
-    Hexlify the buid of each node:edits
-    '''
-    retn = []
-    for nodeedit in nodeedits:
-        newedit = (ehex(nodeedit[0]), *nodeedit[1:])
-        retn.append(newedit)
-
-    return retn
-
-def unjsonsafe_nodeedits(nodeedits):
-    retn = []
-    for nodeedit in nodeedits:
-        buid = nodeedit[0]
-        if isinstance(buid, str):
-            newedit = (uhex(buid), *nodeedit[1:])
-        else:
-            newedit = nodeedit
-        retn.append(newedit)
-
-    return retn
 
 def reprauthrule(rule):
     text = '.'.join(rule[1])

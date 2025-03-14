@@ -282,20 +282,6 @@ class TeleTest(s_t_utils.SynTest):
         self.true(prox.isfini)
         await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
-    async def test_telepath_sync_genr(self):
-
-        foo = Foo()
-
-        def sync():
-            return [x for x in prox.genr()]
-
-        async with self.getTestDmon() as dmon:
-
-            dmon.share('foo', foo)
-
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
-                self.eq((10, 20, 30), await s_coro.executor(sync))
-
     def test_telepath_sync_genr_break(self):
 
         try:
@@ -337,49 +323,6 @@ class TeleTest(s_t_utils.SynTest):
 
         finally:
             s_glob.sync(acm.__aexit__(None, None, None))
-
-    async def test_telepath_no_sess(self):
-
-        foo = Foo()
-        evt = asyncio.Event()
-
-        async with self.getTestDmon() as dmon:
-
-            dmon.share('foo', foo)
-
-            await self.asyncraises(s_exc.BadUrl, s_telepath.openurl('noscheme/foo'))
-
-            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
-
-                prox.sess = None
-
-                # Add an additional prox.fini handler.
-                prox.onfini(evt.set)
-
-                # check a standard return value
-                self.eq(30, await prox.bar(10, 20))
-
-                # check a coroutine return value
-                self.eq(25, await prox.corovalu(10, 5))
-
-                # check a generator return channel
-                genr = await prox.genr()
-                self.eq((10, 20, 30), await s_t_utils.alist(genr))
-
-                # check an async generator return channel
-                genr = prox.corogenr(3)
-                self.eq((0, 1, 2), await s_t_utils.alist(genr))
-
-                await self.asyncraises(s_exc.NoSuchMeth, prox.raze())
-
-                await self.asyncraises(s_exc.NoSuchMeth, prox.fake())
-
-                await self.asyncraises(s_exc.SynErr, prox.boom())
-
-            # Fini'ing a daemon fini's proxies connected to it.
-            self.true(await s_coro.event_wait(evt, 2))
-            self.true(prox.isfini)
-            await self.asyncraises(s_exc.IsFini, prox.bar((10, 20)))
 
     async def test_telepath_tls_bad_cert(self):
         self.thisHostMustNot(platform='darwin')
@@ -575,24 +518,20 @@ class TeleTest(s_t_utils.SynTest):
 
             dmon.share('foo', foo)
 
-            # Test with and without session (telepath v2 and v1)
-            for do_sess in (True, False):
-                retn = []
+            retn = []
 
-                async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
-                    if not do_sess:
-                        prox.sess = None
+            async with await s_telepath.openurl('tcp://127.0.0.1/foo', port=dmon.addr[1]) as prox:
 
-                    with self.raises(s_exc.LinkShutDown):
+                with self.raises(s_exc.LinkShutDown):
 
-                        genr = prox.corogenr(1000)
-                        async for i in genr:
-                            retn.append(i)
-                            if i == 2:
-                                # yank out the ethernet cable
-                                await list(dmon.links)[0].fini()
+                    genr = prox.corogenr(1000)
+                    async for i in genr:
+                        retn.append(i)
+                        if i == 2:
+                            # yank out the ethernet cable
+                            await list(dmon.links)[0].fini()
 
-                self.eq(retn, [0, 1, 2])
+            self.eq(retn, [0, 1, 2])
 
     async def test_telepath_blocking(self):
         ''' Make sure that async methods on the same proxy don't block each other '''
@@ -1058,51 +997,6 @@ class TeleTest(s_t_utils.SynTest):
             await prox.fini()
 
             await self.asyncraises(s_exc.LinkShutDown, task)
-
-    async def test_telepath_pipeline(self):
-
-        foo = Foo()
-        async with self.getTestDmon() as dmon:
-
-            dmon.share('foo', foo)
-
-            async def genr():
-                yield s_common.todo('bar', 10, 30)
-                yield s_common.todo('bar', 20, 30)
-                yield s_common.todo('bar', 30, 30)
-
-            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
-            async with await s_telepath.openurl(url) as proxy:
-
-                self.eq(20, await proxy.bar(10, 10))
-                self.eq(1, len(proxy.links))
-
-                vals = []
-                async for retn in proxy.getPipeline(genr()):
-                    vals.append(s_common.result(retn))
-
-                self.eq(vals, (40, 50, 60))
-
-                self.eq(2, len(proxy.links))
-                self.eq(160, await proxy.bar(80, 80))
-
-                async def boomgenr():
-                    yield s_common.todo('bar', 10, 30)
-                    raise s_exc.NoSuchIden()
-
-                with self.raises(s_exc.NoSuchIden):
-                    async for retn in proxy.getPipeline(boomgenr()):
-                        pass
-
-                # This test must remain at the end of the with block
-                async def sleeper():
-                    yield s_common.todo('bar', 10, 30)
-                    await asyncio.sleep(3)
-
-                with self.raises(s_exc.LinkShutDown):
-                    async for retn in proxy.getPipeline(sleeper()):
-                        vals.append(s_common.result(retn))
-                        await proxy.fini()
 
     async def test_telepath_client_onlink_exc(self):
 

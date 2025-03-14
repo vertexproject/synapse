@@ -145,9 +145,7 @@ class Triggers:
             [await trig.execute(node) for trig in self.nodedel.get(node.form.name, ())]
 
     async def runPropSet(self, node, prop, oldv):
-        vars = {'propname': prop.name, 'propfull': prop.full,
-                'auto': {'opts': {'propname': prop.name, 'propfull': prop.full, }},
-                }
+        vars = {'auto': {'opts': {'propname': prop.name, 'propfull': prop.full}}}
         with self._recursion_check():
             [await trig.execute(node, vars=vars) for trig in self.propset.get(prop.full, ())]
             if prop.univ is not None:
@@ -155,7 +153,7 @@ class Triggers:
 
     async def runTagAdd(self, node, tag):
 
-        vars = {'tag': tag, 'auto': {'opts': {'tag': tag}}}
+        vars = {'auto': {'opts': {'tag': tag}}}
         with self._recursion_check():
 
             for trig in self.tagadd.get((node.form.name, tag), ()):
@@ -178,9 +176,7 @@ class Triggers:
 
     async def runTagDel(self, node, tag):
 
-        vars = {'tag': tag,
-                'auto': {'opts': {'tag': tag}},
-                }
+        vars = {'auto': {'opts': {'tag': tag}}}
         with self._recursion_check():
 
             for trig in self.tagdel.get((node.form.name, tag), ()):
@@ -201,10 +197,13 @@ class Triggers:
                 for _, trig in globs.get(tag):
                     await trig.execute(node, vars=vars)
 
-    async def runEdgeAdd(self, n1, verb, n2):
+    async def runEdgeAdd(self, n1, verb, n2nid):
         n1form = n1.form.name if n1 else None
-        n2form = n2.form.name if n2 else None
-        n2iden = n2.iden() if n2 else None
+
+        n2ndef = self.view.core.getNidNdef(n2nid)
+        n2form = n2ndef[0] if n2ndef else None
+        n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
+
         varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
@@ -228,7 +227,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n2:
+                if n2ndef:
                     for trig in self.edgeadd.get((None, verb, n2form), ()):
                         cached.append(trig)
 
@@ -237,7 +236,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n1 and n2:
+                if n1 and n2ndef:
                     for trig in self.edgeadd.get((n1form, verb, n2form), ()):
                         cached.append(trig)
 
@@ -251,10 +250,13 @@ class Triggers:
             for trig in cached:
                 await trig.execute(n1, vars=varz)
 
-    async def runEdgeDel(self, n1, verb, n2):
+    async def runEdgeDel(self, n1, verb, n2nid):
         n1form = n1.form.name if n1 else None
-        n2form = n2.form.name if n2 else None
-        n2iden = n2.iden() if n2 else None
+
+        n2ndef = self.view.core.getNidNdef(n2nid)
+        n2form = n2ndef[0] if n2ndef else None
+        n2iden = s_common.ehex(s_common.buid(n2ndef)) if n2ndef else None
+
         varz = {'auto': {'opts': {'verb': verb, 'n2iden': n2iden}}}
         with self._recursion_check():
             cachekey = (n1form, verb, n2form)
@@ -278,7 +280,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n2:
+                if n2ndef:
                     for trig in self.edgedel.get((None, verb, n2form), ()):
                         cached.append(trig)
 
@@ -287,7 +289,7 @@ class Triggers:
                         for _, trig in globs.get(verb):
                             cached.append(trig)
 
-                if n1 and n2:
+                if n1 and n2ndef:
                     for trig in self.edgedel.get((n1form, verb, n2form), ()):
                         cached.append(trig)
 
@@ -507,7 +509,7 @@ class Trigger:
             return
 
         if self.tdef.get('async'):
-            triginfo = {'buid': node.buid, 'trig': self.iden, 'vars': vars}
+            triginfo = {'nid': node.nid, 'trig': self.iden, 'vars': vars}
             await self.view.addTrigQueue(triginfo)
             return
 
@@ -567,49 +569,3 @@ class Trigger:
             tdef['username'] = triguser.name
 
         return tdef
-
-    def getStorNode(self, form):
-        ndef = (form.name, form.type.norm(self.iden)[0])
-        buid = s_common.buid(ndef)
-
-        props = {
-            'doc': self.tdef.get('doc', ''),
-            'name': self.tdef.get('name', ''),
-            'vers': self.tdef.get('ver', 1),
-            'cond': self.tdef.get('cond'),
-            'storm': self.tdef.get('storm'),
-            'enabled': self.tdef.get('enabled'),
-            'user': self.tdef.get('user'),
-            '.created': self.tdef.get('created')
-        }
-
-        tag = self.tdef.get('tag')
-        if tag is not None:
-            props['tag'] = tag
-
-        formprop = self.tdef.get('form')
-        if formprop is not None:
-            props['form'] = formprop
-
-        prop = self.tdef.get('prop')
-        if prop is not None:
-            props['prop'] = prop
-
-        verb = self.tdef.get('verb')
-        if verb is not None:
-            props['verb'] = verb
-
-        n2form = self.tdef.get('n2form')
-        if n2form is not None:
-            props['n2form'] = n2form
-
-        pnorms = {}
-        for prop, valu in props.items():
-            formprop = form.props.get(prop)
-            if formprop is not None and valu is not None:
-                pnorms[prop] = formprop.type.norm(valu)[0]
-
-        return (buid, {
-            'ndef': ndef,
-            'props': pnorms,
-        })
