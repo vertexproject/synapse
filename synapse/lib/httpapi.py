@@ -266,7 +266,6 @@ class HandlerBase:
         Note:
             This function will pull the iden from the current session, or
             attempt to resolve the useriden with basic authentication.
-            Locked users will be logged out and the session will be deleted.
 
         Returns:
             str: The iden of the current session user.
@@ -278,15 +277,6 @@ class HandlerBase:
         if sess is not None:
             iden = sess.info.get('user')
             name = sess.info.get('username', '<no username>')
-
-            if iden is None:
-                return None
-
-            authcell = self.getAuthCell()
-            udef = await authcell.getUserDef(iden, packroles=False)
-            if udef is not None and udef.get('locked'):
-                await authcell.delHttpSess(sess.iden)
-                return None
 
             self.web_useriden = iden
             self.web_username = name

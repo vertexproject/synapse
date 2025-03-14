@@ -2971,6 +2971,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await user.setLocked(locked)
         logger.info(f'Set lock={locked} for user {user.name}',
                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+        await self.fire('user:lock', user=user.iden, locked=locked)
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
@@ -3412,6 +3413,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # Add callbacks
         self.on('user:del', self._onUserDelEvnt)
+        self.on('user:lock', self._onUserLockEvnt)
 
         authctor = self.conf.get('auth:ctor')
         if authctor is not None:
@@ -5012,6 +5014,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.slab.delete(key_iden, db=self.apikeydb)
             self.slab.delete(lkey, db=self.usermetadb)
             await asyncio.sleep(0)
+
+    async def _onUserLockEvnt(self, evnt):
+        # Call callback for handling user:lock events
+        useriden = evnt[1].get('user')
+        locked = evnt[1].get('locked')
+
+        if not locked:
+            return
+
+        # Find and delete all HTTP sessions for useriden
+        for iden, sess in list(self.sessions.items()):
+            if sess.info.get('user') == useriden:
+                username = sess.info.get('username', '<unknown>')
+                await self.delHttpSess(iden)
+                logger.info(f'Invalidated HTTP session for locked user {username}',
+                            extra=await self.getLogExtra(target_user=useriden))
 
     def _makeCachedSslCtx(self, opts):
 

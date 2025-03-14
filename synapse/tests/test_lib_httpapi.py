@@ -1999,7 +1999,10 @@ class HttpApiTest(s_tests.SynTest):
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
 
-                await core.setUserLocked(visi.iden, True)
+                with self.getAsyncLoggerStream('synapse.lib.cell',
+                                               'Invalidated HTTP session for locked user visi') as stream:
+                    await core.setUserLocked(visi.iden, True)
+                    self.true(await stream.wait(timeout=2))
 
                 resp = await sess.get(f'{root}/api/v1/auth/users')
                 self.eq(resp.status, 401)
