@@ -1,0 +1,7 @@
+---
+desc: Fixed an issue where locked users could still access HTTP endpoints with an
+  existing session cookie. User lock status now invalidates existing sessions across
+  all authenticated endpoints.
+prs: []
+type: bug
+...

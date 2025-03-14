@@ -3143,8 +3143,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             self.sessstor.set(iden, name, valu)
         return info
 
-    @s_nexus.Pusher.onPushAuto('http:sess:del')
     async def delHttpSess(self, iden):
+        await self._push('http:sess:del', iden)
+
+    @s_nexus.Pusher.onPush('http:sess:del')
+    async def _delHttpSess(self, iden):
         await self.sessstor.del_(iden)
         sess = self.sessions.pop(iden, None)
         if sess:
@@ -3412,6 +3415,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         # Add callbacks
         self.on('user:del', self._onUserDelEvnt)
+        self.on('user:lock', self._onUserLockEvnt)
 
         authctor = self.conf.get('auth:ctor')
         if authctor is not None:
@@ -5012,6 +5016,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 self.slab.delete(key_iden, db=self.apikeydb)
             self.slab.delete(lkey, db=self.usermetadb)
             await asyncio.sleep(0)
+
+    async def _onUserLockEvnt(self, evnt):
+        # Call callback for handling user:lock events
+        useriden = evnt[1].get('user')
+        locked = evnt[1].get('locked')
+
+        if not locked:
+            return
+
+        # Find and delete all HTTP sessions for useriden
+        for iden, sess in list(self.sessions.items()):
+            if sess.info.get('user') == useriden:
+                username = sess.info.get('username', '<unknown>')
+                await self._delHttpSess(iden)
+                logger.info(f'Invalidated HTTP session for locked user {username}',
+                            extra=await self.getLogExtra(target_user=useriden))
 
     def _makeCachedSslCtx(self, opts):
 

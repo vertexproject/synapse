@@ -1976,3 +1976,46 @@ class HttpApiTest(s_tests.SynTest):
 
                 # No change with the bad data
                 self.eq(cell_sess.info, result.get('info'))
+
+    async def test_http_locked_admin(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.auth.addUser('visi')
+            await visi.setAdmin(True)
+            await visi.setPasswd('secret123')
+
+            host, port = await core.addHttpsPort(0, host='127.0.0.1')
+            root = f'https://localhost:{port}'
+
+            async with self.getHttpSess() as sess:
+                resp = await sess.post(f'{root}/api/v1/login', json={'user': 'visi', 'passwd': 'secret123'})
+                self.eq(resp.status, 200)
+
+                resp = await sess.get(f'{root}/api/v1/auth/users')
+                self.eq(resp.status, 200)
+
+                data = {'query': '[ inet:ipv4=1.2.3.4 ]', 'opts': {'user': visi.iden}}
+                async with sess.get(f'{root}/api/v1/storm/call', json=data) as resp:
+                    item = await resp.json()
+                    self.eq('ok', item.get('status'))
+
+                with self.getAsyncLoggerStream('synapse.lib.cell',
+                                               'Invalidated HTTP session for locked user visi') as stream:
+                    await core.setUserLocked(visi.iden, True)
+                    self.true(await stream.wait(timeout=2))
+
+                resp = await sess.get(f'{root}/api/v1/auth/users')
+                self.eq(resp.status, 401)
+
+                data = {'query': '[ inet:ipv4=5.6.7.8 ]', 'opts': {'user': visi.iden}}
+                async with sess.get(f'{root}/api/v1/storm/call', json=data) as resp:
+                    item = await resp.json()
+                    self.eq('err', item.get('status'))
+                    self.eq('NotAuthenticated', item.get('code'))
+
+                resp = await sess.post(f'{root}/api/v1/login', json={'user': 'visi', 'passwd': 'secret123'})
+                self.eq(resp.status, 200)
+                retn = await resp.json()
+                self.eq(retn.get('status'), 'err')
+                self.eq(retn.get('code'), 'AuthDeny')
+                self.isin('User is locked.', retn.get('mesg'))
