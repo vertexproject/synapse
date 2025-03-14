@@ -748,6 +748,10 @@ Queries = [
     '[test:str=foo :bar?--={[it:dev:str=foo]}]',
     '$foo=(notime,)',
     '$foo=(nulltime,)',
+    '$foo=(not$x)',
+    '$foo=(not $x)',
+    '$foo=(not($x))',
+    '$foo=(not ($x))',
 ]
 
 # Generated with print_parse_list below
@@ -1398,6 +1402,10 @@ _ParseResults = [
     'Query: [EditNodeAdd: [FormName: [Const: test:str], Const: =, Const: foo], EditPropSetMulti: [RelProp: [Const: bar], Const: ?--=, SubQuery: [Query: [EditNodeAdd: [FormName: [Const: it:dev:str], Const: =, Const: foo]]]]]',
     'Query: [SetVarOper: [Const: foo, List: [Const: notime]]]',
     'Query: [SetVarOper: [Const: foo, List: [Const: nulltime]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, VarValue: [Const: x]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, VarValue: [Const: x]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
@@ -1709,6 +1717,20 @@ class GrammarTest(s_t_utils.SynTest):
         self.eq((44, 83), info['offsets'])
         self.eq((2, 3), info['lines'])
         self.eq((22, 31), info['columns'])
+
+        query = '$x=$lib.guid(foo$bar)'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.true(errinfo.get('mesg').startswith("Unexpected token '$' at line 1, column 17"))
+
+        query = '$x=$lib.guid(foo(bar)'
+        parser = s_parser.Parser(query)
+        with self.raises(s_exc.BadSyntax) as cm:
+            _ = parser.query()
+        errinfo = cm.exception.errinfo
+        self.true(errinfo.get('mesg').startswith("Unexpected token '(' at line 1, column 17"))
 
     async def test_quotes(self):
 
