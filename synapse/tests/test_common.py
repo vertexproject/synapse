@@ -167,6 +167,11 @@ class CommonTest(s_t_utils.SynTest):
             duappr = int(duapprstr.split()[0])
             self.eq(duappr, appr)
 
+            _, appr_old = s_common.getDirSize(dirn, du_version=(9, 1))
+            _, appr_new = s_common.getDirSize(dirn, du_version=(9, 2))
+            self.gt(appr_old, appr_new)
+            self.eq(appr_new, len(b'woot') + len(b'nope'))
+
             # The following does not work in a busybox based environment,
             # but manual testing of the getDirSize() API does confirm
             # that the results are still as expected when run there.
