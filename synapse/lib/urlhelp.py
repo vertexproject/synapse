@@ -1,7 +1,8 @@
 import urllib.parse
 
-import regex
 import synapse.exc as s_exc
+
+import synapse.lib.cache as s_cache
 
 def chopurl(url):
     '''
@@ -70,8 +71,7 @@ def chopurl(url):
     ret['path'] = pathrem
     return ret
 
-_url_re = regex.compile(r'^(?P<front>.+?://.+?:)[^/]+?(?=@)')
-
+@s_cache.memoize(size=1024)
 def sanitizeUrl(url):
     '''
     Returns a URL with the password (if present) replaced with ``****``
@@ -85,4 +85,28 @@ def sanitizeUrl(url):
     Note: this depends on this being a reasonably-well formatted URI that starts with a scheme (e.g. http) and '//:'
     Failure of this condition yields the original string.
     '''
-    return _url_re.sub(r'\g<front>****', url)
+    try:
+        info = chopurl(url)
+    except Exception as e:
+        return url
+    else:
+        if info.get('passwd'):
+            # Rebuild the URL from info
+            valu = f"{info.get('scheme')}://{info.get('user')}:****@"
+            host = info.get('host')
+            port = info.get('port')
+            if ':' in host and port:
+                valu = f"{valu}[{host}]:{port}"
+            elif port:
+                valu = f"{valu}{host}:{port}"
+            else:
+                valu = f"{valu}{host}"
+            if path := info.get('path'):
+                valu = f"{valu}{path}"
+            if query := info.get('query'):
+                qstr = ''
+                for k, v in query.items():
+                    qstr += f'{k}={v}'
+                valu = f"{valu}?{qstr}"
+            return valu
+        return url
