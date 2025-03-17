@@ -1143,7 +1143,11 @@ def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
     return f'{text[:mlen]}{placeholder}'
 
 def queryhash(text):
-    return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+    try:
+        return hashlib.md5(text.encode(), usedforsecurity=False).hexdigest()
+    except UnicodeEncodeError as exc:
+        mesg = 'Query contains invalid characters and cannot be parsed.'
+        raise s_exc.BadDataValu(mesg=mesg) from exc
 
 def _patch_http_cookies():
     '''

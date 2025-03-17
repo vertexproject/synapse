@@ -467,9 +467,10 @@ class TeleTest(s_t_utils.SynTest):
                 bads = '\u01cb\ufffd\ud842\ufffd\u0012'
                 t0 = ('1234', {'key': bads})
 
-                # Shovel a malformed UTF8 string with an unpaired surrogate over telepath
-                ret = await prox.echo(t0)
-                self.eq(ret, t0)
+                with self.raises(s_exc.NotMsgpackSafe):
+                    # Shovel a malformed UTF8 string with an unpaired surrogate over telepath
+                    ret = await prox.echo(t0)
+                    self.eq(ret, t0)
 
     async def test_telepath_async(self):
 

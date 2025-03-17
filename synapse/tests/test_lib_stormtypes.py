@@ -3135,10 +3135,9 @@ class StormTypesTest(s_test.SynTest):
 
             # Mismatch surrogates from real world data
             surrogate_data = "FOO\ufffd\ufffd\ufffd\udfab\ufffd\ufffdBAR"
-            resp = await core.callStorm('$buf=$s.encode() return ( ($buf, $buf.decode() ) )',
-                                        opts={'vars': {'s': surrogate_data}})
-            self.eq(resp[0], surrogate_data.encode('utf-8', 'surrogatepass'))
-            self.eq(resp[1], surrogate_data)
+            with self.raises(s_exc.StormRuntimeError):
+                resp = await core.callStorm('$buf=$s.encode() return ( ($buf, $buf.decode() ) )',
+                                                opts={'vars': {'s': surrogate_data}})
 
             # Encoding/decoding errors are caught
             q = '$valu="valu" $valu.encode("utf16").decode()'
