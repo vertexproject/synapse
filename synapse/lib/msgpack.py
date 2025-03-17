@@ -28,7 +28,6 @@ def _ext_en(item):
 
 _packer_kwargs = {
     'use_bin_type': True,
-    'unicode_errors': 'surrogatepass',
     'default': _ext_en,
 }
 if msgpack.version >= (1, 1, 0):
@@ -61,9 +60,7 @@ def en(item):
         item (obj): The object to serialize
 
     Notes:
-        String objects are encoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow encoding bad input strings.
+        String objects are encoded using utf8 encoding.
 
     Returns:
         bytes: The serialized bytes in msgpack format.
@@ -87,9 +84,7 @@ def _fallback_en(item):
         item (obj): The object to serialize
 
     Notes:
-        String objects are encoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow encoding bad input strings.
+        String objects are encoded using utf8 encoding.
 
     Returns:
         bytes: The serialized bytes in msgpack format.

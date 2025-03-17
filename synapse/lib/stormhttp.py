@@ -521,7 +521,7 @@ class HttpResp(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_httpRespJson',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.', 'default': 'surrogatepass', },
+                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.', 'default': 'strict', },
                    ),
                    'returns': {'type': 'prim'}
                  }
@@ -554,7 +554,7 @@ class HttpResp(s_stormtypes.Prim):
             'msgpack': self._httpRespMsgpack,
         }
 
-    async def _httpRespJson(self, encoding=None, errors='surrogatepass'):
+    async def _httpRespJson(self, encoding=None, errors='strict'):
         try:
             valu = self.valu.get('body')
             errors = await s_stormtypes.tostr(errors)

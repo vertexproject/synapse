@@ -259,8 +259,10 @@ class MsgPackTest(s_t_utils.SynTest):
 
     def checkSurrogates(self, enfunc):
         bads = '\u01cb\ufffd\ud842\ufffd\u0012'
-        obyts = enfunc(bads)
-        self.isinstance(obyts, bytes)
+        obyts = b'\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12'
+
+        with self.raises(s_exc.NotMsgpackSafe):
+            enfunc(bads)
 
         outs = s_msgpack.un(obyts)
         self.eq(outs, bads)
