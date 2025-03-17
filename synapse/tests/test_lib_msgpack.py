@@ -278,6 +278,11 @@ class MsgPackTest(s_t_utils.SynTest):
 
             fd.close()
 
+            path = s_common.genpath(fdir, 'test.mpk')
+            with self.raises(s_exc.BadMsgpackData):
+                gen = s_msgpack.iterfile(path)
+                items = [obj for obj in gen]
+
         unpk = s_msgpack.Unpk()
         with self.raises(s_exc.BadMsgpackData):
             ret = unpk.feed(obyts)

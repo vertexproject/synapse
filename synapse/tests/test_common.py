@@ -491,3 +491,9 @@ class CommonTest(s_t_utils.SynTest):
 
                     json = await resp.json()
                     self.eq(json, {'foo': 'bar', 'html': '<html></html>'})
+
+    async def test_queryhash(self):
+        self.eq('7c18c9e1895308ac46845a069472b12e', s_common.queryhash('inet:fqdn'))
+
+        with self.raises(s_exc.BadDataValu):
+            s_common.queryhash('😀\ud83d\ude47')
