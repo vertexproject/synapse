@@ -49,7 +49,6 @@ unpacker_kwargs = {
     'strict_map_key': False,
     'ext_hook': _ext_un,
     'max_buffer_size': 2**32 - 1,
-    'unicode_errors': 'surrogatepass'
 }
 
 def en(item):
@@ -110,16 +109,17 @@ def un(byts, use_list=False):
         byts (bytes): The bytes to de-serialize
 
     Notes:
-        String objects are decoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow decoding bad input strings.
+        String objects are decoded using utf8 encoding.
 
     Returns:
         obj: The de-serialized object
     '''
     # This uses a subset of unpacker_kwargs
-    return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False,
-                         unicode_errors='surrogatepass', ext_hook=_ext_un)
+    try:
+        return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False, ext_hook=_ext_un)
+    except UnicodeDecodeError as exc:
+        mesg = 'Error decoding string in msgpack data.'
+        raise s_exc.BadMsgpackData(mesg=mesg) from exc
 
 def isok(item):
     '''
@@ -139,16 +139,18 @@ def iterfd(fd):
         fd: File object to consume data from.
 
     Notes:
-        String objects are decoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow decoding bad input strings.
+        String objects are decoded using utf8 encoding.
 
     Yields:
         Objects from a msgpack stream.
     '''
     unpk = msgpack.Unpacker(fd, **unpacker_kwargs)
-    for mesg in unpk:
-        yield mesg
+    try:
+        for mesg in unpk:
+            yield mesg
+    except UnicodeDecodeError as exc:
+        mesg = 'Error decoding string in msgpack data.'
+        raise s_exc.BadMsgpackData(mesg=mesg) from exc
 
 def iterfile(path, since=-1):
     '''
@@ -158,9 +160,7 @@ def iterfile(path, since=-1):
         path: File path to open and consume data from.
 
     Notes:
-        String objects are decoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow decoding bad input strings.
+        String objects are decoded using utf8 encoding.
 
     Yields:
         Objects from a msgpack stream.
@@ -169,20 +169,23 @@ def iterfile(path, since=-1):
 
         unpk = msgpack.Unpacker(fd, **unpacker_kwargs)
 
-        for i, mesg in enumerate(unpk):
-            if i <= since:
-                continue
+        try:
+            for i, mesg in enumerate(unpk):
+                if i <= since:
+                    continue
 
-            yield mesg
+                yield mesg
+
+        except UnicodeDecodeError as exc:
+            mesg = 'Error decoding string in msgpack data.'
+            raise s_exc.BadMsgpackData(mesg=mesg) from exc
 
 class Unpk:
     '''
     An extension of the msgpack streaming Unpacker which reports sizes.
 
     Notes:
-        String objects are decoded using utf8 encoding.  In order to handle
-        potentially malformed input, ``unicode_errors='surrogatepass'`` is set
-        to allow decoding bad input strings.
+        String objects are decoded using utf8 encoding.
     '''
     def __init__(self):
         self.size = 0
@@ -217,6 +220,10 @@ class Unpk:
 
             except msgpack.exceptions.OutOfData:
                 break
+
+            except UnicodeDecodeError as exc:
+                mesg = 'Error decoding string in msgpack data.'
+                raise s_exc.BadMsgpackData(mesg=mesg) from exc
 
         return retn
 

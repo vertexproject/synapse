@@ -115,6 +115,7 @@ class BadEdgeDef(SynErr): pass
 class BadTypeDef(SynErr): pass
 class BadTypeValu(SynErr): pass
 class BadJsonText(SynErr): pass
+class BadMsgpackData(SynErr): pass
 class BadDataValu(SynErr):
     '''Cannot process the data as intended.'''
     pass
