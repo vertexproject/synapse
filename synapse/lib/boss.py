@@ -56,9 +56,7 @@ class Boss(s_base.Base):
 
     async def promotetask(self, task, name, user, info=None, taskiden=None, root=None):
 
-        synt = getattr(task, '_syn_task', None)
-
-        if root is None and synt is not None:
+        if root is None and (synt := s_task.syntask(task)) is not None:
 
             if taskiden is not None and synt.iden != taskiden:
                 logger.warning(f'Iden specified for existing task={synt}. Ignored.')
