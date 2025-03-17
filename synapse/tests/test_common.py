@@ -1,4 +1,5 @@
 import os
+import re
 import http
 import asyncio
 import logging
@@ -80,6 +81,16 @@ class CommonTest(s_t_utils.SynTest):
         self.true(s_common.vertup('30.40.50') > (9, 0))
 
     def test_common_file_helpers(self):
+
+        try:
+            du_version = (0, 0)
+            du_version_str = subprocess.check_output(['du', '--version'], text=True).split('\\n')[0]
+            du_version_match = re.search(r'(\d+)\.(\d+)', du_version_str)
+            if du_version_match:
+                du_version = tuple(map(int, du_version_match.groups()))
+        except (subprocess.SubprocessError, IndexError):
+            pass
+
         # genfile
         with self.getTestDir() as testdir:
             fd = s_common.genfile(testdir, 'woot', 'foo.bin')
@@ -150,7 +161,7 @@ class CommonTest(s_t_utils.SynTest):
             self.eq(retn, ((path,)))
 
             # getDirSize: check against du
-            real, appr = s_common.getDirSize(dirn)
+            real, appr = s_common.getDirSize(dirn, du_version=du_version)
 
             duapprstr = subprocess.check_output(['du', '-bs', dirn])
             duappr = int(duapprstr.split()[0])
