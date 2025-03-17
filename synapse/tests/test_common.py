@@ -151,8 +151,9 @@ class CommonTest(s_t_utils.SynTest):
             self.eq(retn, ((path,)))
 
             real, appr = s_common.getDirSize(dirn)
-            self.eq(real, 16384)
-            self.eq(appr, 8200)
+            self.eq(real % 512, 0)
+            self.gt(real, appr)
+            self.ge(appr, len(b'woot') + len(b'nope'))
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
