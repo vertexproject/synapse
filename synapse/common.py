@@ -474,19 +474,12 @@ def reqdir(*paths):
         raise s_exc.NoSuchDir(path=path)
     return path
 
-def getDirSize(*paths, du_version=(0, 0)):
+def getDirSize(*paths):
     '''
     Get the size of a directory.
 
     Args:
         *paths (str): A list of path elements.
-        du_version (tuple): A tuple of (major, minor) version of du.
-
-    Notes:
-        This is equivalent to ``du -B 1 -s`` and ``du -bs``.
-        The du_version parameter determines the calculations ``du`` would use for that version.
-        For du versions < 9.2, directories contribute to apparent size.
-        For du versions >= 9.2, only regular files contribute to apparent size.
 
     Returns:
         tuple: Tuple of total real and total apparent size of all normal files and directories underneath
@@ -502,14 +495,7 @@ def getDirSize(*paths, du_version=(0, 0)):
         if not (stat.S_ISREG(mode) or stat.S_ISDIR(mode)):
             return 0, 0
 
-        real = status.st_blocks * 512
-
-        if du_version >= (9, 2):
-            appr = status.st_size if stat.S_ISREG(mode) else 0
-        else:
-            appr = status.st_size
-
-        return real, appr
+        return status.st_blocks * 512, status.st_size
 
     realsum, apprsum = getsize(genpath(*paths))
 

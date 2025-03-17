@@ -1,5 +1,4 @@
 import os
-import re
 import http
 import asyncio
 import logging
@@ -82,15 +81,6 @@ class CommonTest(s_t_utils.SynTest):
 
     def test_common_file_helpers(self):
 
-        try:
-            du_version = (0, 0)
-            du_version_str = subprocess.check_output(['du', '--version'], text=True).split('\\n')[0]
-            du_version_match = re.search(r'(\d+)\.(\d+)', du_version_str)
-            if du_version_match:
-                du_version = tuple(map(int, du_version_match.groups()))
-        except (subprocess.SubprocessError, IndexError):
-            pass
-
         # genfile
         with self.getTestDir() as testdir:
             fd = s_common.genfile(testdir, 'woot', 'foo.bin')
@@ -160,35 +150,9 @@ class CommonTest(s_t_utils.SynTest):
             retn = tuple(s_common.listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))
 
-            # getDirSize: check against du
-            real, appr = s_common.getDirSize(dirn, du_version=du_version)
-
-            duapprstr = subprocess.check_output(['du', '-bs', dirn])
-            duappr = int(duapprstr.split()[0])
-            self.eq(duappr, appr)
-
-            _, appr_old = s_common.getDirSize(dirn, du_version=(9, 1))
-            _, appr_new = s_common.getDirSize(dirn, du_version=(9, 2))
-            self.gt(appr_old, appr_new)
-            self.eq(appr_new, len(b'woot') + len(b'nope'))
-
-            # The following does not work in a busybox based environment,
-            # but manual testing of the getDirSize() API does confirm
-            # that the results are still as expected when run there.
-            argv = ['du', '-B', '1', '-s', dirn]
-            proc = subprocess.run(argv, capture_output=True)
-            try:
-                proc.check_returncode()
-            except subprocess.CalledProcessError as e:
-                stderr = proc.stderr.decode()
-                if 'unrecognized option: B' in stderr and 'BusyBox' in stderr:
-                    logger.warning(f'Unable to run {"".join(argv)} in BusyBox.')
-                else:
-                    raise
-            else:
-                durealstr = proc.stdout.decode()
-                dureal = int(durealstr.split()[0])
-                self.eq(dureal, real)
+            real, appr = s_common.getDirSize(dirn)
+            self.eq(real, 16384)
+            self.eq(appr, 8200)
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
