@@ -56,12 +56,9 @@ class Boss(s_base.Base):
 
     async def promotetask(self, task, name, user, info=None, taskiden=None, root=None):
 
-        if root is not None:
-            return await s_task.Task.anit(self, task, name, user, info=info, root=root, iden=taskiden)
-
         synt = getattr(task, '_syn_task', None)
 
-        if synt is not None:
+        if root is None and synt is not None:
 
             if taskiden is not None and synt.iden != taskiden:
                 logger.warning(f'Iden specified for existing task={synt}. Ignored.')
@@ -73,7 +70,7 @@ class Boss(s_base.Base):
             synt.root = None
             return synt
 
-        return await s_task.Task.anit(self, task, name, user, info=info, iden=taskiden)
+        return await s_task.Task.anit(self, task, name, user, info=info, root=root, iden=taskiden)
 
     async def execute(self, coro, name, user, info=None, iden=None):
         '''
