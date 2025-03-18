@@ -631,7 +631,7 @@ class BeholdSockV1(WebSocket):
         try:
             mesg = s_json.loads(byts)
             if mesg.get('type') != 'call:init':
-                raise s_exc.BadMesgFormat('Invalid initial message')
+                raise s_exc.BadMesgFormat(mesg='Invalid initial message')
 
             admin = await self.isUserAdmin()
             if not admin:
