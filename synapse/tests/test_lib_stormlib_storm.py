@@ -1,3 +1,5 @@
+import asyncio
+
 import synapse.exc as s_exc
 import synapse.lib.parser as s_parser
 
@@ -142,3 +144,29 @@ class LibStormTest(s_test.SynTest):
                 }
             ''')
             self.stormIsInPrint('mesg=hello', msgs)
+
+    async def test_lib_stormlib_storm_tasks(self):
+
+        async with self.getTestCore() as core:
+
+            event = asyncio.Event()
+
+            q = '$lib.storm.run("$lib.time.sleep(10)")'
+
+            async def doit():
+                event.set()
+                await core.callStorm(q)
+
+            task = core.schedCoro(doit())
+            await event.wait()
+
+            tasks = core.boss.ps()
+            self.len(1, tasks)
+
+            viewiden = await core.callStorm('return($lib.view.get().iden)')
+
+            self.eq(tasks[0].name, 'storm')
+            self.eq(tasks[0].info, {'query': q, 'view': viewiden})
+            self.len(0, tasks[0].kids)
+
+            task.cancel('oh bye')

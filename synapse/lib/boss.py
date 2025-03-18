@@ -31,13 +31,6 @@ class Boss(s_base.Base):
     def get(self, iden):
         return self.tasks.get(iden)
 
-    def getRoot(self):
-        synt = s_task.current()
-        if synt is None:
-            return None
-
-        return synt.root
-
     async def promote(self, name, user, info=None, taskiden=None, root=None):
         '''
         Promote the currently running task.
