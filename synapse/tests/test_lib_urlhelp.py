@@ -98,6 +98,8 @@ class UrlTest(s_t_utils.SynTest):
             ('ssl://user@00.aha.dev.synapse:27492?certname=user@dev.synapse', None),
             ('ssl://user@00.aha.dev.synapse:27492/path?certname=user@dev.synapse', None),
             ('aha://user:passwd@something.cool:274/path?arg=wow', 'aha://user:****@something.cool:274/path?arg=wow'),
+            ('aha://user:passwd@something.cool:274/path?arg=wow&wee=diggity',
+             'aha://user:****@something.cool:274/path?arg=wow&wee=diggity'),
         ]
 
         for in_, out in data:

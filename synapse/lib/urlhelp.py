@@ -104,9 +104,9 @@ def sanitizeUrl(url):
             if path := info.get('path'):
                 valu = f"{valu}{path}"
             if query := info.get('query'):
-                qstr = ''
+                parts = []
                 for k, v in query.items():
-                    qstr += f'{k}={v}'
-                valu = f"{valu}?{qstr}"
+                    parts.append(f'{k}={v}')
+                valu = f"{valu}?{'&'.join(parts)}"
             return valu
         return url
