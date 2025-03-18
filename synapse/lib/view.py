@@ -8,7 +8,6 @@ import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.snap as s_snap
-import synapse.lib.task as s_task
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.scope as s_scope
@@ -1003,7 +1002,7 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
 
         synt = None
-        if opts.get('promote', True):
+        if opts.get('promote'):
             synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())

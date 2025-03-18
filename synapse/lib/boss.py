@@ -31,7 +31,7 @@ class Boss(s_base.Base):
     def get(self, iden):
         return self.tasks.get(iden)
 
-    async def promote(self, name, user, info=None, taskiden=None, root=None):
+    async def promote(self, name, user, info=None, taskiden=None):
         '''
         Promote the currently running task.
 
@@ -45,11 +45,13 @@ class Boss(s_base.Base):
             s_task.Task: The Synapse Task object.
         '''
         task = asyncio.current_task()
-        return await self.promotetask(task, name, user, info=info, taskiden=taskiden, root=root)
+        return await self.promotetask(task, name, user, info=info, taskiden=taskiden)
 
-    async def promotetask(self, task, name, user, info=None, taskiden=None, root=None):
+    async def promotetask(self, task, name, user, info=None, taskiden=None):
 
-        if root is None and (synt := s_task.syntask(task)) is not None:
+        synt = s_task.syntask(task)
+
+        if synt is not None:
 
             if taskiden is not None and synt.iden != taskiden:
                 logger.warning(f'Iden specified for existing task={synt}. Ignored.')
@@ -61,7 +63,7 @@ class Boss(s_base.Base):
             synt.root = None
             return synt
 
-        return await s_task.Task.anit(self, task, name, user, info=info, root=root, iden=taskiden)
+        return await s_task.Task.anit(self, task, name, user, info=info, iden=taskiden)
 
     async def execute(self, coro, name, user, info=None, iden=None):
         '''
