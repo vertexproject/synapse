@@ -1002,7 +1002,7 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
 
         synt = None
-        if opts.get('promote'):
+        if opts.get('promote', True):
             synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
