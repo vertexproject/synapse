@@ -1,7 +1,7 @@
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-class MathTest(s_t_utils.SynTest):
+class MathTest(s_t_utils.SynTestA):
 
     async def test_model_math_algo(self):
 

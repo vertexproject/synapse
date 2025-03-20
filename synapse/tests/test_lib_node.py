@@ -9,7 +9,7 @@ import synapse.lib.node as s_node
 import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
-class NodeTest(s_t_utils.SynTest):
+class NodeTest(s_t_utils.SynTestA):
 
     async def test_pack(self):
 

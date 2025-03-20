@@ -2,7 +2,7 @@ import synapse.cryotank as s_cryo
 
 import synapse.tests.utils as s_t_utils
 
-class CryoServerTest(s_t_utils.SynTest):
+class CryoServerTest(s_t_utils.SynTestA):
 
     async def test_server(self):
 

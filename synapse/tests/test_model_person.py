@@ -2,7 +2,7 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
-class PsModelTest(s_t_utils.SynTest):
+class PsModelTest(s_t_utils.SynTestA):
     async def test_ps_simple(self):
 
         person0 = s_common.guid()

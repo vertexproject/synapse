@@ -2,7 +2,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.lib.output as s_output
 
-class TestOutPut(s_t_utils.SynTest):
+class TestOutPut(s_t_utils.SynTestA):
 
     # def test_output(self):
     #     outp = s_output.OutPut()

@@ -3,7 +3,7 @@ import synapse.lib.urlhelp as s_urlhelp
 
 import synapse.tests.utils as s_t_utils
 
-class UrlTest(s_t_utils.SynTest):
+class UrlTest(s_t_utils.SynTestA):
     def test_urlchop(self):
 
         url = 'http://vertex.link:8080/hehe.html'

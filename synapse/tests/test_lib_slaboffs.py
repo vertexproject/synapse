@@ -6,7 +6,7 @@ import synapse.lib.slaboffs as s_slaboffs
 
 import synapse.tests.utils as s_t_utils
 
-class SlabOffsTest(s_t_utils.SynTest):
+class SlabOffsTest(s_t_utils.SynTestA):
 
     async def test_lmdbslab_base(self):
 

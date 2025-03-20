@@ -7,7 +7,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.lib.base as s_base
 import synapse.lib.cache as s_cache
 
-class CacheTest(s_t_utils.SynTest):
+class CacheTest(s_t_utils.SynTestA):
 
     def test_lib_cache_fixed(self):
 

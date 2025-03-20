@@ -5,7 +5,7 @@ import synapse.tools.snapshot as s_tools_snapshot
 
 import synapse.tests.utils as s_t_utils
 
-class PromoteToolTest(s_t_utils.SynTest):
+class PromoteToolTest(s_t_utils.SynTestA):
 
     async def test_tool_snapshot(self):
 
