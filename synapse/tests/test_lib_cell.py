@@ -1822,10 +1822,13 @@ class CellTest(s_t_utils.SynTestA):
 
                     async def streamdone():
                         while core.backupstreaming:
-                            await asyncio.sleep(0)
+                            await asyncio.sleep(0.1)
 
                     task = core.schedCoro(streamdone())
-                    await asyncio.wait_for(task, 15)
+                    try:
+                        await asyncio.wait_for(task, 5)
+                    except TimeoutError:
+                        raise TimeoutError('Timeout waiting for streaming backup cleanup of bkup3 to complete.')
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
                     self.false(os.path.isdir(os.path.join(backdirn, 'bkup3')))
@@ -1839,7 +1842,10 @@ class CellTest(s_t_utils.SynTestA):
                             bkup4.write(msg)
 
                     task = core.schedCoro(streamdone())
-                    await asyncio.wait_for(task, 15)
+                    try:
+                        await asyncio.wait_for(task, 5)
+                    except TimeoutError:
+                        raise TimeoutError('Timeout waiting for streaming backup cleanup of bkup4 to complete.')
 
                     self.eq(('bkup', 'bkup2'), sorted(await proxy.getBackups()))
 

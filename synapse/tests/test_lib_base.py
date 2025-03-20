@@ -483,7 +483,7 @@ class BaseTest(s_t_utils.SynTestA):
         async def badgenr():
             yield 'foo'
             await asyncio.sleep(0)
-            raise s_exc.SynErr('rando')
+            raise s_exc.SynErr(mesg='rando')
 
         async def slowgenr():
             yield 'foo'

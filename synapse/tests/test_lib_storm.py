@@ -4223,15 +4223,15 @@ class StormTest(s_t_utils.SynTestA):
             self.stormIsInPrint('$lib.auth                     : A Storm Library for interacting with Auth in the '
                                 'Cortex.',
                                 msgs)
-            self.stormIsInPrint('$lib.import(name, debug=$lib.false, reqvers=$lib.null)\nImport a Storm module.',
+            self.stormIsInPrint('$lib.import(name, debug=(false), reqvers=(null))\nImport a Storm module.',
                                 msgs)
             self.stormIsInPrint('$lib.debug\nTrue if the current runtime has debugging enabled.', msgs)
             self.stormNotInPrint('Examples', msgs)
 
             msgs = await core.stormlist('help -v $lib')
 
-            self.stormIsInPrint('$lib.import(name, debug=$lib.false, reqvers=$lib.null)\n'
-                                '======================================================\n'
+            self.stormIsInPrint('$lib.import(name, debug=(false), reqvers=(null))\n'
+                                '================================================\n'
                                 'Import a Storm module.', msgs)
 
             msgs = await core.stormlist('help $lib.macro')
@@ -4256,7 +4256,7 @@ class StormTest(s_t_utils.SynTestA):
                                 'Regex flag to indicate that multiline matches are allowed.', msgs)
 
             msgs = await core.stormlist('help $lib.inet.http.get')
-            self.stormIsInPrint('$lib.inet.http.get(url, headers=$lib.null', msgs)
+            self.stormIsInPrint('$lib.inet.http.get(url, headers=(null)', msgs)
             self.stormIsInPrint('Get the contents of a given URL.', msgs)
 
             msgs = await core.stormlist('$str=hehe help $str.split')

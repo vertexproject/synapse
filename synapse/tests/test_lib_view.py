@@ -906,6 +906,14 @@ class ViewTest(s_t_utils.SynTestA):
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().insertParentFork().iden)')
 
+            pname = view01.parent.info.get('name')
+            vdef = await view01.insertParentFork(visi.iden)
+            self.eq(vdef.get('name'), f'inserted fork of {pname}')
+
+            piden = view03.parent.iden
+            vdef = await view03.insertParentFork(visi.iden)
+            self.eq(vdef.get('name'), f'inserted fork of {piden}')
+
     async def test_view_children(self):
 
         async with self.getTestCore() as core:
