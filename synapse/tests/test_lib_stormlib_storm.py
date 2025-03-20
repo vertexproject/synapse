@@ -158,7 +158,7 @@ class LibStormTest(s_test.SynTest):
                 await core.callStorm(q)
 
             task = core.schedCoro(doit())
-            await event.wait()
+            await asyncio.wait_for(event.wait(), timeout=10)
 
             tasks = core.boss.ps()
             self.len(1, tasks)
