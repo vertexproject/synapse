@@ -3697,15 +3697,15 @@ class StormTest(s_t_utils.SynTest):
                     $vals = ()
                 }
                 $vals.append($node.repr())
-                fini { $lib.print($lib.json.save($vals)) }
+                fini { $lib.fire(resu, vals=$vals) }
             }
             | spin
             '''
             vals = []
             msgs = await core.stormlist(q)
             for m in msgs:
-                if m[0] == 'print':
-                    vals.extend(s_json.loads(m[1]['mesg']))
+                if m[0] == 'storm:fire':
+                    vals.extend(m[1]['data']['vals'])
 
             self.len(20, vals)
 
