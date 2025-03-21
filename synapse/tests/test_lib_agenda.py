@@ -305,11 +305,6 @@ class AgendaTest(s_t_utils.SynTest):
                 unixtime = datetime.datetime(year=2019, month=1, day=6, hour=10, minute=16, tzinfo=tz.utc).timestamp()
                 self.eq((9, 'baz'), await asyncio.wait_for(core.callStorm('return($lib.queue.gen(visi).pop(wait=$lib.true))'), timeout=5))
 
-                # Modify the last appointment
-                await self.asyncraises(ValueError, agenda.mod(guid2, '', ))
-                await agenda.mod(guid2, '#baz')
-                self.eq(agenda.appts[guid2].query, '#baz')
-
                 # Delete the other recurring appointment
                 await agenda.delete(guid2)
 
@@ -318,7 +313,7 @@ class AgendaTest(s_t_utils.SynTest):
 
                 # Test that isrunning updated, cancelling works
                 cdef = {'creator': core.auth.rootuser.iden, 'iden': s_common.guid(),
-                        'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ipv4=1 ] | sleep 120',
+                        'storm': '$lib.queue.gen(visi).put(sleep) [ inet:ip=([4, 1]) ] | sleep 120',
                         'reqs': {}, 'incunit': s_agenda.TimeUnit.MINUTE, 'incvals': 1}
                 adef = await agenda.add(cdef)
                 guid = adef.get('iden')
@@ -494,7 +489,13 @@ class AgendaTest(s_t_utils.SynTest):
                 adef = await core.addCronJob(cdef)
                 guid3 = adef.get('iden')
 
-                await core.updateCronJob(guid3, '#bahhumbug')
+                indx = await core.getNexsIndx()
+                await core.editCronJob(guid3, {'storm': '#bahhumbug'})
+                self.eq(indx + 1, await core.getNexsIndx())
+
+                # Edits which result in no changes are a noop
+                await core.editCronJob(guid3, {'storm': '#bahhumbug'})
+                self.eq(indx + 1, await core.getNexsIndx())
 
                 # Add a job with invalid storage version
                 cdef = (await core.listCronJobs())[0]
@@ -510,7 +511,7 @@ class AgendaTest(s_t_utils.SynTest):
                 self.len(2, appts)
 
                 last_appt = [appt for appt in appts if appt.get('iden') == guid3][0]
-                self.eq(last_appt.get('query'), '#bahhumbug')
+                self.eq(last_appt.get('storm'), '#bahhumbug')
 
     async def test_agenda_custom_view(self):
 
@@ -527,13 +528,10 @@ class AgendaTest(s_t_utils.SynTest):
 
             # can't move a thing that doesn't exist
             with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('cron.move $fakeiden $fakeiden', opts=opts)
+                await core.callStorm('cron.mod $fakeiden --view $fakeiden', opts=opts)
 
             with self.raises(s_exc.NoSuchIden):
-                await core.moveCronJob(fail.iden, 'NoSuchCronJob', defview.iden)
-
-            with self.raises(s_exc.NoSuchIden):
-                await core.agenda.move('StillDoesNotExist', defview.iden)
+                await core.editCronJob(fail.iden, {})
 
             # make a new view
             ldef = await core.addLayer()
@@ -611,29 +609,22 @@ class AgendaTest(s_t_utils.SynTest):
             # no permission yet
             opts = {'user': fail.iden, 'vars': {'croniden': jobs[0]['iden'], 'viewiden': defview.iden}}
             with self.raises(s_exc.StormRuntimeError):
-                await core.callStorm('cron.move $croniden $viewiden', opts=opts)
+                await core.callStorm('cron.mod $croniden --view $viewiden', opts=opts)
 
             await fail.addRule((True, ('cron', 'set')))
             # try and fail to move to a view that doesn't exist
             opts = {'user': fail.iden, 'vars': {'croniden': jobs[0]['iden'], 'viewiden': fakeiden}}
             with self.raises(s_exc.NoSuchView):
-                await core.callStorm('cron.move $croniden $viewiden', opts=opts)
+                await core.callStorm('cron.mod $croniden --view $viewiden', opts=opts)
 
             croniden = jobs[0]['iden']
             # now to test that we can move from the new layer to the base layer
             opts = {'user': fail.iden, 'vars': {'croniden': croniden, 'viewiden': defview.iden}}
-            await core.callStorm('cron.move $croniden $viewiden', opts=opts)
+            await core.callStorm('cron.mod $croniden --view $viewiden', opts=opts)
 
             jobs = await core.callStorm('return($lib.cron.list())')
             self.len(1, jobs)
             self.eq(defview.iden, jobs[0]['view'])
-
-            # moving to the same view shouldn't do much
-            await core.moveCronJob(fail.iden, croniden, defview.iden)
-
-            samejobs = await core.callStorm('return($lib.cron.list())')
-            self.len(1, jobs)
-            self.eq(jobs, samejobs)
 
             core.agenda._addTickOff(60)
             retn = await core.callStorm('return($lib.queue.get(testq).get())', opts=asfail)
@@ -644,11 +635,23 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(('test:guid', retn[1]), node[0].ndef)
             self.ne(guidnode[0].ndef, node[0].ndef)
 
+            appt = core.agenda.appts.get(croniden)
+            self.eq(appt.loglevel, 'WARNING')
+            await core.callStorm('cron.mod $croniden --loglevel DEBUG', opts=opts)
+            self.eq(appt.loglevel, 'DEBUG')
+
+            with self.raises(s_exc.BadArg):
+                await core.callStorm('cron.mod $croniden --loglevel NEWP', opts=opts)
+            self.eq(appt.loglevel, 'DEBUG')
+
             # reach in, monkey with the view a bit
             appt = core.agenda.appts.get(croniden)
             appt.view = "ThisViewStillDoesntExist"
             await core.agenda._execute(appt)
             self.eq(appt.lastresult, 'Failed due to unknown view')
+
+            with self.raises(s_exc.BadArg):
+                await core._editCronJob(croniden, {'newp': 'newp'})
 
             await core.callStorm('cron.del $croniden', opts={'vars': {'croniden': croniden}})
 
@@ -741,7 +744,7 @@ class AgendaTest(s_t_utils.SynTest):
                 core.agenda._addTickOff(55)
                 self.true(await stream.wait(timeout=12))
 
-            await core.addUserRule(user, (True, ('storm',)))
+            await core.addUserRule(user, (True, ('log',)))
             await core.addUserRule(user, (True, ('view', 'read')), gateiden=fork)
 
             with self.getAsyncLoggerStream('synapse.storm.log', 'I am a cron job') as stream:
@@ -755,7 +758,7 @@ class AgendaTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
-                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.nodes('[ inet:ip=1.2.3.4 ]')
 
             s_tools_backup.backup(path00, path01)
 
@@ -793,24 +796,6 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.eq(start['info']['iden'], cron00[0]['iden'])
                     self.eq(stop['info']['iden'], cron00[0]['iden'])
-
-                async with self.getTestCore(dirn=path01, conf=core01conf) as core01:
-                    nodes = await core00.nodes('syn:cron')
-                    self.len(1, nodes)
-
-                    msgs = await core00.stormlist('syn:cron [ :name=foo :doc=bar ]')
-                    self.stormHasNoWarnErr(msgs)
-                    await core01.sync()
-
-                    nodes = await core01.nodes('syn:cron')
-                    self.len(1, nodes)
-                    self.nn(nodes[0].props.get('.created'))
-                    self.eq(nodes[0].props.get('name'), 'foo')
-                    self.eq(nodes[0].props.get('doc'), 'bar')
-
-                    appt = await core01.agenda.get(nodes[0].ndef[1])
-                    self.eq(appt.name, 'foo')
-                    self.eq(appt.doc, 'bar')
 
             with self.getLoggerStream('synapse.lib.agenda') as stream:
                 async with self.getTestCore(dirn=path00) as core00:
@@ -911,7 +896,7 @@ class AgendaTest(s_t_utils.SynTest):
                             continue
 
                         self.isin(task['info']['iden'], cronidens)
-                        self.eq(task['info']['query'], '$lib.time.sleep(90)')
+                        self.eq(task['info']['storm'], '$lib.time.sleep(90)')
 
                     # No tasks running on the follower
                     tasks01 = await core01.callStorm('return($lib.ps.list())')
@@ -978,7 +963,7 @@ class AgendaTest(s_t_utils.SynTest):
                     self.len(NUMJOBS, tasks01)
                     for task in tasks01:
                         self.isin(task['info']['iden'], cronidens)
-                        self.eq(task['info']['query'], '$lib.time.sleep(90)')
+                        self.eq(task['info']['storm'], '$lib.time.sleep(90)')
 
     async def test_cron_kill(self):
         async with self.getTestCore() as core:
@@ -1008,7 +993,7 @@ class AgendaTest(s_t_utils.SynTest):
             self.eq(valu, 0)
 
             opts = {'vars': {'iden': guid}}
-            get_cron = 'return($lib.cron.get($iden).pack())'
+            get_cron = 'return($lib.cron.get($iden))'
             cdef = await core.callStorm(get_cron, opts=opts)
             self.true(cdef.get('isrunning'))
 
@@ -1081,7 +1066,7 @@ class AgendaTest(s_t_utils.SynTest):
                     self.eq(valu, 0)
 
                     opts = {'vars': {'iden': guid}, 'mirror': False}
-                    get_cron = 'return($lib.cron.get($iden).pack())'
+                    get_cron = 'return($lib.cron.get($iden))'
                     cdef = await core00.callStorm(get_cron, opts=opts)
                     self.true(cdef.get('isrunning'))
 
