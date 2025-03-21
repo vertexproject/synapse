@@ -1888,7 +1888,7 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.get(f'{root}/api/v1/auth/users')
                 self.eq(resp.status, 200)
 
-                data = {'query': '[ inet:ipv4=1.2.3.4 ]', 'opts': {'user': visi.iden}}
+                data = {'query': '[ inet:ip=1.2.3.4 ]', 'opts': {'user': visi.iden}}
                 async with sess.get(f'{root}/api/v1/storm/call', json=data) as resp:
                     item = await resp.json()
                     self.eq('ok', item.get('status'))
@@ -1901,7 +1901,7 @@ class HttpApiTest(s_tests.SynTest):
                 resp = await sess.get(f'{root}/api/v1/auth/users')
                 self.eq(resp.status, 401)
 
-                data = {'query': '[ inet:ipv4=5.6.7.8 ]', 'opts': {'user': visi.iden}}
+                data = {'query': '[ inet:ip=5.6.7.8 ]', 'opts': {'user': visi.iden}}
                 async with sess.get(f'{root}/api/v1/storm/call', json=data) as resp:
                     item = await resp.json()
                     self.eq('err', item.get('status'))
