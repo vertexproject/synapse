@@ -404,7 +404,7 @@ embedquery: _EMBEDQUERYSTART query "}"
 _EMBEDQUERYSTART: "${"
 
 // An unquoted storm string constant.  Must start with a word char, ?, /, \, +, *, or - and not contain certain punctuation
-NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s\),=\]}\|]*(?=$|[\s\),\]}\|\=])/
+NONQUOTEWORD: /(?!\/\/)[\w\-\+\?\*\/\\][^\s(),=\]}|$]*(?=$|[\s(),\]}|=$])/
 
 // A white-space *only* delimited string immediate for use in legacy cmdr parser
 CMDRTOKN.-1: /[^="'\s\{}][^\s\{}]*/
@@ -629,7 +629,7 @@ OCTNUMBER.1: /
 
 BOOL.2: /(true|false)(?=$|[\s\),\]}\|\=])/
 NULL.2: /null(?=$|[\s\),\]}\|\=])/
-NOTOP.2: /not(?=$|[\s\),\]}\|\=])/
+NOTOP.2: /not(?=[\s($])/
 OR.2: "or"
 AND.2: "and"
 
