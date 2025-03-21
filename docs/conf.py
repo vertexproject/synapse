@@ -13,12 +13,28 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
+import re
 import sys
 import datetime
 sys.path.insert(0, os.path.abspath('..'))
 
 import synapse
 
+# -- Warning Filter Configuration --------------------------------------------
+
+# List of warning patterns to ignore
+WARNINGS_IGNORE = [
+    r'Detected \d+ deprecated properties unlocked and not in use',
+    r'Sysctl values different than expected',
+    r'The form edge:refs is deprecated or using a deprecated type',
+    r'The form edge:has is deprecated or using a deprecated type',
+    r'The property media:news:author is deprecated or using a deprecated type', # storm_ref_automation Cron Example
+]
+
+# List of warning patterns to convert to errors
+WARNINGS_ERROR = [
+    r'.* is deprecated or using a deprecated type',
+]
 
 # -- Project information -----------------------------------------------------
 
@@ -265,6 +281,20 @@ def convert_rstorm(_):
     synpd = os.path.split(synbd)[0]  # split off the synapse module directory
     env = {**os.environ, 'SYN_LOG_LEVEL': 'DEBUG'}
 
+    def check_output_for_warnings(output):
+        for line in output.splitlines():
+            if '[WARNING]' in line:
+                msg = line.split('[WARNING]', 1)[1].strip()
+                for pattern in WARNINGS_IGNORE:
+                    if re.search(pattern, msg):
+                        break
+                else:
+                    for pattern in WARNINGS_ERROR:
+                        if re.search(pattern, msg):
+                            raise RuntimeError(f"Warning converted to error: {msg}")
+                        else: # Unhandled warnings
+                            raise RuntimeError(f"Unhandled warning found: {msg}")
+
     cwd = os.getcwd()
     for fdir, dirs, fns in os.walk(cwd):
         for fn in fns:
@@ -278,8 +308,18 @@ def convert_rstorm(_):
                 tick = s_common.now()
 
                 args = ['python', '-m', 'synapse.tools.rstorm', '--save', ofile, sfile]
-                r = subprocess.run(args, cwd=synpd, env=env)
-                assert r.returncode == 0, f'Failed to convert {sfile}'
+                result = subprocess.run(args, cwd=synpd, env=env, capture_output=True, text=True)
+
+                if result.stdout:
+                    print(result.stdout, end='')
+                    check_output_for_warnings(result.stdout)
+
+                if result.stderr:
+                    print(result.stderr, end='')
+                    check_output_for_warnings(result.stderr)
+
+                if result.returncode != 0:
+                    raise RuntimeError(f'Failed to convert {sfile}: {result.stderr}')
 
                 tock = s_common.now()
                 took = (tock - tick) / 1000
