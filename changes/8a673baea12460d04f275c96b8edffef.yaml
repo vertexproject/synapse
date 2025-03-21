@@ -1,0 +1,5 @@
+---
+desc: Fixed a regression where the Storm ``not`` operator was incorrectly whitespace sensitive.
+prs: []
+type: bug
+...
