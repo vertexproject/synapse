@@ -5783,6 +5783,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             opts = {}
 
         opts.setdefault('user', self.auth.rootuser.iden)
+        opts.setdefault('promote', True)
         return opts
 
     def _viewFromOpts(self, opts, user=None):
