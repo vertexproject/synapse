@@ -1542,8 +1542,6 @@ class Runtime(s_base.Base):
 
         self.query = query
 
-        self.spawn_log_conf = await self.snap.core._getSpawnLogConf()
-
         self.readonly = opts.get('readonly', False)  # EXPERIMENTAL: Make it safe to run untrusted queries
         self.model = snap.core.getDataModel()
 

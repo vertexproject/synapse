@@ -48,6 +48,7 @@ import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.spooled as s_spooled
@@ -104,8 +105,8 @@ def adminapi(log=False):
                 raise s_exc.AuthDeny(mesg=f'User is not an admin [{self.user.name}]',
                                      user=self.user.iden, username=self.user.name)
             if log:
-                logger.info(f'Executing [{func.__qualname__}] as [{self.user.name}] with args [{args}[{kwargs}]',
-                            extra={'synapse': {'wrapped_func': func.__qualname__}})
+                extra = s_logging.getLogExtra(func=func.__qualname__, args=args, kwargs=kwargs)
+                logger.info('Executing remote admin API call.', extra=extra)
 
             return func(self, *args, **kwargs)
 
@@ -183,15 +184,15 @@ async def _iterBackupWork(path, linkinfo):
 
     logger.info(f'Backup streaming for [{path}] completed.')
 
-def _iterBackupProc(path, linkinfo):
+def _iterBackupProc(path, linkinfo, logconf):
     '''
     Multiprocessing target for streaming a backup.
     '''
     # This logging call is okay to run since we're executing in
     # our own process space and no logging has been configured.
-    s_common.setlogging(logger, **linkinfo.get('logconf'))
-
-    logger.info(f'Backup streaming process for [{path}] starting.')
+    s_logging.setup(**logconf)
+    extra = s_logging.getLogExtra(path=path)
+    logger.info('Backup streaming process starting.', extra=extra)
     asyncio.run(_iterBackupWork(path, linkinfo))
 
 class CellApi(s_base.Base):
@@ -208,6 +209,11 @@ class CellApi(s_base.Base):
 
     async def initCellApi(self):
         pass
+
+    @adminapi()
+    async def logs(self, wait=False, last=None):
+        async for loginfo in self.cell.logs(wait=wait, last=last):
+            yield loginfo
 
     @adminapi(log=True)
     async def freeze(self, timeout=30):
@@ -1128,7 +1134,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'hidedocs': True,
         },
         '_log_conf': {
-            'description': 'Opaque structure used for logging by spawned processes.',
+            'description': 'Deprecated. Remove in 3.0.0.',
             'type': 'object',
             'hideconf': True
         }
@@ -1169,6 +1175,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         self.isactive = False
         self.activebase = None
         self.inaugural = False
+        self.ahasvcname = None
         self.activecoros = {}
         self.sockaddr = None  # Default value...
         self.https_listeners = []
@@ -1204,11 +1211,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._initCellBoot()
 
         # we need to know this pretty early...
-        self.ahasvcname = None
         ahaname = self.conf.get('aha:name')
         ahanetw = self.conf.get('aha:network')
         if ahaname is not None and ahanetw is not None:
             self.ahasvcname = f'{ahaname}.{ahanetw}'
+            s_logging.setLogInfo('service', self.ahasvcname)
 
         # each cell has a guid
         path = s_common.genpath(self.dirn, 'cell.guid')
@@ -1751,7 +1758,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg += 'See https://synapse.docs.vertex.link/en/latest/synapse/devopsguide.html#performance-tuning '
             mesg += 'for information about these sysctl parameters.'
 
-            extra = await self.getLogExtra(sysctls=fixvals)
+            extra = self.getLogExtra(sysctls=fixvals)
             logger.warning(mesg, extra=extra)
 
             await self.waitfini(self.SYSCTL_CHECK_FREQ)
@@ -2065,8 +2072,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return
 
         ahalead = self.conf.get('aha:leader')
-
-        self.ahasvcname = f'{ahaname}.{ahanetw}'
 
         async def _runAhaRegLoop():
 
@@ -2550,7 +2555,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         mypipe, child_pipe = ctx.Pipe()
         paths = [str(slab.path) for slab in slabs]
-        logconf = await self._getSpawnLogConf()
+        logconf = self.getLogConf()
         proc = None
 
         try:
@@ -2609,7 +2614,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         (In a separate process) Actually do the backup
         '''
         # This is a new process: configure logging
-        s_common.setlogging(logger, **logconf)
+        s_logging.setup(**logconf)
+
         try:
 
             with s_t_backup.capturelmdbs(srcdir) as lmdbinfo:
@@ -2667,15 +2673,15 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = 'Link not found in scope. This API must be called via a CellApi.'
             raise s_exc.SynErr(mesg=mesg)
 
+        logconf = self.getLogConf()
         linkinfo = await link.getSpawnInfo()
-        linkinfo['logconf'] = await self._getSpawnLogConf()
 
         await self.boss.promote('backup:stream', user=user, info={'name': name})
 
         ctx = multiprocessing.get_context('spawn')
 
         def getproc():
-            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo))
+            proc = ctx.Process(target=_iterBackupProc, args=(path, linkinfo, logconf))
             proc.start()
             return proc
 
@@ -2826,7 +2832,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         retn = await user.addRule(rule, indx=indx, gateiden=gateiden)
         logger.info(f'Added rule={rule} on user {user.name} for gateiden={gateiden}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  rule=rule, gateiden=gateiden, status='MODIFY'))
         return retn
 
@@ -2834,21 +2840,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         role = await self.auth.reqRole(iden)
         retn = await role.addRule(rule, indx=indx, gateiden=gateiden)
         logger.info(f'Added rule={rule} on role {role.name} for gateiden={gateiden}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                    extra=self.getLogExtra(target_role=role.iden, target_rolename=role.name,
                                                  rule=rule, gateiden=gateiden, status='MODIFY'))
         return retn
 
     async def delUserRule(self, iden, rule, gateiden=None):
         user = await self.auth.reqUser(iden)
         logger.info(f'Removing rule={rule} on user {user.name} for gateiden={gateiden}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  rule=rule, gateiden=gateiden, status='MODIFY'))
         return await user.delRule(rule, gateiden=gateiden)
 
     async def delRoleRule(self, iden, rule, gateiden=None):
         role = await self.auth.reqRole(iden)
         logger.info(f'Removing rule={rule} on role {role.name} for gateiden={gateiden}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                    extra=self.getLogExtra(target_role=role.iden, target_rolename=role.name,
                                                  rule=rule, gateiden=gateiden, status='MODIFY'))
         return await role.delRule(rule, gateiden=gateiden)
 
@@ -2856,14 +2862,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         await user.setRules(rules, gateiden=gateiden)
         logger.info(f'Set user rules = {rules} on user {user.name} for gateiden={gateiden}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  rules=rules, gateiden=gateiden, status='MODIFY'))
 
     async def setRoleRules(self, iden, rules, gateiden=None):
         role = await self.auth.reqRole(iden)
         await role.setRules(rules, gateiden=gateiden)
         logger.info(f'Set role rules = {rules} on role {role.name} for gateiden={gateiden}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                    extra=self.getLogExtra(target_role=role.iden, target_rolename=role.name,
                                                  rules=rules, gateiden=gateiden, status='MODIFY'))
 
     async def setRoleName(self, iden, name):
@@ -2871,14 +2877,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         oname = role.name
         await role.setName(name)
         logger.info(f'Set name={name} from {oname} on role iden={role.iden}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name,
+                    extra=self.getLogExtra(target_role=role.iden, target_rolename=role.name,
                                                  status='MODIFY'))
 
     async def setUserAdmin(self, iden, admin, gateiden=None):
         user = await self.auth.reqUser(iden)
         await user.setAdmin(admin, gateiden=gateiden)
         logger.info(f'Set admin={admin} for {user.name} for gateiden={gateiden}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  gateiden=gateiden, status='MODIFY'))
 
     async def addUserRole(self, useriden, roleiden, indx=None):
@@ -2886,7 +2892,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         role = await self.auth.reqRole(roleiden)
         await user.grant(roleiden, indx=indx)
         logger.info(f'Granted role {role.name} to user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  target_role=role.iden, target_rolename=role.name,
                                                  status='MODIFY'))
 
@@ -2894,7 +2900,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(useriden)
         await user.setRoles(roleidens)
         logger.info(f'Set roleidens={roleidens} on user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  roleidens=roleidens, status='MODIFY'))
 
     async def delUserRole(self, useriden, roleiden):
@@ -2902,14 +2908,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         role = await self.auth.reqRole(roleiden)
         await user.revoke(roleiden)
         logger.info(f'Revoked role {role.name} from user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  target_role=role.iden, target_rolename=role.name,
                                                  status='MODIFY'))
 
     async def addUser(self, name, passwd=None, email=None, iden=None):
         user = await self.auth.addUser(name, passwd=passwd, email=email, iden=iden)
         logger.info(f'Added user={name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name,
                                                  status='CREATE'))
         return user.pack(packroles=True)
 
@@ -2918,12 +2924,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         name = user.name
         await self.auth.delUser(iden)
         logger.info(f'Deleted user={name}',
-                   extra=await self.getLogExtra(target_user=iden, target_username=name, status='DELETE'))
+                   extra=self.getLogExtra(target_user=iden, target_username=name, status='DELETE'))
 
     async def addRole(self, name, iden=None):
         role = await self.auth.addRole(name, iden=iden)
         logger.info(f'Added role={name}',
-                    extra=await self.getLogExtra(target_role=role.iden, target_rolename=role.name, status='CREATE'))
+                    extra=self.getLogExtra(target_role=role.iden, target_rolename=role.name, status='CREATE'))
         return role.pack()
 
     async def delRole(self, iden):
@@ -2931,26 +2937,26 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         name = role.name
         await self.auth.delRole(iden)
         logger.info(f'Deleted role={name}',
-                     extra=await self.getLogExtra(target_role=iden, target_rolename=name, status='DELETE'))
+                     extra=self.getLogExtra(target_role=iden, target_rolename=name, status='DELETE'))
 
     async def setUserEmail(self, useriden, email):
         await self.auth.setUserInfo(useriden, 'email', email)
         user = await self.auth.reqUser(useriden)
         logger.info(f'Set email={email} for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserName(self, useriden, name):
         user = await self.auth.reqUser(useriden)
         oname = user.name
         await user.setName(name)
         logger.info(f'Set name={name} from {oname} on user iden={user.iden}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserPasswd(self, iden, passwd):
         user = await self.auth.reqUser(iden)
         await user.setPasswd(passwd)
         logger.info(f'Set password for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def genUserOnepass(self, iden, duration=600000):
         user = await self.auth.reqUser(iden)
@@ -2962,7 +2968,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self.auth.setUserInfo(iden, 'onepass', onepass)
 
         logger.info(f'Issued one time password for {user.name}',
-                     extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+                     extra=self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
         return passwd
 
@@ -2970,13 +2976,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(iden)
         await user.setLocked(locked)
         logger.info(f'Set lock={locked} for user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def setUserArchived(self, iden, archived):
         user = await self.auth.reqUser(iden)
         await user.setArchived(archived)
         logger.info(f'Set archive={archived} for user {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name, status='MODIFY'))
 
     async def getUserDef(self, iden, packroles=True):
         user = self.auth.user(iden)
@@ -3258,44 +3264,28 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         else:
             log_method = t_log.access_log.error
 
-        request_time = 1000.0 * handler.request.request_time()
-
         user = None
         username = None
 
-        uri = handler.request.uri
-        remote_ip = handler.request.remote_ip
-        enfo = {'http_status': status,
-                'uri': uri,
-                'remoteip': remote_ip,
-                }
-
         headers = {}
-
         for header in self.LOGGED_HTTPAPI_HEADERS:
             if (valu := handler.request.headers.get(header)) is not None:
                 headers[header.lower()] = valu
 
-        if headers:
-            enfo['headers'] = headers
+        extra = self.getLogExtra(
+            status=status,
+            headers=headers,
+            path=handler.request.uri,
+            remoteip=handler.request.remote_ip,
+            took=int(1000 * handler.request.request_time()))
 
-        extra = {'synapse': enfo}
+        if hasattr(handler, 'web_useriden') and handler.web_useriden is not None:
+                extra['loginfo']['user'] = handler.web_useriden
 
-        # It is possible that a Cell implementor may register handlers which
-        # do not derive from our Handler class, so we have to handle that.
-        if hasattr(handler, 'web_useriden') and handler.web_useriden:
-            user = handler.web_useriden
-            enfo['user'] = user
-        if hasattr(handler, 'web_username') and handler.web_username:
-            username = handler.web_username
-            enfo['username'] = username
+        if hasattr(handler, 'web_username') and handler.web_username is not None:
+                extra['loginfo']['username'] = handler.web_username
 
-        if user:
-            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) user={user} ({username}) {request_time:.2f}ms'
-        else:
-            mesg = f'{status} {handler.request.method} {uri} ({remote_ip}) {request_time:.2f}ms'
-
-        log_method(mesg, extra=extra)
+        log_method('HTTP API Request', extra=extra)
 
     async def _getCellHttpOpts(self):
         # Generate/Load a Cookie Secret
@@ -3651,7 +3641,13 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         return await self.cellapi.anit(self, link, user)
 
-    async def getLogExtra(self, **kwargs):
+    def getLogConf(self):
+        logconf = s_logging.getLogConf()
+        if self.ahasvcname is not None:
+            logconf['loginfo']['service'] = self.ahasvcname
+        return logconf
+
+    def getLogExtra(self, **kwargs):
         '''
         Get an extra dictionary for structured logging which can be used as a extra argument for loggers.
 
@@ -3661,25 +3657,10 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Returns:
             Dict: A dictionary
         '''
-        extra = {**kwargs}
-        sess = s_scope.get('sess')  # type: s_daemon.Sess
-        user = s_scope.get('user')  # type: s_auth.User
-        if user:
-            extra['user'] = user.iden
-            extra['username'] = user.name
-        elif sess and sess.user:
-            extra['user'] = sess.user.iden
-            extra['username'] = sess.user.name
-        return {'synapse': extra}
-
-    async def _getSpawnLogConf(self):
-        conf = self.conf.get('_log_conf')
-        if conf:
-            conf = conf.copy()
-        else:
-            conf = s_common._getLogConfFromEnv()
-        conf['log_setup'] = False
-        return conf
+        extra = s_logging.getLogExtra(**kwargs)
+        if self.ahasvcname is not None:
+            extra['loginfo']['service'] = self.ahasvcname
+        return extra
 
     def modCellConf(self, conf):
         '''
@@ -3784,10 +3765,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         pars = argparse.ArgumentParser(prog=name)
         pars.add_argument('dirn', help=f'The storage directory for the {name} service.')
 
-        pars.add_argument('--log-level', default='INFO', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
-                          help='Specify the Python logging log level.', type=str.upper)
-        pars.add_argument('--structured-logging', default=False, action='store_true',
-                          help='Use structured logging.')
+        pars.add_argument('--log-level', default='WARNING', choices=list(s_const.LOG_LEVEL_CHOICES.keys()),
+                          type=s_logging.normLogLevel,
+                          help='Deprecated. Please use SYN_LOG_LEVEL environment variable.')
+
+        pars.add_argument('--structured-logging', default=True, action='store_true',
+                          help='Deprecated. Please use SYN_LOG_STRUCT environment variable.')
 
         telendef = None
         telepdef = 'tcp://0.0.0.0:27492'
@@ -3800,15 +3783,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         https = os.getenv(httpsvar, httpsdef)
 
         pars.add_argument('--telepath', default=telep, type=str,
-                          help=f'The telepath URL to listen on. This defaults to {telepdef}, and may be '
-                               f'also be overridden by the {telepvar} environment variable.')
+                          help=f'Deprecated. Please use the {telepvar} environment variable.')
         pars.add_argument('--https', default=https, type=int,
-                          help=f'The port to bind for the HTTPS/REST API. This defaults to {httpsdef}, '
-                               f'and may be also be overridden by the {httpsvar} environment variable.')
+                          help=f'Deprecated. Please use the {httpsvar} environment variable.')
         pars.add_argument('--name', type=str, default=telen,
-                          help=f'The (optional) additional name to share the {name} as. This defaults to '
-                               f'{telendef}, and may be also be overridden by the {telenvar} environment'
-                               f' variable.')
+                          help=f'Deprecated. Please use the {telenvar} environment variable.')
 
         if conf is not None:
             args = conf.getArgParseArgs()
@@ -4065,7 +4044,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         '''
         # replace our runtime config with the updated config with provconf data
         new_conf = self.initCellConf(self.conf)
-        new_conf.setdefault('_log_conf', await self._getSpawnLogConf())
 
         # Load any opts we have and environment variables.
         new_conf.setConfFromOpts()
@@ -4226,17 +4204,22 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         path = s_common.genpath(opts.dirn, 'cell.yaml')
         mods_path = s_common.genpath(opts.dirn, 'cell.mods.yaml')
 
-        logconf = s_common.setlogging(logger, defval=opts.log_level,
-                                      structlog=opts.structured_logging)
+        logconf = {
+            'level': opts.log_level,
+            'structlog': opts.structured_logging
+        }
 
-        logger.info(f'Starting {cls.getCellType()} version {cls.VERSTRING}, Synapse version: {s_version.verstring}',
-                    extra={'synapse': {'svc_type': cls.getCellType(), 'svc_version': cls.VERSTRING,
-                                       'synapse_version': s_version.verstring}})
+        logconf = s_logging.setup(**logconf)
+
+        extra = s_logging.getLogExtra(service_type=cls.getCellType(),
+                                      service_version=cls.VERSTRING,
+                                      synapse_version=s_version.verstring)
+
+        logger.info('Starting Synapse service.', extra=extra)
 
         await cls._initBootRestore(opts.dirn)
 
         try:
-            conf.setdefault('_log_conf', logconf)
             conf.setConfFromOpts(opts)
             conf.setConfFromEnvs()
             conf.setConfFromFile(path)
@@ -4244,8 +4227,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         except:
             logger.exception(f'Error while bootstrapping cell config.')
             raise
-
-        s_coro.set_pool_logging(logger, logconf=conf['_log_conf'])
 
         try:
             cell = await cls.anit(opts.dirn, conf=conf)
@@ -4802,7 +4783,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._push('user:apikey:add', kdef)
 
         logger.info(f'Created HTTP API key {iden} for {user.name}, {name=}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
                                                  status='MODIFY'))
 
         kdef.pop('shadow')
@@ -4956,7 +4937,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         await self._push('user:apikey:edit', kdef.get('user'), iden, vals)
 
         logger.info(f'Updated HTTP API key {iden} for {user.name}, set {key}={valu}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
                                                  status='MODIFY'))
 
         kdef.pop('shadow')
@@ -4990,7 +4971,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         user = await self.auth.reqUser(useriden)
         ret = await self._push('user:apikey:del', useriden, iden)
         logger.info(f'Deleted HTTP API key {iden} for {user.name}',
-                    extra=await self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
+                    extra=self.getLogExtra(target_user=user.iden, target_username=user.name, iden=iden,
                                                  status='MODIFY'))
         return ret
 
@@ -5099,6 +5080,36 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         key = tuple(sorted(opts.items()))
         return self._sslctx_cache.get(key)
+
+    async def _initLogBase(self):
+
+        async with s_logging.loglock:
+
+            if s_logging.logbase is not None:
+                return
+
+            s_logging.logbase = await s_base.Base.anit()
+            s_logging.logbase._fini_at_exit = True
+
+            s_logging.logbase.schedCoro(s_logging._feedLogTask())
+
+    async def logs(self, wait=False, last=None):
+
+        await self._initLogBase()
+
+        if not wait:
+            for loginfo in list(s_logging.logfifo)[-last:]:
+                yield loginfo
+            return
+
+        async with await s_queue.Window.anit(maxsize=2000) as window:
+
+            await window.puts(list(s_logging.logfifo)[-last:])
+
+            s_logging.logwindows.add(window)
+
+            async for loginfo in window:
+                yield loginfo
 
     async def freeze(self, timeout=30):
 
