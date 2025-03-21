@@ -208,7 +208,7 @@ class AxonFileHandler(AxonHandlerMixin, s_httpapi.Handler):
             # TODO eventually support multi-range returns
             soff, eoff = self.ranges[0]
             size = eoff - soff
-            async for byts in self.getAxon().get(sha256b, soff, size):
+            async for byts in self.getAxon().get(sha256b, offs=soff, size=size):
                 self.write(byts)
                 await self.flush()
                 await asyncio.sleep(0)
