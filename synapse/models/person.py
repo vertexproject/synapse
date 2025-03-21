@@ -363,6 +363,10 @@ modeldefs = (
                 ('phone:work', ('tel:phone', {}), {
                     'doc': 'The work phone number for this contact.',
                 }),
+
+                ('id', ('str', {'strip': True}), {
+                    'doc': 'A type or source specific unique ID for the contact.'}),
+
                 ('id:number', ('ou:id:number', {}), {
                     'alts': ('id:numbers',),
                     'doc': 'An ID number issued by an org and associated with this contact.',
