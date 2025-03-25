@@ -815,7 +815,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'modules': {
             'default': [],
-            'description': 'A list of module classes to load.',
+            'description': 'Deprecated. A list of module classes to load.',
             'type': 'array'
         },
         'storm:log': {
@@ -6360,13 +6360,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         for ctor in list(s_modules.coremods):
             await self._preLoadCoreModule(ctor, mods, cmds, mdefs)
-
-        coremods = self.conf.get('modules')
-        if coremods is not None:
-            mesg = "The 'modules' Cortex config value is deprecated and will be removed in v3.0.0."
-            logger.warning(mesg, extra=await self.getLogExtra(modules=coremods))
-
-        for ctor in coremods:
+        for ctor in self.conf.get('modules'):
             await self._preLoadCoreModule(ctor, mods, cmds, mdefs, custom=True)
 
         self.model.addDataModels(mdefs)
@@ -6377,6 +6371,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # allow module entry to be (ctor, conf) tuple
         if isinstance(ctor, (list, tuple)):
             ctor, conf = ctor
+
+        if not ctor.startswith('synapse.tests'):
+            s_common.deprecated("'modules' Cortex config value", curv='2.205.0')
 
         modu = self._loadCoreModule(ctor, conf=conf)
         if modu is None:
