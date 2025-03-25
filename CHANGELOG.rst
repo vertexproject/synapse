@@ -6,6 +6,16 @@
 Synapse Changelog
 *****************
 
+v2.204.1 - 2025-03-25
+=====================
+
+Bugfixes
+--------
+- Fixed a regression in the Storm ``parallel`` command where variables
+  containing certain heavy Storm object types were not passed into the parallel
+  runtimes.
+  (`#4197 <https://github.com/vertexproject/synapse/pull/4197>`_)
+
 v2.204.0 - 2025-03-21
 =====================
 
