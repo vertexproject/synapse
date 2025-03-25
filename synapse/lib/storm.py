@@ -5004,9 +5004,9 @@ class ParallelCmd(Cmd):
 
             yield item
 
-    async def pipeline(self, runt, query, inq, outq, runtprims):
+    async def pipeline(self, runt, query, inq, outq, runtvars):
 
-        opts = {'vars': runtprims}
+        opts = {'vars': runtvars}
 
         try:
             async with runt.getCmdRuntime(query, opts=opts) as subr:
@@ -5040,13 +5040,13 @@ class ParallelCmd(Cmd):
             inq = asyncio.Queue(maxsize=size)
             outq = asyncio.Queue(maxsize=size)
 
-            runtprims = await s_stormtypes.toprim(self.runt.getScopeVars(), use_list=True)
+            runtvars = self.runt.getScopeVars()
 
             tsks = 0
             try:
                 while tsks < size:
                     await inq.put(await genr.__anext__())
-                    base.schedCoro(self.pipeline(runt, query, inq, outq, runtprims))
+                    base.schedCoro(self.pipeline(runt, query, inq, outq, runtvars))
                     tsks += 1
             except StopAsyncIteration:
                 [await inq.put(None) for i in range(tsks)]
@@ -5067,7 +5067,7 @@ class ParallelCmd(Cmd):
             elif tsks == 0:
                 tsks = size
                 for i in range(size):
-                    base.schedCoro(self.pipeline(runt, query, inq, outq, runtprims))
+                    base.schedCoro(self.pipeline(runt, query, inq, outq, runtvars))
                 [await inq.put(None) for i in range(tsks)]
 
             exited = 0
