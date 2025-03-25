@@ -1490,7 +1490,7 @@ Synapse will automatically normalize the value by:
 
 **Examples:**
 
-.. storm-cli:: [ syn:tag = rep.us-cisa.LAPSUS$ ]
+.. storm-cli:: [ syn:tag = "rep.us-cisa.LAPSUS$" ]
 
 In the above example:
 
