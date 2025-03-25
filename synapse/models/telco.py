@@ -368,13 +368,13 @@ modeldefs = (
                     'prevnames': ('ipv4', 'ipv6')}),
 
                 ('wifi:ap', ('inet:wifi:ap', {}), {
-                    'prevnames': ('wifi')}),
+                    'prevnames': ('wifi',)}),
 
                 ('wifi:ap:ssid', ('inet:wifi:ssid', {}), {
-                    'prevnames': ('wifi:ssid')}),
+                    'prevnames': ('wifi:ssid',)}),
 
                 ('wifi:ap:bssid', ('inet:mac', {}), {
-                    'prevnames': ('wifi:bssid')}),
+                    'prevnames': ('wifi:bssid',)}),
 
                 # host specific data
                 ('adid', ('it:adid', {}), {
