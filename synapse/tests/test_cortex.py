@@ -7701,7 +7701,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 self.eq(1, data.count('deprecated properties unlocked'))
                 self.isin('deprecated properties unlocked and not in use', data)
 
-                match = regex.search(r'Detected (?P<count>\d+) deprecated properties', data)
+                match = regex.match(r'Detected (?P<count>\d+) deprecated properties', data)
                 count = int(match.groupdict().get('count'))
 
                 here = stream.tell()
