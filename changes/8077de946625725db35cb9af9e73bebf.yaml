@@ -1,0 +1,6 @@
+---
+desc: Added a ``targets`` light edge between ``risk:compromise`` and ``ou:industry``
+  forms.
+prs: []
+type: model
+...
