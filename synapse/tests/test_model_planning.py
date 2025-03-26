@@ -2,7 +2,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 import synapse.tests.utils as s_t_utils
 
-class PlanModelTest(s_t_utils.SynTest):
+class PlanModelTest(s_t_utils.SynTestA):
 
     async def test_model_planning(self):
 

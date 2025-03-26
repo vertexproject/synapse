@@ -11,7 +11,7 @@ import synapse.tests.utils as s_t_utils
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.crypto.tinfoil as s_tinfoil
 
-class TinFoilTest(s_t_utils.SynTest):
+class TinFoilTest(s_t_utils.SynTestA):
 
     def test_lib_crypto_tnfl_base(self):
 

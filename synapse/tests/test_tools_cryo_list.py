@@ -1,7 +1,7 @@
 import synapse.tests.utils as s_t_utils
 import synapse.tools.cryo.list as s_cryolist
 
-class CryoListTest(s_t_utils.SynTest):
+class CryoListTest(s_t_utils.SynTestA):
 
     async def test_cryolist(self):
 

@@ -14,7 +14,7 @@ import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
-class TestUtils(s_t_utils.SynTest):
+class TestUtils(s_t_utils.SynTestA):
     def test_syntest_helpers(self):
         # Execute all of the test helpers here
         self.len(2, (1, 2))

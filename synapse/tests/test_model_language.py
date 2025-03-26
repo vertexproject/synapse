@@ -1,7 +1,7 @@
 import synapse.exc as s_exc
 import synapse.tests.utils as s_t_utils
 
-class LangModuleTest(s_t_utils.SynTest):
+class LangModuleTest(s_t_utils.SynTestA):
 
     async def test_model_language(self):
 

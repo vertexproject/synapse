@@ -46,7 +46,7 @@ class TestService(s_stormsvc.StormSvc):
         },
     )
 
-class SynModelTest(s_t_utils.SynTest):
+class SynModelTest(s_t_utils.SynTestA):
 
     async def test_syn_userrole(self):
 

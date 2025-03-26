@@ -3,7 +3,7 @@ import synapse.common as s_common
 
 import synapse.tests.utils as s_t_utils
 
-class TelcoModelTest(s_t_utils.SynTest):
+class TelcoModelTest(s_t_utils.SynTestA):
     async def test_telco_simple(self):
         async with self.getTestCore() as core:
 

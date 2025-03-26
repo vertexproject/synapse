@@ -40,7 +40,7 @@ class DeprecatedModel(s_module.CoreModule):
             ('test:dep', depmodel),
         )
 
-class DataModelTest(s_t_utils.SynTest):
+class DataModelTest(s_t_utils.SynTestA):
 
     async def test_datamodel_basics(self):
         async with self.getTestCore() as core:

@@ -4,7 +4,7 @@ import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
 
-class BizModelTest(s_t_utils.SynTest):
+class BizModelTest(s_t_utils.SynTestA):
 
     async def test_model_biz(self):
 

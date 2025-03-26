@@ -7,7 +7,7 @@ import synapse.tests.utils as s_t_utils
 
 import synapse.tools.backup as s_backup
 
-class BackupTest(s_t_utils.SynTest):
+class BackupTest(s_t_utils.SynTestA):
 
     def dirset(self, sdir, skipfns, skipdirs):
         ret = set()

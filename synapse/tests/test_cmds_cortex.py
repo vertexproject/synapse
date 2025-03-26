@@ -13,7 +13,7 @@ import synapse.tests.utils as s_t_utils
 from synapse.tests.utils import alist
 
 
-class CmdCoreTest(s_t_utils.SynTest):
+class CmdCoreTest(s_t_utils.SynTestA):
 
     async def test_storm(self):
 

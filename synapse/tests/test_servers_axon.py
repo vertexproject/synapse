@@ -6,7 +6,7 @@ import synapse.tests.utils as s_t_utils
 
 asdfhash = hashlib.sha256(b'asdfasdf').digest()
 
-class AxonServerTest(s_t_utils.SynTest):
+class AxonServerTest(s_t_utils.SynTestA):
 
     async def test_server(self):
 
