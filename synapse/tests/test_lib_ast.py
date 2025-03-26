@@ -4291,34 +4291,37 @@ class AstTest(s_test.SynTest):
                 for $n in { return((newp,)) } { $lib.print($n) }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 while { return((newp,)) } { $lib.print(newp) break }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 switch $lib.print({ return(newp) }) { *: { $lib.print(newp) } }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 switch $foo { *: { $lib.print(yep) return() } }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
             await verify(q, isin=True)
 
@@ -4327,9 +4330,10 @@ class AstTest(s_test.SynTest):
                 if { return(newp) } { $lib.print(newp) }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
@@ -4337,9 +4341,10 @@ class AstTest(s_test.SynTest):
                 elif { return(newp) } { $lib.print(newp) }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
@@ -4347,7 +4352,7 @@ class AstTest(s_test.SynTest):
                 elif (true) { $lib.print(yep) return() }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
             await verify(q)
 
@@ -4358,7 +4363,7 @@ class AstTest(s_test.SynTest):
                 else { $lib.print(yep) return() }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
             await verify(q, isin=True)
 
@@ -4367,36 +4372,40 @@ class AstTest(s_test.SynTest):
                 [ it:dev:str=foo +(refs)> { $lib.print(newp) return() } ]
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 $lib.print({ return(newp) })
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 $x = { $lib.print(newp) return() }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 ($x, $y) = { $lib.print(newp) return((foo, bar)) }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
@@ -4404,36 +4413,40 @@ class AstTest(s_test.SynTest):
                 $x.y = { $lib.print(newp) return((foo, bar)) }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 .created -({$lib.print(newp) return(refs)})> *
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 try { $lib.raise(boom) } catch { $lib.print(newp) return(newp) } as e {}
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() {
                 it:dev:str={ $lib.print(newp) return(test) }
             }
             [ it:dev:str=test ]
-            $x=$foo()
+            $foo()
             '''
-            await verify(q)
+            with self.raises(s_exc.StormRuntimeError):
+                await core.nodes(q)
 
             q = '''
             function foo() { it:dev:str }
