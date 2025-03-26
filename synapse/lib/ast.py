@@ -1449,11 +1449,20 @@ class VarEvalOper(Oper):
         anynodes = False
         async for node, path in genr:
             anynodes = True
-            await self.kids[0].compute(runt, path)
+            valu = await self.kids[0].compute(runt, path)
+
+            if isinstance(valu, types.AsyncGeneratorType):
+                mesg = 'Standalone evaluation of a generator does not do anything, they must be yielded or iterated.'
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
+
             yield node, path
 
         if not anynodes and self.isRuntSafe(runt):
-            await self.kids[0].compute(runt, None)
+            valu = await self.kids[0].compute(runt, None)
+
+            if isinstance(valu, types.AsyncGeneratorType):
+                mesg = 'Standalone evaluation of a generator does not do anything, they must be yielded or iterated.'
+                raise self.addExcInfo(s_exc.StormRuntimeError(mesg=mesg))
 
 class SwitchCase(Oper):
 

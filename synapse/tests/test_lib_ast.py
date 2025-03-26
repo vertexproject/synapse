@@ -4291,7 +4291,7 @@ class AstTest(s_test.SynTest):
                 for $n in { return((newp,)) } { $lib.print($n) }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4300,7 +4300,7 @@ class AstTest(s_test.SynTest):
                 while { return((newp,)) } { $lib.print(newp) break }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4309,7 +4309,7 @@ class AstTest(s_test.SynTest):
                 switch $lib.print({ return(newp) }) { *: { $lib.print(newp) } }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4318,7 +4318,7 @@ class AstTest(s_test.SynTest):
                 switch $foo { *: { $lib.print(yep) return() } }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q, isin=True)
 
@@ -4327,7 +4327,7 @@ class AstTest(s_test.SynTest):
                 if { return(newp) } { $lib.print(newp) }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4337,7 +4337,7 @@ class AstTest(s_test.SynTest):
                 elif { return(newp) } { $lib.print(newp) }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4347,7 +4347,7 @@ class AstTest(s_test.SynTest):
                 elif (true) { $lib.print(yep) return() }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4358,7 +4358,7 @@ class AstTest(s_test.SynTest):
                 else { $lib.print(yep) return() }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q, isin=True)
 
@@ -4367,7 +4367,7 @@ class AstTest(s_test.SynTest):
                 [ it:dev:str=foo +(refs)> { $lib.print(newp) return() } ]
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4376,7 +4376,7 @@ class AstTest(s_test.SynTest):
                 $lib.print({ return(newp) })
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4385,7 +4385,7 @@ class AstTest(s_test.SynTest):
                 $x = { $lib.print(newp) return() }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4394,7 +4394,7 @@ class AstTest(s_test.SynTest):
                 ($x, $y) = { $lib.print(newp) return((foo, bar)) }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4404,7 +4404,7 @@ class AstTest(s_test.SynTest):
                 $x.y = { $lib.print(newp) return((foo, bar)) }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4413,7 +4413,7 @@ class AstTest(s_test.SynTest):
                 .created -({$lib.print(newp) return(refs)})> *
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4422,7 +4422,7 @@ class AstTest(s_test.SynTest):
                 try { $lib.raise(boom) } catch { $lib.print(newp) return(newp) } as e {}
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
 
@@ -4431,6 +4431,23 @@ class AstTest(s_test.SynTest):
                 it:dev:str={ $lib.print(newp) return(test) }
             }
             [ it:dev:str=test ]
-            $foo()
+            $x=$foo()
             '''
             await verify(q)
+
+            q = '''
+            function foo() { it:dev:str }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes(q)
+            self.isin('Standalone evaluation of a generator', cm.exception.get('mesg'))
+
+            q = '''
+            function foo() { it:dev:str }
+            $foo()
+            '''
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes(q)
+            self.isin('Standalone evaluation of a generator', cm.exception.get('mesg'))
