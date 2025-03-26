@@ -180,7 +180,7 @@ class Dict(Spooled):
             return self.slab.has(s_msgpack.en(key))
         return key in self.realdict
 
-    def get(self, key, defv=None, use_list=False):
+    def get(self, key, defv=None, *, use_list=False):
 
         if self.fallback:
             byts = self.slab.get(s_msgpack.en(key))
@@ -200,7 +200,7 @@ class Dict(Spooled):
         for key in list(self.realdict.keys()):
             yield key
 
-    def items(self, use_list=False):
+    def items(self, *, use_list=False):
 
         if self.fallback:
             for lkey, lval in self.slab.scanByFull():
