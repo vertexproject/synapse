@@ -1,0 +1,6 @@
+---
+desc: Fixed a bug in the v0.2.31 model migration where data spooled to disk was deserialized
+  as a tuple instead of a list.
+prs: []
+type: bug
+...

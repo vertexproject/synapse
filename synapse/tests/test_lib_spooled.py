@@ -125,6 +125,23 @@ class SpooledTest(s_test.SynTest):
 
         async with await s_spooled.Dict.anit(size=2) as sd0:
             await runtest(sd0)
+            self.true(sd0.fallback)
 
         async with await s_spooled.Dict.anit(size=1000) as sd1:
             await runtest(sd1)
+            self.false(sd1.fallback)
+
+        async with await s_spooled.Dict.anit(size=2) as sd2:
+            self.false(sd2.fallback)
+            await sd2.set('one', [1, 2, 3])
+            await sd2.set('two', [2, 3, 4])
+            self.true(sd2.fallback)
+
+            self.eq(sd2.get('one'), (1, 2, 3))
+            self.eq(sd2.get('one', use_list=True), [1, 2, 3])
+
+            self.eq(list(sd2.items()), (('one', (1, 2, 3)), ('two', (2, 3, 4))))
+            self.eq(list(sd2.items(use_list=True)), (('one', [1, 2, 3]), ('two', [2, 3, 4])))
+
+            self.eq(sd2.pop('one'), (1, 2, 3))
+            self.eq(sd2.pop('two', use_list=True), [2, 3, 4])
