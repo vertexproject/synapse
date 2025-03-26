@@ -3717,6 +3717,14 @@ class StormTest(s_t_utils.SynTest):
             '''
             self.len(20, await core.callStorm(q))
 
+            q = '''
+            function test(n) { $lib.fire(foo, valu=$n.repr()) return() }
+            test:str
+            parallel --size 4 { $test($node) }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(20, [m for m in msgs if m[0] == 'storm:fire' and m[1]['type'] == 'foo'])
+
     async def test_storm_yieldvalu(self):
 
         async with self.getTestCore() as core:

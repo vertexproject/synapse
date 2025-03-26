@@ -1,6 +1,0 @@
----
-desc: Fixed an issue with URL sanitizing where incorrect data was being removed from
-  the URL string.
-prs: []
-type: bug
-...
