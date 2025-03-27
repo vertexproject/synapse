@@ -1285,6 +1285,9 @@ class ModelMigration_0_2_31:
 
         props = sode.get('props', {})
         sode['props'] = props
+
+        if oldvalu is not None:
+            assert props.get(propname) == (oldvalu, stortype), f'GOT: {props.get(propname)} EXPECTED: {(oldvalu, stortype)}'
         props[propname] = (newvalu, stortype)
 
         await self.nodes.set(buid, node)
@@ -1340,6 +1343,9 @@ class ModelMigration_0_2_31:
 
         sode = node['sodes'][layriden]
         props = sode.get('props', {})
+
+        assert props.get(propname) == (propvalu, stortype), f'GOT: {props.get(propname)} EXPECTED: {(propvalu, stortype)}'
+
         props.pop(propname)
 
         await self.nodes.set(buid, node)
@@ -1379,7 +1385,7 @@ class ModelMigration_0_2_31:
         )
 
     def getNode(self, buid):
-        node = self.nodes.get(buid, {}, use_list=True)
+        node = self.nodes.get(buid, {})
         if not node:
             node.setdefault('refs', {})
             node.setdefault('sodes', {})
@@ -1486,7 +1492,7 @@ class ModelMigration_0_2_31:
         for idx, layer in enumerate(self.layers):
             logger.debug(f'Processing nodes in layer {idx} {layer.iden}')
 
-            for buid, node in self.nodes.items(use_list=True):
+            for buid, node in self.nodes.items():
                 await self._loadNode(layer, buid, node=node)
 
                 formvalu = node.get('formvalu')
@@ -1494,9 +1500,6 @@ class ModelMigration_0_2_31:
                 formndef = (formname, formvalu)
 
                 refs = node['refs'].get(layer.iden, [])
-
-                if refs:
-                    logger.info(f'DEV: node {buid} has existing refs: {refs}, {formvalu}')
 
                 assert isinstance(refs, list)
                 assert len(refs) == 0
@@ -1599,7 +1602,7 @@ class ModelMigration_0_2_31:
         count = 0
         removed = 0
         migrated = 0
-        for buid, node in self.nodes.items(use_list=True):
+        for buid, node in self.nodes.items():
             action = node.get('verdict')
 
             if action is None:
@@ -1763,7 +1766,7 @@ class ModelMigration_0_2_31:
             for verb, n2iden in edges:
                 n2buid = s_common.uhex(n2iden)
                 assert self.nodes.has(n2buid)
-                n2node = self.nodes.get(n2buid, use_list=True)
+                n2node = self.nodes.get(n2buid)
                 if n2node is None: # pragma: no cover
                     continue
 
