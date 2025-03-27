@@ -166,13 +166,13 @@ class Dict(Spooled):
             self.len = len(self.realdict)
             self.realdict.clear()
 
-    def pop(self, key, defv=None, *, use_list=False):
+    def pop(self, key, defv=None):
         if self.fallback:
             ret = self.slab.pop(s_msgpack.en(key))
             if ret is None:
                 return defv
             self.len -= 1
-            return s_msgpack.un(ret, use_list=use_list)
+            return s_msgpack.un(ret)
         return self.realdict.pop(key, defv)
 
     def has(self, key):
@@ -180,13 +180,13 @@ class Dict(Spooled):
             return self.slab.has(s_msgpack.en(key))
         return key in self.realdict
 
-    def get(self, key, defv=None, *, use_list=False):
+    def get(self, key, defv=None):
 
         if self.fallback:
             byts = self.slab.get(s_msgpack.en(key))
             if byts is None:
                 return defv
-            return s_msgpack.un(byts, use_list=use_list)
+            return s_msgpack.un(byts)
 
         return self.realdict.get(key, defv)
 
@@ -200,11 +200,11 @@ class Dict(Spooled):
         for key in list(self.realdict.keys()):
             yield key
 
-    def items(self, *, use_list=False):
+    def items(self):
 
         if self.fallback:
             for lkey, lval in self.slab.scanByFull():
-                yield s_msgpack.un(lkey), s_msgpack.un(lval, use_list=use_list)
+                yield s_msgpack.un(lkey), s_msgpack.un(lval)
 
         for item in list(self.realdict.items()):
             yield item
