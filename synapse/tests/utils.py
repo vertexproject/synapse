@@ -323,6 +323,7 @@ testmodel = (
             ('test:int', ('int', {}), {}),
             ('test:float', ('float', {}), {}),
             ('test:str', ('str', {}), {}),
+            ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
             ('test:migr', ('str', {}), {}),
             ('test:auto', ('str', {}), {}),
             ('test:guid', ('guid', {}), {}),
@@ -393,6 +394,7 @@ testmodel = (
                 ('ints', ('array', {'type': 'test:int'}), {}),
                 ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
                 ('strsnosplit', ('array', {'type': 'test:str'}), {}),
+                ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
             )),
             ('test:arrayform', {}, (
             )),
@@ -470,6 +472,8 @@ testmodel = (
                 ('cidr', ('inet:cidr', {}), {}),
                 ('somestr', ('test:str', {}), {}),
             )),
+
+            ('test:strregex', {}, ()),
 
             ('test:migr', {}, (
                 ('bar', ('ndef', {}), {}),
