@@ -1,6 +1,0 @@
----
-desc: Fixed a regression in the Storm ``parallel`` command where variables containing
-  certain heavy Storm object types were not passed into the parallel runtimes.
-prs: []
-type: bug
-...
