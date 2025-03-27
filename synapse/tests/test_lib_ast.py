@@ -4277,14 +4277,25 @@ class AstTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            async def verify(q, isin=False):
-                msgs = await core.stormlist(q)
-                if isin:
-                    self.stormIsInPrint('yep', msgs)
-                else:
-                    self.stormNotInPrint('newp', msgs)
-                self.len(1, [m for m in msgs if m[0] == 'node'])
-                self.stormHasNoErr(msgs)
+            q = '''
+            function foo() { it:dev:str }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes(q)
+            self.isin('Standalone evaluation of a generator', cm.exception.get('mesg'))
+
+            q = '''
+            function foo() { it:dev:str }
+            $foo()
+            '''
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await core.nodes(q)
+            self.isin('Standalone evaluation of a generator', cm.exception.get('mesg'))
+
+            # These tests are edge cases that verify a return within a subquery used as a value
+            # does not change the type of the outer function.
 
             q = '''
             function foo() {
@@ -4318,15 +4329,6 @@ class AstTest(s_test.SynTest):
 
             q = '''
             function foo() {
-                switch $foo { *: { $lib.print(yep) return() } }
-            }
-            [ it:dev:str=test ]
-            $foo()
-            '''
-            await verify(q, isin=True)
-
-            q = '''
-            function foo() {
                 if { return(newp) } { $lib.print(newp) }
             }
             [ it:dev:str=test ]
@@ -4345,27 +4347,6 @@ class AstTest(s_test.SynTest):
             '''
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes(q)
-
-            q = '''
-            function foo() {
-                if (false) { $lib.print(newp) }
-                elif (true) { $lib.print(yep) return() }
-            }
-            [ it:dev:str=test ]
-            $foo()
-            '''
-            await verify(q)
-
-            q = '''
-            function foo() {
-                if (false) { $lib.print(newp) }
-                elif (false) { $lib.print(newp) }
-                else { $lib.print(yep) return() }
-            }
-            [ it:dev:str=test ]
-            $foo()
-            '''
-            await verify(q, isin=True)
 
             q = '''
             function foo() {
@@ -4448,19 +4429,43 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes(q)
 
+            # Subqueries which are not used as a value should change the type of function
+
             q = '''
-            function foo() { it:dev:str }
+            function foo() {
+                switch $foo { *: { $lib.print(yep) return() } }
+            }
             [ it:dev:str=test ]
             $foo()
             '''
-            with self.raises(s_exc.StormRuntimeError) as cm:
-                await core.nodes(q)
-            self.isin('Standalone evaluation of a generator', cm.exception.get('mesg'))
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yep', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+            self.stormHasNoErr(msgs)
 
             q = '''
-            function foo() { it:dev:str }
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif (true) { $lib.print(yep) return() }
+            }
+            [ it:dev:str=test ]
             $foo()
             '''
-            with self.raises(s_exc.StormRuntimeError) as cm:
-                await core.nodes(q)
-            self.isin('Standalone evaluation of a generator', cm.exception.get('mesg'))
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yep', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+            self.stormHasNoErr(msgs)
+
+            q = '''
+            function foo() {
+                if (false) { $lib.print(newp) }
+                elif (false) { $lib.print(newp) }
+                else { $lib.print(yep) return() }
+            }
+            [ it:dev:str=test ]
+            $foo()
+            '''
+            msgs = await core.stormlist(q)
+            self.stormIsInPrint('yep', msgs)
+            self.len(1, [m for m in msgs if m[0] == 'node'])
+            self.stormHasNoErr(msgs)
