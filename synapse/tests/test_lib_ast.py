@@ -4294,9 +4294,8 @@ class AstTest(s_test.SynTest):
                 await core.nodes(q)
             self.isin('Standalone evaluation of a generator', cm.exception.get('mesg'))
 
-            # These tests are edge cases that verify a return within a subquery used as a value
+            # The following tests are edge cases that verify a return within a subquery used as a value
             # does not change the type of the outer function.
-
             q = '''
             function foo() {
                 for $n in { return((newp,)) } { $lib.print($n) }
@@ -4430,7 +4429,6 @@ class AstTest(s_test.SynTest):
                 await core.nodes(q)
 
             # Subqueries which are not used as a value should change the type of function
-
             q = '''
             function foo() {
                 switch $foo { *: { $lib.print(yep) return() } }
