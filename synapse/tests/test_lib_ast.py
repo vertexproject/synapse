@@ -4428,7 +4428,7 @@ class AstTest(s_test.SynTest):
             with self.raises(s_exc.StormRuntimeError):
                 await core.nodes(q)
 
-            # Subqueries which are not used as a value should change the type of function
+            # Subqueries which are not used as a value should change the type of function.
             q = '''
             function foo() {
                 switch $foo { *: { $lib.print(yep) return() } }
