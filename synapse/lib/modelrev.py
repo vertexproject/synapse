@@ -1501,9 +1501,6 @@ class ModelMigration_0_2_31:
 
                 refs = node['refs'].get(layer.iden, [])
 
-                assert isinstance(refs, list)
-                assert len(refs) == 0
-
                 for refinfo in self.getRefInfo(formname):
                     (refform, refprop, reftype, isarray, isro) = refinfo
 
