@@ -1,5 +1,5 @@
 ---
-desc: Fixed a bug in the v0.2.31 model migration where data spooled to disk was being duplicated after the spool map was grown.
+desc: Fixed a bug where growing a slab when updating a value would cause `scanByFull()` to iterate the same key twice.
 prs: []
 type: bug
 ...

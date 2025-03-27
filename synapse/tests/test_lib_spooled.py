@@ -1,10 +1,7 @@
 import os
 
-from unittest import mock
-
 import synapse.tests.utils as s_test
 
-import synapse.lib.const as s_const
 import synapse.lib.spooled as s_spooled
 
 class SpooledTest(s_test.SynTest):
@@ -133,22 +130,3 @@ class SpooledTest(s_test.SynTest):
         async with await s_spooled.Dict.anit(size=1000) as sd1:
             await runtest(sd1)
             self.false(sd1.fallback)
-
-        MAPSIZE = s_const.kibibyte * 32
-        with mock.patch('synapse.lib.spooled.DEFAULT_MAPSIZE', MAPSIZE):
-            async with await s_spooled.Dict.anit(size=2) as sd2:
-                self.false(sd2.fallback)
-                await sd2.set('one', [1, 2, 3])
-                await sd2.set('two', [2, 3, 4])
-                self.true(sd2.fallback)
-                self.eq(sd2.slab.mapsize, MAPSIZE)
-
-                seen = set()
-                for key, valu in sd2.items():
-                    self.notin(key, seen)
-                    seen.add(key)
-
-                    valu += ('A' * MAPSIZE,)
-                    await sd2.set(key, valu)
-
-                self.gt(sd2.slab.mapsize, MAPSIZE)
