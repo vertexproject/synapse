@@ -484,8 +484,7 @@ driveInfoSchema = {
         'parent': {'type': 'string', 'pattern': s_config.re_iden},
         'type': {'type': 'string', 'pattern': re_drivename},
         'name': {'type': 'string', 'pattern': re_drivename},
-        # TODO: Do we migrate this?
-        'perm': s_msgpack.deepcopy(easyPermSchema),
+        # TODO: This used to be called `perm`, so migrate this as part of the big migration from 2.x
         'permissions': s_msgpack.deepcopy(easyPermSchema),
         'kids': {'type': 'number', 'minimum': 0},
         'created': {'type': 'number'},

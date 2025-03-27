@@ -280,9 +280,9 @@ class CellTest(s_t_utils.SynTest):
 
                 await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
 
-                await cell.setDriveItemProp(iden, 'woot', 'beep')
+                await cell.setDriveItemProp(iden, 'stuff', 3829)
                 data = await cell.getDriveData(iden)
-                self.eq(data[1]['woot'], 'beep')
+                self.eq(data[1]['stuff'], 3829)
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
                 self.eq('woot', data.get('woot'))
