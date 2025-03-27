@@ -212,6 +212,9 @@ class CellTest(s_t_utils.SynTest):
 
                 tick = s_common.now()
                 rootuser = cell.auth.rootuser.iden
+                fooser = await cell.auth.addUser('foo')
+                neatrole = await cell.auth.addRole('neatrole')
+                await fooser.grant(neatrole.iden)
 
                 with self.raises(s_exc.SchemaViolation):
                     versinfo = {'version': (1, 0, 0), 'updated': tick, 'updater': rootuser}
@@ -266,12 +269,20 @@ class CellTest(s_t_utils.SynTest):
                 info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17, 'stuff': 15})
                 self.eq(versinfo, (await cell.getDriveData(iden))[0])
 
+                await cell.setDriveItemProp(iden, ('stuff',), 1234)
+                data = await cell.getDriveData(iden)
+                self.eq(data[1]['stuff'], 1234)
+
                 # This will be done by the cell in a cell storage version migration...
                 async def migrate_v1(info, versinfo, data):
                     data['woot'] = 'woot'
                     return data
 
                 await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
+
+                await cell.setDriveItemProp(iden, 'woot', 'beep')
+                data = await cell.getDriveData(iden)
+                self.eq(data[1]['woot'], 'beep')
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
                 self.eq('woot', data.get('woot'))
@@ -313,8 +324,12 @@ class CellTest(s_t_utils.SynTest):
                 baziden = pathinfo[2].get('iden')
                 self.eq(pathinfo, await cell.drive.getItemPath(baziden))
 
-                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: 3}, 'roles': {}})
-                self.eq(3, info['perm']['users'][rootuser])
+                info = await cell.setDriveInfoPerm(baziden, {'users': {rootuser: s_cell.PERM_ADMIN}, 'roles': {}})
+                # make sure drive perms work with easy perms
+                self.true(cell._hasEasyPerm(info, cell.auth.rootuser, s_cell.PERM_ADMIN))
+                # defaults to READ
+                self.true(cell._hasEasyPerm(info, fooser, s_cell.PERM_READ))
+                self.false(cell._hasEasyPerm(info, fooser, s_cell.PERM_EDIT))
 
                 with self.raises(s_exc.NoSuchIden):
                     # s_drive.rootdir is all 00s... ;)
