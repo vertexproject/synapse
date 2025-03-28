@@ -390,7 +390,7 @@ Lift by Primary Property Value
 
 *Lift the organization node whose primary property is the specified guid (globally unique identifier):*
 
-.. storm-pre:: [ ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :alias=vertex ]
+.. storm-pre:: [ ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :names=(vertex,) ]
 .. storm-pre:: ou:org = 4b0c2c5671874922ce001d69215d032f
 ::
   
@@ -416,13 +416,13 @@ Lift by Secondary Property Value
 
 **Examples:**
 
-*Lift the organization node with the alias "vertex":*
+*Lift the organization node with "vertex" in the names property:*
 
-.. storm-pre:: [ ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :alias=vertex ]
-.. storm-pre:: ou:org:alias = vertex
+.. storm-pre:: [ ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :names=(vertex,) ]
+.. storm-pre:: ou:org:names *[ = vertex ]
 ::
   
-  ou:org:alias = vertex
+  ou:org:names *[ = vertex ]
 
 *Lift all DNS A records for the FQDN "hugesoft.org":*
 
@@ -671,7 +671,7 @@ The extended comparator ``~=`` is used to lift nodes based on PCRE-compatible re
 
 *Lift all organizations whose name contains a string that starts with "v", followed by 0 or more characters, followed by "x":*
 
-.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :alias=vertex) (ou:org=ad8de4b5da0fccb2caadb0d425e35847 :name=vxunderground) ]
+.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name="the vertex project" :names=(vertex,)) (ou:org=ad8de4b5da0fccb2caadb0d425e35847 :name=vxunderground) ]
 .. storm-pre:: ou:org:name ~= '^v.*x'
 ::
   

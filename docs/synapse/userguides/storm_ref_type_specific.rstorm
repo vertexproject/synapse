@@ -769,10 +769,10 @@ is often easier to lift guid nodes by a unique secondary property.
 
 **Examples:**
 
-Lift an org node by its alias:
+Lift an org node by a single name in the names property:
 
-.. storm-pre:: [ ou:org = * :alias = choam :name = 'combine honnete ober advancer mercantiles' ]
-.. storm-cli:: ou:org:alias = choam
+.. storm-pre:: [ ou:org = * :names = (choam,) :name = 'combine honnete ober advancer mercantiles' ]
+.. storm-cli:: ou:org:names *[ = choam ]
 
 Lift a DNS request node by the name used in the DNS query:
 
@@ -1490,7 +1490,7 @@ Synapse will automatically normalize the value by:
 
 **Examples:**
 
-.. storm-cli:: [ syn:tag = rep.us-cisa.LAPSUS$ ]
+.. storm-cli:: [ syn:tag = "rep.us-cisa.LAPSUS$" ]
 
 In the above example:
 
