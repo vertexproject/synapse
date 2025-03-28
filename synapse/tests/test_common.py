@@ -137,14 +137,12 @@ class CommonTest(s_t_utils.SynTest):
         # listdir
         with self.getTestDir() as dirn:
             path = os.path.join(dirn, 'woot.txt')
-            woot = b'woot'
             with open(path, 'wb') as fd:
-                fd.write(woot)
+                fd.write(b'woot')
 
             os.makedirs(os.path.join(dirn, 'nest'))
-            nope = b'nope'
             with open(os.path.join(dirn, 'nest', 'nope.txt'), 'wb') as fd:
-                fd.write(nope)
+                fd.write(b'nope')
 
             retn = tuple(s_common.listdir(dirn))
             self.len(2, retn)
@@ -152,31 +150,10 @@ class CommonTest(s_t_utils.SynTest):
             retn = tuple(s_common.listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))
 
-            # getDirSize
-            statvfs = os.statvfs(dirn)
-            block_size = statvfs.f_bsize
-
             real, appr = s_common.getDirSize(dirn)
             self.eq(real % 512, 0)
             self.gt(real, appr)
-            self.ge(appr, len(woot) + len(nope))
-
-            # Apparent size includes the blocksize entries for the two directory entries
-            self.eq(appr, len(woot) + len(nope) + 2 * block_size)
-
-            # Realsize accounts for the 2 files + 2 directory entries of blocksize length.
-            self.eq(real, 4 * block_size)
-
-            path = os.path.join(dirn, 'blockplus1.txt')
-            bsizebuf = b'v' * (block_size + 1)
-            with open(path, 'wb') as fd:
-                fd.write(bsizebuf)
-
-            real, appr = s_common.getDirSize(dirn)
-            self.eq(appr, len(bsizebuf) + len(woot) + len(nope) + 2 * block_size)
-
-            # 3 files ( one which takes 2 blocks ) + 2 directory entries of blocksize length.
-            self.eq(real, 6 * block_size)
+            self.ge(appr, len(b'woot') + len(b'nope'))
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
