@@ -3,6 +3,9 @@ modeldefs = (
 
         'interfaces': (
 
+            # FIXME phys:made? ( product :manufacturer :made=<time> etc
+            # FIXME meta:sourced?
+
             ('entity:contactable', {
                 'interfaces': ('geo:locatable',),
                 'doc': 'An interface for forms which contain contact info.',
@@ -78,8 +81,9 @@ modeldefs = (
                 'doc': 'An abstract entity which can be resolved to an organization or person.',
                 'props': (
 
+                    # FIXME name? :isreally :owner?
                     ('resolved', ('entity:resolved', {}), {
-                        'doc': 'The fully resolved entity to which this {contact} belongs.'}),
+                        'doc': 'The resolved entity to which this {contactable} belongs.'}),
                 ),
             }),
         ),

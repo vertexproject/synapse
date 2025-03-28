@@ -117,6 +117,7 @@ modeldefs = (
                 ('buyer', ('entity:actor', {}), {
                     'doc': 'The primary contact information for the buyer.',
                 }),
+                # FIXME remove orgname / orgfqdn
                 ('buyer:org', ('ou:org', {}), {
                     'doc': 'The buyer org.',
                 }),
@@ -219,26 +220,26 @@ modeldefs = (
             )),
             ('biz:product', {}, (
                 ('name', ('str', {}), {
-                    'doc': 'The name of the product.',
-                }),
+                    'doc': 'The name of the product.'}),
+
                 ('type', ('biz:product:type:taxonomy', {}), {
-                    'doc': 'The type of product.',
-                }),
+                    'doc': 'The type of product.'}),
+
                 # TODO ('upc', ('biz:upc', {}), {}),
                 ('summary', ('str', {}), {
                     'doc': 'A brief summary of the product.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'disp': {'hint': 'text'}}),
+
                 # FIXME: manufactur?
                 ('maker', ('entity:actor', {}), {
-                    'doc': 'A contact for the maker of the product.',
-                }),
+                    'doc': 'A contact for the maker of the product.'}),
+
                 ('price:retail', ('econ:price', {}), {
-                    'doc': 'The MSRP price of the product.',
-                }),
+                    'doc': 'The MSRP price of the product.'}),
+
                 ('price:bottom', ('econ:price', {}), {
-                    'doc': 'The minimum offered or observed price of the product.',
-                }),
+                    'doc': 'The minimum offered or observed price of the product.'}),
+
                 ('price:currency', ('econ:currency', {}), {
                     'doc': 'The currency of the retail and bottom price properties.',
                 }),
@@ -251,40 +252,39 @@ modeldefs = (
                     'doc': 'The ou:vitals snapshot this stake is part of.',
                 }),
                 ('org', ('ou:org', {}), {
-                    'doc': 'The resolved org.',
-                }),
+                    'doc': 'The resolved org.'}),
+
                 ('org:name', ('entity:name', {}), {
                     'prevnames': ('orgname',),
-                    'doc': 'The org name as reported by the source of the stake.',
-                }),
+                    'doc': 'The org name as reported by the source of the stake.'}),
+
                 ('org:fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The org FQDN as reported by the source of the stake.',
-                }),
+                    'doc': 'The org FQDN as reported by the source of the stake.'}),
+
                 ('name', ('str', {}), {
-                    'doc': 'An arbitrary name for this stake. Can be non-contact like "pool".',
-                }),
+                    'doc': 'An arbitrary name for this stake. Can be non-contact like "pool".'}),
+
                 # FIXME asof -> updated ( in general? )
                 ('asof', ('time', {}), {
-                    'doc': 'The time the stake is being measured.',
-                }),
+                    'doc': 'The time the stake is being measured.'}),
+
                 ('shares', ('int', {}), {
-                    'doc': 'The number of shares represented by the stake.',
-                }),
+                    'doc': 'The number of shares represented by the stake.'}),
+
                 ('invested', ('econ:price', {}), {
-                    'doc': 'The amount of money invested in the cap table iteration.',
-                }),
+                    'doc': 'The amount of money invested in the cap table iteration.'}),
+
                 ('value', ('econ:price', {}), {
-                    'doc': 'The monetary value of the stake.',
-                }),
+                    'doc': 'The monetary value of the stake.'}),
+
                 ('percent', ('hugenum', {}), {
-                    'doc': 'The percentage ownership represented by this stake.',
-                }),
+                    'doc': 'The percentage ownership represented by this stake.'}),
+
                 ('owner', ('entity:actor', {}), {
-                    'doc': 'Contact information of the owner of the stake.',
-                }),
+                    'doc': 'Contact information of the owner of the stake.'}),
+
                 ('purchase', ('econ:purchase', {}), {
-                    'doc': 'The purchase event for the stake.',
-                }),
+                    'doc': 'The purchase event for the stake.'}),
             )),
         ),
     }),
