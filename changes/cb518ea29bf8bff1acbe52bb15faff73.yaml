@@ -1,0 +1,5 @@
+---
+desc: Added a ``uses`` light edge between ``it:prod:soft`` and ``risk:vuln`` forms.
+prs: []
+type: model
+...

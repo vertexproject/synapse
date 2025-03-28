@@ -1101,6 +1101,8 @@ class ItModule(s_module.CoreModule):
             'edges': (
                 (('it:prod:soft', 'uses', 'ou:technique'), {
                     'doc': 'The software uses the technique.'}),
+                (('it:prod:soft', 'uses', 'risk:vuln'), {
+                    'doc': 'The software uses the vulnerability.'}),
                 (('it:exec:query', 'found', None), {
                     'doc': 'The target node was returned as a result of running the query.'}),
                 (('it:app:snort:rule', 'detects', None), {
