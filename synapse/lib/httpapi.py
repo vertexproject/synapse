@@ -150,10 +150,9 @@ class HandlerBase:
             This does write the response stream. No further content should be written
             in the response after calling this.
         '''
+        mesg = str(e)
         if isinstance(e, s_exc.SynErr):
-            mesg = e.get('mesg', str(e))
-        else:
-            mesg = str(e)
+            mesg = e.get('mesg', mesg)
         self.set_header('Content-Type', 'application/json')
         return self.sendRestErr(e.__class__.__name__, mesg)
 
