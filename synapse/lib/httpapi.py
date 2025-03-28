@@ -118,7 +118,7 @@ class HandlerBase:
     def getJsonBody(self, validator=None):
         return self.loadJsonMesg(self.request.body, validator=validator)
 
-    def sendRestErr(self, code: str, mesg: str, *, status_code: int| None = None) -> None:
+    def sendRestErr(self, code: str, mesg: str, *, status_code: int | None =None) -> None:
         '''
         Sent a JSON REST error message with a code and message.
 
@@ -1025,7 +1025,7 @@ class AuthAddUserV1(Handler):
 
         authcell = self.getAuthCell()
         if await authcell.getUserDefByName(name) is not None:
-            self.sendRestErr('DupUser', f'A user named {name} already exists.',  status_code=400)
+            self.sendRestErr('DupUser', f'A user named {name} already exists.', status_code=400)
             return
 
         udef = await authcell.addUser(name=name)
