@@ -47,7 +47,7 @@ Light Edges
 
 
 ``uses``
-    When used with a ``it:prod:soft`` and an ``risk:vuln`` node, the edge
+    When used with an ``it:prod:soft`` and a ``risk:vuln`` node, the edge
     indicates the software uses the vulnerability.
 
 
