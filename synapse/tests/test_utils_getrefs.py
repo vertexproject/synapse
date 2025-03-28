@@ -1,10 +1,13 @@
-import os.path
+import os
 import pathlib
 
 import vcr
 
+from unittest import mock
+
 import synapse.exc as s_exc
 import synapse.data as s_data
+import synapse.common as s_common
 
 import synapse.lib.config as s_config
 
@@ -24,7 +27,7 @@ class TestUtilsGetrefs(s_utils.SynTest):
         cm = myvcr.use_cassette(fp)
         return cm
 
-    async def test_basics(self):
+    def test_basics(self):
 
         args = s_getrefs.parse_args([
             s_data.path('attack-flow', 'attack-flow-schema-2.0.0.json')
@@ -45,30 +48,34 @@ class TestUtilsGetrefs(s_utils.SynTest):
         with self.raises(s_exc.BadArg):
             s_getrefs.download_refs_handler('http://raw.githubusercontent.com/../../attack-flow/attack-flow-schema-2.0.0.json')
 
-        filename = pathlib.Path(s_data.path(
-            'jsonschemas',
-            'raw.githubusercontent.com',
-            'oasis-open',
-            'cti-stix2-json-schemas',
-            'stix2.1',
-            'schemas',
-            'common',
-            'core.json'
-        ))
+        with self.getTestDir(copyfrom=s_getrefs.BASEDIR) as dirn:
 
-        self.true(filename.exists())
-        filename.unlink()
+            filename = pathlib.Path(s_common.genpath(
+                dirn,
+                'raw.githubusercontent.com',
+                'oasis-open',
+                'cti-stix2-json-schemas',
+                'stix2.1',
+                'schemas',
+                'common',
+                'core.json'
+            ))
 
-        # Clear the cached validator funcs so the ref handlers in s_getrefs get called
-        s_config._JsValidators = {}
+            self.true(filename.exists())
+            filename.unlink()
+            self.false(filename.exists())
 
-        with self.getLoggerStream('synapse.utils.getrefs') as stream:
-            with self.getVcr() as cass:
-                s_getrefs.main(args)
+            # Clear the cached validator funcs so the ref handlers in s_getrefs get called
+            s_config._JsValidators = {}
 
-        stream.seek(0)
-        mesgs = stream.read()
-        mesg = f'Downloading schema from {CORE_URL}.'
-        self.true(filename.exists())
-        self.isin(mesg, mesgs)
-        self.notin(f'Schema {CORE_URL} already exists in local cache, skipping.', mesgs)
+            with self.getLoggerStream('synapse.utils.getrefs') as stream:
+                with mock.patch('synapse.utils.getrefs.BASEDIR', dirn):
+                    with self.getVcr():
+                        s_getrefs.main(args)
+
+            stream.seek(0)
+            mesgs = stream.read()
+            mesg = f'Downloading schema from {CORE_URL}.'
+            self.true(filename.exists())
+            self.isin(mesg, mesgs)
+            self.notin(f'Schema {CORE_URL} already exists in local cache, skipping.', mesgs)

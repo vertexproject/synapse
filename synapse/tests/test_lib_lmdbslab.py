@@ -11,6 +11,7 @@ from unittest.mock import patch
 
 import synapse.lib.base as s_base
 import synapse.lib.const as s_const
+import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.thisplat as s_thisplat
 
@@ -1597,6 +1598,35 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 subkv2 = subkv1.getSubKeyVal('pref2')
                 self.eq(list(subkv2.keys()), ['wow'])
 
+    async def test_lmdbslab_scan_grow(self):
+        with self.getTestDir() as dirn:
+
+            path = os.path.join(dirn, 'test.lmdb')
+
+            mapsize = s_const.kibibyte * 32
+            async with await s_lmdbslab.Slab.anit(path, map_size=mapsize) as slab:
+
+                self.eq(slab.mapsize, mapsize)
+
+                def slabset(key, valu):
+                    slab.replace(s_msgpack.en(key), s_msgpack.en(valu))
+
+                def slabitems():
+                    for lkey, lval in slab.scanByFull():
+                        yield s_msgpack.un(lkey), s_msgpack.un(lval)
+
+                slabset('one', [1, 2, 3])
+                slabset('two', [2, 3, 4])
+
+                seen = set()
+                for key, valu in slabitems():
+                    self.notin(key, seen)
+                    seen.add(key)
+
+                    valu += ('A' * mapsize,)
+                    slabset(key, valu)
+
+                self.gt(slab.mapsize, mapsize)
 
 class LmdbSlabMemLockTest(s_t_utils.SynTest):
 

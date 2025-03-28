@@ -1144,7 +1144,7 @@ class LibModelMigrations_0_2_31(s_stormtypes.Lib):
                 await self.runt.printf(f'    layer: {layriden}')
                 for iden, refinfo in reflist:
                     form, prop, *_ = refinfo
-                    await self.runt.printf(f'      - {form}:{prop} (iden: {iden}')
+                    await self.runt.printf(f'      - {form}:{prop} (iden: {iden})')
 
         n1edges = node['n1edges']
         n2edges = node['n2edges']
