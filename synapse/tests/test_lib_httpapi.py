@@ -6,6 +6,7 @@ import aiohttp.client_exceptions as a_exc
 import synapse.common as s_common
 import synapse.tools.backup as s_backup
 
+import synapse.exc as s_exc
 import synapse.lib.coro as s_coro
 import synapse.lib.json as s_json
 import synapse.lib.link as s_link
@@ -649,6 +650,7 @@ class HttpApiTest(s_tests.SynTest):
             host, port = await core.addHttpsPort(0, host='127.0.0.1')
 
             visi = await core.auth.addUser('visi')
+            newpuser = s_common.guid()
 
             await visi.setPasswd('secret')
             await visi.addRule((True, ('impersonate',)))
@@ -676,6 +678,14 @@ class HttpApiTest(s_tests.SynTest):
 
                 self.eq(podes[0][0], ('inet:ipv4', 0x01020304))
 
+                # NoSuchUser precondition failure
+                data = {'query': '.created', 'opts': {'user': newpuser}}
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes', json=data) as resp:
+                    self.eq(resp.status, 400)
+                    data = await resp.json()
+                    self.eq(data, {'status': 'err', 'code': 'NoSuchUser',
+                                   'mesg': f'No user found with iden: {newpuser}'})
+
                 msgs = []
                 data = {'query': '[ inet:ipv4=5.5.5.5 ]', 'opts': opts}
 
@@ -690,8 +700,7 @@ class HttpApiTest(s_tests.SynTest):
                 podes = [m[1] for m in msgs if m[0] == 'node']
                 self.eq(podes[0][0], ('inet:ipv4', 0x05050505))
 
-                # No such user
-                newpuser = s_common.guid()
+                # NoSuchUser precondition failure
                 opts['user'] = newpuser
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=data) as resp:
                     self.eq(resp.status, 400)
@@ -2020,6 +2029,7 @@ class HttpApiTest(s_tests.SynTest):
                 data = {'query': '[ inet:ipv4=5.6.7.8 ]', 'opts': {'user': visi.iden}}
                 async with sess.get(f'{root}/api/v1/storm/call', json=data) as resp:
                     item = await resp.json()
+                    self.eq(resp.status, 401)
                     self.eq('err', item.get('status'))
                     self.eq('NotAuthenticated', item.get('code'))
 

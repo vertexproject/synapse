@@ -1199,6 +1199,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 body = {'query': '$foo=() $bar=$foo.index(10) return ( $bar )'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, 400)
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormRuntimeError', retn.get('code'))
@@ -1206,6 +1207,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 body = {'query': 'return ( $lib.exit() )'}
                 async with sess.post(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, 400)
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormExit', retn.get('code'))
@@ -1214,6 +1216,7 @@ class CortexTest(s_t_utils.SynTest):
                 # No body
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call') as resp:
                     retn = await resp.json()
+                    self.eq(resp.status, 400)
                     self.eq('err', retn.get('status'))
                     self.eq('SchemaViolation', retn.get('code'))
 
