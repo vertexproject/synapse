@@ -1079,7 +1079,7 @@ modeldefs = (
                 ('serial', ('str', {}), {
                     'doc': 'The serial number of the host.'}),
 
-                ('operator', ('ps:contact', {}), {
+                ('operator', ('entity:contact', {}), {
                     'doc': 'The operator of the host.'}),
 
                 ('org', ('ou:org', {}), {
@@ -1120,7 +1120,7 @@ modeldefs = (
                 ('published', ('time', {}), {
                     'doc': 'The time the image was published.'}),
 
-                ('publisher', ('ps:contact', {}), {
+                ('publisher', ('entity:contact', {}), {
                     'doc': 'The contact information of the org or person who published the image.'}),
 
                 ('parents', ('array', {'type': 'it:software:image'}), {
@@ -1221,7 +1221,7 @@ modeldefs = (
                 ('user', ('inet:user', {}), {
                     'doc': 'The username associated with the account.',
                 }),
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:contact', {}), {
                     'doc': 'Additional contact information associated with this account.',
                 }),
                 ('host', ('it:host', {}), {
@@ -1333,7 +1333,7 @@ modeldefs = (
             )),
             ('it:sec:cve', {}, (
 
-                ('nist:nvd:source', ('ou:name', {}), {
+                ('nist:nvd:source', ('entity:name', {}), {
                     'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
 
                 ('nist:nvd:published', ('time', {}), {
@@ -1351,7 +1351,7 @@ modeldefs = (
                 ('cisa:kev:action', ('str', {}), {
                     'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
 
-                ('cisa:kev:vendor', ('ou:name', {}), {
+                ('cisa:kev:vendor', ('entity:name', {}), {
                     'doc': 'The vendor name listed in the CISA KEV database.'}),
 
                 ('cisa:kev:product', ('it:prod:softname', {}), {
@@ -1371,7 +1371,7 @@ modeldefs = (
                 ('part', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "part" field from the CPE 2.3 string.'}),
-                ('vendor', ('ou:name', {}), {
+                ('vendor', ('entity:name', {}), {
                     'ro': True,
                     'doc': 'The "vendor" field from the CPE 2.3 string.'}),
                 ('product', ('str', {'lower': True, 'strip': True}), {
@@ -1425,7 +1425,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization whose security program is being measured.'}),
 
-                ('org:name', ('ou:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'doc': 'The organization name. Used for entity resolution.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -1487,7 +1487,7 @@ modeldefs = (
                 ('software:name', ('it:prod:softname', {}), {
                     'doc': 'The name of the scanner software.'}),
 
-                ('operator', ('ps:contact', {}), {
+                ('operator', ('entity:contact', {}), {
                     'doc': 'Contact information for the scan operator.'}),
 
             )),
@@ -1532,10 +1532,10 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'Used to map an ATT&CK group to a synapse ou:org.',
                 }),
-                ('name', ('ou:name', {}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The primary name for the ATT&CK group.',
                 }),
-                ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate names for the ATT&CK group.',
                 }),
                 ('desc', ('str', {}), {
@@ -1716,7 +1716,7 @@ modeldefs = (
                     'doc': 'The time that the diagram was last updated.'}),
                 ('author:user', ('syn:user', {}), {
                     'doc': 'The Synapse user that created the node.'}),
-                ('author:contact', ('ps:contact', {}), {
+                ('author:contact', ('entity:contact', {}), {
                     'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
             )),
             ('it:mitre:attack:datasource', {}, (
@@ -1957,7 +1957,7 @@ modeldefs = (
                     'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
                 ('manufacturer', ('ou:org', {}), {
                     'doc': 'The organization that manufactures this hardware.'}),
-                ('manufacturer:name', ('ou:name', {}), {
+                ('manufacturer:name', ('entity:name', {}), {
                     'doc': 'The name of the organization that manufactures this hardware.'}),
                 ('model', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The model name or number for this hardware specification.'}),
@@ -2001,8 +2001,8 @@ modeldefs = (
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this software.',
                 }),
-                ('author', ('ps:contact', {}), {
-                    'doc': 'The contact information of the org or person who authored the software.',
+                ('author', ('entity:actor', {}), {
+                    'doc': 'The contact information of the entity who authored the software.',
                 }),
                 ('url', ('inet:url', {}), {
                     'doc': 'URL relevant for the software.',
@@ -2719,7 +2719,7 @@ modeldefs = (
                 ('version', ('it:semver', {}), {
                     'doc': 'The current version of the rule.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:contact', {}), {
                     'doc': 'Contact info for the author of the rule.'}),
 
                 ('created', ('time', {}), {
@@ -2803,7 +2803,7 @@ modeldefs = (
                 ('name', ('str', {}), {
                     'doc': 'The name of the YARA rule.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:contact', {}), {
                     'doc': 'Contact info for the author of the YARA rule.'}),
 
                 ('version', ('it:semver', {}), {

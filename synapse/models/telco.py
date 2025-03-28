@@ -380,8 +380,9 @@ modeldefs = (
                 ('adid', ('it:adid', {}), {
                     'doc': 'The advertising ID of the mobile telemetry sample.'}),
 
+                # FIXME contact prop or interface?
                 # User related data
-                ('name', ('ps:name', {}), {}),
+                ('name', ('entity:name', {}), {}),
                 ('email', ('inet:email', {}), {}),
 
                 ('account', ('inet:service:account', {}), {

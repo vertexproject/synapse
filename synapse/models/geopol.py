@@ -87,7 +87,7 @@ modeldefs = (
             ('pol:immigration:status:type:taxonomy', {}, ()),
             ('pol:immigration:status', {}, (
 
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information for the immigration status record.'}),
 
                 ('country', ('pol:country', {}), {
@@ -143,13 +143,17 @@ modeldefs = (
                     'doc': 'The number of individuals who voted in this race.'}),
             )),
             ('pol:office', {}, (
+
                 ('title', ('ou:jobtitle', {}), {
                     'ex': 'united states senator',
                     'doc': 'The title of the political office.'}),
+
                 ('position', ('ou:position', {}), {
                     'doc': 'The position this office holds in the org chart for the governing body.'}),
+
                 ('termlimit', ('int', {}), {
                     'doc': 'The maximum number of times a single person may hold the office.'}),
+
                 ('govbody', ('ou:org', {}), {
                     'doc': 'The governmental body which contains the office.'}),
             )),
@@ -162,24 +166,31 @@ modeldefs = (
                     'doc': 'The end of the term of office.'}),
                 ('race', ('pol:race', {}), {
                     'doc': 'The race that determined who held office during the term.'}),
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the person who held office during the term.'}),
                 ('party', ('ou:org', {}), {
                     'doc': 'The political party of the person who held office during the term.'}),
             )),
             ('pol:candidate', {}, (
+
                 ('id', ('str', {'strip': True}), {
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
-                ('contact', ('ps:contact', {}), {
+
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the candidate.'}),
+
                 ('race', ('pol:race', {}), {
                     'doc': 'The race the candidate is participating in.'}),
+
                 ('campaign', ('ou:campaign', {}), {
                     'doc': 'The official campaign to elect the candidate.'}),
+
                 ('winner', ('bool', {}), {
                     'doc': 'Records the outcome of the race.'}),
+
                 ('party', ('ou:org', {}), {
                     'doc': 'The declared political party of the candidate.'}),
+
                 ('incumbent', ('bool', {}), {
                     'doc': 'Set to true if the candidate is an incumbent in this race.'}),
             )),

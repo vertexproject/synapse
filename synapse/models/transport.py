@@ -154,7 +154,7 @@ modeldefs = (
                     ('manufacturer', ('ou:org', {}), {
                         'doc': 'The organization which manufactured the {phys:object}.'}),
 
-                    ('manufacturer:name', ('ou:name', {}), {
+                    ('manufacturer:name', ('entity:name', {}), {
                         'doc': 'The name of the organization which manufactured the {phys:object}.'}),
 
                     ('model', ('str', {'lower': True, 'onespace': True}), {
@@ -172,8 +172,8 @@ modeldefs = (
                     ('max:cargo:volume', ('geo:dist', {}), {
                         'doc': 'The maximum volume the {phys:object} can carry as cargo.'}),
 
-                    # TODO deprecate for entity:ownership?
-                    ('owner', ('ps:contact', {}), {
+                    # FIXME deprecate for entity:ownership?
+                    ('owner', ('entity:actor', {}), {
                         'doc': 'The contact information of the owner of the {phys:object}.'}),
                 ),
             }),
@@ -183,7 +183,7 @@ modeldefs = (
                 'templates': {'phys:object': 'vehicle'},
                 'doc': 'Properties common to a vehicle.',
                 'props': (
-                    ('operator', ('ps:contact', {}), {
+                    ('operator', ('entity:actor', {}), {
                         'doc': 'The contact information of the operator of the {phys:object}.'}),
                 ),
             }),
@@ -261,7 +261,7 @@ modeldefs = (
                     ('cargo:volume', ('geo:dist', {}), {
                         'doc': 'The cargo volume carried by the {vehicle} on this {trip}.'}),
 
-                    ('operator', ('ps:contact', {}), {
+                    ('operator', ('entity:actor', {}), {
                         'doc': 'The contact information of the operator of the {trip}.'}),
 
                     ('vehicle', ('transport:vehicle', {}), {
@@ -285,7 +285,7 @@ modeldefs = (
                 ('id', ('str', {'strip': True}), {
                     'doc': 'The license ID.'}),
                 # TODO type ( drivers license, commercial trucking, etc? )
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:actor', {}), {
                     'doc': 'The contact info of the licensee.'}),
                 ('issued', ('time', {}), {
                     'doc': 'The time the license was issued.'}),
@@ -293,13 +293,13 @@ modeldefs = (
                     'doc': 'The time the license expires.'}),
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the license.'}),
-                ('issuer:name', ('ou:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the org which issued the license.'}),
             )),
             ('transport:land:registration', {}, (
                 ('id', ('str', {'strip': True}), {
                     'doc': 'The vehicle registration ID or license plate.'}),
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:actor', {}), {
                     'doc': 'The contact info of the registrant.'}),
                 ('license', ('transport:land:license', {}), {
                     'doc': 'The license used to register the vehicle.'}),
@@ -311,7 +311,7 @@ modeldefs = (
                     'doc': 'The vehicle being registered.'}),
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the registration.'}),
-                ('issuer:name', ('ou:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the org which issued the registration.'}),
             )),
 
@@ -421,7 +421,7 @@ modeldefs = (
                 ('mmsi', ('transport:sea:mmsi', {}), {
                     'doc': 'The Maritime Mobile Service Identifier assigned to the vessel.'}),
 
-                ('operator', ('ps:contact', {}), {
+                ('operator', ('entity:actor', {}), {
                     'doc': 'The contact information of the operator.'}),
                 # TODO tonnage / gross tonnage?
             )),
@@ -480,7 +480,8 @@ modeldefs = (
                 ('role', ('transport:occupant:role:taxonomy', {}), {
                     'doc': 'The role of the occupant such as captain, crew, passenger.'}),
 
-                ('contact', ('ps:contact', {}), {
+                # FIXME individual?
+                ('contact', ('entity:actor', {}), {
                     'doc': 'Contact information of the occupant.'}),
 
                 ('trip', ('transport:trip', {}), {

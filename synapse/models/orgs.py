@@ -24,7 +24,16 @@ modeldefs = (
                 'ex': 'C1393'}),
 
             ('ou:org', ('guid', {}), {
-                'doc': 'A GUID for a human organization such as a company or military unit.',
+                'interfaces': ('entity:actor',),
+                'templates': {'contactable': 'organization'},
+                'doc': 'An organization, such as a company or military unit.',
+                'aliases': (
+                    ('founded', {'target': 'lifespan*max',
+                        'doc': 'The founded time for the entity.'}),
+
+                    ('dissolved', {'target': 'lifespan*max',
+                        'doc': 'The dissolved time for the entity.'}),
+                ),
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
@@ -83,20 +92,18 @@ modeldefs = (
                 'interfaces': ('meta:taxonomy',),
                 'doc': 'A hierarchical taxonomy of industry types.',
             }),
+            # FIXME
             ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'The name of an industry.',
             }),
+
+            # FIXME
             ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
-                'doc': "An organization's IPv4 netblock.",
-            }),
-            ('ou:name', ('str', {'lower': True, 'strip': True}), {
-                'doc': 'The name of an organization. This may be a formal name or informal name of the '
-                       'organization.',
-                'ex': 'acme corporation',
-            }),
+                'doc': "An organization's IPv4 netblock."}),
+
             ('ou:position', ('guid', {}), {
-                'doc': 'A position within an org.  May be organized into an org chart.',
-            }),
+                'doc': 'A position within an org.  May be organized into an org chart.'}),
+
             ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
                 'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
             }),
@@ -136,7 +143,8 @@ modeldefs = (
             ('ou:contest', ('guid', {}), {
                 'doc': 'A competitive event resulting in a ranked set of participants.'}),
 
-            ('ou:contest:result', ('comp', {'fields': (('contest', 'ou:contest'), ('participant', 'ps:contact'))}), {
+            # FIXME decompify?
+            ('ou:contest:result', ('comp', {'fields': (('contest', 'ou:contest'), ('participant', 'entity:contact'))}), {
                 'doc': 'The results from a single contest participant.',
             }),
             ('ou:goal', ('guid', {}), {
@@ -291,38 +299,41 @@ modeldefs = (
                 'doc': 'The organization owns or owned the target node.'}),
         ),
         'forms': (
+
             ('ou:job:type:taxonomy', {
                 'prevnames': ('ou:jobtype',)}, ()),
 
             ('ou:jobtitle', {}, ()),
+
             ('ou:employment:type:taxonomy', {
                 'prevnames': ('ou:employment',)}, ()),
 
             ('ou:opening', {}, (
+
                 ('org', ('ou:org', {}), {
-                    'doc': 'The org which has the opening.',
-                }),
-                ('orgname', ('ou:name', {}), {
-                    'doc': 'The name of the organization as listed in the opening.',
-                }),
-                ('orgfqdn', ('inet:fqdn', {}), {
-                    'doc': 'The FQDN of the organization as listed in the opening.',
-                }),
+                    'doc': 'The org which has the opening.'}),
+
+                ('org:name', ('entity:name', {}), {
+                    'doc': 'The name of the organization as listed in the opening.'}),
+
+                ('org:fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The FQDN of the organization as listed in the opening.'}),
+
                 ('posted', ('time', {}), {
-                    'doc': 'The date/time that the job opening was posted.',
-                }),
+                    'doc': 'The date/time that the job opening was posted.'}),
+
                 ('removed', ('time', {}), {
-                    'doc': 'The date/time that the job opening was removed.',
-                }),
+                    'doc': 'The date/time that the job opening was removed.'}),
+
                 ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'URLs where the opening is listed.',
-                }),
-                ('contact', ('ps:contact', {}), {
-                    'doc': 'The contact details to inquire about the opening.',
-                }),
+                    'doc': 'URLs where the opening is listed.'}),
+
+                ('contact', ('entity:contact', {}), {
+                    'doc': 'The contact details to inquire about the opening.'}),
+
                 ('loc', ('loc', {}), {
-                    'doc': 'The geopolitical boundary of the opening.',
-                }),
+                    'doc': 'The geopolitical boundary of the opening.'}),
+
                 ('job:type', ('ou:job:type:taxonomy', {}), {
                     'doc': 'The job type taxonomy.',
                     'prevnames': ('jobtype',)}),
@@ -332,17 +343,17 @@ modeldefs = (
                     'prevnames': ('employment',)}),
 
                 ('jobtitle', ('ou:jobtitle', {}), {
-                    'doc': 'The title of the opening.',
-                }),
+                    'doc': 'The title of the opening.'}),
+
                 ('remote', ('bool', {}), {
-                    'doc': 'Set to true if the opening will allow a fully remote worker.',
-                }),
+                    'doc': 'Set to true if the opening will allow a fully remote worker.'}),
+
                 ('yearlypay', ('econ:price', {}), {
-                    'doc': 'The yearly income associated with the opening.',
-                }),
+                    'doc': 'The yearly income associated with the opening.'}),
+
                 ('paycurrency', ('econ:currency', {}), {
-                    'doc': 'The currency that the yearly pay was delivered in.',
-                }),
+                    'doc': 'The currency that the yearly pay was delivered in.'}),
+
             )),
             ('ou:candidate:method:taxonomy', {}, ()),
             ('ou:candidate', {}, (
@@ -350,7 +361,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization considering the candidate.'}),
 
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the candidate.'}),
 
                 ('method', ('ou:candidate:method:taxonomy', {}), {
@@ -368,10 +379,10 @@ modeldefs = (
                 ('opening', ('ou:opening', {}), {
                     'doc': 'The opening that the candidate is being considered for.'}),
 
-                ('agent', ('ps:contact', {}), {
+                ('agent', ('entity:contact', {}), {
                     'doc': 'The contact information of an agent who advocates for the candidate.'}),
 
-                ('recruiter', ('ps:contact', {}), {
+                ('recruiter', ('entity:contact', {}), {
                     'doc': 'The contact information of a recruiter who works on behalf of the organization.'}),
 
                 ('attachments', ('array', {'type': 'file:attachment', 'sorted': True, 'uniq': True}), {
@@ -385,20 +396,22 @@ modeldefs = (
             ('ou:vitals', {}, (
 
                 ('asof', ('time', {}), {
-                    'doc': 'The time that the vitals represent.',
-                }),
+                    'doc': 'The time that the vitals represent.'}),
+
                 ('org', ('ou:org', {}), {
-                    'doc': 'The resolved org.',
-                }),
-                ('orgname', ('ou:name', {}), {
-                    'doc': 'The org name as reported by the source of the vitals.',
-                }),
-                ('orgfqdn', ('inet:fqdn', {}), {
-                    'doc': 'The org FQDN as reported by the source of the vitals.',
-                }),
+                    'doc': 'The resolved org.'}),
+
+                ('org:name', ('entity:name', {}), {
+                    'prevnames': ('orgname',)}),
+                    'doc': 'The org name as reported by the source of the vitals.'}),
+
+                ('org:fqdn', ('inet:fqdn', {}), {
+                    'prevnames': ('orgfqdn',)}),
+                    'doc': 'The org FQDN as reported by the source of the vitals.'}),
+
                 ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the econ:price values.',
-                }),
+                    'doc': 'The currency of the econ:price values.'}),
+
                 ('costs', ('econ:price', {}), {
                     'doc': 'The costs/expenditures over the period.'}),
 
@@ -406,35 +419,34 @@ modeldefs = (
                     'doc': 'The budget allocated for the period.'}),
 
                 ('revenue', ('econ:price', {}), {
-                    'doc': 'The gross revenue over the period.',
-                }),
+                    'doc': 'The gross revenue over the period.'}),
+
                 ('profit', ('econ:price', {}), {
-                    'doc': 'The net profit over the period.',
-                }),
+                    'doc': 'The net profit over the period.'}),
+
                 ('valuation', ('econ:price', {}), {
-                    'doc': 'The assessed value of the org.',
-                }),
+                    'doc': 'The assessed value of the org.'}),
+
                 ('shares', ('int', {}), {
-                    'doc': 'The number of shares outstanding.',
-                }),
+                    'doc': 'The number of shares outstanding.'}),
+
                 ('population', ('int', {}), {
-                    'doc': 'The population of the org.',
-                }),
+                    'doc': 'The population of the org.'}),
+
                 ('delta:costs', ('econ:price', {}), {
-                    'doc': 'The change in costs over last period.',
-                }),
+                    'doc': 'The change in costs over last period.'}),
+
                 ('delta:revenue', ('econ:price', {}), {
-                    'doc': 'The change in revenue over last period.',
-                }),
+                    'doc': 'The change in revenue over last period.'}),
+
                 ('delta:profit', ('econ:price', {}), {
-                    'doc': 'The change in profit over last period.',
-                }),
+                    'doc': 'The change in profit over last period.'}),
+
                 ('delta:valuation', ('econ:price', {}), {
-                    'doc': 'The change in valuation over last period.',
-                }),
+                    'doc': 'The change in valuation over last period.'}),
+
                 ('delta:population', ('int', {}), {
-                    'doc': 'The change in population over last period.',
-                }),
+                    'doc': 'The change in population over last period.'}),
             )),
             ('ou:award:type:taxonomy', {}, ()),
             ('ou:award', {}, (
@@ -481,7 +493,8 @@ modeldefs = (
                 ('expires', ('time', {}), {
                     'doc': 'The time at which the ID number expires.'}),
 
-                ('issuer', ('ps:contact', {}), {
+                # FIXME ou:office?
+                ('issuer', ('entity:contact', {}), {
                     'doc': 'The contact information of the office which issued the ID number.'}),
             )),
             ('ou:id:update', {}, (
@@ -522,7 +535,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org carrying out the campaign.'}),
 
-                ('org:name', ('ou:name', {}), {
+                ('org:name', ('entity:name', {}), {
                     'doc': 'The name of the org responsible for the campaign. Used for entity resolution.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -535,7 +548,8 @@ modeldefs = (
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
-                ('actors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                # TODO: move to contribution?
+                ('actors', ('array', {'type': 'entity:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'Actors who participated in the campaign.'}),
 
                 ('goals', ('array', {'type': 'ou:goal', 'split': ',', 'uniq': True, 'sorted': True}), {
@@ -555,7 +569,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the campaign.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the campaign.'}),
 
                 ('sophistication', ('meta:sophistication', {}), {
@@ -623,24 +637,35 @@ modeldefs = (
                     'doc': 'A timeline of significant events related to the conflict.'}),
             )),
             ('ou:contribution', {}, (
-                ('from', ('ps:contact', {}), {
+
+                ('from', ('entity:contact', {}), {
                     'doc': 'The contact information of the contributor.'}),
+
                 ('campaign', ('ou:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
+
                 ('value', ('econ:price', {}), {
                     'doc': 'The assessed value of the contribution.'}),
+
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency used for the assessed value.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'The time the contribution occurred.'}),
+
+                # FIXME aggregates?
                 ('material:spec', ('mat:spec', {}), {
                     'doc': 'The specification of material items contributed.'}),
+
                 ('material:count', ('int', {}), {
                     'doc': 'The number of material items contributed.'}),
+
                 ('monetary:payment', ('econ:acct:payment', {}), {
                     'doc': 'Payment details for a monetary contribution.'}),
+
                 ('personnel:count', ('int', {}), {
                     'doc': 'Number of personnel contributed to the campaign.'}),
+
                 ('personnel:jobtitle', ('ou:jobtitle', {}), {
                     'doc': 'Title or designation for the contributed personnel.'}),
             )),
@@ -668,7 +693,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the technique.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the technique.'}),
 
                 ('ext:id', ('str', {'strip': True}), {
@@ -681,13 +706,7 @@ modeldefs = (
                 'prevnames': ('ou:orgtype',)}, ()),
 
             ('ou:org', {}, (
-                ('loc', ('loc', {}), {
-                    'doc': 'Location for an organization.'
-                }),
-                ('name', ('ou:name', {}), {
-                    'alts': ('names',),
-                    'doc': 'The localized name of an organization.',
-                }),
+
                 ('motto', ('lang:phrase', {}), {
                     'doc': 'The motto used by the organization.'}),
 
@@ -696,67 +715,47 @@ modeldefs = (
                     'prevnames': ('orgtype',)}),
 
                 ('vitals', ('ou:vitals', {}), {
-                    'doc': 'The most recent/accurate ou:vitals for the org.',
-                }),
-                ('desc', ('str', {}), {
-                    'doc': 'A description of the org.',
-                    'disp': {'hint': 'text'}
-                }),
-                ('logo', ('file:bytes', {}), {
-                    'doc': 'An image file representing the logo for the organization.',
-                }),
-                ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
-                   'doc': 'A list of alternate names for the organization.',
-                }),
-                ('phone', ('tel:phone', {}), {
-                    'doc': 'The primary phone number for the organization.',
-                }),
-                ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
-                    'doc': 'The industries associated with the org.',
-                }),
-                ('us:cage', ('gov:us:cage', {}), {
-                    'doc': 'The Commercial and Government Entity (CAGE) code for the organization.',
-                }),
-                ('founded', ('time', {}), {
-                    'doc': 'The date on which the org was founded.'}),
-                ('dissolved', ('time', {}), {
-                    'doc': 'The date on which the org was dissolved.'}),
-                ('url', ('inet:url', {}), {
-                    'doc': 'The primary url for the organization.',
-                }),
-                ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An set of sub-organizations.'
-                }),
-                ('orgchart', ('ou:position', {}), {
-                    'doc': 'The root node for an orgchart made up ou:position nodes.',
-                }),
-                ('hq', ('ps:contact', {}), {
-                    'doc': 'A collection of contact information for the "main office" of an org.',
-                }),
-                ('locations', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of contacts for facilities operated by the org.',
-                }),
-                ('country', ('pol:country', {}), {
-                    'doc': "The organization's country of origin."}),
+                    'doc': 'The most recent/accurate ou:vitals for the org.'}),
 
-                ('country:code', ('pol:iso2', {}), {
-                    'doc': "The 2 digit ISO 3166 country code for the organization's country of origin."}),
+                ('desc', ('str', {}), {
+                    'disp': {'hint': 'text'}
+                    'doc': 'A description of the org.'}),
+
+                ('logo', ('file:bytes', {}), {
+                    'doc': 'An image file representing the logo for the organization.'}),
+
+                ('industries', ('array', {'type': 'ou:industry', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The industries associated with the org.'}),
+
+                # FIXME: invert this or use org ID?
+                ('us:cage', ('gov:us:cage', {}), {
+                    'doc': 'The Commercial and Government Entity (CAGE) code for the organization.'}),
+
+                # FIXME discuss
+                # ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
+                #   'doc': 'An set of sub-organizations.'}),
+
+                ('orgchart', ('ou:position', {}), {
+                    'doc': 'The root node for an orgchart made up ou:position nodes.'}),
+
+                # FIXME geo:locatable
+                # FIXME geo:place with owner/operator?
+                # ('locations', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
+                #   'doc': 'An array of contacts for facilities operated by the org.',
+                # }),
 
                 ('dns:mx', ('array', {'type': 'inet:fqdn', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of MX domains used by email addresses issued by the org.',
-                }),
+                    'doc': 'An array of MX domains used by email addresses issued by the org.'}),
+
                 ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                     'doc': 'The assessed goals of the organization.'}),
 
                 ('tag', ('syn:tag', {}), {
                     'doc': 'A base tag used to encode assessments made by the organization.'}),
-
-                ('ext:id', ('str', {'strip': True}), {
-                    'doc': 'An external identifier for the organization.'}),
             )),
             ('ou:team', {}, (
                 ('org', ('ou:org', {}), {}),
-                ('name', ('ou:name', {}), {}),
+                ('name', ('entity:name', {}), {}),
             )),
 
             ('ou:asset:type:taxonomy', {}, ()),
@@ -798,10 +797,10 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where the asset is deployed.'}),
 
-                ('owner', ('ps:contact', {}), {
+                ('owner', ('entity:contact', {}), {
                     'doc': 'The contact information of the owner or administrator of the asset.'}),
 
-                ('operator', ('ps:contact', {}), {
+                ('operator', ('entity:contact', {}), {
                     'doc': 'The contact information of the user or operator of the asset.'}),
             )),
             ('ou:position', {}, (
@@ -811,7 +810,7 @@ modeldefs = (
                 ('team', ('ou:team', {}), {
                     'doc': 'The team that the position is a member of.',
                 }),
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:contact', {}), {
                     'doc': 'The contact info for the person who holds the position.',
                 }),
                 ('title', ('ou:jobtitle', {}), {
@@ -821,7 +820,7 @@ modeldefs = (
                     'doc': 'An array of positions which report to this position.',
                 }),
             )),
-            ('ou:name', {}, ()),
+
             ('ou:contract:type:taxonomy', {
                 'prevnames': ('ou:conttype',)}, ()),
 
@@ -830,9 +829,9 @@ modeldefs = (
                     'doc': 'A terse title for the contract.'}),
                 ('type', ('ou:contract:type:taxonomy', {}), {
                     'doc': 'The type of contract.'}),
-                ('sponsor', ('ps:contact', {}), {
+                ('sponsor', ('entity:contact', {}), {
                     'doc': 'The contract sponsor.'}),
-                ('parties', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                ('parties', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
                     'doc': 'The non-sponsor entities bound by the contract.'}),
                 ('document', ('file:bytes', {}), {
                     'doc': 'The best/current contract document.'}),
@@ -873,7 +872,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the industry.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the industry.'}),
 
                 ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
@@ -917,16 +916,19 @@ modeldefs = (
                 ('perc', ('int', {'min': 0, 'max': 100}), {
                     'doc': 'The optional percentage of sub which is owned by org.',
                 }),
+                # FIXME lifespan? Aliases?
                 ('founded', ('time', {}), {
                     'doc': 'The date on which the suborg relationship was founded.',
                 }),
                 ('dissolved', ('time', {}), {
                     'doc': 'The date on which the suborg relationship was dissolved.',
                 }),
+                # FIXME remove for sync issues
                 ('current', ('bool', {}), {
                     'doc': 'Bool indicating if the suborg relationship still current.',
                 }),
             )),
+            # FIXME remove!
             ('ou:user', {}, (
                 ('org', ('ou:org', {}), {
                     'ro': True,
@@ -938,9 +940,10 @@ modeldefs = (
                 }),
             )),
             ('ou:attendee', {}, (
-                ('person', ('ps:contact', {}), {
-                    'doc': 'The contact information for the person who attended the event.',
-                }),
+
+                ('person', ('entity:contact', {}), {
+                    'doc': 'The contact information for the person who attended the event.'}),
+
                 ('arrived', ('time', {}), {
                     'doc': 'The time when the person arrived.',
                 }),
@@ -968,13 +971,13 @@ modeldefs = (
             )),
             ('ou:preso', {}, (
 
-                ('organizer', ('ps:contact', {}), {
+                ('organizer', ('entity:contact', {}), {
                     'doc': 'Contact information for the primary organizer of the presentation.'}),
 
-                ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                ('sponsors', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
                     'doc': 'A set of contacts which sponsored the presentation.'}),
 
-                ('presenters', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                ('presenters', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
                     'doc': 'A set of contacts which gave the presentation.'}),
 
                 ('title', ('str', {'lower': True}), {
@@ -991,6 +994,7 @@ modeldefs = (
                 ('duration', ('duration', {}), {
                     'doc': 'The scheduled duration of the presentation.'}),
 
+                # FIXME locatable
                 ('loc', ('loc', ()), {
                     'doc': 'The geopolitical location string for where the presentation was given.'}),
 
@@ -1019,12 +1023,14 @@ modeldefs = (
                 ('name', ('str', {'lower': True}), {
                     'doc': 'A human friendly name for the meeting.',
                 }),
+                # FIXME period? scheduleable?
                 ('start', ('time', {}), {
                     'doc': 'The date / time the meet starts.',
                 }),
                 ('end', ('time', {}), {
                     'doc': 'The date / time the meet ends.',
                 }),
+                # FIXME geo:locatable
                 ('place', ('geo:place', ()), {
                     'doc': 'The geo:place node where the meet was held.',
                 }),
@@ -1033,10 +1039,10 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org which created/managed the conference.',
                 }),
-                ('organizer', ('ps:contact', {}), {
+                ('organizer', ('entity:contact', {}), {
                     'doc': 'Contact information for the primary organizer of the conference.',
                 }),
-                ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                ('sponsors', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of contacts which sponsored the conference.',
                 }),
                 ('name', ('entity:name', {}), {
@@ -1074,10 +1080,10 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The conference to which the event is associated.',
                 }),
-                ('organizer', ('ps:contact', {}), {
+                ('organizer', ('entity:contact', {}), {
                     'doc': 'Contact information for the primary organizer of the event.',
                 }),
-                ('sponsors', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                ('sponsors', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of contacts which sponsored the event.',
                 }),
                 ('place', ('geo:place', {}), {
@@ -1095,7 +1101,7 @@ modeldefs = (
                 ('url', ('inet:url', ()), {
                     'doc': 'The inet:url node for the conference event website.',
                 }),
-                ('contact', ('ps:contact', ()), {
+                ('contact', ('entity:contact', ()), {
                     'doc': 'Contact info for the event.',
                 }),
                 ('start', ('time', {}), {
@@ -1148,13 +1154,13 @@ modeldefs = (
                 ('contests', ('array', {'type': 'ou:contest', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of sub-contests that contributed to the rankings.',
                 }),
-                ('sponsors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('sponsors', ('array', {'type': 'entity:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'Contact information for contest sponsors.',
                 }),
-                ('organizers', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('organizers', ('array', {'type': 'entity:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'Contact information for contest organizers.',
                 }),
-                ('participants', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('participants', ('array', {'type': 'entity:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'Contact information for contest participants.',
                 }),
             )),
@@ -1164,7 +1170,7 @@ modeldefs = (
                     'ro': True,
                     'doc': 'The contest that the participant took part in.'}),
 
-                ('participant', ('ps:contact', {}), {
+                ('participant', ('entity:contact', {}), {
                     'ro': True,
                     'doc': 'The participant in the contest.'}),
 
@@ -1193,49 +1199,49 @@ modeldefs = (
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
 
-            ('ou:requirement:type:taxonomy', {}, ()),
-            ('ou:requirement', {}, (
-
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A name for the requirement.'}),
-
-                ('type', ('ou:requirement:type:taxonomy', {}), {
-                    'doc': 'The type of requirement.'}),
-
-                ('text', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'The text of the stated requirement.'}),
-
-                ('optional', ('bool', {}), {
-                    'doc': 'Set to true if the requirement is optional.'}),
-
-                ('priority', ('meta:priority', {}), {
-                    'doc': 'The priority of the requirement.'}),
-
-                ('goal', ('ou:goal', {}), {
-                    'doc': 'The goal that the requirement is designed to achieve.'}),
-
-                ('active', ('bool', {}), {
-                    'doc': 'Set to true if the requirement is currently active.'}),
-
-                ('issued', ('time', {}), {
-                    'doc': 'The time that the requirement was first issued.'}),
-
-                ('period', ('ival', {}), {
-                    'doc': 'The time window where the goal must be met. Can be ongoing.'}),
-
-                ('issuer', ('ps:contact', {}), {
-                    'doc': 'The contact information of the entity which issued the requirement.'}),
-
-                ('assignee', ('ps:contact', {}), {
-                    'doc': 'The contact information of the entity which is assigned to meet the requirement.'}),
-
-                ('deps', ('array', {'type': 'ou:requirement', 'sorted': True, 'uniq': True}), {
-                    'doc': 'A list of sub-requirements which must be met to complete the requirement.'}),
-
-                ('deps:min', ('int', {'min': 0}), {
-                    'doc': 'The minimum number dependant requirements which must be met. If unset, assume all must be met.'}),
-            )),
+#            ('ou:requirement:type:taxonomy', {}, ()),
+#            ('ou:requirement', {}, (
+#
+#                ('name', ('str', {'lower': True, 'onespace': True}), {
+#                    'doc': 'A name for the requirement.'}),
+#
+#                ('type', ('ou:requirement:type:taxonomy', {}), {
+#                    'doc': 'The type of requirement.'}),
+#
+#                ('text', ('str', {}), {
+#                    'disp': {'hint': 'text'},
+#                    'doc': 'The text of the stated requirement.'}),
+#
+#                ('optional', ('bool', {}), {
+#                    'doc': 'Set to true if the requirement is optional.'}),
+#
+#                ('priority', ('meta:priority', {}), {
+#                    'doc': 'The priority of the requirement.'}),
+#
+#                ('goal', ('ou:goal', {}), {
+#                    'doc': 'The goal that the requirement is designed to achieve.'}),
+#
+#                ('active', ('bool', {}), {
+#                    'doc': 'Set to true if the requirement is currently active.'}),
+#
+#                ('issued', ('time', {}), {
+#                    'doc': 'The time that the requirement was first issued.'}),
+#
+#                ('period', ('ival', {}), {
+#                    'doc': 'The time window where the goal must be met. Can be ongoing.'}),
+#
+#                ('issuer', ('entity:contact', {}), {
+#                    'doc': 'The contact information of the entity which issued the requirement.'}),
+#
+#                ('assignee', ('entity:contact', {}), {
+#                    'doc': 'The contact information of the entity which is assigned to meet the requirement.'}),
+#
+#                ('deps', ('array', {'type': 'ou:requirement', 'sorted': True, 'uniq': True}), {
+#                    'doc': 'A list of sub-requirements which must be met to complete the requirement.'}),
+#
+#                ('deps:min', ('int', {'min': 0}), {
+#                    'doc': 'The minimum number dependant requirements which must be met. If unset, assume all must be met.'}),
+#            )),
         )
     }),
 )
