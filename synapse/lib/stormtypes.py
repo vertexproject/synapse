@@ -33,7 +33,7 @@ import synapse.lib.const as s_const
 import synapse.lib.queue as s_queue
 import synapse.lib.scope as s_scope
 import synapse.lib.msgpack as s_msgpack
-import synapse.lib.trigger as s_trigger
+import synapse.lib.schemas as s_schemas
 import synapse.lib.urlhelp as s_urlhelp
 import synapse.lib.version as s_version
 import synapse.lib.stormctrl as s_stormctrl
@@ -8495,7 +8495,7 @@ class Trigger(Prim):
         tdef['creator'] = useriden
 
         try:
-            s_trigger.reqValidTdef(tdef)
+            s_schemas.reqValidTriggerDef(tdef)
             await self.runt.view.core.reqValidStorm(tdef['storm'])
         except (s_exc.SchemaViolation, s_exc.BadSyntax) as exc:
             raise s_exc.StormRuntimeError(mesg=f'Cannot move invalid trigger {trigiden}: {str(exc)}') from None
