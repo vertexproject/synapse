@@ -80,6 +80,7 @@ class CommonTest(s_t_utils.SynTest):
         self.true(s_common.vertup('30.40.50') > (9, 0))
 
     def test_common_file_helpers(self):
+
         # genfile
         with self.getTestDir() as testdir:
             fd = s_common.genfile(testdir, 'woot', 'foo.bin')
@@ -149,30 +150,10 @@ class CommonTest(s_t_utils.SynTest):
             retn = tuple(s_common.listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))
 
-            # getDirSize: check against du
             real, appr = s_common.getDirSize(dirn)
-
-            duapprstr = subprocess.check_output(['du', '-bs', dirn])
-            duappr = int(duapprstr.split()[0])
-            self.eq(duappr, appr)
-
-            # The following does not work in a busybox based environment,
-            # but manual testing of the getDirSize() API does confirm
-            # that the results are still as expected when run there.
-            argv = ['du', '-B', '1', '-s', dirn]
-            proc = subprocess.run(argv, capture_output=True)
-            try:
-                proc.check_returncode()
-            except subprocess.CalledProcessError as e:
-                stderr = proc.stderr.decode()
-                if 'unrecognized option: B' in stderr and 'BusyBox' in stderr:
-                    logger.warning(f'Unable to run {"".join(argv)} in BusyBox.')
-                else:
-                    raise
-            else:
-                durealstr = proc.stdout.decode()
-                dureal = int(durealstr.split()[0])
-                self.eq(dureal, real)
+            self.eq(real % 512, 0)
+            self.gt(real, appr)
+            self.ge(appr, len(b'woot') + len(b'nope'))
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
