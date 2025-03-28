@@ -1685,7 +1685,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             info = {
                 'name': name,
-                'perm': perm,
+                'permissions': perm,
                 'iden': s_common.guid(),
                 'created': tick,
                 'creator': user,
@@ -1714,6 +1714,17 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     @s_nexus.Pusher.onPushAuto('drive:set:perm')
     async def setDriveInfoPerm(self, iden, perm):
         return self.drive.setItemPerm(iden, perm)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:path:set')
+    async def setDriveItemProp(self, iden, path, valu):
+        if isinstance(path, str):
+            path = (path,)
+        vers, item = await self.getDriveData(iden)
+        step = item
+        for p in path[:-1]:
+            step = step[p]
+        step[path[-1]] = valu
+        return await self.drive.setItemData(iden, vers, item)
 
     @s_nexus.Pusher.onPushAuto('drive:set:path')
     async def setDriveInfoPath(self, iden, path):
