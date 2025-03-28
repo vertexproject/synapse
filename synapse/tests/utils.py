@@ -68,12 +68,12 @@ import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.jsonstor as s_jsonstor
 import synapse.lib.lmdbslab as s_lmdbslab
 import synapse.lib.modelrev as s_modelrev
 import synapse.lib.thishost as s_thishost
-import synapse.lib.structlog as s_structlog
 import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tools.genpkg as s_genpkg
@@ -788,68 +788,68 @@ class CmdGenerator:
 
         return retn
 
-class StreamEvent(io.StringIO, threading.Event):
-    '''
-    A combination of a io.StringIO object and a threading.Event object.
-    '''
+class StreamEvent(io.StringIO):
+
     def __init__(self, *args, **kwargs):
         io.StringIO.__init__(self, *args, **kwargs)
-        threading.Event.__init__(self)
-        self.mesg = ''
+        self._lines = []
+        self._event = asyncio.Event()
 
-    def setMesg(self, mesg):
-        '''
-        Clear the internal event and set a new message that is used to set the event.
-
-        Args:
-            mesg (str): The string to monitor for.
-
-        Returns:
-            None
-        '''
-        self.mesg = mesg
-        self.clear()
+    def clear(self):
+        self._lines.clear()
 
     def write(self, s):
         io.StringIO.write(self, s)
-        if self.mesg and self.mesg in s:
-            self.set()
+        self._lines.append(s)
+        self._event.set()
 
-    def jsonlines(self) -> typing.List[dict]:
-        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
-        return jsonlines(self.getvalue())
+    async def contains(self, text, count=1, escape=True):
 
-class AsyncStreamEvent(io.StringIO, asyncio.Event):
-    '''
-    A combination of a io.StringIO object and an asyncio.Event object.
-    '''
-    def __init__(self, *args, **kwargs):
-        io.StringIO.__init__(self, *args, **kwargs)
-        asyncio.Event.__init__(self)
-        self.mesg = ''
+        if escape:
+            text = regex.escape(text)
 
-    def setMesg(self, mesg):
-        '''
-        Clear the internal event and set a new message that is used to set the event.
+        regx = regex.compile(text)
+        for line in self._lines:
+            if regx.search(line):
+                return True
 
-        Args:
-            mesg (str): The string to monitor for.
+        return False
 
-        Returns:
-            None
-        '''
-        self.mesg = mesg
-        self.clear()
+    async def expect(self, text, count=1, timeout=5, escape=True):
 
-    def write(self, s):
-        io.StringIO.write(self, s)
-        if self.mesg and self.mesg in s:
-            self.set()
+        offs = 0
+        tally = 0
 
-    async def wait(self, timeout=None):
-        if timeout is None:
-            return await asyncio.Event.wait(self)
-        return await s_coro.event_wait(self, timeout=timeout)
+        if escape:
+            text = regex.escape(text)
+
+        regx = regex.compile(text)
+
+        async def _expect():
+
+            while True:
+
+                if thereyet():
+                    return True
+
+                await self._event.wait()
+                self._event.clear()
+
+        def thereyet():
+            nonlocal offs
+            nonlocal tally
+            for line in self._lines[offs:]:
+                offs += 1
+                if regx.search(line) is not None:
+                    tally += 1
+            return tally >= count
+
+        try:
+            await s_common.wait_for(_expect(), timeout=timeout)
+        except TimeoutError:
+            logger.warning(f'Pattern [{text}] not found in...')
+            [logger.warning(f'    {line}') for line in self._lines]
+            raise s_exc.SynErr(mesg='Pattern [{text}] not found!')
 
     def jsonlines(self) -> typing.List[dict]:
         '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
@@ -1031,6 +1031,8 @@ class SynTest(unittest.TestCase):
             # If s is an instance method and starts with 'test_', synchelp wrap it
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
                 setattr(self, s, s_glob.synchelp(attr))
+
+        s_logging.setup()
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
@@ -1280,12 +1282,12 @@ class SynTest(unittest.TestCase):
     @contextlib.asynccontextmanager
     async def withSetLoggingMock(self):
         '''
-        Context manager to mock calls to the setlogging function to avoid unittests calling logging.basicconfig.
+        Context manager to mock calls to the logging setup function to avoid unittests calling logging.basicconfig.
 
         Returns:
             mock.MagicMock: Yields a mock.MagicMock object.
         '''
-        with mock.patch('synapse.common.setlogging',
+        with mock.patch('synapse.lib.logging.setup',
                         PickleableMagicMock(return_value=dict())) as patch:  # type: mock.MagicMock
             yield patch
 
@@ -1707,162 +1709,29 @@ class SynTest(unittest.TestCase):
         return os.path.join(path, 'files', *names)
 
     @contextlib.contextmanager
-    def getLoggerStream(self, logname, mesg=''):
-        '''
-        Get a logger and attach a io.StringIO object to the logger to capture log messages.
+    def getLoggerStream(self, name, struct=True):
 
-        Args:
-            logname (str): Name of the logger to get.
-            mesg (str): A string which, if provided, sets the StreamEvent event if a message
-            containing the string is written to the log.
-
-        Examples:
-            Do an action and get the stream of log messages to check against::
-
-                with self.getLoggerStream('synapse.foo.bar') as stream:
-                    # Do something that triggers a log message
-                    doSomething()
-
-                stream.seek(0)
-                mesgs = stream.read()
-                # Do something with messages
-
-            Do an action and wait for a specific log message to be written::
-
-                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
-                    # Do something that triggers a log message
-                    doSomething()
-                    stream.wait(timeout=10)  # Wait for the mesg to be written to the stream
-
-                stream.seek(0)
-                mesgs = stream.read()
-                # Do something with messages
-
-            You can also reset the message and wait for another message to occur::
-
-                with self.getLoggerStream('synapse.foo.bar', 'big badda boom happened') as stream:
-                    # Do something that triggers a log message
-                    doSomething()
-                    stream.wait(timeout=10)
-                    stream.setMesg('yo dawg')  # This will now wait for the 'yo dawg' string to be written.
-                    stream.wait(timeout=10)
-
-                stream.seek(0)
-                mesgs = stream.read()
-                # Do something with messages
-
-        Notes:
-            This **only** captures logs for the current process.
-
-        Yields:
-            StreamEvent: A StreamEvent object
-        '''
         stream = StreamEvent()
-        stream.setMesg(mesg)
+        logger = logging.getLogger(name)
+
+        oldlevel = logger.level
+
         handler = logging.StreamHandler(stream)
-        slogger = logging.getLogger(logname)
-        slogger.addHandler(handler)
-        level = slogger.level
-        slogger.setLevel('DEBUG')
+
+        fmtclass = s_logging.Formatter
+        if not struct:
+            fmtclass = s_logging.TextFormatter
+
+        handler.setFormatter(fmtclass())
+
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(handler)
+
         try:
             yield stream
-        except Exception:  # pragma: no cover
-            raise
         finally:
-            slogger.removeHandler(handler)
-            slogger.setLevel(level)
-
-    @contextlib.contextmanager
-    def getAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[StreamEvent, None, None]:
-        '''
-        Async version of getLoggerStream.
-
-        Args:
-            logname (str): Name of the logger to get.
-            mesg (str): A string which, if provided, sets the StreamEvent event if a message containing the string is written to the log.
-
-        Notes:
-            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
-            This requires the user to await the Event specific calls as neccesary.
-
-        Examples:
-            Do an action and wait for a specific log message to be written::
-
-                with self.getAsyncLoggerStream('synapse.foo.bar',
-                                               'big badda boom happened') as stream:
-                    # Do something that triggers a log message
-                    await doSomething()
-                    # Wait for the mesg to be written to the stream
-                    await stream.wait(timeout=10)
-
-                stream.seek(0)
-                mesgs = stream.read()
-                # Do something with messages
-
-        Returns:
-            AsyncStreamEvent: An AsyncStreamEvent object.
-        '''
-        stream = AsyncStreamEvent()
-        stream.setMesg(mesg)
-        handler = logging.StreamHandler(stream)
-        slogger = logging.getLogger(logname)
-        slogger.addHandler(handler)
-        level = slogger.level
-        slogger.setLevel('DEBUG')
-        try:
-            yield stream
-        except Exception:  # pragma: no cover
-            raise
-        finally:
-            slogger.removeHandler(handler)
-            slogger.setLevel(level)
-
-    @contextlib.contextmanager
-    def getStructuredAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[AsyncStreamEvent, None, None]:
-        '''
-        Async version of getLoggerStream which uses structured logging.
-
-        Args:
-            logname (str): Name of the logger to get.
-            mesg (str): A string which, if provided, sets the StreamEvent event if a message containing the string is written to the log.
-
-        Notes:
-            The event object mixed in for the AsyncStreamEvent is a asyncio.Event object.
-            This requires the user to await the Event specific calls as needed.
-            The messages written to the stream will be JSON lines.
-
-        Examples:
-            Do an action and wait for a specific log message to be written::
-
-                with self.getStructuredAsyncLoggerStream('synapse.foo.bar',
-                                                         '"some JSON string"') as stream:
-                    # Do something that triggers a log message
-                    await doSomething()
-                    # Wait for the mesg to be written to the stream
-                    await stream.wait(timeout=10)
-
-                msgs = stream.jsonlines()
-                # Do something with messages
-
-        Returns:
-            AsyncStreamEvent: An AsyncStreamEvent object.
-        '''
-        stream = AsyncStreamEvent()
-        stream.setMesg(mesg)
-        handler = logging.StreamHandler(stream)
-        slogger = logging.getLogger(logname)
-        formatter = s_structlog.JsonFormatter()
-        handler.setFormatter(formatter)
-        slogger.addHandler(handler)
-        level = slogger.level
-        slogger.setLevel('DEBUG')
-        try:
-            yield stream
-        except Exception:  # pragma: no cover
-            raise
-        finally:
-            slogger.removeHandler(handler)
-            slogger.setLevel(level)
+            logger.setLevel(oldlevel)
+            logger.removeHandler(handler)
 
     @contextlib.asynccontextmanager
     async def getHttpSess(self, auth=None, port=None):

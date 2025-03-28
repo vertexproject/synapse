@@ -152,9 +152,9 @@ class AhaTest(s_test.SynTest):
                     # Tear down the Aha cell.
                     await aha.__aexit__(None, None, None)
 
-            with self.getAsyncLoggerStream('synapse.lib.aha', f'Set [0.cryo.synapse] offline.') as stream:
+            with self.getLoggerStream('synapse.lib.aha') as stream:
                 async with self.getTestAha(dirn=dirn) as aha:
-                    self.true(await asyncio.wait_for(stream.wait(), timeout=12))
+                    await stream.expect('Setting service offline.')
                     svc = await aha.getAhaSvc('0.cryo...')
                     self.notin('online', svc.get('svcinfo'))
 
@@ -672,17 +672,16 @@ class AhaTest(s_test.SynTest):
                 s_common.yamlsave(overconf, axonpath, 'cell.mods.yaml')
 
                 # force a re-provision... (because the providen is different)
-                with self.getAsyncLoggerStream('synapse.lib.cell',
-                                               'Provisioning axon from AHA service') as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
-                        self.true(await stream.wait(6))
+                        await stream.expect('Provisioning axon from AHA service')
                         self.ne(axon.conf.get('dmon:listen'),
                                 'tcp://0.0.0.0:0')
                 overconf2 = s_common.yamlload(axonpath, 'cell.mods.yaml')
                 self.eq(overconf2, {'nexslog:async': True})
 
                 # tests startup logic that recognizes it's already done
-                with self.getAsyncLoggerStream('synapse.lib.cell', ) as stream:
+                with self.getLoggerStream('synapse.lib.cell') as stream:
                     async with await s_axon.Axon.initFromArgv((axonpath,)) as axon:
                         pass
                     stream.seek(0)
