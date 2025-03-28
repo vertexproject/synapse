@@ -1199,12 +1199,14 @@ class CortexTest(s_t_utils.SynTest):
 
                 body = {'query': 'return (asdf)'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, 200)
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('asdf', retn['result'])
 
                 body = {'query': '$foo=() $bar=$foo.index(10) return ( $bar )'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, 400)
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormRuntimeError', retn.get('code'))
@@ -1212,6 +1214,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 body = {'query': 'return ( $lib.exit() )'}
                 async with sess.post(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, 400)
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormExit', retn.get('code'))
@@ -1220,6 +1223,7 @@ class CortexTest(s_t_utils.SynTest):
                 # No body
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call') as resp:
                     retn = await resp.json()
+                    self.eq(resp.status, 400)
                     self.eq('err', retn.get('status'))
                     self.eq('SchemaViolation', retn.get('code'))
 
@@ -7418,8 +7422,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             async with self.getHttpSess(port=port, auth=('root', 'secret')) as sess:
 
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
-                self.eq(200, resp.status)
-
+                self.eq(400, resp.status)
                 reply = await resp.json()
                 self.eq('err', reply.get('status'))
                 self.eq('SchemaViolation', reply.get('code'))
@@ -7429,6 +7432,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'opts': {'scrub': {'include': {'tags': ('visi',)}}},
                 }
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
+                self.eq(resp.status, 200)
                 byts = await resp.read()
 
                 podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
@@ -7446,6 +7450,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 body = {'query': 'inet:ipv4=asdfasdf'}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
                 retval = await resp.json()
+                self.eq(resp.status, 400)
                 self.eq('err', retval['status'])
                 self.eq('BadTypeValu', retval['code'])
 

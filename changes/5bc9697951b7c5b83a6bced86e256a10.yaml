@@ -1,0 +1,6 @@
+---
+desc: Update Synapse HTTP APIs to set a non-200 HTTP status codes when errors are
+  returned. This does not apply to the ``api/v1/login`` endpoint.
+prs: []
+type: bug
+...

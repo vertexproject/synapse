@@ -763,7 +763,7 @@ bar baz",vv
 
             data = {'newp': 'newp'}
             async with sess.post(url_de, json=data) as resp:
-                self.eq(200, resp.status)
+                self.eq(400, resp.status)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
                 self.eq('SchemaViolation', item.get('code'))

@@ -115,20 +115,70 @@ class HandlerBase:
     def check_origin(self, origin):
         return self.isOrigHost(origin)
 
-    def getJsonBody(self, validator=None):
-        return self.loadJsonMesg(self.request.body, validator=validator)
+    def sendRestErr(self, code: str, mesg: str, *, status_code: int | None =None) -> None:
+        '''
+        Sent a JSON REST error message with a code and message.
 
-    def sendRestErr(self, code, mesg):
+        Args:
+            code: The error code.
+            mesg: The error message.
+            status_code: The HTTP status code. This is optional.
+
+        Notes:
+            If the status code is not provided or set prior to calling this API, the response
+            will have an HTTP status code of 200.
+
+            This does write the response stream. No further content should be written
+            in the response after calling this.
+        '''
+        if status_code is not None:
+            self.set_status(status_code)
         self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'err', 'code': code, 'mesg': mesg})
 
-    def sendRestExc(self, e):
-        self.set_header('Content-Type', 'application/json')
-        return self.sendRestErr(e.__class__.__name__, str(e))
+    def sendRestExc(self, e: Exception, *, status_code: int | None = None) -> None:
+        '''
+        Sent a JSON REST error message based on the exception.
 
-    def sendRestRetn(self, valu):
+        Args:
+            e: The exception to send. The exception class name will be used as the error code.
+            status_code: The HTTP status code. This is optional.
+
+        Notes:
+            If the status code is not provided or set prior to calling this API, the response
+            will have an HTTP status code of 200.
+
+            This does write the response stream. No further content should be written
+            in the response after calling this.
+        '''
+        mesg = str(e)
+        if isinstance(e, s_exc.SynErr):
+            mesg = e.get('mesg', mesg)
+        self.set_header('Content-Type', 'application/json')
+        return self.sendRestErr(e.__class__.__name__, mesg, status_code=status_code)
+
+    def sendRestRetn(self, valu, *, status_code: int | None = None) -> None:
+        '''
+        Sent a successful JSON REST response.
+
+        Args:
+            valu: The JSON compatible value to send.
+            status_code: The HTTP status code. This is optional.
+
+        Notes:
+            If the status code is not provided or set prior to calling this API, the response
+            will have an HTTP status code of 200.
+
+            This does write the response stream. No further content should be written
+            in the response after calling this.
+        '''
+        if status_code is not None:
+            self.set_status(status_code)
         self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'ok', 'result': valu})
+
+    def getJsonBody(self, validator=None):
+        return self.loadJsonMesg(self.request.body, validator=validator)
 
     def loadJsonMesg(self, byts, validator=None):
         try:
@@ -138,11 +188,11 @@ class HandlerBase:
             return item
 
         except s_exc.SchemaViolation as e:
-            self.sendRestErr('SchemaViolation', str(e))
+            self.sendRestErr('SchemaViolation', str(e), status_code=400)
             return None
 
         except Exception:
-            self.sendRestErr('SchemaViolation', 'Invalid JSON content.')
+            self.sendRestErr('SchemaViolation', 'Invalid JSON content.', status_code=400)
             return None
 
     def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
@@ -176,8 +226,7 @@ class HandlerBase:
 
     def sendAuthRequired(self):
         self.set_header('WWW-Authenticate', 'Basic realm=synapse')
-        self.set_status(401)
-        self.sendRestErr('NotAuthenticated', 'The session is not logged in.')
+        self.sendRestErr('NotAuthenticated', 'The session is not logged in.', status_code=401)
 
     async def reqAuthUser(self):
         if await self.authenticated():
@@ -222,7 +271,8 @@ class HandlerBase:
         authcell = self.getAuthCell()
         udef = await authcell.getUserDef(iden, packroles=False)
         if not udef.get('admin'):
-            self.sendRestErr('AuthDeny', f'User {self.web_useriden} ({self.web_username}) is not an admin.')
+            self.sendRestErr('AuthDeny', f'User {self.web_useriden} ({self.web_username}) is not an admin.',
+                             status_code=403)
             return False
 
         return True
@@ -375,14 +425,12 @@ class HandlerBase:
         if await authcell.isUserAllowed(useriden, perm, gateiden=gateiden, default=default):
             return True
 
-        self.set_status(403)
-
         mesg = f'User ({self.web_username}) must have permission {".".join(perm)}'
         if default:
             mesg = f'User ({self.web_username}) is denied the permission {".".join(perm)}'
         if gateiden:
             mesg = f'{mesg} on object {gateiden}'
-        self.sendRestErr('AuthDeny', mesg)
+        self.sendRestErr('AuthDeny', mesg, status_code=403)
         return False
 
     async def authenticated(self):
@@ -442,20 +490,6 @@ class Handler(HandlerBase, t_web.RequestHandler):
         if hasattr(self, 'task'):
             self.task.cancel()
 
-    async def _reqValidOpts(self, opts):
-
-        if opts is None:
-            opts = {}
-
-        useriden = await self.useriden()
-
-        opts.setdefault('user', useriden)
-        if opts.get('user') != useriden:
-            if not await self.allowed(('impersonate',)):
-                return None
-
-        return opts
-
 class RobotHandler(HandlerBase, t_web.RequestHandler):
     async def get(self):
         self.write('User-agent: *\n')
@@ -484,6 +518,35 @@ class StormHandler(Handler):
         # a reference to the cortex is returned from the handler.
         return self.cell
 
+    async def _reqValidOpts(self, opts: dict | None) -> dict | None:
+        '''
+        Creates or validates an opts dict with the current session useriden.
+
+        If the session useriden differs from the user key, validate the user
+        has the impersonate permission ( that may require a round trip to authcell ).
+
+        Notes:
+            This API sets up HTTP response values if it returns None.
+
+        Args:
+            opts: The opts dictionary to validate.
+
+        Returns:
+            Opts dict if allowed; None if not allowed.
+        '''
+
+        if opts is None:
+            opts = {}
+
+        useriden = await self.useriden()
+
+        opts.setdefault('user', useriden)
+        if opts.get('user') != useriden:
+            if not await self.allowed(('impersonate',)):
+                return None
+
+        return opts
+
 class StormNodesV1(StormHandler):
 
     async def post(self):
@@ -497,7 +560,6 @@ class StormNodesV1(StormHandler):
 
         s_common.deprecated('HTTP API /api/v1/storm/nodes', curv='2.110.0')
 
-        # dont allow a user to be specified
         opts = body.get('opts')
         query = body.get('query')
         stream = body.get('stream')
@@ -507,14 +569,20 @@ class StormNodesV1(StormHandler):
         if opts is None:
             return
 
-        view = self.cell._viewFromOpts(opts)
+        flushed = False
+        try:
+            view = self.cell._viewFromOpts(opts)
 
-        taskinfo = {'query': query, 'view': view.iden}
-        await self.cell.boss.promote('storm', user=user, info=taskinfo)
+            taskinfo = {'query': query, 'view': view.iden}
+            await self.cell.boss.promote('storm', user=user, info=taskinfo)
 
-        async for pode in view.iterStormPodes(query, opts=opts):
-            self.write(s_json.dumps(pode, newline=jsonlines))
-            await self.flush()
+            async for pode in view.iterStormPodes(query, opts=opts):
+                self.write(s_json.dumps(pode, newline=jsonlines))
+                await self.flush()
+                flushed = True
+        except Exception as e:
+            if not flushed:
+                return self.sendRestExc(e, status_code=400)
 
 class StormV1(StormHandler):
 
@@ -541,10 +609,15 @@ class StormV1(StormHandler):
             return
 
         opts.setdefault('editformat', 'nodeedits')
-
-        async for mesg in self.getCore().storm(query, opts=opts):
-            self.write(s_json.dumps(mesg, newline=jsonlines))
-            await self.flush()
+        flushed = None
+        try:
+            async for mesg in self.getCore().storm(query, opts=opts):
+                self.write(s_json.dumps(mesg, newline=jsonlines))
+                await self.flush()
+                flushed = True
+        except Exception as e:
+            if not flushed:
+                return self.sendRestExc(e, status_code=400)
 
 class StormCallV1(StormHandler):
 
@@ -569,14 +642,8 @@ class StormCallV1(StormHandler):
 
         try:
             ret = await self.getCore().callStorm(query, opts=opts)
-        except s_exc.SynErr as e:
-            mesg = e.get('mesg', str(e))
-            return self.sendRestErr(e.__class__.__name__, mesg)
-        except asyncio.CancelledError:  # pragma: no cover
-            raise
         except Exception as e:
-            mesg = str(e)
-            return self.sendRestErr(e.__class__.__name__, mesg)
+            return self.sendRestExc(e, status_code=400)
         else:
             return self.sendRestRetn(ret)
 
@@ -601,14 +668,16 @@ class StormExportV1(StormHandler):
         if opts is None:
             return
 
+        flushed = False
         try:
             self.set_header('Content-Type', 'application/x-synapse-nodes')
             async for pode in self.getCore().exportStorm(query, opts=opts):
                 self.write(s_msgpack.en(pode))
                 await self.flush()
-
+                flushed = True
         except Exception as e:
-            return self.sendRestExc(e)
+            if not flushed:
+                return self.sendRestExc(e, status_code=400)
 
 class ReqValidStormV1(StormHandler):
 
@@ -625,12 +694,11 @@ class ReqValidStormV1(StormHandler):
         query = body.get('query')
 
         try:
-            valid = await self.cell.reqValidStorm(query, opts)
-        except s_exc.SynErr as e:
-            mesg = e.get('mesg', str(e))
-            return self.sendRestErr(e.__class__.__name__, mesg)
+            ret = await self.cell.reqValidStorm(query, opts)
+        except Exception as e:
+            return self.sendRestExc(e, status_code=400)
         else:
-            return self.sendRestRetn(valid)
+            return self.sendRestRetn(ret)
 
 class BeholdSockV1(WebSocket):
 
@@ -726,10 +794,12 @@ class AuthUsersV1(Handler):
 
             archived = int(self.get_argument('archived', default='0'))
             if archived not in (0, 1):
-                return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
+                return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.',
+                                        status_code=400)
 
         except Exception:
-            return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.')
+            return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.',
+                                    status_code=400)
 
         users = await self.getAuthCell().getUserDefs()
 
@@ -758,7 +828,8 @@ class AuthUserV1(Handler):
 
         udef = await self.getAuthCell().getUserDef(iden, packroles=False)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User {iden} does not exist.')
+            self.sendRestErr('NoSuchUser', f'User {iden} does not exist.',
+                             status_code=404)
             return
 
         self.sendRestRetn(udef)
@@ -773,7 +844,8 @@ class AuthUserV1(Handler):
 
         udef = await authcell.getUserDef(iden)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User {iden} does not exist.')
+            self.sendRestErr('NoSuchUser', f'User {iden} does not exist.',
+                             status_code=404)
             return
 
         body = self.getJsonBody()
@@ -817,7 +889,8 @@ class AuthUserPasswdV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDef(iden)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User does not exist: {iden}')
+            self.sendRestErr('NoSuchUser', f'User does not exist: {iden}',
+                             status_code=404)
             return
 
         password = body.get('passwd')
@@ -827,7 +900,7 @@ class AuthUserPasswdV1(Handler):
             try:
                 await authcell.setUserPasswd(iden, password)
             except s_exc.BadArg as e:
-                self.sendRestErr('BadArg', e.get('mesg'))
+                self.sendRestErr('BadArg', e.get('mesg'), status_code=400)
                 return
         self.sendRestRetn(await authcell.getUserDef(iden, packroles=False))
 
@@ -840,7 +913,7 @@ class AuthRoleV1(Handler):
 
         rdef = await self.getAuthCell().getRoleDef(iden)
         if rdef is None:
-            self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.')
+            self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.', status_code=404)
             return
 
         self.sendRestRetn(rdef)
@@ -853,7 +926,7 @@ class AuthRoleV1(Handler):
         authcell = self.getAuthCell()
         rdef = await authcell.getRoleDef(iden)
         if rdef is None:
-            self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.')
+            self.sendRestErr('NoSuchRole', f'Role {iden} does not exist.', status_code=404)
             return
 
         body = self.getJsonBody()
@@ -886,13 +959,13 @@ class AuthGrantV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDef(useriden)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.')
+            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.', status_code=404)
             return
 
         roleiden = body.get('role')
         rdef = await authcell.getRoleDef(roleiden)
         if rdef is None:
-            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.')
+            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.', status_code=404)
             return
 
         await authcell.addUserRole(useriden, roleiden)
@@ -920,13 +993,13 @@ class AuthRevokeV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDef(useriden)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.')
+            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.', status_code=404)
             return
 
         roleiden = body.get('role')
         rdef = await authcell.getRoleDef(roleiden)
         if rdef is None:
-            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.')
+            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.', status_code=404)
             return
 
         await authcell.delUserRole(useriden, roleiden)
@@ -947,12 +1020,12 @@ class AuthAddUserV1(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
+            self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.', status_code=400)
             return
 
         authcell = self.getAuthCell()
         if await authcell.getUserDefByName(name) is not None:
-            self.sendRestErr('DupUser', f'A user named {name} already exists.')
+            self.sendRestErr('DupUser', f'A user named {name} already exists.', status_code=400)
             return
 
         udef = await authcell.addUser(name=name)
@@ -992,12 +1065,13 @@ class AuthAddRoleV1(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.')
+            self.sendRestErr('MissingField', 'The addrole API requires a "name" argument.',
+                             status_code=400)
             return
 
         authcell = self.getAuthCell()
         if await authcell.getRoleDefByName(name) is not None:
-            self.sendRestErr('DupRole', f'A role named {name} already exists.')
+            self.sendRestErr('DupRole', f'A role named {name} already exists.', status_code=400)
             return
 
         rdef = await authcell.addRole(name)
@@ -1023,13 +1097,13 @@ class AuthDelRoleV1(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.')
+            self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.', status_code=400)
             return
 
         authcell = self.getAuthCell()
         rdef = await authcell.getRoleDefByName(name)
         if rdef is None:
-            return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!')
+            return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!', status_code=404)
 
         await authcell.delRole(rdef.get('iden'))
 
@@ -1055,15 +1129,15 @@ class ModelNormV1(Handler):
         typeopts = body.get('typeopts')
 
         if propname is None:
-            self.sendRestErr('MissingField', 'The property normalization API requires a prop name.')
+            self.sendRestErr('MissingField', 'The property normalization API requires a prop name.', status_code=400)
             return
 
         try:
             valu, info = await self.cell.getPropNorm(propname, propvalu, typeopts=typeopts)
         except s_exc.NoSuchProp:
-            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
+            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.', status_code=404)
         except Exception as e:
-            return self.sendRestExc(e)
+            return self.sendRestExc(e, status_code=400)
         else:
             self.sendRestRetn({'norm': valu, 'info': info})
 
@@ -1136,7 +1210,7 @@ class StormVarsSetV1(Handler):
         varname = str(body.get('name'))
         varvalu = body.get('value', s_common.novalu)
         if varvalu is s_common.novalu:
-            return self.sendRestErr('BadArg', 'The "value" field is required.')
+            return self.sendRestErr('BadArg', 'The "value" field is required.', status_code=400)
 
         if not await self.allowed(('globals', 'set', varname)):
             return
@@ -1163,7 +1237,7 @@ class OnePassIssueV1(Handler):
         try:
             passwd = await authcell.genUserOnepass(iden, duration)
         except s_exc.NoSuchUser:
-            return self.sendRestErr('NoSuchUser', 'The user iden does not exist.')
+            return self.sendRestErr('NoSuchUser', 'The user iden does not exist.', status_code=404)
 
         return self.sendRestRetn(passwd)
 
@@ -1196,13 +1270,13 @@ class FeedV1(Handler):
 
         func = self.cell.getFeedFunc(name)
         if func is None:
-            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.')
+            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.', status_code=400)
 
         user = self.cell.auth.user(self.web_useriden)
 
         view = self.cell.getView(body.get('view'), user)
         if view is None:
-            return self.sendRestErr('NoSuchView', 'The specified view does not exist.')
+            return self.sendRestErr('NoSuchView', 'The specified view does not exist.', status_code=404)
 
         wlyr = view.layers[0]
         perm = ('feed:data', *name.split('.'))
@@ -1210,7 +1284,7 @@ class FeedV1(Handler):
         if not user.allowed(perm, gateiden=wlyr.iden):
             permtext = '.'.join(perm)
             mesg = f'User does not have {permtext} permission on gate: {wlyr.iden}.'
-            return self.sendRestErr('AuthDeny', mesg)
+            return self.sendRestErr('AuthDeny', mesg, status_code=403)
 
         try:
 
@@ -1224,7 +1298,7 @@ class FeedV1(Handler):
             return self.sendRestRetn(None)
 
         except Exception as e:  # pragma: no cover
-            return self.sendRestExc(e)
+            return self.sendRestExc(e, status_code=400)
 
 class CoreInfoV1(Handler):
     '''
@@ -1279,8 +1353,7 @@ class ExtApiHandler(StormHandler):
         core = self.getCore()
         adef, args = await core.getHttpExtApiByPath(path)
         if adef is None:
-            self.set_status(404)
-            self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}')
+            self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}', status_code=404)
             return await self.finish()
 
         requester = ''
@@ -1304,13 +1377,12 @@ class ExtApiHandler(StormHandler):
 
         storm = adef['methods'].get(meth)
         if storm is None:
-            self.set_status(405)
             meths = [meth.upper() for meth in adef.get('methods')]
             self.set_header('Allowed', ', '.join(meths))
             mesg = f'Extended HTTP API {iden} has no method for {meth.upper()}.'
             if meths:
                 mesg = f'{mesg} Supports {", ".join(meths)}.'
-            self.sendRestErr('NeedConfValu', mesg)
+            self.sendRestErr('NeedConfValu', mesg, status_code=405)
             return await self.finish()
 
         # We flatten the request headers and parameters into a flat key/valu map.
@@ -1389,9 +1461,9 @@ class ExtApiHandler(StormHandler):
                 elif mtyp == 'http:resp:body':
                     if not rcode:
                         self.clear()
-                        self.set_status(500)
                         self.sendRestErr('StormRuntimeError',
-                                         f'Extended HTTP API {iden} must set status code before sending body.')
+                                         f'Extended HTTP API {iden} must set status code before sending body.',
+                                         status_code=500)
                         return await self.finish()
                     rbody = True
                     body = info['body']
@@ -1411,8 +1483,7 @@ class ExtApiHandler(StormHandler):
                     # Since we haven't flushed the body yet, we can clear the handler
                     # and send the error the user.
                     self.clear()
-                    self.set_status(500)
-                    self.sendRestErr(errname, erfo.get('mesg'))
+                    self.sendRestErr(errname, erfo.get('mesg'), status_code=500)
                     rcode = True
                     rbody = True
 
@@ -1422,13 +1493,13 @@ class ExtApiHandler(StormHandler):
             logger.exception(f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
             if rbody is False:
                 self.clear()
-                self.set_status(500)
                 self.sendRestErr(enfo[0],
-                                 f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}')
+                                 f'Extended HTTP API {iden} encountered fatal error: {enfo[1].get("mesg")}',
+                                 status_code=500)
 
         if rcode is False:
             self.clear()
-            self.set_status(500)
-            self.sendRestErr('StormRuntimeError', f'Extended HTTP API {iden} never set status code.')
+            self.sendRestErr('StormRuntimeError', f'Extended HTTP API {iden} never set status code.',
+                             status_code=500)
 
         await self.finish()
