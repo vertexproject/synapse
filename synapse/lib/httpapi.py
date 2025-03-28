@@ -486,21 +486,6 @@ class Handler(HandlerBase, t_web.RequestHandler):
         if hasattr(self, 'task'):
             self.task.cancel()
 
-    async def _reqValidOpts(self, opts) -> tuple[bool, dict]:
-        # Validate pre-conditions for executing a Storm query
-
-        if opts is None:
-            opts = {}
-
-        useriden = await self.useriden()
-
-        opts.setdefault('user', useriden)
-        if opts.get('user') != useriden:
-            if not await self.allowed(('impersonate',)):
-                return None
-
-        return opts
-
 class RobotHandler(HandlerBase, t_web.RequestHandler):
     async def get(self):
         self.write('User-agent: *\n')
@@ -528,6 +513,35 @@ class StormHandler(Handler):
         # add an abstraction to allow subclasses to dictate how
         # a reference to the cortex is returned from the handler.
         return self.cell
+
+    async def _reqValidOpts(self, opts: dict | None) -> dict | None:
+        '''
+        Creates or validates an opts dict with the current session useriden.
+
+        If the session useriden differs from the user key, validate the user
+        has the impersonate permission ( that may require a round trip to authcell ).
+
+        Notes:
+            This API sets up HTTP response values if it returns None.
+
+        Args:
+            opts: The opts dictionary to validate.
+
+        Returns:
+            Opts dict if allowed; None if not allowed.
+        '''
+
+        if opts is None:
+            opts = {}
+
+        useriden = await self.useriden()
+
+        opts.setdefault('user', useriden)
+        if opts.get('user') != useriden:
+            if not await self.allowed(('impersonate',)):
+                return None
+
+        return opts
 
 class StormNodesV1(StormHandler):
 
