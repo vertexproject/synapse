@@ -14,21 +14,35 @@ logger = logging.getLogger(__name__)
 
 class NodeBase:
 
-    def repr(self, name=None, defv=None):
+    def repr(self, name=None, defv=None, virts=None):
 
         if name is None:
-            return self.form.type.repr(self.ndef[1])
+            typeitem = self.form.type
+            if virts is None:
+                return typeitem.repr(self.valu())
+
+            virtgetr = typeitem.getVirtGetr(virts)
+            virttype = typeitem.getVirtType(virts)
+            return virttype.repr(self.valu(virts=virtgetr))
 
         prop = self.form.props.get(name)
         if prop is None:
             mesg = f'No property named {name}.'
             raise s_exc.NoSuchProp(mesg=mesg, form=self.form.name, prop=name)
 
-        valu = self.get(name)
-        if valu is None:
-            return defv
+        typeitem = prop.type
 
-        return prop.type.repr(valu)
+        if virts is None:
+            if (valu := self.get(name)) is None:
+                return defv
+            return typeitem.repr(valu)
+
+        virtgetr = typeitem.getVirtGetr(virts)
+        virttype = typeitem.getVirtType(virts)
+
+        if (valu := self.get(name, virts=virtgetr)) is None:
+            return defv
+        return virttype.repr(valu)
 
     def reprs(self):
         '''

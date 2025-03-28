@@ -900,6 +900,9 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchVirt):
                 ival.getVirtType(['min', 'newp'])
 
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtGetr(['min', 'newp'])
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')
