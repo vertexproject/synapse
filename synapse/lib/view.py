@@ -2252,6 +2252,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         tdef.setdefault('created', s_common.now())
         tdef.setdefault('user', root.iden)
+        tdef.setdefault('creator', tdef.get('user'))
         tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
 
