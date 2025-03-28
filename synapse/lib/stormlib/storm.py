@@ -142,6 +142,7 @@ class LibStorm(s_stormtypes.Lib):
             self.runt.confirm(('impersonate',))
 
         opts.setdefault('view', self.runt.snap.view.iden)
+        opts['promote'] = False
 
         async for mesg in self.runt.snap.view.core.storm(query, opts=opts):
             yield mesg

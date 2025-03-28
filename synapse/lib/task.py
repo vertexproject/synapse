@@ -132,12 +132,18 @@ def loop():
     except Exception:
         return None
 
+def syntask(task):
+    '''
+    Return the synapse task associated with the provided asyncio task.
+    '''
+    return getattr(task, '_syn_task', None)
+
 def current():
     '''
     Return the current synapse task.
     '''
     task = asyncio.current_task()
-    return getattr(task, '_syn_task', None)
+    return syntask(task)
 
 def user():
     '''
