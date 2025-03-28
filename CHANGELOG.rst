@@ -6,6 +6,102 @@
 Synapse Changelog
 *****************
 
+v2.204.1 - 2025-03-25
+=====================
+
+Bugfixes
+--------
+- Fixed a regression in the Storm ``parallel`` command where variables
+  containing certain heavy Storm object types were not passed into the parallel
+  runtimes.
+  (`#4197 <https://github.com/vertexproject/synapse/pull/4197>`_)
+
+v2.204.0 - 2025-03-21
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_204_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Fixed an issue where locked users could still access HTTP endpoints with an
+  existing session cookie. User lock status now invalidates existing sessions
+  across all authenticated endpoints.
+  (`#4180 <https://github.com/vertexproject/synapse/pull/4180>`_)
+- Fixed an issue in Storm where the ``(`` and ``$`` control characters were
+  allowed in unquoted strings.
+  (`#4187 <https://github.com/vertexproject/synapse/pull/4187>`_)
+- Fixed a regression where the Storm ``not`` operator was incorrectly
+  whitespace sensitive.
+  (`#4187 <https://github.com/vertexproject/synapse/pull/4187>`_)
+- Fixed an issue with URL sanitizing where incorrect data was being removed
+  from the URL string.
+  (`#4190 <https://github.com/vertexproject/synapse/pull/4190>`_)
+- Fixed an issue with the Storm ``parallel`` command where variables
+  initialized within a parallel runtime were not properly isolated to that
+  specific runtime.
+  (`#4194 <https://github.com/vertexproject/synapse/pull/4194>`_)
+
+v2.203.0 - 2025-03-14
+=====================
+
+Model Changes
+-------------
+- Deprecated the ``meta:seen`` form.
+  (`#4170 <https://github.com/vertexproject/synapse/pull/4170>`_)
+- Added ``meta:feed`` to track ingest progress from multi-feed sources.
+  (`#4172 <https://github.com/vertexproject/synapse/pull/4172>`_)
+- See :ref:`userguide_model_v2_203_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Added support to the OAuth2 providers to use ``client_assertion`` values to
+  authenticate to OAuth2 endpoints. These can be used instead of providing a
+  ``client_secret`` value if the OAuth2 provider supports ``client_assertion``
+  authentication. This update includes support for obtaining the assertion
+  values via user defined Storm callbacks; as well as obtaining the assertions
+  from Azure Managed Identity Workloads.
+  (`#4125 <https://github.com/vertexproject/synapse/pull/4125>`_)
+- Updated the JSON library used by Synapse to ``orjson`` which is more strict
+  to the JSON standards and shown to be more performant than the builtin
+  Python ``json`` library.
+  (`#4129 <https://github.com/vertexproject/synapse/pull/4129>`_)
+- Added a default name when inserting a parent fork to a view. The default name
+  is now ``inserted fork of {oldparent.name}`` or ``inserted fork of
+  {oldparent.iden}`` if the view doesn't have a name.
+  (`#4175 <https://github.com/vertexproject/synapse/pull/4175>`_)
+- Updated URL pattern matching to validate schemes against IANA standards for
+  the ``scrape`` command.
+  (`#4177 <https://github.com/vertexproject/synapse/pull/4177>`_)
+
+Bugfixes
+--------
+- Fixed an issue with some exceptions missing a ``mesg`` value. Thank you
+  ``colingrady`` for the contribution.
+  (`#4179 <https://github.com/vertexproject/synapse/pull/4179>`_)
+- Fixed an issue with the Storm ``stats:tally`` object not validating its API
+  arguments.
+  (`#4181 <https://github.com/vertexproject/synapse/pull/4181>`_)
+
+Notes
+-----
+- Updated the ``indent`` keyword argument of ``$lib.json.save()`` to be a
+  boolean instead of an integer. This API will now indent by two spaces if
+  requested instead of an arbitrary number of spaces.
+  (`#4129 <https://github.com/vertexproject/synapse/pull/4129>`_)
+
+Improved documentation
+----------------------
+- Updated Storm library and type documentation to use ``(true)``, ``(false)``
+  and ``(null)`` instead of ``$lib.true``, ``$lib.false``, and ``$lib.null``.
+  (`#4173 <https://github.com/vertexproject/synapse/pull/4173>`_)
+- Updated Kubernetes example documentation by renaming ``aha` to ``aha00`` to
+  support future instances, simplifed the use of automatic DNS matching via
+  ``SYN_AHA_DNS_NAME``, and allow for independent Certificate Authority naming
+  via ``SYN_AHA_AHA_NETWORK``.
+  (`#4178 <https://github.com/vertexproject/synapse/pull/4178>`_)
+
 v2.202.0 - 2025-03-04
 =====================
 

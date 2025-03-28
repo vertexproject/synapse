@@ -413,3 +413,35 @@ class BaseTest(s_t_utils.SynTest):
             self.eq('bottles.', nodes[0].get('type'))
             self.eq(1706832000000, nodes[0].get('time'))
             self.len(1, await core.nodes('meta:aggregate -> meta:aggregate:type:taxonomy'))
+
+    async def test_model_feed(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                meta:feed=*
+                    :name="woot (foo bar baz)"
+                    :type=foo.bar.baz
+                    :source={[ meta:source=* :name=woot ]}
+                    :url=https://v.vtx.lk/slack
+                    :query="Hi There"
+                    :opts=({"foo": "bar"})
+                    :period=(2024,2025)
+                    :latest=2025
+                    :offset=17
+                    :cursor=FooBar
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('source'))
+
+            self.eq(nodes[0].get('name'), 'woot (foo bar baz)')
+            self.eq(nodes[0].get('type'), 'foo.bar.baz.')
+            self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
+            self.eq(nodes[0].get('query'), 'Hi There')
+            self.eq(nodes[0].get('opts'), {"foo": "bar"})
+            self.eq(nodes[0].get('period'), (1704067200000, 1735689600000))
+            self.eq(nodes[0].get('latest'), 1735689600000)
+            self.eq(nodes[0].get('offset'), 17)
+            self.eq(nodes[0].get('cursor'), 'FooBar')
+
+            self.len(1, await core.nodes('meta:feed -> meta:source +:name=woot'))
+            self.len(1, await core.nodes('meta:feed -> meta:feed:type:taxonomy'))

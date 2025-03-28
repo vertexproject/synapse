@@ -394,7 +394,7 @@ class Share(s_base.Base):
             This should never be used by synapse core code.  This is for sync client code convenience only.
         '''
         if s_threads.iden() == self.tid:
-            raise s_exc.SynErr('Use of synchronous context manager in async code')
+            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
 
         self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
@@ -593,7 +593,7 @@ class Proxy(s_base.Base):
 
     '''
     _link_task = None
-    _link_event = asyncio.Event()
+    _link_event = None
     _all_proxies = set()
 
     async def __anit__(self, link, name):
@@ -650,6 +650,7 @@ class Proxy(s_base.Base):
             if not Proxy._all_proxies and Proxy._link_task is not None:
                 Proxy._link_task.cancel()
                 Proxy._link_task = None
+                Proxy._link_event = None
 
         Proxy._all_proxies.add(self)
 
@@ -657,6 +658,7 @@ class Proxy(s_base.Base):
         self.link.onfini(self.fini)
 
         if Proxy._link_task is None:
+            Proxy._link_event = asyncio.Event()
             Proxy._link_task = s_coro.create_task(Proxy._linkLoopTask())
 
     @classmethod
@@ -821,7 +823,7 @@ class Proxy(s_base.Base):
             This must not be used from async code, and it should never be used in core synapse code.
         '''
         if s_threads.iden() == self.tid:
-            raise s_exc.SynErr('Use of synchronous context manager in async code')
+            raise s_exc.SynErr(mesg='Use of synchronous context manager in async code')
         self._ctxobj = self.schedCoroSafePend(self.__aenter__())
         return self
 

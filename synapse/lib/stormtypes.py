@@ -1,7 +1,6 @@
 import bz2
 import copy
 import gzip
-import json
 import time
 
 import regex
@@ -25,6 +24,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.cache as s_cache
@@ -837,14 +837,14 @@ class LibDmon(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the Dmon to stop.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': '$lib.true unless the dmon does not exist or was already stopped.'}}},
+                              'desc': '``(true)`` unless the dmon does not exist or was already stopped.'}}},
         {'name': 'start', 'desc': 'Start a storm dmon.',
          'type': {'type': 'function', '_funcname': '_libDmonStart',
                   'args': (
                       {'name': 'iden', 'type': 'str', 'desc': 'The GUID of the dmon to start.'},
                   ),
                   'returns': {'type': 'boolean',
-                              'desc': '$lib.true unless the dmon does not exist or was already started.'}}},
+                              'desc': '``(true)`` unless the dmon does not exist or was already started.'}}},
     )
     _storm_lib_path = ('dmon',)
 
@@ -1469,7 +1469,7 @@ class LibBase(Lib):
 
                 Update the current runtime to enable debugging::
 
-                    $lib.debug = $lib.true''',
+                    $lib.debug = (true)''',
          'type': {
              'type': ['gtor', 'stor'],
              '_storfunc': '_setRuntDebug',
@@ -1782,7 +1782,7 @@ class LibBase(Lib):
         name = await tostr(name)
         mesg = await tostr(mesg)
         info = await toprim(info)
-        s_common.reqjsonsafe(info)
+        s_json.reqjsonsafe(info)
 
         ctor = getattr(s_exc, name, None)
         if ctor is not None:
@@ -1841,7 +1841,7 @@ class LibBase(Lib):
     @stormfunc(readonly=True)
     async def _fire(self, name, **info):
         info = await toprim(info)
-        s_common.reqjsonsafe(info)
+        s_json.reqjsonsafe(info)
         await self.runt.snap.fire('storm:fire', type=name, data=info)
 
 @registry.registerLib
@@ -2103,9 +2103,9 @@ class LibAxon(Lib):
 
     For APIs that accept a proxy argument, the following values are supported::
 
-        $lib.null: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
-        $lib.true: Use the proxy defined by the http:proxy configuration option if set.
-        $lib.false: Do not use the proxy defined by the http:proxy configuration option if set.
+        ``(null)``: Deprecated - Use the proxy defined by the http:proxy configuration option if set.
+        ``(true)``: Use the proxy defined by the http:proxy configuration option if set.
+        ``(false)``: Do not use the proxy defined by the http:proxy configuration option if set.
         <str>: A proxy URL string.
     '''
     _storm_locals = (
@@ -3025,7 +3025,7 @@ class LibTime(Lib):
                       {'name': 'valu', 'type': 'str', 'desc': 'The timestamp string to parse.', },
                       {'name': 'format', 'type': 'str', 'desc': 'The format string to use for parsing.', },
                       {'name': 'errok', 'type': 'boolean', 'default': False,
-                       'desc': 'If set, parsing errors will return ``$lib.null`` instead of raising an exception.'}
+                       'desc': 'If set, parsing errors will return ``(null)`` instead of raising an exception.'}
                   ),
                   'returns': {'type': 'int', 'desc': 'The epoch timestamp for the string.', }}},
         {'name': 'format', 'desc': '''
@@ -3365,7 +3365,7 @@ class LibRegx(Lib):
                 In order to get the matching groups, patterns must use parentheses
                 to indicate the start and stop of the regex to return portions of.
                 If groups are not used, a successful match will return a empty list
-                and a unsuccessful match will return ``$lib.null``.
+                and a unsuccessful match will return ``(null)``.
 
             Example:
                 Extract the matching groups from a piece of text::
@@ -3407,7 +3407,6 @@ class LibRegx(Lib):
                   'returns': {'type': 'list', 'desc': 'A list of lists of strings for the matching groups in the pattern.', }}},
         {'name': 'matches', 'desc': '''
             Check if text matches a pattern.
-            Returns $lib.true if the text matches the pattern, otherwise $lib.false.
 
             Notes:
                 This API requires the pattern to match at the start of the string.
@@ -4797,11 +4796,7 @@ class Str(Prim):
 
     @stormfunc(readonly=True)
     async def _methStrJson(self):
-        try:
-            return json.loads(self.valu, strict=True)
-        except Exception as e:
-            mesg = f'Text is not valid JSON: {self.valu}'
-            raise s_exc.BadJsonText(mesg=mesg)
+        return s_json.loads(self.valu)
 
 @registry.registerType
 class Bytes(Prim):
@@ -4990,18 +4985,14 @@ class Bytes(Prim):
             errors = await tostr(errors)
 
             if encoding is None:
-                encoding = json.detect_encoding(valu)
+                encoding = s_json.detect_encoding(valu)
             else:
                 encoding = await tostr(encoding)
 
-            return json.loads(valu.decode(encoding, errors))
+            return s_json.loads(valu.decode(encoding, errors))
 
         except UnicodeDecodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(valu))}') from None
-
-        except json.JSONDecodeError as e:
-            mesg = f'Unable to decode bytes as json: {e.args[0]}'
-            raise s_exc.BadJsonText(mesg=mesg)
 
 @registry.registerType
 class Dict(Prim):
@@ -6262,7 +6253,7 @@ class NodeData(Prim):
         gateiden = self.valu.snap.wlyr.iden
         confirm(('node', 'data', 'set', name), gateiden=gateiden)
         valu = await toprim(valu)
-        s_common.reqjsonsafe(valu)
+        s_json.reqjsonsafe(valu)
         return await self.valu.setData(name, valu)
 
     async def _popNodeData(self, name):
@@ -7790,7 +7781,7 @@ class View(Prim):
     _storm_locals = (
         {'name': 'iden', 'desc': 'The iden of the View.', 'type': 'str', },
         {'name': 'layers', 'desc': 'The ``layer`` objects associated with the ``view``.', 'type': 'list', },
-        {'name': 'parent', 'desc': 'The parent View. Will be ``$lib.null`` if the view is not a fork.', 'type': 'str'},
+        {'name': 'parent', 'desc': 'The parent View. Will be ``(null)`` if the view is not a fork.', 'type': 'str'},
         {'name': 'triggers', 'desc': 'The ``trigger`` objects associated with the ``view``.',
          'type': 'list', },
         {'name': 'children', 'desc': 'Yield Views which are children of this View.',
@@ -7815,7 +7806,7 @@ class View(Prim):
                     the protected option (below) until this option is removed.
 
                 protected (bool)
-                    Setting to $lib.true will prevent the layer from being merged or deleted.
+                    Setting to ``(true)`` will prevent the layer from being merged or deleted.
 
                 layers (list(str))
                     Set the list of layer idens for a non-forked view. Layers are specified
@@ -8752,7 +8743,7 @@ class LibTrigger(Lib):
                     pass
 
         if trigger is None:
-            raise s_exc.NoSuchIden('Trigger not found')
+            raise s_exc.NoSuchIden(mesg='Trigger not found', iden=iden)
 
         self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
@@ -8906,7 +8897,7 @@ class LibJsonStor(Lib):
                         {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
                         {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
-                    'returns': {'type': 'prim', 'desc': 'The previously stored value or $lib.null'}}},
+                    'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property.',
          'type': {'type': 'function', '_funcname': 'set',

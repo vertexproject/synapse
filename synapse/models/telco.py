@@ -153,6 +153,10 @@ class TelcoModule(s_module.CoreModule):
                 ('tel:call', ('guid', {}), {
                     'doc': 'A guid for a telephone call record.'}),
 
+                ('tel:phone:type:taxonomy', ('taxonomy', {}), {
+                    'interfaces': ('meta:taxonomy',),
+                    'doc': 'A taxonomy of phone number types.'}),
+
                 ('tel:txtmesg', ('guid', {}), {
                     'doc': 'A guid for an individual text message.'}),
 
@@ -192,11 +196,18 @@ class TelcoModule(s_module.CoreModule):
             ),
 
             'forms': (
+
+                ('tel:phone:type:taxonomy', {}, ()),
                 ('tel:phone', {}, (
+
+                    ('type', ('tel:phone:type:taxonomy', {}), {
+                        'doc': 'The type of phone number.'}),
+
                     ('loc', ('loc', {}), {
-                        'doc': 'The location associated with the number.',
-                    }),
+                        'doc': 'The location associated with the number.'}),
+
                 )),
+
                 ('tel:call', {}, (
                     ('src', ('tel:phone', {}), {
                         'doc': 'The source phone number for a call.'

@@ -2592,7 +2592,7 @@ class Cmd:
 
     async def execStormCmd(self, runt, genr):  # pragma: no cover
         ''' Abstract base method '''
-        raise s_exc.NoSuchImpl('Subclass must implement execStormCmd')
+        raise s_exc.NoSuchImpl(mesg='Subclass must implement execStormCmd')
         for item in genr:
             yield item
 
@@ -4768,7 +4768,7 @@ class GraphCmd(Cmd):
             inet:fqdn | graph
                         --degrees 2
                         --filter { -#nope }
-                        --pivot { -> meta:seen }
+                        --pivot { <(seen)- meta:source }
                         --form-pivot inet:fqdn {<- * | limit 20}
                         --form-pivot inet:fqdn {-> * | limit 20}
                         --form-filter inet:fqdn {-inet:fqdn:issuffix=1}
@@ -5004,9 +5004,12 @@ class ParallelCmd(Cmd):
 
             yield item
 
-    async def pipeline(self, runt, query, inq, outq):
+    async def pipeline(self, runt, query, inq, outq, runtvars):
+
+        opts = {'vars': runtvars}
+
         try:
-            async with runt.getSubRuntime(query) as subr:
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
                 async for item in subr.execute(genr=self.nextitem(inq)):
                     await outq.put(item)
 
@@ -5037,11 +5040,13 @@ class ParallelCmd(Cmd):
             inq = asyncio.Queue(maxsize=size)
             outq = asyncio.Queue(maxsize=size)
 
+            runtvars = self.runt.getScopeVars()
+
             tsks = 0
             try:
                 while tsks < size:
                     await inq.put(await genr.__anext__())
-                    base.schedCoro(self.pipeline(runt, query, inq, outq))
+                    base.schedCoro(self.pipeline(runt, query, inq, outq, runtvars))
                     tsks += 1
             except StopAsyncIteration:
                 [await inq.put(None) for i in range(tsks)]
@@ -5062,7 +5067,7 @@ class ParallelCmd(Cmd):
             elif tsks == 0:
                 tsks = size
                 for i in range(size):
-                    base.schedCoro(self.pipeline(runt, query, inq, outq))
+                    base.schedCoro(self.pipeline(runt, query, inq, outq, runtvars))
                 [await inq.put(None) for i in range(tsks)]
 
             exited = 0

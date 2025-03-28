@@ -103,10 +103,12 @@ commands:
           key: v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
-          name: executing docs jupyter notebooks
+          name: executing docs test / build
           command: |
             . venv/bin/activate
             ./scripts/doctests.py
+            cd docs
+            make html
 
   test_steps_python:
     description: "Python test steps"
@@ -441,7 +443,8 @@ jobs:
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse
+          COVERAGE_FILE: test_reports/${CIRCLE_SHA1}/.coverage
+          COVERAGE_ARGS: --cov synapse --cov-append
 
     working_directory: ~/repo
 

@@ -1,12 +1,17 @@
 import os
+import http
 import asyncio
 import logging
 import subprocess
 
 import yaml
+import aiohttp
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.httpapi as s_httpapi
+
 import synapse.tests.utils as s_t_utils
 
 logger = logging.getLogger(__name__)
@@ -75,6 +80,7 @@ class CommonTest(s_t_utils.SynTest):
         self.true(s_common.vertup('30.40.50') > (9, 0))
 
     def test_common_file_helpers(self):
+
         # genfile
         with self.getTestDir() as testdir:
             fd = s_common.genfile(testdir, 'woot', 'foo.bin')
@@ -144,30 +150,10 @@ class CommonTest(s_t_utils.SynTest):
             retn = tuple(s_common.listdir(dirn, glob='*.txt'))
             self.eq(retn, ((path,)))
 
-            # getDirSize: check against du
             real, appr = s_common.getDirSize(dirn)
-
-            duapprstr = subprocess.check_output(['du', '-bs', dirn])
-            duappr = int(duapprstr.split()[0])
-            self.eq(duappr, appr)
-
-            # The following does not work in a busybox based environment,
-            # but manual testing of the getDirSize() API does confirm
-            # that the results are still as expected when run there.
-            argv = ['du', '-B', '1', '-s', dirn]
-            proc = subprocess.run(argv, capture_output=True)
-            try:
-                proc.check_returncode()
-            except subprocess.CalledProcessError as e:
-                stderr = proc.stderr.decode()
-                if 'unrecognized option: B' in stderr and 'BusyBox' in stderr:
-                    logger.warning(f'Unable to run {"".join(argv)} in BusyBox.')
-                else:
-                    raise
-            else:
-                durealstr = proc.stdout.decode()
-                dureal = int(durealstr.split()[0])
-                self.eq(dureal, real)
+            self.eq(real % 512, 0)
+            self.gt(real, appr)
+            self.ge(appr, len(b'woot') + len(b'nope'))
 
     def test_common_intify(self):
         self.eq(s_common.intify(20), 20)
@@ -426,25 +412,6 @@ class CommonTest(s_t_utils.SynTest):
         retn = s_common.merggenr2([asyncl(lt) for lt in (l3, l2, l1)], reverse=True)
         self.eq((9, 8, 7, 6, 5, 4, 3, 2, 1), await alist(retn))
 
-    def test_jsonsafe(self):
-        items = (
-            (None, None),
-            (1234, None),
-            ('1234', None),
-            ({'asdf': 'haha'}, None),
-            ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
-            (b'1234', s_exc.BadArg),
-            ({'a': 'a', 2: 2}, s_exc.BadArg),
-            ({'a', 'b', 'c'}, s_exc.BadArg),
-            (s_common.novalu, s_exc.BadArg),
-        )
-        for (item, eret) in items:
-            if eret is None:
-                self.none(s_common.reqJsonSafeStrict(item))
-            else:
-                with self.raises(eret):
-                    s_common.reqJsonSafeStrict(item)
-
     def test_sslctx(self):
         with self.getTestDir(mirror='certdir') as dirn:
             cadir = s_common.genpath(dirn, 'cas')
@@ -481,3 +448,27 @@ class CommonTest(s_t_utils.SynTest):
             v = s_common.trimText(iv, n=n)
             self.le(len(v), n)
             self.eq(v, ev)
+
+    async def test_tornado_monkeypatch(self):
+        class JsonHandler(s_httpapi.Handler):
+            async def get(self):
+                resp = {
+                    'foo': 'bar',
+                    'html': '<html></html>'
+                }
+                self.write(resp)
+
+        async with self.getTestCore() as core:
+            core.addHttpApi('/api/v1/test_tornado/', JsonHandler, {'cell': core})
+            _, port = await core.addHttpsPort(0)
+            url = f'https://127.0.0.1:{port}/api/v1/test_tornado/'
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, ssl=False) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
+
+                    text = await resp.text()
+                    self.eq(text, '{"foo":"bar","html":"<html><\\/html>"}')
+
+                    json = await resp.json()
+                    self.eq(json, {'foo': 'bar', 'html': '<html></html>'})

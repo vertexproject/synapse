@@ -21,13 +21,11 @@ import io
 import os
 import sys
 import copy
-import json
 import math
 import types
 import shutil
 import typing
 import asyncio
-import hashlib
 import inspect
 import logging
 import tempfile
@@ -59,6 +57,7 @@ import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.cmdr as s_cmdr
 import synapse.lib.hive as s_hive
+import synapse.lib.json as s_json
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
@@ -101,7 +100,7 @@ def deguidify(x):
 
 def jsonlines(text: str):
     lines = [k for k in text.split('\n') if k]
-    return [json.loads(line) for line in lines]
+    return [s_json.loads(line) for line in lines]
 
 async def waitForBehold(core, events):
     async for mesg in core.behold():
@@ -318,6 +317,7 @@ testmodel = {
         ('test:int', ('int', {}), {}),
         ('test:float', ('float', {}), {}),
         ('test:str', ('str', {}), {}),
+        ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
         ('test:migr', ('str', {}), {}),
         ('test:auto', ('str', {}), {}),
         ('test:edge', ('edge', {}), {}),
@@ -381,6 +381,7 @@ testmodel = {
             ('ints', ('array', {'type': 'test:int'}), {}),
             ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
             ('strsnosplit', ('array', {'type': 'test:str'}), {}),
+            ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
         )),
         ('test:arrayform', {}, (
         )),
@@ -457,7 +458,9 @@ testmodel = {
             ('tick', ('test:time', {}), {}),
             ('hehe', ('str', {}), {}),
             ('ndefs', ('array', {'type': 'ndef'}), {}),
+            ('somestr', ('test:str', {}), {}),
         )),
+        ('test:strregex', {}, ()),
 
         ('test:migr', {}, (
             ('bar', ('ndef', {}), {}),

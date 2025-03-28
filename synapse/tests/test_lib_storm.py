@@ -1,5 +1,4 @@
 import copy
-import json
 import asyncio
 import datetime
 import itertools
@@ -13,6 +12,7 @@ import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.storm as s_storm
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -2388,7 +2388,7 @@ class StormTest(s_t_utils.SynTest):
             async for bytz in core.axon.get(s_common.uhex(sha)):
                 buf += bytz
 
-            resp = json.loads(buf.decode('utf8'))
+            resp = s_json.loads(buf)
             return resp
 
         async with self.getTestCore() as core:
@@ -3657,9 +3657,9 @@ class StormTest(s_t_utils.SynTest):
             orig = s_storm.ParallelCmd.pipeline
             tsks = {'cnt': 0}
 
-            async def pipecnt(self, runt, query, inq, outq):
+            async def pipecnt(self, runt, query, inq, outq, runtprims):
                 tsks['cnt'] += 1
-                await orig(self, runt, query, inq, outq)
+                await orig(self, runt, query, inq, outq, runtprims)
 
             with mock.patch('synapse.lib.storm.ParallelCmd.pipeline', pipecnt):
 
@@ -3688,6 +3688,42 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await core.nodes('parallel --size 4 {[ ou:org=* ]}')
                 self.len(4, nodes)
                 self.eq(4, tsks['cnt'])
+
+            self.len(20, await core.nodes('for $i in $lib.range(20) {[ test:str=$i ]}'))
+            q = '''
+            test:str
+            parallel --size 4 {
+                if (not $lib.vars.get(vals)) {
+                    $vals = ()
+                }
+                $vals.append($node.repr())
+                fini { $lib.fire(resu, vals=$vals) }
+            }
+            | spin
+            '''
+            vals = []
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                if m[0] == 'storm:fire':
+                    vals.extend(m[1]['data']['vals'])
+
+            self.len(20, vals)
+
+            q = '''
+            $vals = ()
+            test:str
+            parallel --size 4 { $vals.append($node.repr()) }
+            fini { return($vals) }
+            '''
+            self.len(20, await core.callStorm(q))
+
+            q = '''
+            function test(n) { $lib.fire(foo, valu=$n.repr()) return() }
+            test:str
+            parallel --size 4 { $test($node) }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(20, [m for m in msgs if m[0] == 'storm:fire' and m[1]['type'] == 'foo'])
 
     async def test_storm_yieldvalu(self):
 
@@ -4223,15 +4259,15 @@ class StormTest(s_t_utils.SynTest):
             self.stormIsInPrint('$lib.auth                     : A Storm Library for interacting with Auth in the '
                                 'Cortex.',
                                 msgs)
-            self.stormIsInPrint('$lib.import(name, debug=$lib.false, reqvers=$lib.null)\nImport a Storm module.',
+            self.stormIsInPrint('$lib.import(name, debug=(false), reqvers=(null))\nImport a Storm module.',
                                 msgs)
             self.stormIsInPrint('$lib.debug\nTrue if the current runtime has debugging enabled.', msgs)
             self.stormNotInPrint('Examples', msgs)
 
             msgs = await core.stormlist('help -v $lib')
 
-            self.stormIsInPrint('$lib.import(name, debug=$lib.false, reqvers=$lib.null)\n'
-                                '======================================================\n'
+            self.stormIsInPrint('$lib.import(name, debug=(false), reqvers=(null))\n'
+                                '================================================\n'
                                 'Import a Storm module.', msgs)
 
             msgs = await core.stormlist('help $lib.macro')
@@ -4256,7 +4292,7 @@ class StormTest(s_t_utils.SynTest):
                                 'Regex flag to indicate that multiline matches are allowed.', msgs)
 
             msgs = await core.stormlist('help $lib.inet.http.get')
-            self.stormIsInPrint('$lib.inet.http.get(url, headers=$lib.null', msgs)
+            self.stormIsInPrint('$lib.inet.http.get(url, headers=(null)', msgs)
             self.stormIsInPrint('Get the contents of a given URL.', msgs)
 
             msgs = await core.stormlist('$str=hehe help $str.split')

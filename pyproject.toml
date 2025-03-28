@@ -4,17 +4,16 @@ build-backend = 'setuptools.build_meta'
 
 [project]
 name = 'synapse'
-version = '2.202.0'
+version = '2.204.1'
 authors = [
     { name = 'The Vertex Project LLC', email = 'root@vertex.link'},
 ]
 description = 'Synapse Intelligence Analysis Framework'
 readme = 'README.rst'
 requires-python = '>=3.11'
-license = { text = 'Apache License 2.0' }
+license = 'Apache-2.0'
 classifiers = [
     'Development Status :: 5 - Production/Stable',
-    'License :: OSI Approved :: Apache Software License',
     'Topic :: Database :: Database Engines/Servers',
     'Topic :: System :: Clustering',
     'Topic :: System :: Distributed Computing',
@@ -54,6 +53,7 @@ dependencies = [
     'python-dateutil>=2.8,<3.0',
     'pytz>=2023.3,<2024.1',
     'beautifulsoup4[html5lib]>=4.11.1,<5.0',
+    'orjson>=3.10.15,<4.0'
 ]
 
 [project.optional-dependencies]
