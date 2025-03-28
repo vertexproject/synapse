@@ -15,7 +15,6 @@ easyPermSchema = {
             'type': 'object',
             'items': {'type': 'number', 'minimum': 0, 'maximum': 3},
         },
-        'default': {'type': 'number', 'minimum': 0, 'maximum': 3}
     },
     'required': ['users', 'roles'],
 }
