@@ -1455,7 +1455,7 @@ class ModelMigration_0_2_31:
 
         # Pick up and classify all bad CPE nodes
         for idx, layer in enumerate(self.layers):
-            logger.debug(f'Classifying nodes in layer {idx} {layer.iden}')
+            logger.debug('Classifying nodes in layer %s %s', idx, layer.iden')
 
             async for buid, sode in layer.getStorNodesByForm('it:sec:cpe'):
 
@@ -1499,7 +1499,7 @@ class ModelMigration_0_2_31:
 
         # Pick up all related CPE node info. The majority of the work happens in this loop
         for idx, layer in enumerate(self.layers):
-            logger.debug(f'Processing nodes in layer {idx} {layer.iden}')
+            logger.debug('Processing nodes in layer %s %s', idx, layer.iden')
 
             for buid, node in self.nodes.items():
                 await self._loadNode(layer, buid, node=node)
@@ -1541,7 +1541,7 @@ class ModelMigration_0_2_31:
             await self.todos.clear()
 
             for idx, layer in enumerate(self.layers):
-                logger.debug(f'Processing references in layer {idx} {layer.iden}')
+                logger.debug('Processing references in layer %s %s', idx, layer.iden')
 
                 async for entry in todotmp:
                     match entry:
