@@ -304,6 +304,7 @@ class AhaTest(s_test.SynTest):
 
             async with self.getHttpSess(auth=('root', 'secret'), port=httpsport) as sess:
                 async with sess.get(svcsurl) as resp:
+                    self.eq(resp.status, 200)
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
@@ -312,6 +313,7 @@ class AhaTest(s_test.SynTest):
                             {svcinfo.get('name') for svcinfo in result})
 
                 async with sess.get(svcsurl, json={'network': 'synapse'}) as resp:
+                    self.eq(resp.status, 200)
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
@@ -320,6 +322,7 @@ class AhaTest(s_test.SynTest):
                             {svcinfo.get('name') for svcinfo in result})
 
                 async with sess.get(svcsurl, json={'network': 'newp'}) as resp:
+                    self.eq(resp.status, 200)
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
@@ -327,11 +330,13 @@ class AhaTest(s_test.SynTest):
 
                 # Sad path
                 async with sess.get(svcsurl, json={'newp': 'hehe'}) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
 
                 async with sess.get(svcsurl, json={'network': 'mynet', 'newp': 'hehe'}) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
@@ -339,6 +344,7 @@ class AhaTest(s_test.SynTest):
             # Sad path
             async with self.getHttpSess(auth=('lowuser', 'lowuser'), port=httpsport) as sess:
                 async with sess.get(svcsurl) as resp:
+                    self.eq(resp.status, 403)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'AuthDeny')
@@ -877,6 +883,7 @@ class AhaTest(s_test.SynTest):
             async with self.getHttpSess(auth=('root', 'secret'), port=httpsport) as sess:
                 # Simple request works
                 async with sess.post(url, json={'name': '00.foosvc'}) as resp:
+                    self.eq(resp.status, 200)
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
@@ -904,6 +911,7 @@ class AhaTest(s_test.SynTest):
                         }
                         }
                 async with sess.post(url, json=data) as resp:
+                    self.eq(resp.status, 200)
                     info = await resp.json()
                     self.eq(info.get('status'), 'ok')
                     result = info.get('result')
@@ -919,30 +927,37 @@ class AhaTest(s_test.SynTest):
 
                 # Sad path
                 async with sess.post(url) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
                 async with sess.post(url, json={}) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
                 async with sess.post(url, json={'name': 1234}) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
                 async with sess.post(url, json={'name': ''}) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
                 async with sess.post(url, json={'name': '00.newp', 'provinfo': 5309}) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
                 async with sess.post(url, json={'name': '00.newp', 'provinfo': {'dmon:port': -1}}) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'SchemaViolation')
                 async with sess.post(url, json={'name': 'doom' * 16}) as resp:
+                    self.eq(resp.status, 400)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'BadArg')
@@ -951,6 +966,7 @@ class AhaTest(s_test.SynTest):
             await aha.addUser('lowuser', passwd='lowuser')
             async with self.getHttpSess(auth=('lowuser', 'lowuser'), port=httpsport) as sess:
                 async with sess.post(url, json={'name': '00.newp'}) as resp:
+                    self.eq(resp.status, 403)
                     info = await resp.json()
                     self.eq(info.get('status'), 'err')
                     self.eq(info.get('code'), 'AuthDeny')

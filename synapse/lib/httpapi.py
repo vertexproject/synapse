@@ -1020,12 +1020,12 @@ class AuthAddUserV1(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.')
+            self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.', status_code=400)
             return
 
         authcell = self.getAuthCell()
         if await authcell.getUserDefByName(name) is not None:
-            self.sendRestErr('DupUser', f'A user named {name} already exists.')
+            self.sendRestErr('DupUser', f'A user named {name} already exists.',  status_code=400)
             return
 
         udef = await authcell.addUser(name=name)
@@ -1276,7 +1276,7 @@ class FeedV1(Handler):
 
         view = self.cell.getView(body.get('view'), user)
         if view is None:
-            return self.sendRestErr('NoSuchView', 'The specified view does not exist.', status_code=400)
+            return self.sendRestErr('NoSuchView', 'The specified view does not exist.', status_code=404)
 
         wlyr = view.layers[0]
         perm = ('feed:data', *name.split('.'))
@@ -1298,7 +1298,7 @@ class FeedV1(Handler):
             return self.sendRestRetn(None)
 
         except Exception as e:  # pragma: no cover
-            return self.sendRestExc(e)
+            return self.sendRestExc(e, status_code=400)
 
 class CoreInfoV1(Handler):
     '''
