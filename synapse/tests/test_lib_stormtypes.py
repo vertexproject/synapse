@@ -4386,8 +4386,8 @@ class StormTypesTest(s_test.SynTest):
             forkopts = {'view': forkview}
             await core.nodes('trigger.add tag:add --view $view --tag neato.* --query {[ +#awesome ]}', opts={'vars': forkopts})
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
-            self.stormNotInPrint(mainview, mesgs)
-            self.stormIsInPrint(forkview, mesgs)
+            self.stormNotInPrint(mainview[:8], mesgs)
+            self.stormIsInPrint(forkview[:8], mesgs)
 
             trigs = await core.callStorm('return($lib.trigger.list())', opts=forkopts)
             othr = trigs[0].get('iden')
@@ -5137,11 +5137,11 @@ class StormTypesTest(s_test.SynTest):
                     mesgs = await asbond.storm(f'cron.mod {guid[:6]} --storm {{#foo}}').list()
                     self.stormIsInPrint('Modified cron job', mesgs)
 
-                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --creator $lib.user.iden').list()
-                    self.stormIsInErr('must have permission cron.set.creator', mesgs)
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --user $lib.user.iden').list()
+                    self.stormIsInErr('must have permission cron.set.user', mesgs)
 
-                    await prox.addUserRule(bond.iden, (True, ('cron', 'set', 'creator')))
-                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --creator $lib.user.iden').list()
+                    await prox.addUserRule(bond.iden, (True, ('cron', 'set', 'user')))
+                    mesgs = await asbond.storm(f'cron.mod {guid[:6]} --user $lib.user.iden').list()
                     self.stormIsInPrint('Modified cron job', mesgs)
 
                     await prox.addUserRule(bond.iden, (True, ('cron', 'del')), gateiden=guid)
