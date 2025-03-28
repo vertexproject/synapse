@@ -175,6 +175,15 @@ class Type:
             return virt[0].getVirtType(virts[1:])
         return virt[0]
 
+    def getVirtGetr(self, virts):
+        name = virts[0]
+        if (virt := self.virts.get(name)) is None:
+            raise s_exc.NoSuchVirt.init(name, self)
+
+        if len(virts) > 1:
+            return (virs[1],) + virt[0].getVirtGetr(virts[1:])
+        return (virt[1],)
+
     def getRuntPode(self):
 
         ctor = '.'.join([self.__class__.__module__, self.__class__.__qualname__])
