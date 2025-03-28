@@ -115,9 +115,6 @@ class HandlerBase:
     def check_origin(self, origin):
         return self.isOrigHost(origin)
 
-    def getJsonBody(self, validator=None):
-        return self.loadJsonMesg(self.request.body, validator=validator)
-
     def sendRestErr(self, code: str, mesg: str, *, status_code: int | None =None) -> None:
         '''
         Sent a JSON REST error message with a code and message.
@@ -128,8 +125,8 @@ class HandlerBase:
             status_code: The HTTP status code. This is optional.
 
         Notes:
-            This does not set the HTTP status code by default. The default code of 200 will be
-            used unless``self.set_status()`` is called prior to this or status_code argument is provided.
+            If the status code is not provided or set prior to calling this API, the response
+            will have an HTTP status code of 200.
 
             This does write the response stream. No further content should be written
             in the response after calling this.
@@ -148,8 +145,8 @@ class HandlerBase:
             status_code: The HTTP status code. This is optional.
 
         Notes:
-            This does not set the HTTP status code by default. The default code of 200 will be
-            used unless``self.set_status()`` is called prior to this or status_code argument is provided.
+            If the status code is not provided or set prior to calling this API, the response
+            will have an HTTP status code of 200.
 
             This does write the response stream. No further content should be written
             in the response after calling this.
@@ -169,8 +166,8 @@ class HandlerBase:
             status_code: The HTTP status code. This is optional.
 
         Notes:
-            This does not set the HTTP status code by default. The default code of 200 will be
-            used unless``self.set_status()`` is called prior to this or status_code argument is provided.
+            If the status code is not provided or set prior to calling this API, the response
+            will have an HTTP status code of 200.
 
             This does write the response stream. No further content should be written
             in the response after calling this.
@@ -179,6 +176,9 @@ class HandlerBase:
             self.set_status(status_code)
         self.set_header('Content-Type', 'application/json')
         return self.write({'status': 'ok', 'result': valu})
+
+    def getJsonBody(self, validator=None):
+        return self.loadJsonMesg(self.request.body, validator=validator)
 
     def loadJsonMesg(self, byts, validator=None):
         try:
