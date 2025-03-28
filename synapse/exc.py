@@ -3,10 +3,14 @@ Exceptions used by synapse, all inheriting from SynErr
 '''
 
 class SynErr(Exception):
+    _expects_mesg = True
 
     def __init__(self, *args, **info):
         self.errinfo = info
         self.errname = self.__class__.__name__
+        if __debug__:
+            if self._expects_mesg and 'mesg' not in self.errinfo:
+                raise RuntimeError(f'{self.errname=} {self.errinfo}')
         Exception.__init__(self, self._getExcMsg())
 
     def _getExcMsg(self):
@@ -281,7 +285,9 @@ class NoSuchEdge(SynErr):
             mesg = f'No edge defined for {n1form} -({verb})> {n2form}.'
         return NoSuchEdge(mesg=mesg, n1form=n1form, verb=verb, n2form=n2form)
 
-class NoSuchAbrv(SynErr): pass
+class NoSuchAbrv(SynErr):
+    _expects_mesg = False
+
 class NoSuchAct(SynErr): pass
 class NoSuchAuthGate(SynErr): pass
 class NoSuchCmd(SynErr): pass
