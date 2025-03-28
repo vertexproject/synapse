@@ -8,6 +8,7 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 
 MAX_SPOOL_SIZE = 10000
+DEFAULT_MAPSIZE = s_const.mebibyte * 32
 
 class Spooled(s_base.Base):
     '''
@@ -48,7 +49,7 @@ class Spooled(s_base.Base):
 
         slabpath = tempfile.mkdtemp(dir=dirn, prefix='spooled_', suffix='.lmdb')
 
-        self.slab = await s_lmdbslab.Slab.anit(slabpath, map_size=s_const.mebibyte * 32)
+        self.slab = await s_lmdbslab.Slab.anit(slabpath, map_size=DEFAULT_MAPSIZE)
         if self.cell is not None:
             self.slab.addResizeCallback(self.cell.checkFreeSpace)
 
