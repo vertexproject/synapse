@@ -202,11 +202,13 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, -1)
             self.raises(s_exc.BadTypeValu, t.norm, '+()*')
 
-            nodes = await core.nodes('[tel:phone="+1 (703) 555-1212"]')
+            nodes = await core.nodes('[tel:phone="+1 (703) 555-1212" :type=fax ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:phone', '17035551212'))
             self.eq(node.get('loc'), 'us')
+            self.eq(node.get('type'), 'fax.')
+            self.len(1, await core.nodes('tel:phone:type=fax -> tel:phone:type:taxonomy'))
             # Phone # folding..
             self.len(1, await core.nodes('[tel:phone="+1 (703) 555-2424"]'))
             self.len(1, await core.nodes('tel:phone=17035552424'))
