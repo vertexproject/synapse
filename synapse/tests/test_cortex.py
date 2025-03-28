@@ -83,6 +83,12 @@ class CortexTest(s_t_utils.SynTest):
 
                 await core.nodes('[ inet:ipv4=1.2.3.4 :asn=99 .seen=now +#foo:score=10 ]')
 
+            conf = {'modules': [('NewpModule', {})]}
+            warn = '''"'modules' Cortex config value" is deprecated'''
+            with self.assertWarnsRegex(DeprecationWarning, warn) as cm:
+                async with self.getTestCore(dirn=dirn) as core:
+                    pass
+
     async def test_cortex_cellguid(self):
         iden = s_common.guid()
         conf = {'cell:guid': iden}
