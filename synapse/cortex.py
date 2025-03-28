@@ -6373,7 +6373,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             ctor, conf = ctor
 
         if not ctor.startswith('synapse.tests'):
-            s_common.deprecated("'modules' Cortex config value", curv='2.205.0')
+            s_common.deprecated("'modules' Cortex config value", curv='2.206.0')
 
         modu = self._loadCoreModule(ctor, conf=conf)
         if modu is None:
