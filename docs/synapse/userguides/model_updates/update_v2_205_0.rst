@@ -25,7 +25,7 @@ New Properties
   The form had the following property added to it:
 
   ``instrument``
-    The financial insutrument holding the balance.
+    The financial instrument holding the balance.
 
 
 ``tel:phone``
