@@ -181,7 +181,7 @@ class Type:
             raise s_exc.NoSuchVirt.init(name, self)
 
         if len(virts) > 1:
-            return (virs[1],) + virt[0].getVirtGetr(virts[1:])
+            return (virt[1],) + virt[0].getVirtGetr(virts[1:])
         return (virt[1],)
 
     def getRuntPode(self):
