@@ -35,10 +35,10 @@ modeldefs = (
                     ('updated', ('time', {}), {
                         'doc': 'The time that the {document} was last updated.'}),
 
-                    ('author', ('ps:contact', {}), {
+                    ('author', ('entity:contact', {}), {
                         'doc': 'The contact information of the primary author.'}),
 
-                    ('contributors', ('array', {'type': 'ps:contact', 'sorted': True, 'uniq': True}), {
+                    ('contributors', ('array', {'type': 'entity:contact', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of contacts which contributed to the {document}.'}),
 
                     ('version', ('it:semver', {}), {
@@ -130,7 +130,7 @@ modeldefs = (
             ('doc:resume:type:taxonomy', {}, ()),
             ('doc:resume', {}, (
 
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:individual', {}), {
                     'doc': 'Contact information for subject of the resume.'}),
 
                 ('summary', ('str', {}), {

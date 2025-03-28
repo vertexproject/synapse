@@ -83,7 +83,7 @@ modeldefs = (
                 ('propdue', ('time', {}), {
                     'doc': 'The date/time that proposals are due.',
                 }),
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:actor', {}), {
                     'doc': 'The contact information given for the org requesting offers.',
                 }),
                 ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
@@ -114,26 +114,27 @@ modeldefs = (
                 ('rfp', ('biz:rfp', {}), {
                     'doc': 'The RFP that the deal is in response to.',
                 }),
-                ('buyer', ('ps:contact', {}), {
+                ('buyer', ('entity:actor', {}), {
                     'doc': 'The primary contact information for the buyer.',
                 }),
+                # FIXME remove orgname / orgfqdn
                 ('buyer:org', ('ou:org', {}), {
                     'doc': 'The buyer org.',
                 }),
-                ('buyer:orgname', ('ou:name', {}), {
-                    'doc': 'The reported ou:name of the buyer org.',
+                ('buyer:orgname', ('entity:name', {}), {
+                    'doc': 'The reported name of the buyer org.',
                 }),
                 ('buyer:orgfqdn', ('inet:fqdn', {}), {
                     'doc': 'The reported inet:fqdn of the buyer org.',
                 }),
-                ('seller', ('ps:contact', {}), {
+                ('seller', ('entity:actor', {}), {
                     'doc': 'The primary contact information for the seller.',
                 }),
                 ('seller:org', ('ou:org', {}), {
                     'doc': 'The seller org.',
                 }),
-                ('seller:orgname', ('ou:name', {}), {
-                    'doc': 'The reported ou:name of the seller org.',
+                ('seller:orgname', ('entity:name', {}), {
+                    'doc': 'The reported name of the seller org.',
                 }),
                 ('seller:orgfqdn', ('inet:fqdn', {}), {
                     'doc': 'The reported inet:fqdn of the seller org.',
@@ -173,7 +174,7 @@ modeldefs = (
             )),
             ('biz:listing', {}, (
 
-                ('seller', ('ps:contact', {}), {
+                ('seller', ('entity:actor', {}), {
                     'doc': 'The contact information for the seller.'}),
 
                 ('product', ('biz:product', {}), {
@@ -204,7 +205,7 @@ modeldefs = (
                     'doc': 'The current remaining number of instances for sale.'}),
             )),
             ('biz:service', {}, (
-                ('provider', ('ps:contact', {}), {
+                ('provider', ('entity:actor', {}), {
                     'doc': 'The contact info of the entity which performs the service.'}),
                 ('name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of the service being performed.'}),
@@ -219,25 +220,26 @@ modeldefs = (
             )),
             ('biz:product', {}, (
                 ('name', ('str', {}), {
-                    'doc': 'The name of the product.',
-                }),
+                    'doc': 'The name of the product.'}),
+
                 ('type', ('biz:product:type:taxonomy', {}), {
-                    'doc': 'The type of product.',
-                }),
+                    'doc': 'The type of product.'}),
+
                 # TODO ('upc', ('biz:upc', {}), {}),
                 ('summary', ('str', {}), {
                     'doc': 'A brief summary of the product.',
-                    'disp': {'hint': 'text'},
-                }),
-                ('maker', ('ps:contact', {}), {
-                    'doc': 'A contact for the maker of the product.',
-                }),
+                    'disp': {'hint': 'text'}}),
+
+                # FIXME: manufactur?
+                ('maker', ('entity:actor', {}), {
+                    'doc': 'A contact for the maker of the product.'}),
+
                 ('price:retail', ('econ:price', {}), {
-                    'doc': 'The MSRP price of the product.',
-                }),
+                    'doc': 'The MSRP price of the product.'}),
+
                 ('price:bottom', ('econ:price', {}), {
-                    'doc': 'The minimum offered or observed price of the product.',
-                }),
+                    'doc': 'The minimum offered or observed price of the product.'}),
+
                 ('price:currency', ('econ:currency', {}), {
                     'doc': 'The currency of the retail and bottom price properties.',
                 }),
@@ -250,38 +252,39 @@ modeldefs = (
                     'doc': 'The ou:vitals snapshot this stake is part of.',
                 }),
                 ('org', ('ou:org', {}), {
-                    'doc': 'The resolved org.',
-                }),
-                ('orgname', ('ou:name', {}), {
-                    'doc': 'The org name as reported by the source of the vitals.',
-                }),
-                ('orgfqdn', ('inet:fqdn', {}), {
-                    'doc': 'The org FQDN as reported by the source of the vitals.',
-                }),
+                    'doc': 'The resolved org.'}),
+
+                ('org:name', ('entity:name', {}), {
+                    'prevnames': ('orgname',),
+                    'doc': 'The org name as reported by the source of the stake.'}),
+
+                ('org:fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The org FQDN as reported by the source of the stake.'}),
+
                 ('name', ('str', {}), {
-                    'doc': 'An arbitrary name for this stake. Can be non-contact like "pool".',
-                }),
+                    'doc': 'An arbitrary name for this stake. Can be non-contact like "pool".'}),
+
+                # FIXME asof -> updated ( in general? )
                 ('asof', ('time', {}), {
-                    'doc': 'The time the stake is being measured. Likely as part of an ou:vitals.',
-                }),
+                    'doc': 'The time the stake is being measured.'}),
+
                 ('shares', ('int', {}), {
-                    'doc': 'The number of shares represented by the stake.',
-                }),
+                    'doc': 'The number of shares represented by the stake.'}),
+
                 ('invested', ('econ:price', {}), {
-                    'doc': 'The amount of money invested in the cap table iteration.',
-                }),
+                    'doc': 'The amount of money invested in the cap table iteration.'}),
+
                 ('value', ('econ:price', {}), {
-                    'doc': 'The monetary value of the stake.',
-                }),
+                    'doc': 'The monetary value of the stake.'}),
+
                 ('percent', ('hugenum', {}), {
-                    'doc': 'The percentage ownership represented by this stake.',
-                }),
-                ('owner', ('ps:contact', {}), {
-                    'doc': 'Contact information of the owner of the stake.',
-                }),
+                    'doc': 'The percentage ownership represented by this stake.'}),
+
+                ('owner', ('entity:actor', {}), {
+                    'doc': 'Contact information of the owner of the stake.'}),
+
                 ('purchase', ('econ:purchase', {}), {
-                    'doc': 'The purchase event for the stake.',
-                }),
+                    'doc': 'The purchase event for the stake.'}),
             )),
         ),
     }),

@@ -59,6 +59,8 @@ modeldefs = (
                 'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
 
             ('risk:threat', ('guid', {}), {
+                'interfaces': ('entity:abstract',),
+                'templates': {'contactable': 'threat'},
                 'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
                 'display': {
                     'columns': (
@@ -265,9 +267,8 @@ modeldefs = (
 
             ('risk:threat', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'ex': "apt1 (mandiant)",
-                    'doc': 'A brief descriptive name for the threat cluster.'}),
+                ('id', ('str', {'strip': True}), {
+                    'doc': 'A reporter specific identifier for the threat.'}),
 
                 ('type', ('risk:threat:type:taxonomy', {}), {
                     'doc': 'A type for the threat, as a taxonomy entry.'}),
@@ -287,7 +288,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the threat cluster.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the threat cluster.'}),
 
                 ('reporter:discovered', ('time', {}), {
@@ -295,20 +296,6 @@ modeldefs = (
 
                 ('reporter:published', ('time', {}), {
                     'doc': 'The time that the reporting organization first publicly disclosed the threat cluster.'}),
-
-                ('org', ('ou:org', {}), {
-                    'doc': 'The authoritative organization for the threat cluster.'}),
-
-                ('org:loc', ('loc', {}), {
-                    'doc': "The reporting organization's assessed location of the threat cluster."}),
-
-                ('org:name', ('ou:name', {}), {
-                    'alts': ('org:names',),
-                    'ex': 'apt1',
-                    'doc': "The reporting organization's name for the threat cluster."}),
-
-                ('org:names', ('array', {'type': 'ou:name', 'sorted': True, 'uniq': True}), {
-                    'doc': 'An array of alternate names for the threat cluster, according to the reporting organization.'}),
 
                 ('country', ('pol:country', {}), {
                     'doc': "The reporting organization's assessed country of origin of the threat cluster."}),
@@ -331,8 +318,6 @@ modeldefs = (
                 ('mitre:attack:group', ('it:mitre:attack:group', {}), {
                     'doc': 'A mapping to a MITRE ATT&CK group if applicable.'}),
 
-                ('ext:id', ('str', {'strip': True}), {
-                    'doc': 'An external identifier for the threat.'}),
             )),
             ('risk:availability', {}, {}),
             ('risk:tool:software:type:taxonomy', {
@@ -362,7 +347,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the tool.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the tool.'}),
 
                 ('reporter:discovered', ('time', {}), {
@@ -407,7 +392,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the mitigation.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the mitigation.'}),
 
                 ('mitre:attack:mitigation', ('it:mitre:attack:mitigation', {}), {
@@ -444,7 +429,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the vulnerability.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the vulnerability.'}),
 
                 ('mitigated', ('bool', {}), {
@@ -597,7 +582,7 @@ modeldefs = (
                 ('assignee', ('syn:user', {}), {
                     'doc': 'The Synapse user who is assigned to investigate the alert.'}),
 
-                ('ext:assignee', ('ps:contact', {}), {
+                ('ext:assignee', ('entity:contact', {}), {
                     'doc': 'The alert assignee contact information from an external system.'}),
 
                 ('engine', ('it:prod:softver', {}), {
@@ -644,7 +629,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the compromise.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the compromise.'}),
 
                 ('ext:id', ('str', {}), {
@@ -660,10 +645,10 @@ modeldefs = (
                 ('vector', ('risk:attack', {}), {
                     'doc': 'The attack assessed to be the initial compromise vector.'}),
 
-                ('target', ('ps:contact', {}), {
+                ('target', ('entity:actor', {}), {
                     'doc': 'Contact information representing the target.'}),
 
-                ('attacker', ('ps:contact', {}), {
+                ('attacker', ('entity:actor', {}), {
                     'doc': 'Contact information representing the attacker.'}),
 
                 ('campaign', ('ou:campaign', {}), {
@@ -717,7 +702,7 @@ modeldefs = (
                 ('goals', ('array', {'type': 'ou:goal', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of assessed attacker goals for the compromise.'}),
 
-                # -(stole)> file:bytes ps:contact file:bytes
+                # -(stole)> file:bytes entity:actor file:bytes
                 # -(compromised)> geo:place it:account it:host
             )),
             ('risk:attack:type:taxonomy', {
@@ -735,7 +720,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the attack.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the attack.'}),
 
                 ('time', ('time', {}), {
@@ -768,7 +753,7 @@ modeldefs = (
                 ('prev', ('risk:attack', {}), {
                     'doc': 'The previous/parent attack in a list or hierarchy.'}),
 
-                ('attacker', ('ps:contact', {}), {
+                ('attacker', ('entity:actor', {}), {
                     'doc': 'Contact information representing the attacker.'}),
 
                 ('url', ('inet:url', {}), {
@@ -792,19 +777,19 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the leak event.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the leak event.'}),
 
                 ('disclosed', ('time', {}), {
                     'doc': 'The time the leaked information was disclosed.'}),
 
-                ('owner', ('ps:contact', {}), {
+                ('owner', ('entity:actor', {}), {
                     'doc': 'The owner of the leaked information.'}),
 
-                ('leaker', ('ps:contact', {}), {
+                ('leaker', ('entity:actor', {}), {
                     'doc': 'The identity which leaked the information.'}),
 
-                ('recipient', ('ps:contact', {}), {
+                ('recipient', ('entity:actor', {}), {
                     'doc': 'The identity which received the leaked information.'}),
 
                 ('type', ('risk:leak:type:taxonomy', {}), {
@@ -860,13 +845,13 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which experienced the outage event.'}),
 
-                ('provider:name', ('ou:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which experienced the outage event.'}),
 
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the outage event.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the outage event.'}),
             )),
 
@@ -885,7 +870,7 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the extortion event.'}),
 
-                ('reporter:name', ('ou:name', {}), {
+                ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the extortion event.'}),
 
                 ('demanded', ('time', {}), {
@@ -900,10 +885,10 @@ modeldefs = (
                 ('type', ('risk:extortion:type:taxonomy', {}), {
                     'doc': 'A type taxonomy for the extortion event.'}),
 
-                ('attacker', ('ps:contact', {}), {
+                ('attacker', ('entity:actor', {}), {
                     'doc': 'The extortion attacker identity.'}),
 
-                ('target', ('ps:contact', {}), {
+                ('target', ('entity:actor', {}), {
                     'doc': 'The extortion target identity.'}),
 
                 ('success', ('bool', {}), {

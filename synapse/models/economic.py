@@ -109,7 +109,7 @@ modeldefs = (
 
                 'props': (
 
-                    ('contact', ('ps:contact', {}), {
+                    ('contact', ('entity:actor', {}), {
                         'doc': 'The primary contact for the {instrument}.'}),
                 ),
             }),
@@ -146,7 +146,7 @@ modeldefs = (
                 ('pan:iin', ('econ:pay:iin', {}), {
                     'doc': 'The payment card IIN.'}),
 
-                ('name', ('ps:name', {}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The name as it appears on the card.'}),
 
                 ('expr', ('time', {}), {
@@ -164,10 +164,10 @@ modeldefs = (
 
             ('econ:purchase', {}, (
 
-                ('by:contact', ('ps:contact', {}), {
+                ('by:contact', ('entity:actor', {}), {
                     'doc': 'The contact information used to make the purchase.'}),
 
-                ('from:contact', ('ps:contact', {}), {
+                ('from:contact', ('entity:actor', {}), {
                     'doc': 'The contact information used to sell the item.'}),
 
                 ('time', ('time', {}), {
@@ -233,13 +233,13 @@ modeldefs = (
                 ('from:contract', ('ou:contract', {}), {
                     'doc': 'A contract used as an aggregate payment source.'}),
 
-                ('from:contact', ('ps:contact', {}), {
+                ('from:contact', ('entity:actor', {}), {
                     'doc': 'Contact information for the entity making the payment.'}),
 
                 ('to:cash', ('bool', {}), {
                     'doc': 'Set to true if the payment output was in cash.'}),
 
-                ('to:contact', ('ps:contact', {}), {
+                ('to:contact', ('entity:actor', {}), {
                     'doc': 'Contact information for the person/org being paid.'}),
 
                 ('to:contract', ('ou:contract', {}), {
@@ -376,13 +376,13 @@ modeldefs = (
                 ('issued', ('time', {}), {
                     'doc': 'The time that the invoice was issued to the recipient.'}),
 
-                ('issuer', ('ps:contact', {}), {
+                ('issuer', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity who issued the invoice.'}),
 
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the invoice is requesting payment for.'}),
 
-                ('recipient', ('ps:contact', {}), {
+                ('recipient', ('entity:actor', {}), {
                     'doc': 'The contact information for the intended recipient of the invoice.'}),
 
                 ('due', ('time', {}), {
@@ -406,10 +406,10 @@ modeldefs = (
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'The purchase that the receipt confirms payment for.'}),
 
-                ('issuer', ('ps:contact', {}), {
+                ('issuer', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity who issued the receipt.'}),
 
-                ('recipient', ('ps:contact', {}), {
+                ('recipient', ('entity:actor', {}), {
                     'doc': 'The contact information for the entity who received the receipt.'}),
 
                 ('currency', ('econ:currency', {}), {
@@ -424,7 +424,7 @@ modeldefs = (
                 ('bank', ('ou:org', {}), {
                     'doc': 'The bank which was issued the ABA RTN.'}),
 
-                ('bank:name', ('ou:name', {}), {
+                ('bank:name', ('entity:name', {}), {
                     'doc': 'The name which is registered for this ABA RTN.'}),
 
             )),
@@ -436,7 +436,8 @@ modeldefs = (
                 ('business', ('ou:org', {}), {
                     'doc': 'The business which is the registered owner of the SWIFT BIC.'}),
 
-                ('office', ('ps:contact', {}), {
+                # FIXME ou:office?
+                ('office', ('entity:actor', {}), {
                     'doc': 'The branch or office which is specified in the last 3 digits of the SWIFT BIC.'}),
             )),
 
@@ -458,7 +459,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The bank which issued the account.'}),
 
-                ('issuer:name', ('ou:name', {}), {
+                ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the bank which issued the account.'}),
 
                 ('currency', ('econ:currency', {}), {
