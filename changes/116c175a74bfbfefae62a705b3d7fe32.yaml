@@ -1,0 +1,5 @@
+---
+desc: Added missing permission declarations for light edges and queues.
+prs: []
+type: bug
+...
