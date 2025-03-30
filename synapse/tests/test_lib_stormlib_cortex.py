@@ -1,3 +1,4 @@
+import http
 import unittest.mock as mock
 
 import synapse.exc as s_exc
@@ -106,38 +107,38 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:  # type: aiohttp.ClientSession
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('method'), 'get')
 
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 201)
+                self.eq(resp.status, http.HTTPStatus.CREATED)
                 data = await resp.json()
                 self.eq(data.get('method'), 'post')
 
                 resp = await sess.put(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 202)
+                self.eq(resp.status, http.HTTPStatus.ACCEPTED)
                 data = await resp.json()
                 self.eq(data.get('method'), 'put')
 
                 resp = await sess.patch(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 203)
+                self.eq(resp.status, http.HTTPStatus.NON_AUTHORITATIVE_INFORMATION)
                 data = await resp.json()
                 self.eq(data.get('method'), 'patch')
 
                 resp = await sess.options(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 204)
+                self.eq(resp.status, http.HTTPStatus.NO_CONTENT)
                 self.eq(resp.headers.get('Secret-Header'), 'Options')
                 # HTTP 204 code has no response content per rfc9110
                 self.eq(await resp.read(), b'')
 
                 resp = await sess.delete(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 205)
+                self.eq(resp.status, http.HTTPStatus.RESET_CONTENT)
                 data = await resp.json()
                 self.eq(data.get('method'), 'delete')
 
                 resp = await sess.head(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 206)
+                self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                 self.eq(resp.headers.get('Secret-Header'), 'Head')
                 self.eq(resp.headers.get('Content-Length'), '13')
                 # HEAD had no body in its response
@@ -174,7 +175,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.post = $lib.undef'
                 await core.callStorm(q, opts={'vars': {'iden': testpath00}})
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 405)
+                self.eq(resp.status, http.HTTPStatus.METHOD_NOT_ALLOWED)
                 self.eq(resp.headers.get('Allowed'), 'GET, PUT, PATCH, OPTIONS, DELETE, HEAD')
                 data = await resp.json()
                 self.eq(data.get('mesg'), f'Extended HTTP API {testpath00} has no method for POST. Supports GET, PUT, PATCH, OPTIONS, DELETE, HEAD.')
@@ -184,13 +185,13 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 q = '$api = $lib.cortex.httpapi.get($iden) $api.methods.head = $lib.undef'
                 await core.callStorm(q, opts={'vars': {'iden': testpath00}})
                 resp = await sess.head(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 405)
+                self.eq(resp.status, http.HTTPStatus.METHOD_NOT_ALLOWED)
                 self.eq(resp.headers.get('Allowed'), 'GET, PUT, PATCH, OPTIONS, DELETE')
                 self.eq(await resp.read(), b'')
 
                 # No methods returns a 405 and nothing allowed
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/nomeths')
-                self.eq(resp.status, 405)
+                self.eq(resp.status, http.HTTPStatus.METHOD_NOT_ALLOWED)
                 self.eq(resp.headers.get('Allowed'), '')
                 data = await resp.json()
                 self.eq(data.get('mesg'), f'Extended HTTP API {nomeths} has no method for GET.')
@@ -209,7 +210,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 return ( $api.iden )'''
                 testpath01 = await core.callStorm(q)
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath01')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('hehe'), 'haha')
 
@@ -218,7 +219,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.stormHasNoWarnErr(msgs)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath01')
-                self.eq(resp.status, 404)
+                self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 data = await resp.json()
                 self.eq(data.get('code'), 'NoSuchPath')
                 self.eq(data.get('mesg'), 'No Extended HTTP API endpoint matches testpath01')
@@ -238,7 +239,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     resp = await sess.post(f'https://localhost:{hport}/api/ext/testreply',
                                            json={'data': valu}
                                            )
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, http.HTTPStatus.OK)
                     data = await resp.json()
                     self.eq(data, valu)
 
@@ -273,7 +274,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 resp = await sess.get(url, headers=(('hehe', 'haha'), ('apikey', 'secret'), ('hehe', 'badjoke')),
                                       json={'look': 'at this!'},
                                       )
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('args'), ['sup', ''])
                 self.eq(data.get('echo'), True)
@@ -290,7 +291,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 resp = await sess.get(url, headers=(('hehe', 'haha'), ('apikey', 'secret'), ('hehe', 'badjoke')),
                                       data=b'hehe',
                                       )
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('args'), ['words', 'wOw'])
                 self.eq(data.get('json'), 'err')
@@ -300,7 +301,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 core.stormlog = True
                 with self.getStructuredAsyncLoggerStream('synapse.storm', 'Executing storm query') as stream:
                     resp = await sess.get(url)
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, http.HTTPStatus.OK)
                     self.true(await stream.wait(timeout=12))
                 msgs = stream.jsonlines()
                 self.eq(msgs[0].get('httpapi'), echoiden)
@@ -313,7 +314,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 testpath02 = await core.callStorm(q)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath02')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'BadArg')
                 self.eq(data.get('mesg'), 'HTTP Response headers must be a dictionary, got str.')
@@ -324,7 +325,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 testpath03 = await core.callStorm(q)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath03')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'BadArg')
                 self.eq(data.get('mesg'), 'HTTP Response body must be bytes, got str.')
@@ -337,7 +338,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 emsg = f'Error executing custom HTTP API {test04}: BadArg Response.reply() has already been called.'
                 with self.getAsyncLoggerStream('synapse.lib.httpapi', emsg) as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath04')
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, http.HTTPStatus.OK)
                     self.eq(await resp.json(), {'hehe': 'yes!'})
 
     async def test_libcortex_httpapi_runas_owner(self):
@@ -360,7 +361,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:  # type: aiohttp.ClientSession
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
 
@@ -371,7 +372,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(name, 'lowuser')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'lowuser')
 
@@ -383,13 +384,13 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.eq(name, 'user')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
 
             async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:  # type: aiohttp.ClientSession
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath00')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'lowuser')
 
@@ -566,7 +567,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
                 # The paths are matched in case sensitive manner. The current regex fails to match.
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/OhMy1234')
-                self.eq(resp.status, 404)
+                self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
 
                 q = "$api=$lib.cortex.httpapi.get($iden) $api.path='hehe/([A-Za-z0-9]*)' "
                 await core.callStorm(q, opts={'vars': {'iden': iden0}})
@@ -714,14 +715,14 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
                 self.eq(data.get('user'), root)
 
             async with self.getHttpSess() as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
-                self.eq(resp.status, 401)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 data = await resp.json()
                 self.eq(data.get('code'), 'NotAuthenticated')
 
@@ -730,7 +731,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.stormHasNoWarnErr(msgs)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
                 self.eq(data.get('user'), '')
@@ -741,7 +742,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.stormHasNoWarnErr(msgs)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
                 self.eq(data.get('user'), '')
@@ -750,7 +751,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             # indicates who the requester's user iden is.
             async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
                 self.eq(data.get('user'), '')
@@ -760,7 +761,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.stormHasNoWarnErr(msgs)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'lowuser')
                 self.eq(data.get('user'), lowuser)
@@ -770,7 +771,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 self.stormHasNoWarnErr(msgs)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/auth')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('username'), 'root')
                 self.eq(data.get('user'), lowuser)
@@ -800,7 +801,7 @@ $request.reply(200, headers=$headers, body=$body)
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/raw')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(resp.headers.get('Content-Type'), 'application/json')
                 self.eq(resp.headers.get('Content-Length'), '11')
                 self.eq(resp.headers.get('Secret-Header'), 'OhBoy!')
@@ -833,7 +834,7 @@ for $i in $values {
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/jsonlines')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(resp.headers.get('Content-Type'), 'text/plain; charset=utf8')
 
                 msgs = []
@@ -901,19 +902,19 @@ for $i in $values {
 
             async with self.getHttpSess(auth=('lowuser', 'secret'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
-                self.eq(resp.status, 403)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 data = await resp.json()
                 self.eq(data.get('mesg'), 'User (lowuser) must have permission foocorp.http.user')
 
                 await core.stormlist('auth.user.addrule lowuser foocorp.http.user')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/hehe/haha')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('path'), 'hehe/haha')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/weee')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data.get('path'), 'weee')
 
@@ -921,7 +922,7 @@ for $i in $values {
                 await core.stormlist('auth.user.addrule lowuser "!apiuser"')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/weee')
-                self.eq(resp.status, 403)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 data = await resp.json()
                 self.eq(data.get('mesg'), 'User (lowuser) is denied the permission apiuser')
 
@@ -1048,7 +1049,7 @@ for $i in $values {
                                          opts={'vars': {'http_iden': iden}})
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'NoSuchView')
 
@@ -1101,7 +1102,7 @@ for $i in $values {
                                       headers=(('secret-KEY', 'myluggagecombination'), ('aaa', 'zzz'), ('aaa', 'wtaf')),
                                       params=(('hehe', 'haha'), ('wow', 'words'), ('hehe', 'badjoke'), ('HeHe', ':)'))
                                       )
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
 
                 # Params are flattened and case-sensitive upon access
@@ -1114,13 +1115,13 @@ for $i in $values {
                 self.eq(data.get('secret-key'), 'myluggagecombination')
 
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'StormRuntimeError')
                 self.eq(data.get('mesg'), 'http:api:request:headers may not be modified by the runtime.')
 
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath', headers={'dictmethod': '1'})
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'StormRuntimeError')
                 self.eq(data.get('mesg'), 'http:api:request:headers may not be modified by the runtime.')
@@ -1171,7 +1172,7 @@ for $i in $values {
                 msgs = await core.stormlist(q, opts={'vars': {'iden': iden}})
                 self.stormHasNoWarnErr(msgs)
                 resp = await sess.post(f'https://localhost:{hport}/api/ext/testpath', )
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'NoSuchVar')
                 self.eq(data.get('mesg'), 'Missing variable: sup')
@@ -1218,7 +1219,7 @@ for $i in $values {
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath?asn=0')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data, 0)
 
@@ -1227,7 +1228,7 @@ for $i in $values {
                 self.stormHasNoWarnErr(msgs)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath?asn=1')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'IsReadOnly')
 
@@ -1237,7 +1238,7 @@ for $i in $values {
                 self.stormHasNoWarnErr(msgs)
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/testpath?asn=0')
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 data = await resp.json()
                 self.eq(data, 0)
 
@@ -1301,20 +1302,20 @@ for $i in $values {
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/bad00')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'StormRuntimeError')
                 self.eq(data.get('mesg'), f'Extended HTTP API {iden00} never set status code.')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/bad01')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.notin('oh', resp.headers)
                 self.eq(data.get('code'), 'StormRuntimeError')
                 self.eq(data.get('mesg'), f'Extended HTTP API {iden01} never set status code.')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/bad02')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.notin('oh', resp.headers)
                 self.eq(data.get('code'), 'StormRuntimeError')
@@ -1325,18 +1326,18 @@ for $i in $values {
 
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad03')
                     self.true(await stream.wait(timeout=6))
-                    self.eq(resp.status, 201)
+                    self.eq(resp.status, http.HTTPStatus.CREATED)
                     self.eq(await resp.read(), b'text')
 
                 with self.getAsyncLoggerStream('synapse.lib.httpapi',
                                                f'Extended HTTP API {iden04} tried to set headers after sending body.') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad04')
                     self.true(await stream.wait(timeout=6))
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, http.HTTPStatus.OK)
                     self.eq(await resp.read(), b'text')
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/bad05')
-                self.eq(resp.status, 500)
+                self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                 data = await resp.json()
                 self.eq(data.get('code'), 'BadTypeValu')
                 self.eq(data.get('mesg'), "invalid literal for int() with base 0: 'notAnInt'")
@@ -1345,14 +1346,14 @@ for $i in $values {
                                                f'Error executing Extended HTTP API {iden06}: BadTypeValu') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad06')
                     self.true(await stream.wait(timeout=6))
-                    self.eq(resp.status, 201)
+                    self.eq(resp.status, http.HTTPStatus.CREATED)
                     self.eq(await resp.json(), {})
 
                 with self.getAsyncLoggerStream('synapse.lib.httpapi',
                                                f'Error executing Extended HTTP API {iden07}: StormRuntimeError') as stream:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/bad07')
                     self.true(await stream.wait(timeout=6))
-                    self.eq(resp.status, 500)
+                    self.eq(resp.status, http.HTTPStatus.INTERNAL_SERVER_ERROR)
                     data = await resp.json()
                     self.eq(data.get('code'), 'StormRuntimeError')
                     self.isin('Failed to decode request body as JSON', data.get('mesg'))
@@ -1395,20 +1396,20 @@ for $i in $values {
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/dyn00')  # type: aiohttp.ClientResponse
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(resp.url.path, '/api/ext/redir01')
                 self.len(3, resp.history)
                 data = await resp.json()
                 self.eq(data, {'end': 'youMadeIt', 'melt': False})
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/dyn00')  # type: aiohttp.ClientResponse
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 self.len(3, resp.history)
                 data = await resp.json()
                 self.eq(data, {'end': 'youMadeIt', 'melt': True})
 
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/dyn00')  # type: aiohttp.ClientResponse
-                self.eq(resp.status, 404)
+                self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 data = await resp.json()
                 self.eq(data.get('code'), 'NoSuchPath')
 
@@ -1429,7 +1430,7 @@ for $i in $values {
 
             async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
-                self.eq(resp.status, 200)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(resp.headers.get('Weee'), 'valu')
                 self.eq(resp.headers.get('Key1'), 'Valu1')
                 # general default synapse headers are not present
@@ -1463,7 +1464,7 @@ for $i in $values {
             with mock.patch('synapse.cortex.Cortex.storm', new=storm) as patch:
                 async with self.getHttpSess(auth=('root', 'root'), port=hport) as sess:
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, http.HTTPStatus.OK)
                     self.false(data['opts'].get('mirror'))
                     data.clear()
 
@@ -1472,7 +1473,7 @@ for $i in $values {
                     self.true(adef.get('pool'))
 
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, http.HTTPStatus.OK)
                     self.true(data['opts'].get('mirror'))
                     data.clear()
 
@@ -1481,6 +1482,6 @@ for $i in $values {
                     self.false(adef.get('pool'))
 
                     resp = await sess.get(f'https://localhost:{hport}/api/ext/stuff')  # type: aiohttp.ClientResponse
-                    self.eq(resp.status, 200)
+                    self.eq(resp.status, http.HTTPStatus.OK)
                     self.false(data['opts'].get('mirror'))
                     data.clear()

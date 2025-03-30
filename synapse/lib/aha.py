@@ -81,7 +81,7 @@ class AhaProvisionServiceV1(s_httpapi.Handler):
             raise
         except Exception as e:
             logger.exception(f'Error provisioning {name}')
-            return self.sendRestExc(e, status_code=400)
+            return self.sendRestExc(e, status_code=s_httpapi.HTTPStatus.BAD_REQUEST)
         return self.sendRestRetn({'url': url})
 
 _getAhaSvcSchema = {
