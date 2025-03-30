@@ -1,6 +1,6 @@
 ---
 desc: Updated the ``aha.svc.mirror`` command to print the individual service version
-  alongside the synapse version.
+  alongside the Synapse version.
 prs: []
 type: feat
 ...
