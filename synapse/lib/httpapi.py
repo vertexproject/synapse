@@ -127,7 +127,7 @@ class HandlerBase:
 
         Notes:
             If the status code is not provided or set prior to calling this API, the response
-            will have an HTTP status code of 200.
+            will have an HTTP status code of 200 (OK).
 
             This does write the response stream. No further content should be written
             in the response after calling this.
