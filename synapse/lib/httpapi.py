@@ -117,7 +117,7 @@ class HandlerBase:
 
     def sendRestErr(self, code: str, mesg: str, *, status_code: int | None =None) -> None:
         '''
-        Sent a JSON REST error message with a code and message.
+        Send a JSON REST error message with a code and message.
 
         Args:
             code: The error code.
@@ -138,7 +138,7 @@ class HandlerBase:
 
     def sendRestExc(self, e: Exception, *, status_code: int | None = None) -> None:
         '''
-        Sent a JSON REST error message based on the exception.
+        Send a JSON REST error message based on the exception.
 
         Args:
             e: The exception to send. The exception class name will be used as the error code.
@@ -159,7 +159,7 @@ class HandlerBase:
 
     def sendRestRetn(self, valu, *, status_code: int | None = None) -> None:
         '''
-        Sent a successful JSON REST response.
+        Send a successful JSON REST response.
 
         Args:
             valu: The JSON compatible value to send.
