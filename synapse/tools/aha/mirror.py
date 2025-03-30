@@ -59,7 +59,7 @@ def build_status_list(members, cell_infos):
     return group_status
 
 def output_status(outp, vname, group_status):
-    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<10}'.format(
+    header = ' {:<40} {:<10} {:<8} {:<7} {:<16} {:<9} {:<12} {:<12} {:<10}'.format(
         'name', 'role', 'online', 'ready', 'host', 'port', 'version', 'synapse', 'nexus idx')
     outp.printf(header)
     outp.printf('#' * 120)
