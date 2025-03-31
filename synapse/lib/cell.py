@@ -1720,10 +1720,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if isinstance(path, str):
             path = (path,)
         vers, item = await self.getDriveData(iden)
-        step = item
-        for p in path[:-1]:
-            step = step[p]
-        step[path[-1]] = valu
+        if item is None:
+            mesg = f'No drive item with ID {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        try:
+            step = item
+            for p in path[:-1]:
+                step = step[p]
+            step[path[-1]] = valu
+        except (KeyError, IndexError):
+            raise s_exc.BadArg(mesg=f'Invalid path {path}')
+
         return await self.drive.setItemData(iden, vers, item)
 
     @s_nexus.Pusher.onPushAuto('drive:set:path')

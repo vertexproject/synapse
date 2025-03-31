@@ -160,6 +160,20 @@ testDataSchema_v1 = {
         'size': {'type': 'number'},
         'stuff': {'type': ['number', 'null'], 'default': None},
         'woot': {'type': 'string'},
+        'blorp': {
+            'type': 'object',
+            'properties': {
+                'bleep': {
+                    'type': 'array',
+                    'items': {
+                        'type': 'object',
+                        'properties': {
+                            'neato': {'type': 'string'}
+                        }
+                    }
+                }
+            }
+        }
     },
     'required': ['type', 'size', 'woot'],
     'additionalProperties': False,
@@ -283,6 +297,15 @@ class CellTest(s_t_utils.SynTest):
                 await cell.setDriveItemProp(iden, 'stuff', 3829)
                 data = await cell.getDriveData(iden)
                 self.eq(data[1]['stuff'], 3829)
+
+                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, ('blorp', 0, 'neato'), 'my special string'))
+                data[1]['blorp'] = {
+                    'bleep': [{'neato': 'thing'}]
+                }
+                info, versinfo = await cell.setDriveData(iden, versinfo, data[1])
+                await cell.setDriveItemProp(iden, ('blorp', 'bleep', 0, 'neato'), 'my special string')
+                data = await cell.getDriveData(iden)
+                self.eq('my special string', data[1]['blorp']['bleep'][0]['neato'])
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
                 self.eq('woot', data.get('woot'))
