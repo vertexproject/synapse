@@ -436,6 +436,10 @@ class Migrator(s_base.Base):
         authkv = self.cellslab.getSafeKeyVal('auth')
         userkv = authkv.getSubKeyVal('user:info:')
 
+        permmigrs = (
+            (('cron', 'set', 'creator'), ('cron', 'set', 'user')),
+        )
+
         for iden, info in userkv.items():
             update = False
             if not isinstance(info.get('onepass'), (None, dict)):
@@ -448,7 +452,63 @@ class Migrator(s_base.Base):
                 update = True
                 info.pop('passwd')
 
-            userkv.set(iden, info)
+            rules = []
+            for allow, path in info.get('rules', ()):
+                for oldperm, newperm in permmigrs:
+                    if path[:3] == oldperm:
+                        update = True
+                        rules.append((allow, newperm + path[3:]))
+                        continue
+                    rules.append((allow, path))
+
+            info['rules'] = rules
+
+            if update:
+                userkv.set(iden, info)
+
+        rolekv = authkv.getSubKeyVal('role:info:')
+
+        for iden, info in rolekv.items():
+            update = False
+            rules = []
+            for allow, path in info.get('rules', ()):
+                for oldperm, newperm in permmigrs:
+                    if path[:3] == oldperm:
+                        update = True
+                        rules.append((allow, newperm + path[3:]))
+                        continue
+                    rules.append((allow, path))
+
+            info['rules'] = rules
+
+            if update:
+                rolekv.set(iden, info)
+
+        for viewiden in self.viewdefs.keys():
+            trigdict = self.core.cortexdata.getSubKeyVal(f'view:{viewiden}:trigger:')
+            for trigiden, tdef in trigdict.items():
+                if tdef.get('creator') is None:
+                    tdef['creator'] = tdef['user']
+                    trigdict.set(trigiden, tdef)
+
+        defview = self.cellinfo.get('defaultview')
+        apptdefs = self.cortexdata.getSubKeyVal('agenda:appt:')
+        for apptiden, info in apptdefs.items():
+            info['user'] = info.get('creator')
+
+            if info.get('view') is not None:
+                apptdefs.set(apptiden, info)
+                continue
+
+            if (userinfo := userkv.get(info['user'])) is None:
+                logger.warning(f'cron job ({apptiden}) has no user or view set and will be removed!')
+                apptdefs.delete(apptiden)
+                continue
+
+            profilekv = authkv.getSubKeyVal(f'user:{userinfo["iden"]}:profile:')
+            info['view'] = profilekv.get('cortex:view', defview)
+
+            apptdefs.set(apptiden, info)
 
         logger.info(f'Completed cell migration, removed deprecated confdefs: {remconfs}')
         await self._migrlogAdd('cell', 'prog', 'none', s_common.now())
