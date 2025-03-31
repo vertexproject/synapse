@@ -1296,6 +1296,11 @@ class ItModule(s_module.CoreModule):
                     ('net6', ('inet:net6', {}), {
                         'doc': 'The optional contiguous IPv6 address range of this network.'}),
 
+                    ('dns:resolvers', ('array', {'type': 'inet:server',
+                                                 'typeopts': {'defport': 53, 'defproto': 'udp'},
+                                                 'sorted': True, 'uniq': True}), {
+                        'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
+
                 )),
                 ('it:account', {}, (
                     ('user', ('inet:user', {}), {
