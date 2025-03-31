@@ -450,6 +450,8 @@ class Drive(s_base.Base):
 
         if vers is None:
             info = self._getItemInfo(bidn)
+            if info is None:
+                return None
             vers = info.get('version')
 
         versindx = getVersIndx(vers)

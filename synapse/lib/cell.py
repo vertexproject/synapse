@@ -1719,10 +1719,12 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setDriveItemProp(self, iden, path, valu):
         if isinstance(path, str):
             path = (path,)
-        vers, item = await self.getDriveData(iden)
-        if item is None:
+        data = await self.getDriveData(iden)
+        if data is None:
             mesg = f'No drive item with ID {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
+
+        vers, item = data
 
         try:
             step = item

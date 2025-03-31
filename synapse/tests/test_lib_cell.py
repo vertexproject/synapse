@@ -298,6 +298,8 @@ class CellTest(s_t_utils.SynTest):
                 data = await cell.getDriveData(iden)
                 self.eq(data[1]['stuff'], 3829)
 
+                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), ('lolnope',), 'not real'))
+
                 await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, ('blorp', 0, 'neato'), 'my special string'))
                 data[1]['blorp'] = {
                     'bleep': [{'neato': 'thing'}]
