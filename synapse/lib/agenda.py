@@ -270,7 +270,7 @@ class _Appt:
         'lastfinishtime',
     }
 
-    def __init__(self, stor, iden, recur, indx, storm, creator, recs, nexttime=None, view=None, created=None, pool=False, loglevel=None):
+    def __init__(self, stor, iden, recur, indx, storm, creator, user, recs, nexttime=None, view=None, created=None, pool=False, loglevel=None):
         self.doc = ''
         self.name = ''
         self.task = None
@@ -280,7 +280,8 @@ class _Appt:
         self.recur = recur  # does this appointment repeat
         self.indx = indx  # incremented for each appt added ever.  Used for nexttime tiebreaking for stable ordering
         self.storm = storm  # query to run
-        self.creator = creator  # user iden to run query as
+        self.user = user  # user iden to run query as
+        self.creator = creator  # user iden which created the appt
         self.recs = recs  # List[ApptRec]  list of the individual entries to calculate next time from
         self._recidxnexttime = None  # index of rec who is up next
         self.view = view
@@ -326,6 +327,7 @@ class _Appt:
             'view': self.view,
             'indx': self.indx,
             'storm': self.storm,
+            'user': self.user,
             'creator': self.creator,
             'created': self.created,
             'recs': [d.pack() for d in self.recs],
@@ -346,7 +348,7 @@ class _Appt:
         recs = [ApptRec.unpack(tupl) for tupl in val['recs']]
         # TODO: MOAR INSANITY
         loglevel = val.get('loglevel', 'WARNING')
-        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['storm'], val['creator'], recs,
+        appt = cls(stor, val['iden'], val['recur'], val['indx'], val['storm'], val['creator'], val['user'], recs,
                    nexttime=val['nexttime'], view=val.get('view'), loglevel=loglevel)
         appt.doc = val.get('doc', '')
         appt.name = val.get('name', '')
@@ -512,7 +514,10 @@ class Agenda(s_base.Base):
             The cron definition may contain the following keys:
 
                 creator (str)
-                    Iden of the creating user.
+                    Iden of the user which created the appointment.
+
+                user (str)
+                    Iden of the user used to run the Storm query.
 
                 iden (str)
                     Iden of the appointment.
@@ -543,6 +548,7 @@ class Agenda(s_base.Base):
         reqs = cdef.get('reqs', {})
         storm = cdef.get('storm')
         creator = cdef.get('creator')
+        user = cdef.get('user')
         view = cdef.get('view')
         created = cdef.get('created')
         loglevel = cdef.get('loglevel', 'WARNING')
@@ -562,8 +568,8 @@ class Agenda(s_base.Base):
 
         await self.core.getStormQuery(storm)
 
-        if not creator:
-            raise ValueError('"creator" key is cdef parameter is not present or empty')
+        if not user:
+            raise ValueError('"user" key is cdef parameter is not present or empty')
 
         if not reqs and incunit is None:
             raise ValueError('at least one of reqs and incunit must be non-empty')
@@ -591,7 +597,7 @@ class Agenda(s_base.Base):
             recs.extend(ApptRec(rd, incunit, v) for (rd, v) in itertools.product(reqdicts, incvals))
 
         # TODO: this is insane. Make _Appt take the cdef directly...
-        appt = _Appt(self, iden, recur, indx, storm, creator, recs, nexttime=nexttime, view=view,
+        appt = _Appt(self, iden, recur, indx, storm, creator, user, recs, nexttime=nexttime, view=view,
                            created=created, pool=pool, loglevel=loglevel)
         self._addappt(iden, appt)
 
@@ -704,8 +710,8 @@ class Agenda(s_base.Base):
                     try:
                         await self._execute(appt)
                     except Exception as e:
-                        extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.creator, 'view': appt.view}
-                        user = self.core.auth.user(appt.creator)
+                        extra = {'iden': appt.iden, 'name': appt.name, 'user': appt.user, 'view': appt.view}
+                        user = self.core.auth.user(appt.user)
                         if user is not None:
                             extra['username'] = user.name
                         if isinstance(e, s_exc.SynErr):
@@ -720,17 +726,17 @@ class Agenda(s_base.Base):
         '''
         Fire off the task to make the storm query
         '''
-        user = self.core.auth.user(appt.creator)
+        user = self.core.auth.user(appt.user)
         if user is None:
-            logger.warning(f'Unknown user {appt.creator} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator}})
+            logger.warning(f'Unknown user {appt.user} in stored appointment {appt.iden} {appt.name}',
+                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.user}})
             await self._markfailed(appt, 'unknown user')
             return
 
         locked = user.info.get('locked')
         if locked:
-            logger.warning(f'Cron {appt.iden} {appt.name} failed because creator {user.name} is locked',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
+            logger.warning(f'Cron {appt.iden} {appt.name} failed because user {user.name} is locked',
+                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.user,
                                               'username': user.name}})
             await self._markfailed(appt, 'locked user')
             return
@@ -738,7 +744,7 @@ class Agenda(s_base.Base):
         view = self.core.getView(iden=appt.view, user=user)
         if view is None:
             logger.warning(f'Unknown view {appt.view} in stored appointment {appt.iden} {appt.name}',
-                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.creator,
+                           extra={'synapse': {'iden': appt.iden, 'name': appt.name, 'user': appt.user,
                                               'username': user.name, 'view': appt.view}})
             await self._markfailed(appt, 'unknown view')
             return

@@ -19,7 +19,7 @@ class TrigTest(s_t_utils.SynTest):
                 await core.callStorm('[ inet:ip=1.2.3.4 ]')
 
                 msgs = await core.stormlist('trigger.list')
-                self.stormIsInPrint('true   true   node:add  inet:ip', msgs)
+                self.stormIsInPrint('Y    Y       node:add   inet:ip', msgs)
 
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
                 nodes = await core.nodes('inet:ip=1.2.3.4')
@@ -755,6 +755,12 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(node[0].getTag('cookies'))
             self.nn(node[0].getTag('cupcake'))
             # the other two edge:del triggers cannot run because we can't get to n2 anymore
+
+            msgs = await core.stormlist('trigger.list --all')
+            self.stormIsInPrint('edge:del   * -(refs)> *', msgs)
+            self.stormIsInPrint('edge:del   test:int -(refs)> *', msgs)
+            self.stormIsInPrint('edge:del   * -(refs)> test:int', msgs)
+            self.stormIsInPrint('edge:del   test:int -(refs)> test:int', msgs)
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
             self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))

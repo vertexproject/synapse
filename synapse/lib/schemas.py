@@ -92,6 +92,7 @@ _CronJobSchema = {
     'properties': {
         'storm': {'type': 'string', 'minlen': 1},
         'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
         'created': {'type': 'integer', 'minimum': 0},
         'iden': {'type': 'string', 'pattern': s_config.re_iden},
         'view': {'type': 'string', 'pattern': s_config.re_iden},
@@ -135,7 +136,7 @@ _CronJobSchema = {
         },
     },
     'additionalProperties': False,
-    'required': ['creator', 'storm'],
+    'required': ['creator', 'storm', 'user'],
     'dependencies': {
         'incvals': ['incunit'],
         'incunit': ['incvals'],
@@ -1140,3 +1141,61 @@ _reqValidOauth2TokenResponseSchema = {
     'required': ['access_token', 'expires_in'],
 }
 reqValidOauth2TokenResponse = s_config.getJsValidator(_reqValidOauth2TokenResponseSchema)
+
+tagrestr = r'((\w+|\*|\*\*)\.)*(\w+|\*|\*\*)'  # tag with optional single or double * as segment
+_tagre, _formre, _propre = (f'^{re}$' for re in (tagrestr, s_grammar.formrestr, s_grammar.proporunivrestr))
+
+TrigSchema = {
+    'type': 'object',
+    'properties': {
+        'iden': {'type': 'string', 'pattern': s_config.re_iden},
+        'user': {'type': 'string', 'pattern': s_config.re_iden},
+        'creator': {'type': 'string', 'pattern': s_config.re_iden},
+        'view': {'type': 'string', 'pattern': s_config.re_iden},
+        'form': {'type': 'string', 'pattern': _formre},
+        'n2form': {'type': 'string', 'pattern': _formre},
+        'tag': {'type': 'string', 'pattern': _tagre},
+        'prop': {'type': 'string', 'pattern': _propre},
+        'verb': {'type': 'string', },
+        'name': {'type': 'string', },
+        'doc': {'type': 'string', },
+        'cond': {'enum': ['node:add', 'node:del', 'tag:add', 'tag:del', 'prop:set', 'edge:add', 'edge:del']},
+        'storm': {'type': 'string'},
+        'async': {'type': 'boolean'},
+        'enabled': {'type': 'boolean'},
+        'created': {'type': 'integer', 'minimum': 0},
+    },
+    'additionalProperties': True,
+    'required': ['iden', 'user', 'storm', 'enabled', 'creator'],
+    'allOf': [
+        {
+            'if': {'properties': {'cond': {'const': 'node:add'}}},
+            'then': {'required': ['form']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'node:del'}}},
+            'then': {'required': ['form']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'tag:add'}}},
+            'then': {'required': ['tag']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'tag:del'}}},
+            'then': {'required': ['tag']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'prop:set'}}},
+            'then': {'required': ['prop']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'edge:add'}}},
+            'then': {'required': ['verb']},
+        },
+        {
+            'if': {'properties': {'cond': {'const': 'edge:del'}}},
+            'then': {'required': ['verb']},
+        },
+    ],
+}
+reqValidTriggerDef = s_config.getJsValidator(TrigSchema)

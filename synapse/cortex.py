@@ -5796,7 +5796,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         cdef['created'] = s_common.now()
 
-        opts = {'user': cdef['creator'], 'view': cdef.get('view')}
+        opts = {'user': cdef['user'], 'view': cdef.get('view')}
 
         view = self._viewFromOpts(opts)
         cdef['view'] = view.iden
@@ -5814,7 +5814,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.auth.reqNoAuthGate(iden)
 
-        user = await self.auth.reqUser(cdef['creator'])
+        user = await self.auth.reqUser(cdef['user'])
 
         cdef = await self.agenda.add(cdef)
 
@@ -5849,7 +5849,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         realedits = {}
 
         for name, valu in edits.items():
-            if name == 'creator':
+            if name == 'user':
                 await self.auth.reqUser(valu)
 
             elif name == 'view':
@@ -5885,9 +5885,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = await self.agenda.get(iden)
 
         for name, valu in edits.items():
-            if name == 'creator':
+            if name == 'user':
                 await self.auth.reqUser(valu)
-                appt.creator = valu
+                appt.user = valu
 
             elif name == 'view':
                 self.reqView(valu)
@@ -5960,9 +5960,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             info = cron.pack()
 
-            user = self.auth.user(cron.creator)
+            user = self.auth.user(cron.user)
             if user is not None:
                 info['username'] = user.name
+
+            creator = self.auth.user(cron.creator)
+            if creator is not None:
+                info['creatorname'] = creator.name
 
             crons.append(info)
 

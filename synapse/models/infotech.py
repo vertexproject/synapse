@@ -978,7 +978,7 @@ modeldefs = (
             ('it:reveng:filefunc', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
                 'doc': 'An instance of a function in an executable.',
             }),
-            ('it:reveng:impfunc', ('str', {'lower': 1}), {
+            ('it:reveng:impfunc', ('str', {'lower': True}), {
                 'doc': 'A function from an imported library.',
             }),
             ('it:sec:c2:config', ('guid', {}), {

@@ -169,11 +169,11 @@ modeldefs = (
             ('tel:mob:telem', ('guid', {}), {
                 'doc': 'A single mobile telemetry measurement.'}),
 
-            ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': 1}), {
+            ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': True}), {
                 'doc': 'ITU Mobile Country Code.',
             }),
 
-            ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': 1}), {
+            ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': True}), {
                 'doc': 'ITU Mobile Network Code.',
             }),
 
@@ -233,7 +233,7 @@ modeldefs = (
                 ('recipients', ('array', {'type': 'tel:phone', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of phone numbers for additional recipients of the message.',
                 }),
-                ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': 1, 'lower': 1}), {
+                ('svctype', ('str', {'enums': 'sms,mms,rcs', 'strip': True, 'lower': True}), {
                     'doc': 'The message service type (sms, mms, rcs).',
                 }),
                 ('time', ('time', {}), {
@@ -251,13 +251,13 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org guid for the manufacturer.',
                 }),
-                ('manu', ('str', {'lower': 1}), {
+                ('manu', ('str', {'lower': True}), {
                     'doc': 'The TAC manufacturer name.',
                 }),
-                ('model', ('str', {'lower': 1}), {
+                ('model', ('str', {'lower': True}), {
                     'doc': 'The TAC model name.',
                 }),
-                ('internal', ('str', {'lower': 1}), {
+                ('internal', ('str', {'lower': True}), {
                     'doc': 'The TAC internal model name.',
                 }),
             )),
