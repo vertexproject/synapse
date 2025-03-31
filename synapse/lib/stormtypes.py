@@ -8444,7 +8444,6 @@ class Trigger(Prim):
 
         Prim.__init__(self, tdef)
         self.runt = runt
-        self.locls.update(self.getObjLocals())
 
     def __hash__(self):
         return hash((self._storm_typename, self.valu.get('iden')))
