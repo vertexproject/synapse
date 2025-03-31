@@ -430,12 +430,10 @@ class HttpApiTest(s_tests.SynTest):
                 async with sess.post(f'https://localhost:{port}/api/v1/login') as resp:
                     self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                     item = await resp.json()
-                    print(item)
                     self.eq('SchemaViolation', item.get('code'))
                 async with sess.post(f'https://localhost:{port}/api/v1/login', json=['newp',]) as resp:
                     self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                     item = await resp.json()
-                    print(item)
                     self.eq('SchemaViolation', item.get('code'))
 
             async with self.getHttpSess() as sess:
@@ -443,7 +441,7 @@ class HttpApiTest(s_tests.SynTest):
                 info = {'user': 'hehe', 'passwd': 'newp'}
                 with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
                     async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
-                        self.eq(resp.status, http.HTTPStatus.OK)
+                        self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                         item = await resp.json()
                         self.eq('AuthDeny', item.get('code'))
                         self.true(await  stream.wait(timeout=6))
@@ -453,7 +451,7 @@ class HttpApiTest(s_tests.SynTest):
                 await core.setUserLocked(visiiden, True)
                 with self.getAsyncLoggerStream('synapse.lib.httpapi', 'User is locked.') as stream:
                     async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
-                        self.eq(resp.status, http.HTTPStatus.OK)
+                        self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                         item = await resp.json()
                         self.eq('AuthDeny', item.get('code'))
                         self.true(await  stream.wait(timeout=6))
@@ -464,7 +462,7 @@ class HttpApiTest(s_tests.SynTest):
                 info = {'user': 'visi', 'passwd': 'borked'}
                 with self.getAsyncLoggerStream('synapse.lib.httpapi', 'Incorrect password.') as stream:
                     async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
-                        self.eq(resp.status, http.HTTPStatus.OK)
+                        self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                         item = await resp.json()
                         self.eq('AuthDeny', item.get('code'))
                         self.true(await stream.wait(timeout=6))
@@ -1602,6 +1600,21 @@ class HttpApiTest(s_tests.SynTest):
                 self.true(await task.waitfini(6))
                 self.len(0, core.boss.tasks)
 
+                fork = await core.callStorm('return($lib.view.get().fork().iden)')
+                lowuser = await core.auth.addUser('lowuser')
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm/nodes',
+                                    json={'query': '.created', 'opts': {'view': s_common.guid()}}) as resp:
+                    self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm',
+                                    json={'query': '.created', 'opts': {'view': s_common.guid()}}) as resp:
+                    self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
+
+                async with sess.get(f'https://localhost:{port}/api/v1/storm',
+                                    json={'query': '.created', 'opts': {'user': lowuser.iden, 'view': fork}}) as resp:
+                    self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
+
                 # check reqvalidstorm with various queries
                 tvs = (
                     ('test:str=test', {}, 'ok'),
@@ -2193,7 +2206,7 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq('NotAuthenticated', item.get('code'))
 
                 resp = await sess.post(f'{root}/api/v1/login', json={'user': 'visi', 'passwd': 'secret123'})
-                self.eq(resp.status, http.HTTPStatus.OK)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 retn = await resp.json()
                 self.eq(retn.get('status'), 'err')
                 self.eq(retn.get('code'), 'AuthDeny')

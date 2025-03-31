@@ -551,6 +551,13 @@ class StormHandler(Handler):
 
         return opts
 
+    def _handleStormErr(self, err: Exception):
+        if isinstance(err, s_exc.AuthDeny):
+            return self.sendRestExc(err, status_code=HTTPStatus.FORBIDDEN)
+        if isinstance(err, s_exc.NoSuchView):
+            return self.sendRestExc(err, status_code=HTTPStatus.NOT_FOUND)
+        return self.sendRestExc(err, status_code=HTTPStatus.BAD_REQUEST)
+
 class StormNodesV1(StormHandler):
 
     async def post(self):
@@ -586,7 +593,7 @@ class StormNodesV1(StormHandler):
                 flushed = True
         except Exception as e:
             if not flushed:
-                return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
+                return self._handleStormErr(e)
 
 class StormV1(StormHandler):
 
@@ -621,7 +628,7 @@ class StormV1(StormHandler):
                 flushed = True
         except Exception as e:
             if not flushed:
-                return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
+                return self._handleStormErr(e)
 
 class StormCallV1(StormHandler):
 
@@ -647,7 +654,7 @@ class StormCallV1(StormHandler):
         try:
             ret = await self.getCore().callStorm(query, opts=opts)
         except Exception as e:
-            return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
+            return self._handleStormErr(e)
         else:
             return self.sendRestRetn(ret)
 
@@ -681,7 +688,7 @@ class StormExportV1(StormHandler):
                 flushed = True
         except Exception as e:
             if not flushed:
-                return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
+                return self._handleStormErr(e)
 
 class ReqValidStormV1(StormHandler):
 
@@ -700,7 +707,7 @@ class ReqValidStormV1(StormHandler):
         try:
             ret = await self.cell.reqValidStorm(query, opts)
         except Exception as e:
-            return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
+            return self._handleStormErr(e)
         else:
             return self.sendRestRetn(ret)
 
