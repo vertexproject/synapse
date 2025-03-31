@@ -682,6 +682,12 @@ class HttpApiTest(s_tests.SynTest):
                     user = retn.get('result')
                     self.false(user.get('admin'))
 
+                async with sess.post(f'https://localhost:{port}/api/v1/auth/user/{s_common.guid()}', json=info) as resp:
+                    self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
+                    retn = await resp.json()
+                    self.eq('err', retn.get('status'))
+                    self.eq('NoSuchUser', retn.get('code'))
+
             # test some auth but not admin paths
             async with self.getHttpSess() as sess:
 
@@ -881,6 +887,12 @@ class HttpApiTest(s_tests.SynTest):
                     self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                     retn = await resp.json()
                     self.eq('NoSuchProp', retn.get('code'))
+
+                body = {'prop': 'test:int', 'value': 'newp'}
+                async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
+                    retn = await resp.json()
+                    self.eq('BadTypeValu', retn.get('code'))
 
                 body = {'value': '1.2.3.4'}
                 async with sess.get(f'https://localhost:{port}/api/v1/model/norm', json=body) as resp:
@@ -2076,15 +2088,18 @@ class HttpApiTest(s_tests.SynTest):
                     return
 
                 throw = bool(int(self.request.headers.get('throw', 0)))
+                code = int(self.request.headers.get('code', 200))
 
                 if throw:
                     vals = {'hehe': 'haha', 'omg': {'hehe', 'haha'}}
+                    code = None
                 else:
                     vals = {'now': s_common.now(), 'lastip': self.request.connection.context.remote_ip}
 
                 await self._web_sess.update(vals)
 
-                self.sendRestRetn({'iden': s_common.ehex(self._web_sess.iden), 'info': self._web_sess.info})
+                self.sendRestRetn({'iden': s_common.ehex(self._web_sess.iden), 'info': self._web_sess.info},
+                                  status_code=code)
                 return
 
         async with self.getTestCore() as core:
@@ -2122,6 +2137,10 @@ class HttpApiTest(s_tests.SynTest):
 
                 # No change with the bad data
                 self.eq(cell_sess.info, result.get('info'))
+
+                # Coverage for sendRestRetn status_code
+                async with sess.get(url, headers={'code': '418'}) as resp:
+                    self.eq(resp.status, http.HTTPStatus.IM_A_TEAPOT)
 
     async def test_http_locked_admin(self):
         async with self.getTestCore() as core:
