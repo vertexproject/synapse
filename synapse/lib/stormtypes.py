@@ -1644,10 +1644,17 @@ class LibBase(Lib):
 
     @stormfunc(readonly=True)
     async def _repr(self, name, valu):
-        name = await toprim(name)
+        name = await tostr(name)
         valu = await toprim(valu)
 
-        return self._reqTypeByName(name).repr(valu)
+        parts = name.strip().split('*')
+        name = parts[0]
+
+        typeitem = self._reqTypeByName(name)
+        if len(parts) > 1:
+            typeitem = typeitem.getVirtType(parts[1:])
+
+        return typeitem.repr(valu)
 
     @stormfunc(readonly=True)
     async def _exit(self, mesg=None, **kwargs):
@@ -6188,7 +6195,17 @@ class Node(Prim):
 
     @stormfunc(readonly=True)
     async def _methNodeRepr(self, name=None, defv=None):
-        return self.valu.repr(name=name, defv=defv)
+        name = await toprim(name)
+        defv = await toprim(defv)
+        virts = None
+
+        if name is not None:
+            parts = name.strip().split('*')
+            if len(parts) > 1:
+                name = parts[0] or None
+                virts = parts[1:]
+
+        return self.valu.repr(name=name, virts=virts, defv=defv)
 
     @stormfunc(readonly=True)
     async def _methNodeIden(self):
