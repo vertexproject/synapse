@@ -1137,7 +1137,7 @@ class ModelNormV1(Handler):
         try:
             valu, info = await self.cell.getPropNorm(propname, propvalu, typeopts=typeopts)
         except s_exc.NoSuchProp:
-            return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.', status_code=HTTPStatus.NOT_FOUND)
+            return self.sendRestErr('NoSuchProp', f'The property {propname} does not exist.', status_code=HTTPStatus.NOT_FOUND)
         except Exception as e:
             return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
         else:
