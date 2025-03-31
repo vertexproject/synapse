@@ -195,7 +195,7 @@ class TelcoModule(s_module.CoreModule):
 
                 # TODO - eventually break out ISO-3 country code into a sub
                 # https://en.wikipedia.org/wiki/TADIG_code
-                ('tel:mob:tadig', ('str', {'regex': '^[A-Z0-9]{5}$', 'strip': 1}), {
+                ('tel:mob:tadig', ('str', {'regex': '^[A-Z0-9]{5}$', 'strip': True}), {
                     'doc': 'A Transferred Account Data Interchange Group number issued to a GSM carrier.'}),
 
             ),
