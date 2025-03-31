@@ -338,9 +338,6 @@ def makeargparser():
     pars_mod.set_defaults(func=handleModify)
     return pars
 
-async def _main():  # pragma: no cover
-    s_common.setlogging(logger, 'DEBUG')
-    return await main(sys.argv[1:])
-
 if __name__ == '__main__':  # pragma: no cover
-    sys.exit(s_glob.sync(_main()))
+    s_logging.setup(level=logging.DEBUG)
+    asyncio.run(main(sys.argv[1:]))

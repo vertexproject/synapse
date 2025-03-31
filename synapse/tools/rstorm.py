@@ -7,6 +7,7 @@ import synapse.common as s_common
 
 import synapse.lib.output as s_output
 import synapse.lib.rstorm as s_rstorm
+import synapse.lib.logging as s_logging
 
 logger = logging.getLogger(__name__)
 
@@ -33,5 +34,5 @@ async def main(argv, outp=s_output.stdout):
             outp.printf(line, addnl=False)
 
 if __name__ == '__main__':
-    s_common.setlogging(logger)
+    s_logging.setup()
     sys.exit(asyncio.run(main(sys.argv[1:])))

@@ -53,14 +53,11 @@ class LibStormTest(s_test.SynTest):
                 self.len(1, await core.nodes('test:str=omg'))
 
                 # Check that we saw the logs
-                stream.seek(0)
-                data = stream.read()
-
-                mesg = 'Executing storm query {return( $lib.storm.eval($q) )} as [root]'
-                self.isin(mesg, data)
-
-                mesg = f'Executing storm query via $lib.storm.eval() {{{q}}} as [root]'
-                self.isin(mesg, data)
+                rows = stream.jsonlines()
+                self.eq(rows[0]['user'], core.auth.rootuser.iden)
+                self.eq(rows[0]['params']['text'], 'return( $lib.storm.eval($q) )')
+                self.eq(rows[1]['user'], core.auth.rootuser.iden)
+                self.eq(rows[1]['params']['text'], q)
 
     async def test_lib_stormlib_storm(self):
 

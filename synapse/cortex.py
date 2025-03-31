@@ -35,6 +35,7 @@ import synapse.lib.parser as s_parser
 import synapse.lib.dyndeps as s_dyndeps
 import synapse.lib.grammar as s_grammar
 import synapse.lib.httpapi as s_httpapi
+import synapse.lib.logging as s_logging
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.modules as s_modules
 import synapse.lib.schemas as s_schemas
@@ -925,7 +926,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         self._initCorePerms()
 
         # Reset the storm:log:level from the config value to an int for internal use.
-        self.conf['storm:log:level'] = s_common.normLogLevel(self.conf.get('storm:log:level'))
+        self.conf['storm:log:level'] = s_logging.normLogLevel(self.conf.get('storm:log:level'))
         self.stormlog = self.conf.get('storm:log')
         self.stormloglvl = self.conf.get('storm:log:level')
 
@@ -1014,7 +1015,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'User {useriden} ({user.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=await self.getLogExtra(user=useriden, username=user.name))
+            logger.warning(mesg, extra=self.getLogExtra(user=useriden, username=user.name))
         for roleiden in ag.gateroles.keys():
             role = self.auth.role(roleiden)
             if role is None:
@@ -1022,13 +1023,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             mesg = f'Role {roleiden} ({role.name}) has a rule on the "cortex" authgate. This authgate is not used ' \
                    f'for permission checks and will be removed in Synapse v3.0.0.'
-            logger.warning(mesg, extra=await self.getLogExtra(role=roleiden, rolename=role.name))
+            logger.warning(mesg, extra=self.getLogExtra(role=roleiden, rolename=role.name))
 
         self._initVaults()
 
     async def _storCortexHiveMigration(self):
 
-        logger.warning('migrating Cortex data out of hive')
+        logger.warning('Migrating Cortex data out of hive.')
 
         viewdefs = self.cortexdata.getSubKeyVal('view:info:')
         async with await self.hive.open(('cortex', 'views')) as viewnodes:
@@ -1124,13 +1125,14 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
                 await self._addStormMacro(mdef)
 
-            except Exception as e:
-                logger.exception(f'Macro migration error for macro: {name} (skipped).')
+            except Exception as e: # pragma: no cover
+                extra = self.getLogExtra(name=name)
+                logger.exception('Macro migration error. Skipped.', extra=extra)
 
     def getStormMacro(self, name, user=None):
 
         if not name:
-            raise s_exc.BadArg(mesg=f'Macro names must be at least 1 character long')
+            raise s_exc.BadArg(mesg='Macro names must be at least 1 character long.')
 
         if len(name) > 491:
             raise s_exc.BadArg(mesg='Macro names may only be up to 491 chars.')
@@ -1613,7 +1615,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             async def onlink(proxy, urlinfo):
                 _url = s_urlhelp.sanitizeUrl(s_telepath.zipurl(urlinfo))
-                logger.debug(f'Stormpool client connected to {_url}')
+                extra = self.getLogExtra(url=_url)
+                logger.debug(f'Stormpool client connected.', extra=extra)
 
             self.stormpool = await s_telepath.open(url, onlink=onlink)
 
@@ -1621,7 +1624,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self.onfini(self.stormpool)
 
         except Exception as e:  # pragma: no cover
-            logger.exception(f'Error starting stormpool, it will not be available: {e}')
+            extra = self.getLogExtra()
+            logger.exception('Error starting stormpool.', extra=extra)
 
     async def finiStormPool(self):
 
@@ -2179,11 +2183,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 await self.runStormDmon(iden, ddef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
-            except Exception as e:
-                logger.warning(f'initStormDmon ({iden}) failed: {e}')
+            except Exception as e: # pragma: no cover
+                extra = self.getLogExtra(iden=iden)
+                logger.warning('Failed to start Storm dmon.', extra=extra, exc_info=e)
 
     async def _initStormSvcs(self):
 
@@ -2192,11 +2194,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 await self._setStormSvc(sdef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
-            except Exception as e:
-                logger.warning(f'initStormService ({iden}) failed: {e}')
+            except Exception as e: # pragma: no cover
+                extra = self.getLogExtra(iden=iden)
+                logger.warning('Failed to initialize Storm service.', extra=extra, exc_info=e)
 
     async def _initCoreQueues(self):
         path = os.path.join(self.dirn, 'slabs', 'queues.lmdb')
@@ -2701,7 +2701,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if pkgvers is None:
             mesg = f'getStormMod: requested storm module {name}@{reqvers}' \
                     'has no version information to check.'
-            logger.warning(mesg)
+            logger.warning(mesg, extra=self.getLogExtra())
             return
 
         if isinstance(pkgvers, tuple):
@@ -2718,12 +2718,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             await self._normStormPkg(pkgdef, validstorm=False)
             self.loadStormPkg(pkgdef)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
-        except Exception as e:
+        except Exception as e: # pragma: no cover
             name = pkgdef.get('name', '')
-            logger.exception(f'Error loading pkg: {name}, {str(e)}')
+            extra = self.getLogExtra(name=name)
+            logger.exception('Error loading Storm package.', extra=extra)
 
     async def verifyStormPkgDeps(self, pkgdef):
 
@@ -2790,12 +2788,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if require['ok']:
                 continue
 
-            option = ' '
-            if require.get('optional'):
-                option = ' optional '
-
-            mesg = f'Storm package {name}{option}requirement {require.get("name")}{require.get("version")} is currently unmet.'
-            logger.debug(mesg)
+            extra = self.getLogExtra(name=name, require=require)
+            logger.debug('Storm package requirement is unmet.', extra=extra)
 
         for conflict in deps['conflicts']:
 
@@ -2874,7 +2868,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 name = cdef.get('name')
                 mesg = f"Storm command definition 'forms' key is deprecated and will be removed " \
                        f"in 3.0.0 (command {name} in package {pkgname})"
-                logger.warning(mesg, extra=await self.getLogExtra(name=name, pkgname=pkgname))
+                logger.warning(mesg, extra=self.getLogExtra(name=name, pkgname=pkgname))
 
         for gdef in pkgdef.get('graphs', ()):
             gdef['iden'] = s_common.guid((pkgname, gdef.get('name')))
@@ -2933,19 +2927,29 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if onload is not None and self.isactive:
             async def _onload():
                 try:
+
                     async for mesg in self.storm(onload):
+
                         if mesg[0] == 'print':
-                            logger.info(f'{name} onload output: {mesg[1].get("mesg")}')
-                        if mesg[0] == 'warn':
-                            logger.warning(f'{name} onload output: {mesg[1].get("mesg")}')
-                        if mesg[0] == 'err':
-                            logger.error(f'{name} onload output: {mesg[1]}')
+                            extra = self.getLogExtra(name=name, mesg=mesg[1].get('mesg'))
+                            logger.info('Storm package onload print.', extra=extra)
+
+                        elif mesg[0] == 'warn':
+                            extra = self.getLogExtra(name=name, mesg=mesg[1].get('mesg'))
+                            logger.warning('Storm package onload warning.', extra=extra)
+
+                        elif mesg[0] == 'err':
+                            extra = self.getLogExtra(name=name, mesg=mesg[1].get('mesg'))
+                            logger.error('Storm package onload error.', extra=extra)
+
                         await asyncio.sleep(0)
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-                except Exception:  # pragma: no cover
-                    logger.warning(f'onload failed for package: {name}')
+
+                except Exception as e:
+                    extra = self.getLogExtra(name=name)
+                    logger.warning('Storm package onload failure.', extra=extra, exc_info=e)
+
                 await self.fire('core:pkg:onload:complete', pkg=name)
+
             self.schedCoro(_onload())
 
     # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
@@ -3036,10 +3040,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         try:
             if self.isactive:
                 await self.runStormSvcEvent(iden, 'del')
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
-            raise
         except Exception as e:
-            logger.exception(f'service.del hook for service {iden} failed with error: {e}')
+            extra = self.getLogExtra(iden=iden)
+            logger.warning('Service delete hook failed.', extra=extra, exc_info=e)
 
         sdef = self.svcdefs.pop(iden)
 
@@ -3124,10 +3127,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         try:
             await self.runStormSvcEvent(iden, 'add')
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once py 3.8 only
-            raise
-        except Exception as e:
-            logger.exception(f'runStormSvcEvent service.add failed with error {e}')
+        except Exception as e: # pragma: no cover
+            extra = self.getLogExtra(iden=iden)
+            logger.exception('Failed to run Storm service add event.', extra=extra)
             return
 
         sdef['added'] = True
@@ -3195,7 +3197,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 ifaces = typeinfo.get('interfaces')
 
                 if ifaces and 'taxonomy' in ifaces:
-                    logger.warning(f'Migrating taxonomy interface on form {formname} to meta:taxonomy.')
+                    extra = self.getLogExtra(form=formname)
+                    logger.warning('Migrating taxonomy interface to meta:taxonomy.', extra=extra)
 
                     ifaces = set(ifaces)
                     ifaces.remove('taxonomy')
@@ -3205,7 +3208,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     await extforms.set(formname, (formname, basetype, typeopts, typeinfo))
 
             except Exception as e:  # pragma: no cover
-                logger.exception(f'Taxonomy migration error for form: {formname} (skipped).')
+                extra = self.getLogExtra(form=formname)
+                logger.warning('Taxonomy migration error (skipped).', extra=extra, exc_info=e)
 
     async def _loadExtModel(self):
 
@@ -3220,48 +3224,52 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             try:
                 self.model.addType(typename, basetype, typeopts, typeinfo)
             except Exception as e:
-                logger.warning(f'Extended type ({typename}) error: {e}')
+                extra = self.getLogExtra(type=typename)
+                logger.warning(f'Extended type definition error.', extra=extra, exc_info=e)
 
         for formname, basetype, typeopts, typeinfo in self.extforms.values():
             try:
                 self.model.addType(formname, basetype, typeopts, typeinfo)
                 form = self.model.addForm(formname, {}, ())
             except Exception as e:
-                logger.warning(f'Extended form ({formname}) error: {e}')
+                extra = self.getLogExtra(form=formname)
+                logger.warning('Extended form definition error.', extra=extra, exc_info=e)
             else:
                 if form.type.deprecated:
-                    mesg = f'The extended property {formname} is using a deprecated type {form.type.name} which will' \
-                           f' be removed in 3.0.0'
-                    logger.warning(mesg)
+                    mesg = 'Extended form is using a deprecated type which will be removed in 3.0.0.'
+                    logger.warning(mesg, extra=self.getLogExtra(form=formname, type=form.type.name))
 
         for form, prop, tdef, info in self.extprops.values():
             try:
                 prop = self.model.addFormProp(form, prop, tdef, info)
-            except Exception as e:
-                logger.warning(f'ext prop ({form}:{prop}) error: {e}')
+            except Exception as e: # pragma: no cover
+                extra = self.getLogExtra(prop=f'{form}:{prop}')
+                logger.warning('Extended property definition error.', extra=extra, exc_info=e)
             else:
                 if prop.type.deprecated:
-                    mesg = f'The extended property {prop.full} is using a deprecated type {prop.type.name} which will' \
-                           f' be removed in 3.0.0'
-                    logger.warning(mesg)
+                    mesg = 'Extended property is using a deprecated type which will be removed in 3.0.0.'
+                    logger.warning(mesg, extra=self.getLogExtra(prop=prop.full, type=prop.type.name))
 
         for prop, tdef, info in self.extunivs.values():
             try:
                 self.model.addUnivProp(prop, tdef, info)
-            except Exception as e:
-                logger.warning(f'ext univ ({prop}) error: {e}')
+            except Exception as e: # pragma: no cover
+                extra = self.getLogExtra(univ=prop)
+                logger.warning('Extended universal property definition error.', extra=extra, exc_info=e)
 
         for prop, tdef, info in self.exttagprops.values():
             try:
                 self.model.addTagProp(prop, tdef, info)
-            except Exception as e:
-                logger.warning(f'ext tag prop ({prop}) error: {e}')
+            except Exception as e: # pragma: no cover
+                extra = self.getLogExtra(prop=prop)
+                logger.warning('Tag property definition error.', extra=extra, exc_info=e)
 
         for edge, info in self.extedges.values():
             try:
                 self.model.addEdge(edge, info)
             except Exception as e:
-                logger.warning(f'ext edge ({edge}) error: {e}')
+                extra = self.getLogExtra(edge=edge)
+                logger.warning('Extended edge definition error.', extra=extra, exc_info=e)
 
     async def getExtModel(self):
         '''
@@ -3475,7 +3483,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ifaces = typeinfo.get('interfaces')
 
         if ifaces and 'taxonomy' in ifaces:
-            logger.warning(f'{formname} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
+
+            mesg = 'Form is using the deprecated taxonomy interface, updating to meta:taxonomy.'
+            logger.warning(mesg, extra=self.getLogExtra(form=formname))
 
             ifaces = set(ifaces)
             ifaces.remove('taxonomy')
@@ -3551,7 +3561,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         ifaces = typeinfo.get('interfaces')
 
         if ifaces and 'taxonomy' in ifaces:
-            logger.warning(f'{typename} is using the deprecated taxonomy interface, updating to meta:taxonomy.')
+
+            mesg = 'Type is using the deprecated taxonomy interface, updating to meta:taxonomy.'
+            logger.warning(mesg, extra=self.getLogExtra(type=typename))
 
             ifaces = set(ifaces)
             ifaces.remove('taxonomy')
@@ -3614,9 +3626,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         _prop = self.model.addFormProp(form, prop, tdef, info)
         if _prop.type.deprecated:
-            mesg = f'The extended property {_prop.full} is using a deprecated type {_prop.type.name} which will' \
-                   f' be removed in 3.0.0'
-            logger.warning(mesg)
+            mesg = 'Extended property is using a deprecated type which will be removed in 3.0.0.'
+            logger.warning(mesg, extra=self.getLogExtra(prop=_prop.full, type=_prop.type.name))
 
         full = f'{form}:{prop}'
         self.extprops.set(full, (form, prop, tdef, info))
@@ -4093,7 +4104,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             # First, catch up to what was the current offset when we started, guaranteeing order
 
-            logger.debug(f'_syncNodeEdits() running catch-up sync to offs={topoffs}')
+            logger.debug('_syncNodeEdits() running catch-up sync to offs=%s', topoffs)
 
             genrs = [genrfunc(layr, offsdict.get(layr.iden, 0), endoff=topoffs) for layr in self.layers.values()]
             async for item in s_common.merggenr(genrs, lambda x, y: x[0] < y[0]):
@@ -4231,7 +4242,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if self.jsonurl is not None:
 
             async def onlink(proxy: s_telepath.Proxy):
-                logger.debug(f'Connected to remote jsonstor {s_urlhelp.sanitizeUrl(self.jsonurl)}')
+                extra = self.getLogExtra(url=s_urlhelp.sanitizeUrl(self.jsonurl))
+                logger.debug('Connected to remote jsonstor.', extra=extra)
 
             self.jsonstor = await s_telepath.Client.anit(self.jsonurl, onlink=onlink)
         else:
@@ -4347,7 +4359,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             return
 
         async def onlink(proxy: s_telepath.Proxy):
-            logger.debug(f'Connected to remote axon {s_urlhelp.sanitizeUrl(turl)}')
+
+            extra = self.getLogExtra(url=s_urlhelp.sanitizeUrl(turl))
+            logger.debug('Connected to remote Axon.', extra=extra)
 
             async def fini():
                 self.axready.clear()
@@ -4442,8 +4456,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             else:
                 await self._trySetStormCmd(name, cdef)
 
-        for name in oldcmds:
-            logger.warning(f'Removing old command: [{name}]')
+        for name in oldcmds: # pragma: no cover
+            extra = self.getLogExtra(name=name)
+            logger.warning('Storm outdated command removed.', extra=extra)
             self.cmddefs.pop(name)
 
         for pkgdef in self.pkgdefs.values():
@@ -4452,8 +4467,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     async def _trySetStormCmd(self, name, cdef):
         try:
             self._setStormCmd(cdef)
-        except (asyncio.CancelledError, Exception):
-            logger.exception(f'Storm command load failed: {name}')
+        except Exception as e: # pragma: no cover
+            extra = self.getLogExtra(name=name)
+            logger.warning('Storm command load failed.', extra=extra, exc_info=e)
 
     def _initStormLibs(self):
         '''
@@ -4513,10 +4529,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         order = s_msgpack.un(byts)
 
         for iden in order:
+
             byts = self.slab.get(s_common.uhex(iden), self.httpextapidb)
             if byts is None:  # pragma: no cover
-                logger.error(f'Missing HTTP API definition for iden={iden}')
+                extra = self.getLogExtra(iden=iden)
+                logger.error('Missing HTTP API definition.', extra=extra)
                 continue
+
             adef = s_msgpack.un(byts)
             self._exthttpapis[adef.get('iden')] = adef
 
@@ -4642,6 +4661,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         adef = self._exthttpapis.get(iden)
         if adef is None:
             raise s_exc.NoSuchIden(mesg=f'No extended http api for {iden=}', iden=iden)
+        # TODO: any reason this (and above) uses the slower copy.deepcopy?
         return copy.deepcopy(adef)
 
     async def getHttpExtApiByPath(self, path):
@@ -5465,11 +5485,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         await queue.put(item)
                     await queue.close()
 
-                except asyncio.CancelledError:  # pragma: no cover
-                    raise
-
                 except Exception as e:
-                    logger.exception(f'pushBulkEdits fill() error: {e}')
+                    extra = self.getLogExtra(push=iden)
+                    logger.warning('Error while pushing bulk edits to remote layer.', extra=extra, exc_info=e)
                     await queue.close()
 
             base.schedCoro(fill())
@@ -5845,8 +5863,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
-                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info('Offloading Storm query to mirror.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
 
@@ -5857,8 +5875,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return await proxy.count(text, opts=mirropts)
 
                 except s_exc.TimeOut:
-                    mesg = 'Timeout waiting for query mirror, running locally instead.'
-                    logger.warning(mesg)
+                    mesg = 'Timeout waiting for query mirror. (running locally)'
+                    logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
             if not await self.waitNexsOffs(nexsoffs, timeout=opts.get('nexstimeout')):
@@ -5886,7 +5904,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         size = self.stormpool.size()
         if size == 0:
-            logger.warning('Storm query mirror pool is empty, running query locally.')
+            extra = self.getLogExtra()
+            logger.info('Storm query mirror pool is empty. Running query locally.', extra=extra)
             return None
 
         for _ in range(size):
@@ -5900,7 +5919,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return None
 
             except TimeoutError:
-                logger.warning('Timeout waiting for pool mirror proxy.')
+                extra = self.getLogExtra(timeout=timeout)
+                logger.warning('Timeout waiting for pool mirror proxy.', extra=extra)
                 continue
 
             try:
@@ -5910,18 +5930,18 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 if (delta := curoffs - miroffs) <= MAX_NEXUS_DELTA:
                     return proxy
 
-                mesg = f'Pool mirror [{proxyname}] is too far out of sync. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs))
+                extra = self.getLogExtra(delta=delta, mirror=proxyname, mirror_offset=miroffs)
+                logger.warning('Pool mirror is too far out of sync. Skipping.', extra=extra)
 
             except s_exc.IsFini:
-                mesg = f'Proxy for pool mirror [{proxyname}] was shutdown. Skipping.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                extra = self.getLogExtra(mirror=proxyname)
+                logger.warning('Proxy for pool mirror was shutdown. Skipping.', extra=extra)
 
             except TimeoutError:
-                mesg = f'Timeout waiting for pool mirror [{proxyname}] Nexus offset.'
-                logger.warning(mesg, extra=await self.getLogExtra(mirror=proxyname))
+                extra = self.getLogExtra(mirror=proxyname)
+                logger.warning('Timeout waiting for pool mirror Nexus offset. Skipping.', extra=extra)
 
-        logger.warning('Pool members exhausted. Running query locally.', extra=await self.getLogExtra())
+        logger.warning('Pool members exhausted. Running query locally.', extra=self.getLogExtra())
         return None
 
     async def storm(self, text, opts=None):
@@ -5933,8 +5953,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
-                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info('Offloading Storm query to mirror.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
 
@@ -5947,7 +5967,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return
 
                 except s_exc.TimeOut:
-                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    mesg = 'Timeout waiting for query mirror. (running locally)'
                     logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
@@ -5967,8 +5987,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
-                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info('Offloading Storm query to mirror.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
 
@@ -5978,7 +5998,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 try:
                     return await proxy.callStorm(text, opts=mirropts)
                 except s_exc.TimeOut:
-                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    mesg = 'Timeout waiting for query mirror. (running locally)'
                     logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
@@ -5996,8 +6016,8 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             if proxy is not None:
                 proxname = proxy._ahainfo.get('name')
-                extra = await self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
-                logger.info(f'Offloading Storm query to mirror {proxname}.', extra=extra)
+                extra = self.getLogExtra(mirror=proxname, hash=s_storm.queryhash(text))
+                logger.info('Offloading Storm query to mirror.', extra=extra)
 
                 mirropts = await self._getMirrorOpts(opts)
 
@@ -6010,7 +6030,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                     return
 
                 except s_exc.TimeOut:
-                    mesg = 'Timeout waiting for query mirror, running locally instead.'
+                    mesg = 'Timeout waiting for query mirror. (running locally)'
                     logger.warning(mesg, extra=extra)
 
         if (nexsoffs := opts.get('nexsoffs')) is not None:
@@ -6176,19 +6196,20 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.getStormQuery(text, mode=mode)
         return True
 
-    def _logStormQuery(self, text, user, info=None):
+    def _logStormQuery(self, text, user, extra=None):
         '''
         Log a storm query.
         '''
         if self.stormlog:
-            if info is None:
-                info = {}
-            info['text'] = text
-            info['username'] = user.name
-            info['user'] = user.iden
-            info['hash'] = s_storm.queryhash(text)
-            stormlogger.log(self.stormloglvl, 'Executing storm query {%s} as [%s]', text, user.name,
-                            extra={'synapse': info})
+
+            if extra is None:
+                extra = {}
+
+            extra['text'] = text
+            extra['hash'] = s_storm.queryhash(text)
+
+            extra = self.getLogExtra(**extra)
+            stormlogger.log(self.stormloglvl, 'Executing storm query as [%s]', user.name, extra=extra)
 
     async def getNodeByNdef(self, ndef, view=None):
         '''
@@ -6639,7 +6660,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         '''
         await self.agenda.enable(iden)
         await self.feedBeholder('cron:enable', {'iden': iden}, gates=[iden])
-        logger.info(f'Enabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+
+        appt = await self.agenda.get(iden)
+        logger.info('Enabled cron job.', extra=appt.getLogExtra())
 
     @s_nexus.Pusher.onPushAuto('cron:disable')
     async def disableCronJob(self, iden):
@@ -6652,7 +6675,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         await self.agenda.disable(iden)
         await self._killCronTask(iden)
         await self.feedBeholder('cron:disable', {'iden': iden}, gates=[iden])
-        logger.info(f'Disabled cron job {iden}', extra=await self.getLogExtra(iden=iden, status='MODIFY'))
+
+        appt = await self.agenda.get(iden)
+        logger.info('Disabled cron job.', extra=appt.getLogExtra())
 
     async def killCronTask(self, iden):
         if self.agenda.appts.get(iden) is None:
@@ -7529,7 +7554,7 @@ async def getTempCortex(mods=None):
         Proxy to the cortex.
     '''
     with s_common.getTempDir() as dirn:
-        logger.debug(f'Creating temporary cortex as {dirn}')
+        logger.debug('Creating temporary cortex as %s', dirn)
         conf = {
             'health:sysctl:checks': False,
         }

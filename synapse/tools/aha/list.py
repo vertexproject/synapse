@@ -8,6 +8,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
+import synapse.lib.logging as s_logging
 import synapse.lib.version as s_version
 
 logger = logging.getLogger(__name__)
@@ -78,12 +79,11 @@ async def main(argv, outp=None):  # pragma: no cover
         outp.printf('usage: python -m synapse.tools.aha.list <url> [network name]')
         return 1
 
-    s_common.setlogging(logger, 'WARNING')
-
     async with s_telepath.withTeleEnv():
         await _main(argv, outp)
 
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
+    s_logging.setup()
     sys.exit(asyncio.run(main(sys.argv[1:])))

@@ -71,15 +71,15 @@ class CoreModTest(s_t_utils.SynTest):
     async def test_load_failures(self):
         async with self.getTestCore() as core:  # type: s_cortex.Cortex
             with self.setTstEnvars(SYN_TEST_MOD_FAIL_PRE=1) as cm:
-                with self.getAsyncLoggerStream('synapse.cortex', 'preCoreModuleFail') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     self.none(await core.loadCoreModule(foo_ctor))
-                    self.true(await stream.wait(1))
+                    await stream.expect('preCoreModuleFail')
                     self.none(core.getCoreMod(foo_ctor))
 
             with self.setTstEnvars(SYN_TEST_MOD_FAIL_INIT=1) as cm:
-                with self.getAsyncLoggerStream('synapse.cortex', 'initCoreModuleFail') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     self.none(await core.loadCoreModule(foo_ctor))
-                    self.true(await stream.wait(1))
+                    await stream.expect('initCoreModuleFail')
                     self.none(core.getCoreMod(foo_ctor))
 
         with self.getTestDir(mirror='testcore') as dirn:
@@ -89,13 +89,13 @@ class CoreModTest(s_t_utils.SynTest):
             conf = s_common.yamlload(dirn, 'cell.yaml')
 
             with self.setTstEnvars(SYN_TEST_MOD_FAIL_PRE=1) as cm:
-                with self.getAsyncLoggerStream('synapse.cortex', 'preCoreModuleFail') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     async with await s_cortex.Cortex.anit(dirn) as core:
-                        self.true(await stream.wait(1))
+                        await stream.expect('preCoreModuleFail')
                         self.none(core.getCoreMod(foo_ctor))
 
             with self.setTstEnvars(SYN_TEST_MOD_FAIL_INIT=1) as cm:
-                with self.getAsyncLoggerStream('synapse.cortex', 'initCoreModuleFail') as stream:
+                with self.getLoggerStream('synapse.cortex') as stream:
                     async with await s_cortex.Cortex.anit(dirn) as core:
-                        self.true(await stream.wait(1))
+                        await stream.expect('initCoreModuleFail')
                         self.none(core.getCoreMod(foo_ctor))

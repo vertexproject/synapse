@@ -10,6 +10,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
+import synapse.lib.logging as s_logging
 
 
 logger = logging.getLogger(__name__)
@@ -75,12 +76,11 @@ async def main(argv, outp=None):  # pragma: no cover
     if outp is None:
         outp = s_output.stdout
 
-    s_common.setlogging(logger, 'WARNING')
-
     async with s_telepath.withTeleEnv():
         await _main(argv, outp)
 
     return 0
 
 if __name__ == '__main__':  # pragma: no cover
+    s_logging.setup()
     sys.exit(asyncio.run(main(sys.argv[1:])))

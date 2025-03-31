@@ -157,12 +157,12 @@ class DataModelTest(s_t_utils.SynTest):
 
         modl.addIface('depr:iface', {'deprecated': True})
 
-        with self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+        with self.getLoggerStream('synapse.datamodel') as stream:
             modl.addType('foo:bar', 'int', {}, {'interfaces': ('depr:iface',)})
             modl.addForm('foo:bar', {}, ())
 
-        dstream.seek(0)
-        self.isin('Form foo:bar depends on deprecated interface depr:iface', dstream.read())
+        stream.seek(0)
+        self.isin('Form foo:bar depends on deprecated interface depr:iface', stream.read())
 
     async def test_datamodel_del_prop(self):
 
@@ -226,8 +226,9 @@ class DataModelTest(s_t_utils.SynTest):
 
         with self.getTestDir() as dirn:
 
-            with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
-                    self.getAsyncLoggerStream('synapse.datamodel') as dstream:
+            with self.getLoggerStream('synapse.lib.types') as tstream, \
+                    self.getLoggerStream('synapse.datamodel') as dstream:
+
                 core = await s_cortex.Cortex.anit(dirn, conf)
 
             dstream.seek(0)
@@ -245,28 +246,31 @@ class DataModelTest(s_t_utils.SynTest):
 
             # Comp type warning is logged by the server, not sent back to users
             mesg = 'type test:dep:comp field str uses a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.lib.types', mesg) as tstream:
+            with self.getLoggerStream('synapse.lib.types') as tstream:
                 _ = await core.stormlist('[test:dep:easy=test2 :comp=(1, two)]')
-                self.true(await tstream.wait(6))
+                await tstream.expect(mesg)
 
             msgs = await core.stormlist('[test:str=tehe .pdep=beep]')
             self.stormIsInWarn('property test:str.pdep is deprecated', msgs)
 
             # Extended props, custom universals and tagprops can all trigger deprecation notices
             mesg = 'tag property depr is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
+            with self.getLoggerStream('synapse.datamodel') as dstream:
                 await core.addTagProp('depr', ('test:dep:easy', {}), {})
-                self.true(await dstream.wait(6))
+                await dstream.expect(mesg)
 
             mesg = 'universal property ._test is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.datamodel', mesg) as dstream:
+            with self.getLoggerStream('synapse.datamodel') as dstream:
                 await core.addUnivProp('_test', ('test:dep:easy', {}), {})
-                self.true(await dstream.wait(6))
+                await dstream.expect(mesg)
 
-            mesg = 'extended property test:str:_depr is using a deprecated type test:dep:easy'
-            with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 await core.addFormProp('test:str', '_depr', ('test:dep:easy', {}), {})
-                self.true(await cstream.wait(6))
+
+            logs = stream.jsonlines()
+            self.eq(logs[0]['message'], 'Extended property is using a deprecated type which will be removed in 3.0.0.')
+            self.eq(logs[0]['params']['prop'], 'test:str:_depr')
+            self.eq(logs[0]['params']['type'], 'test:dep:easy')
 
             # Deprecated ctor information propagates upward to types and forms
             msgs = await core.stormlist('[test:dep:str=" test" :beep=" boop "]')
@@ -277,9 +281,13 @@ class DataModelTest(s_t_utils.SynTest):
 
             # Restarting the cortex warns again for various items that it loads from the hive
             # with deprecated types in them. This is a coverage test for extended properties.
-            with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
+            with self.getLoggerStream('synapse.cortex') as stream:
                 async with await s_cortex.Cortex.anit(dirn, conf) as core:
-                    self.true(await cstream.wait(6))
+                    pass
+                logs = stream.jsonlines()
+                self.eq(logs[0]['message'], 'Extended property is using a deprecated type which will be removed in 3.0.0.')
+                self.eq(logs[0]['params']['prop'], 'test:str:_depr')
+                self.eq(logs[0]['params']['type'], 'test:dep:easy')
 
     async def test_datamodel_getmodeldefs(self):
         '''

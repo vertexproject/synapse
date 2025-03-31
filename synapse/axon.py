@@ -895,14 +895,15 @@ class Axon(s_cell.Cell):
         health.update('axon', 'nominal', '', data=await self.metrics())
 
     async def _migrateAxonMetrics(self):
-        logger.warning('migrating Axon metrics data out of hive')
+        extra = self.getLogExtra()
+        logger.warning('Migrating Axon metrics data out of hive.', extra=extra)
 
         async with await self.hive.open(('axon', 'metrics')) as hivenode:
             axonmetrics = await hivenode.dict()
             self.axonmetrics.set('size:bytes', axonmetrics.get('size:bytes', 0))
             self.axonmetrics.set('file:count', axonmetrics.get('file:count', 0))
 
-        logger.warning('...Axon metrics migration complete!')
+        logger.warning('...Axon metrics migration complete!', extra=extra)
 
     async def _initBlobStor(self):
 
@@ -925,7 +926,8 @@ class Axon(s_cell.Cell):
 
     async def _setStorVers01(self):
 
-        logger.warning('Updating Axon storage version (adding offset index). This may take a while.')
+        extra = self.getLogExtra()
+        logger.warning('Updating Axon storage version (adding offset index). This may take a while.', extra=extra)
 
         offs = 0
         cursha = b''
@@ -1067,7 +1069,7 @@ class Axon(s_cell.Cell):
         fsize = await self._reqHas(sha256)
 
         fhash = s_common.ehex(sha256)
-        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+        logger.debug('axon.get()', extra=self.getLogExtra(sha256=fhash))
 
         if offs is not None or size is not None:
 
@@ -1203,7 +1205,7 @@ class Axon(s_cell.Cell):
         await self._reqHas(sha256)
 
         fhash = s_common.ehex(sha256)
-        logger.debug(f'Getting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+        logger.debug('axon.hashset()', extra=self.getLogExtra(sha256=fhash))
 
         hashset = s_hashset.HashSet()
 
@@ -1251,7 +1253,7 @@ class Axon(s_cell.Cell):
                 return int.from_bytes(byts, 'big')
 
             fhash = s_common.ehex(sha256)
-            logger.debug(f'Saving blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+            logger.debug('axon.save()', extra=self.getLogExtra(sha256=fhash))
 
             size = await self._saveFileGenr(sha256, genr, size)
 
@@ -1378,7 +1380,7 @@ class Axon(s_cell.Cell):
                 return False
 
             fhash = s_common.ehex(sha256)
-            logger.debug(f'Deleting blob [{fhash}].', extra=await self.getLogExtra(sha256=fhash))
+            logger.debug('axon.del()', extra=self.getLogExtra(sha256=fhash))
 
             size = int.from_bytes(byts, 'big')
             self.axonmetrics.inc('file:count', valu=-1)
@@ -1447,7 +1449,7 @@ class Axon(s_cell.Cell):
             todo = s_common.todo(_spawn_readlines, sock00, errors=errors)
             async with await s_base.Base.anit() as scope:
 
-                scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
+                scope.schedCoro(s_coro.spawn(todo, logconf=self.getLogConf()))
                 feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
@@ -1481,7 +1483,7 @@ class Axon(s_cell.Cell):
             todo = s_common.todo(_spawn_readrows, sock00, dialect, fmtparams, errors=errors)
             async with await s_base.Base.anit() as scope:
 
-                scope.schedCoro(s_coro.spawn(todo, log_conf=await self._getSpawnLogConf()))
+                scope.schedCoro(s_coro.spawn(todo, logconf=self.getLogConf()))
                 feedtask = scope.schedCoro(self._sha256ToLink(sha256, link00))
 
                 while not self.isfini:
@@ -1503,7 +1505,9 @@ class Axon(s_cell.Cell):
                 await feedtask
 
     async def jsonlines(self, sha256, errors='ignore'):
+
         async for line in self.readlines(sha256, errors=errors):
+
             line = line.strip()
             if not line:
                 continue
@@ -1511,9 +1515,10 @@ class Axon(s_cell.Cell):
             try:
                 yield s_json.loads(line)
             except s_exc.BadJsonText as e:
-                logger.exception(f'Bad json line encountered for {sha256}')
-                raise s_exc.BadJsonText(mesg=f'Bad json line encountered while processing {sha256}, ({e})',
-                                        sha256=sha256) from None
+                extra = self.getLogExtra(line=line, sha256=sha256, err=str(e))
+                logger.warning('Bad JSON line encountered.', extra=extra)
+                mesg = f'Bad JSON line while processing {sha256}: {e}'
+                raise s_exc.BadJsonText(mesg=mesg, sha256=sha256) from None
 
     async def unpack(self, sha256, fmt, offs=0):
         '''
@@ -1664,7 +1669,8 @@ class Axon(s_cell.Cell):
                     return info
 
             except Exception as e:
-                logger.exception(f'Error POSTing files to [{s_urlhelp.sanitizeUrl(url)}]')
+                extra = self.getLogExtra(url=s_urlhelp.sanitizeUrl(url))
+                logger.exception('Axon file HTTP POST request failed.', extra=extra)
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
                 if errmsg:
@@ -1711,7 +1717,8 @@ class Axon(s_cell.Cell):
                     return info
 
             except Exception as e:
-                logger.exception(f'Error streaming [{sha256}] to [{s_urlhelp.sanitizeUrl(url)}]')
+                extra = self.getLogExtra(sha256=sha256, url=s_urlhelp.sanitizeUrl(url))
+                logger.exception('Axon file HTTP PUT request failed.', extra=extra)
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
                 if errmsg:
@@ -1814,7 +1821,8 @@ class Axon(s_cell.Cell):
         Returns:
             dict: An information dictionary containing the results of the request.
         '''
-        logger.debug(f'Wget called for [{url}].', extra=await self.getLogExtra(url=s_urlhelp.sanitizeUrl(url)))
+        extra = self.getLogExtra(url=s_urlhelp.sanitizeUrl(url))
+        logger.debug('axon.wget()', extra=extra)
 
         ssl = self.getCachedSslCtx(opts=ssl_opts, verify=ssl)
 
@@ -1848,7 +1856,8 @@ class Axon(s_cell.Cell):
                 raise
 
             except Exception as e:
-                logger.exception(f'Failed to wget {s_urlhelp.sanitizeUrl(url)}')
+                extra = self.getLogExtra(url=s_urlhelp.sanitizeUrl(url))
+                logger.exception('Axon failed to retrieve URL.', extra=extra)
                 err = s_common.err(e)
                 errmsg = err[1].get('mesg')
                 if errmsg:

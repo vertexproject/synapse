@@ -225,13 +225,12 @@ class StormlibModelTest(s_test.SynTest):
                 with self.raises(s_exc.IsDeprLocked):
                     await core.nodes('[ou:hasalias=(*, hehe)]')
 
-                with self.getAsyncLoggerStream('synapse.lib.snap',
-                                               'Prop ou:org:sic is locked due to deprecation') as stream:
+                with self.getLoggerStream('synapse.lib.snap') as stream:
                     data = (
                         (('ou:org', ('t0',)), {'props': {'sic': '5678'}}),
                     )
                     await core.addFeedData('syn.nodes', data)
-                    self.true(await stream.wait(1))
+                    await stream.expect('Prop ou:org:sic is locked due to deprecation')
                     nodes = await core.nodes('ou:org=(t0,)')
                     self.none(nodes[0].get('sic'))
 

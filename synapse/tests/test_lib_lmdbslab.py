@@ -347,29 +347,31 @@ class LmdbSlabTest(s_t_utils.SynTest):
         return self._nowtime
 
     async def test_lmdbslab_commit_warn(self):
-        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1), \
-                patch('synapse.common.now', self.simplenow):
+
+        with (self.getTestDir() as dirn,
+                patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1),
+                patch('synapse.common.now', self.simplenow)):
+
             path = os.path.join(dirn, 'test.lmdb')
-            with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
+            with self.getLoggerStream('synapse.lib.lmdbslab') as stream:
                 async with await s_lmdbslab.Slab.anit(path, map_size=100000) as slab:
                     foo = slab.initdb('foo', dupsort=True)
                     byts = b'\x00' * 256
                     for i in range(10):
                         slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-                self.true(await stream.wait(timeout=1))
 
             msgs = stream.jsonlines()
             self.gt(len(msgs), 0)
-            self.nn(msgs[0].get('delta'))
-            self.nn(msgs[0].get('path'))
-            self.nn(msgs[0].get('xactopslen'))
+            self.nn(msgs[0]['params'].get('delta'))
+            self.nn(msgs[0]['params'].get('path'))
+            self.nn(msgs[0]['params'].get('xactopslen'))
             self.sorteq([
                 'vm.swappiness',
                 'vm.dirty_expire_centisecs',
                 'vm.dirty_writeback_centisecs',
                 'vm.dirty_background_ratio',
                 'vm.dirty_ratio',
-            ], msgs[0].get('sysctls', {}).keys())
+            ], msgs[0]['params'].get('sysctls', {}).keys())
 
     async def test_lmdbslab_commit_over_max_xactops(self):
 
