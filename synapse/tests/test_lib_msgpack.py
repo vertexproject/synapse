@@ -259,12 +259,16 @@ class MsgPackTest(s_t_utils.SynTest):
     def checkSurrogates(self, enfunc):
         bads = '\u01cb\ufffd\ud842\ufffd\u0012'
         obyts = b'\xac\xc7\x8b\xef\xbf\xbd\xed\xa1\x82\xef\xbf\xbd\x12'
+        replstr = 'ǋ�����\x12'
 
         with self.raises(s_exc.NotMsgpackSafe):
             enfunc(bads)
 
+        outs = s_msgpack.un(obyts)
+        self.eq(outs, replstr)
+
         with self.raises(s_exc.BadMsgpackData):
-            s_msgpack.un(obyts)
+            s_msgpack.un(obyts, strict=True)
 
         with self.getTestDir() as fdir:
             fd = s_common.genfile(fdir, 'test.mpk')
@@ -272,18 +276,36 @@ class MsgPackTest(s_t_utils.SynTest):
             fd.close()
 
             fd = s_common.genfile(fdir, 'test.mpk')
+            gen = s_msgpack.iterfd(fd)
+
+            items = [obj for obj in gen]
+            self.len(1, items)
+            self.eq(items[0], replstr)
+
+            fd = s_common.genfile(fdir, 'test.mpk')
             with self.raises(s_exc.BadMsgpackData):
-                gen = s_msgpack.iterfd(fd)
+                gen = s_msgpack.iterfd(fd, strict=True)
                 items = [obj for obj in gen]
 
             fd.close()
 
             path = s_common.genpath(fdir, 'test.mpk')
+            gen = s_msgpack.iterfile(path)
+            items = [obj for obj in gen]
+            self.len(1, items)
+            self.eq(items[0], replstr)
+
+            path = s_common.genpath(fdir, 'test.mpk')
             with self.raises(s_exc.BadMsgpackData):
-                gen = s_msgpack.iterfile(path)
+                gen = s_msgpack.iterfile(path, strict=True)
                 items = [obj for obj in gen]
 
         unpk = s_msgpack.Unpk()
+        ret = unpk.feed(obyts)
+        self.len(1, ret)
+        self.eq([(13, replstr)], ret)
+
+        unpk = s_msgpack.Unpk(strict=True)
         with self.raises(s_exc.BadMsgpackData):
             ret = unpk.feed(obyts)
             self.len(1, ret)

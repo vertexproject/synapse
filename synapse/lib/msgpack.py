@@ -49,6 +49,15 @@ unpacker_kwargs = {
     'strict_map_key': False,
     'ext_hook': _ext_un,
     'max_buffer_size': 2**32 - 1,
+    'unicode_errors': 'replace',
+}
+
+unpacker_kwargs_strict = {
+    'raw': False,
+    'use_list': False,
+    'strict_map_key': False,
+    'ext_hook': _ext_un,
+    'max_buffer_size': 2**32 - 1,
 }
 
 def en(item):
@@ -101,12 +110,14 @@ def _fallback_en(item):
 if pakr is None:  # pragma: no cover
     en = _fallback_en
 
-def un(byts, use_list=False):
+def un(byts, use_list=False, strict=False):
     '''
     Use msgpack to de-serialize a python object.
 
     Args:
         byts (bytes): The bytes to de-serialize
+        use_list (boolean): Decode arrays as lists rather than tuples.
+        strict (boolean): Whether to require strings are valid utf8.
 
     Notes:
         String objects are decoded using utf8 encoding.
@@ -115,6 +126,10 @@ def un(byts, use_list=False):
         obj: The de-serialized object
     '''
     # This uses a subset of unpacker_kwargs
+    if not strict:
+        return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False,
+                             unicode_errors='replace', ext_hook=_ext_un)
+
     try:
         return msgpack.loads(byts, use_list=use_list, raw=False, strict_map_key=False, ext_hook=_ext_un)
     except UnicodeDecodeError as exc:
@@ -131,12 +146,13 @@ def isok(item):
     except Exception:
         return False
 
-def iterfd(fd):
+def iterfd(fd, strict=False):
     '''
     Generator which unpacks a file object of msgpacked content.
 
     Args:
         fd: File object to consume data from.
+        strict (boolean): Whether to require strings are valid utf8.
 
     Notes:
         String objects are decoded using utf8 encoding.
@@ -144,7 +160,9 @@ def iterfd(fd):
     Yields:
         Objects from a msgpack stream.
     '''
-    unpk = msgpack.Unpacker(fd, **unpacker_kwargs)
+    kwargs = unpacker_kwargs_strict if strict else unpacker_kwargs
+    unpk = msgpack.Unpacker(fd, **kwargs)
+
     try:
         for mesg in unpk:
             yield mesg
@@ -152,12 +170,13 @@ def iterfd(fd):
         mesg = 'Error decoding string in msgpack data.'
         raise s_exc.BadMsgpackData(mesg=mesg) from exc
 
-def iterfile(path, since=-1):
+def iterfile(path, since=-1, strict=False):
     '''
     Generator which yields msgpack objects from a file path.
 
     Args:
         path: File path to open and consume data from.
+        strict (boolean): Whether to require strings are valid utf8.
 
     Notes:
         String objects are decoded using utf8 encoding.
@@ -167,7 +186,8 @@ def iterfile(path, since=-1):
     '''
     with io.open(path, 'rb') as fd:
 
-        unpk = msgpack.Unpacker(fd, **unpacker_kwargs)
+        kwargs = unpacker_kwargs_strict if strict else unpacker_kwargs
+        unpk = msgpack.Unpacker(fd, **kwargs)
 
         try:
             for i, mesg in enumerate(unpk):
@@ -185,11 +205,13 @@ class Unpk:
     An extension of the msgpack streaming Unpacker which reports sizes.
 
     Notes:
-        String objects are decoded using utf8 encoding.
+        String objects are decoded using utf8 encoding. If initialized with strict=True, strings are
+        required to be valid utf8.
     '''
-    def __init__(self):
+    def __init__(self, strict=False):
         self.size = 0
-        self.unpk = msgpack.Unpacker(**unpacker_kwargs)
+        kwargs = unpacker_kwargs_strict if strict else unpacker_kwargs
+        self.unpk = msgpack.Unpacker(**kwargs)
 
     def feed(self, byts):
         '''
