@@ -194,7 +194,8 @@ class HandlerBase:
             return None
 
         except Exception:
-            self.sendRestErr('SchemaViolation', 'Invalid JSON content.', status_code=HTTPStatus.BAD_REQUEST)
+            self.sendRestErr('SchemaViolation', 'Invalid JSON content.',
+                             status_code=HTTPStatus.BAD_REQUEST)
             return None
 
     def logAuthIssue(self, mesg=None, user=None, username=None, level=logging.WARNING):
@@ -753,15 +754,15 @@ class LoginV1(Handler):
         udef = await authcell.getUserDefByName(name)
         if udef is None:
             self.logAuthIssue(mesg='No such user.', username=name)
-            return self.sendRestErr('AuthDeny', 'No such user.')
+            return self.sendRestErr('AuthDeny', 'No such user.', status_code=HTTPStatus.NOT_FOUND)
 
         if udef.get('locked'):
             self.logAuthIssue(mesg='User is locked.', user=udef.get('iden'), username=name)
-            return self.sendRestErr('AuthDeny', 'User is locked.')
+            return self.sendRestErr('AuthDeny', 'User is locked.', status_code=HTTPStatus.FORBIDDEN)
 
         if not await authcell.tryUserPasswd(name, passwd):
             self.logAuthIssue(mesg='Incorrect password.', user=udef.get('iden'), username=name)
-            return self.sendRestErr('AuthDeny', 'Incorrect password.')
+            return self.sendRestErr('AuthDeny', 'Incorrect password.', status_code=HTTPStatus.FORBIDDEN)
 
         iden = udef.get('iden')
         sess = await self.sess()
@@ -797,7 +798,8 @@ class AuthUsersV1(Handler):
 
             archived = int(self.get_argument('archived', default='0'))
             if archived not in (0, 1):
-                return self.sendRestErr('BadHttpParam', 'The parameter "archived" must be 0 or 1 if specified.',
+                return self.sendRestErr('BadHttpParam',
+                                        'The parameter "archived" must be 0 or 1 if specified.',
                                         status_code=HTTPStatus.BAD_REQUEST)
 
         except Exception:
@@ -962,13 +964,15 @@ class AuthGrantV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDef(useriden)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.', status_code=HTTPStatus.NOT_FOUND)
+            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.',
+                             status_code=HTTPStatus.NOT_FOUND)
             return
 
         roleiden = body.get('role')
         rdef = await authcell.getRoleDef(roleiden)
         if rdef is None:
-            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.', status_code=HTTPStatus.NOT_FOUND)
+            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.',
+                             status_code=HTTPStatus.NOT_FOUND)
             return
 
         await authcell.addUserRole(useriden, roleiden)
@@ -996,13 +1000,15 @@ class AuthRevokeV1(Handler):
         authcell = self.getAuthCell()
         udef = await authcell.getUserDef(useriden)
         if udef is None:
-            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.', status_code=HTTPStatus.NOT_FOUND)
+            self.sendRestErr('NoSuchUser', f'User iden {useriden} not found.',
+                             status_code=HTTPStatus.NOT_FOUND)
             return
 
         roleiden = body.get('role')
         rdef = await authcell.getRoleDef(roleiden)
         if rdef is None:
-            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.', status_code=HTTPStatus.NOT_FOUND)
+            self.sendRestErr('NoSuchRole', f'Role iden {roleiden} not found.',
+                             status_code=HTTPStatus.NOT_FOUND)
             return
 
         await authcell.delUserRole(useriden, roleiden)
@@ -1023,12 +1029,14 @@ class AuthAddUserV1(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.', status_code=HTTPStatus.BAD_REQUEST)
+            self.sendRestErr('MissingField', 'The adduser API requires a "name" argument.',
+                             status_code=HTTPStatus.BAD_REQUEST)
             return
 
         authcell = self.getAuthCell()
         if await authcell.getUserDefByName(name) is not None:
-            self.sendRestErr('DupUser', f'A user named {name} already exists.', status_code=HTTPStatus.BAD_REQUEST)
+            self.sendRestErr('DupUser', f'A user named {name} already exists.',
+                             status_code=HTTPStatus.BAD_REQUEST)
             return
 
         udef = await authcell.addUser(name=name)
@@ -1074,7 +1082,8 @@ class AuthAddRoleV1(Handler):
 
         authcell = self.getAuthCell()
         if await authcell.getRoleDefByName(name) is not None:
-            self.sendRestErr('DupRole', f'A role named {name} already exists.', status_code=HTTPStatus.BAD_REQUEST)
+            self.sendRestErr('DupRole', f'A role named {name} already exists.',
+                             status_code=HTTPStatus.BAD_REQUEST)
             return
 
         rdef = await authcell.addRole(name)
@@ -1100,13 +1109,15 @@ class AuthDelRoleV1(Handler):
 
         name = body.get('name')
         if name is None:
-            self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.', status_code=HTTPStatus.BAD_REQUEST)
+            self.sendRestErr('MissingField', 'The delrole API requires a "name" argument.',
+                             status_code=HTTPStatus.BAD_REQUEST)
             return
 
         authcell = self.getAuthCell()
         rdef = await authcell.getRoleDefByName(name)
         if rdef is None:
-            return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!', status_code=HTTPStatus.NOT_FOUND)
+            return self.sendRestErr('NoSuchRole', f'The role {name} does not exist!',
+                                    status_code=HTTPStatus.NOT_FOUND)
 
         await authcell.delRole(rdef.get('iden'))
 
@@ -1132,13 +1143,15 @@ class ModelNormV1(Handler):
         typeopts = body.get('typeopts')
 
         if propname is None:
-            self.sendRestErr('MissingField', 'The property normalization API requires a prop name.', status_code=HTTPStatus.BAD_REQUEST)
+            self.sendRestErr('MissingField', 'The property normalization API requires a prop name.',
+                             status_code=HTTPStatus.BAD_REQUEST)
             return
 
         try:
             valu, info = await self.cell.getPropNorm(propname, propvalu, typeopts=typeopts)
         except s_exc.NoSuchProp:
-            return self.sendRestErr('NoSuchProp', f'The property {propname} does not exist.', status_code=HTTPStatus.NOT_FOUND)
+            return self.sendRestErr('NoSuchProp', f'The property {propname} does not exist.',
+                                    status_code=HTTPStatus.NOT_FOUND)
         except Exception as e:
             return self.sendRestExc(e, status_code=HTTPStatus.BAD_REQUEST)
         else:
@@ -1213,7 +1226,8 @@ class StormVarsSetV1(Handler):
         varname = str(body.get('name'))
         varvalu = body.get('value', s_common.novalu)
         if varvalu is s_common.novalu:
-            return self.sendRestErr('BadArg', 'The "value" field is required.', status_code=HTTPStatus.BAD_REQUEST)
+            return self.sendRestErr('BadArg', 'The "value" field is required.',
+                                    status_code=HTTPStatus.BAD_REQUEST)
 
         if not await self.allowed(('globals', 'set', varname)):
             return
@@ -1240,7 +1254,8 @@ class OnePassIssueV1(Handler):
         try:
             passwd = await authcell.genUserOnepass(iden, duration)
         except s_exc.NoSuchUser:
-            return self.sendRestErr('NoSuchUser', 'The user iden does not exist.', status_code=HTTPStatus.NOT_FOUND)
+            return self.sendRestErr('NoSuchUser', 'The user iden does not exist.',
+                                    status_code=HTTPStatus.NOT_FOUND)
 
         return self.sendRestRetn(passwd)
 
@@ -1273,13 +1288,15 @@ class FeedV1(Handler):
 
         func = self.cell.getFeedFunc(name)
         if func is None:
-            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.', status_code=HTTPStatus.BAD_REQUEST)
+            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.',
+                                    status_code=HTTPStatus.BAD_REQUEST)
 
         user = self.cell.auth.user(self.web_useriden)
 
         view = self.cell.getView(body.get('view'), user)
         if view is None:
-            return self.sendRestErr('NoSuchView', 'The specified view does not exist.', status_code=HTTPStatus.NOT_FOUND)
+            return self.sendRestErr('NoSuchView', 'The specified view does not exist.',
+                                    status_code=HTTPStatus.NOT_FOUND)
 
         wlyr = view.layers[0]
         perm = ('feed:data', *name.split('.'))
@@ -1356,7 +1373,8 @@ class ExtApiHandler(StormHandler):
         core = self.getCore()
         adef, args = await core.getHttpExtApiByPath(path)
         if adef is None:
-            self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}', status_code=HTTPStatus.NOT_FOUND)
+            self.sendRestErr('NoSuchPath', f'No Extended HTTP API endpoint matches {path}',
+                             status_code=HTTPStatus.NOT_FOUND)
             return await self.finish()
 
         requester = ''
