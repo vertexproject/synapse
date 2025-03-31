@@ -4365,16 +4365,16 @@ class StormTypesTest(s_test.SynTest):
             tdef = await core.callStorm(q)
             self.eq(tdef.get('doc'), 'some trigger')
             trig = tdef.get('iden')
-            q = '''$t = $lib.trigger.get($trig) $t.set("doc", "awesome trigger") return ( $t )'''
+            q = '''$t = $lib.trigger.get($trig) $t.doc = "awesome trigger" return ( $t )'''
             tdef = await core.callStorm(q, opts={'vars': {'trig': trig}})
             self.eq(tdef.get('doc'), 'awesome trigger')
 
             with self.raises(s_exc.BadArg):
-                q = '$t = $lib.trigger.get($trig) $t.set("created", "woot") return ( $t )'
+                q = '$t = $lib.trigger.get($trig) $t.created = "woot" return ( $t )'
                 await core.callStorm(q, opts={'vars': {'trig': trig}})
 
             with self.raises(s_exc.BadArg):
-                q = '$t = $lib.trigger.get($trig) $t.set("foo", "bar")'
+                q = '$t = $lib.trigger.get($trig) $t.foo = "bar"'
                 await core.callStorm(q, opts={'vars': {'trig': trig}})
 
             nodes = await core.nodes('[ test:str=test1 ]')
@@ -4397,7 +4397,7 @@ class StormTypesTest(s_test.SynTest):
 
             # mess with things to make a bad trigger and make sure move doesn't delete it
             core.views[forkview].triggers.triggers[othr].tdef.pop('storm')
-            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).move({mainview})')
+            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).view = {mainview}')
             self.stormIsInErr('Cannot move invalid trigger', mesgs)
 
             mesgs = await core.stormlist('trigger.list')
@@ -4408,7 +4408,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(othr, mesgs)
 
             core.views[forkview].triggers.triggers[othr].tdef['storm'] = '[ +#naughty.trigger'
-            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).move({mainview})')
+            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).view = {mainview}')
             self.stormIsInErr('Cannot move invalid trigger', mesgs)
 
             mesgs = await core.stormlist('trigger.list')
@@ -4424,11 +4424,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq('[ +#neato.trigger ]', othrtrig['storm'])
 
             # now we can move it while being in a different view
-            await core.nodes(f'$lib.trigger.get({othr}).move({mainview})')
+            await core.nodes(f'$lib.trigger.get({othr}).view = {mainview}')
             # but still retrieve it from the other view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))', opts=forkopts))
 
-            await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
+            await core.nodes(f'$lib.trigger.get({trig}).view = {forkview}')
 
             nodes = await core.nodes('[ test:str=test2 ]')
             self.none(nodes[0].get('#tagged'))
@@ -4436,12 +4436,12 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=test3 ]', opts=forkopts)
             self.nn(nodes[0].get('#tagged'))
 
-            await core.nodes(f'$lib.trigger.get({trig}).move({mainview})', opts=forkopts)
+            await core.nodes(f'$lib.trigger.get({trig}).view = {mainview}', opts=forkopts)
             nodes = await core.nodes('[ test:str=test4 ]')
             self.nn(nodes[0].get('#tagged'))
 
             with self.raises(s_exc.NoSuchView):
-                await core.nodes(f'$lib.trigger.get({trig}).move(newp)')
+                await core.nodes(f'$lib.trigger.get({trig}).view = newp')
 
             q = '''
                 $tdef = ({
@@ -4534,7 +4534,7 @@ class StormTypesTest(s_test.SynTest):
                 await prox.delUserRule(bond.iden, (True, ('trigger', 'add')))
                 await prox.delUserRule(bond.iden, (True, ('trigger', 'del')))
 
-                q = f'$lib.trigger.get({trig}).move({forkview})'
+                q = f'$lib.trigger.get({trig}).view = {forkview}'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission view.read', mesgs)
 
@@ -4571,14 +4571,14 @@ class StormTypesTest(s_test.SynTest):
             iden = cdef.get('iden')
             opts = {'vars': {'iden': iden}}
 
-            cdef = await core.callStorm('return($lib.cron.get($iden).set(name, foobar))', opts=opts)
+            cdef = await core.callStorm('$cron = $lib.cron.get($iden) $cron.name = foobar return($cron)', opts=opts)
             self.eq('foobar', cdef.get('name'))
 
-            cdef = await core.callStorm('return($lib.cron.get($iden).set(doc, foodoc))', opts=opts)
+            cdef = await core.callStorm('$cron = $lib.cron.get($iden) $cron.doc = foodoc return($cron)', opts=opts)
             self.eq('foodoc', cdef.get('doc'))
 
             with self.raises(s_exc.BadOptValu):
-                await core.callStorm('return($lib.cron.get($iden).set(hehe, haha))', opts=opts)
+                await core.callStorm('$lib.cron.get($iden).hehe = haha', opts=opts)
 
             mesgs = await core.stormlist('cron.add --hour +1 {[tel:mob:telem=*]} --name myname --doc mydoc')
             for mesg in mesgs:
@@ -4591,16 +4591,6 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core.killCronTask('newp'))
             self.false(await core._killCronTask('newp'))
             self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
-
-            cdef = await core.callStorm('return($lib.cron.get($iden))', opts=opts)
-            self.eq('mydoc', cdef.get('doc'))
-            self.eq('myname', cdef.get('name'))
-
-            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(name, lolz) )', opts=opts)
-            self.eq('lolz', cdef.get('name'))
-
-            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
-            self.eq('zoinks', cdef.get('doc'))
 
     async def test_storm_lib_cron(self):
 

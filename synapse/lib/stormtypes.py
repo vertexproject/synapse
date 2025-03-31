@@ -8403,21 +8403,22 @@ class Trigger(Prim):
     Implements the Storm API for a Trigger.
     '''
     _storm_locals = (
-        {'name': 'iden', 'desc': 'The Trigger iden.', 'type': 'str', },
-        {'name': 'set', 'desc': 'Set information in the Trigger.',
-         'type': {'type': 'function', '_funcname': 'set',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'Name of the key to set.', },
-                      {'name': 'valu', 'type': 'prim', 'desc': 'The data to set', }
-                  ),
-                  'returns': {'type': 'null', }}},
-        {'name': 'move', 'desc': 'Modify the Trigger to run in a different View.',
-         'type': {'type': 'function', '_funcname': 'move',
-                  'args': (
-                      {'name': 'viewiden', 'type': 'str',
-                       'desc': 'The iden of the new View for the Trigger to run in.', },
-                  ),
-                  'returns': {'type': 'null', }}},
+        {'name': 'async', 'desc': 'Whether the Trigger runs asynchronously.', 'type': 'boolean'},
+        {'name': 'cond', 'desc': 'The edit type which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'created', 'desc': 'The timestamp when the Trigger was created.', 'type': 'int'},
+        {'name': 'creator', 'desc': 'The iden of the user that created the Trigger.', 'type': 'str'},
+        {'name': 'doc', 'desc': 'The description of the Trigger.', 'type': 'str'},
+        {'name': 'enabled', 'desc': 'Whether the Trigger is enabled.', 'type': 'boolean'},
+        {'name': 'form', 'desc': 'The form which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'iden', 'desc': 'The Trigger iden.', 'type': 'str'},
+        {'name': 'n2form', 'desc': 'The N2 form which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Trigger.', 'type': 'str'},
+        {'name': 'prop', 'desc': 'The prop which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'storm', 'desc': 'The Storm query that the Trigger runs.', 'type': 'str'},
+        {'name': 'tag', 'desc': 'The tag which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'user', 'desc': 'The iden of the user the Trigger runs as.', 'type': 'str'},
+        {'name': 'verb', 'desc': 'The edge verb which causes the Trigger to fire.', 'type': 'str'},
+        {'name': 'view', 'desc': 'The iden of the view the Trigger runs in.', 'type': 'str'},
     )
     _storm_typename = 'trigger'
     _ismutable = False
@@ -8426,62 +8427,44 @@ class Trigger(Prim):
 
         Prim.__init__(self, tdef)
         self.runt = runt
-
         self.locls.update(self.getObjLocals())
-        self.locls['iden'] = self.valu.get('iden')
 
     def __hash__(self):
-        return hash((self._storm_typename, self.locls['iden']))
-
-    def getObjLocals(self):
-        return {
-            'set': self.set,
-            'move': self.move,
-        }
+        return hash((self._storm_typename, self.valu.get('iden')))
 
     def value(self):
         return copy.deepcopy(self.valu)
 
     async def deref(self, name):
         name = await tostr(name)
+        return self.valu.get(name)
 
-        valu = self.valu.get(name, s_common.novalu)
-        if valu is not s_common.novalu:
-            return valu
-
-        return self.locls.get(name)
-
-    async def set(self, name, valu):
-        trigiden = self.valu.get('iden')
+    async def setitem(self, name, valu):
         viewiden = self.valu.get('view')
 
-        view = self.runt.view.core.reqView(viewiden)
-
         name = await tostr(name)
-        if name in ('async', 'enabled', ):
+        if name in ('async', 'enabled'):
             valu = await tobool(valu)
-        if name in ('user', 'doc', 'name', 'storm', ):
+        elif name in ('user', 'doc', 'name', 'storm', 'view'):
             valu = await tostr(valu)
 
-        if name == 'user':
+        if name == 'view':
+            return await self._move(valu)
+        elif name == 'user':
             self.runt.confirm(('trigger', 'set', 'user'))
         else:
             self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
 
-        await view.setTriggerInfo(trigiden, name, valu)
+        view = self.runt.view.core.reqView(viewiden)
+        await view.setTriggerInfo(self.valu.get('iden'), name, valu)
 
         self.valu[name] = valu
 
         return self
 
-    async def move(self, viewiden):
+    async def _move(self, viewiden):
         trigiden = self.valu.get('iden')
-        viewiden = await tostr(viewiden)
-
-        todo = s_common.todo('getViewDef', viewiden)
-        vdef = await self.runt.dyncall('cortex', todo)
-        if vdef is None:
-            raise s_exc.NoSuchView(mesg=f'No view with iden={viewiden}', iden=viewiden)
+        view = self.runt.view.core.reqView(viewiden)
 
         trigview = self.valu.get('view')
         self.runt.confirm(('view', 'read'), gateiden=viewiden)
@@ -9103,6 +9086,10 @@ class LibCron(Lib):
             view = self.runt.view.iden
         cdef['view'] = view
 
+        for argname in ('name', 'doc'):
+            if (valu := kwargs.get(argname)) is not None:
+                cdef[argname] = await tostr(valu)
+
         todo = s_common.todo('addCronJob', cdef)
         gatekeys = ((self.runt.user.iden, ('cron', 'add'), view),)
         cdef = await self.dyncall('cortex', todo, gatekeys=gatekeys)
@@ -9226,21 +9213,17 @@ class CronJob(Prim):
     Implements the Storm api for a cronjob instance.
     '''
     _storm_locals = (
-        {'name': 'iden', 'desc': 'The iden of the Cron Job.', 'type': 'str', },
-        {'name': 'set', 'desc': '''
-            Set an editable field in the cron job definition.
-
-            Example:
-                Change the name of a cron job::
-
-                    $lib.cron.get($iden).set(name, "foo bar cron job")''',
-         'type': {'type': 'function', '_funcname': '_methCronJobSet',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the field being set', },
-                      {'name': 'valu', 'type': 'any', 'desc': 'The value to set on the definition.', },
-                  ),
-                  'returns': {'type': 'cronjob', 'desc': 'The ``cronjob``', }}},
-
+        {'name': 'completed', 'desc': 'True if a non-recurring Cron Job has completed.', 'type': 'boolean'},
+        {'name': 'creator', 'desc': 'The iden of the user that created the Cron Job.', 'type': 'str'},
+        {'name': 'created', 'desc': 'The timestamp when the Cron Job was created.', 'type': 'int'},
+        {'name': 'doc', 'desc': 'The description of the Cron Job.', 'type': 'str'},
+        {'name': 'enabled', 'desc': 'Whether the Cron Job is enabled.', 'type': 'boolean'},
+        {'name': 'iden', 'desc': 'The iden of the Cron Job.', 'type': 'str'},
+        {'name': 'name', 'desc': 'The name of the Cron Job.', 'type': 'str'},
+        {'name': 'pool', 'desc': 'Whether the Cron Job will offload the query to a Storm pool.', 'type': 'boolean'},
+        {'name': 'storm', 'desc': 'The Storm query the Cron Job runs.', 'type': 'str'},
+        {'name': 'view', 'desc': 'The iden of the view the Cron Job runs in.', 'type': 'str'},
+        {'name': 'user', 'desc': 'The iden of the user the Cron Job runs as.', 'type': 'str'},
         {'name': 'kill', 'desc': 'If the job is currently running, terminate the task.',
          'type': {'type': 'function', '_funcname': '_methCronJobKill',
                   'returns': {'type': 'boolean', 'desc': 'A boolean value which is true if the task was terminated.'}}},
@@ -9250,10 +9233,6 @@ class CronJob(Prim):
                   'returns':
                       {'type': 'dict',
                        'desc': 'A dictionary containing structured data about a cronjob for display purposes.'}}},
-
-        {'name': 'completed', 'desc': 'True if a non-recurring Cron Job has completed.',
-         'type': {'type': 'gtor', '_gtorfunc': '_gtorCompleted', 'returns': {'type': 'boolean'}}},
-
     )
     _storm_typename = 'cronjob'
     _ismutable = False
@@ -9262,15 +9241,12 @@ class CronJob(Prim):
         Prim.__init__(self, cdef, path=path)
         self.runt = runt
         self.locls.update(self.getObjLocals())
-        self.locls['iden'] = self.valu.get('iden')
-        self.gtors['completed'] = self._gtorCompleted
 
     def __hash__(self):
-        return hash((self._storm_typename, self.locls['iden']))
+        return hash((self._storm_typename, self.valu.get('iden')))
 
     def getObjLocals(self):
         return {
-            'set': self._methCronJobSet,
             'kill': self._methCronJobKill,
             'pprint': self._methCronJobPprint,
         }
@@ -9280,7 +9256,7 @@ class CronJob(Prim):
         self.runt.confirm(('cron', 'kill'), gateiden=iden)
         return await self.runt.view.core.killCronTask(iden)
 
-    async def _methCronJobSet(self, name, valu):
+    async def setitem(self, name, valu):
         name = await tostr(name)
         valu = await toprim(valu)
         iden = self.valu.get('iden')
@@ -9297,10 +9273,13 @@ class CronJob(Prim):
         return self
 
     @stormfunc(readonly=True)
-    async def _gtorCompleted(self):
-        if self.valu.get('recs'):
-            return False
-        return True
+    async def _derefGet(self, name):
+        name = await tostr(name)
+
+        if name == 'completed':
+            return not bool(self.valu.get('recs'))
+
+        return copy.deepcopy(self.valu.get(name))
 
     def value(self):
         return copy.deepcopy(self.valu)

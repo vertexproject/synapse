@@ -892,8 +892,8 @@ class HttpApiTest(s_tests.SynTest):
                     await core.callStorm('cron.mod $cron --storm {[test:guid=*]} --view $view', opts=opts)
                     await core.callStorm('cron.mod $cron --enabled (false)', opts=opts)
                     await core.callStorm('cron.mod $cron --enabled (true)', opts=opts)
-                    await core.callStorm('$c = $lib.cron.get($cron) $c.set("name", "neato cron")', opts=opts)
-                    await core.callStorm('$c = $lib.cron.get($cron) $c.set("doc", "some docs")', opts=opts)
+                    await core.callStorm('$c = $lib.cron.get($cron) $c.name = "neato cron"', opts=opts)
+                    await core.callStorm('$c = $lib.cron.get($cron) $c.doc = "some docs"', opts=opts)
                     await core.callStorm('cron.del $cron', opts=opts)
 
                     await core.addStormPkg(spkg)

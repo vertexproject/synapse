@@ -918,10 +918,9 @@ stormcmds = (
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly,
                                   iden=$cmdopts.iden,
-                                  view=$cmdopts.view,)
-
-            if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
-            if $cmdopts.name { $cron.set(name, $cmdopts.name) }
+                                  view=$cmdopts.view,
+                                  doc=$cmdopts.doc,
+                                  name=$cmdopts.name)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',

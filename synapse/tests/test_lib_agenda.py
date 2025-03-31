@@ -702,16 +702,16 @@ class AgendaTest(s_t_utils.SynTest):
             self.false(cdef['pool'])
             self.eq(cdef['user'], core.auth.rootuser.iden)
 
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { $cron.set(pool, (true)) return($cron) }')
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { $cron.pool = (true) return($cron) }')
             self.true(cdef['pool'])
 
             opts = {'vars': {'lowuser': lowuser}}
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(user, $lowuser)) }',
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { $cron.user = $lowuser return($cron) }',
                                         opts=opts)
             self.eq(cdef['user'], lowuser)
 
             opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
-            q = '$cron = $lib.cron.get($iden) return ( $cron.set(user, $lowuser) )'
+            q = '$cron = $lib.cron.get($iden) $cron.user = $lowuser'
             msgs = await core.stormlist(q, opts=opts)
             # XXX FIXME - This is an odd message since the new user does not implicitly have
             # access to the cronjob that is running as them.
@@ -719,12 +719,12 @@ class AgendaTest(s_t_utils.SynTest):
 
             await core.addUserRule(lowuser, (True, ('cron', 'get')))
             opts = {'user': lowuser, 'vars': {'iden': cdef.get('iden'), 'lowuser': lowuser}}
-            q = '$cron = $lib.cron.get($iden) return ( $cron.set(user, $lowuser) )'
+            q = '$cron = $lib.cron.get($iden) $cron.user = $lowuser'
             msgs = await core.stormlist(q, opts=opts)
             self.stormIsInErr('must have permission cron.set.user', msgs)
 
             await core.addUserRule(lowuser, (True, ('cron', 'set')))
-            q = '$cron = $lib.cron.get($iden) return ( $cron.set(creator, $lowuser) )'
+            q = '$cron = $lib.cron.get($iden) $cron.creator = $lowuser'
             msgs = await core.stormlist(q, opts=opts)
             self.stormIsInErr('Cron Job does not support setting specified property.', msgs)
 
@@ -745,7 +745,7 @@ class AgendaTest(s_t_utils.SynTest):
             msgs = await core.stormlist('cron.add --minute +1 $q', opts={'vars': {'q': q}, 'view': fork})
             self.stormHasNoWarnErr(msgs)
 
-            cdef = await core.callStorm('for $cron in $lib.cron.list() { return($cron.set(user, $user)) }',
+            cdef = await core.callStorm('for $cron in $lib.cron.list() { $cron.user = $user return($cron) }',
                                         opts={'vars': {'user': user}})
             self.eq(cdef['user'], user)
 
