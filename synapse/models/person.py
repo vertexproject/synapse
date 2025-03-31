@@ -206,13 +206,6 @@ modeldefs = (
                     'prevnames': ('contact', 'person'),
                     'doc': 'The individual that the vitals are about.'}),
 
-                # FIXME physical interface?
-                ('height', ('geo:dist', {}), {
-                    'doc': 'The height of the person or contact.'}),
-
-                ('weight', ('mass', {}), {
-                    'doc': 'The weight of the person or contact.'}),
-
                 ('econ:currency', ('econ:currency', {}), {
                     'doc': 'The currency that the price values are recorded using.'}),
 
