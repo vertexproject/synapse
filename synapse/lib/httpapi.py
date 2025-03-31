@@ -14,6 +14,7 @@ import synapse.common as s_common
 import synapse.lib.base as s_base
 import synapse.lib.json as s_json
 import synapse.lib.msgpack as s_msgpack
+import synapse.lib.schemas as s_schemas
 
 logger = logging.getLogger(__name__)
 
@@ -741,7 +742,7 @@ class LoginV1(Handler):
 
     async def post(self):
 
-        body = self.getJsonBody()
+        body = self.getJsonBody(validator=s_schemas.reqValidHttpLoginV1)
         if body is None:
             return
 

@@ -425,9 +425,22 @@ class HttpApiTest(s_tests.SynTest):
 
             # lets try out session based login
 
+            # Sad path tests
+            async with self.getHttpSess() as sess:
+                async with sess.post(f'https://localhost:{port}/api/v1/login') as resp:
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
+                    item = await resp.json()
+                    print(item)
+                    self.eq('SchemaViolation', item.get('code'))
+                async with sess.post(f'https://localhost:{port}/api/v1/login', json=['newp',]) as resp:
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
+                    item = await resp.json()
+                    print(item)
+                    self.eq('SchemaViolation', item.get('code'))
+
             async with self.getHttpSess() as sess:
 
-                info = {'user': 'hehe'}
+                info = {'user': 'hehe', 'passwd': 'newp'}
                 with self.getAsyncLoggerStream('synapse.lib.httpapi', 'No such user.') as stream:
                     async with sess.post(f'https://localhost:{port}/api/v1/login', json=info) as resp:
                         self.eq(resp.status, http.HTTPStatus.OK)
