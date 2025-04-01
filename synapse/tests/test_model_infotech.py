@@ -398,6 +398,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :net6="fe80::0/64"
                 :org={ gen.ou.org "Vertex Project" }
                 :type=virtual.sdn
+                :dns:resolvers=(1.2.3.4, tcp://1.2.3.4:99)
             ]
             '''
             nodes = await core.nodes(q)
@@ -408,6 +409,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('net4'), (167837696, 167903231))
             self.eq(nodes[0].get('net6'), ('fe80::', 'fe80::ffff:ffff:ffff:ffff'))
             self.eq(nodes[0].get('type'), 'virtual.sdn.')
+            self.eq(nodes[0].get('dns:resolvers'), ('tcp://1.2.3.4:99', 'udp://1.2.3.4:53'))
 
             nodes = await core.nodes('''[
                 it:sec:stix:indicator=*

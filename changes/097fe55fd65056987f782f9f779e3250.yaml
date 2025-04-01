@@ -1,0 +1,5 @@
+---
+desc: Added ``it:network:dns:resolvers`` to track DNS resolvers for a network.
+prs: []
+type: model
+...
