@@ -361,6 +361,8 @@ class SockAddr(s_types.Str):
     def postTypeInit(self):
         s_types.Str.postTypeInit(self)
         self.setNormFunc(str, self._normPyStr)
+        self.setNormFunc(list, self._normPyTuple)
+        self.setNormFunc(tuple, self._normPyTuple)
 
         self.iptype = self.modl.type('inet:ip')
         self.porttype = self.modl.type('inet:port')
@@ -458,6 +460,11 @@ class SockAddr(s_types.Str):
                     virts['port'] = (port, self.porttype.stortype)
                     portstr = f':{port}'
 
+                elif self.defport:
+                    subs['port'] = self.defport
+                    virts['port'] = (self.defport, self.porttype.stortype)
+                    portstr = f':{self.defport}'
+
                 return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
 
             mesg = f'Invalid IPv6 w/port ({orig})'
@@ -468,6 +475,12 @@ class SockAddr(s_types.Str):
             host = self.iptype.repr(ipv6)
             subs['ip'] = ipv6
             virts['ip'] = (ipv6, self.iptype.stortype)
+
+            if self.defport:
+                subs['port'] = self.defport
+                virts['port'] = (self.defport, self.porttype.stortype)
+                return f'{proto}://[{host}]:{self.defport}', {'subs': subs, 'virts': virts}
+
             return f'{proto}://{host}', {'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
@@ -482,6 +495,25 @@ class SockAddr(s_types.Str):
         virts['ip'] = (ipv4, self.iptype.stortype)
 
         return f'{proto}://{ipv4_repr}{pstr}', {'subs': subs, 'virts': virts}
+
+    def _normPyTuple(self, valu):
+        ipaddr = self.iptype.norm(valu)[0]
+
+        (vers, ip_int) = ipaddr
+        ip_repr = self.iptype.repr(ipaddr)
+        subs = {}
+        virts = {}
+        proto = self.defproto
+
+        if self.defport:
+            subs['port'] = self.defport
+            virts['port'] = (self.defport, self.porttype.stortype)
+            if vers == 6:
+                return f'{proto}://[{ip_repr}]:{self.defport}', {'subs': subs, 'virts': virts}
+            else:
+                return f'{proto}://{ip_repr}:{self.defport}', {'subs': subs, 'virts': virts}
+
+        return f'{proto}://{ip_repr}', {'subs': subs, 'virts': virts}
 
 class Cidr(s_types.Str):
 
