@@ -3654,9 +3654,9 @@ class StormTest(s_t_utils.SynTest):
             orig = s_storm.ParallelCmd.pipeline
             tsks = {'cnt': 0}
 
-            async def pipecnt(self, runt, query, inq, outq):
+            async def pipecnt(self, runt, query, inq, outq, runtprims):
                 tsks['cnt'] += 1
-                await orig(self, runt, query, inq, outq)
+                await orig(self, runt, query, inq, outq, runtprims)
 
             with mock.patch('synapse.lib.storm.ParallelCmd.pipeline', pipecnt):
 
@@ -3685,6 +3685,42 @@ class StormTest(s_t_utils.SynTest):
                 nodes = await core.nodes('parallel --size 4 {[ ou:org=* ]}')
                 self.len(4, nodes)
                 self.eq(4, tsks['cnt'])
+
+            self.len(20, await core.nodes('for $i in $lib.range(20) {[ test:str=$i ]}'))
+            q = '''
+            test:str
+            parallel --size 4 {
+                if (not $lib.vars.get(vals)) {
+                    $vals = ()
+                }
+                $vals.append($node.repr())
+                fini { $lib.fire(resu, vals=$vals) }
+            }
+            | spin
+            '''
+            vals = []
+            msgs = await core.stormlist(q)
+            for m in msgs:
+                if m[0] == 'storm:fire':
+                    vals.extend(m[1]['data']['vals'])
+
+            self.len(20, vals)
+
+            q = '''
+            $vals = ()
+            test:str
+            parallel --size 4 { $vals.append($node.repr()) }
+            fini { return($vals) }
+            '''
+            self.len(20, await core.callStorm(q))
+
+            q = '''
+            function test(n) { $lib.fire(foo, valu=$n.repr()) return() }
+            test:str
+            parallel --size 4 { $test($node) }
+            '''
+            msgs = await core.stormlist(q)
+            self.len(20, [m for m in msgs if m[0] == 'storm:fire' and m[1]['type'] == 'foo'])
 
     async def test_storm_yieldvalu(self):
 
