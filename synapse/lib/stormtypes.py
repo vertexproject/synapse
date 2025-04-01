@@ -3940,7 +3940,7 @@ class LibQueue(Lib):
          'desc': 'Permits a user to access a queue. This allows the user to read from the queue and remove items from it.'},
         {'perm': ('queue', 'put'), 'gate': 'queue',
          'desc': 'Permits a user to put items into a queue.'},
-        {'perm': ('cron', 'del'), 'gate': 'queue',
+        {'perm': ('queue', 'del'), 'gate': 'queue',
          'desc': 'Permits a user to delete a queue.'},
     )
     _storm_lib_path = ('queue',)
