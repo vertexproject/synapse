@@ -24,7 +24,7 @@ class LibCache(s_stormtypes.Lib):
             to the key argument provided to .get().
 
             The callback Storm query must contain a return statement, and if it does not return a value
-            when executed with the input, $lib.null will be set as the value.
+            when executed with the input, ``(null)`` will be set as the value.
 
             The fixed cache uses FIFO to evict items once the maximum size is reached.
 
@@ -114,7 +114,7 @@ class FixedCache(s_stormtypes.StormType):
                       {'name': 'key', 'type': 'any', 'desc': 'The key to pop.'},
                   ),
                   'returns': {'type': 'any',
-                              'desc': 'The value from the cache, or $lib.null if it does not exist', }}},
+                              'desc': 'The value from the cache, or ``(null)`` if it does not exist', }}},
         {'name': 'put', 'desc': 'Put an item into the cache.',
          'type': {'type': 'function', '_funcname': '_methPut',
                   'args': (
@@ -172,8 +172,12 @@ class FixedCache(s_stormtypes.StormType):
                     await asyncio.sleep(0)
             except s_stormctrl.StormReturn as e:
                 return await s_stormtypes.toprim(e.item)
-            except s_stormctrl.StormCtrlFlow:
-                pass
+            except s_stormctrl.StormCtrlFlow as e:
+                name = e.__class__.__name__
+                if hasattr(e, 'statement'):
+                    name = e.statement
+                exc = s_exc.StormRuntimeError(mesg=f'Storm control flow "{name}" not allowed in cache callbacks.')
+                raise exc from None
 
     async def _reqKey(self, key):
         if s_stormtypes.ismutable(key):

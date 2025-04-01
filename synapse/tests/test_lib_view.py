@@ -35,39 +35,6 @@ class ViewTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadOptValu):
                 await core.view.setViewInfo('hehe', 10)
 
-        async with self.getTestCore() as core:
-            # Delete this block when nomerge is removed
-            view = await core.callStorm('return($lib.view.get().fork().iden)')
-            opts = {'view': view}
-
-            # Setting/getting nomerge should be redirected to protected
-            getnomerge = 'return($lib.view.get().get(nomerge))'
-            setnomerge = '$lib.view.get().set(nomerge, $valu)'
-
-            getprotected = 'return($lib.view.get().get(protected))'
-            setprotected = '$lib.view.get().set(protected, $valu)'
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.false(nomerge)
-            self.false(protected)
-
-            opts['vars'] = {'valu': True}
-            await core.callStorm(setnomerge, opts=opts)
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.true(nomerge)
-            self.true(protected)
-
-            opts['vars'] = {'valu': False}
-            await core.callStorm(setprotected, opts=opts)
-
-            nomerge = await core.callStorm(getnomerge, opts=opts)
-            protected = await core.callStorm(getprotected, opts=opts)
-            self.false(nomerge)
-            self.false(protected)
-
     async def test_view_set_parent(self):
 
         async with self.getTestCore() as core:
@@ -532,18 +499,18 @@ class ViewTest(s_t_utils.SynTest):
             ''')
 
             await core.nodes('trigger.add node:add --form ou:org --query {[+#foo]}', opts={'view': view})
-            await core.nodes('trigger.add node:del --form inet:ipv4 --query {[test:str=foo]}', opts={'view': view})
+            await core.nodes('trigger.add node:del --form inet:ip --query {[test:str=foo]}', opts={'view': view})
 
             await core.nodes('[ ou:org=* ]')
             self.len(0, await core.nodes('ou:org', opts={'view': view}))
 
-            await core.nodes('[ inet:ipv4=0 ]')
-            self.len(0, await core.nodes('inet:ipv4', opts={'view': view}))
+            await core.nodes('[ inet:ip=([4, 0]) ]')
+            self.len(0, await core.nodes('inet:ip', opts={'view': view}))
 
-            await core.nodes('inet:ipv4=0 | delnode')
+            await core.nodes('inet:ip=([4, 0]) | delnode')
 
             edits = await core.callStorm('''
-                $nodeedits = $lib.list()
+                $nodeedits = ()
                 for ($offs, $edits) in $lib.layer.get().edits(wait=$lib.false) {
                     $nodeedits.extend($edits)
                 }
@@ -579,7 +546,7 @@ class ViewTest(s_t_utils.SynTest):
 
             await core.addTagProp('score', ('int', {}), {})
 
-            await core.nodes('trigger.add node:del --query { $lib.globals.set(trig, $lib.true) } --form test:str')
+            await core.nodes('trigger.add node:del --query { $lib.globals.trig = $lib.true } --form test:str')
 
             await core.nodes('[ test:str=foo :hehe=hifoo +#test ]')
             await core.nodes('[ test:arrayprop=$arrayguid :strs=(faz, baz) ]', opts=opts)
@@ -614,7 +581,7 @@ class ViewTest(s_t_utils.SynTest):
             await core.addUserRule(useriden, (True, ('node', 'prop', 'del')), gateiden=layr.iden)
             await core.addUserRule(useriden, (True, ('node', 'tag', 'del')), gateiden=layr.iden)
             await core.addUserRule(useriden, (True, ('node', 'edge', 'del')), gateiden=layr.iden)
-            await core.addUserRule(useriden, (True, ('node', 'data', 'pop')), gateiden=layr.iden)
+            await core.addUserRule(useriden, (True, ('node', 'data', 'del')), gateiden=layr.iden)
 
             await core.nodes('$lib.view.get().wipeLayer()', opts=opts)
 
@@ -622,7 +589,7 @@ class ViewTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('.created'))
 
-            self.true(await core.callStorm('return($lib.globals.get(trig))'))
+            self.true(await core.callStorm('return($lib.globals.trig)'))
 
             self.eq({}, await layr.getFormCounts())
 
@@ -878,12 +845,12 @@ class ViewTest(s_t_utils.SynTest):
     async def test_cortex_lift_layers_simple(self):
         async with self._getTestCoreMultiLayer() as (view0, view1):
             ''' Test that you can write to view0 and read it from view1 '''
-            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
-            self.len(1, await alist(view1.eval('inet:ipv4')))
-            self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4')))
-            self.len(1, await alist(view1.eval('inet:ipv4:asn=42')))
-            self.len(1, await alist(view1.eval('inet:ipv4 +:asn=42')))
-            self.len(1, await alist(view1.eval('inet:ipv4 +#woot')))
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ip')))
+            self.len(1, await alist(view1.eval('inet:ip=1.2.3.4')))
+            self.len(1, await alist(view1.eval('inet:ip:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ip +:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ip +#woot')))
 
     async def test_cortex_lift_layers_bad_filter(self):
         '''
@@ -891,15 +858,15 @@ class ViewTest(s_t_utils.SynTest):
         '''
         async with self._getTestCoreMultiLayer() as (view0, view1):
 
-            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
-            self.len(1, await alist(view1.eval('inet:ipv4#woot@=2014')))
-            self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4 [ :asn=31337 +#woot=2016 ]')))
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.4 :asn=42 +#woot=(2014, 2015)]')))
+            self.len(1, await alist(view1.eval('inet:ip#woot@=2014')))
+            self.len(1, await alist(view1.eval('inet:ip=1.2.3.4 [ :asn=31337 +#woot=2016 ]')))
 
-            self.len(0, await alist(view0.eval('inet:ipv4:asn=31337')))
-            self.len(1, await alist(view1.eval('inet:ipv4:asn=31337')))
+            self.len(0, await alist(view0.eval('inet:ip:asn=31337')))
+            self.len(1, await alist(view1.eval('inet:ip:asn=31337')))
 
-            self.len(1, await alist(view0.eval('inet:ipv4:asn=42')))
-            self.len(0, await alist(view1.eval('inet:ipv4:asn=42')))
+            self.len(1, await alist(view0.eval('inet:ip:asn=42')))
+            self.len(0, await alist(view1.eval('inet:ip:asn=42')))
 
             self.len(1, await alist(view0.eval('[ test:arrayprop="*" :ints=(1, 2, 3) ]')))
             self.len(1, await alist(view1.eval('test:int=2 -> test:arrayprop')))
@@ -926,28 +893,28 @@ class ViewTest(s_t_utils.SynTest):
         '''
         async with self._getTestCoreMultiLayer() as (view0, view1):
             # add to view1 first so we can cause creation in both...
-            self.len(1, await alist(view1.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]')))
-            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=42 ]')))
+            self.len(1, await alist(view1.eval('[ inet:ip=1.2.3.4 :asn=42 ]')))
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.4 :asn=42 ]')))
 
             # lift by primary and ensure only one...
-            self.len(1, await alist(view1.eval('inet:ipv4')))
+            self.len(1, await alist(view1.eval('inet:ip')))
 
             # lift by secondary and ensure only one...
-            self.len(1, await alist(view1.eval('inet:ipv4:asn=42')))
+            self.len(1, await alist(view1.eval('inet:ip:asn=42')))
 
             # now set one to a diff value that we will ask for but should be masked
-            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.4 :asn=99 ]')))
-            self.len(0, await alist(view1.eval('inet:ipv4:asn=99')))
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.4 :asn=99 ]')))
+            self.len(0, await alist(view1.eval('inet:ip:asn=99')))
 
-            self.len(1, await alist(view0.eval('[ inet:ipv4=1.2.3.5 :asn=43 ]')))
-            self.len(2, await alist(view1.eval('inet:ipv4:asn')))
+            self.len(1, await alist(view0.eval('[ inet:ip=1.2.3.5 :asn=43 ]')))
+            self.len(2, await alist(view1.eval('inet:ip:asn')))
 
             await view0.core.addTagProp('score', ('int', {}), {})
 
-            self.len(1, await alist(view1.eval('inet:ipv4=1.2.3.4 [ +#foo:score=42 ]')))
-            self.len(1, await alist(view0.eval('inet:ipv4=1.2.3.4 [ +#foo:score=42 ]')))
-            self.len(1, await alist(view0.eval('inet:ipv4=1.2.3.4 [ +#foo:score=99 ]')))
-            self.len(1, await alist(view0.eval('inet:ipv4=1.2.3.5 [ +#foo:score=43 ]')))
+            self.len(1, await alist(view1.eval('inet:ip=1.2.3.4 [ +#foo:score=42 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.4 [ +#foo:score=42 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.4 [ +#foo:score=99 ]')))
+            self.len(1, await alist(view0.eval('inet:ip=1.2.3.5 [ +#foo:score=43 ]')))
 
             nodes = await alist(view1.eval('#foo:score'))
             self.len(2, await alist(view1.eval('#foo:score')))
@@ -955,10 +922,10 @@ class ViewTest(s_t_utils.SynTest):
     async def test_cortex_lift_bytype(self):
         async with self.getTestCore() as core:
             await core.nodes('[ inet:dns:a=(vertex.link, 1.2.3.4) ]')
-            nodes = await core.nodes('inet:ipv4*type=1.2.3.4')
+            nodes = await core.nodes('inet:ip*type=1.2.3.4')
             self.len(2, nodes)
-            self.eq(nodes[0].ndef, ('inet:ipv4', 0x01020304))
-            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', 0x01020304)))
+            self.eq(nodes[0].ndef, ('inet:ip', (4, 0x01020304)))
+            self.eq(nodes[1].ndef, ('inet:dns:a', ('vertex.link', (4, 0x01020304))))
 
     async def test_clearcache(self):
 
@@ -967,14 +934,14 @@ class ViewTest(s_t_utils.SynTest):
             view = core.getView()
 
             original_node0 = await view.addNode('test:str', 'node0')
-            self.len(2, view.nodecache)
-            self.len(2, view.livenodes)
+            self.len(1, view.nodecache)
+            self.len(1, view.livenodes)
             self.len(0, view.tagcache)
             self.len(0, core.tagnorms)
 
             await original_node0.addTag('foo.bar.baz')
-            self.len(5, view.nodecache)
-            self.len(5, view.livenodes)
+            self.len(4, view.nodecache)
+            self.len(4, view.livenodes)
             self.len(3, core.tagnorms)
 
             new_node0 = await view.getNodeByNdef(('test:str', 'node0'))
@@ -1042,16 +1009,16 @@ class ViewTest(s_t_utils.SynTest):
             await view0.core.addTagProp('score', ('int', {}), {'doc': 'hi there'})
             await view0.core.addTagProp('data', ('data', {}), {'doc': 'hi there'})
 
-            await view0.nodes('[ inet:ipv4=1.1.1.4 ]')
-            await view1.nodes('inet:ipv4=1.1.1.4 [+#tag]')
-            await view0.nodes('inet:ipv4=1.1.1.4 | delnode')
+            await view0.nodes('[ inet:ip=1.1.1.4 ]')
+            await view1.nodes('inet:ip=1.1.1.4 [+#tag]')
+            await view0.nodes('inet:ip=1.1.1.4 | delnode')
             nodes = await view1.nodes('#tag | uniq')
             self.len(0, nodes)
 
-            await view0.nodes('[ inet:ipv4=1.1.1.4 :asn=4 +#woot:score=4] $node.data.set(woot, 4)')
-            await view0.nodes('[ inet:ipv4=1.1.1.1 :asn=1 +#woot:score=1] $node.data.set(woot, 1)')
-            await view1.nodes('[ inet:ipv4=1.1.1.2 :asn=2 +#woot:score=2] $node.data.set(woot, 2)')
-            await view0.nodes('[ inet:ipv4=1.1.1.3 :asn=3 +#woot:score=3] $node.data.set(woot, 3)')
+            await view0.nodes('[ inet:ip=1.1.1.4 :asn=4 +#woot:score=4] $node.data.set(woot, 4)')
+            await view0.nodes('[ inet:ip=1.1.1.1 :asn=1 +#woot:score=1] $node.data.set(woot, 1)')
+            await view1.nodes('[ inet:ip=1.1.1.2 :asn=2 +#woot:score=2] $node.data.set(woot, 2)')
+            await view0.nodes('[ inet:ip=1.1.1.3 :asn=3 +#woot:score=3] $node.data.set(woot, 3)')
 
             await view1.nodes('[ test:str=foo +#woot=2001 ]')
             await view0.nodes('[ test:str=foo +#woot=2001 ]')
@@ -1061,15 +1028,15 @@ class ViewTest(s_t_utils.SynTest):
             nodes = await view1.nodes('#woot')
             self.len(7, nodes)
 
-            nodes = await view1.nodes('inet:ipv4')
+            nodes = await view1.nodes('inet:ip')
             self.len(4, nodes)
             last = 0
             for node in nodes:
-                valu = node.ndef[1]
+                valu = node.ndef[1][1]
                 self.gt(valu, last)
                 last = valu
 
-            nodes = await view1.nodes('inet:ipv4:asn')
+            nodes = await view1.nodes('inet:ip:asn')
             self.len(4, nodes)
             last = 0
             for node in nodes:
@@ -1077,7 +1044,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.gt(asn, last)
                 last = asn
 
-            nodes = await view1.nodes('inet:ipv4:asn>0')
+            nodes = await view1.nodes('inet:ip:asn>0')
             self.len(4, nodes)
             last = 0
             for node in nodes:
@@ -1085,7 +1052,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.gt(asn, last)
                 last = asn
 
-            nodes = await view1.nodes('inet:ipv4:asn*in=(1,2,3,4)')
+            nodes = await view1.nodes('inet:ip:asn*in=(1,2,3,4)')
             self.len(4, nodes)
             last = 0
             for node in nodes:
@@ -1093,7 +1060,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.gt(asn, last)
                 last = asn
 
-            nodes = await view1.nodes('inet:ipv4:asn*in=(4,3,2,1)')
+            nodes = await view1.nodes('inet:ip:asn*in=(4,3,2,1)')
             self.len(4, nodes)
             last = 5
             for node in nodes:
@@ -1261,7 +1228,7 @@ class ViewTest(s_t_utils.SynTest):
             viewopts2 = {'view': viewiden2}
 
             addq = '''[
-            inet:ipv4=1.2.3.4
+            inet:ip=1.2.3.4
                 :asn=4
                 +#foo.tag=2024
                 +#bar.tag:score=5
@@ -1270,7 +1237,7 @@ class ViewTest(s_t_utils.SynTest):
             $node.data.set(foodata, bar)
             '''
             await core.nodes(addq)
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 [ +#baz.tag:score=6 ]', opts=viewopts2)
+            nodes = await core.nodes('inet:ip=1.2.3.4 [ +#baz.tag:score=6 ]', opts=viewopts2)
 
             n2node = (await core.nodes('it:dev:str=n2'))[0]
             n2nid = n2node.nid
@@ -1330,7 +1297,7 @@ class ViewTest(s_t_utils.SynTest):
                 self.false(newnode.istomb())
                 self.false(await newnode.delEdge('_foo', n2nid))
 
-            self.len(0, await core.nodes('inet:ipv4=1.2.3.4 <(*)- *', opts=viewopts2))
+            self.len(0, await core.nodes('inet:ip=1.2.3.4 <(*)- *', opts=viewopts2))
 
     async def test_subs_depth(self):
 
@@ -1417,3 +1384,35 @@ class ViewTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.BadState):
                 await core.callStorm('return($lib.view.get().insertParentFork().iden)')
+
+            pname = view01.parent.info.get('name')
+            vdef = await view01.insertParentFork(visi.iden)
+            self.eq(vdef.get('name'), f'inserted fork of {pname}')
+
+            piden = view03.parent.iden
+            vdef = await view03.insertParentFork(visi.iden)
+            self.eq(vdef.get('name'), f'inserted fork of {piden}')
+
+    async def test_view_children(self):
+
+        async with self.getTestCore() as core:
+
+            view00 = core.getView()
+            view01 = core.getView((await view00.fork())['iden'])
+            view02 = core.getView((await view01.fork())['iden'])
+            view03 = core.getView((await view01.fork())['iden'])
+
+            q = '''
+            $kids = ([])
+            for $child in $lib.view.get($iden).children() { $kids.append($child.iden) }
+            return($kids)
+            '''
+
+            opts = {'vars': {'iden': view00.iden}}
+            self.eq([view01.iden], await core.callStorm(q, opts=opts))
+
+            opts['vars']['iden'] = view01.iden
+            self.eq([view02.iden, view03.iden], await core.callStorm(q, opts=opts))
+
+            opts['vars']['iden'] = view02.iden
+            self.eq([], await core.callStorm(q, opts=opts))

@@ -1,9 +1,9 @@
-import json
 import collections
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 
 import synapse.tests.utils as s_t_utils
@@ -36,7 +36,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq(props, {'tick': 12345})
             self.eq(info.get('repr'), None)
             reprs = {k: v for (k, v) in info.get('reprs', {}).items() if not k.startswith('.')}
-            self.eq(reprs, {'tick': '1970/01/01 00:00:12.345'})
+            self.eq(reprs, {'tick': '1970-01-01T00:00:12.345Z'})
             tagpropreprs = info.get('tagpropreprs')
             self.eq(tagpropreprs, {'foo': {'score': '10'}})
 
@@ -79,7 +79,7 @@ class NodeTest(s_t_utils.SynTest):
             self.none(node.get('#newp'))
 
             self.eq('cool', node.repr())
-            self.eq(node.repr('tick'), '1970/01/01 00:00:12.345')
+            self.eq(node.repr('tick'), '1970-01-01T00:00:12.345Z')
 
             self.false(await node.set('tick', 12345))
             self.true(await node.set('tick', 123456))
@@ -149,7 +149,7 @@ class NodeTest(s_t_utils.SynTest):
             self.len(5, s_node.tagsnice(strpode))
             self.len(6, s_node.tags(strpode))
             self.eq(s_node.reprTag(strpode, '#test.foo.bar'), '')
-            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016/01/01 00:00:00.000, 2019/01/01 00:00:00.000)')
+            self.eq(s_node.reprTag(strpode, '#test.foo.time'), '(2016-01-01T00:00:00.000Z, 2019-01-01T00:00:00.000Z)')
             self.none(s_node.reprTag(strpode, 'test.foo.newp'))
 
             self.eq(s_node.prop(strpode, 'hehe'), 'hehe')
@@ -159,9 +159,9 @@ class NodeTest(s_t_utils.SynTest):
             self.none(s_node.prop(strpode, 'newp'))
 
             self.eq(s_node.reprProp(strpode, 'hehe'), 'hehe')
-            self.eq(s_node.reprProp(strpode, 'tick'), '1970/01/01 00:00:12.345')
-            self.eq(s_node.reprProp(strpode, ':tick'), '1970/01/01 00:00:12.345')
-            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970/01/01 00:00:12.345')
+            self.eq(s_node.reprProp(strpode, 'tick'), '1970-01-01T00:00:12.345Z')
+            self.eq(s_node.reprProp(strpode, ':tick'), '1970-01-01T00:00:12.345Z')
+            self.eq(s_node.reprProp(strpode, 'test:str:tick'), '1970-01-01T00:00:12.345Z')
             self.none(s_node.reprProp(strpode, 'newp'))
 
             self.eq(s_node.reprTagProps(strpode, 'test'),
@@ -220,7 +220,7 @@ class NodeTest(s_t_utils.SynTest):
                     async for byts, x in resp.content.iter_chunks():
                         if not byts:
                             break
-                        mesg = json.loads(byts)
+                        mesg = s_json.loads(byts)
                         if mesg[0] == 'node':
                             https_nodes.append(mesg[1])
 
@@ -349,7 +349,7 @@ class NodeTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
             self.len(1, nodes)
 
             node = nodes[0]
@@ -365,7 +365,7 @@ class NodeTest(s_t_utils.SynTest):
 
     async def test_node_data(self):
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
             self.len(1, nodes)
 
             node = nodes[0]
@@ -391,7 +391,7 @@ class NodeTest(s_t_utils.SynTest):
             self.eq((4, 5, 6), await node.getData('bar'))
 
             await node.delete()
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 :loc=us ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 :loc=us ]')
             node = nodes[0]
 
             self.none(await node.getData('foo'))
@@ -424,7 +424,7 @@ class NodeTest(s_t_utils.SynTest):
     async def test_node_edges(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[inet:ipv4=1.2.3.4 inet:ipv4=5.5.5.5]')
+            nodes = await core.nodes('[inet:ip=1.2.3.4 inet:ip=5.5.5.5]')
             with self.raises(s_exc.BadArg):
                 await nodes[0].addEdge('foo', 'bar')
             with self.raises(s_exc.BadArg):

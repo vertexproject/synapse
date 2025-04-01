@@ -46,7 +46,7 @@ class JsonStor(s_base.Base):
             self.dirty.pop(buid, None)
             await asyncio.sleep(0)
 
-    def _incRefObj(self, buid, valu=1):
+    async def _incRefObj(self, buid, valu=1):
 
         refs = 0
 
@@ -62,6 +62,7 @@ class JsonStor(s_base.Base):
         # remove the meta entries
         for lkey, byts in self.slab.scanByPref(buid, db=self.metadb):
             self.slab.pop(lkey, db=self.metadb)
+            await asyncio.sleep(0)
 
         # remove the item data
         self.slab.pop(buid, db=self.itemdb)
@@ -88,7 +89,7 @@ class JsonStor(s_base.Base):
 
         oldb = self.slab.replace(pkey, buid, db=self.pathdb)
         if oldb is not None:
-            self._incRefObj(oldb, -1)
+            await self._incRefObj(oldb, -1)
 
         self.slab.put(buid + b'refs', s_msgpack.en(1), db=self.metadb)
 
@@ -124,7 +125,7 @@ class JsonStor(s_base.Base):
         pkey = self._pathToPkey(path)
         buid = self.slab.pop(pkey, db=self.pathdb)
         if buid is not None:
-            self._incRefObj(buid, valu=-1)
+            await self._incRefObj(buid, valu=-1)
 
     async def setPathLink(self, srcpath, dstpath):
         '''
@@ -140,9 +141,9 @@ class JsonStor(s_base.Base):
 
         oldb = self.slab.pop(srcpkey, db=self.pathdb)
         if oldb is not None:
-            self._incRefObj(oldb, valu=-1)
+            await self._incRefObj(oldb, valu=-1)
 
-        self._incRefObj(buid, valu=1)
+        await self._incRefObj(buid, valu=1)
         self.slab.put(srcpkey, buid, db=self.pathdb)
 
     async def getPathObjProp(self, path, prop):
@@ -234,7 +235,8 @@ class JsonStor(s_base.Base):
         step = item
         names = self._pathToTupl(prop)
         for name in names[:-1]:
-            step = step[name]
+            if (step := step.get(name)) is None:
+                return False
 
         step.pop(names[-1], None)
 
@@ -388,13 +390,13 @@ class JsonStorApi(s_cell.CellApi):
         await self._reqUserAllowed(('queue', 'puts', name))
         return await self.cell.putsQueue(name, items)
 
-    async def getsQueue(self, name, offs, size=None, cull=True, wait=True):
+    async def getsQueue(self, name, offs, *, size=None, cull=True, wait=True):
         await self._reqUserAllowed(('queue', 'gets', name))
         async for item in self.cell.getsQueue(name, offs, size=size, cull=cull, wait=wait):
             yield item
 
     @s_cell.adminapi()
-    async def addUserNotif(self, useriden, mesgtype, mesgdata=None):
+    async def addUserNotif(self, useriden, mesgtype, *, mesgdata=None):
         return await self.cell.addUserNotif(useriden, mesgtype, mesgdata=mesgdata)
 
     @s_cell.adminapi()
@@ -406,12 +408,12 @@ class JsonStorApi(s_cell.CellApi):
         return await self.cell.delUserNotif(indx)
 
     @s_cell.adminapi()
-    async def iterUserNotifs(self, useriden, size=None):
+    async def iterUserNotifs(self, useriden, *, size=None):
         async for item in self.cell.iterUserNotifs(useriden, size=size):
             yield item
 
     @s_cell.adminapi()
-    async def watchAllUserNotifs(self, offs=None):
+    async def watchAllUserNotifs(self, *, offs=None):
         async for item in self.cell.watchAllUserNotifs(offs=offs):
             yield item
 

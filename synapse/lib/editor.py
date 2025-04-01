@@ -6,6 +6,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.chop as s_chop
+import synapse.lib.json as s_json
 import synapse.lib.node as s_node
 import synapse.lib.time as s_time
 import synapse.lib.layer as s_layer
@@ -18,13 +19,14 @@ class ProtoNode(s_node.NodeBase):
     '''
     A prototype node used for staging node adds using a NodeEditor.
     '''
-    def __init__(self, editor, buid, form, valu, node):
+    def __init__(self, editor, buid, form, valu, node, norminfo):
         self.editor = editor
         self.model = editor.view.core.model
         self.form = form
         self.valu = valu
         self.buid = buid
         self.node = node
+        self.virts = norminfo.get('virts') if norminfo is not None else None
 
         self.tags = {}
         self.props = {}
@@ -103,7 +105,10 @@ class ProtoNode(s_node.NodeBase):
                     for name in props.keys():
                         edits.append((s_layer.EDIT_TAGPROP_TOMB_DEL, (tag, name)))
 
-        return (self.nid, self.form.name, edits)
+        if (nid := self.nid) is not None:
+            nid = s_common.int64un(nid)
+
+        return (nid, self.form.name, edits)
 
     def getNodeEdit(self):
 
@@ -113,11 +118,11 @@ class ProtoNode(s_node.NodeBase):
         edits = []
 
         if not self.node or not self.node.hasvalu():
-            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype)))
+            edits.append((s_layer.EDIT_NODE_ADD, (self.valu, self.form.type.stortype, self.virts)))
 
         for name, valu in self.props.items():
             prop = self.form.props.get(name)
-            edits.append((s_layer.EDIT_PROP_SET, (name, valu, None, prop.type.stortype)))
+            edits.append((s_layer.EDIT_PROP_SET, (name, valu[0], None, prop.type.stortype, valu[1])))
 
         for name in self.propdels:
             prop = self.form.props.get(name)
@@ -136,16 +141,16 @@ class ProtoNode(s_node.NodeBase):
             edits.append((s_layer.EDIT_TAG_TOMB, (name,)))
 
         for verb, n2nid in self.edges:
-            edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2nid)))
+            edits.append((s_layer.EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
 
         for verb, n2nid in self.edgedels:
-            edits.append((s_layer.EDIT_EDGE_DEL, (verb, n2nid)))
+            edits.append((s_layer.EDIT_EDGE_DEL, (verb, s_common.int64un(n2nid))))
 
         for verb, n2nid in self.edgetombs:
-            edits.append((s_layer.EDIT_EDGE_TOMB, (verb, n2nid)))
+            edits.append((s_layer.EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
 
         for verb, n2nid in self.edgetombdels:
-            edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, n2nid)))
+            edits.append((s_layer.EDIT_EDGE_TOMB_DEL, (verb, s_common.int64un(n2nid))))
 
         for (tag, name), valu in self.tagprops.items():
             prop = self.model.getTagProp(name)
@@ -170,7 +175,38 @@ class ProtoNode(s_node.NodeBase):
         if not edits:
             return None
 
-        return (self.nid, self.form.name, edits)
+        if (nid := self.nid) is not None:
+            nid = s_common.int64un(nid)
+
+        return (nid, self.form.name, edits)
+
+    async def flushEdits(self):
+        if (nodeedit := self.getNodeEdit()) is not None:
+            await self.editor.view.saveNodeEdits((nodeedit,), meta=self.editor.getEditorMeta())
+
+            if self.node is None:
+                self.node = await self.editor.view.getNodeByBuid(self.buid)
+
+            self.delnode = False
+            self.tombnode = False
+
+            self.tags.clear()
+            self.props.clear()
+            self.tagprops.clear()
+            self.edges.clear()
+            self.nodedata.clear()
+
+            self.tagdels.clear()
+            self.tagtombs.clear()
+            self.propdels.clear()
+            self.proptombs.clear()
+            self.tagpropdels.clear()
+            self.tagproptombs.clear()
+            self.edgedels.clear()
+            self.edgetombs.clear()
+            self.edgetombdels.clear()
+            self.nodedatadels.clear()
+            self.nodedatatombs.clear()
 
     async def addEdge(self, verb, n2nid, n2form=None):
 
@@ -206,6 +242,8 @@ class ProtoNode(s_node.NodeBase):
         if not self.multilayer:
             if not await self.editor.view.hasNodeEdge(self.nid, verb, n2nid):
                 self.edges.add(tupl)
+                if len(self.edges) >= 1000:
+                    await self.flushEdits()
                 return True
 
         if tupl in self.edgetombs:
@@ -218,6 +256,8 @@ class ProtoNode(s_node.NodeBase):
 
         if toplayr is False:
             self.edgetombdels.add(tupl)
+            if len(self.edgetombdels) >= 1000:
+                await self.flushEdits()
 
         for layr in self.editor.view.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
@@ -227,6 +267,9 @@ class ProtoNode(s_node.NodeBase):
                 break
 
         self.edges.add(tupl)
+        if len(self.edges) >= 1000:
+            await self.flushEdits()
+
         return True
 
     async def delEdge(self, verb, n2nid):
@@ -254,6 +297,8 @@ class ProtoNode(s_node.NodeBase):
         if not self.multilayer:
             if await self.editor.view.hasNodeEdge(self.nid, verb, n2nid):
                 self.edgedels.add(tupl)
+                if len(self.edgedels) >= 1000:
+                    await self.flushEdits()
                 return True
             return False
 
@@ -264,11 +309,15 @@ class ProtoNode(s_node.NodeBase):
         # has or none
         if toplayr is True:
             self.edgedels.add(tupl)
+            if len(self.edgedels) >= 1000:
+                await self.flushEdits()
 
         for layr in self.editor.view.layers[1:self.node.lastlayr()]:
             if (undr := await layr.hasNodeEdge(self.nid, verb, n2nid)) is not None:
                 if undr:
                     self.edgetombs.add(tupl)
+                    if len(self.edgetombs) >= 1000:
+                        await self.flushEdits()
                     return True
                 break
 
@@ -279,7 +328,7 @@ class ProtoNode(s_node.NodeBase):
         Delete edge data from the NodeEditor's write layer where this is the dest node.
         '''
         dels = []
-        nid = self.nid
+        intnid = s_common.int64un(self.nid)
 
         if meta is None:
             meta = self.editor.getEditorMeta()
@@ -289,11 +338,11 @@ class ProtoNode(s_node.NodeBase):
             n1ndef = self.editor.view.core.getNidNdef(n1nid)
 
             if tomb:
-                edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, nid))]
+                edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, intnid))]
             else:
-                edit = [((s_layer.EDIT_EDGE_DEL), (verb, nid))]
+                edit = [((s_layer.EDIT_EDGE_DEL), (verb, intnid))]
 
-            dels.append((n1nid, n1ndef[0], edit))
+            dels.append((s_common.int64un(n1nid), n1ndef[0], edit))
 
             if len(dels) >= 1000:
                 await self.editor.view.saveNodeEdits(dels, meta=meta)
@@ -332,7 +381,7 @@ class ProtoNode(s_node.NodeBase):
         if await self.getData(name) == valu:
             return
 
-        s_common.reqjsonsafe(valu)
+        s_json.reqjsonsafe(valu)
 
         self.nodedata[name] = valu
         self.nodedatadels.discard(name)
@@ -414,7 +463,7 @@ class ProtoNode(s_node.NodeBase):
             try:
                 valu, _ = self.model.type('ival').norm(valu)
             except s_exc.BadTypeValu as e:
-                e.errinfo['tag'] = tagnode.valu
+                e.set('tag', tagnode.valu)
                 raise e
 
         tagup = tagnode.get('up')
@@ -591,7 +640,7 @@ class ProtoNode(s_node.NodeBase):
             raise s_exc.NoSuchTagProp(mesg=f'Tagprop {name} does not exist in this Cortex.')
 
         if prop.locked:
-            raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.')
+            raise s_exc.IsDeprLocked(mesg=f'Tagprop {name} is locked.', prop=name)
 
         norm, info = prop.type.norm(valu)
 
@@ -634,7 +683,7 @@ class ProtoNode(s_node.NodeBase):
 
         curv = self.props.get(name, s_common.novalu)
         if curv is not s_common.novalu:
-            return curv
+            return curv[0]
 
         if self.node is not None:
             return self.node.get(name, defv=defv)
@@ -649,7 +698,7 @@ class ProtoNode(s_node.NodeBase):
 
         curv = self.props.get(name, s_common.novalu)
         if curv is not s_common.novalu:
-            return curv, 0
+            return curv[0], 0
 
         if self.node is not None:
             return self.node.getWithLayer(name, defv=defv)
@@ -659,27 +708,27 @@ class ProtoNode(s_node.NodeBase):
     async def _set(self, prop, valu, norminfo=None, ignore_ro=False):
 
         if prop.locked:
-            raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
+            raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
 
         if isinstance(prop.type, s_types.Array):
             arrayform = self.model.form(prop.type.arraytype.name)
             if arrayform is not None and arrayform.locked:
-                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
+                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
 
         if norminfo is None:
             try:
                 valu, norminfo = prop.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                oldm = e.errinfo.get('mesg')
-                e.errinfo['prop'] = prop.name
-                e.errinfo['form'] = prop.form.name
-                e.errinfo['mesg'] = f'Bad prop value {prop.full}={valu!r} : {oldm}'
+                oldm = e.get('mesg')
+                e.update({'prop': prop.name,
+                          'form': prop.form.name,
+                          'mesg': f'Bad prop value {prop.full}={valu!r} : {oldm}'})
                 raise e
 
         if isinstance(prop.type, s_types.Ndef):
             ndefform = self.model.form(valu[0])
             if ndefform.locked:
-                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.')
+                raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
 
         curv = self.get(prop.name)
         if curv == valu:
@@ -691,7 +740,7 @@ class ProtoNode(s_node.NodeBase):
         if self.node is not None:
             await self.editor.view.core._callPropSetHook(self.node, prop, valu)
 
-        self.props[prop.name] = valu
+        self.props[prop.name] = (valu, norminfo.get('virts'))
         self.propdels.discard(prop.name)
         self.proptombs.discard(prop.name)
 
@@ -717,7 +766,8 @@ class ProtoNode(s_node.NodeBase):
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
+                subprop = self.form.props.get(full)
+                if subprop is not None and not subprop.locked:
                     await self.set(full, subvalu)
 
         propadds = norminfo.get('adds')
@@ -751,9 +801,9 @@ class ProtoNode(s_node.NodeBase):
 
         return True
 
-    async def getSetOps(self, name, valu, norminfo=None):
+    async def getSubSetOps(self, name, valu, norminfo=None):
         prop = self.form.props.get(name)
-        if prop is None:
+        if prop is None or prop.locked:
             return ()
 
         retn = await self._set(prop, valu, norminfo=norminfo)
@@ -772,8 +822,7 @@ class ProtoNode(s_node.NodeBase):
         if propsubs is not None:
             for subname, subvalu in propsubs.items():
                 full = f'{prop.name}:{subname}'
-                if self.form.props.get(full) is not None:
-                    ops.append(self.getSetOps(full, subvalu))
+                ops.append(self.getSubSetOps(full, subvalu))
 
         propadds = norminfo.get('adds')
         if propadds is not None:
@@ -800,13 +849,17 @@ class NodeEditor:
     '''
     A NodeEditor allows tracking node edits with subs/deps as a transaction.
     '''
-    def __init__(self, view, user):
+    def __init__(self, view, user, meta=None):
+        self.meta = meta
         self.user = user
         self.view = view
         self.protonodes = {}
         self.maxnodes = view.core.maxnodes
 
     def getEditorMeta(self):
+        if self.meta is not None:
+            return self.meta
+
         return {
             'time': s_common.now(),
             'user': self.user.iden
@@ -830,6 +883,13 @@ class NodeEditor:
                 nodeedits.append(nodeedit)
         return nodeedits
 
+    async def flushEdits(self):
+        nodeedits = self.getNodeEdits()
+        if nodeedits:
+            await self.view.saveNodeEdits(nodeedits, meta=self.meta)
+
+        self.protonodes.clear()
+
     async def _addNode(self, form, valu, norminfo=None):
 
         self.view.core._checkMaxNodes()
@@ -838,13 +898,13 @@ class NodeEditor:
             raise s_exc.IsRuntForm(mesg=f'Cannot make runt nodes: {form.name}.')
 
         if form.locked:
-            raise s_exc.IsDeprLocked(mesg=f'Form {form.full} is locked due to deprecation for valu={valu}.')
+            raise s_exc.IsDeprLocked(mesg=f'Form {form.full} is locked due to deprecation for valu={valu}.', prop=form.full)
 
         if norminfo is None:
             try:
                 valu, norminfo = form.type.norm(valu)
             except s_exc.BadTypeValu as e:
-                e.errinfo['form'] = form.name
+                e.set('form', form.name)
                 raise e
 
         return valu, norminfo
@@ -890,7 +950,7 @@ class NodeEditor:
         if node is not None:
             return ()
 
-        protonode = ProtoNode(self, buid, form, norm, node)
+        protonode = ProtoNode(self, buid, form, norm, node, norminfo)
 
         self.protonodes[ndef] = protonode
 
@@ -899,7 +959,7 @@ class NodeEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSubSetOps(prop, valu))
 
         adds = norminfo.get('adds')
         if adds is not None:
@@ -911,7 +971,8 @@ class NodeEditor:
     def loadNode(self, node):
         protonode = self.protonodes.get(node.ndef)
         if protonode is None:
-            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node)
+            norminfo = node.valuvirts()
+            protonode = ProtoNode(self, node.buid, node.form, node.ndef[1], node, norminfo)
             self.protonodes[node.ndef] = protonode
         return protonode
 
@@ -926,7 +987,7 @@ class NodeEditor:
         buid = s_common.buid(ndef)
         node = await self.view.getNodeByBuid(buid, tombs=True)
 
-        protonode = ProtoNode(self, buid, form, norm, node)
+        protonode = ProtoNode(self, buid, form, norm, node, norminfo)
 
         self.protonodes[ndef] = protonode
 
@@ -935,7 +996,7 @@ class NodeEditor:
         subs = norminfo.get('subs')
         if subs is not None:
             for prop, valu in subs.items():
-                ops.append(protonode.getSetOps(prop, valu))
+                ops.append(protonode.getSubSetOps(prop, valu))
 
             while ops:
                 oset = ops.popleft()

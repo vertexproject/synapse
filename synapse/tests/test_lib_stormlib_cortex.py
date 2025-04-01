@@ -1,11 +1,9 @@
-import json
-
 import unittest.mock as mock
 
-import aiohttp
-
-import synapse.common as s_common
 import synapse.exc as s_exc
+import synapse.common as s_common
+
+import synapse.lib.json as s_json
 
 import synapse.tests.utils as s_test
 
@@ -72,7 +70,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
             adef = await core.getHttpExtApi(iden)
             self.nn(adef)
 
-            info = await core.callStorm('return( $lib.cortex.httpapi.get($iden).pack() )',
+            info = await core.callStorm('return( $lib.cortex.httpapi.get($iden) )',
                                         opts={'vars': {'iden': testpath00}})
             self.eq(info.get('iden'), testpath00)
 
@@ -141,7 +139,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                 resp = await sess.head(f'https://localhost:{hport}/api/ext/testpath00')
                 self.eq(resp.status, 206)
                 self.eq(resp.headers.get('Secret-Header'), 'Head')
-                self.eq(resp.headers.get('Content-Length'), '14')
+                self.eq(resp.headers.get('Content-Length'), '13')
                 # HEAD had no body in its response
                 self.eq(await resp.read(), b'')
 
@@ -304,9 +302,7 @@ $request.reply(206, headers=$headers, body=({"no":"body"}))
                     resp = await sess.get(url)
                     self.eq(resp.status, 200)
                     self.true(await stream.wait(timeout=12))
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 self.eq(msgs[0].get('httpapi'), echoiden)
                 core.stormlog = False
 
@@ -806,12 +802,12 @@ $request.reply(200, headers=$headers, body=$body)
                 resp = await sess.get(f'https://localhost:{hport}/api/ext/raw')
                 self.eq(resp.status, 200)
                 self.eq(resp.headers.get('Content-Type'), 'application/json')
-                self.eq(resp.headers.get('Content-Length'), '12')
+                self.eq(resp.headers.get('Content-Length'), '11')
                 self.eq(resp.headers.get('Secret-Header'), 'OhBoy!')
 
                 buf = await resp.read()
-                self.len(12, buf)
-                self.eq(json.loads(buf), {'oh': 'my'})
+                self.len(11, buf)
+                self.eq(s_json.loads(buf), {'oh': 'my'})
 
     async def test_libcortex_httpapi_jsonlines(self):
         async with self.getTestCore() as core:
@@ -853,8 +849,8 @@ for $i in $values {
                             break
 
                         try:
-                            mesg = json.loads(byts)
-                        except json.JSONDecodeError:
+                            mesg = s_json.loads(byts)
+                        except s_exc.BadJsonText:
                             bufr = jstr
                             break
                         else:
@@ -1359,7 +1355,7 @@ for $i in $values {
                     self.eq(resp.status, 500)
                     data = await resp.json()
                     self.eq(data.get('code'), 'StormRuntimeError')
-                    self.isin('Failed to decode request body as JSON: Expecting value', data.get('mesg'))
+                    self.isin('Failed to decode request body as JSON', data.get('mesg'))
 
     async def test_cortex_httpapi_dynamic(self):
 
@@ -1471,7 +1467,7 @@ for $i in $values {
                     self.false(data['opts'].get('mirror'))
                     data.clear()
 
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api.pack() ) '
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (true) return ( $api ) '
                     adef = await core.callStorm(q, opts=opts_iden00)
                     self.true(adef.get('pool'))
 
@@ -1480,7 +1476,7 @@ for $i in $values {
                     self.true(data['opts'].get('mirror'))
                     data.clear()
 
-                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api.pack() ) '
+                    q = '$api=$lib.cortex.httpapi.get($iden) $api.pool = (false) return ( $api ) '
                     adef = await core.callStorm(q, opts=opts_iden00)
                     self.false(adef.get('pool'))
 

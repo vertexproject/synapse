@@ -1,6 +1,7 @@
 '''
 Exceptions used by synapse, all inheriting from SynErr
 '''
+import sys
 
 class SynErr(Exception):
 
@@ -56,9 +57,14 @@ class SynErr(Exception):
         self.errinfo[name] = valu
         self._setExcMesg()
 
+    def update(self, items: dict):
+        '''Update multiple items in the errinfo dict at once.'''
+        self.errinfo.update(items)
+        self._setExcMesg()
+
 class StormRaise(SynErr):
     '''
-    This represents a user provided exception inside of a Storm runtime. It requires a errname key.
+    This represents a user provided exception raised in the Storm runtime. It requires a errname key.
     '''
     def __init__(self, *args, **info):
         SynErr.__init__(self, *args, **info)
@@ -140,6 +146,8 @@ class BadTag(SynErr): pass
 class BadTime(SynErr): pass
 class BadUrl(SynErr): pass
 
+class TypeMismatch(SynErr): pass
+
 class CantDelCmd(SynErr): pass
 class CantDelEdge(SynErr): pass
 class CantDelNode(SynErr): pass
@@ -191,6 +199,13 @@ class DupTagPropName(SynErr): pass
 class DupUserName(SynErr): pass
 class DupStormSvc(SynErr): pass
 
+class DupTypeName(SynErr):
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'Type already exists: {name}.'
+        return DupTypeName(mesg=mesg, name=name)
+
 class DupEdgeType(SynErr):
 
     @classmethod
@@ -210,7 +225,13 @@ class InconsistentStorage(SynErr):
 
 class IsFini(SynErr): pass
 class IsReadOnly(SynErr): pass
-class IsDeprLocked(SynErr): pass
+
+class IsDeprLocked(SynErr):
+    def __init__(self, *args, **info):
+        if __debug__:
+            sys.audit('synapse.exc.IsDeprLocked', (args, info))
+        super().__init__(*args, **info)
+
 class IsRuntForm(SynErr): pass
 
 class LayerInUse(SynErr): pass
@@ -243,6 +264,13 @@ class NoSuchForm(SynErr):
             mesg = f'No form named {name}.'
         return NoSuchForm(mesg=mesg, name=name)
 
+class NoSuchType(SynErr):
+    @classmethod
+    def init(cls, name, mesg=None):
+        if mesg is None:
+            mesg = f'No type named {name}.'
+        return NoSuchType(mesg=mesg, name=name)
+
 class NoSuchProp(SynErr):
 
     @classmethod
@@ -250,6 +278,14 @@ class NoSuchProp(SynErr):
         if mesg is None:
             mesg = f'No property named {name}.'
         return NoSuchProp(mesg=mesg, name=name)
+
+class NoSuchVirt(SynErr):
+
+    @classmethod
+    def init(cls, name, ptyp, mesg=None):
+        if mesg is None:
+            mesg = f'No virtual prop named {name} on type {ptyp.name}.'
+        return NoSuchVirt(mesg=mesg, name=name, ptyp=ptyp.name)
 
 class NoSuchEdge(SynErr):
 
@@ -287,7 +323,6 @@ class NoSuchPath(SynErr): pass
 class NoSuchPivot(SynErr): pass
 class NoSuchUniv(SynErr): pass
 class NoSuchRole(SynErr): pass
-class NoSuchType(SynErr): pass
 class NoSuchUser(SynErr): pass
 class NoSuchVar(SynErr): pass
 class NoSuchView(SynErr): pass

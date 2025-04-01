@@ -12,7 +12,7 @@ class StormlibModelTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            q = '$val = $lib.model.type(inet:ipv4).repr(42) [test:str=$val]'
+            q = '$val = $lib.model.type(inet:ip).repr(([4, 42])) [test:str=$val]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:str', '0.0.0.42'))
@@ -23,21 +23,26 @@ class StormlibModelTest(s_test.SynTest):
             self.eq(nodes[0].ndef, ('test:str', 'true'))
 
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.form(inet:dns:a).type.name)'))
-            self.eq('inet:ipv4', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.name)'))
-            self.eq(s_layer.STOR_TYPE_U32, await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).type.stortype)'))
+            self.eq('inet:ip', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.name)'))
+            self.eq(s_layer.STOR_TYPE_IPADDR, await core.callStorm('return($lib.model.prop(inet:dns:a:ip).type.stortype)'))
             self.eq('inet:dns:a', await core.callStorm('return($lib.model.type(inet:dns:a).name)'))
 
-            self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ipv4).repr($(0x01020304)))'))
+            self.eq('1.2.3.4', await core.callStorm('return($lib.model.type(inet:ip).repr(([4, $(0x01020304)])))'))
             self.eq('123', await core.callStorm('return($lib.model.type(int).repr((1.23 *100)))'))
             self.eq((123, {}), await core.callStorm('return($lib.model.type(int).norm((1.23 *100)))'))
-            self.eq(0x01020304, await core.callStorm('return($lib.model.type(inet:ipv4).norm(1.2.3.4).index(0))'))
-            self.eq({'subs': {'type': 'unicast'}}, await core.callStorm('return($lib.model.type(inet:ipv4).norm(1.2.3.4).index(1))'))
-            self.eq('inet:dns:a:ipv4', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ipv4).full)'))
-            self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ipv4).form.name)'))
+            self.eq((4, 0x01020304), await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(0))'))
+            self.eq({'subs': {'type': 'unicast', 'version': 4}}, await core.callStorm('return($lib.model.type(inet:ip).norm(1.2.3.4).index(1))'))
+            self.eq('inet:dns:a:ip', await core.callStorm('return($lib.model.form(inet:dns:a).prop(ip).full)'))
+            self.eq('inet:dns:a', await core.callStorm('return($lib.model.prop(inet:dns:a:ip).form.name)'))
 
             await core.addTagProp('score', ('int', {}), {})
             self.eq('score', await core.callStorm('return($lib.model.tagprop(score).name)'))
             self.eq('int', await core.callStorm('return($lib.model.tagprop(score).type.name)'))
+
+            self.eq('risk:attack', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).n1form)'))
+            self.eq('uses', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).verb)'))
+            self.eq('risk:vuln', await core.callStorm('return($lib.model.edge(risk:attack, uses, risk:vuln).n2form)'))
+            self.none(await core.callStorm('return($lib.model.edge(risk:attack, newp, risk:vuln))'))
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
 
@@ -74,83 +79,89 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist("$item=$lib.model.tagprop('score') $lib.print($item.type)")
             self.stormIsInPrint("model:type: ('int', ('base'", mesgs)
 
+            mesgs = await core.stormlist('$lib.print($lib.model.edge(risk:attack, uses, risk:vuln))')
+            self.stormIsInPrint("model:edge: (('risk:attack', 'uses', 'risk:vuln'), {'doc':", mesgs)
+
+            mesgs = await core.stormlist('$lib.pprint($lib.model.edge(risk:attack, uses, risk:vuln))')
+            self.stormIsInPrint("(('risk:attack', 'uses', 'risk:vuln'),\n {'doc':", mesgs)
+
     async def test_stormlib_model_depr(self):
 
         with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
 
+                await core._addDataModels(s_test.deprmodel)
+
                 # create both a deprecated form and a node with a deprecated prop
-                await core.nodes('[ ou:org=* :sic=1234 ou:hasalias=($node.repr(), foobar) ]')
+                await core.nodes('[ test:deprform=* :deprprop2=foo test:deprprop=baz ]')
 
                 with self.raises(s_exc.NoSuchProp):
                     await core.nodes('model.deprecated.lock newp:newp')
 
                 # lock a prop and a form/type
-                await core.nodes('model.deprecated.lock ou:org:sic')
-                await core.nodes('model.deprecated.lock ou:hasalias')
+                await core.nodes('model.deprecated.lock test:deprform:deprprop2')
+                await core.nodes('model.deprecated.lock test:deprprop')
 
                 with self.raises(s_exc.IsDeprLocked):
-                    await core.nodes('ou:org [ :sic=5678 ]')
+                    await core.nodes('test:deprform [ :deprprop2=baz ]')
 
                 with self.raises(s_exc.IsDeprLocked):
-                    await core.nodes('[ou:hasalias=(*, hehe)]')
+                    await core.nodes('[test:deprprop=newp]')
 
                 with self.getAsyncLoggerStream('synapse.lib.view',
-                                               'Prop ou:org:sic is locked due to deprecation') as stream:
+                                               'Prop test:deprform:deprprop2 is locked due to deprecation') as stream:
                     data = (
-                        (('ou:org', ('t0',)), {'props': {'sic': '5678'}}),
+                        (('test:deprform', 'depr'), {'props': {'deprprop2': '5678'}}),
                     )
                     await core.addFeedData(data)
                     self.true(await stream.wait(1))
-                    nodes = await core.nodes('ou:org=(t0,)')
-                    self.none(nodes[0].get('sic'))
+                    nodes = await core.nodes('test:deprform=depr')
+                    self.none(nodes[0].get('deprprop2'))
 
                 mesgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('ou:org:sic: true', mesgs)
-                self.stormIsInPrint('ou:hasalias: true', mesgs)
-                self.stormIsInPrint('it:reveng:funcstr: false', mesgs)
+                self.stormIsInPrint('test:deprform:deprprop2: true', mesgs)
+                self.stormIsInPrint('test:deprprop: true', mesgs)
+                self.stormIsInPrint('test:deprform2: false', mesgs)
 
-                await core.nodes('model.deprecated.lock --unlock ou:org:sic')
-                await core.nodes('ou:org [ :sic=5678 ]')
-                await core.nodes('model.deprecated.lock ou:org:sic')
+                await core.nodes('model.deprecated.lock --unlock test:deprform:deprprop2')
+                await core.nodes('test:deprform [ :deprprop2=bar ]')
+                await core.nodes('model.deprecated.lock test:deprform:deprprop2')
 
             # ensure that the locks persisted and got loaded correctly
             async with self.getTestCore(dirn=dirn) as core:
 
+                await core._addDataModels(s_test.deprmodel)
+
                 mesgs = await core.stormlist('model.deprecated.check')
                 # warn due to unlocked
-                self.stormIsInWarn('it:reveng:funcstr', mesgs)
+                self.stormIsInWarn('test:deprform2', mesgs)
                 # warn due to existing
-                self.stormIsInWarn('ou:org:sic', mesgs)
-                self.stormIsInWarn('ou:hasalias', mesgs)
+                self.stormIsInWarn('test:deprform:deprprop2', mesgs)
+                self.stormIsInWarn('test:deprprop', mesgs)
                 self.stormIsInPrint('Your cortex contains deprecated model elements', mesgs)
 
                 await core.nodes('model.deprecated.lock *')
 
                 mesgs = await core.stormlist('model.deprecated.locks')
-                self.stormIsInPrint('it:reveng:funcstr: true', mesgs)
+                self.stormIsInPrint('test:deprform2: true', mesgs)
 
-                await core.nodes('ou:org [ -:sic ]')
-                await core.nodes('ou:hasalias | delnode')
+                await core.nodes('test:deprform [ -:deprprop2 ]')
+                await core.nodes('test:deprprop | delnode')
 
                 mesgs = await core.stormlist('model.deprecated.check')
                 self.stormIsInPrint('Congrats!', mesgs)
 
     async def test_stormlib_model_depr_check(self):
 
-        conf = {
-            'modules': [
-                'synapse.tests.test_datamodel.DeprecatedModel',
-            ]
-        }
+        async with self.getTestCore() as core:
 
-        with self.getTestDir() as dirn:
-            async with self.getTestCore(conf=conf, dirn=dirn) as core:
-                mesgs = await core.stormlist('model.deprecated.check')
+            await core._addDataModels(s_test.deprmodel)
 
-                self.stormIsInWarn('.pdep is not yet locked', mesgs)
-                self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)
+            mesgs = await core.stormlist('model.deprecated.check')
+
+            self.stormIsInWarn('.pdep is not yet locked', mesgs)
+            self.stormNotInWarn('test:dep:easy.pdep is not yet locked', mesgs)
 
     async def test_stormlib_model_migration(self):
 
@@ -256,24 +267,7 @@ class StormlibModelTest(s_test.SynTest):
             q = 'test:str=src $n=$node -> { test:str=deny $lib.model.migration.copyTags($n, $node) }'
             await self.asyncraises(s_exc.AuthDeny, core.nodes(q, opts=aslow))
 
-            with self.raises(s_exc.NoSuchProp) as exc:
-                await core.callStorm('$lib.model.migration.liftByPropValuNoNorm(formname, propname, valu)')
-            self.eq(exc.exception.get('mesg'), 'Could not find prop: formname:propname')
-
-            with self.raises(s_exc.AuthDeny) as exc:
-                await core.callStorm('$lib.model.migration.liftByPropValuNoNorm(it:prod:soft, cpe, valu)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.liftByPropValuNoNorm() is restricted to model migrations only.')
-
-            with self.raises(s_exc.BadArg) as exc:
-                await core.callStorm('$lib.model.migration.setNodePropValuNoNorm(notanode, propname, valu)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.setNodePropValuNoNorm() argument must be a node.')
-
-            with self.raises(s_exc.AuthDeny) as exc:
-                await core.callStorm('test:str $lib.model.migration.setNodePropValuNoNorm($node, propname, valu)')
-            self.eq(exc.exception.get('mesg'), '$lib.model.migration.setNodePropValuNoNorm() is restricted to model migrations only.')
-
             # copy extended properties
-
             await self.asyncraises(s_exc.BadArg, core.nodes('test:str=src $lib.model.migration.copyExtProps($node, newp)'))
             await self.asyncraises(s_exc.BadArg, core.nodes('test:str=dst $lib.model.migration.copyExtProps(newp, $node)'))
 

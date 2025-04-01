@@ -1,4 +1,3 @@
-import json
 import base64
 import asyncio
 import logging
@@ -12,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,6 @@ class HandlerBase:
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
-        self._web_user = None  # Deprecated for new handlers
         self.web_useriden = None  # The user iden at the time of authentication.
         self.web_username = None  # The user name at the time of authentication.
 
@@ -132,7 +131,7 @@ class HandlerBase:
 
     def loadJsonMesg(self, byts, validator=None):
         try:
-            item = json.loads(byts)
+            item = s_json.loads(byts)
             if validator is not None:
                 validator(item)
             return item
@@ -418,7 +417,7 @@ class HandlerBase:
 class WebSocket(HandlerBase, t_websocket.WebSocketHandler):
 
     async def xmit(self, name, **info):
-        await self.write_message(json.dumps({'type': name, 'data': info}))
+        await self.write_message(s_json.dumps({'type': name, 'data': info}))
 
     async def _reqUserAllow(self, perm):
 
@@ -484,40 +483,6 @@ class StormHandler(Handler):
         # a reference to the cortex is returned from the handler.
         return self.cell
 
-class StormNodesV1(StormHandler):
-
-    async def post(self):
-        return await self.get()
-
-    async def get(self):
-
-        user, body = await self.getUseridenBody()
-        if body is s_common.novalu:
-            return
-
-        s_common.deprecated('HTTP API /api/v1/storm/nodes', curv='2.110.0')
-
-        # dont allow a user to be specified
-        opts = body.get('opts')
-        query = body.get('query')
-        stream = body.get('stream')
-        jsonlines = stream == 'jsonlines'
-
-        opts = await self._reqValidOpts(opts)
-        if opts is None:
-            return
-
-        view = self.cell._viewFromOpts(opts)
-
-        taskinfo = {'query': query, 'view': view.iden}
-        await self.cell.boss.promote('storm', user=user, info=taskinfo)
-
-        async for pode in view.iterStormPodes(query, opts=opts):
-            self.write(json.dumps(pode))
-            if jsonlines:
-                self.write("\n")
-            await self.flush()
-
 class StormV1(StormHandler):
 
     async def post(self):
@@ -545,9 +510,7 @@ class StormV1(StormHandler):
         opts.setdefault('editformat', 'nodeedits')
 
         async for mesg in self.getCore().storm(query, opts=opts):
-            self.write(json.dumps(mesg))
-            if jsonlines:
-                self.write("\n")
+            self.write(s_json.dumps(mesg, newline=jsonlines))
             await self.flush()
 
 class StormCallV1(StormHandler):
@@ -640,9 +603,9 @@ class BeholdSockV1(WebSocket):
 
     async def onInitMessage(self, byts):
         try:
-            mesg = json.loads(byts)
+            mesg = s_json.loads(byts)
             if mesg.get('type') != 'call:init':
-                raise s_exc.BadMesgFormat('Invalid initial message')
+                raise s_exc.BadMesgFormat(mesg='Invalid initial message')
 
             admin = await self.isUserAdmin()
             if not admin:
@@ -1056,13 +1019,14 @@ class ModelNormV1(Handler):
 
         propname = body.get('prop')
         propvalu = body.get('value')
+        typeopts = body.get('typeopts')
 
         if propname is None:
             self.sendRestErr('MissingField', 'The property normalization API requires a prop name.')
             return
 
         try:
-            valu, info = await self.cell.getPropNorm(propname, propvalu)
+            valu, info = await self.cell.getPropNorm(propname, propvalu, typeopts=typeopts)
         except s_exc.NoSuchProp:
             return self.sendRestErr('NoSuchProp', 'The property {propname} does not exist.')
         except Exception as e:
@@ -1122,7 +1086,7 @@ class StormVarsPopV1(Handler):
         varname = str(body.get('name'))
         defvalu = body.get('default')
 
-        if not await self.allowed(('globals', 'pop', varname)):
+        if not await self.allowed(('globals', 'del', varname)):
             return
 
         valu = await self.cell.popStormVar(varname, default=defvalu)

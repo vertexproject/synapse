@@ -1,15 +1,15 @@
 import os
 import ssl
-import json
 import shutil
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.stormctrl as s_stormctrl
-import synapse.lib.stormhttp as s_stormhttp
+import synapse.lib.stormtypes as s_stormtypes
 
 import synapse.tests.utils as s_test
 
@@ -32,11 +32,11 @@ class TstWebSock(s_httpapi.WebSocket):
         await self.sendJsonMesg(resp)
 
     async def on_message(self, byts):
-        mesg = json.loads(byts)
+        mesg = s_json.loads(byts)
         await self.sendJsonMesg(('echo', mesg), binary=True)
 
     async def sendJsonMesg(self, item, binary=False):
-        byts = json.dumps(item)
+        byts = s_json.dumps(item)
         await self.write_message(byts, binary=binary)
 
 class HttpNotJson(s_httpapi.Handler):
@@ -464,6 +464,15 @@ class StormHttpTest(s_test.SynTest):
             self.isin('mesg', errinfo)
             self.eq('', errinfo.get('mesg'))  # timeouterror has no mesg
 
+            q = '''
+            $params=({"foo": ["bar", "baz"], "key": [["valu"]]})
+            $resp = $lib.inet.http.request(GET, $url, params=$params, ssl_verify=$lib.false)
+            return ( $resp.json() )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            data = resp.get('result')
+            self.eq(data.get('params'), {'foo': ['bar', 'baz'], 'key': ["('valu',)"]})
+
     async def test_storm_http_post(self):
 
         async with self.getTestCore() as core:
@@ -509,11 +518,11 @@ class StormHttpTest(s_test.SynTest):
             self.eq(data.get('body'), 'MTIzNA==')
 
             q = '''
-            $fields=$lib.list(
-                ({"name": "foo", "value": "bar"}),
-                ({"name": "foo", "value": "bar2"}),
-                ({"name": "baz", "value": "cool"})
-            )
+            $fields=([
+                {"name": "foo", "value": "bar"},
+                {"name": "foo", "value": "bar2"},
+                {"name": "baz", "value": "cool"}
+            ])
             $resp = $lib.inet.http.post($url, fields=$fields, ssl_verify=$lib.false)
             return ( $resp.json() )
             '''
@@ -530,7 +539,7 @@ class StormHttpTest(s_test.SynTest):
             return($lib.inet.http.post($url, ssl_verify=$lib.false, fields=$fields))
             '''
             resp = await core.callStorm(q, opts=opts)
-            request = json.loads(resp.get('body'))
+            request = s_json.loads(resp.get('body'))
             request_headers = request.get('result').get('headers')
             self.isin('multipart/form-data; boundary=', request_headers.get('Content-Type', ''))
 
@@ -597,10 +606,26 @@ class StormHttpTest(s_test.SynTest):
             self.false(resp.get('ok'))
             self.ne(-1, resp['mesg'].find('connect to proxy 127.0.0.1:1'))
 
+            msgs = await core.stormlist('$resp=$lib.axon.wget("http://vertex.link", proxy=(null)) $lib.print($resp.mesg)')
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
+
+            await self.asyncraises(s_exc.BadArg, core.nodes('$lib.axon.wget("http://vertex.link", proxy=(1.1))'))
+
+            size, sha256 = await core.axon.put(b'asdf')
+            opts = {'vars': {'sha256': s_common.ehex(sha256)}}
+            resp = await core.callStorm(f'return($lib.axon.wput($sha256, http://vertex.link))', opts=opts)
+            self.false(resp.get('ok'))
+            self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
+
             q = '$resp=$lib.inet.http.get("http://vertex.link") return(($resp.code, $resp.err))'
             code, (errname, _) = await core.callStorm(q)
             self.eq(code, -1)
             self.eq('ProxyConnectionError', errname)
+
+            msgs = await core.stormlist('$resp=$lib.inet.http.get("http://vertex.link", proxy=(null)) $lib.print($resp.err)')
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', msgs)
+
+            await self.asyncraises(s_exc.BadArg, core.nodes('$lib.inet.http.get("http://vertex.link", proxy=(1.1))'))
 
         async with self.getTestCore() as core:
 
@@ -612,11 +637,11 @@ class StormHttpTest(s_test.SynTest):
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=$lib.false)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.inet.http.get(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.eq('ProxyConnectionError', resp['err'][0])
@@ -624,15 +649,15 @@ class StormHttpTest(s_test.SynTest):
             # test $lib.axon proxy API
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=$lib.false)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             asvisi = {'user': visi.iden}
             msgs = await core.stormlist('$lib.axon.wput(asdf, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1)', opts=asvisi)
-            self.stormIsInErr(errmsg.format(perm='storm.lib.inet.http.proxy'), msgs)
+            self.stormIsInErr(errmsg.format(perm='inet.http.proxy'), msgs)
 
             resp = await core.callStorm('return($lib.axon.wget(http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.false(resp.get('ok'))
@@ -644,6 +669,24 @@ class StormHttpTest(s_test.SynTest):
             resp = await core.callStorm(f'return($lib.axon.wput({sha256}, http://vertex.link, proxy=socks5://user:pass@127.0.0.1:1))')
             self.false(resp.get('ok'))
             self.isin('connect to proxy 127.0.0.1:1', resp['mesg'])
+
+            host, port = await core.addHttpsPort(0)
+            opts = {
+                'vars': {
+                    'url': f'https://loop.vertex.link:{port}',
+                    'proxy': 'socks5://user:pass@127.0.0.1:1',
+                }
+            }
+            try:
+                oldv = core.axoninfo['synapse']['version']
+                minver = s_stormtypes.AXON_MINVERS_PROXY
+                core.axoninfo['synapse']['version'] = minver[2], minver[1] - 1, minver[0]
+                q = '$resp=$lib.axon.wget($url, ssl=(false), proxy=$proxy) $lib.print(`code={$resp.code}`)'
+                mesgs = await core.stormlist(q, opts=opts)
+                self.stormIsInPrint('code=404', mesgs)
+                self.stormIsInWarn('Axon version does not support proxy argument', mesgs)
+            finally:
+                core.axoninfo['synapse']['version'] = oldv
 
         async with self.getTestCore(conf=conf) as core:
             # Proxy permission tests in this section
@@ -675,7 +718,7 @@ class StormHttpTest(s_test.SynTest):
                     await core.callStorm(q3, opts=opts)
 
             # Add permissions to use a proxy
-            await visi.addRule((True, ('storm', 'lib', 'inet', 'http', 'proxy')))
+            await visi.addRule((True, ('inet', 'http', 'proxy')))
 
             opts = {'vars': {'proxy': 'socks5://user:pass@127.0.0.1:1'}, 'user': visi.iden}
 
@@ -753,16 +796,20 @@ class StormHttpTest(s_test.SynTest):
             ($ok, $valu) = $sock.tx(lololol)
             return($sock.rx())
             '''
-            opts = {'vars': {'port': port, 'proxy': None}}
+            opts = {'vars': {'port': port, 'proxy': True}}
             self.eq((True, ('echo', 'lololol')),
                     await core.callStorm(query, opts=opts))
+
+            opts = {'vars': {'port': port, 'proxy': None}}
+            mesgs = await core.stormlist(query, opts=opts)
+            self.stormIsInErr('HTTP proxy argument must be a string or bool.', mesgs)
 
             visi = await core.auth.addUser('visi')
 
             opts = {'user': visi.iden, 'vars': {'port': port, 'proxy': False}}
             with self.raises(s_exc.AuthDeny) as cm:
                 await core.callStorm(query, opts=opts)
-            self.eq(cm.exception.get('mesg'), f'User {visi.name!r} ({visi.iden}) must have permission storm.lib.inet.http.proxy')
+            self.eq(cm.exception.get('mesg'), f'User {visi.name!r} ({visi.iden}) must have permission inet.http.proxy')
 
             await visi.setAdmin(True)
 
@@ -894,16 +941,10 @@ class StormHttpTest(s_test.SynTest):
                     core.axoninfo['synapse']['version'] = oldv
 
                 ## version check succeeds
-                # todo: setting the synapse version can be removed once ssl_opts is released
-                try:
-                    oldv = core.axoninfo['synapse']['version']
-                    core.axoninfo['synapse']['version'] = (oldv[0], oldv[1] + 1, oldv[2])
-                    self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
-                    self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
-                    self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
-                    self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
-                finally:
-                    core.axoninfo['synapse']['version'] = oldv
+                self.eq(200, await core.callStorm(axon_queries['postfile'], opts=opts))
+                self.eq(200, await core.callStorm(axon_queries['wget'], opts=opts))
+                self.eq(200, await core.callStorm(axon_queries['wput'], opts=opts))
+                self.len(1, await core.nodes(axon_queries['urlfile'], opts=opts))
 
                 # verify arg precedence
 

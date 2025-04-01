@@ -1,9 +1,7 @@
 import datetime
 
 import synapse.exc as s_exc
-import synapse.common as s_common
 
-import synapse.lib.chop as s_chop
 import synapse.lib.modelrev as s_modelrev
 
 import synapse.tests.utils as s_tests
@@ -16,7 +14,7 @@ class ModelRevTest(s_tests.SynTest):
 
     async def test_cortex_modelrev_init(self):
 
-        with self.getTestDir(mirror='testcore') as dirn:
+        with self.getTestDir() as dirn:
 
             async with self.getTestCore(dirn=dirn) as core:
                 layr = core.getLayer()

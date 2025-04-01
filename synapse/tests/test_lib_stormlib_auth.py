@@ -1,8 +1,9 @@
-import json
 import asyncio
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+
+import synapse.lib.json as s_json
 
 import synapse.tests.utils as s_test
 
@@ -320,6 +321,17 @@ class StormLibAuthTest(s_test.SynTest):
             self.stormIsInPrint('Controls access to add a new view including forks.', msgs)
             self.stormIsInPrint('default: false', msgs)
 
+            msgs = await core.stormlist('auth.perms.list --find macro.')
+            self.stormIsInPrint('macro.add', msgs)
+            self.stormIsInPrint('macro.admin', msgs)
+            self.stormIsInPrint('macro.edit', msgs)
+            self.stormNotInPrint('node.add.<form>', msgs)
+
+            msgs = await core.stormlist('auth.perms.list --find url')
+            self.stormIsInPrint('telepath.open.<scheme>', msgs)
+            self.stormIsInPrint('Controls the ability to open a telepath URL with a specific URI scheme.', msgs)
+            self.stormNotInPrint('node.add.<form>', msgs)
+
     async def test_stormlib_auth_default_allow(self):
         async with self.getTestCore() as core:
 
@@ -427,7 +439,7 @@ class StormLibAuthTest(s_test.SynTest):
 
             await core.callStorm('$lib.user.json.set(hi, hehe, prop=foo)')
             items = await core.callStorm('''
-            $list = $lib.list()
+            $list = ()
             for $item in $lib.user.json.iter() { $list.append($item) }
             return($list)
             ''')
@@ -437,7 +449,7 @@ class StormLibAuthTest(s_test.SynTest):
             ))
 
             items = await core.callStorm('''
-            $list = $lib.list()
+            $list = ()
             for $item in $lib.user.json.iter(path=bye) { $list.append($item) }
             return($list)
             ''')
@@ -599,15 +611,13 @@ class StormLibAuthTest(s_test.SynTest):
             udef = await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': visi.iden}})
             self.nn(udef)
             self.nn(await core.callStorm('return($lib.auth.users.byname(visi))'))
-            pdef = await core.callStorm('$info=$lib.auth.users.byname(visi).pack() $info.key=valu return($info)')
-            self.eq('valu', pdef.pop('key', None))
+            pdef = await core.callStorm('$info=$lib.auth.users.byname(visi) return($info)')
             self.eq(udef, pdef)
 
             self.eq(await core.callStorm('return($lib.auth.roles.byname(all).name)'), 'all')
             rdef = await core.callStorm('return($lib.auth.roles.byname(all))')
             self.eq(rdef.get('name'), 'all')
-            pdef = await core.callStorm('$info=$lib.auth.roles.byname(all).pack() $info.key=valu return($info)')
-            self.eq('valu', pdef.pop('key', None))
+            pdef = await core.callStorm('$info=$lib.auth.roles.byname(all) return($info)')
             self.eq(rdef, pdef)
 
             self.none(await core.callStorm('return($lib.auth.users.get($iden))', opts={'vars': {'iden': 'newp'}}))
@@ -723,7 +733,7 @@ class StormLibAuthTest(s_test.SynTest):
             '''))
 
             # user roles can be set in bulk
-            roles = await core.callStorm('''$roles=$lib.list()
+            roles = await core.callStorm('''$roles=()
             $role=$lib.auth.roles.byname(admins) $roles.append($role.iden)
             $role=$lib.auth.roles.byname(all) $roles.append($role.iden)
             $lib.auth.users.byname(visi).setRoles($roles)
@@ -783,7 +793,7 @@ class StormLibAuthTest(s_test.SynTest):
             visi = await core.callStorm('''
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $visi = $lib.auth.users.byname(visi)
-                $visi.setRules($lib.list($rule))
+                $visi.setRules(([$rule]))
                 return($visi)
             ''')
             self.eq(((True, ('hehe', 'haha')),), visi['rules'])
@@ -826,7 +836,7 @@ class StormLibAuthTest(s_test.SynTest):
             ninjas = await core.callStorm('''
                 $rule = $lib.auth.ruleFromText(hehe.haha)
                 $ninjas = $lib.auth.roles.byname(ninjas)
-                $ninjas.setRules($lib.list($rule))
+                $ninjas.setRules(([$rule]))
                 return($ninjas)
             ''')
             self.eq(((True, ('hehe', 'haha')),), ninjas['rules'])
@@ -942,7 +952,7 @@ class StormLibAuthTest(s_test.SynTest):
             '''
             retn = await core.callStorm(q)
             self.eq(retn[0], retn[1])
-            self.eq(json.loads(retn[0]), {'hehe': 'haha', 'd': {'foo': 'bar'}})
+            self.eq(s_json.loads(retn[0]), {'hehe': 'haha', 'd': {'foo': 'bar'}})
 
             q = '''$u=$lib.auth.users.byname(puser) $profile=$u.profile
             for $valu in $profile {
@@ -966,10 +976,10 @@ class StormLibAuthTest(s_test.SynTest):
             with self.raises(s_exc.AuthDeny):
                 await core.callStorm('return ( $lib.auth.roles.del(ninjas) )', opts=aslowuser)
 
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'users', 'add')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'users', 'del')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'roles', 'add')))
-            await core.addUserRule(lowuser.get('iden'), (True, ('storm', 'lib', 'auth', 'roles', 'del')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'user', 'add')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'user', 'del')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'role', 'add')))
+            await core.addUserRule(lowuser.get('iden'), (True, ('auth', 'role', 'del')))
             unfo = await core.callStorm('return ( $lib.auth.users.add(giggles) )', opts=aslowuser)
             iden = unfo.get('iden')
             msgs = await core.stormlist(f'$lib.auth.users.del({iden})', opts=aslowuser)
@@ -994,6 +1004,21 @@ class StormLibAuthTest(s_test.SynTest):
                 await core.callStorm('$lib.auth.roles.add(runners, iden=$iden)', opts=opts)
             with self.raises(s_exc.DupIden):
                 await core.callStorm('$lib.auth.roles.add(walkers, iden=$iden)', opts=opts)
+
+            # The role & user.authgates local is a passthrough to the getRoleDef & getUserDef
+            # results, which are a pack()'d structure. Modifying the results of that structure
+            # does not persist.
+            q = '$u = $lib.auth.users.byname(root) $u.authgates.newp = ({}) return ($u)'
+            udef = await core.callStorm(q)
+            self.notin('newp', udef.get('authgates'))
+            q = '$u = $lib.auth.users.byname(root) return ( $lib.dict.has($u.authgates, newp) )'
+            self.false(await core.callStorm(q))
+
+            q = '$r = $lib.auth.roles.byname(all) $r.authgates.newp = ({}) return ($r)'
+            rdef = await core.callStorm(q)
+            self.notin('newp', rdef.get('authgates'))
+            q = '$r = $lib.auth.roles.byname(all) return ( $lib.dict.has($r.authgates, newp) )'
+            self.false(await core.callStorm(q))
 
     async def test_stormlib_auth_gateadmin(self):
 

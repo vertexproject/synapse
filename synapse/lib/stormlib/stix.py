@@ -1,4 +1,3 @@
-import json
 import uuid
 import asyncio
 import logging
@@ -56,9 +55,9 @@ _DefaultConfig = {
                     'rels': (
                         ('attributed-to', 'threat-actor', ':org -> ou:org'),
                         ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
-                        ('targets', 'identity', '-> risk:attack :target:org -> ou:org'),
-                        ('targets', 'identity', '-> risk:attack :target:person -> ps:person'),
-                        ('targets', 'vulnerability', '-> risk:attack :used:vuln -> risk:vuln'),
+                        ('targets', 'identity', '-> risk:attack -(targets)> ou:org'),
+                        ('targets', 'identity', '-> risk:attack -(targets)> ps:person'),
+                        ('targets', 'vulnerability', '-> risk:attack -(uses)> risk:vuln'),
                     ),
                 },
             },
@@ -74,7 +73,7 @@ _DefaultConfig = {
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sectors': '''
-                            init { $list = $lib.list() }
+                            init { $list = () }
                             -> ou:industry +:name $list.append(:name)
                             fini { if $list { return($list) } }
                         ''',
@@ -88,7 +87,7 @@ _DefaultConfig = {
                         'first_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.0))',
                         'last_seen': '+.seen $seen=.seen return($lib.stix.export.timestamp($seen.1))',
                         'goals': '''
-                            init { $goals = $lib.list() }
+                            init { $goals = () }
                             -> ou:campaign:org -> ou:goal | uniq | +:name $goals.append(:name)
                             fini { if $goals { return($goals) } }
                         ''',
@@ -96,8 +95,8 @@ _DefaultConfig = {
                     'rels': (
                         ('attributed-to', 'identity', ''),
                         ('located-at', 'location', ':hq -> geo:place'),
-                        ('targets', 'identity', '-> ou:campaign -> risk:attack :target:org -> ou:org'),
-                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack :used:vuln -> risk:vuln'),
+                        ('targets', 'identity', '-> ou:campaign -> risk:attack -(targets)> ou:org'),
+                        ('targets', 'vulnerability', '-> ou:campaign -> risk:attack -(uses)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
                     ),
                 },
@@ -148,31 +147,29 @@ _DefaultConfig = {
             },
         },
 
-        'inet:ipv4': {
-            'default': 'ipv4-addr',
+        'inet:ip': {
+            'dynopts': ('ipv4-addr', 'ipv6-addr'),
+            'dyndefault': '''
+                if (:version=4) { return(ipv4-addr) }
+                elif (:version=6) { return(ipv6-addr) }
+            ''',
             'stix': {
                 'ipv4-addr': {
                     'props': {
-                        'value': 'return($node.repr())',
+                        'value': '+:version=4 return($node.repr())',
                     },
                     'rels': (
                         ('belongs-to', 'autonomous-system', '-> inet:asn'),
                     ),
-                }
-            },
-        },
-
-        'inet:ipv6': {
-            'default': 'ipv6-addr',
-            'stix': {
+                },
                 'ipv6-addr': {
                     'props': {
-                        'value': 'return($node.repr())',
+                        'value': '+:version=6 return($node.repr())',
                     },
                     'rels': (
                         ('belongs-to', 'autonomous-system', '-> inet:asn'),
                     ),
-                }
+                },
             },
         },
 
@@ -183,9 +180,9 @@ _DefaultConfig = {
                     'props': {
                         'value': 'return($node.repr())',
                         'resolves_to_refs': '''
-                            init { $refs = $lib.list() }
-                            { -> inet:dns:a -> inet:ipv4 $refs.append($bundle.add($node)) }
-                            { -> inet:dns:aaaa -> inet:ipv6 $refs.append($bundle.add($node)) }
+                            init { $refs = () }
+                            { -> inet:dns:a -> inet:ip $refs.append($bundle.add($node)) }
+                            { -> inet:dns:aaaa -> inet:ip $refs.append($bundle.add($node)) }
                             { -> inet:dns:cname:fqdn :cname -> inet:fqdn $refs.append($bundle.add($node)) }
                             fini { if $refs { return($refs)} }
                          ''',
@@ -213,26 +210,25 @@ _DefaultConfig = {
                     'props': {
                         'value': 'return($node.repr())',
                         'display_name': '-> ps:contact +:name return(:name)',
-                        'belongs_to_ref': '-> inet:web:acct return($bundle.add($node))',
+                        'belongs_to_ref': '-> inet:service:account return($bundle.add($node))',
                     },
                 }
             },
         },
 
-        'inet:web:acct': {
+        'inet:service:account': {
             'default': 'user-account',
             'stix': {
                 'user-account': {
                     'props': {
-                        'user_id': 'return(:user)',
+                        'user_id': 'return(:id)',
                         'account_login': 'return(:user)',
-                        'account_type': '''
-                            {+:site=twitter.com return(twitter)}
-                            {+:site=facebook.com return(facebook)}
+                        'account_type': '''-> inet:service:platform
+                            {+:name=twitter return(twitter)}
+                            {+:name=facebook return(facebook)}
                         ''',
-                        'credential': '+:passwd return(:passwd)',
-                        'display_name': '+:realname return(:realname)',
-                        'account_created': '+:signup return($lib.stix.export.timestamp(:signup))',
+                        'credential': '-> auth:creds return(:passwd)',
+                        'account_created': '+:period return($lib.stix.export.timestamp((:period).0))',
                         'account_last_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.0))',
                         'account_first_login': '+.seen $ival = .seen return($lib.stix.export.timestamp($ival.1))',
                     },
@@ -257,7 +253,7 @@ _DefaultConfig = {
                         ''',
                         'mime_type': '+:mime return(:mime)',
                         'contains_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -(refs)> *
                             $stixid = $bundle.add($node)
                             if $stixid { $refs.append($stixid) }
@@ -279,7 +275,7 @@ _DefaultConfig = {
                         'is_multipart': 'return($lib.false)',
                         'from_ref': ':from -> inet:email return($bundle.add($node))',
                         'to_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             { :to -> inet:email $refs.append($bundle.add($node)) }
                             fini { if $refs { return($refs) } }
                         ''',
@@ -311,7 +307,7 @@ _DefaultConfig = {
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'sample_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -> file:bytes $refs.append($bundle.add($node))
                             fini { if $refs { return($refs) } }
                         ''',
@@ -393,7 +389,7 @@ _DefaultConfig = {
                         'description': 'if (:desc) { return (:desc) }',
                         'created': 'return($lib.stix.export.timestamp(.created))',
                         'modified': 'return($lib.stix.export.timestamp(.created))',
-                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() $list=$lib.list(({"source_name": "cve", "external_id": $cve})) return($list) }'
+                        'external_references': 'if :cve { $cve=:cve $cve=$cve.upper() return(([{"source_name": "cve", "external_id": $cve}])) }'
                     },
                     'rels': (
 
@@ -439,7 +435,7 @@ _DefaultConfig = {
                         'modified': 'return($lib.stix.export.timestamp(.created))',
                         'published': 'return($lib.stix.export.timestamp(:published))',
                         'object_refs': '''
-                            init { $refs = $lib.list() }
+                            init { $refs = () }
                             -(refs)> *
                             $stixid = $bundle.add($node)
                             if $stixid { $refs.append($stixid) }
@@ -486,7 +482,10 @@ _DefaultConfig = {
     },
 }
 
-def _validateConfig(core, config):
+perm_maxsize = ('storm', 'lib', 'stix', 'export', 'maxsize')
+def _validateConfig(runt, config):
+
+    core = runt.view.core
 
     maxsize = config.get('maxsize', 10000)
 
@@ -506,9 +505,10 @@ def _validateConfig(core, config):
         mesg = f'STIX Bundle config maxsize option must be an integer.'
         raise s_exc.BadConfValu(mesg=mesg)
 
-    if maxsize > 10000:
-        mesg = f'STIX Bundle config maxsize option must be <= 10000.'
-        raise s_exc.BadConfValu(mesg=mesg)
+    if maxsize > 10000 and not runt.allowed(perm_maxsize):
+        permstr = '.'.join(perm_maxsize)
+        mesg = f'Setting STIX export maxsize > 10,000 requires permission: {permstr}'
+        raise s_exc.AuthDeny(mesg=mesg, perm=permstr)
 
     formmaps = config.get('forms')
     if formmaps is None:
@@ -523,21 +523,29 @@ def _validateConfig(core, config):
 
         stixdef = formconf.get('default')
         if stixdef is None:
-            mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
-            raise s_exc.NeedConfValu(mesg=mesg)
+            if (stixdyn := formconf.get('dyndefault')) is None:
+                mesg = f'STIX Bundle config is missing default mapping for form {formname}.'
+                raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixdef not in alltypes:
-            mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
-            raise s_exc.BadConfValu(mesg=mesg)
+            stixdefs = formconf.get('dynopts')
+
+        else:
+            stixdefs = (stixdef,)
+
+        for stixdef in stixdefs:
+            if stixdef not in alltypes:
+                mesg = f'STIX Bundle default mapping ({stixdef}) for {formname} is not a STIX type.'
+                raise s_exc.BadConfValu(mesg=mesg)
 
         stixmaps = formconf.get('stix')
         if stixmaps is None:
             mesg = f'STIX Bundle config is missing STIX maps for form {formname}.'
             raise s_exc.NeedConfValu(mesg=mesg)
 
-        if stixmaps.get(stixdef) is None:
-            mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
-            raise s_exc.BadConfValu(mesg=mesg)
+        for stixdef in stixdefs:
+            if stixmaps.get(stixdef) is None:
+                mesg = f'STIX Bundle config is missing STIX map for form {formname} default value {stixdef}.'
+                raise s_exc.BadConfValu(mesg=mesg)
 
         for stixtype, stixinfo in stixmaps.items():
 
@@ -585,7 +593,7 @@ def validateStix(bundle, version='2.1'):
         'mesg': '',
         'result': {},
     }
-    bundle = json.loads(json.dumps(bundle))
+    bundle = s_msgpack.deepcopy(bundle, use_list=True)
     opts = stix2validator.ValidationOptions(strict=True, version=version)
     try:
         results = stix2validator.validate_parsed_json(bundle, options=opts)
@@ -1040,6 +1048,11 @@ class LibStixExport(s_stormtypes.Lib):
     '''
     A Storm Library for exporting to STIX version 2.1 CS02.
     '''
+    _storm_lib_perms = (
+        {'perm': ('storm', 'lib', 'stix', 'export', 'maxsize'), 'gate': 'cortex',
+         'desc': 'Controls the ability to specify a STIX export bundle maxsize of greater than 10,000.'},
+    )
+
     _storm_locals = (  # type: ignore
         {
             'name': 'bundle',
@@ -1093,8 +1106,8 @@ class LibStixExport(s_stormtypes.Lib):
                                     "rels": (
                                         ("attributed-to", "threat-actor", ":org -> ou:org"),
                                         ("originates-from", "location", ":org -> ou:org :hq -> geo:place"),
-                                        ("targets", "identity", "-> risk:attack :target:org -> ou:org"),
-                                        ("targets", "identity", "-> risk:attack :target:person -> ps:person"),
+                                        ("targets", "identity", "-> risk:attack -(targets)> ou:org"),
+                                        ("targets", "identity", "-> risk:attack -(targets)> ps:person"),
                                     ),
                                 },
                             },
@@ -1109,7 +1122,7 @@ class LibStixExport(s_stormtypes.Lib):
                             "domain-name": {
                                 ...
                                 "pivots": [
-                                    {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                                    {"storm": "-> inet:dns:a -> inet:ip", "stixtype": "ipv4-addr"}
                                 ]
                             {
                         }
@@ -1163,7 +1176,7 @@ class LibStixExport(s_stormtypes.Lib):
     @s_stormtypes.stormfunc(readonly=True)
     async def config(self):
         # make a new mutable config
-        return json.loads(json.dumps(_DefaultConfig))
+        return s_msgpack.deepcopy(_DefaultConfig, use_list=True)
 
     @s_stormtypes.stormfunc(readonly=True)
     async def bundle(self, config=None):
@@ -1172,7 +1185,7 @@ class LibStixExport(s_stormtypes.Lib):
             config = _DefaultConfig
 
         config = await s_stormtypes.toprim(config)
-        _validateConfig(self.runt.view.core, config)
+        _validateConfig(self.runt, config)
 
         return StixBundle(self, self.runt, config)
 
@@ -1260,11 +1273,6 @@ class StixBundle(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'str', 'desc': 'The stable STIX id of the added object.'}}},
 
-        {'name': 'pack', 'desc': 'Return the bundle as a STIX JSON object.',
-         'type': {'type': 'function', '_funcname': 'pack',
-                  'args': (),
-                  'returns': {'type': 'dict', }}},
-
         {'name': 'size', 'desc': 'Return the number of STIX objects currently in the bundle.',
          'type': {'type': 'function', '_funcname': 'size',
                   'args': (),
@@ -1284,13 +1292,20 @@ class StixBundle(s_stormtypes.Prim):
         self.synextension = config.get('synapse_extension', True)
         self.maxsize = config.get('maxsize', 10000)
 
-    async def value(self):
-        return self.pack()
+    def value(self):
+        objects = list(self.objs.values())
+        if self.synextension:
+            objects.insert(0, self._getSynapseExtensionDefinition())
+        bundle = {
+            'type': 'bundle',
+            'id': f'bundle--{uuid4()}',
+            'objects': objects
+        }
+        return bundle
 
     def getObjLocals(self):
         return {
             'add': self.add,
-            'pack': self.pack,
             'size': self.size,
         }
 
@@ -1315,7 +1330,10 @@ class StixBundle(s_stormtypes.Prim):
             return None
 
         if stixtype is None:
-            stixtype = formconf.get('default')
+            if (stixtype := formconf.get('default')) is None:
+                stixdyn = formconf.get('dyndefault')
+                if (stixtype := await self._callStorm(stixdyn, node)) is s_common.novalu:
+                    return None
 
         # cyber observables have UUIDv5 the rest have UUIDv4
         if stixtype in stix_observables:
@@ -1363,7 +1381,7 @@ class StixBundle(s_stormtypes.Prim):
         return stixid
 
     def _initStixItem(self, stixid, stixtype, node):
-        ndef = json.loads(json.dumps(node.ndef))
+        ndef = s_msgpack.deepcopy(node.ndef, use_list=True)
         retn = {
             'id': stixid,
             'type': stixtype,
@@ -1413,18 +1431,6 @@ class StixBundle(s_stormtypes.Prim):
             ],
         }
         return ret
-
-    @s_stormtypes.stormfunc(readonly=True)
-    def pack(self):
-        objects = list(self.objs.values())
-        if self.synextension:
-            objects.insert(0, self._getSynapseExtensionDefinition())
-        bundle = {
-            'type': 'bundle',
-            'id': f'bundle--{uuid4()}',
-            'objects': objects
-        }
-        return bundle
 
     @s_stormtypes.stormfunc(readonly=True)
     def size(self):

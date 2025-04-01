@@ -1,5 +1,4 @@
 import os
-import json
 import signal
 import asyncio
 import logging
@@ -18,6 +17,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.parser as s_parser
 import synapse.lib.grammar as s_grammar
@@ -281,17 +281,25 @@ class Cli(s_base.Base):
 
         await self.fini()
 
-    async def addSignalHandlers(self):
+    async def addSignalHandlers(self):  # pragma: no cover
         '''
         Register SIGINT signal handler with the ioloop to cancel the currently running cmdloop task.
+        Removes the handler when the cli is fini'd.
         '''
-
         def sigint():
-            self.printf('<ctrl-c>')
             if self.cmdtask is not None:
                 self.cmdtask.cancel()
 
         self.loop.add_signal_handler(signal.SIGINT, sigint)
+
+        def onfini():
+            # N.B. This is reaches into some loop / handle internals but
+            # prevents us from removing a handler that overwrote our own.
+            hndl = self.loop._signal_handlers.get(signal.SIGINT, None)  # type: asyncio.Handle
+            if hndl is not None and hndl._callback is sigint:
+                self.loop.remove_signal_handler(signal.SIGINT)
+
+        self.onfini(onfini)
 
     def get(self, name, defval=None):
         return self.locs.get(name, defval)
@@ -324,8 +332,12 @@ class Cli(s_base.Base):
         if text is None:
             text = self.cmdprompt
 
-        with patch_stdout():
-            retn = await self.sess.prompt_async(text, vi_mode=self.vi_mode, enable_open_in_editor=True)
+        with patch_stdout():  # pragma: no cover
+            retn = await self.sess.prompt_async(text,
+                vi_mode=self.vi_mode,
+                enable_open_in_editor=True,
+                handle_sigint=False # We handle sigint in the loop
+            )
             return retn
 
     def printf(self, mesg, addnl=True, color=None):
@@ -390,7 +402,7 @@ class Cli(s_base.Base):
                 self.cmdtask = self.schedCoro(coro)
                 await self.cmdtask
 
-            except KeyboardInterrupt:
+            except (KeyboardInterrupt, asyncio.CancelledError):
 
                 if self.isfini:
                     return
@@ -408,11 +420,8 @@ class Cli(s_base.Base):
                 if self.cmdtask is not None:
                     self.cmdtask.cancel()
                     try:
-                        self.cmdtask.result()
-                    except asyncio.CancelledError:
-                        # Wait a beat to let any remaining nodes to print out before we print the prompt
-                        await asyncio.sleep(1)
-                    except Exception:
+                        await asyncio.wait_for(self.cmdtask, timeout=0.1)
+                    except (asyncio.CancelledError, asyncio.TimeoutError):
                         pass
 
     async def runCmdLine(self, line):
@@ -533,5 +542,5 @@ class CmdLocals(Cmd):
                 ret[k] = v
             else:
                 ret[k] = repr(v)
-        mesg = json.dumps(ret, indent=2, sort_keys=True)
+        mesg = s_json.dumps(ret, indent=True, sort_keys=True).decode()
         self.printf(mesg)

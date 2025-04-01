@@ -331,12 +331,7 @@ class NexsRoot(s_base.Base):
 
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
-            try:
-                await client.issue(nexsiden, event, args, kwargs, meta)
-            except Exception:
-                # If there is an exception, we should wait for our local one
-                pass
-
+            await client.issue(nexsiden, event, args, kwargs, meta=meta)
             return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def getIssueProxy(self):
@@ -354,6 +349,17 @@ class NexsRoot(s_base.Base):
 
         return await client.proxy()
 
+    def validateEvent(self, nexsiden, event, args, kwargs):
+        if (nexus := self._nexskids.get(nexsiden)) is None:
+            mesg = f'No Nexus Pusher with iden {nexsiden} {event=} args={s_common.trimText(repr(args))} ' \
+                   f'kwargs={s_common.trimText(repr(kwargs))}'
+            raise s_exc.NoSuchIden(mesg=mesg, iden=nexsiden, event=event)
+
+        if event not in nexus._nexshands:
+            mesg = f'No event handler for event {event} args={s_common.trimText(repr(args))} ' \
+                   f'kwargs={s_common.trimText(repr(kwargs))}'
+            raise s_exc.NoSuchName(mesg=mesg, iden=nexsiden, event=event)
+
     async def eat(self, nexsiden, event, args, kwargs, meta, etime, lock=True):
         '''
         Actually mutate for the given nexsiden instance.
@@ -363,12 +369,14 @@ class NexsRoot(s_base.Base):
 
         if lock:
             async with self.cell.nexslock:
+                self.validateEvent(nexsiden, event, args, kwargs)
                 self.reqNotReadOnly()
                 # Keep a reference to the shielded task to ensure it isn't GC'd
                 item = (nexsiden, event, args, kwargs, meta, etime)
                 self.applytask = asyncio.create_task(self._eat(item))
                 return await asyncio.shield(self.applytask)
 
+        self.validateEvent(nexsiden, event, args, kwargs)
         self.reqNotReadOnly()
         item = (nexsiden, event, args, kwargs, meta, etime)
         self.applytask = asyncio.create_task(self._eat(item))
@@ -430,7 +438,7 @@ class NexsRoot(s_base.Base):
 
         return await func(nexus, *args, **kwargs)
 
-    async def iter(self, offs: int, tellready=False) -> AsyncIterator[Any]:
+    async def iter(self, offs: int, tellready=False, wait=True) -> AsyncIterator[Any]:
         '''
         Returns an iterator of change entries in the log
         '''
@@ -450,6 +458,9 @@ class NexsRoot(s_base.Base):
 
         if tellready:
             yield None
+
+        if not wait:
+            return
 
         async with self.getChangeDist(maxoffs) as dist:
             async for item in dist:
@@ -526,6 +537,7 @@ class NexsRoot(s_base.Base):
             if features.get('dynmirror'):
                 await proxy.readyToMirror()
 
+            synvers = cellinfo['synapse']['version']
             cellvers = cellinfo['cell']['version']
             if cellvers > self.cell.VERSION:
                 logger.error('Leader is a higher version than we are. Mirrors must be updated first. Entering read-only mode.')
@@ -558,7 +570,7 @@ class NexsRoot(s_base.Base):
                 offs = self.nexslog.index()
 
                 opts = {}
-                if cellvers >= (2, 95, 0):
+                if synvers >= (2, 95, 0):
                     opts['tellready'] = True
 
                 genr = proxy.getNexusChanges(offs, **opts)

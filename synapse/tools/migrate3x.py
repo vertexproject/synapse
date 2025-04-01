@@ -11,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.assets as s_assets
 import synapse.cortex as s_cortex
 import synapse.common as s_common
+import synapse.models as s_models
 import synapse.datamodel as s_datamodel
 
 import synapse.lib.base as s_base
@@ -21,7 +22,6 @@ import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.output as s_output
 import synapse.lib.dyndeps as s_dyndeps
-import synapse.lib.modules as s_modules
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
 import synapse.lib.slabseqn as s_slabseqn
@@ -442,12 +442,12 @@ class Migrator(s_base.Base):
 
         for iden, info in userkv.items():
             update = False
-            if not isinstance(info.get('onepass'), (None, dict)):
+            if not ((valu := info.get('onepass')) is None or isinstance(valu, dict)):
                 logger.warning(f'Removing deprecated one time password shadow for user {iden}!')
                 update = True
                 info.pop('onepass')
 
-            if not isinstance(info.get('passwd'), (None, dict)):
+            if not ((valu := info.get('passwd')) is None or isinstance(valu, dict)):
                 logger.warning(f'Removing deprecated password shadow for user {iden}!')
                 update = True
                 info.pop('passwd')
@@ -485,7 +485,7 @@ class Migrator(s_base.Base):
                 rolekv.set(iden, info)
 
         for viewiden in self.viewdefs.keys():
-            trigdict = self.core.cortexdata.getSubKeyVal(f'view:{viewiden}:trigger:')
+            trigdict = self.cortexdata.getSubKeyVal(f'view:{viewiden}:trigger:')
             for trigiden, tdef in trigdict.items():
                 if tdef.get('creator') is None:
                     tdef['creator'] = tdef['user']
@@ -620,13 +620,11 @@ class Migrator(s_base.Base):
         self.model = s_datamodel.Model()
         self.oldmodel = self._get2xModel()
 
-        # load core modules
-        # TODO: remove once coremods are gone
-        mods = list(s_modules.coremods)
         mdefs = []
-        for mod in mods:
-            modu = s_dyndeps.tryDynLocal(mod)
-            mdefs.extend(modu.getModelDefs(self))
+
+        for path in s_models.modeldefs:
+            if (defs := s_dyndeps.getDynLocal(path)) is not None:
+                mdefs.extend(defs)
 
         self.model.addDataModels(mdefs)
 

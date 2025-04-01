@@ -14,23 +14,19 @@ The ``feed`` tool is executed from an operating system command shell. The comman
 
 ::
 
-  usage: synapse.tools.feed [-h] (--cortex CORTEX | --test) [--debug] [--format FORMAT] [--modules MODULES]   
-    [--chunksize CHUNKSIZE] [--offset OFFSET] [files ...]
+  usage: synapse.tools.feed [-h] (--cortex CORTEX | --test) [--debug] [--modules MODULES] [--chunksize CHUNKSIZE]
+    [--offset OFFSET] [--view VIEW] [files ...]
 
 Where:
 - ``-h`` displays detailed help and these command line options
 - ``CORTEX``  specifies the telapth URL to the Cortex where the data should be ingested.
 
-- ``--test`` means to perform the ingest against a temporary, local Cortex instead of a live cortex, for testing or validation
+- ``--test`` means to perform the ingest against a temporary, local Cortex instead of a live cortex, for testing or validation.
   
   - When using a temporary Cortex, you do not need to provide a path.
   
 - ``--debug`` specifies to drop into an interactive prompt to inspect the state of the Cortex post-ingest.
   
-- ``FORMAT`` specifies the format of the input files. 
-
-  - Currently, only the value "syn.nodes" is supported. This is also the default value.
-
 - ``MODULES`` specifies a path to a Synapse CoreModule class that will be loaded into the temporary Cortex.
 
   - This option has no effect if the ``--test`` option is not specified
@@ -40,6 +36,8 @@ Where:
   - Defaults to 1000 if not specified
 
 - ``OFFSET`` specifies how many chunks of data to skip over (starting at the beginning)
+
+- ``VIEW`` specifies a View in the Cortex to ingest the data into.
 
 - ``files`` is a series of file paths containing data to load into the Cortex (or temporary Cortex)
 
@@ -54,7 +52,7 @@ The ``feed`` tool
 Ingest Example 1
 ++++++++++++++++
 
-This example demonstrates loading a set of nodes via the ``feed`` tool with the "syn.nodes" format option. The nodes
+This example demonstrates loading a set of nodes via the ``feed`` tool. The nodes
 are of a variety of types, and are encoded in a json lines (jsonl) format.
 
 **JSONL File:**
@@ -65,7 +63,7 @@ to a single node, with all of the properties, tags, and nodedata on the node enc
 ::
 
   [["it:reveng:function", "9710579930d831abd88acff1f2ecd04f"], {"iden": "508204ebc73709faa161ba8c111aec323f63a78a84495694f317feb067f41802", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625069466909, "description": "An example function"},   "tagprops": {}, "nodedata": {}, "path": {}}]
-  [["inet:ipv4", 386412289], {"iden": "d6270ca2dc592cd0e8edf8c73000f80b63df4bcd601c9a631d8c68666fdda5ae", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625069584577, "type": "unicast"}, "tagprops": {}, "nodedata": {}, "path": {}}]
+  [["inet:ip", [4, 386412289]], {"iden": "d6270ca2dc592cd0e8edf8c73000f80b63df4bcd601c9a631d8c68666fdda5ae", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625069584577, "type": "unicast"}, "tagprops": {}, "nodedata": {}, "path": {}}]
   [["inet:url", "https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide"], {"iden": "dba0a280fc1f8cf317dffa137df0e1761b6f94cacbf56523809d4f17d8263840", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625069758843, "proto": "https", "path": "/en/latest/synapse/userguide.html#userguide", "params": "", "fqdn": "synapse.docs.vertex.link", "port": 443, "base": "https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide"}, "tagprops": {}, "nodedata": {}, "path": {}}]
   [["file:bytes", "sha256:ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c"], {"iden": "137fd16d2caab221e7580be63c149f83a11dd11f10f078d9f582fedef9b57ad5", "tags": {"my": [null, null], "my.cool": [null, null], "my.cool.tag": [null, null]}, "props": {".created": 1625070470041, "sha256": "ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c", "md5": "be1bb5ab2057d69fb6d0a9d0684168fe", "sha1": "57d13f1fa2322058dc80e5d6d768546b47238fcd", "size": 16}, "tagprops": {}, "nodedata": {}, "path": {}}]
 
@@ -85,40 +83,39 @@ Assuming the command completed with no errors, we should now have a ``storm`` pr
 
 ::
 
-  cli>
+  storm>
  
 From which we can issue Storm commands to interact with and validate the nodes that were just ingested. For example:
 
 ::
 
-  cli> storm #my.cool.tag
-  
+  storm> #my.cool.tag
   it:reveng:function=9710579930d831abd88acff1f2ecd04f
-           .created = 2021/06/30 19:46:31.810
-           :description = An example function
-           #my.cool.tag
-  inet:ipv4=23.8.47.1
-           .created = 2021/06/30 19:46:31.810
-           :type = unicast
-           #my.cool.tag
+          :description = An example function
+          .created = 2025-02-25T15:33:59.605Z
+          #my.cool.tag
+  inet:ip=23.8.47.1
+          :type = unicast
+          :version = 4
+          .created = 2025-02-25T15:33:59.605Z
+          #my.cool.tag
   inet:url=https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide
-           .created = 2021/06/30 19:46:31.810
-           :base = https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide
-           :fqdn = synapse.docs.vertex.link
-           :params =
-           :path = /en/latest/synapse/userguide.html#userguide
-           :port = 443
-           :proto = https
-           #my.cool.tag
+          :base = https://synapse.docs.vertex.link/en/latest/synapse/userguide.html#userguide
+          :fqdn = synapse.docs.vertex.link
+          :params =
+          :path = /en/latest/synapse/userguide.html#userguide
+          :port = 443
+          :proto = https
+          .created = 2025-02-25T15:33:59.606Z
+          #my.cool.tag
   file:bytes=sha256:ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c
-           .created = 2021/06/30 19:46:31.810
-           :md5 = be1bb5ab2057d69fb6d0a9d0684168fe
-           :sha1 = 57d13f1fa2322058dc80e5d6d768546b47238fcd
-           :sha256 = ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c
-           :size = 16
-           #my.cool.tag
-  complete. 4 nodes in 16 ms (250/sec).
-
+          :md5 = be1bb5ab2057d69fb6d0a9d0684168fe
+          :sha1 = 57d13f1fa2322058dc80e5d6d768546b47238fcd
+          :sha256 = ffd19426d3f020996c482255b92a547a2f63afcfc11b45a98fb3fb5be69dd75c
+          :size = 16
+          .created = 2025-02-25T15:33:59.607Z
+          #my.cool.tag
+  complete. 4 nodes in 4 ms (1000/sec).
 
 **Loading the Data:**
 
@@ -129,13 +126,13 @@ want to load the nodes into, and the same nodes should be added.
 
   python -m synapse.tools.feed --cortex "aha://cortex..." testnodes.jsonl
     
-However, once we've inspected the data, let's say that the it:reveng:function and inet:ipv4 nodes are not allowed in
-the production Cortex, but the inet:url and file:bytes are. We can skip these two nodes by using a combination of
+However, once we've inspected the data, let's say that the ``it:reveng:function`` and ``inet:ip`` nodes are not allowed in
+the production Cortex, but the ``inet:url`` and ``file:bytes`` are. We can skip these two nodes by using a combination of
 the ``chunksize`` and ``offset`` parameters:
 
 ::
 
-  python -m synapse.tools.feed --cortex "aha://cortex..." testnodes.jsonl --chunksize 1 --offset 1
+  python -m synapse.tools.feed --cortex "aha://cortex..." testnodes.jsonl --chunksize 2 --offset 1
     
 With the ``chunksize`` parameter signifying that the ``feed`` tool should read two lines at a time from the file and
 process those before reading the next line, and the ``offset`` parameter meaning the ``feed`` tool should skip all

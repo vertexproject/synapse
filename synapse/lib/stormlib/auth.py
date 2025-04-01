@@ -583,11 +583,25 @@ stormcmds = (
     {
         'name': 'auth.perms.list',
         'descr': 'Display a list of the current permissions defined within the Cortex.',
-        'cmdargs': (),
+        'cmdargs': (
+            ('--find', {'type': 'str', 'help': 'A search string for permissions.'}),
+        ),
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
                 $perm = $lib.str.join(".", $pdef.perm)
+
+                if $cmdopts.find {
+                    $find = $cmdopts.find.lower()
+                    $match = (
+                        $perm.lower().find($find) != (null) or
+                        $pdef.desc.lower().find($find) != (null) or
+                        $pdef.gate.lower().find($find) != (null) or
+                        ($pdef.ex and $pdef.ex.lower().find($find) != (null))
+                    )
+
+                    if (not $match) { continue }
+                }
 
                 $lib.print($perm)
                 $lib.print(`    {$pdef.desc}`)
@@ -641,7 +655,7 @@ class UserProfile(s_stormtypes.Prim):
 
         if valu is s_stormtypes.undef:
             if self.runt.user.iden != self.valu:
-                self.runt.confirm(('auth', 'user', 'pop', 'profile', name))
+                self.runt.confirm(('auth', 'user', 'del', 'profile', name))
             await self.runt.view.core.popUserProfInfo(self.valu, name)
             return
 
@@ -674,7 +688,7 @@ class UserJson(s_stormtypes.Prim):
                         {'name': 'path', 'type': 'str|list', 'desc': 'A path string or list of path parts.'},
                         {'name': 'prop', 'type': 'str|list', 'desc': 'A property name or list of name parts.', 'default': None},
                     ),
-                    'returns': {'type': 'prim', 'desc': 'The previously stored value or $lib.null'}}},
+                    'returns': {'type': 'prim', 'desc': 'The previously stored value or ``(null)``.'}}},
 
         {'name': 'set', 'desc': 'Set a JSON object or object property for the user.',
          'type': {'type': 'function', '_funcname': 'set',
@@ -845,9 +859,6 @@ class User(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_methUserRoles',
                   'returns': {'type': 'list',
                               'desc': 'A list of ``auth:roles`` which the user is a member of.', }}},
-        {'name': 'pack', 'desc': 'Get the packed version of the User.',
-         'type': {'type': 'function', '_funcname': '_methUserPack', 'args': (),
-                  'returns': {'type': 'dict', 'desc': 'The packed User definition.', }}},
         {'name': 'allowed', 'desc': 'Check if the user has a given permission.',
          'type': {'type': 'function', '_funcname': '_methUserAllowed',
                   'args': (
@@ -1111,7 +1122,6 @@ class User(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'get': self._methUserGet,
-            'pack': self._methUserPack,
             'tell': self._methUserTell,
             'gates': self._methGates,
             'notify': self._methUserNotify,
@@ -1137,10 +1147,6 @@ class User(s_stormtypes.Prim):
             'modApiKey': self._methModApiKey,
             'delApiKey': self._methDelApiKey,
         }
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methUserPack(self):
-        return await self.value()
 
     async def _methUserTell(self, text):
         self.runt.confirm(('tell', self.valu), default=True)
@@ -1369,9 +1375,6 @@ class Role(s_stormtypes.Prim):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the property to return.', },
                   ),
                   'returns': {'type': 'prim', 'desc': 'The requested value.', }}},
-        {'name': 'pack', 'desc': 'Get the packed version of the Role.',
-         'type': {'type': 'function', '_funcname': '_methRolePack', 'args': (),
-                  'returns': {'type': 'dict', 'desc': 'The packed Role definition.', }}},
         {'name': 'gates', 'desc': 'Return a list of auth gates that the role has rules for.',
          'type': {'type': 'function', '_funcname': '_methGates',
                   'args': (),
@@ -1448,7 +1451,6 @@ class Role(s_stormtypes.Prim):
     def getObjLocals(self):
         return {
             'get': self._methRoleGet,
-            'pack': self._methRolePack,
             'gates': self._methGates,
             'addRule': self._methRoleAddRule,
             'delRule': self._methRoleDelRule,
@@ -1470,10 +1472,6 @@ class Role(s_stormtypes.Prim):
     async def _methRoleGet(self, name):
         rdef = await self.runt.view.core.getRoleDef(self.valu)
         return rdef.get(name)
-
-    @s_stormtypes.stormfunc(readonly=True)
-    async def _methRolePack(self):
-        return await self.value()
 
     @s_stormtypes.stormfunc(readonly=True)
     async def _methGates(self):
@@ -1735,17 +1733,17 @@ class LibUsers(s_stormtypes.Lib):
         {'perm': ('auth', 'user', 'get', 'profile', '<name>'), 'gate': 'cortex',
          'desc': 'Permits a user to retrieve their profile information.',
          'ex': 'auth.user.get.profile.fullname'},
-        {'perm': ('auth', 'user', 'pop', 'profile', '<name>'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'del', 'profile', '<name>'), 'gate': 'cortex',
          'desc': 'Permits a user to remove profile information.',
-         'ex': 'auth.user.pop.profile.fullname'},
+         'ex': 'auth.user.del.profile.fullname'},
         {'perm': ('auth', 'user', 'set', 'profile', '<name>'), 'gate': 'cortex',
          'desc': 'Permits a user to set profile information.',
          'ex': 'auth.user.set.profile.fullname'},
         {'perm': ('auth', 'user', 'set', 'apikey'), 'gate': 'cortex',
          'desc': 'Permits a user to manage API keys for other users. USE WITH CAUTUON!'},
-        {'perm': ('storm', 'lib', 'auth', 'users', 'add'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'add'), 'gate': 'cortex',
          'desc': 'Controls the ability to add a user to the system. USE WITH CAUTION!'},
-        {'perm': ('storm', 'lib', 'auth', 'users', 'del'), 'gate': 'cortex',
+        {'perm': ('auth', 'user', 'del'), 'gate': 'cortex',
          'desc': 'Controls the ability to remove a user from the system. USE WITH CAUTION!'},
     )
 
@@ -1775,8 +1773,7 @@ class LibUsers(s_stormtypes.Lib):
             return User(self.runt, udef['iden'])
 
     async def _methUsersAdd(self, name, passwd=None, email=None, iden=None):
-        if not self.runt.allowed(('auth', 'user', 'add')):
-            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'add'))
+        self.runt.confirm(('auth', 'user', 'add'))
         name = await s_stormtypes.tostr(name)
         iden = await s_stormtypes.tostr(iden, True)
         email = await s_stormtypes.tostr(email, True)
@@ -1785,8 +1782,7 @@ class LibUsers(s_stormtypes.Lib):
         return User(self.runt, udef['iden'])
 
     async def _methUsersDel(self, iden):
-        if not self.runt.allowed(('auth', 'user', 'del')):
-            self.runt.confirm(('storm', 'lib', 'auth', 'users', 'del'))
+        self.runt.confirm(('auth', 'user', 'del'))
         await self.runt.view.core.delUser(iden)
 
 @s_stormtypes.registry.registerLib
@@ -1828,9 +1824,9 @@ class LibRoles(s_stormtypes.Lib):
     )
     _storm_lib_path = ('auth', 'roles')
     _storm_lib_perms = (
-        {'perm': ('storm', 'lib', 'auth', 'roles', 'add'), 'gate': 'cortex',
+        {'perm': ('auth', 'role', 'add'), 'gate': 'cortex',
          'desc': 'Controls the ability to add a role to the system. USE WITH CAUTION!'},
-        {'perm': ('storm', 'lib', 'auth', 'roles', 'del'), 'gate': 'cortex',
+        {'perm': ('auth', 'role', 'del'), 'gate': 'cortex',
          'desc': 'Controls the ability to remove a role from the system. USE WITH CAUTION!'},
     )
 
@@ -1860,15 +1856,13 @@ class LibRoles(s_stormtypes.Lib):
             return Role(self.runt, rdef['iden'])
 
     async def _methRolesAdd(self, name, iden=None):
-        if not self.runt.allowed(('auth', 'role', 'add')):
-            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'add'))
+        self.runt.confirm(('auth', 'role', 'add'))
         iden = await s_stormtypes.tostr(iden, noneok=True)
         rdef = await self.runt.view.core.addRole(name, iden=iden)
         return Role(self.runt, rdef['iden'])
 
     async def _methRolesDel(self, iden):
-        if not self.runt.allowed(('auth', 'role', 'del')):
-            self.runt.confirm(('storm', 'lib', 'auth', 'roles', 'del'))
+        self.runt.confirm(('auth', 'role', 'del'))
         await self.runt.view.core.delRole(iden)
 
 @s_stormtypes.registry.registerLib

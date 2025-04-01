@@ -1,9 +1,9 @@
 import copy
-import json
 
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.stormlib.stix as s_stix
 
 import synapse.tests.utils as s_test
@@ -39,12 +39,12 @@ class StormLibStixTest(s_test.SynTest):
     def getTestBundle(self, name):
         path = self.getTestFilePath('stix_export', name)
         with open(path, 'r') as fd:
-            return json.load(fd)
+            return s_json.load(fd)
 
     def setTestBundle(self, name, bund):
         path = self.getTestFilePath('stix_export', name)
         with open(path, 'w') as fd:
-            json.dump(bund, fd, sort_keys=True, indent=2)
+            s_json.dump(bund, fd, sort_keys=True, indent=True)
 
     def reqValidStix(self, item):
         resp = s_stix.validateStix(item)
@@ -55,6 +55,7 @@ class StormLibStixTest(s_test.SynTest):
     async def test_stormlib_libstix(self, conf=None):
 
         async with self.getTestCore(conf=conf) as core:
+            visi = await core.auth.addUser('visi')
             opts = {'vars': {
                 'ind': '6ba7d8500964902bf2e03126ed0f6cb1',
                 'news': '840b9b003a765020705ea8d203a7659c',
@@ -75,23 +76,24 @@ class StormLibStixTest(s_test.SynTest):
                 'sha256': '00001c4644c1d607a6ff6fbf883873d88fe8770714893263e2dfb27f291a6c4e',
             }}
 
-            self.len(22, await core.nodes('''[
+            self.len(23, await core.nodes('''[
                 (inet:asn=30 :name=woot30)
                 (inet:asn=40 :name=woot40)
-                (inet:ipv4=1.2.3.4 :asn=30)
-                (inet:ipv6="::ff" :asn=40)
+                (inet:ip=1.2.3.4 :asn=30)
+                (inet:ip="::ff" :asn=40)
                 inet:email=visi@vertex.link
                 (ps:contact=* :name="visi stark" :email=visi@vertex.link)
                 (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :hq={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
                 (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[ou:goal=$goal :name=pwning]})
-                (risk:attack=$attack :campaign={ou:campaign} :target:org={ou:org:name=target})
+                (risk:attack=$attack :campaign={ou:campaign} +(targets)> {ou:org:name=target})
                 (it:app:yara:rule=$yararule :name=yararulez :text="rule dummy { condition: false }")
                 (it:app:snort:rule=$snortrule :name=snortrulez :text="alert tcp 1.2.3.4 any -> 5.6.7.8 22 (msg:woot)")
                 (inet:email:message=$message :subject=freestuff :to=visi@vertex.link :from=scammer@scammer.org)
                 (media:news=$news :title=report0 :published=20210328 +(refs)> { inet:fqdn=vertex.link })
                 (file:bytes=$sha256 :size=333 :name=woot.json :mime=application/json +(refs)> { inet:fqdn=vertex.link } +#cno.mal.redtree)
-                (inet:web:acct=(twitter.com, invisig0th) :realname="visi stark" .seen=(2010,2021) :signup=2010 :passwd=secret)
+                (inet:service:account=(twitter, invisig0th) :platform={[inet:service:platform=* :name=twitter]} :id=invisig0th :user="visi stark" .seen=(2010,2021) :period=2010)
+                (auth:creds=* :service:account=(twitter, invisig0th) :passwd=secret)
                 (syn:tag=cno.mal.redtree :title="Redtree Malware" .seen=(2010, 2020))
                 (it:prod:soft=$prodsoft :name=rar)
                 (it:prod:softver=$softver :software=$prodsoft .seen=(1996, 2021) :vers=2.0.1)
@@ -106,10 +108,9 @@ class StormLibStixTest(s_test.SynTest):
                 init { $bundle = $lib.stix.export.bundle() }
 
                 inet:asn
-                inet:ipv4
-                inet:ipv6
+                inet:ip
                 inet:email
-                inet:web:acct
+                inet:service:account
                 media:news
                 ou:org:name=target
                 ou:campaign
@@ -187,7 +188,7 @@ class StormLibStixTest(s_test.SynTest):
             self.isin('Error validating bundle', resp.get('mesg'))
 
             self.len(14, bund.get('objects'))
-            self.isin(s_stix.SYN_STIX_EXTENSION_ID, json.dumps(bund))
+            self.isin(s_stix.SYN_STIX_EXTENSION_ID, s_json.dumps(bund).decode())
             nodes = await core.nodes('yield $lib.stix.lift($bundle)', {'vars': {'bundle': bund}})
             self.len(10, nodes)
 
@@ -216,7 +217,7 @@ class StormLibStixTest(s_test.SynTest):
             self.reqValidStix(bund_noext)
             nodes = await core.nodes('yield $lib.stix.lift($bundle)', {'vars': {'bundle': bund_noext}})
             self.len(0, nodes)
-            self.notin(s_stix.SYN_STIX_EXTENSION_ID, json.dumps(bund_noext))
+            self.notin(s_stix.SYN_STIX_EXTENSION_ID, s_json.dumps(bund_noext).decode())
 
             # test some sad paths...
             self.none(await core.callStorm('return($lib.stix.export.bundle().add($lib.true))'))
@@ -228,9 +229,9 @@ class StormLibStixTest(s_test.SynTest):
                 opts = {'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
-            with self.raises(s_exc.BadConfValu):
+            with self.raises(s_exc.AuthDeny):
                 config = {'maxsize': 10000000}
-                opts = {'vars': {'config': config}}
+                opts = {'user': visi.iden, 'vars': {'config': config}}
                 await core.callStorm('$lib.stix.export.bundle(config=$config)', opts=opts)
 
             with self.raises(s_exc.NoSuchForm):
@@ -313,8 +314,8 @@ class StormLibStixTest(s_test.SynTest):
             [(risk:vuln=(vuln3,) :name="bobs version of cve-2013-001" :cve="cve-2013-0001")]
             [(ou:org=(bob1,) :name="bobs whitehatz")]
             [(ou:campaign=(campaign1,) :name="bob hax" :org=(bob1,) )]
-            [(risk:attack=(attk1,) :used:vuln=(vuln1,) :campaign=(campaign1,) )]
-            [(risk:attack=(attk2,) :used:vuln=(vuln3,) :campaign=(campaign1,) )]
+            [(risk:attack=(attk1,) +(uses)> {risk:vuln=(vuln1,)} :campaign=(campaign1,) )]
+            [(risk:attack=(attk2,) +(uses)> {risk:vuln=(vuln3,)} :campaign=(campaign1,) )]
             ''')
 
             bund = await core.callStorm('''
@@ -505,7 +506,7 @@ class StormLibStixTest(s_test.SynTest):
                 init {
                     $config = $lib.stix.export.config()
                     $config.forms."inet:fqdn".stix."domain-name".pivots = ([
-                        {"storm": "-> inet:dns:a -> inet:ipv4", "stixtype": "ipv4-addr"}
+                        {"storm": "-> inet:dns:a -> inet:ip", "stixtype": "ipv4-addr"}
                     ])
                     $bundle = $lib.stix.export.bundle(config=$config)
                 }
@@ -516,7 +517,7 @@ class StormLibStixTest(s_test.SynTest):
                 fini { return($bundle) }
             ''')
             stixids = [obj['id'] for obj in bund['objects']]
-            self.isin('ipv4-addr--cbc65d5e-3732-55b3-9b9b-e06155c186db', stixids)
+            self.isin('ipv4-addr--afc9edd4-61dd-5bd7-85c1-71e8032843e7', stixids)
 
     async def test_stix_revs(self):
 
@@ -530,16 +531,44 @@ class StormLibStixTest(s_test.SynTest):
                     $bundle = $lib.stix.export.bundle(config=$config)
                     ou:technique
                     $bundle.add($node, "attack-pattern")
-                    fini { return($bundle.pack()) }
+                    fini { return($bundle) }
                 ''')
 
             bund = await core.callStorm('''
                 $bundle = $lib.stix.export.bundle()
                 ou:technique
                 $bundle.add($node, "attack-pattern")
-                fini { return($bundle.pack()) }
+                fini { return($bundle) }
             ''')
             rels = [sobj for sobj in bund['objects'] if sobj.get('relationship_type') == 'mitigates']
             self.len(1, rels)
             self.true(rels[0]['target_ref'].startswith('attack-pattern--'))
             self.true(rels[0]['source_ref'].startswith('course-of-action--'))
+
+    async def test_stix_export_dyndefault(self):
+
+        async with self.getTestCore() as core:
+            await core.nodes('[ it:dev:str=foo it:dev:str=bar ]')
+
+            bund = await core.callStorm('''
+                init {
+                    $config = $lib.stix.export.config()
+                    $config.forms."it:dev:str"=({
+                        "dynopts": ["location"],
+                        "dyndefault": "+it:dev:str=foo { return(location) }",
+                        "stix": {
+                            "location": {"props": {"name": "return($node.repr())"}}
+                        }
+                    })
+                    $bundle = $lib.stix.export.bundle(config=$config)
+                }
+
+                it:dev:str
+                $bundle.add($node)
+
+                fini { return($bundle) }
+            ''')
+
+            locs = [obj for obj in bund['objects'] if obj['type'] == 'location']
+            self.len(1, locs)
+            self.eq(locs[0]['name'], 'foo')

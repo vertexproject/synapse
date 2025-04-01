@@ -7,6 +7,8 @@ import synapse.lib.const as s_const
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.lmdbslab as s_lmdbslab
 
+MAX_SPOOL_SIZE = 10000
+
 class Spooled(s_base.Base):
     '''
     A Base class that can be used to implement objects which fallback to lmdb.
@@ -15,7 +17,7 @@ class Spooled(s_base.Base):
     together. Under memory pressure, these objects have a better shot of getting paged out.
     '''
 
-    async def __anit__(self, dirn=None, size=10000, cell=None):
+    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
         '''
         Args:
             dirn(Optional[str]): base directory used for backing slab.  If None, system temporary directory is used
@@ -55,7 +57,7 @@ class Set(Spooled):
     A minimal set-like implementation that will spool to a slab on large growth.
     '''
 
-    async def __anit__(self, dirn=None, size=10000, cell=None):
+    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
         await Spooled.__anit__(self, dirn=dirn, size=size, cell=cell)
         self.realset = set()
         self.len = 0
@@ -83,6 +85,27 @@ class Set(Spooled):
             return self.len
 
         return len(self.realset)
+
+    async def copy(self):
+        newset = await Set.anit(dirn=self.dirn, size=self.size, cell=self.cell)
+
+        if self.fallback:
+            await newset._initFallBack()
+            await self.slab.copydb(None, newset.slab)
+            newset.len = self.len
+
+        else:
+            newset.realset = self.realset.copy()
+
+        return newset
+
+    async def clear(self):
+        if self.fallback:
+            self.len = 0
+            await self.slab.trash()
+            await self._initFallBack()
+        else:
+            self.realset.clear()
 
     async def add(self, valu):
 
@@ -117,7 +140,7 @@ class Set(Spooled):
 
 class Dict(Spooled):
 
-    async def __anit__(self, dirn=None, size=10000, cell=None):
+    async def __anit__(self, dirn=None, size=MAX_SPOOL_SIZE, cell=None):
 
         await Spooled.__anit__(self, dirn=dirn, size=size, cell=cell)
         self.realdict = {}

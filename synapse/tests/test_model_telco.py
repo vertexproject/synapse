@@ -56,7 +56,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.ndef, ('tel:mob:mcc', '611'))
             self.eq(node.get('loc'), 'gn')
 
-            nodes = await core.nodes('[(tel:mob:carrier=(001, 02) :org=$org :loc=us)]', opts={'vars': {'org': oguid}})
+            nodes = await core.nodes('[(tel:mob:carrier=(001, 02) :org=$org :loc=us :tadig=USAVX )]', opts={'vars': {'org': oguid}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:mob:carrier', ('001', '02')))
@@ -64,6 +64,9 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('mnc'), '02')
             self.eq(node.get('org'), oguid)
             self.eq(node.get('loc'), 'us')
+            self.eq(node.get('tadig'), 'USAVX')
+
+            self.len(1, await core.nodes('tel:mob:carrier -> tel:mob:tadig'))
 
             q = '[(tel:mob:cell=((001, 02), 3, 4) :radio="Pirate " :place=$place :loc=us.ca.la :latlong=(0, 0))]'
             nodes = await core.nodes(q, opts={'vars': {'place': place}})
@@ -76,7 +79,7 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('lac'), 3)
             self.eq(node.get('cid'), 4)
             self.eq(node.get('loc'), 'us.ca.la')
-            self.eq(node.get('radio'), 'pirate')
+            self.eq(node.get('radio'), 'pirate.')
             self.eq(node.get('latlong'), (0.0, 0.0))
             self.eq(node.get('place'), place)
             self.len(1, await core.nodes('tel:mob:mcc=001'))
@@ -96,23 +99,19 @@ class TelcoModelTest(s_t_utils.SynTest):
                      'imei': '490154203237518',
                      'phone': '123 456 7890',
                      'mac': '00:00:00:00:00:00',
-                     'ipv4': '1.2.3.4',
-                     'ipv6': '::1',
-                     'wifi': ('The Best SSID2', '00:11:22:33:44:55'),
+                     'ip': '1.2.3.4',
+                     'wifi:ap': ('The Best SSID2', '00:11:22:33:44:55'),
                      'adid': 'someadid',
-                     'aaid': 'somestr',
-                     'idfa': 'someotherstr',
                      'name': 'Robert Grey',
                      'email': 'clown@vertex.link',
-                     'acct': ('vertex.link', 'clown'),
                      'app': softguid,
                      'data': {'some key': 'some valu',
                               'BEEP': 1}
                      }
             q = '''[(tel:mob:telem=$valu :time=$p.time :latlong=$p.latlong :place=$p.place :host=$p.host
              :loc=$p.loc :accuracy=$p.accuracy :cell=$p.cell :imsi=$p.imsi :imei=$p.imei :phone=$p.phone
-             :mac=$p.mac :ipv4=$p.ipv4 :ipv6=$p.ipv6 :wifi=$p.wifi :adid=$p.adid :aaid=$p.aaid :idfa=$p.idfa
-             :name=$p.name :email=$p.email :acct=$p.acct :app=$p.app :data=$p.data :account=*)]'''
+             :mac=$p.mac :ip=$p.ip :wifi:ap=$p."wifi:ap" :adid=$p.adid
+             :name=$p.name :email=$p.email :app=$p.app :data=$p.data :account=*)]'''
             nodes = await core.nodes(q, opts={'vars': {'valu': guid, 'p': props}})
             self.len(1, nodes)
             node = nodes[0]
@@ -129,17 +128,13 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.eq(node.get('imei'), 490154203237518)
             self.eq(node.get('phone'), '1234567890')
             self.eq(node.get('mac'), '00:00:00:00:00:00')
-            self.eq(node.get('ipv4'), 0x01020304)
-            self.eq(node.get('ipv6'), '::1')
-            self.eq(node.get('wifi'), ('The Best SSID2', '00:11:22:33:44:55')),
-            self.eq(node.get('wifi:ssid'), 'The Best SSID2')
-            self.eq(node.get('wifi:bssid'), '00:11:22:33:44:55')
+            self.eq(node.get('ip'), (4, 0x01020304))
+            self.eq(node.get('wifi:ap'), ('The Best SSID2', '00:11:22:33:44:55')),
+            self.eq(node.get('wifi:ap:ssid'), 'The Best SSID2')
+            self.eq(node.get('wifi:ap:bssid'), '00:11:22:33:44:55')
             self.eq(node.get('adid'), 'someadid')
-            self.eq(node.get('aaid'), 'somestr')
-            self.eq(node.get('idfa'), 'someotherstr')
             self.eq(node.get('name'), 'robert grey')
             self.eq(node.get('email'), 'clown@vertex.link')
-            self.eq(node.get('acct'), ('vertex.link', 'clown'))
             self.eq(node.get('app'), softguid)
             self.eq(node.get('data'), {'some key': 'some valu', 'BEEP': 1})
             self.len(1, await core.nodes('tel:mob:telem :account -> inet:service:account'))
@@ -202,11 +197,13 @@ class TelcoModelTest(s_t_utils.SynTest):
             self.raises(s_exc.BadTypeValu, t.norm, -1)
             self.raises(s_exc.BadTypeValu, t.norm, '+()*')
 
-            nodes = await core.nodes('[tel:phone="+1 (703) 555-1212"]')
+            nodes = await core.nodes('[tel:phone="+1 (703) 555-1212" :type=fax ]')
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('tel:phone', '17035551212'))
             self.eq(node.get('loc'), 'us')
+            self.eq(node.get('type'), 'fax.')
+            self.len(1, await core.nodes('tel:phone:type=fax -> tel:phone:type:taxonomy'))
             # Phone # folding..
             self.len(1, await core.nodes('[tel:phone="+1 (703) 555-2424"]'))
             self.len(1, await core.nodes('tel:phone=17035552424'))

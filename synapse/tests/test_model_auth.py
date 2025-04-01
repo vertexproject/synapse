@@ -22,7 +22,7 @@ class AuthModelTest(s_t_utils.SynTest):
                     :website=https://www.vertex.link
                     :host="*"
                     :wifi:ssid=vertexproject
-                    :web:acct=(vertex.link,visi)
+                    :service:account=(vertex.link,visi)
                 ]
             ''')
 
@@ -36,7 +36,7 @@ class AuthModelTest(s_t_utils.SynTest):
             self.eq('visi@vertex.link', nodes[0].get('email'))
             self.eq('https://www.vertex.link', nodes[0].get('website'))
             self.eq('vertexproject', nodes[0].get('wifi:ssid'))
-            self.eq(('vertex.link', 'visi'), nodes[0].get('web:acct'))
+            self.eq('2fedc962f30629e870fb8ef7ff9f8d5a', nodes[0].get('service:account'))
 
             accs = s_common.guid()
             nodes = await core.nodes(f'''

@@ -1,9 +1,7 @@
 import shutil
 import asyncio
-import hashlib
 import logging
 import weakref
-import itertools
 import contextlib
 import collections
 
@@ -11,7 +9,6 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
-import synapse.lib.coro as s_coro
 import synapse.lib.node as s_node
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
@@ -19,7 +16,6 @@ import synapse.lib.nexus as s_nexus
 import synapse.lib.scope as s_scope
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.config as s_config
 import synapse.lib.editor as s_editor
 import synapse.lib.scrape as s_scrape
 import synapse.lib.msgpack as s_msgpack
@@ -54,7 +50,7 @@ class ViewApi(s_cell.CellApi):
 
         return await self.view.storNodeEdits(edits, meta)
 
-    async def syncNodeEdits2(self, offs, wait=True, compat=False):
+    async def syncNodeEdits2(self, offs, *, wait=True, compat=False):
         await self._reqUserAllowed(('view', 'read'))
         # present a layer compatible API to remote callers
         async for item in self.view.wlyr.syncNodeEdits2(offs, wait=wait, compat=compat):
@@ -163,7 +159,7 @@ class View(s_nexus.Pusher):  # type: ignore
         wlyr = self.layers[0]
 
         # hold a reference to  all the nodes about to be edited...
-        nodes = {e[0]: await self.getNodeByNid(e[0]) for e in edits if e[0] is not None}
+        nodes = {e[0]: await self.getNodeByNid(s_common.int64en(e[0])) for e in edits if e[0] is not None}
 
         saveoff, nodeedits = await wlyr.saveNodeEdits(edits, meta)
 
@@ -173,10 +169,11 @@ class View(s_nexus.Pusher):  # type: ignore
         # and collect up all the callbacks to fire at once at the end.  It is
         # critical to fire all callbacks after applying all Node() changes.
 
-        for nid, form, edits in nodeedits:
+        for intnid, form, edits in nodeedits:
 
-            node = nodes.get(nid)
-            if node is None:
+            nid = s_common.int64en(intnid)
+
+            if (node := nodes.get(intnid)) is None:
                 node = await self.getNodeByNid(nid)
 
                 if node is None:  # pragma: no cover
@@ -205,7 +202,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_PROP_SET:
 
-                    (name, valu, oldv, stype) = parms
+                    (name, valu, oldv, stype, _) = parms
 
                     prop = node.form.props.get(name)
                     if prop is None:  # pragma: no cover
@@ -298,10 +295,12 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 if etyp == s_layer.EDIT_EDGE_ADD or etyp == s_layer.EDIT_EDGE_TOMB_DEL:
                     verb, n2nid = parms
+                    n2nid = s_common.int64en(n2nid)
                     callbacks.append((self.runEdgeAdd, (node, verb, n2nid), {}))
 
                 if etyp == s_layer.EDIT_EDGE_DEL or etyp == s_layer.EDIT_EDGE_TOMB:
                     verb, n2nid = parms
+                    n2nid = s_common.int64en(n2nid)
                     callbacks.append((self.runEdgeDel, (node, verb, n2nid), {}))
 
         [await func(*args, **kwargs) for (func, args, kwargs) in callbacks]
@@ -662,7 +661,8 @@ class View(s_nexus.Pusher):  # type: ignore
                 nodeedits = []
                 editor = s_editor.NodeEditor(self.parent, merge.get('creator'))
 
-                async for (nid, form, edits) in self.wlyr.iterLayerNodeEdits():
+                async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
+                    nid = s_common.int64en(intnid)
 
                     if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
                         protonode = await editor.getNodeByNid(nid)
@@ -722,13 +722,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
                                 (verb, n2nid) = parms
 
-                                await protonode.delEdge(verb, n2nid)
+                                await protonode.delEdge(verb, s_common.int64en(n2nid))
                                 continue
 
                             realedits.append(edit)
 
                         if protonode is None:
-                            nodeedits.append((nid, form, realedits))
+                            nodeedits.append((intnid, form, realedits))
                         else:
                             deledits = editor.getNodeEdits()
                             editor.protonodes.clear()
@@ -736,7 +736,7 @@ class View(s_nexus.Pusher):  # type: ignore
                                 deledits[0][2].extend(realedits)
                                 nodeedits.extend(deledits)
                             else:
-                                nodeedits.append((nid, form, realedits))
+                                nodeedits.append((intnid, form, realedits))
 
                     if len(nodeedits) >= 10:
                         yield nodeedits
@@ -969,7 +969,6 @@ class View(s_nexus.Pusher):  # type: ignore
     async def _calcForkLayers(self):
         # recompute the proper set of layers for a forked view
         # (this may only be called from within a nexus handler)
-
         '''
         We spent a lot of time thinking/talking about this so some hefty
         comments are in order:
@@ -1499,6 +1498,15 @@ class View(s_nexus.Pusher):  # type: ignore
                            extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
             raise
 
+        except (s_stormctrl.StormLoopCtrl, s_stormctrl.StormGenrCtrl) as e:
+            if isinstance(e, s_stormctrl.StormLoopCtrl):
+                mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
+            else:
+                mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
+            logmesg = f'Error during storm execution for {{ {text} }} - {mesg}'
+            logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+            raise s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight')) from e
+
         except Exception:
             logger.exception(f'Error during callStorm execution for {{ {text} }}',
                              extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
@@ -1549,7 +1557,7 @@ class View(s_nexus.Pusher):  # type: ignore
         if editformat not in ('nodeedits', 'count', 'none'):
             raise s_exc.BadConfValu(mesg=f'invalid edit format, got {editformat}', name='editformat', valu=editformat)
 
-        texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+        texthash = s_storm.queryhash(text)
 
         async def runStorm():
             cancelled = False
@@ -1603,8 +1611,17 @@ class View(s_nexus.Pusher):  # type: ignore
                 raise
 
             except Exception as e:
-                logger.exception(f'Error during storm execution for {{ {text} }}',
-                                 extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
+                mesg = ''
+                if isinstance(e, s_stormctrl.StormLoopCtrl):
+                    mesg = f'Loop control statement "{e.statement}" used outside of a loop.'
+                    e = s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight'))
+                elif isinstance(e, s_stormctrl.StormGenrCtrl):
+                    mesg = f'Generator control statement "{e.statement}" used outside of a generator function.'
+                    e = s_exc.StormRuntimeError(mesg=mesg, statement=e.statement, highlight=e.get('highlight'))
+                logmesg = f'Error during storm execution for {{ {text} }}'
+                if mesg:
+                    logmesg = f'{logmesg} - {mesg}'
+                logger.exception(logmesg, extra={'synapse': {'text': text, 'username': user.name, 'user': user.iden}})
                 enfo = s_common.err(e)
                 enfo[1].pop('esrc', None)
                 enfo[1].pop('ename', None)
@@ -1633,11 +1650,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if kind == 'node:edits':
 
                 if editformat == 'nodeedits':
-
-                    nodeedits = s_common.jsonsafe_nodeedits(mesg[1]['edits'])
-                    mesg[1]['edits'] = nodeedits
                     yield mesg
-
                     continue
 
                 if editformat == 'none':
@@ -1865,6 +1878,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
                 todo.append(child)
 
+    async def children(self):
+        for view in list(self.core.views.values()):
+            if view.parent != self:
+                await asyncio.sleep(0)
+                continue
+
+            yield view
+
     async def insertParentFork(self, useriden, name=None):
         '''
         Insert a new View between a forked View and its parent.
@@ -1883,21 +1904,24 @@ class View(s_nexus.Pusher):  # type: ignore
             'iden': layriden,
             'created': ctime,
             'creator': useriden,
-            'lockmemory': self.core.conf.get('layers:lockmemory'),
             'logedits': self.core.conf.get('layers:logedits'),
             'readonly': False
         }
 
+        if name is None:
+            if (pname := self.parent.info.get('name')) is not None:
+                name = f'inserted fork of {pname}'
+            else:
+                name = f'inserted fork of {self.parent.iden}'
+
         vdef = {
             'iden': s_common.guid(),
+            'name': name,
             'created': ctime,
             'creator': useriden,
             'parent': self.parent.iden,
             'layers': [layriden] + [lyr.iden for lyr in self.parent.layers]
         }
-
-        if name is not None:
-            vdef['name'] = name
 
         s_layer.reqValidLdef(ldef)
         s_schemas.reqValidView(vdef)
@@ -2001,9 +2025,10 @@ class View(s_nexus.Pusher):  # type: ignore
             'user': user.iden
         }
 
-        editor = s_editor.NodeEditor(self.parent, user)
+        editor = s_editor.NodeEditor(self.parent, user, meta=meta)
 
-        async for (nid, form, edits) in self.wlyr.iterLayerNodeEdits():
+        async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
+            nid = s_common.int64en(intnid)
 
             if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
                 protonode = await editor.getNodeByNid(nid)
@@ -2013,10 +2038,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 await protonode.delEdgesN2(meta=meta)
                 await protonode.delete()
 
-                deledits = editor.getNodeEdits()
-                await self.parent.saveNodeEdits(deledits, meta)
-
-                editor.protonodes.clear()
+                await editor.flushEdits()
                 continue
 
             realedits = []
@@ -2066,13 +2088,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     (verb, n2nid) = parms
 
-                    await protonode.delEdge(verb, n2nid)
+                    await protonode.delEdge(verb, s_common.int64en(n2nid))
                     continue
 
                 realedits.append(edit)
 
             if protonode is None:
-                await self.parent.storNodeEdits([(nid, form, realedits)], meta)
+                await self.parent.storNodeEdits([(intnid, form, realedits)], meta)
                 continue
 
             deledits = editor.getNodeEdits()
@@ -2082,7 +2104,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 deledits[0][2].extend(realedits)
                 await self.parent.storNodeEdits(deledits, meta)
             else:
-                await self.parent.storNodeEdits([(nid, form, realedits)], meta)
+                await self.parent.storNodeEdits(((intnid, form, realedits),), meta)
 
     async def swapLayer(self):
         oldlayr = self.layers[0]
@@ -2230,25 +2252,24 @@ class View(s_nexus.Pusher):  # type: ignore
 
         tdef.setdefault('created', s_common.now())
         tdef.setdefault('user', root.iden)
+        tdef.setdefault('creator', tdef.get('user'))
         tdef.setdefault('async', False)
         tdef.setdefault('enabled', True)
 
-        s_trigger.reqValidTdef(tdef)
+        s_schemas.reqValidTriggerDef(tdef)
 
         return await self._push('trigger:add', tdef)
 
     @s_nexus.Pusher.onPush('trigger:add')
     async def _onPushAddTrigger(self, tdef):
 
-        s_trigger.reqValidTdef(tdef)
+        s_schemas.reqValidTriggerDef(tdef)
 
         trig = self.trigdict.get(tdef['iden'])
         if trig is not None:
             return self.triggers.get(tdef['iden']).pack()
 
-        gate = self.core.auth.getAuthGate(tdef['iden'])
-        if gate is not None:
-            raise s_exc.DupIden(mesg='An AuthGate with this iden already exists')
+        self.core.auth.reqNoAuthGate(tdef['iden'])
 
         user = self.core.auth.user(tdef['user'])
         await self.core.getStormQuery(tdef['storm'])
@@ -2379,6 +2400,9 @@ class View(s_nexus.Pusher):  # type: ignore
         n2buids = set()
 
         (formname, formvalu), forminfo = nodedefn
+
+        if isinstance(formvalu, list):
+            formvalu = tuple(formvalu)
 
         props = forminfo.get('props')
 
@@ -2511,54 +2535,104 @@ class View(s_nexus.Pusher):  # type: ignore
 
     async def _addGuidNodeByDict(self, form, vals, runt, props=None):
 
-        norms = {}
-        counts = []
-        proplist = []
-
         if props is None:
             props = {}
 
         trycast = vals.pop('$try', False)
         addprops = vals.pop('$props', None)
-        if addprops is not None:
-            props.update(addprops)
 
-        try:
-            for name, valu in list(props.items()):
+        if not vals:
+            mesg = f'No values provided for form {form.full}'
+            raise s_exc.BadTypeValu(mesg=mesg)
+
+        for name, valu in list(props.items()):
+            try:
                 props[name] = form.reqProp(name).type.norm(valu)
+            except s_exc.BadTypeValu as e:
+                mesg = e.get('mesg')
+                e.update({
+                    'prop': name,
+                    'form': form.name,
+                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                })
+                raise e
 
-            for name, valu in vals.items():
+        if addprops is not None:
+            for name, valu in addprops.items():
+                try:
+                    props[name] = form.reqProp(name).type.norm(valu)
+                except s_exc.BadTypeValu as e:
+                    mesg = e.get("mesg")
+                    if not trycast:
+                        e.update({
+                            'prop': name,
+                            'form': form.name,
+                            'mesg': f'Bad value for prop {form.name}:{name}: {mesg}'
+                        })
+                        raise e
+                    await runt.warn(f'Skipping bad value for prop {form.name}:{name}: {mesg}')
 
+        norms, proplist = self._normGuidNodeDict(form, vals)
+
+        iden = s_common.guid(proplist)
+        node = await self._getGuidNodeByNorms(form, iden, norms)
+
+        async with self.getEditor() as editor:
+
+            if node is not None:
+                proto = editor.loadNode(node)
+            else:
+                proto = await editor.addNode(form.name, iden)
+                for name, (prop, valu, info) in norms.items():
+                    await proto.set(name, valu, norminfo=info)
+
+            # ensure the non-deconf props are set
+            for name, (valu, info) in props.items():
+                await proto.set(name, valu, norminfo=info)
+
+        return await self.getNodeByBuid(proto.buid)
+
+    def _normGuidNodeDict(self, form, props):
+
+        norms = {}
+        proplist = []
+
+        for name, valu in props.items():
+            try:
                 prop = form.reqProp(name)
                 norm, norminfo = prop.type.norm(valu)
 
                 norms[name] = (prop, norm, norminfo)
                 proplist.append((name, norm))
-        except s_exc.BadTypeValu as e:
-            if not trycast: raise
-            mesg = e.errinfo.get('mesg')
-            if runt is not None:
-                await runt.warn(f'Bad value for prop {name}: {mesg}')
-            return
+            except s_exc.BadTypeValu as e:
+                mesg = e.get('mesg')
+                e.update({
+                    'prop': name,
+                    'form': form.name,
+                    'mesg': f'Bad value for prop {form.name}:{name}: {mesg}',
+                })
+                raise e
 
         proplist.sort()
 
+        return norms, proplist
+
+    async def _getGuidNodeByDict(self, form, props):
+        norms, proplist = self._normGuidNodeDict(form, props)
+        return await self._getGuidNodeByNorms(form, s_common.guid(proplist), norms)
+
+    async def _getGuidNodeByNorms(self, form, iden, norms):
+
         # check first for an exact match via our same deconf strategy
-        iden = s_common.guid(proplist)
 
         node = await self.getNodeByNdef((form.full, iden))
         if node is not None:
 
             # ensure we still match the property deconf criteria
-            for name, (prop, norm, info) in norms.items():
+            for (prop, norm, info) in norms.values():
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
         # TODO there is an opportunity here to populate
@@ -2568,7 +2642,10 @@ class View(s_nexus.Pusher):  # type: ignore
         # filter...
 
         # no exact match. lets do some counting.
-        for name, (prop, norm, info) in norms.items():
+
+        counts = []
+
+        for (prop, norm, info) in norms.values():
             count = await self._getPropAltCount(prop, norm)
             counts.append((count, prop, norm))
 
@@ -2576,7 +2653,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         # lift starting with the lowest count
         count, prop, norm = counts[0]
-        async for node in self._nodesByPropAlts(prop, norm):
+        async for node in self.nodesByPropAlts(prop, '=', norm, norm=False):
             await asyncio.sleep(0)
 
             # filter on the remaining props/alts
@@ -2584,21 +2661,9 @@ class View(s_nexus.Pusher):  # type: ignore
                 if not self._filtByPropAlts(node, prop, norm):
                     break
             else:
-                # ensure the non-deconf props are set
-                async with self.getEditor() as editor:
-                    proto = editor.loadNode(node)
-                    for name, (valu, info) in props.items():
-                        await proto.set(name, valu, norminfo=info)
                 return node
 
-        async with self.getEditor() as editor:
-            proto = await editor.addNode(form.name, iden)
-            for name, (prop, valu, info) in norms.items():
-                await proto.set(name, valu, norminfo=info)
-            for name, (valu, info) in props.items():
-                await proto.set(name, valu, norminfo=info)
-
-        return await self.getNodeByBuid(proto.buid)
+        return None
 
     async def _getPropAltCount(self, prop, valu):
         count = 0
@@ -2615,7 +2680,8 @@ class View(s_nexus.Pusher):  # type: ignore
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                if valu in node.get(prop.name):
+                arryvalu = node.get(prop.name)
+                if arryvalu is not None and valu in arryvalu:
                     return True
             else:
                 if node.get(prop.name) == valu:
@@ -2623,15 +2689,14 @@ class View(s_nexus.Pusher):  # type: ignore
 
         return False
 
-    async def _nodesByPropAlts(self, prop, valu):
-        # valu must be normalized in advance
+    async def nodesByPropAlts(self, prop, cmpr, valu, norm=True, virts=None):
         proptype = prop.type
         for prop in prop.getAlts():
             if prop.type.isarray and prop.type.arraytype == proptype:
-                async for node in self.nodesByPropArray(prop.full, '=', valu, norm=False):
+                async for node in self.nodesByPropArray(prop.full, cmpr, valu, norm=norm, virts=virts):
                     yield node
             else:
-                async for node in self.nodesByPropValu(prop.full, '=', valu, norm=False):
+                async for node in self.nodesByPropValu(prop.full, cmpr, valu, norm=norm, virts=virts):
                     yield node
 
     async def getTagNode(self, name):
@@ -2782,7 +2847,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         elif tombtype == s_layer.INDX_EDGE_VERB:
             (verb, n2nid) = tombinfo
-            edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, n2nid))]
+            edit = [((s_layer.EDIT_EDGE_TOMB_DEL), (verb, s_common.int64un(n2nid)))]
 
         if edit is not None:
 
@@ -2791,14 +2856,14 @@ class View(s_nexus.Pusher):  # type: ignore
                     'user': runt.user.iden,
                     'time': s_common.now()
                 }
-                await self.saveNodeEdits([(nid, ndef[0], edit)], meta, bus=runt.bus)
+                await self.saveNodeEdits([(s_common.int64un(nid), ndef[0], edit)], meta, bus=runt.bus)
                 return
 
             meta = {
                 'user': self.core.auth.rootuser,
                 'time': s_common.now()
             }
-            await self.saveNodeEdits([(nid, ndef[0], edit)], meta)
+            await self.saveNodeEdits([(s_common.int64un(nid), ndef[0], edit)], meta)
 
     async def scrapeIface(self, text, unique=False, refang=True):
         async with await s_spooled.Set.anit(dirn=self.core.dirn, cell=self.core) as matches:  # type: s_spooled.Set
@@ -2871,6 +2936,15 @@ class View(s_nexus.Pusher):  # type: ignore
             async for pode in liftfunc(self, prop, cmprvalu=cmprvalu):
                 yield pode
 
+    async def getDeletedRuntNode(self, nid):
+        if (ndef := self.core.getNidNdef(nid)) is None:
+            raise s_exc.BadArg(f'getDeletedRuntNode() got an invalid nid: {nid}')
+
+        sodes = await self.getStorNodes(nid)
+        pode = (('syn:deleted', ndef), {'props': {'sodes': sodes}})
+
+        return s_node.RuntNode(self, pode, nid=nid)
+
     async def _genSrefList(self, nid, smap, filtercmpr=None):
         srefs = []
         filt = True
@@ -2940,22 +3014,22 @@ class View(s_nexus.Pusher):  # type: ignore
         async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
             yield item
 
-    async def liftByFormValu(self, form, cmprvals, reverse=False):
+    async def liftByFormValu(self, form, cmprvals, reverse=False, virts=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByFormValu(form, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByFormValu(form, cmprvals, reverse=reverse, virts=virts):
                 yield nid, [sref]
             return
 
         for cval in cmprvals:
-            genrs = [layr.liftByFormValu(form, (cval,), reverse=reverse) for layr in self.layers]
+            genrs = [layr.liftByFormValu(form, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, reverse=reverse):
                 yield item
 
-    async def liftByPropValu(self, form, prop, cmprvals, reverse=False):
+    async def liftByPropValu(self, form, prop, cmprvals, reverse=False, virts=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByPropValu(form, prop, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByPropValu(form, prop, cmprvals, reverse=reverse, virts=virts):
                 yield nid, [sref]
             return
 
@@ -2969,7 +3043,7 @@ class View(s_nexus.Pusher):  # type: ignore
             return props.get(prop) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByPropValu(form, prop, (cval,), reverse=reverse) for layr in self.layers]
+            genrs = [layr.liftByPropValu(form, prop, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
@@ -3063,10 +3137,10 @@ class View(s_nexus.Pusher):  # type: ignore
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
-    async def liftByPropArray(self, form, prop, cmprvals, reverse=False):
+    async def liftByPropArray(self, form, prop, cmprvals, reverse=False, virts=None):
 
         if len(self.layers) == 1:
-            async for _, nid, sref in self.wlyr.liftByPropArray(form, prop, cmprvals, reverse=reverse):
+            async for _, nid, sref in self.wlyr.liftByPropArray(form, prop, cmprvals, reverse=reverse, virts=virts):
                 yield nid, [sref]
             return
 
@@ -3083,7 +3157,7 @@ class View(s_nexus.Pusher):  # type: ignore
                 return props.get(prop) is not None
 
         for cval in cmprvals:
-            genrs = [layr.liftByPropArray(form, prop, (cval,), reverse=reverse) for layr in self.layers]
+            genrs = [layr.liftByPropArray(form, prop, (cval,), reverse=reverse, virts=virts) for layr in self.layers]
             async for item in self._mergeLiftRows(genrs, filtercmpr=filt, reverse=reverse):
                 yield item
 
@@ -3123,7 +3197,7 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByProp(self, full, reverse=False, subtype=None):
+    async def nodesByProp(self, full, reverse=False, virt=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -3136,8 +3210,8 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         indx = None
-        if subtype is not None:
-            indx = prop.type.getSubIndx(subtype)
+        if virt is not None:
+            indx = prop.type.getVirtIndx(virt)
 
         if prop.isform:
             genr = self.liftByProp(prop.name, None, reverse=reverse, indx=indx)
@@ -3153,17 +3227,17 @@ class View(s_nexus.Pusher):  # type: ignore
             if node is not None:
                 yield node
 
-    async def nodesByPropValu(self, full, cmpr, valu, reverse=False, norm=True):
+    async def nodesByPropValu(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
 
         if cmpr == 'type=':
             if reverse:
                 async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
                     yield node
 
-                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
+                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse, virts=virts):
                     yield node
             else:
-                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse):
+                async for node in self.nodesByPropValu(full, '=', valu, reverse=reverse, virts=virts):
                     yield node
 
                 async for node in self.nodesByPropTypeValu(full, valu, reverse=reverse):
@@ -3175,8 +3249,25 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'No property named "{full}".'
             raise s_exc.NoSuchProp(mesg=mesg)
 
-        if norm:
-            cmprvals = prop.type.getStorCmprs(cmpr, valu)
+        if isinstance(valu, dict) and isinstance(prop.type, s_types.Guid) and cmpr == '=':
+            if prop.isform:
+                if (node := await self._getGuidNodeByDict(prop, valu)) is not None:
+                    yield node
+                return
+
+            fname = prop.type.name
+            if (form := prop.modl.form(fname)) is None:
+                mesg = f'The property "{full}" type "{fname}" is not a form and cannot be lifted using a dictionary.'
+                raise s_exc.BadTypeValu(mesg=mesg)
+
+            if (node := await self._getGuidNodeByDict(form, valu)) is None:
+                return
+
+            norm = False
+            valu = node.ndef[1]
+
+        if norm or virts is not None:
+            cmprvals = prop.type.getStorCmprs(cmpr, valu, virts=virts)
             # an empty return probably means ?= with invalid value
             if not cmprvals:
                 return
@@ -3190,24 +3281,24 @@ class View(s_nexus.Pusher):  # type: ignore
             return
 
         if prop.isform:
-            genr = self.liftByFormValu(prop.name, cmprvals, reverse=reverse)
+            genr = self.liftByFormValu(prop.name, cmprvals, reverse=reverse, virts=virts)
 
         elif prop.isuniv:
-            genr = self.liftByPropValu(None, prop.name, cmprvals, reverse=reverse)
+            genr = self.liftByPropValu(None, prop.name, cmprvals, reverse=reverse, virts=virts)
 
         else:
-            genr = self.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse)
+            genr = self.liftByPropValu(prop.form.name, prop.name, cmprvals, reverse=reverse, virts=virts)
 
         async for nid, srefs in genr:
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTag(self, tag, form=None, reverse=False, subtype=None):
+    async def nodesByTag(self, tag, form=None, reverse=False, virt=None):
 
         indx = None
-        if subtype is not None:
-            indx = self.core.model.type('ival').getTagSubIndx(subtype)
+        if virt is not None:
+            indx = self.core.model.type('ival').getTagVirtIndx(virt)
 
         async for nid, srefs in self.liftByTag(tag, form=form, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)
@@ -3236,7 +3327,7 @@ class View(s_nexus.Pusher):  # type: ignore
             async for node in self.nodesByPropArray(prop.full, '=', valu, reverse=reverse):
                 yield node
 
-    async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True):
+    async def nodesByPropArray(self, full, cmpr, valu, reverse=False, norm=True, virts=None):
 
         prop = self.core.model.prop(full)
         if prop is None:
@@ -3247,35 +3338,35 @@ class View(s_nexus.Pusher):  # type: ignore
             mesg = f'Array syntax is invalid on non array type: {prop.type.name}.'
             raise s_exc.BadTypeValu(mesg=mesg)
 
-        if norm:
-            cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu)
+        if norm or virts is not None:
+            cmprvals = prop.type.arraytype.getStorCmprs(cmpr, valu, virts=virts)
         else:
             cmprvals = ((cmpr, valu, prop.type.arraytype.stortype),)
 
         if prop.isform:
-            genr = self.liftByPropArray(prop.name, None, cmprvals, reverse=reverse)
+            genr = self.liftByPropArray(prop.name, None, cmprvals, reverse=reverse, virts=virts)
 
         else:
             formname = None
             if prop.form is not None:
                 formname = prop.form.name
 
-            genr = self.liftByPropArray(formname, prop.name, cmprvals, reverse=reverse)
+            genr = self.liftByPropArray(formname, prop.name, cmprvals, reverse=reverse, virts=virts)
 
         async for nid, srefs in genr:
             node = await self._joinSodes(nid, srefs)
             if node is not None:
                 yield node
 
-    async def nodesByTagProp(self, form, tag, name, reverse=False, subtype=None):
+    async def nodesByTagProp(self, form, tag, name, reverse=False, virt=None):
         prop = self.core.model.getTagProp(name)
         if prop is None:
             mesg = f'No tag property named {name}'
             raise s_exc.NoSuchTagProp(name=name, mesg=mesg)
 
         indx = None
-        if subtype is not None:
-            indx = prop.type.getSubIndx(subtype)
+        if virt is not None:
+            indx = prop.type.getVirtIndx(virt)
 
         async for nid, srefs in self.liftByTagProp(form, tag, name, reverse=reverse, indx=indx):
             node = await self._joinSodes(nid, srefs)

@@ -3,7 +3,6 @@ import synapse.exc as s_exc
 import synapse.lib.gis as s_gis
 import synapse.lib.layer as s_layer
 import synapse.lib.types as s_types
-import synapse.lib.module as s_module
 import synapse.lib.grammar as s_grammar
 
 units = {
@@ -371,166 +370,164 @@ class LatLong(s_types.Type):
     def repr(self, norm):
         return f'{norm[0]},{norm[1]}'
 
-class GeoModule(s_module.CoreModule):
+modeldefs = (
+    ('geo', {
 
-    def getModelDefs(self):
-        return (
-            ('geo', {
-
-                'ctors': (
-                    ('geo:dist', 'synapse.models.geospace.Dist', {}, {
-                        'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
-                    }),
-                    ('geo:area', 'synapse.models.geospace.Area', {}, {
-                        'doc': 'A geographic area (base unit is square mm).', 'ex': '10 sq.km'
-                    }),
-                    ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
-                        'doc': 'A Lat/Long string specifying a point on Earth.',
-                        'ex': '-12.45,56.78'
-                    }),
-                ),
-
-                'types': (
-
-                    ('geo:nloc', ('comp', {'fields': (('ndef', 'ndef'), ('latlong', 'geo:latlong'), ('time', 'time'))}), {
-                        'deprecated': True,
-                        'doc': 'Records a node latitude/longitude in space-time.'
-                    }),
-                    ('geo:telem', ('guid', {}), {
-                        'doc': 'A geospatial position of a node at a given time. The node should be linked via -(seenat)> edges.',
-                    }),
-
-                    ('geo:json', ('data', {'schema': geojsonschema}), {
-                        'doc': 'GeoJSON structured JSON data.'}),
-
-                    ('geo:name', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'An unstructured place name or address.'}),
-
-                    ('geo:place', ('guid', {}), {
-                        'doc': 'A GUID for a geographic place.'}),
-
-                    ('geo:place:type:taxonomy', ('taxonomy', {}), {
-                        'interfaces': ('meta:taxonomy',),
-                        'doc': 'A hierarchical taxonomy of place types.',
-                    }),
-
-                    ('geo:address', ('str', {'lower': True, 'onespace': True}), {
-                        'doc': 'A street/mailing address string.'}),
-
-                    ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
-                                       'minisvalid': False, 'maxisvalid': True}), {
-                        'ex': '31.337',
-                        'doc': 'A longitude in floating point notation.',
-                    }),
-                    ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
-                                      'minisvalid': True, 'maxisvalid': True}), {
-                        'ex': '31.337',
-                        'doc': 'A latitude in floating point notation.',
-                    }),
-
-                    ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
-                                                ('xmin', 'geo:longitude'),
-                                                ('xmax', 'geo:longitude'),
-                                                ('ymin', 'geo:latitude'),
-                                                ('ymax', 'geo:latitude'))}), {
-                        'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
-                    }),
-                    ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
-                        'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
-                    }),
-                ),
-
-                'edges': (
-                    ((None, 'seenat', 'geo:telem'), {
-                        'deprecated': True,
-                        'doc': 'Deprecated. Please use ``geo:telem:node``.'}),
-                    (('geo:place', 'contains', 'geo:place'), {
-                        'doc': 'The source place completely contains the target place.'}),
-                ),
-
-                'forms': (
-
-                    ('geo:name', {}, ()),
-
-                    ('geo:nloc', {}, (
-
-                        ('ndef', ('ndef', {}), {'ro': True,
-                            'doc': 'The node with location in geospace and time.'}),
-
-                        ('ndef:form', ('str', {}), {'ro': True,
-                            'doc': 'The form of node referenced by the ndef.'}),
-
-                        ('latlong', ('geo:latlong', {}), {'ro': True,
-                            'doc': 'The latitude/longitude the node was observed.'}),
-
-                        ('time', ('time', {}), {'ro': True,
-                            'doc': 'The time the node was observed at location.'}),
-
-                        ('place', ('geo:place', {}), {
-                            'doc': 'The place corresponding to the latlong property.'}),
-
-                        ('loc', ('loc', {}), {
-                            'doc': 'The geo-political location string for the node.'}),
-
-                    )),
-
-                    ('geo:telem', {}, (
-                        ('time', ('time', {}), {
-                            'doc': 'The time that the node was at the position.'}),
-                        ('desc', ('str', {}), {
-                            'doc': 'A description of the telemetry sample.'}),
-                        ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The latitude/longitude reading at the time.'}),
-                        ('accuracy', ('geo:dist', {}), {
-                            'doc': 'The reported accuracy of the latlong telemetry reading.'}),
-                        ('place', ('geo:place', {}), {
-                            'doc': 'The place which includes the latlong value.'}),
-                        ('place:name', ('geo:name', {}), {
-                            'doc': 'The purported place name. Used for entity resolution.'}),
-                        ('node', ('ndef', {}), {
-                            'doc': 'The node that was observed at the associated time and place.'}),
-                    )),
-
-                    ('geo:place:type:taxonomy', {}, ()),
-                    ('geo:place', {}, (
-
-                        ('name', ('geo:name', {}), {
-                            'doc': 'The name of the place.'}),
-
-                        ('type', ('geo:place:type:taxonomy', {}), {
-                            'doc': 'The type of place.'}),
-
-                        ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
-                            'doc': 'An array of alternative place names.'}),
-
-                        ('parent', ('geo:place', {}), {
-                            'deprecated': True,
-                            'doc': 'Deprecated. Please use a -(contains)> edge.'}),
-
-                        ('desc', ('str', {}), {
-                            'doc': 'A long form description of the place.'}),
-
-                        ('loc', ('loc', {}), {
-                            'doc': 'The geo-political location string for the node.'}),
-
-                        ('address', ('geo:address', {}), {
-                            'doc': 'The street/mailing address for the place.'}),
-
-                        ('geojson', ('geo:json', {}), {
-                            'doc': 'A GeoJSON representation of the place.'}),
-
-                        ('latlong', ('geo:latlong', {}), {
-                            'doc': 'The lat/long position for the place.'}),
-
-                        ('bbox', ('geo:bbox', {}), {
-                            'doc': 'A bounding box which encompasses the place.'}),
-
-                        ('radius', ('geo:dist', {}), {
-                            'doc': 'An approximate radius to use for bounding box calculation.'}),
-
-                        ('photo', ('file:bytes', {}), {
-                            'doc': 'The image file to use as the primary image of the place.'}),
-                    )),
-                )
+        'ctors': (
+            ('geo:dist', 'synapse.models.geospace.Dist', {}, {
+                'doc': 'A geographic distance (base unit is mm).', 'ex': '10 km'
             }),
+            ('geo:area', 'synapse.models.geospace.Area', {}, {
+                'doc': 'A geographic area (base unit is square mm).', 'ex': '10 sq.km'
+            }),
+            ('geo:latlong', 'synapse.models.geospace.LatLong', {}, {
+                'doc': 'A Lat/Long string specifying a point on Earth.',
+                'ex': '-12.45,56.78'
+            }),
+        ),
+
+        'interfaces': (
+            ('geo:locatable', {
+                'doc': 'Properties common to items and events which may be geolocated.',
+                'template': {'geo:locatable': 'item'},
+                'props': (
+                    ('place', ('geo:place', {}), {
+                        'doc': 'The place where the {geo:locatable} was located.'}),
+
+                    ('place:loc', ('loc', {}), {
+                        'doc': 'The geopolitical location of the {geo:locatable}.'}),
+
+                    ('place:name', ('geo:name', {}), {
+                        'doc': 'The name of the place where the {geo:locatable} was located.'}),
+
+                    ('place:address', ('geo:address', {}), {
+                        'doc': 'The postal address of the place where the {geo:locatable} was located.'}),
+
+                    ('place:latlong', ('geo:latlong', {}), {
+                        'doc': 'The latlong where the {geo:locatable} was located.'}),
+
+                    ('place:latlong:accuracy', ('geo:dist', {}), {
+                        'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
+
+                    ('place:country', ('pol:country', {}), {
+                        'doc': 'The country where the {geo:locatable} was located.'}),
+
+                    ('place:country:code', ('pol:iso2', {}), {
+                        'doc': 'The country code where the {geo:locatable} was located.'}),
+                ),
+            }),
+        ),
+
+        'types': (
+
+            ('geo:telem', ('guid', {}), {
+                'interfaces': ('phys:object', 'geo:locatable'),
+                'template': {'phys:object': 'object', 'geo:locatable': 'object'},
+                'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
+
+            ('geo:json', ('data', {'schema': geojsonschema}), {
+                'doc': 'GeoJSON structured JSON data.'}),
+
+            ('geo:name', ('str', {'lower': True, 'onespace': True}), {
+                'doc': 'An unstructured place name or address.'}),
+
+            ('geo:place', ('guid', {}), {
+                'doc': 'A GUID for a geographic place.'}),
+
+            ('geo:place:type:taxonomy', ('taxonomy', {}), {
+                'interfaces': ('meta:taxonomy',),
+                'doc': 'A hierarchical taxonomy of place types.',
+            }),
+
+            ('geo:address', ('str', {'lower': True, 'onespace': True}), {
+                'doc': 'A street/mailing address string.'}),
+
+            ('geo:longitude', ('float', {'min': -180.0, 'max': 180.0,
+                               'minisvalid': False, 'maxisvalid': True}), {
+                'ex': '31.337',
+                'doc': 'A longitude in floating point notation.',
+            }),
+            ('geo:latitude', ('float', {'min': -90.0, 'max': 90.0,
+                              'minisvalid': True, 'maxisvalid': True}), {
+                'ex': '31.337',
+                'doc': 'A latitude in floating point notation.',
+            }),
+
+            ('geo:bbox', ('comp', {'sepr': ',', 'fields': (
+                                        ('xmin', 'geo:longitude'),
+                                        ('xmax', 'geo:longitude'),
+                                        ('ymin', 'geo:latitude'),
+                                        ('ymax', 'geo:latitude'))}), {
+                'doc': 'A geospatial bounding box in (xmin, xmax, ymin, ymax) format.',
+            }),
+            ('geo:altitude', ('geo:dist', {'baseoff': 6371008800}), {
+                'doc': 'A negative or positive offset from Mean Sea Level (6,371.0088km from Earths core).'
+            }),
+        ),
+
+        'edges': (
+            (('geo:place', 'contains', 'geo:place'), {
+                'doc': 'The source place completely contains the target place.'}),
+        ),
+
+        'forms': (
+
+            ('geo:name', {}, ()),
+
+            ('geo:telem', {}, (
+
+                ('time', ('time', {}), {
+                    'doc': 'The time that the telemetry measurements were taken.'}),
+
+                ('desc', ('str', {}), {
+                    'doc': 'A description of the telemetry sample.'}),
+
+                ('node', ('ndef', {}), {
+                    'doc': 'The node that was observed at the associated time and place.'}),
+            )),
+
+            ('geo:place:type:taxonomy', {
+                'prevnames': ('geo:place:taxonomy',)}, ()),
+
+            ('geo:place', {}, (
+
+                ('id', ('str', {'strip': True}), {
+                    'doc': 'A type specific identifier such as an airport ID.'}),
+
+                ('name', ('geo:name', {}), {
+                    'alts': ('names',),
+                    'doc': 'The name of the place.'}),
+
+                ('type', ('geo:place:type:taxonomy', {}), {
+                    'doc': 'The type of place.'}),
+
+                ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
+                    'doc': 'An array of alternative place names.'}),
+
+                ('desc', ('str', {}), {
+                    'doc': 'A long form description of the place.'}),
+
+                ('loc', ('loc', {}), {
+                    'doc': 'The geo-political location string for the node.'}),
+
+                ('address', ('geo:address', {}), {
+                    'doc': 'The street/mailing address for the place.'}),
+
+                ('geojson', ('geo:json', {}), {
+                    'doc': 'A GeoJSON representation of the place.'}),
+
+                ('latlong', ('geo:latlong', {}), {
+                    'doc': 'The lat/long position for the place.'}),
+
+                ('bbox', ('geo:bbox', {}), {
+                    'doc': 'A bounding box which encompasses the place.'}),
+
+                ('radius', ('geo:dist', {}), {
+                    'doc': 'An approximate radius to use for bounding box calculation.'}),
+
+                ('photo', ('file:bytes', {}), {
+                    'doc': 'The image file to use as the primary image of the place.'}),
+            )),
         )
+    }),
+)

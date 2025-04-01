@@ -139,13 +139,13 @@ class StormLibGenTest(s_test.SynTest):
             self.eq('vertex.link', nodes00[0].get('target:fqdn'))
             self.eq('foosig', nodes00[0].get('signame'))
             self.eq('barscn', nodes00[0].get('scanner:name'))
-            self.eq('2022/01/01 00:00:00.000', nodes00[0].repr('time'))
+            self.eq('2022-01-01T00:00:00.000Z', nodes00[0].repr('time'))
             nodes01 = await core.nodes(q)
             self.eq(nodes00[0].ndef, nodes01[0].ndef)
 
             nodes02 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name barscn')
             self.eq(nodes00[0].ndef, nodes02[0].ndef)
-            self.eq('2022/01/01 00:00:00.000', nodes02[0].repr('time'))
+            self.eq('2022-01-01T00:00:00.000Z', nodes02[0].repr('time'))
 
             nodes03 = await core.nodes('gen.it.av.scan.result inet:fqdn vertex.link foosig --scanner-name bazscn')
             self.ne(nodes00[0].ndef, nodes03[0].ndef)
@@ -166,18 +166,16 @@ class StormLibGenTest(s_test.SynTest):
 
             self.len(1, await core.nodes('gen.it.av.scan.result file:bytes `guid:{$guid}` foosig', opts=opts))
             self.len(1, await core.nodes('gen.it.av.scan.result inet:fqdn $fqdn foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result inet:ipv4 $ip  foosig', opts=opts))
-            self.len(1, await core.nodes('gen.it.av.scan.result inet:ipv6 $ip foosig', opts=opts))
+            self.len(1, await core.nodes('gen.it.av.scan.result inet:ip $ip  foosig', opts=opts))
             self.len(1, await core.nodes('gen.it.av.scan.result inet:url `http://{$fqdn}` foosig', opts=opts))
             self.len(1, await core.nodes('gen.it.av.scan.result it:exec:proc $guid foosig', opts=opts))
             self.len(1, await core.nodes('gen.it.av.scan.result it:host $guid foosig', opts=opts))
 
-            self.len(7, await core.nodes('''
+            self.len(6, await core.nodes('''
                 file:bytes=`guid:{$guid}`
                 inet:fqdn=$fqdn
                 it:host=$guid
-                inet:ipv4=$ip
-                inet:ipv6:ipv4=$ip
+                inet:ip=$ip
                 it:exec:proc=$guid
                 inet:url=`http://{$fqdn}`
                 +{
@@ -186,12 +184,6 @@ class StormLibGenTest(s_test.SynTest):
                 }=1
                 -> it:av:scan:result
             ''', opts=opts))
-
-            nodes = await core.nodes('''
-                [ it:av:filehit=(`guid:{$lib.guid()}`, ($lib.guid(), fsig)) :sig:name=fsig ]
-                gen.it.av.scan.result file:bytes :file :sig:name
-            ''')
-            self.sorteq(['it:av:filehit', 'it:av:scan:result'], [n.ndef[0] for n in nodes])
 
             with self.raises(s_exc.NoSuchType) as cm:
                 await core.nodes('gen.it.av.scan.result newp vertex.link foosig --try')

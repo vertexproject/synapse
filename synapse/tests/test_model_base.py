@@ -82,21 +82,27 @@ class BaseTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            nodes = await core.nodes('[meta:source="*" :name="FOO Bar" :type=osint :url="https://foo.bar/index.html"]')
+            nodes = await core.nodes('''
+                [meta:source="*"
+                    :name="FOO Bar"
+                    :type=osint
+                    :url="https://foo.bar/index.html"
+                    :ingest:cursor="Woot Woot "
+                    :ingest:latest=20241205
+                    :ingest:offset=17
+                ]
+            ''')
             self.len(1, nodes)
             sorc = nodes[0]
 
             self.eq(sorc.get('type'), 'osint.')
             self.eq(sorc.get('name'), 'foo bar')
             self.eq(sorc.get('url'), 'https://foo.bar/index.html')
+            self.eq(sorc.get('ingest:offset'), 17)
+            self.eq(sorc.get('ingest:cursor'), 'Woot Woot ')
+            self.eq(sorc.get('ingest:latest'), 1733356800000)
 
             valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
-            nodes = await core.nodes('[meta:seen=$valu]', opts={'vars': {'valu': valu}})
-            self.len(1, nodes)
-            seen = nodes[0]
-
-            self.eq(seen.get('source'), sorc.ndef[1])
-            self.eq(seen.get('node'), ('inet:fqdn', 'woot.com'))
 
     async def test_model_base_rules(self):
 
@@ -123,7 +129,7 @@ class BaseTest(s_t_utils.SynTest):
                     :text="while TRUE { BAD }"
                     :ext:id=WOOT-20 :url=https://vertex.link/rules/WOOT-20
                     <(has)+ { meta:ruleset }
-                    +(matches)> { [inet:ipv4=123.123.123] }
+                    +(matches)> { [inet:ip=123.123.123.123] }
                 ]
             ''')
             self.len(1, nodes)
@@ -151,10 +157,10 @@ class BaseTest(s_t_utils.SynTest):
             self.len(0, nodes)
 
             SYN_6315 = [
-                'inet:dns:query:client', 'inet:dns:query:name', 'inet:dns:query:name:ipv4',
-                'inet:dns:query:name:ipv6', 'inet:dns:query:name:fqdn', 'inet:dns:query:type',
+                'inet:dns:query:client', 'inet:dns:query:name', 'inet:dns:query:name:ip',
+                'inet:dns:query:name:fqdn', 'inet:dns:query:type',
                 'inet:dns:request:time', 'inet:dns:request:query', 'inet:dns:request:query:name',
-                'inet:dns:request:query:name:ipv4', 'inet:dns:request:query:name:ipv6',
+                'inet:dns:request:query:name:ip',
                 'inet:dns:request:query:name:fqdn', 'inet:dns:request:query:type',
                 'inet:dns:request:server', 'inet:dns:answer:ttl', 'inet:dns:answer:request',
                 'ou:team:org', 'ou:team:name',
@@ -162,11 +168,10 @@ class BaseTest(s_t_utils.SynTest):
                 'pol:country:tld', 'tel:mob:carrier:mcc', 'tel:mob:carrier:mnc',
                 'tel:mob:telem:time', 'tel:mob:telem:latlong', 'tel:mob:telem:cell',
                 'tel:mob:telem:cell:carrier', 'tel:mob:telem:imsi', 'tel:mob:telem:imei',
-                'tel:mob:telem:phone', 'tel:mob:telem:mac', 'tel:mob:telem:ipv4',
-                'tel:mob:telem:ipv6', 'tel:mob:telem:wifi', 'tel:mob:telem:wifi:ssid',
-                'tel:mob:telem:wifi:bssid', 'tel:mob:telem:adid', 'tel:mob:telem:aaid',
-                'tel:mob:telem:idfa', 'tel:mob:telem:name', 'tel:mob:telem:email',
-                'tel:mob:telem:acct', 'tel:mob:telem:app', 'tel:mob:telem:data',
+                'tel:mob:telem:phone', 'tel:mob:telem:mac', 'tel:mob:telem:ip',
+                'tel:mob:telem:wifi:ap', 'tel:mob:telem:wifi:ap:ssid', 'tel:mob:telem:wifi:ap:bssid',
+                'tel:mob:telem:name', 'tel:mob:telem:email',
+                'tel:mob:telem:app', 'tel:mob:telem:data',
                 'inet:http:request:response:time', 'inet:http:request:response:code',
                 'inet:http:request:response:reason', 'inet:http:request:response:body',
                 'gov:us:cage:street', 'gov:us:cage:city', 'gov:us:cage:state', 'gov:us:cage:zip',
@@ -227,3 +232,46 @@ class BaseTest(s_t_utils.SynTest):
             for node in nodes:
                 form = core.model.form(node.ndef[1])
                 self.true(form.deprecated, msg=form)
+
+    async def test_model_aggregate(self):
+
+        async with self.getTestCore() as core:
+
+            nodes = await core.nodes('[ meta:aggregate=* :count=99 :type=bottles :time=20240202 ]')
+            self.len(1, nodes)
+            self.eq(99, nodes[0].get('count'))
+            self.eq('bottles.', nodes[0].get('type'))
+            self.eq(1706832000000, nodes[0].get('time'))
+            self.len(1, await core.nodes('meta:aggregate -> meta:aggregate:type:taxonomy'))
+
+    async def test_model_feed(self):
+
+        async with self.getTestCore() as core:
+            nodes = await core.nodes('''[
+                meta:feed=*
+                    :name="woot (foo bar baz)"
+                    :type=foo.bar.baz
+                    :source={[ meta:source=* :name=woot ]}
+                    :url=https://v.vtx.lk/slack
+                    :query="Hi There"
+                    :opts=({"foo": "bar"})
+                    :period=(2024,2025)
+                    :latest=2025
+                    :offset=17
+                    :cursor=FooBar
+            ]''')
+            self.len(1, nodes)
+            self.nn(nodes[0].get('source'))
+
+            self.eq(nodes[0].get('name'), 'woot (foo bar baz)')
+            self.eq(nodes[0].get('type'), 'foo.bar.baz.')
+            self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
+            self.eq(nodes[0].get('query'), 'Hi There')
+            self.eq(nodes[0].get('opts'), {"foo": "bar"})
+            self.eq(nodes[0].get('period'), (1704067200000, 1735689600000))
+            self.eq(nodes[0].get('latest'), 1735689600000)
+            self.eq(nodes[0].get('offset'), 17)
+            self.eq(nodes[0].get('cursor'), 'FooBar')
+
+            self.len(1, await core.nodes('meta:feed -> meta:source +:name=woot'))
+            self.len(1, await core.nodes('meta:feed -> meta:feed:type:taxonomy'))

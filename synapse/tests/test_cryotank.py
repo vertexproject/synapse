@@ -45,10 +45,10 @@ class CryoTest(s_t_utils.SynTest):
 
                 self.true(await prox.puts('foo', cryodata))
 
-                items = await alist(prox.slice('foo', 1, 3))
+                items = await alist(prox.slice('foo', 1, size=3))
                 self.eq(items[0][1][0], 'baz')
 
-                metrics = await alist(prox.metrics('foo', 0, 9999))
+                metrics = await alist(prox.metrics('foo', 0, size=9999))
                 self.len(2, metrics)
                 self.eq(2, metrics[0][1]['count'])
 
@@ -82,24 +82,24 @@ class CryoTest(s_t_utils.SynTest):
                 # test the direct tank share....
                 async with cryo.getLocalProxy(share='cryotank/foo') as lprox:
 
-                    items = await alist(lprox.slice(1, 3))
+                    items = await alist(lprox.slice(1, size=3))
 
                     self.eq(items[0][1][0], 'baz')
 
-                    self.len(4, await alist(lprox.slice(0, 9999)))
+                    self.len(4, await alist(lprox.slice(0, size=9999)))
 
                     await lprox.puts(cryodata)
 
-                    self.len(6, await alist(lprox.slice(0, 9999)))
+                    self.len(6, await alist(lprox.slice(0, size=9999)))
 
                 # test the new open share
                 async with cryo.getLocalProxy(share='cryotank/lulz') as lprox:
 
-                    self.len(0, await alist(lprox.slice(0, 9999)))
+                    self.len(0, await alist(lprox.slice(0, size=9999)))
 
                     await lprox.puts(cryodata)
 
-                    self.len(2, await alist(lprox.slice(0, 9999)))
+                    self.len(2, await alist(lprox.slice(0, size=9999)))
 
                     self.len(1, await alist(lprox.metrics(0)))
 

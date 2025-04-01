@@ -225,9 +225,9 @@ See :ref:`meth-node-value` to return the raw value of a property.
 .. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr())  | spin
 
 
-- Print the repr of the ``:ipv4`` secondary property value of an ``inet:dns:a`` node:
+- Print the repr of the ``:ip`` secondary property value of an ``inet:dns:a`` node:
 
-.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(ipv4)) | spin
+.. storm-cli:: inet:dns:a=(woot.com,54.173.9.236) $lib.print($node.repr(ip)) | spin
 
 
 - Print the repr of the ``.seen`` universal property value of an ``inet:dns:a`` node:
@@ -346,16 +346,16 @@ The method takes no arguments.
 
 - Print the list of idens for the path of a single node through two pivots to a single end node:
 
-.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a +:ipv4=67.215.66.149 -> inet:ipv4 $lib.print($path.idens()) 
+.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a +:ip=67.215.66.149 -> inet:ip $lib.print($path.idens()) 
     
 The example above returns the idens of the original ``inet:fqdn`` node, the ``inet:dns:a`` node with the
-specified IP, and the ``inet:ipv4`` node.
+specified IP, and the ``inet:ip`` node.
 
 
 - Print the list of idens for the path of a single node through two pivots to three different end nodes
   (i.e., three paths):
 
-.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ipv4 $lib.print($path.idens()) 
+.. storm-cli:: inet:fqdn=aunewsonline.com -> inet:dns:a -> inet:ip $lib.print($path.idens()) 
 
 In the example above, the FQDN has three DNS A records, thus there are three different paths that the
 original node takes through the query.

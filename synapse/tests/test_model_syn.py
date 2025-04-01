@@ -1,5 +1,7 @@
 import synapse.exc as s_exc
+import synapse.common as s_common
 import synapse.cortex as s_cortex
+import synapse.datamodel as s_datamodel
 
 import synapse.lib.stormsvc as s_stormsvc
 
@@ -16,28 +18,10 @@ class TestService(s_stormsvc.StormSvc):
                 {
                     'name': 'foobar',
                     'descr': 'foobar is a great service',
-                    'forms': {
-                        'input': [
-                            'inet:ipv4',
-                            'inet:ipv6',
-                        ],
-                        'output': [
-                            'inet:fqdn',
-                        ],
-                        'nodedata': [
-                            ('foo', 'inet:ipv4'),
-                            ('bar', 'inet:fqdn'),
-                        ],
-                    },
                     'storm': '',
                 },
                 {
                     'name': 'ohhai',
-                    'forms': {
-                        'output': [
-                            'inet:ipv4',
-                        ],
-                    },
                     'storm': '',
                 },
             )
@@ -45,6 +29,105 @@ class TestService(s_stormsvc.StormSvc):
     )
 
 class SynModelTest(s_t_utils.SynTest):
+
+    async def test_syn_userrole(self):
+
+        async with self.getTestCore() as core:
+
+            (ok, iden) = await core.callStorm('return($lib.trycast(syn:user, root))')
+            self.true(ok)
+            self.eq(iden, core.auth.rootuser.iden)
+
+            # coverage for iden taking precedence
+            (ok, iden) = await core.callStorm(f'return($lib.trycast(syn:user, {iden}))')
+            self.true(ok)
+            self.eq(iden, core.auth.rootuser.iden)
+
+            self.eq('root', await core.callStorm(f'return($lib.repr(syn:user, {iden}))'))
+
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('return($lib.cast(syn:user, newp))')
+            self.eq(exc.exception.get('mesg'), 'No user named newp and value is not a guid.')
+            self.eq(exc.exception.get('valu'), 'newp')
+            self.eq(exc.exception.get('name'), 'syn:user')
+
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('[ it:exec:query=* :synuser=* ]')
+            self.isin('syn:user values must be a valid username or a guid.', exc.exception.get('mesg'))
+            self.eq(exc.exception.get('valu'), '*')
+            self.eq(exc.exception.get('name'), 'syn:user')
+
+            (ok, iden) = await core.callStorm('return($lib.trycast(syn:role, all))')
+            self.true(ok)
+            self.eq(iden, core.auth.allrole.iden)
+
+            # coverage for iden taking precedence
+            (ok, iden) = await core.callStorm(f'return($lib.trycast(syn:role, {iden}))')
+            self.true(ok)
+            self.eq(iden, core.auth.allrole.iden)
+
+            self.eq('all', await core.callStorm(f'return($lib.repr(syn:role, {iden}))'))
+
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('return($lib.cast(syn:role, newp))')
+            self.eq(exc.exception.get('mesg'), 'No role named newp and value is not a guid.')
+            self.eq(exc.exception.get('valu'), 'newp')
+            self.eq(exc.exception.get('name'), 'syn:role')
+
+            with self.raises(s_exc.BadTypeValu) as exc:
+                await core.callStorm('$lib.cast(syn:role, *)')
+            self.eq(exc.exception.get('mesg'), 'syn:role values must be a valid rolename or a guid.')
+            self.eq(exc.exception.get('valu'), '*')
+            self.eq(exc.exception.get('name'), 'syn:role')
+
+            # coverage for DataModel without a cortex reference
+            iden = s_common.guid()
+
+            model = core.model
+            model.core = None
+
+            synuser = model.type('syn:user')
+            synrole = model.type('syn:user')
+
+            self.eq(iden, synuser.repr(iden))
+            self.eq(iden, synrole.repr(iden))
+
+            self.eq(iden, synuser.norm(iden)[0])
+            self.eq(iden, synrole.norm(iden)[0])
+
+    async def test_synuser_merge_failure(self):
+        async with self.getTestCore() as core:
+
+            visi = await core.addUser('visi')
+            view = await core.callStorm('return($lib.view.get().fork().iden)')
+
+            q = '[proj:project=(p1,) :creator=visi ]'
+            msgs = await core.stormlist(q, opts={'view': view})
+            self.stormHasNoWarnErr(msgs)
+
+            q = 'proj:project=(p1,)'
+            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
+            self.stormHasNoWarnErr(msgs)
+
+            await core.delUser(visi.get('iden'))
+
+            q = 'proj:project=(p1,)'
+            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
+            self.stormHasNoWarnErr(msgs)
+
+            # this works
+            q = '$lib.view.get($view).merge()'
+            msgs = await core.stormlist(q, opts={'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
+
+            # this fails
+            q = 'proj:project | merge --apply'
+            msgs = await core.stormlist(q, opts={'view': view, 'repr': True})
+            self.stormHasNoWarnErr(msgs)
+
+            q = 'proj:project=(p1,)'
+            msgs = await core.stormlist(q, opts={'vars': {'view': view}})
+            self.stormHasNoWarnErr(msgs)
 
     async def test_syn_tag(self):
 
@@ -87,6 +170,8 @@ class SynModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('syn:type:ctor')
             self.gt(len(nodes), 1)
+
+            self.len(0, await core.nodes('.created'))
 
             nodes = await core.nodes('syn:type=comp')
             self.len(1, nodes)
@@ -172,12 +257,12 @@ class SynModelTest(s_t_utils.SynTest):
             self.true(node.get('extmodel'))
 
             # A deeper nested prop will have different base and relname values
-            nodes = await core.nodes('syn:prop="inet:flow:dst:port"')
+            nodes = await core.nodes('syn:prop="inet:flow:dst:host"')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(('syn:prop', 'inet:flow:dst:port'), node.ndef)
-            self.eq('port', node.get('base'))
-            self.eq('dst:port', node.get('relname'))
+            self.eq(('syn:prop', 'inet:flow:dst:host'), node.ndef)
+            self.eq('host', node.get('base'))
+            self.eq('dst:host', node.get('relname'))
 
             # forms are also props but have some slightly different keys populated
             nodes = await core.nodes('syn:prop="test:type10"')
@@ -257,26 +342,47 @@ class SynModelTest(s_t_utils.SynTest):
                     {n.ndef for n in nodes})
 
             # Some forms inherit from a single type
-            nodes = await core.nodes('syn:type="inet:addr" -> syn:type:subof')
+            nodes = await core.nodes('syn:type="inet:sockaddr" -> syn:type:subof')
             self.ge(len(nodes), 2)
             pprops = {n.ndef[1] for n in nodes}
             self.isin('inet:server', pprops)
             self.isin('inet:client', pprops)
 
             # Test a cmpr that isn't '='
-            nodes = await core.nodes('syn:form~="test:type"')
+            nodes = await core.nodes('syn:form~="^test:type"')
             self.len(2, nodes)
 
             # Can't add an edge to a runt node
             await self.asyncraises(s_exc.IsRuntForm, nodes[0].addEdge('newp', 'newp'))
 
-            q = core.nodes('syn:form [ +(newp)> { inet:ipv4 } ]')
+            q = core.nodes('syn:form [ +(newp)> { inet:ip } ]')
             await self.asyncraises(s_exc.IsRuntForm, q)
 
             q = core.nodes('[ test:str=foo +(newp)> { syn:form } ]')
             await self.asyncraises(s_exc.IsRuntForm, q)
 
             self.eq((), await core.callStorm('syn:form=inet:fqdn return($node.tags())'))
+
+            # Ensure that delete a read-only runt prop fails, whether or not it exists.
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form:doc [-:doc]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:type -:subof [-:ctor]')
+
+            # # Ensure that adding tags on runt nodes fails
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form [+#hehe]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form [-#hehe]')
+
+            # Ensure that adding / deleting runt nodes fails
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('[syn:form=newp]')
+
+            with self.raises(s_exc.IsRuntForm):
+                await core.nodes('syn:form | delnode')
 
         # Ensure that the model runts are re-populated after a model load has occurred.
         with self.getTestDir() as dirn:
@@ -287,13 +393,7 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:form=syn:tag')
                 self.len(1, nodes)
 
-                nodes = await core.nodes('syn:form=test:runt')
-                self.len(0, nodes)
-
-                await core.loadCoreModule('synapse.tests.utils.TestModule')
-
-                nodes = await core.nodes('syn:form=test:runt')
-                self.len(1, nodes)
+                await core._addDataModels(s_t_utils.testmodel)
 
                 nodes = await core.nodes('syn:prop:form="test:str" +:extmodel=True')
                 self.len(0, nodes)
@@ -314,6 +414,93 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:tagprop')
                 self.len(0, nodes)
 
+        async with self.getTestCore() as core:
+                # Check we can iterate runt nodes while changing the underlying dictionary
+
+                numforms = len(core.model.forms)
+
+                q = '''
+                init {
+                    $forms = ()
+                    $count = (0)
+                }
+
+                syn:form
+
+                $forms.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $info = ({"doc": "test taxonomy", "interfaces": ["meta:taxonomy"]})
+                    $lib.model.ext.addForm(_test:taxonomy, taxonomy, ({}), $info)
+                }
+
+                spin |
+
+                fini { return($forms) }
+                '''
+
+                forms = await core.callStorm(q)
+                self.len(numforms, forms)
+                self.len(numforms + 1, core.model.forms)
+
+                numtypes = len(core.model.types)
+                q = '''
+                init {
+                    $types = ()
+                    $count = (0)
+                }
+
+                syn:type
+
+                $types.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $typeopts = ({"lower": true, "onespace": true})
+                    $typeinfo = ({"doc": "A test type doc."})
+                    $lib.model.ext.addType(_test:type, str, $typeopts, $typeinfo)
+                }
+
+                spin |
+
+                fini { return($types) }
+                '''
+
+                types = await core.callStorm(q)
+                self.len(numtypes, types)
+                self.len(numtypes + 1, core.model.types)
+
+                q = '''
+                init {
+                    $tagprops = ()
+                    $count = (0)
+                    $lib.model.ext.addTagProp(cypher, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(trinity, (str, ({})), ({}))
+                    $lib.model.ext.addTagProp(morpheus, (str, ({})), ({}))
+                }
+
+                syn:tagprop
+
+                $tagprops.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $lib.model.ext.addTagProp(neo, (str, ({})), ({}))
+                }
+
+                spin |
+
+                fini { return($tagprops) }
+                '''
+
+                tagprops = await core.callStorm(q)
+                self.len(3, tagprops)
+                self.len(4, core.model.tagprops)
+
     async def test_syn_cmd_runts(self):
 
         async with self.getTestDmon() as dmon:
@@ -330,8 +517,6 @@ class SynModelTest(s_t_utils.SynTest):
                 self.eq(nodes[0].get('doc'), 'List available information about Storm and'
                                              ' brief descriptions of different items.')
 
-                self.none(nodes[0].get('input'))
-                self.none(nodes[0].get('output'))
                 self.none(nodes[0].get('package'))
                 self.none(nodes[0].get('svciden'))
 
@@ -349,40 +534,13 @@ class SynModelTest(s_t_utils.SynTest):
 
                 self.eq(nodes[0].ndef, ('syn:cmd', 'foobar'))
                 self.eq(nodes[0].get('doc'), 'foobar is a great service')
-                self.eq(nodes[0].get('input'), ('inet:ipv4', 'inet:ipv6'))
-                self.eq(nodes[0].get('output'), ('inet:fqdn',))
-                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
                 self.eq(nodes[0].get('package'), 'foo')
                 self.eq(nodes[0].get('svciden'), iden)
 
                 self.eq(nodes[1].ndef, ('syn:cmd', 'ohhai'))
                 self.eq(nodes[1].get('doc'), 'No description')
-                self.none(nodes[1].get('input'))
-                self.eq(nodes[1].get('output'), ('inet:ipv4',))
-                self.none(nodes[1].get('nodedata'))
                 self.eq(nodes[1].get('package'), 'foo')
                 self.eq(nodes[1].get('svciden'), iden)
-
-                # Pivot from cmds to their forms
-                nodes = await core.nodes('syn:cmd=foobar -> *')
-                self.len(3, nodes)
-                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6'), ('syn:form', 'inet:fqdn')},
-                        {n.ndef for n in nodes})
-                nodes = await core.nodes('syn:cmd=foobar :input -> *')
-                self.len(2, nodes)
-                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6')},
-                        {n.ndef for n in nodes})
-                nodes = await core.nodes('syn:cmd=foobar :output -> *')
-                self.len(1, nodes)
-                self.eq(('syn:form', 'inet:fqdn'), nodes[0].ndef)
-
-                nodes = await core.nodes('syn:cmd=foobar :input -+> *')
-                self.len(3, nodes)
-                self.eq({('syn:form', 'inet:ipv4'), ('syn:form', 'inet:ipv6'), ('syn:cmd', 'foobar')},
-                        {n.ndef for n in nodes})
-
-                nodes = await core.nodes('syn:cmd +:input*[=inet:ipv4]')
-                self.len(1, nodes)
 
                 # Test a cmpr that isn't '='
                 nodes = await core.nodes('syn:cmd~="foo"')
@@ -394,11 +552,94 @@ class SynModelTest(s_t_utils.SynTest):
                 nodes = await core.nodes('syn:cmd +:package')
                 self.len(0, nodes)
 
-                # Check that testcmd sets form props
-                nodes = await core.nodes('syn:cmd=testcmd')
-                self.len(1, nodes)
+        async with self.getTestCore() as core:
+                # Check we can iterate runt nodes while changing the underlying dictionary
 
-                self.eq(nodes[0].ndef, ('syn:cmd', 'testcmd'))
-                self.eq(nodes[0].get('input'), ('test:str', 'inet:ipv6'))
-                self.eq(nodes[0].get('output'), ('inet:fqdn',))
-                self.eq(nodes[0].get('nodedata'), (('foo', 'inet:ipv4'), ('bar', 'inet:fqdn')))
+                numcmds = len(core.stormcmds)
+
+                stormpkg = {
+                    'name': 'stormpkg',
+                    'version': '1.2.3',
+                    'synapse_version': '>=3.0.0,<4.0.0',
+                    'commands': (
+                        {
+                         'name': 'pkgcmd.old',
+                         'storm': '$lib.print(hi)',
+                        },
+                    ),
+                }
+
+                q = '''
+                init {
+                    $cmds = ()
+                    $count = (0)
+                }
+
+                syn:cmd
+
+                $cmds.append(({'name': $node.repr(), 'doc': :doc }))
+
+                $count = ($count + 1)
+
+                if ($count = (2)) {
+                    $lib.pkg.add($pkgdef)
+                }
+
+                spin |
+
+                fini { return($cmds) }
+                '''
+
+                opts = {'vars': {'pkgdef': stormpkg}}
+                cmds = await core.callStorm(q, opts=opts)
+                self.len(numcmds, cmds)
+                self.len(numcmds + 1, core.stormcmds)
+
+    async def test_syn_deleted(self):
+
+        async with self.getTestCore() as core:
+
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            view2 = core.getView(viewiden2)
+            viewopts2 = {'view': viewiden2}
+
+            await core.nodes('[ it:dev:str=foo .seen=2020 (inet:ip=1.2.3.4 :asn=10) ]')
+            await core.nodes('it:dev:str=foo inet:ip=1.2.3.4 delnode', opts=viewopts2)
+
+            nodes = await core.nodes('diff', opts=viewopts2)
+            self.len(2, nodes)
+            for node in nodes:
+                self.eq('syn:deleted', node.ndef[0])
+
+            nodes = await core.nodes('diff | +syn:deleted*form=inet:ip', opts=viewopts2)
+            self.len(1, nodes)
+            for node in nodes:
+                self.eq('syn:deleted', node.ndef[0])
+                self.eq('inet:ip', node.ndef[1][0])
+                self.eq(('inet:ip', (4, 16909060)), node.valu())
+                self.gt(node.intnid(), 0)
+                sodes = node.get('sodes')
+                self.len(2, sodes)
+                self.eq({'antivalu': True, 'form': 'inet:ip'}, sodes[0])
+                self.eq((10, 9, None), sodes[1]['props']['asn'])
+
+            q = 'diff | +syn:deleted*form=inet:ip return($node.getStorNodes())'
+            self.eq((), await core.callStorm(q, opts=viewopts2))
+
+            q = 'diff | +syn:deleted*form=inet:ip return($node.getByLayer())'
+            self.eq({}, await core.callStorm(q, opts=viewopts2))
+
+            await core.nodes('diff | merge --apply', opts=viewopts2)
+
+            self.len(0, await core.nodes('it:dev:str=foo inet:ip=1.2.3.4'))
+            self.len(0, await core.nodes('diff', opts=viewopts2))
+
+            with self.raises(s_exc.BadArg):
+                await view2.getDeletedRuntNode(s_common.int64en(9001))
+
+            await core.nodes('[ it:dev:str=bar ]')
+            await core.nodes('it:dev:str=bar delnode', opts=viewopts2)
+
+            task = core.schedCoro(core.nodes('$q=$lib.queue.gen(wait) diff | $q.put(1) $q.get(1) | merge', opts=viewopts2))
+            await core.nodes('$q=$lib.queue.gen(wait) $q.get() diff | merge --apply | $q.put(2)', opts=viewopts2)
+            await task

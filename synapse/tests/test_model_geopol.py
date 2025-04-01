@@ -18,6 +18,7 @@ class GeoPolModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
+            node = nodes[0]
             self.eq('visiland', nodes[0].get('name'))
             self.eq(('visitopia',), nodes[0].get('names'))
             self.eq(1640995200000, nodes[0].get('founded'))
@@ -28,6 +29,9 @@ class GeoPolModelTest(s_t_utils.SynTest):
             self.eq(('pesos', 'usd', 'vcoins'), nodes[0].get('currencies'))
             self.len(2, await core.nodes('pol:country -> geo:name'))
             self.len(3, await core.nodes('pol:country -> econ:currency'))
+
+            self.len(1, nodes := await core.nodes('[ pol:country=({"name": "visitopia"}) ]'))
+            self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''
                     [ pol:vitals=*

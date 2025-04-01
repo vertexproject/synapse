@@ -1,4 +1,3 @@
-import copy
 import asyncio
 import logging
 
@@ -6,6 +5,7 @@ import synapse.exc as s_exc
 import synapse.common as s_common
 
 import synapse.lib.base as s_base
+import synapse.lib.msgpack as s_msgpack
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class Task(s_base.Base):
         pask = {
             'iden': self.iden,
             'name': self.name,
-            'info': copy.deepcopy(self.info),
+            'info': s_msgpack.deepcopy(self.info),
             'tick': self.tick,
             'user': 'root',
             'kids': {i: k.pack() for i, k in self.kids.items()},
@@ -114,6 +114,17 @@ class Task(s_base.Base):
             pask['user'] = self.user.name
 
         return pask
+
+    def packv2(self):
+        return {
+            'iden': self.iden,
+            'name': self.name,
+            'info': s_msgpack.deepcopy(self.info),
+            'tick': self.tick,
+            'user': self.user.iden,
+            'username': self.user.name,
+            'kids': {i: k.packv2() for i, k in self.kids.items()},
+        }
 
 def loop():
     try:

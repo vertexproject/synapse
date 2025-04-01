@@ -634,7 +634,7 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
-        self.eq(('2016/01/01 00:00:00.000', '2017/01/01 00:00:00.000'), ival.repr(ival.norm(('2016', '2017'))[0]))
+        self.eq(('2016-01-01T00:00:00.000Z', '2017-01-01T00:00:00.000Z'), ival.repr(ival.norm(('2016', '2017'))[0]))
 
         self.gt(s_common.now(), ival._normRelStr('-1 min'))
 
@@ -895,6 +895,14 @@ class TypesTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchFunc):
                 await core.nodes('ou:campaign.created +:period*min@=({})')
 
+            self.eq(ival.getVirtType(['min']), model.types.get('time'))
+
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtType(['min', 'newp'])
+
+            with self.raises(s_exc.NoSuchVirt):
+                ival.getVirtGetr(['min', 'newp'])
+
     async def test_loc(self):
         model = s_datamodel.Model()
         loctype = model.types.get('loc')
@@ -1000,8 +1008,8 @@ class TypesTest(s_t_utils.SynTest):
                 await core.nodes('test:str.created +:ndefs*[form>it:dev:str]')
 
             ndef = core.model.type('test:ndef:formfilter1')
-            ndef.norm(('inet:ipv4', '1.2.3.4'))
-            ndef.norm(('inet:ipv6', '::1'))
+            ndef.norm(('inet:ip', '1.2.3.4'))
+            ndef.norm(('inet:ip', '::1'))
 
             with self.raises(s_exc.BadTypeValu):
                 ndef.norm(('inet:fqdn', 'newp.com'))
@@ -1012,7 +1020,7 @@ class TypesTest(s_t_utils.SynTest):
                 ndef.norm(('inet:fqdn', 'newp.com'))
 
             ndef = core.model.type('test:ndef:formfilter3')
-            ndef.norm(('inet:ipv4', '1.2.3.4'))
+            ndef.norm(('inet:ip', '1.2.3.4'))
             ndef.norm(('file:mime:msdoc', s_common.guid()))
 
             with self.raises(s_exc.BadTypeValu):
@@ -1054,7 +1062,7 @@ class TypesTest(s_t_utils.SynTest):
 
         # Invalid Config
         self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': None})
-        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ipv4', {})})  # inet is not loaded yet
+        self.raises(s_exc.BadTypeDef, model.type('range').clone, {'type': ('inet:ip', {})})  # inet is not loaded yet
 
     async def test_range_filter(self):
         async with self.getTestCore() as core:
@@ -1063,9 +1071,9 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('[test:str=m :bar=(test:str, m) :tick=20200101]'))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'C' * 32}}))
             self.len(1, await core.nodes('[test:guid=$valu]', opts={'vars': {'valu': 'F' * 32}}))
-            self.len(1, await core.nodes('[meta:seen=((meta:source, (foo,)), (test:comp, (2048, horton)))]'))
-            self.len(1, await core.nodes('[meta:seen=((meta:source, (bar,)), (test:comp, (9001, "A mean one")))]'))
-            self.len(1, await core.nodes('[meta:seen=((meta:source, (baz,)), (test:int, 16))]'))
+            self.len(1, await core.nodes('[test:str=n1 :bar=(test:comp, (2048, horton))]'))
+            self.len(1, await core.nodes('[test:str=n2 :bar=(test:comp, (9001, "A mean one"))]'))
+            self.len(1, await core.nodes('[test:str=n3 :bar=(test:int, 16)]'))
             self.len(1, await core.nodes('[test:comp=(4096, whoville)]'))
             self.len(1, await core.nodes('[test:comp=(9999, greenham)]'))
             self.len(1, await core.nodes('[test:comp=(40000, greeneggs)]'))
@@ -1085,9 +1093,8 @@ class TypesTest(s_t_utils.SynTest):
             self.eq({node.ndef[1] for node in nodes}, {'c' * 32})
             nodes = await core.nodes('test:int -> test:comp:hehe +test:comp*range=((1000, grinch), (4000, whoville))')
             self.eq({node.ndef[1] for node in nodes}, {(2048, 'horton')})
-            nodes = await core.nodes('meta:seen +:node*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
-            self.eq({node.ndef[1] for node in nodes},
-                    {('aeac1223f48231cabf258f1f67f052a5', ('test:comp', (2048, 'horton')))})
+            nodes = await core.nodes('test:str +:bar*range=((test:comp, (1000, green)), (test:comp, (3000, ham)))')
+            self.eq({node.ndef[1] for node in nodes}, {'n1'})
 
             # The following tests show range working against a string
             self.len(2, await core.nodes('test:str*range=(b, m)'))
@@ -1258,12 +1265,12 @@ class TypesTest(s_t_utils.SynTest):
             # Explicitly test our max time vs. future marker
             maxtime = 253402300799999  # 9999/12/31 23:59:59.999
             self.eq(t.norm(maxtime)[0], maxtime)
-            self.eq(t.repr(maxtime), '9999/12/31 23:59:59.999')
-            self.eq(t.norm('9999/12/31 23:59:59.999')[0], maxtime)
+            self.eq(t.repr(maxtime), '9999-12-31T23:59:59.999Z')
+            self.eq(t.norm('9999-12-31T23:59:59.999Z')[0], maxtime)
             self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
 
             tick = t.norm('2014')[0]
-            self.eq(t.repr(tick), '2014/01/01 00:00:00.000')
+            self.eq(t.repr(tick), '2014-01-01T00:00:00.000Z')
 
             tock = t.norm('2015')[0]
 
@@ -1512,15 +1519,15 @@ class TypesTest(s_t_utils.SynTest):
 
         mdef = {
             'types': (
-                ('test:array', ('array', {'type': 'inet:ipv4'}), {}),
-                ('test:arraycomp', ('comp', {'fields': (('ipv4s', 'test:array'), ('int', 'test:int'))}), {}),
+                ('test:array', ('array', {'type': 'inet:ip'}), {}),
+                ('test:arraycomp', ('comp', {'fields': (('ips', 'test:array'), ('int', 'test:int'))}), {}),
                 ('test:witharray', ('guid', {}), {}),
             ),
             'forms': (
                 ('test:array', {}, (
                 )),
                 ('test:arraycomp', {}, (
-                    ('ipv4s', ('test:array', {}), {}),
+                    ('ips', ('test:array', {}), {}),
                     ('int', ('test:int', {}), {}),
                 )),
                 ('test:witharray', {}, (
@@ -1542,8 +1549,8 @@ class TypesTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             # create a long array (fails pre-020)
-            arr = ','.join([str(i) for i in range(300)])
-            nodes = await core.nodes(f'[ test:array=({arr}) ]')
+            arr = ','.join([f'[4, {i}]' for i in range(300)])
+            nodes = await core.nodes(f'[ test:array=([{arr}]) ]')
             self.len(1, nodes)
 
             nodes = await core.nodes('test:array*[=1.2.3.4]')
@@ -1558,12 +1565,12 @@ class TypesTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ test:arraycomp=((1.2.3.4, 5.6.7.8), 10) ]')
             self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:arraycomp', ((0x01020304, 0x05060708), 10)))
+            self.eq(nodes[0].ndef, ('test:arraycomp', (((4, 0x01020304), (4, 0x05060708)), 10)))
             self.eq(nodes[0].get('int'), 10)
-            self.eq(nodes[0].get('ipv4s'), (0x01020304, 0x05060708))
+            self.eq(nodes[0].get('ips'), ((4, 0x01020304), (4, 0x05060708)))
 
             # make sure "adds" got added
-            nodes = await core.nodes('inet:ipv4=1.2.3.4 inet:ipv4=5.6.7.8')
+            nodes = await core.nodes('inet:ip=1.2.3.4 inet:ip=5.6.7.8')
             self.len(2, nodes)
 
             nodes = await core.nodes('[ test:witharray="*" :fqdns="woot.com, VERTEX.LINK, vertex.link" ]')

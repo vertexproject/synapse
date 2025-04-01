@@ -3,7 +3,6 @@ import os
 import ssl
 import sys
 import enum
-import json
 import http
 import stat
 import time
@@ -29,6 +28,9 @@ import traceback
 import contextlib
 import collections
 
+import http.cookies
+import tornado.escape
+
 import yaml
 import regex
 
@@ -38,6 +40,8 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.structlog as s_structlog
 
 import synapse.vendor.cpython.lib.ipaddress as ipaddress
+import synapse.vendor.cpython.lib.http.cookies as v_cookies
+
 
 try:
     from yaml import CSafeLoader as Loader
@@ -477,9 +481,6 @@ def getDirSize(*paths):
     Args:
         *paths (str): A list of path elements.
 
-    Notes:
-        This is equivalent to ``du -B 1 -s`` and ``du -bs``.
-
     Returns:
         tuple: Tuple of total real and total apparent size of all normal files and directories underneath
         ``*paths`` plus ``*paths`` itself.
@@ -506,24 +507,6 @@ def getDirSize(*paths):
             apprsum += appr
 
     return realsum, apprsum
-
-def jsload(*paths):
-    with genfile(*paths) as fd:
-        byts = fd.read()
-        if not byts:
-            return None
-
-        return json.loads(byts.decode('utf8'))
-
-def jslines(*paths):
-    with genfile(*paths) as fd:
-        for line in fd:
-            yield json.loads(line)
-
-def jssave(js, *paths):
-    path = genpath(*paths)
-    with io.open(path, 'wb') as fd:
-        fd.write(json.dumps(js, sort_keys=True, indent=2).encode('utf8'))
 
 def yamlloads(data):
     return yaml.load(data, Loader)
@@ -955,73 +938,11 @@ def deprdate(name, date):  # pragma: no cover
     mesg = f'{name} is deprecated and will be removed on {date}.'
     warnings.warn(mesg, DeprecationWarning)
 
-def reqjsonsafe(item):
-    '''
-    Returns None if item is json serializable, otherwise raises an exception.
-    Uses default type coercion from built-in json.dumps.
-    '''
-    try:
-        json.dumps(item)
-    except TypeError as e:
-        raise s_exc.MustBeJsonSafe(mesg=str(e)) from None
-
-def jsonsafe_nodeedits(nodeedits):
-    '''
-    Hexlify the buid of each node:edits
-    '''
-    retn = []
-    for nodeedit in nodeedits:
-        newedit = (ehex(nodeedit[0]), *nodeedit[1:])
-        retn.append(newedit)
-
-    return retn
-
-def unjsonsafe_nodeedits(nodeedits):
-    retn = []
-    for nodeedit in nodeedits:
-        buid = nodeedit[0]
-        if isinstance(buid, str):
-            newedit = (uhex(buid), *nodeedit[1:])
-        else:
-            newedit = nodeedit
-        retn.append(newedit)
-
-    return retn
-
 def reprauthrule(rule):
     text = '.'.join(rule[1])
     if not rule[0]:
         text = '!' + text
     return text
-
-def reqJsonSafeStrict(item):
-    '''
-    Require the item to be safe to serialize to JSON without type coercion issues.
-
-    Args:
-        item: The python primitive to check.
-
-    Returns:
-        None
-
-    Raise:
-        s_exc.BadArg: If the item contains invalid data.
-    '''
-    if item is None:
-        return
-    if isinstance(item, (str, int,)):
-        return
-    if isinstance(item, (list, tuple)):
-        for valu in item:
-            reqJsonSafeStrict(valu)
-        return
-    if isinstance(item, dict):
-        for key, valu in item.items():
-            if not isinstance(key, str):
-                raise s_exc.BadArg(mesg='Non-string keys are not valid json', key=key)
-            reqJsonSafeStrict(valu)
-        return
-    raise s_exc.BadArg(mesg=f'Invalid item type encountered: {item.__class__.__name__}')
 
 async def merggenr(genrs, cmprkey):
     '''
@@ -1218,6 +1139,36 @@ def trimText(text: str, n: int = 256, placeholder: str = '...') -> str:
     assert n > plen
     return f'{text[:mlen]}{placeholder}'
 
+def queryhash(text):
+    return hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+
+def _patch_http_cookies():
+    '''
+    Patch stdlib http.cookies._unquote from the 3.11.10 implementation if
+    the interpreter we are using is not patched for CVE-2024-7592.
+    '''
+    if not hasattr(http.cookies, '_QuotePatt'):
+        return
+    http.cookies._unquote = v_cookies._unquote
+
+def _patch_tornado_json():
+    import synapse.lib.json as s_json
+
+    if hasattr(tornado.escape, 'json_encode'):
+        # This exists for a specific reason. See the following URL for explanation:
+        # https://github.com/tornadoweb/tornado/blob/d5ac65c1f1453c2aeddd089d8e68c159645c13e1/tornado/escape.py#L83-L96
+        # https://github.com/tornadoweb/tornado/pull/706
+        def _tornado_json_encode(value):
+            return s_json.dumps(value).replace(b'</', br'<\/').decode()
+
+        tornado.escape.json_encode = _tornado_json_encode
+
+    if hasattr(tornado.escape, 'json_decode'):
+        tornado.escape.json_decode = s_json.loads
+
+_patch_http_cookies()
+_patch_tornado_json()
+
 # TODO:  Switch back to using asyncio.wait_for when we are using py 3.12+
 # This is a workaround for a race where asyncio.wait_for can end up
 # ignoring cancellation https://github.com/python/cpython/issues/86296
@@ -1368,3 +1319,35 @@ def _timeout(delay):
     """
     loop = asyncio.get_running_loop()
     return _Timeout(loop.time() + delay if delay is not None else None)
+# End - Vendored Code from Python 3.12+
+
+async def waitretn(futu, timeout):
+    try:
+        valu = await wait_for(futu, timeout)
+        return (True, valu)
+    except Exception as e:
+        return (False, excinfo(e))
+
+async def waitgenr(genr, timeout):
+
+    async with contextlib.aclosing(genr.__aiter__()) as genr:
+
+        while True:
+            retn = await waitretn(genr.__anext__(), timeout)
+
+            if not retn[0] and retn[1]['err'] == 'StopAsyncIteration':
+                return
+
+            yield retn
+
+            if not retn[0]:
+                return
+
+def format(text, **kwargs):
+    '''
+    Similar to python str.format() but treats tokens as opaque.
+    '''
+    for name, valu in kwargs.items():
+        tokn = '{' + name + '}'
+        text = text.replace(tokn, valu)
+    return text

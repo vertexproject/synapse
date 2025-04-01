@@ -23,7 +23,9 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.provision.service', description=descr)
+    pars = argparse.ArgumentParser(prog='synapse.tools.aha.provision.service', description=descr,
+                        formatter_class=argparse.RawDescriptionHelpFormatter)
+
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')
     pars.add_argument('--user', help='Provision the new service with the username.')
     pars.add_argument('--cellyaml', help='Specify the path to a YAML file containing config options for the service.')

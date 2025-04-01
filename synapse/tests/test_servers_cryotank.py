@@ -28,6 +28,6 @@ class CryoServerTest(s_t_utils.SynTest):
                 # And data persists...
                 async with await s_cryo.CryoCell.initFromArgv(argv) as telecryo:
                     async with telecryo.getLocalProxy() as proxy:
-                        precs = await s_t_utils.alist(proxy.slice('foo', 0, 100))
+                        precs = await s_t_utils.alist(proxy.slice('foo', 0, size=100))
                         precs = [rec for offset, rec in precs]
                         self.eq(precs, recs)

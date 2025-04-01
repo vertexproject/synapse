@@ -18,7 +18,9 @@ Examples:
 
 async def main(argv, outp=s_output.stdout):
 
-    pars = argparse.ArgumentParser(prog='synapse.tools.aha.clone', description=descr)
+    pars = argparse.ArgumentParser(prog='synapse.tools.aha.clone', description=descr,
+                        formatter_class=argparse.RawDescriptionHelpFormatter)
+
     pars.add_argument('dnsname', help='The DNS name of the new AHA server.')
     pars.add_argument('--port', type=int, default=27492, help='The port that the new AHA server should listen on.')
     pars.add_argument('--url', default='cell:///vertex/storage', help='The telepath URL to connect to the AHA service.')

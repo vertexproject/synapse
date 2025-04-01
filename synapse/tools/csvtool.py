@@ -1,6 +1,5 @@
 import csv
 import sys
-import json
 import asyncio
 import contextlib
 
@@ -11,6 +10,7 @@ import synapse.telepath as s_telepath
 
 import synapse.lib.cmd as s_cmd
 import synapse.lib.base as s_base
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.version as s_version
 
@@ -115,8 +115,7 @@ async def runCsvImport(opts, outp, text, stormopts):
                     outp.printf(repr(mesg))
 
                 if logfd is not None:
-                    byts = json.dumps(mesg).encode('utf8')
-                    logfd.write(byts + b'\n')
+                    logfd.write(s_json.dumps(mesg, newline=True))
 
         if opts.cli:
             await s_t_storm.runItemStorm(prox, outp=outp)

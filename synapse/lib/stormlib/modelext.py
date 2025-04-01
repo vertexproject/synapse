@@ -105,6 +105,21 @@ class LibModelExt(s_stormtypes.Lib):
                        'desc': 'The form of the n2 node. May be "*" or null to specify "any".'},
                   ),
                   'returns': {'type': 'null'}}},
+        {'name': 'addType', 'desc': 'Add an extended type definition to the data model.',
+         'type': {'type': 'function', '_funcname': 'addType',
+                  'args': (
+                      {'name': 'typename', 'type': 'str', 'desc': 'The name of the type to add.'},
+                      {'name': 'basetype', 'type': 'str', 'desc': 'The base type the type is derived from.'},
+                      {'name': 'typeopts', 'type': 'dict', 'desc': 'A Synapse type opts dictionary.'},
+                      {'name': 'typeinfo', 'type': 'dict', 'desc': 'A Synapse type info dictionary.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+        {'name': 'delType', 'desc': 'Remove an extended type definition from the model.',
+         'type': {'type': 'function', '_funcname': 'delType',
+                  'args': (
+                      {'name': 'typename', 'type': 'str', 'desc': 'The extended type to remove.'},
+                  ),
+                  'returns': {'type': 'null'}}},
     )
     _storm_lib_path = ('model', 'ext')
 
@@ -122,6 +137,8 @@ class LibModelExt(s_stormtypes.Lib):
             'addExtModel': self.addExtModel,
             'addEdge': self.addEdge,
             'delEdge': self.delEdge,
+            'addType': self.addType,
+            'delType': self.delType,
         }
 
     # TODO type docs in the new convention
@@ -210,6 +227,7 @@ class LibModelExt(s_stormtypes.Lib):
         return await self.runt.view.core.getExtModel()
 
     async def addExtModel(self, model):
+        self.runt.reqAdmin()
         model = await s_stormtypes.toprim(model)
         return await self.runt.view.core.addExtModel(model)
 
@@ -249,3 +267,16 @@ class LibModelExt(s_stormtypes.Lib):
 
         s_stormtypes.confirm(('model', 'edge', 'del'))
         await self.runt.view.core.delEdge((n1form, verb, n2form))
+
+    async def addType(self, typename, basetype, typeopts, typeinfo):
+        typename = await s_stormtypes.tostr(typename)
+        basetype = await s_stormtypes.tostr(basetype)
+        typeopts = await s_stormtypes.toprim(typeopts)
+        typeinfo = await s_stormtypes.toprim(typeinfo)
+        s_stormtypes.confirm(('model', 'type', 'add', typename))
+        await self.runt.view.core.addType(typename, basetype, typeopts, typeinfo)
+
+    async def delType(self, typename):
+        typename = await s_stormtypes.tostr(typename)
+        s_stormtypes.confirm(('model', 'type', 'del', typename))
+        await self.runt.view.core.delType(typename)

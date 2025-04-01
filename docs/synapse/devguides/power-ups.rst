@@ -380,10 +380,10 @@ To define **Optic** actions, you declare them in the **Storm Package** YAML file
           - name: Hello Omgopts
             storm: acme.hello.omgopts --debug
             descr: This description is displayed as the tooltip in the menu
-            forms: [ inet:ipv4, inet:fqdn ]
+            forms: [ inet:ip, inet:fqdn ]
 
 By specifying the ``forms:`` key, you can control which node actions will be presented on different forms. For example,
-if you are writing a DNS power-up, you may want to limit the specified actions to ``inet:ipv4``, ``inet:ipv6``, and ``inet:fqdn``
+if you are writing a DNS power-up, you may want to limit the specified actions to ``inet:ip`` and ``inet:fqdn``
 nodes.
 
 When selected, the query specified in the ``storm:`` key will be run with the currently selected nodes as input. For example,

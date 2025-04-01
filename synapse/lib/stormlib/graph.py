@@ -5,67 +5,6 @@ import synapse.lib.msgpack as s_msgpack
 import synapse.lib.schemas as s_schemas
 import synapse.lib.stormtypes as s_stormtypes
 
-gdefSchema = {
-    'type': 'object',
-    'properties': {
-        'iden': {'type': 'string', 'pattern': s_config.re_iden},
-        'name': {'type': 'string', 'minLength': 1},
-        'desc': {'type': 'string', 'default': ''},
-        'scope': {'type': 'string', 'enum': ['user', 'power-up']},
-        'creator': {'type': 'string', 'pattern': s_config.re_iden},
-        'power-up': {'type': 'string', 'minLength': 1},
-        'maxsize': {'type': 'number', 'minimum': 0},
-        'existing': {'type': 'array', 'items': {'type': 'string'}},
-        'created': {'type': 'number'},
-        'updated': {'type': 'number'},
-        'refs': {'type': 'boolean', 'default': False},
-        'edges': {'type': 'boolean', 'default': True},
-        'edgelimit': {'type': 'number', 'default': 3000},
-        'degrees': {'type': ['integer', 'null'], 'minimum': 0},
-        'filterinput': {'type': 'boolean', 'default': True},
-        'yieldfiltered': {'type': 'boolean', 'default': False},
-        'filters': {
-            'type': ['array', 'null'],
-            'items': {'type': 'string'}
-        },
-        'pivots': {
-            'type': ['array', 'null'],
-            'items': {'type': 'string'}
-        },
-        'forms': {
-            'type': 'object',
-            'patternProperties': {
-                '^.*$': {
-                    'type': 'object',
-                    'properties': {
-                        'filters': {
-                            'type': ['array', 'null'],
-                            'items': {'type': 'string'}
-                        },
-                        'pivots': {
-                            'type': ['array', 'null'],
-                            'items': {'type': 'string'}
-                        }
-                    },
-                    'additionalProperties': False,
-                }
-            }
-        },
-        'permissions': s_msgpack.deepcopy(s_schemas.easyPermSchema)
-    },
-    'additionalProperties': False,
-    'required': ['iden', 'name', 'scope'],
-    'allOf': [
-        {
-            'if': {'properties': {'scope': {'const': 'power-up'}}},
-            'then': {'required': ['power-up']},
-            'else': {'required': ['creator']},
-        }
-    ]
-}
-
-reqValidGdef = s_config.getJsValidator(gdefSchema)
-
 USER_EDITABLE = {
     'desc',
     'name',
@@ -97,7 +36,7 @@ class GraphLib(s_stormtypes.Lib):
                         "name": "Test Projection",
                         "desc": "My test projection",
                         "degrees": 2,
-                        "pivots": ["-> meta:seen"],
+                        "pivots": [" <(seen)- meta:source "],
                         "filters": ["-#nope"],
                         "forms": {
                             "inet:fqdn": {
@@ -157,6 +96,15 @@ class GraphLib(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'null', }}},
 
+        {'name': 'revoke', 'desc': 'Revoke permissions granted to users/roles on a graph projection.',
+         'type': {'type': 'function', '_funcname': '_methGraphRevoke',
+                  'args': (
+                      {'name': 'gden', 'type': 'str', 'desc': 'Iden of the graph projection to modify.'},
+                      {'name': 'scope', 'type': 'str', 'desc': 'The scope, either "users" or "roles".'},
+                      {'name': 'iden', 'type': 'str', 'desc': 'The user/role iden depending on scope.'},
+                  ),
+                  'returns': {'type': 'null'}}},
+
         {'name': 'activate', 'desc': 'Set the graph projection to use for the top level Storm Runtime.',
          'type': {'type': 'function', '_funcname': '_methGraphActivate',
                   'args': (
@@ -174,6 +122,7 @@ class GraphLib(s_stormtypes.Lib):
             'mod': self._methGraphMod,
             'list': self._methGraphList,
             'grant': self._methGraphGrant,
+            'revoke': self._methGraphRevoke,
             'activate': self._methGraphActivate,
         }
 
@@ -218,6 +167,13 @@ class GraphLib(s_stormtypes.Lib):
         level = await s_stormtypes.toint(level, noneok=True)
 
         await self.runt.view.core.setStormGraphPerm(gden, scope, iden, level, user=self.runt.user)
+
+    async def _methGraphRevoke(self, gden, scope, iden):
+        gden = await s_stormtypes.tostr(gden)
+        scope = await s_stormtypes.tostr(scope)
+        iden = await s_stormtypes.tostr(iden)
+
+        await self.runt.view.core.setStormGraphPerm(gden, scope, iden, None, user=self.runt.user)
 
     async def _methGraphActivate(self, iden):
         gdef = await self._methGraphGet(iden)

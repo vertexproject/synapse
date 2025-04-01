@@ -62,7 +62,7 @@ class ImapLib(s_stormtypes.Lib):
     )
     _storm_lib_path = ('inet', 'imap', )
     _storm_lib_perms = (
-        {'perm': ('storm', 'inet', 'imap', 'connect'), 'gate': 'cortex',
+        {'perm': ('inet', 'imap', 'connect'), 'gate': 'cortex',
          'desc': 'Controls connecting to external servers via imap.'},
     )
 
@@ -73,7 +73,7 @@ class ImapLib(s_stormtypes.Lib):
 
     async def connect(self, host, port=993, timeout=30, ssl=True, ssl_verify=True):
 
-        self.runt.confirm(('storm', 'inet', 'imap', 'connect'))
+        self.runt.confirm(('inet', 'imap', 'connect'))
 
         ssl = await s_stormtypes.tobool(ssl)
         host = await s_stormtypes.tostr(host)
@@ -193,7 +193,7 @@ class ImapServer(s_stormtypes.StormType):
                     {'type': 'str', 'name': '*args',
                      'desc': 'A set of search criteria to use.'},
                     {'type': ['str', 'null'], 'name': 'charset', 'default': 'utf-8',
-                     'desc': 'The CHARSET used for the search. May be set to $lib.null to disable CHARSET.'},
+                     'desc': 'The CHARSET used for the search. May be set to ``(null)`` to disable CHARSET.'},
                 ),
                 'returns': {
                     'type': 'list',

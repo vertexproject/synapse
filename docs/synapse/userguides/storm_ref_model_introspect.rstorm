@@ -73,7 +73,7 @@ Example Queries
 - Display a specific property of a specific form:
 
 
-.. storm-cli:: syn:prop = inet:ipv4:loc
+.. storm-cli:: syn:prop = inet:ip:loc
 
 
 - Display a specific form and all its secondary properties (including universal properties):

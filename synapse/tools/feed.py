@@ -10,6 +10,7 @@ import synapse.common as s_common
 import synapse.cortex as s_cortex
 import synapse.telepath as s_telepath
 
+import synapse.lib.json as s_json
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.lib.version as s_version
@@ -25,7 +26,7 @@ def getItems(*paths):
     items = []
     for path in paths:
         if path.endswith('.json'):
-            item = s_common.jsload(path)
+            item = s_json.jsload(path)
             if not isinstance(item, list):
                 item = [item]
             items.append((path, item))
@@ -55,11 +56,11 @@ async def addFeedData(core, outp, debug=False, *paths, chunksize=1000, offset=0,
         tick = time.time()
         outp.printf(f'Adding items from [{path}]')
 
-        foff = 0
+        foff = -1
         for chunk in s_common.chunks(item, chunksize):
 
             clen = len(chunk)
-            if offset and foff + clen < offset:
+            if offset and foff + clen <= offset:
                 # We have not yet encountered a chunk which
                 # will include the offset size.
                 foff += clen
@@ -95,7 +96,7 @@ async def main(argv, outp=None):
                     f' to get to that location in the input file.')
 
     if opts.test:
-        async with s_cortex.getTempCortex(mods=opts.modules) as prox:
+        async with s_cortex.getTempCortex() as prox:
             await addFeedData(prox, outp, opts.debug,
                         chunksize=opts.chunksize,
                         offset=opts.offset,
@@ -135,8 +136,6 @@ def makeargparser():
 
     pars.add_argument('--debug', '-d', default=False, action='store_true',
                       help='Drop to interactive prompt to inspect cortex after loading data.')
-    pars.add_argument('--modules', '-m', type=str, action='append', default=[],
-                      help='Additional modules to load locally with a test Cortex.')
     pars.add_argument('--chunksize', type=int, action='store', default=1000,
                       help='Default chunksize for iterating over items.')
     pars.add_argument('--offset', type=int, action='store', default=0,

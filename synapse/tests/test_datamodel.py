@@ -1,48 +1,19 @@
+import copy
 import synapse.exc as s_exc
 import synapse.datamodel as s_datamodel
 
-import synapse.lib.module as s_module
+import synapse.lib.schemas as s_schemas
 
 import synapse.cortex as s_cortex
 
 import synapse.tests.utils as s_t_utils
 
-depmodel = {
-    'ctors': (
-        ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
-    ),
-    'types': (
-        ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
-        ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
-        ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {})
-    ),
-    'forms': (
-        ('test:dep:easy', {'deprecated': True}, (
-            ('guid', ('test:guid', {}), {'deprecated': True}),
-            ('array', ('test:dep:array', {}), {}),
-            ('comp', ('test:dep:comp', {}), {}),
-        )),
-        ('test:dep:str', {}, (
-            ('beep', ('test:dep:str', {}), {}),
-        )),
-    ),
-    'univs': (
-        ('udep', ('test:dep:easy', {}), {}),
-        ('pdep', ('test:str', {}), {'deprecated': True})
-    )
-}
-
-class DeprecatedModel(s_module.CoreModule):
-
-    def getModelDefs(self):
-        return (
-            ('test:dep', depmodel),
-        )
-
 class DataModelTest(s_t_utils.SynTest):
 
     async def test_datamodel_basics(self):
         async with self.getTestCore() as core:
+            iface = core.model.ifaces.get('phys:object')
+            self.eq('object', iface['template']['phys:object'])
             core.model.addType('woot:one', 'guid', {}, {
                 'display': {
                     'columns': (
@@ -68,6 +39,31 @@ class DataModelTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchProp):
                 core.model.reqForm('inet:asn').reqProp('newp')
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqForm('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqForm('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchForm) as cm:
+                core.model.reqFormsByLook('biz:prodtype')
+            self.isin('Did you mean biz:product:type:taxonomy?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                core.model.reqProp('inet:dns:query:name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
+            with self.raises(s_exc.NoSuchProp) as cm:
+                core.model.reqPropsByLook('inet:dns:query:name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
+
+            form = core.model.reqForm('inet:dns:query')
+            with self.raises(s_exc.NoSuchProp) as cm:
+                form.reqProp('name:ipv4')
+            self.isin('Did you mean inet:dns:query:name:ip?', cm.exception.get('mesg'))
 
     async def test_datamodel_formname(self):
         modl = s_datamodel.Model()
@@ -200,32 +196,28 @@ class DataModelTest(s_t_utils.SynTest):
         async with self.getTestCore() as core:
 
             refs = core.model.form('test:comp').getRefsOut()
-            self.len(1, refs['prop'])
+            self.len(2, refs['prop'])
 
-            await core.addFormProp('test:comp', '_ipv4', ('inet:ipv4', {}), {})
+            await core.addFormProp('test:comp', '_ip', ('inet:ip', {}), {})
+
+            refs = core.model.form('test:comp').getRefsOut()
+            self.len(3, refs['prop'])
+
+            await core.delFormProp('test:comp', '_ip')
 
             refs = core.model.form('test:comp').getRefsOut()
             self.len(2, refs['prop'])
 
-            await core.delFormProp('test:comp', '_ipv4')
-
-            refs = core.model.form('test:comp').getRefsOut()
-            self.len(1, refs['prop'])
-
             self.len(1, [prop for prop in core.model.getPropsByType('time') if prop.full == 'it:exec:url:time'])
 
     async def test_model_deprecation(self):
-        # Note: Inverting these currently causes model loading to fail (20200831)
-        mods = ['synapse.tests.utils.TestModule',
-                'synapse.tests.test_datamodel.DeprecatedModel',
-                ]
-        conf = {'modules': mods}
 
         with self.getTestDir() as dirn:
 
             with self.getAsyncLoggerStream('synapse.lib.types') as tstream, \
                     self.getAsyncLoggerStream('synapse.datamodel') as dstream:
-                core = await s_cortex.Cortex.anit(dirn, conf)
+                core = await s_cortex.Cortex.anit(dirn)
+                await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
 
             dstream.seek(0)
             ds = dstream.read()
@@ -275,7 +267,9 @@ class DataModelTest(s_t_utils.SynTest):
             # Restarting the cortex warns again for various items that it loads
             # with deprecated types in them. This is a coverage test for extended properties.
             with self.getAsyncLoggerStream('synapse.cortex', mesg) as cstream:
-                async with await s_cortex.Cortex.anit(dirn, conf) as core:
+                async with await s_cortex.Cortex.anit(dirn) as core:
+                    await core._addDataModels(s_t_utils.testmodel + s_t_utils.deprmodel)
+                    await core._loadExtModel()
                     self.true(await cstream.wait(6))
 
     async def test_datamodel_getmodeldefs(self):
@@ -314,10 +308,10 @@ class DataModelTest(s_t_utils.SynTest):
                 core.model.addEdge(('hehe', 'woot', 'newp'), {})
 
             with self.raises(s_exc.NoSuchForm):
-                core.model.addEdge(('inet:ipv4', 'woot', 'newp'), {})
+                core.model.addEdge(('inet:ip', 'woot', 'newp'), {})
 
             with self.raises(s_exc.BadArg):
-                core.model.addEdge(('inet:ipv4', 10, 'inet:ipv4'), {})
+                core.model.addEdge(('inet:ip', 10, 'inet:ip'), {})
 
             with self.raises(s_exc.BadArg):
                 core.model.addEdge(('meta:rule', 'matches', None), {})
@@ -334,3 +328,34 @@ class DataModelTest(s_t_utils.SynTest):
             self.none(core.model.edge(('meta:rule', 'matches', None)))
 
             core.model.delEdge(('meta:rule', 'matches', None))
+
+    async def test_datamodel_locked_subs(self):
+
+        async with self.getTestCore() as core:
+
+            await core._addDataModels(s_t_utils.deprmodel)
+
+            nodes = await core.nodes('[ test:deprsub=bar :range=(1, 5) ]')
+            self.eq(1, nodes[0].get('range:min'))
+            self.eq(5, nodes[0].get('range:max'))
+
+            nodes = await core.nodes('[ test:deprsub2=(foo, (2, 6)) ]')
+            self.eq(2, nodes[0].get('range:min'))
+            self.eq(6, nodes[0].get('range:max'))
+
+            await core.setDeprLock('test:deprsub:range:min', True)
+            nodes = await core.nodes('[ test:deprsub=foo :range=(1, 5) ]')
+            self.none(nodes[0].get('range:min'))
+            self.eq(5, nodes[0].get('range:max'))
+
+            await core.nodes('test:deprsub2 | delnode')
+            await core.setDeprLock('test:deprsub2:range:max', True)
+            nodes = await core.nodes('[ test:deprsub2=(foo, (2, 6)) ]')
+            self.none(nodes[0].get('range:max'))
+            self.eq(2, nodes[0].get('range:min'))
+
+    def test_datamodel_schema_basetypes(self):
+        # N.B. This test is to keep synapse.lib.schemas.datamodel_basetypes const
+        # in sync with the default s_datamodel.Datamodel().types
+        basetypes = list(s_datamodel.Model().types)
+        self.eq(s_schemas.datamodel_basetypes, basetypes)

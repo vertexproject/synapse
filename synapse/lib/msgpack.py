@@ -26,8 +26,16 @@ def _ext_en(item):
             return msgpack.ExtType(1, item.to_bytes(size, 'big', signed=True))
     return item
 
+_packer_kwargs = {
+    'use_bin_type': True,
+    'unicode_errors': 'surrogatepass',
+    'default': _ext_en,
+}
+if msgpack.version >= (1, 1, 0):
+    _packer_kwargs['buf_size'] = 1024 * 1024
+
 # Single Packer object which is reused for performance
-pakr = msgpack.Packer(use_bin_type=True, unicode_errors='surrogatepass', default=_ext_en)
+pakr = msgpack.Packer(**_packer_kwargs)
 if isinstance(pakr, m_fallback.Packer):  # pragma: no cover
     logger.warning('******************************************************************************************************')
     logger.warning('* msgpack is using the pure python fallback implementation. This will impact performance negatively. *')
@@ -87,8 +95,7 @@ def _fallback_en(item):
         bytes: The serialized bytes in msgpack format.
     '''
     try:
-        return msgpack.packb(item, use_bin_type=True,
-                             unicode_errors='surrogatepass', default=_ext_en)
+        return msgpack.packb(item, **_packer_kwargs)
     except TypeError as e:
         mesg = f'{e.args[0]}: {repr(item)[:20]}'
         raise s_exc.NotMsgpackSafe(mesg=mesg) from e

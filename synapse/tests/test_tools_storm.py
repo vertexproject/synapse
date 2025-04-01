@@ -1,4 +1,9 @@
 import os
+import sys
+import signal
+import asyncio
+import multiprocessing
+
 import synapse.tests.utils as s_test
 
 from prompt_toolkit.document import Document
@@ -6,9 +11,48 @@ from prompt_toolkit.completion import Completion, CompleteEvent
 
 import synapse.exc as s_exc
 import synapse.common as s_common
+import synapse.telepath as s_telepath
+
+import synapse.lib.coro as s_coro
 import synapse.lib.output as s_output
 import synapse.lib.msgpack as s_msgpack
 import synapse.tools.storm as s_t_storm
+
+def run_cli_till_print(url, evt1):
+    '''
+    Run the stormCLI until we get a print mesg then set the event.
+
+    This is a Process target.
+    '''
+    async def main():
+        outp = s_output.OutPutStr()  # Capture output instead of sending it to stdout
+        async with await s_telepath.openurl(url) as proxy:
+            async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
+                cmdqueue = asyncio.Queue()
+                await cmdqueue.put('while (true) { $lib.print(go) $lib.time.sleep(1) }')
+                await cmdqueue.put('!quit')
+
+                async def fake_prompt():
+                    return await cmdqueue.get()
+
+                scli.prompt = fake_prompt
+
+                d = {'evt1': False}
+                async def onmesg(event):
+                    if d.get('evt1'):
+                        return
+                    mesg = event[1].get('mesg')
+                    if mesg[0] != 'print':
+                        return
+                    evt1.set()
+                    d['evt1'] = True
+
+                with scli.onWith('storm:mesg', onmesg):
+                    await scli.addSignalHandlers()
+                    await scli.runCmdLoop()
+
+    asyncio.run(main())
+    sys.exit(137)
 
 class StormCliTest(s_test.SynTest):
 
@@ -23,23 +67,23 @@ class StormCliTest(s_test.SynTest):
             self.eq('woot', opts.cortex)
             self.none(opts.view)
 
-            q = '$lib.model.ext.addFormProp(inet:ipv4, "_test:score", (int, ({})), ({}))'
+            q = '$lib.model.ext.addFormProp(inet:ip, "_test:score", (int, ({})), ({}))'
             await core.callStorm(q)
 
             async with core.getLocalProxy() as proxy:
 
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
-                    await scli.runCmdLine('[inet:ipv4=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10 :_test:score=7]')
+                    await scli.runCmdLine('[inet:ip=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10 :_test:score=7]')
                     text = str(outp)
                     self.isin('.....', text)
-                    self.isin('inet:ipv4=1.2.3.4', text)
+                    self.isin('inet:ip=1.2.3.4', text)
                     self.isin(':type = unicast', text)
                     self.isin(':_test:score = 7', text)
                     self.isin('.created = ', text)
                     self.isin('#bar', text)
                     self.isin('#baz:foo = 10', text)
-                    self.isin('#foo = (2012/01/01 00:00:00.000, 2012/01/01 00:00:00.001)', text)
+                    self.isin('#foo = (2012-01-01T00:00:00.000Z, 2012-01-01T00:00:00.001Z)', text)
                     self.isin('complete. 1 nodes in', text)
 
                 outp = s_output.OutPutStr()
@@ -260,44 +304,44 @@ class StormCliTest(s_test.SynTest):
 
             vals = await get_completions('[inet:')
             self.isin(Completion('fqdn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
-            self.isin(Completion('ipv4', display='[form] inet:ipv4 - An IPv4 address.'), vals)
+            self.isin(Completion('ip', display='[form] inet:ip - An IPv4 or IPv6 address.'), vals)
 
             # No tags to return
-            vals = await get_completions('inet:ipv4#')
+            vals = await get_completions('inet:ip#')
             self.len(0, vals)
 
             # Add some tags
-            await core.stormlist('[inet:ipv4=1.2.3.4 +#rep.foo]')
-            await core.stormlist('[inet:ipv4=1.2.3.5 +#rep.foo.bar]')
-            await core.stormlist('[inet:ipv4=1.2.3.6 +#rep.bar]')
-            await core.stormlist('[inet:ipv4=1.2.3.7 +#rep.baz]')
+            await core.stormlist('[inet:ip=1.2.3.4 +#rep.foo]')
+            await core.stormlist('[inet:ip=1.2.3.5 +#rep.foo.bar]')
+            await core.stormlist('[inet:ip=1.2.3.6 +#rep.bar]')
+            await core.stormlist('[inet:ip=1.2.3.7 +#rep.baz]')
             await core.stormlist('[syn:tag=rep :doc="Reputation base."]')
 
             # Check completion of tags
-            vals = await get_completions('inet:ipv4#')
+            vals = await get_completions('inet:ip#')
             self.len(4, vals)
             self.isin(Completion('rep', display='[tag] rep - Reputation base.'), vals)
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
             self.isin(Completion('rep.bar', display='[tag] rep.bar'), vals)
             self.isin(Completion('rep.baz', display='[tag] rep.baz'), vals)
 
-            vals = await get_completions('inet:ipv4#rep.')
+            vals = await get_completions('inet:ip#rep.')
             self.len(4, vals)
             self.isin(Completion('foo', display='[tag] rep.foo'), vals)
             self.isin(Completion('foo.bar', display='[tag] rep.foo.bar'), vals)
             self.isin(Completion('bar', display='[tag] rep.bar'), vals)
             self.isin(Completion('baz', display='[tag] rep.baz'), vals)
 
-            vals = await get_completions('inet:ipv4 +#')
+            vals = await get_completions('inet:ip +#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
-            vals = await get_completions('inet:ipv4 -#')
+            vals = await get_completions('inet:ip -#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
-            vals = await get_completions('[inet:ipv4 +#')
+            vals = await get_completions('[inet:ip +#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
-            vals = await get_completions('inet:ipv4 { +#')
+            vals = await get_completions('inet:ip { +#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
             # Tag completion is view sensitive
@@ -326,16 +370,16 @@ class StormCliTest(s_test.SynTest):
             self.isin(Completion('lt.list', display='[cmd] vault.list - List available vaults.'), vals)
             self.isin(Completion('lt.set.perm', display='[cmd] vault.set.perm - Set permissions on a vault.'), vals)
 
-            vals = await get_completions('inet:ipv4 +#rep.foo | ser')
+            vals = await get_completions('inet:ip +#rep.foo | ser')
             self.isin(Completion('vice.add', display='[cmd] service.add - Add a storm service to the cortex.'), vals)
             self.isin(Completion('vice.del', display='[cmd] service.del - Remove a storm service from the cortex.'), vals)
             self.isin(Completion('vice.list', display='[cmd] service.list - List the storm services configured in the cortex.'), vals)
 
             # Check completion of libs
-            vals = await get_completions('inet:ipv4 $li')
+            vals = await get_completions('inet:ip $li')
             self.len(0, vals)
 
-            vals = await get_completions('inet:ipv4 $lib')
+            vals = await get_completions('inet:ip $lib')
             self.isin(
                 Completion(
                     '.auth.easyperm.allowed',
@@ -351,3 +395,54 @@ class StormCliTest(s_test.SynTest):
                 ),
                 vals
             )
+
+    async def test_storm_cmdloop_interrupt(self):
+        '''
+        Test interrupting a long-running query in the command loop
+        '''
+        async with self.getTestCore() as core:
+
+            async with core.getLocalProxy() as proxy:
+
+                outp = s_test.TstOutPut()
+                async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
+
+                    cmdqueue = asyncio.Queue()
+                    await cmdqueue.put('while (true) { $lib.time.sleep(1) }')
+                    await cmdqueue.put('!quit')
+
+                    async def fake_prompt():
+                        return await cmdqueue.get()
+                    scli.prompt = fake_prompt
+
+                    cmdloop_task = asyncio.create_task(scli.runCmdLoop())
+                    await asyncio.sleep(0.1)
+
+                    if scli.cmdtask is not None:
+                        scli.cmdtask.cancel()
+
+                    await cmdloop_task
+
+                    outp.expect('<ctrl-c>')
+                    outp.expect('o/')
+                    self.true(scli.isfini)
+
+    async def test_storm_cmdloop_sigint(self):
+        '''
+        Test interrupting a long-running query in the command loop with a process target and SIGINT.
+        '''
+
+        async with self.getTestCore() as core:
+            url = core.getLocalUrl()
+
+            ctx = multiprocessing.get_context('spawn')
+
+            evt1 = ctx.Event()
+
+            proc = ctx.Process(target=run_cli_till_print, args=(url, evt1,))
+            proc.start()
+
+            self.true(await s_coro.executor(evt1.wait, timeout=30))
+            os.kill(proc.pid, signal.SIGINT)
+            proc.join(timeout=30)
+            self.eq(proc.exitcode, 137)

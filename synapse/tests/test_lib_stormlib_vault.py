@@ -274,7 +274,7 @@ class StormlibVaultTest(s_test.SynTest):
                 ],
             })
 
-            await core.nodes('auth.user.addrule visi1 storm.asroot.mod.vmod')
+            await core.nodes('auth.user.addrule visi1 asroot.mod.vmod')
 
             opts = {'vars': {'giden': giden}, 'user': visi1.iden}
             q = 'return($lib.import(vmod).setSecret($giden, foo, bar))'

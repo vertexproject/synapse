@@ -38,7 +38,7 @@ async def _main(argv, outp):
 
         svcs = []
         ldrs = set()
-        async for svc in prox.getAhaSvcs(network):
+        async for svc in prox.getAhaSvcs(network=network):
             svcinfo = svc.get('svcinfo')
             if svcinfo and svc.get('svcname') == svcinfo.get('leader'):
                 ldrs.add(svcinfo.get('run'))

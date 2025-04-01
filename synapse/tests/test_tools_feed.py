@@ -1,4 +1,3 @@
-import json
 import hashlib
 
 from unittest import mock
@@ -6,6 +5,7 @@ from unittest import mock
 import synapse.exc as s_exc
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.msgpack as s_msgpack
 
 import synapse.tools.feed as s_feed
@@ -33,10 +33,9 @@ class FeedTest(s_t_utils.SynTest):
                 with s_common.genfile(jsonlfp) as fd:
                     for i in range(20):
                         pode = (('test:int', i), {})
-                        _ = fd.write(json.dumps(pode).encode() + b'\n')
+                        _ = fd.write(s_json.dumps(pode, newline=True))
 
                 argv = ['--cortex', curl,
-                        '--modules', 'synapse.tests.utils.TestModule',
                         '--chunksize', '3',
                         jsonlfp]
 
@@ -68,7 +67,6 @@ class FeedTest(s_t_utils.SynTest):
                         fd.write(s_msgpack.en(pode))
 
                 argv = ['--cortex', curl,
-                        '--modules', 'synapse.tests.utils.TestModule',
                         '--chunksize', '4',
                         '--offset', '15',
                         mpkfp]
@@ -83,7 +81,7 @@ class FeedTest(s_t_utils.SynTest):
                 self.true(outp.expect('Cannot start from a arbitrary offset for more than 1 file.'))
 
             nodes = await core.nodes('test:int')
-            self.len(8, nodes)
+            self.len(4, nodes)
 
     async def test_synnodes_view(self):
 
@@ -104,8 +102,7 @@ class FeedTest(s_t_utils.SynTest):
                         pode = (('test:int', i), {})
                         fd.write(s_msgpack.en(pode))
 
-                base = ['--cortex', curl,
-                        '--modules', 'synapse.tests.utils.TestModule']
+                base = ['--cortex', curl]
 
                 argv = base + ['--view', newview, mpkfp]
 

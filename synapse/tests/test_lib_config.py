@@ -1,5 +1,4 @@
 import copy
-import json
 import regex
 import pathlib
 import argparse
@@ -11,6 +10,7 @@ import synapse.data as s_data
 import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
+import synapse.lib.json as s_json
 import synapse.lib.config as s_config
 
 import synapse.tests.utils as s_test
@@ -164,8 +164,8 @@ class ConfTest(s_test.SynTest):
         # We can ensure that certain vars are loaded
         self.eq('Funky string time!', conf.req('key:string'))
         # And throw if they are not, or if the requested key isn't even schema valid
-        self.raises(s_exc.NeedConfValu, conf.reqConfValu, 'key:bool:nodefval')
-        self.raises(s_exc.BadArg, conf.reqConfValu, 'key:newp')
+        self.raises(s_exc.NeedConfValu, conf.req, 'key:bool:nodefval')
+        self.raises(s_exc.BadArg, conf.req, 'key:newp')
 
         # Since we're an Mutable mapping, we have some dict methods available to us
         self.len(8, conf)  # __len__
@@ -396,7 +396,7 @@ class ConfTest(s_test.SynTest):
         self.true(filename.exists())
 
         with filename.open() as fp:
-            schema = json.load(fp)
+            schema = s_json.load(fp)
 
         self.eq(schema, s_config.localSchemaRefHandler(
             "http://raw.githubusercontent.com/oasis-open/cti-stix2-json-schemas/stix2.1/schemas/common/core.json"

@@ -59,18 +59,10 @@ commands:
           command: |
             . venv/bin/activate
             mkdir test-reports
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | circleci tests run --split-by=timings --command "xargs python3 -m pytest -v -s -rs --durations 6 --maxfail 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
-
-  check_runner_has_work:
-    description: Check that this runner has work to do
-    steps:
-      - run:
-          name: Check workload
-          command: |
-            mkdir -p ./tmp && \
-            >./tmp/tests.txt && \
-            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | circleci tests run --split-by=timings --command ">./tmp/tests.txt xargs echo"
-            [ -s tmp/tests.txt ] || circleci-agent step halt #if there are no tests, terminate execution after this step
+            circleci tests glob synapse/tests/test_*.py synapse/vendor/**/test_*.py | \
+              circleci tests run \
+                --timings-type=name \
+                --command="xargs python3 -m pytest -n 8 --dist worksteal -v -rs --durations 6 -p no:logging --junitxml=test-reports/junit.xml -o junit_family=xunit1 ${COVERAGE_ARGS}"
 
   test_steps_doc:
     description: "Documentation test steps"
@@ -83,9 +75,14 @@ commands:
             sudo apt-get update
             sudo apt-get -y install pandoc
 
+      - run:
+          name: python version dump
+          command: |
+            python -c "import sys; print(sys.version)" | tee -a /tmp/python.version
+
       - restore_cache:
           keys:
-            - v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: setup venv
@@ -103,46 +100,54 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v5-docvenv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
-          name: executing docs jupyter notebooks
+          name: executing docs test / build
           command: |
             . venv/bin/activate
             ./scripts/doctests.py
+            cd docs
+            make html
 
   test_steps_python:
     description: "Python test steps"
     steps:
       - checkout
 
-      - check_runner_has_work
+      - run:
+          # Run this first so we fail on syntax errors before installing a bunch
+          # of stuff and doing a bunch of work. It's easier now that we're only
+          # a single runner using xdist.
+          name: syntax
+          command: |
+            pip install "pycodestyle>=2.10.0,<3.0.0"
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
+            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
 
       - run:
           name: checkout regression repo
           command: |
             git clone https://github.com/vertexproject/synapse-regression ~/git/synapse-regression
 
+      - run:
+          name: python version dump
+          command: |
+            python -c "import sys; print(sys.version)" | tee -a /tmp/python.version
+
       - restore_cache:
           keys:
-            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - do_venv_setup
 
       - save_cache:
           paths:
             - ./venv
-          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
-
-      - run:
-          name: syntax
-          command: |
-            . venv/bin/activate
-            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle synapse; fi;
-            if [ -n "${RUN_SYNTAX}" ]; then pycodestyle scripts; fi;
-
+          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - do_test_execution
+
       - do_report_coverage
 
       - store_test_results:
@@ -156,9 +161,14 @@ commands:
     steps:
       - checkout
 
+      - run:
+          name: python version dump
+          command: |
+            python -c "import sys; print(sys.version)" | tee -a /tmp/python.version
+
       - restore_cache:
           keys:
-            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: install python dependencies
@@ -171,7 +181,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}
+          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: init .pypirc
@@ -503,7 +513,7 @@ commands:
 jobs:
 
   python311:
-    parallelism: 8
+    resource_class: xlarge
     docker:
       - image: cimg/python:3.11
         environment:
@@ -512,7 +522,8 @@ jobs:
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
           SYN_REGRESSION_REPO: ~/git/synapse-regression
-          COVERAGE_ARGS: --cov synapse
+          COVERAGE_FILE: test_reports/${CIRCLE_SHA1}/.coverage
+          COVERAGE_ARGS: --cov synapse --cov-append
 
     working_directory: ~/repo
 
@@ -520,7 +531,7 @@ jobs:
       - test_steps_python
 
   python311_replay:
-    parallelism: 6
+    resource_class: xlarge
     docker:
       - image: cimg/python:3.11
         environment:
@@ -537,7 +548,6 @@ jobs:
       - test_steps_python
 
   doctests:
-    parallelism: 1
     docker:
       - image: cimg/python:3.11
         environment:

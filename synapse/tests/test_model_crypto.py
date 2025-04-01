@@ -88,14 +88,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('coin'), 'btc')
             self.eq(nodes[0].get('iden'), '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
 
-            nodes = await core.nodes('''
-                [
-                    econ:acct:payment="*"
-                        :from:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                        :to:coinaddr=(btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2)
-                ]
-            ''')
-
             # these would explode if the model was wrong
             self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact="*" ] -> ps:contact'))
             self.len(1, await core.nodes('crypto:currency:address:iden=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
@@ -159,11 +151,6 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(node.get('eth:gasprice'), '0.001')
             self.eq(node.get('contract:input'), 'sha256:f0e4c2f76c58916ec258f246851bea091d14d4247a2fc3e18694461b1816e13b')
             self.eq(node.get('contract:output'), 'sha256:f6f2ea8f45d8a057c9566a33f99474da2e5c6a6604d736121650e2730c6fb0a3')
-
-            with self.raises(s_exc.IsDeprLocked):
-                await node.set('inputs', (payor,))
-            with self.raises(s_exc.IsDeprLocked):
-                await node.set('outputs', (payee,))
 
             q = 'crypto:currency:transaction=(t1,) | tee { -> crypto:payment:input } { -> crypto:payment:output }'
             nodes = await core.nodes(q)
@@ -514,8 +501,7 @@ class CryptoModelTest(s_t_utils.SynTest):
 
                     :identities:urls=(http://woot.com/1, http://woot.com/2)
                     :identities:fqdns=(vertex.link, woot.com)
-                    :identities:ipv4s=(1.2.3.4, 5.5.5.5)
-                    :identities:ipv6s=(ff::11, ff::aa)
+                    :identities:ips=(1.2.3.4, 5.5.5.5, ff::11, ff::aa)
                     :identities:emails=(visi@vertex.link, v@vtx.lk)
                 ]
             ''', opts={'vars': {'icert': icert, 'cert': cert, 'md5': TEST_MD5, 'sha1': TEST_SHA1, 'sha256': TEST_SHA256}})
@@ -542,8 +528,10 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('ext:sans'), (('dns', '*.vertex.link'), ('dns', 'vertex.link')))
             self.eq(nodes[0].get('identities:urls'), ('http://woot.com/1', 'http://woot.com/2'))
             self.eq(nodes[0].get('identities:fqdns'), ('vertex.link', 'woot.com'))
-            self.eq(nodes[0].get('identities:ipv4s'), (0x01020304, 0x05050505))
-            self.eq(nodes[0].get('identities:ipv6s'), ('ff::11', 'ff::aa'))
+
+            ip3 = (6, 0xff0000000000000000000000000011)
+            ip4 = (6, 0xff00000000000000000000000000aa)
+            self.eq(nodes[0].get('identities:ips'), ((4, 0x01020304), (4, 0x05050505), ip3, ip4))
 
             nodes = await core.nodes('''
                 [

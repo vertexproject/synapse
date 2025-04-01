@@ -1,6 +1,5 @@
 import os
 import copy
-import json
 import urllib
 import logging
 import argparse
@@ -12,6 +11,7 @@ import synapse.exc as s_exc
 import synapse.data as s_data
 import synapse.common as s_common
 
+import synapse.lib.json as s_json
 import synapse.lib.hashitem as s_hashitem
 
 from fastjsonschema.exceptions import JsonSchemaValueException
@@ -32,19 +32,19 @@ def localSchemaRefHandler(uri):
     try:
         parts = urllib.parse.urlparse(uri)
     except ValueError:
-        raise s_exc.BadUrl(f'Malformed URI: {uri}.') from None
+        raise s_exc.BadUrl(mesg=f'Malformed URI: {uri}.') from None
 
     filename = s_data.path('jsonschemas', parts.hostname, *parts.path.split('/'))
 
     # Check for path traversal. Unlikely, but still check
     if not filename.startswith(s_data.path('jsonschemas', parts.hostname)):
-        raise s_exc.BadArg(f'Path traversal in schema URL: {uri}.')
+        raise s_exc.BadArg(mesg=f'Path traversal in schema URL: {uri}.')
 
     if not os.path.exists(filename) or not os.path.isfile(filename):
-        raise s_exc.NoSuchFile(f'Local JSON schema not found for {uri}.')
+        raise s_exc.NoSuchFile(mesg=f'Local JSON schema not found for {uri}.')
 
     with open(filename, 'r') as fp:
-        return json.load(fp)
+        return s_json.load(fp)
 
 # This handlers dictionary is used by the jsonschema validator to attempt to
 # resolve schema '$ref' values locally from disk and will raise an exception
@@ -391,13 +391,6 @@ class Config(c_abc.MutableMapping):
             raise s_exc.BadConfValu(mesg=f'Invalid configuration found: [{str(e)}]') from None
         else:
             return
-
-    def reqConfValu(self, key):  # pragma: no cover
-        '''
-        Deprecated. Use ``req(key)`` API instead.
-        '''
-        s_common.deprecated('Config.reqConfValu(), use req() instead.')
-        return self.req(key)
 
     def req(self, key):
         '''

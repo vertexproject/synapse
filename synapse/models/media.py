@@ -1,15 +1,7 @@
-import synapse.lib.module as s_module
-
-
-class MediaModule(s_module.CoreModule):
-
-    def getModelDefs(self):
-        name = 'media'
-
-        ctors = ()
-
-        forms = (
-            ('media:news:type:taxonomy', {}, ()),
+modeldefs = (
+    ('media', {
+        'forms': (
+            ('media:news:type:taxonomy', {'prevnames': ('media:news:taxonomy',)}, ()),
             ('media:news', {}, (
                 ('url', ('inet:url', {}), {
                     'ex': 'http://cnn.com/news/mars-lander.html',
@@ -38,7 +30,6 @@ class MediaModule(s_module.CoreModule):
                 ('publisher', ('ou:org', {}), {
                     'doc': 'The organization which published the news.'}),
 
-
                 ('publisher:name', ('ou:name', {}), {
                     'doc': 'The name of the publishing org used to publish the news.'}),
 
@@ -49,14 +40,6 @@ class MediaModule(s_module.CoreModule):
                 ('updated', ('time', {'ismax': True}), {
                     'ex': '20161201180433',
                     'doc': 'The last time the news item was updated.'}),
-
-                ('org', ('ou:alias', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use :publisher:name.'}),
-
-                ('author', ('ps:name', {}), {
-                    'deprecated': True,
-                    'doc': 'Deprecated. Please use :authors array of ps:contact nodes.'}),
 
                 ('authors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of authors of the news item.'}),
@@ -75,9 +58,9 @@ class MediaModule(s_module.CoreModule):
                 ('desc', ('str', {}), {
                     'doc': 'A brief description of the topic.'}),
             )),
-        )
+        ),
 
-        types = (
+        'types': (
             ('media:news', ('guid', {}), {
                 'doc': 'A GUID for a news article or report.'}),
 
@@ -89,10 +72,5 @@ class MediaModule(s_module.CoreModule):
             ('media:topic', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'A topic string.'}),
         )
-
-        modldef = (name, {
-            'ctors': ctors,
-            'forms': forms,
-            'types': types,
-        })
-        return (modldef, )
+    }),
+)

@@ -1,5 +1,4 @@
 import os
-import json
 import synapse.exc as s_exc
 import synapse.common as s_common
 
@@ -15,20 +14,20 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=dirn) as core:
 
-                await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core.stormlist('trigger.add node:add --async --form inet:ip --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
-                await core.callStorm('[ inet:ipv4=1.2.3.4 ]')
+                await core.callStorm('[ inet:ip=1.2.3.4 ]')
 
                 msgs = await core.stormlist('trigger.list')
-                self.stormIsInPrint('true   true   node:add  inet:ipv4', msgs)
+                self.stormIsInPrint('Y    Y       node:add   inet:ip', msgs)
 
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
-                nodes = await core.nodes('inet:ipv4=1.2.3.4')
+                nodes = await core.nodes('inet:ip=1.2.3.4')
                 self.nn(nodes[0].get('#foo'))
 
                 # test dynamically updating the trigger async to off
                 await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
-                nodes = await core.nodes('[ inet:ipv4=5.5.5.5 ]')
+                nodes = await core.nodes('[ inet:ip=5.5.5.5 ]')
                 self.nn(nodes[0].get('#foo'))
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
 
@@ -45,14 +44,14 @@ class TrigTest(s_t_utils.SynTest):
                 await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': trigiden})
                 await core.view.addTrigQueue({'buid': s_common.buid(), 'trig': s_common.guid()})
 
-                nodes = await core.nodes('[ inet:ipv4=9.9.9.9 ]')
+                nodes = await core.nodes('[ inet:ip=9.9.9.9 ]')
                 self.none(nodes[0].get('#foo'))
                 self.none(await core.callStorm('return($lib.queue.gen(foo).pop())'))
 
             async with self.getTestCore(dirn=dirn) as core:
 
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
-                nodes = await core.nodes('inet:ipv4=9.9.9.9')
+                nodes = await core.nodes('inet:ip=9.9.9.9')
                 self.nn(nodes[0].get('#foo'))
                 self.none(core.view.trigqueue.last())
 
@@ -63,8 +62,8 @@ class TrigTest(s_t_utils.SynTest):
                 await view.finiTrigTask()
 
                 opts = {'view': viewiden}
-                await core.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
-                nodes = await core.nodes('[ inet:ipv4=123.123.123.123 ]', opts=opts)
+                await core.stormlist('trigger.add node:add --async --form inet:ip --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }', opts=opts)
+                nodes = await core.nodes('[ inet:ip=123.123.123.123 ]', opts=opts)
 
                 with self.raises(s_exc.CantMergeView):
                     await core.nodes('$lib.view.get().merge()', opts=opts)
@@ -82,10 +81,10 @@ class TrigTest(s_t_utils.SynTest):
             path01 = s_common.gendir(dirn, 'core01')
 
             async with self.getTestCore(dirn=path00) as core00:
-                await core00.stormlist('trigger.add node:add --async --form inet:ipv4 --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
+                await core00.stormlist('trigger.add node:add --async --form inet:ip --query { [+#foo] $lib.queue.gen(foo).put($node.iden()) }')
 
                 await core00.view.finiTrigTask()
-                await core00.nodes('[ inet:ipv4=1.2.3.4 ]')
+                await core00.nodes('[ inet:ip=1.2.3.4 ]')
 
             s_tools_backup.backup(path00, path01)
 
@@ -99,7 +98,7 @@ class TrigTest(s_t_utils.SynTest):
                     self.nn(await core00.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
                     self.none(await core00.callStorm('return($lib.queue.gen(foo).pop())'))
 
-                    await core01.nodes('[inet:ipv4=8.8.8.8]')
+                    await core01.nodes('[inet:ip=8.8.8.8]')
                     self.nn(await core01.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
                     self.none(await core00.callStorm('return($lib.queue.gen(foo).pop())'))
                     self.none(await core01.callStorm('return($lib.queue.gen(foo).pop())'))
@@ -119,7 +118,7 @@ class TrigTest(s_t_utils.SynTest):
 
             async with self.getTestCore(dirn=fdir) as core:
                 iden = s_common.guid()
-                tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[inet:user=1] | testcmd'}
+                tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[inet:user=1] | testcmd'}
                 await core.view.addTrigger(tdef)
 
                 triggers = await core.view.listTriggers()
@@ -252,8 +251,8 @@ class TrigTest(s_t_utils.SynTest):
             with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:
                 await core.nodes('[ test:str=logit ]')
                 self.true(await stream.wait(6))
-            buf = stream.getvalue()
-            mesg = json.loads(buf.split('\n')[-2])
+            msgs = stream.jsonlines()
+            mesg = [m for m in msgs if m.get('iden') == tdef.get('iden')][0]
             self.eq(mesg['message'], f'test trigger {tdef.get("iden")}')
             self.eq(mesg['iden'], tdef.get('iden'))
 
@@ -262,6 +261,14 @@ class TrigTest(s_t_utils.SynTest):
                 tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': iden}
                 await view.addTrigger(tdef)
             self.eq(pdef0.get('storm'), (await view.getTrigger(iden)).tdef.get('storm'))
+
+            with self.raises(s_exc.DupIden):
+                tdef = {'cond': 'node:add', 'storm': '[ +#dupiden ]', 'form': 'test:int', 'iden': view.iden}
+                await view.addTrigger(tdef)
+
+            with self.raises(s_exc.NoSuchIden):
+                await view.delTrigger(view.iden)
+            self.nn(core.auth.getAuthGate(view.iden))
 
             # Bad trigger parms
             with self.raises(s_exc.SchemaViolation):
@@ -363,13 +370,13 @@ class TrigTest(s_t_utils.SynTest):
             await self.asyncraises(s_exc.NoSuchIden, view.setTriggerInfo('newp', 'enabled', True))
 
             # mop up some coverage
-            msgs = await core.stormlist('trigger.add tag:del --form inet:ipv4 --tag zoinks --query { [+#bar] }')
+            msgs = await core.stormlist('trigger.add tag:del --form inet:ip --tag zoinks --query { [+#bar] }')
             self.stormHasNoWarnErr(msgs)
 
             msgs = await core.stormlist('trigger.add tag:del --tag zoinks.* --query { [+#faz] }')
             self.stormHasNoWarnErr(msgs)
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 +#zoinks.foo -#zoinks ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 +#zoinks.foo -#zoinks ]')
 
             self.len(1, nodes)
             self.nn(nodes[0].getTag('bar'))
@@ -478,22 +485,22 @@ class TrigTest(s_t_utils.SynTest):
             async with core.getLocalProxy(user='visi') as proxy:
 
                 with self.raises(s_exc.AuthDeny):
-                    tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
+                    tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[ +#foo ]'}
                     await proxy.callStorm('return ($lib.trigger.add($tdef).get(iden))', opts={'vars': {'tdef': tdef}})
 
                 await visi.addRule((True, ('trigger', 'add')))
 
-                tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
+                tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[ +#foo ]'}
                 opts = {'vars': {'tdef': tdef}}
                 trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
                 iden0 = trig['iden']
 
                 iden1 = s_common.guid()
-                tdef = {'cond': 'node:add', 'form': 'inet:ipv6', 'storm': '[ +#foo ]', 'iden': iden1}
+                tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[ +#foo ]', 'iden': iden1}
                 opts = {'vars': {'tdef': tdef}}
                 trig = await proxy.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
 
-                nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+                nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
                 self.nn(nodes[0].get('#foo'))
 
                 await proxy.storm('$lib.trigger.del($iden)', opts={'vars': {'iden': iden1}}).list()
@@ -524,7 +531,7 @@ class TrigTest(s_t_utils.SynTest):
             await visi.addRule((False, ('view', 'read')), gateiden=core.view.iden)
             await newb.addRule((True, ('node', 'add')))
             async with core.getLocalProxy(user='newb') as proxy:
-                self.eq(0, await proxy.count('[inet:ipv4 = 99] +#foo'))
+                self.eq(0, await proxy.count('[inet:ip = ([4, 99]) ] +#foo'))
 
     async def test_trigger_set_user(self):
 
@@ -536,20 +543,20 @@ class TrigTest(s_t_utils.SynTest):
             viewiden = await core.callStorm('$view = $lib.view.get().fork() return($view.iden)')
             inview = {'view': viewiden}
 
-            tdef = {'cond': 'node:add', 'form': 'inet:ipv4', 'storm': '[ +#foo ]'}
+            tdef = {'cond': 'node:add', 'form': 'inet:ip', 'storm': '[ +#foo ]'}
             opts = {'vars': {'tdef': tdef}}
 
             trig = await core.callStorm('return ($lib.trigger.add($tdef))', opts=opts)
             self.eq(trig.get('user'), core.auth.rootuser.iden)
 
-            nodes = await core.nodes('[ inet:ipv4=1.2.3.4 ]')
+            nodes = await core.nodes('[ inet:ip=1.2.3.4 ]')
             self.len(1, nodes)
             self.nn(nodes[0].getTag('foo'))
 
             opts = {'vars': {'iden': trig.get('iden'), 'derp': derp.iden}}
             await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts | inview)
 
-            nodes = await core.nodes('[ inet:ipv4=8.8.8.8 ]')
+            nodes = await core.nodes('[ inet:ip=8.8.8.8 ]')
             self.len(1, nodes)
             self.none(nodes[0].getTag('foo'))
 
@@ -748,6 +755,12 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(node[0].getTag('cookies'))
             self.nn(node[0].getTag('cupcake'))
             # the other two edge:del triggers cannot run because we can't get to n2 anymore
+
+            msgs = await core.stormlist('trigger.list --all')
+            self.stormIsInPrint('edge:del   * -(refs)> *', msgs)
+            self.stormIsInPrint('edge:del   test:int -(refs)> *', msgs)
+            self.stormIsInPrint('edge:del   * -(refs)> test:int', msgs)
+            self.stormIsInPrint('edge:del   test:int -(refs)> test:int', msgs)
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
             self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))

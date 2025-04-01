@@ -1,5 +1,7 @@
 from unittest import mock
 
+import regex
+
 import synapse.exc as s_exc
 
 import synapse.lib.scrape as s_scrape
@@ -444,6 +446,10 @@ var/run/foo/
 var/run/foo/bar
 but they not have a open SDK :/.
 '''
+linux_paths += '\n' + '\n'.join([
+    '/bin' + '/long' * 1_024,
+    '/bin' + '/a' * 1_024,
+])
 
 windows_paths = '''
 # GOOD PATHS
@@ -470,6 +476,10 @@ c:\\windows\\LPT1
 c:\\foo.
 dc:\\foo\\bar
 '''
+windows_paths += '\n' + '\n'.join([
+    'c:\\windows' + '\\long' * 7_000,
+    'c:\\windows' + '\\a' * 1_024,
+])
 
 good_uncs = [
     '\\\\foo\\bar\\baz',
@@ -583,7 +593,7 @@ class ScrapeTest(s_t_utils.SynTest):
 
     def test_scrape_basic(self):
         forms = s_scrape.getForms()
-        self.isin('inet:ipv4', forms)
+        self.isin('inet:ip', forms)
         self.isin('crypto:currency:address', forms)
         self.notin('inet:web:message', forms)
 
@@ -600,11 +610,11 @@ class ScrapeTest(s_t_utils.SynTest):
 
         self.len(83, nodes)
         nodes.remove(('hash:md5', 'a' * 32))
-        nodes.remove(('inet:ipv4', '1.2.3.4'))
-        nodes.remove(('inet:ipv4', '2.3.4.5'))
-        nodes.remove(('inet:ipv4', '5.6.7.8'))
-        nodes.remove(('inet:ipv4', '201.202.203.204'))
-        nodes.remove(('inet:ipv4', '211.212.213.214'))
+        nodes.remove(('inet:ip', '1.2.3.4'))
+        nodes.remove(('inet:ip', '2.3.4.5'))
+        nodes.remove(('inet:ip', '5.6.7.8'))
+        nodes.remove(('inet:ip', '201.202.203.204'))
+        nodes.remove(('inet:ip', '211.212.213.214'))
         nodes.remove(('inet:fqdn', 'bar.com'))
         nodes.remove(('inet:fqdn', 'baz.com'))
         nodes.remove(('inet:fqdn', 'foobar.com'))
@@ -637,51 +647,51 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:email', 'visi@vertex.link'))
         nodes.remove(('it:sec:cwe', 'CWE-1'))
         nodes.remove(('it:sec:cwe', 'CWE-12345678'))
-        nodes.remove(('inet:ipv6', 'fff0::1'))
-        nodes.remove(('inet:ipv6', '::1'))
-        nodes.remove(('inet:ipv6', '::1010'))
-        nodes.remove(('inet:ipv6', 'ff::'))
-        nodes.remove(('inet:ipv6', '0::1'))
-        nodes.remove(('inet:ipv6', '0:0::1'))
-        nodes.remove(('inet:ipv6', 'ff:fe:fd::1'))
-        nodes.remove(('inet:ipv6', 'ffff:ffe:fd:c::1'))
-        nodes.remove(('inet:ipv6', '111::333:222'))
-        nodes.remove(('inet:ipv6', '111:222::333'))
-        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
-        nodes.remove(('inet:ipv6', '1:2:3:4:5:6::7'))
-        nodes.remove(('inet:ipv6', '1:2:3:4:5::6'))
-        nodes.remove(('inet:ipv6', '1:2:3:4::5'))
-        nodes.remove(('inet:ipv6', '1:2:3::4'))
-        nodes.remove(('inet:ipv6', '1:2::3'))
-        nodes.remove(('inet:ipv6', '1::2'))
-        nodes.remove(('inet:ipv6', '1::2:3:4:5:6:7'))
-        nodes.remove(('inet:ipv6', '1::2:3:4:5:6'))
-        nodes.remove(('inet:ipv6', '1::2:3:4:5'))
-        nodes.remove(('inet:ipv6', '1::2:3:4'))
-        nodes.remove(('inet:ipv6', '1::2:3'))
-        nodes.remove(('inet:ipv6', 'a:2::3:4:5:6:7'))
-        nodes.remove(('inet:ipv6', 'a:2::3:4:5:6'))
-        nodes.remove(('inet:ipv6', 'a:2::3:4:5'))
-        nodes.remove(('inet:ipv6', 'a:2::3:4'))
-        nodes.remove(('inet:ipv6', 'a:2::3'))
-        nodes.remove(('inet:ipv6', '2001:db8:3333:4444:5555:6666:4.3.2.1'))
-        nodes.remove(('inet:ipv6', '::3.4.5.6'))
-        nodes.remove(('inet:ipv6', '::ffff:4.3.2.2'))
-        nodes.remove(('inet:ipv6', '::FFFF:4.3.2.3'))
-        nodes.remove(('inet:ipv6', '::ffff:0000:4.3.2.4'))
-        nodes.remove(('inet:ipv6', '::1:2:3:4:4.3.2.5'))
-        nodes.remove(('inet:ipv6', '::1:2:3:4.3.2.6'))
-        nodes.remove(('inet:ipv6', '::1:2:3:4:5:4.3.2.7'))
-        nodes.remove(('inet:ipv6', '::ffff:255.255.255.255'))
-        nodes.remove(('inet:ipv6', '::ffff:111.222.33.44'))
-        nodes.remove(('inet:ipv6', '1:2::3:4.3.2.8'))
-        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:9'))
-        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:a'))
-        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:b'))
-        nodes.remove(('inet:ipv6', '1::a'))
-        nodes.remove(('inet:ipv6', '1::a:3'))
-        nodes.remove(('inet:ipv6', '1:a::3'))
-        nodes.remove(('inet:ipv6', 'a:b:c:d:e::6'))
+        nodes.remove(('inet:ip', 'fff0::1'))
+        nodes.remove(('inet:ip', '::1'))
+        nodes.remove(('inet:ip', '::1010'))
+        nodes.remove(('inet:ip', 'ff::'))
+        nodes.remove(('inet:ip', '0::1'))
+        nodes.remove(('inet:ip', '0:0::1'))
+        nodes.remove(('inet:ip', 'ff:fe:fd::1'))
+        nodes.remove(('inet:ip', 'ffff:ffe:fd:c::1'))
+        nodes.remove(('inet:ip', '111::333:222'))
+        nodes.remove(('inet:ip', '111:222::333'))
+        nodes.remove(('inet:ip', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ip', '1:2:3:4:5:6::7'))
+        nodes.remove(('inet:ip', '1:2:3:4:5::6'))
+        nodes.remove(('inet:ip', '1:2:3:4::5'))
+        nodes.remove(('inet:ip', '1:2:3::4'))
+        nodes.remove(('inet:ip', '1:2::3'))
+        nodes.remove(('inet:ip', '1::2'))
+        nodes.remove(('inet:ip', '1::2:3:4:5:6:7'))
+        nodes.remove(('inet:ip', '1::2:3:4:5:6'))
+        nodes.remove(('inet:ip', '1::2:3:4:5'))
+        nodes.remove(('inet:ip', '1::2:3:4'))
+        nodes.remove(('inet:ip', '1::2:3'))
+        nodes.remove(('inet:ip', 'a:2::3:4:5:6:7'))
+        nodes.remove(('inet:ip', 'a:2::3:4:5:6'))
+        nodes.remove(('inet:ip', 'a:2::3:4:5'))
+        nodes.remove(('inet:ip', 'a:2::3:4'))
+        nodes.remove(('inet:ip', 'a:2::3'))
+        nodes.remove(('inet:ip', '2001:db8:3333:4444:5555:6666:4.3.2.1'))
+        nodes.remove(('inet:ip', '::3.4.5.6'))
+        nodes.remove(('inet:ip', '::ffff:4.3.2.2'))
+        nodes.remove(('inet:ip', '::FFFF:4.3.2.3'))
+        nodes.remove(('inet:ip', '::ffff:0000:4.3.2.4'))
+        nodes.remove(('inet:ip', '::1:2:3:4:4.3.2.5'))
+        nodes.remove(('inet:ip', '::1:2:3:4.3.2.6'))
+        nodes.remove(('inet:ip', '::1:2:3:4:5:4.3.2.7'))
+        nodes.remove(('inet:ip', '::ffff:255.255.255.255'))
+        nodes.remove(('inet:ip', '::ffff:111.222.33.44'))
+        nodes.remove(('inet:ip', '1:2::3:4.3.2.8'))
+        nodes.remove(('inet:ip', '1:2:3:4:5:6:7:9'))
+        nodes.remove(('inet:ip', '1:2:3:4:5:6:7:a'))
+        nodes.remove(('inet:ip', '1:2:3:4:5:6:7:b'))
+        nodes.remove(('inet:ip', '1::a'))
+        nodes.remove(('inet:ip', '1::a:3'))
+        nodes.remove(('inet:ip', '1:a::3'))
+        nodes.remove(('inet:ip', 'a:b:c:d:e::6'))
         self.len(0, nodes)
 
         nodes = set(s_scrape.scrape(data0, 'inet:email'))
@@ -706,8 +716,8 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'tcp://[1:2:3::4:5:6]:2345/'))
         nodes.remove(('inet:server', '[1:2:3:4:5:6:7:8]:1234'))
         nodes.remove(('inet:server', '[1:2:3::4:5:6]:2345'))
-        nodes.remove(('inet:ipv6', '1:2:3:4:5:6:7:8'))
-        nodes.remove(('inet:ipv6', '1:2:3::4:5:6'))
+        nodes.remove(('inet:ip', '1:2:3:4:5:6:7:8'))
+        nodes.remove(('inet:ip', '1:2:3::4:5:6'))
 
         nodes = list(s_scrape.scrape(data2))
         nodes.remove(('inet:url', 'https://www.foobar.com/things.html'))
@@ -889,14 +899,20 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('inet:url', 'smb://1:2:3:4:5:6:7:8/share'))
 
     async def test_scrape_async(self):
+        text = 'log4j vuln CVE-2021-44228 is pervasive'
+        ndefs = await s_t_utils.alist(s_scrape.scrapeAsync(text))
+        self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
 
-        with mock.patch('synapse.lib.scrape.SCRAPE_SPAWN_LENGTH', 0):
-            ndefs = await s_t_utils.alist(s_scrape.scrapeAsync('log4j vuln CVE-2021-44228 is pervasive'))
-            self.eq(ndefs, (('it:sec:cve', 'CVE-2021-44228'),))
+        regx = regex.compile('(?P<valu>CVE-[0-9]{4}-[0-9]{4,})(?:[^a-z0-9]|$)')
+        infos = s_scrape._genMatchList(text, regx, {})
+        self.eq(infos, [{'match': 'CVE-2021-44228', 'offset': 11, 'valu': 'CVE-2021-44228'}])
 
-            text = 'endashs are a vulnerability  CVE\u20132022\u20131138 '
-            infos = await s_t_utils.alist(s_scrape.contextScrapeAsync(text))
-            self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
+        text = 'endashs are a vulnerability  CVE\u20132022\u20131138 '
+        infos = await s_t_utils.alist(s_scrape.contextScrapeAsync(text))
+        self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
+
+        infos = s_scrape._contextScrapeList(text)
+        self.eq(infos, [{'match': 'CVE–2022–1138', 'offset': 29, 'valu': 'CVE-2022-1138', 'form': 'it:sec:cve'}])
 
     def test_scrape_sequential(self):
         md5 = ('a' * 32, 'b' * 32,)
@@ -1171,3 +1187,53 @@ class ScrapeTest(s_t_utils.SynTest):
         nodes.remove(('it:sec:cpe', 'cpe:2.3:*:*why*:*:*:*:*:*:*:*:*:*'))
 
         self.len(0, nodes)
+
+    def test_scrape_uris(self):
+
+        nodes = list(s_scrape.scrape('http://vertex.link https://woot.com'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'http://vertex.link'), nodes)
+        self.isin(('inet:url', 'https://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('ftps://files.vertex.link tcp://1.2.3.4:8080'))
+        self.len(5, nodes)
+        self.isin(('inet:url', 'ftps://files.vertex.link'), nodes)
+        self.isin(('inet:url', 'tcp://1.2.3.4:8080'), nodes)
+        self.isin(('inet:fqdn', 'files.vertex.link'), nodes)
+        self.isin(('inet:ip', '1.2.3.4'), nodes)
+        self.isin(('inet:server', '1.2.3.4:8080'), nodes)
+
+        nodes = list(s_scrape.scrape('invalidscheme://vertex.link newp://woot.com'))
+        self.len(2, nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('[https://vertex.link] (http://woot.com)'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'https://vertex.link'), nodes)
+        self.isin(('inet:url', 'http://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('HTTP://vertex.link HTTPS://woot.com'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'HTTP://vertex.link'), nodes)
+        self.isin(('inet:url', 'HTTPS://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('hxxps://vertex[.]link hXXp://woot[.]com'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'https://vertex.link'), nodes)
+        self.isin(('inet:url', 'http://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)
+
+        nodes = list(s_scrape.scrape('hxxp[:]//vertex(.)link hXXps[://]woot[.]com'))
+        self.len(4, nodes)
+        self.isin(('inet:url', 'http://vertex.link'), nodes)
+        self.isin(('inet:url', 'https://woot.com'), nodes)
+        self.isin(('inet:fqdn', 'vertex.link'), nodes)
+        self.isin(('inet:fqdn', 'woot.com'), nodes)

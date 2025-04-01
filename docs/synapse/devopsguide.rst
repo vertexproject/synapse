@@ -1252,13 +1252,13 @@ The Cortex can be configured to log Storm queries executed by users. This is don
 
 When enabled, the log message contains the query text and username::
 
-    2021-06-28 16:17:55,775 [INFO] Executing storm query {inet:ipv4=1.2.3.4} as [root] [cortex.py:_logStormQuery:MainThread:MainProcess]
+    2021-06-28 16:17:55,775 [INFO] Executing storm query {inet:ip=1.2.3.4} as [root] [cortex.py:_logStormQuery:MainThread:MainProcess]
 
 When structured logging is also enabled for a Cortex, the query text, username, and user iden are included as individual
 fields in the logged message as well::
 
     {
-      "message": "Executing storm query {inet:ipv4=1.2.3.4} as [root]",
+      "message": "Executing storm query {inet:ip=1.2.3.4} as [root]",
       "logger": {
         "name": "synapse.storm",
         "process": "MainProcess",
@@ -1267,7 +1267,7 @@ fields in the logged message as well::
       },
       "level": "INFO",
       "time": "2021-06-28 16:18:47,232",
-      "text": "inet:ipv4=1.2.3.4",
+      "text": "inet:ip=1.2.3.4",
       "username": "root",
       "user": "3189065f95d3ab0a6904e604260c0be2"
     }
@@ -1504,8 +1504,8 @@ information about the Extended HTTP API endpoint::
     storm> cortex.httpapi.stat 50cf80d0e332a31608331490cd453103
     Iden: 50cf80d0e332a31608331490cd453103
     Creator: root (b13c21813628ac4464b78b5d7c55cd64)
-    Created: 2023/10/18 14:02:52.070
-    Updated: 2023/10/18 14:07:29.448
+    Created: 2023-10-18T14:02:52.070Z
+    Updated: 2023-10-18T14:07:29.448Z
     Path: demo/([a-z0-9]+)/(.*)
     Owner: root (b13c21813628ac4464b78b5d7c55cd64)
     Runas: owner
@@ -1942,12 +1942,13 @@ inside of a managed Kubernetes cluster managed by Digital Ocean. This deployment
     for your environment.
 
   Aha naming
-    In Kubernetes, we rely on the default naming behavior for services to find the Aha service via DNS, so our Aha name
-    and Aha network should match the internal naming for services in the cluster. The ``aha:network`` value is
-    ``<namespace>.<cluster dns root>``. This DNS root value is normally ``svc.cluster.local``, so the resulting DNS
-    label for the Aha service is ``aha.default.svc.cluster.local``. Similarly, the Aha service is configured to listen
-    on ``0.0.0.0``, since we cannot bind the DNS label provided by Kubernetes prior to the Pod running Aha being
-    available.
+    In Kubernetes, we rely on the default naming behavior for services to find the Aha service via DNS. The Aha service
+    uses a naming convention starting with ``aha`` followed by a two-digit number (e.g., ``aha00``) to support multiple instances.
+    The service's DNS name is configured using the ``SYN_AHA_DNS_NAME`` environment variable, which follows the pattern
+    ``<service-name>.<namespace>.svc.cluster.local``. For example, with the default namespace, the DNS name would be
+    ``aha00.default.svc.cluster.local``. The Aha service will automatically bind on ``0.0.0.0`` since we cannot bind the
+    DNS label provided by Kubernetes prior to the Pod running Aha being available. The ``SYN_AHA_AHA_NETWORK`` value can be
+    set to any desired Certificate Authority name (e.g., ``dev.synapse``) and is used for SSL certificate validation between Synapse services.
 
 Aha
 ^^^
@@ -1964,9 +1965,9 @@ This can be deployed via ``kubectl apply``. That will create the PVC, deployment
 ::
 
     $ kubectl apply -f aha.yaml
-    persistentvolumeclaim/example-aha created
-    deployment.apps/aha created
-    service/aha created
+    persistentvolumeclaim/example-aha00 created
+    deployment.apps/aha00 created
+    service/aha00 created
 
 You can see the startup logs as well:
 
@@ -1974,18 +1975,19 @@ You can see the startup logs as well:
 
 ::
 
-    $ kubectl logs -l app.kubernetes.io/instance=aha
-    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_DMON_LISTEN] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 04:22:02,568 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NAME] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 04:22:02,569 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NETWORK] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 04:22:02,651 [INFO] Adding CA certificate for default.svc.cluster.local [aha.py:initServiceRuntime:MainThread:MainProcess]
-    2023-03-08 04:22:02,651 [INFO] Generating CA certificate for default.svc.cluster.local [aha.py:genCaCert:MainThread:MainProcess]
-    2023-03-08 04:22:06,401 [INFO] Adding server certificate for aha.default.svc.cluster.local [aha.py:initServiceRuntime:MainThread:MainProcess]
-    2023-03-08 04:22:08,879 [INFO] dmon listening: ssl://0.0.0.0?hostname=aha.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
-    2023-03-08 04:22:08,882 [INFO] ...ahacell API (telepath): ssl://0.0.0.0?hostname=aha.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
-    2023-03-08 04:22:08,882 [INFO] ...ahacell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
-
+    $ kubectl logs -l app.kubernetes.io/instance=aha00
+    2025-03-12 20:30:49,620 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2025-03-12 20:30:49,620 [INFO] Starting ahacell version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_DNS_NAME] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:30:49,621 [DEBUG] Set config valu from envar: [SYN_AHA_AHA_NETWORK] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:30:49,637 [INFO] Adding CA certificate for dev.synapse [aha.py:initServiceRuntime:MainThread:MainProcess]
+    2025-03-12 20:30:49,637 [INFO] Generating CA certificate for dev.synapse [aha.py:genCaCert:MainThread:MainProcess]
+    2025-03-12 20:30:49,782 [INFO] Adding user certificate for root@dev.synapse [aha.py:_genUserCert:MainThread:MainProcess]
+    2025-03-12 20:30:50,654 [INFO] dmon listening: ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:30:50,656 [INFO] provision listening: ssl://0.0.0.0:27272?hostname=aha00.default.svc.cluster.local [aha.py:initServiceNetwork:MainThread:MainProcess]
+    2025-03-12 20:30:50,657 [INFO] ...ahacell API (telepath): ssl://0.0.0.0?hostname=aha00.default.svc.cluster.local&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:30:50,657 [INFO] ...ahacell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
 Axon
 ^^^^
@@ -2002,8 +2004,8 @@ like the following:
 
 ::
 
-    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.axon
-    one-time use URL: ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+    $ kubectl exec deployment/aha00 -- python -m synapse.tools.aha.provision.service 00.axon
+    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/405f7b971824071aeb6ef01abca1a2c8?certhash=2fc63156e8fde22dfa805901b11d80d19fac861f6ef3aac86180ad93a8dd77b7
 
 We want to copy that URL into the ``SYN_AXON_AHA_PROVISION`` environment variable, so that block looks like the
 following:
@@ -2013,7 +2015,7 @@ following:
 ::
 
     - name: SYN_AXON_AHA_PROVISION
-      value: "ssl://aha.default.svc.cluster.local:27272/39a33f6e3fa2b512552c2c7770e28d30?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+      value: "ssl://aha00.default.svc.cluster.local:27272/405f7b971824071aeb6ef01abca1a2c8?certhash=2fc63156e8fde22dfa805901b11d80d19fac861f6ef3aac86180ad93a8dd77b7"
 
 This can then be deployed via ``kubectl apply``:
 
@@ -2022,7 +2024,7 @@ This can then be deployed via ``kubectl apply``:
 ::
 
     $ kubectl apply -f axon.yaml
-    persistentvolumeclaim/example-axon00 unchanged
+    persistentvolumeclaim/example-axon00 created
     deployment.apps/axon00 created
 
 You can see the Axon logs as well. These show provisioning and listening for traffic:
@@ -2032,18 +2034,19 @@ You can see the Axon logs as well. These show provisioning and listening for tra
 ::
 
     $ kubectl logs -l app.kubernetes.io/instance=axon00
-    2023-03-08 17:27:44,721 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
-    2023-03-08 17:27:44,722 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:27:44,722 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:27:44,723 [INFO] Provisioning axon from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2023-03-08 17:27:44,833 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:27:44,833 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:27:51,649 [INFO] Done provisioning axon AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2023-03-08 17:27:51,898 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.axon.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
-    2023-03-08 17:27:51,899 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
-    2023-03-08 17:27:51,899 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [INFO] Starting axon version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:56,904 [INFO] Provisioning axon from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:31:56,937 [DEBUG] Set config valu from envar: [SYN_AXON_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:56,937 [DEBUG] Set config valu from envar: [SYN_AXON_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:31:58,273 [INFO] Done provisioning axon AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:31:58,334 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.axon.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:31:58,335 [INFO] ...axon API (telepath): ssl://0.0.0.0:0?hostname=00.axon.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:31:58,335 [INFO] ...axon API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
 
-The hostname ``00.axon.default.svc.cluster.local`` seen in the logs is **not** a DNS label in Kubernetes. That is an
+The hostname ``00.axon.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
 internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
 name that it uses to register with the Aha service.
 
@@ -2063,8 +2066,8 @@ like the following:
 
 ::
 
-    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.jsonstor
-    one-time use URL: ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+    $ kubectl exec deployment/aha00 -- python -m synapse.tools.aha.provision.service 00.jsonstor
+    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/85941d2f2c3ffbe16605cff50d7dfc0d?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591
 
 We want to copy that URL into the ``SYN_JSONSTOR_AHA_PROVISION`` environment variable, so that block looks like the
 following:
@@ -2074,7 +2077,7 @@ following:
 ::
 
     - name: SYN_JSONSTOR_AHA_PROVISION
-      value: "ssl://aha.default.svc.cluster.local:27272/cbe50bb470ba55a5df9287391f843580?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+      value: "ssl://aha00.default.svc.cluster.local:27272/85941d2f2c3ffbe16605cff50d7dfc0d?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591"
 
 
 This can then be deployed via ``kubectl apply``:
@@ -2094,16 +2097,21 @@ You can see the JSONStor logs as well. These show provisioning and listening for
 ::
 
     $ kubectl logs -l app.kubernetes.io/instance=jsonstor00
-    2023-03-08 17:29:15,137 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
-    2023-03-08 17:29:15,137 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:15,138 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:15,140 [INFO] Provisioning jsonstorcell from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2023-03-08 17:29:15,261 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:15,261 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:19,325 [INFO] Done provisioning jsonstorcell AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2023-03-08 17:29:19,966 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.jsonstor.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
-    2023-03-08 17:29:19,966 [INFO] ...jsonstorcell API (telepath): ssl://0.0.0.0:0?hostname=00.jsonstor.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
-    2023-03-08 17:29:19,966 [INFO] ...jsonstorcell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:29,606 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [INFO] Starting jsonstorcell version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:29,607 [INFO] Provisioning jsonstorcell from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:32:29,640 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:29,640 [DEBUG] Set config valu from envar: [SYN_JSONSTOR_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:32:30,570 [INFO] Done provisioning jsonstorcell AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:32:30,633 [INFO] dmon listening: ssl://0.0.0.0:0?hostname=00.jsonstor.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:32:30,635 [INFO] ...jsonstorcell API (telepath): ssl://0.0.0.0:0?hostname=00.jsonstor.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:32:30,635 [INFO] ...jsonstorcell API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+
+The hostname ``00.jsonstor.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
+internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
+name that it uses to register with the Aha service.
 
 Cortex
 ^^^^^^
@@ -2119,8 +2127,8 @@ like the following:
 
 ::
 
-    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.cortex --dmon-port 27492
-    one-time use URL: ssl://aha.default.svc.cluster.local:27272/c06cd588e469a3b7f8a56d98414acf8a?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+    $ kubectl exec deployment/aha00 -- python -m synapse.tools.aha.provision.service 00.cortex --dmon-port 27492
+    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/5aa07a461673424fa19dcf7d5e17f460?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591
 
 We want to copy that URL into the ``SYN_CORTEX_AHA_PROVISION`` environment variable, so that block looks like the
 following:
@@ -2130,7 +2138,7 @@ following:
 ::
 
     - name: SYN_CORTEX_AHA_PROVISION
-      value: "ssl://aha.default.svc.cluster.local:27272/c06cd588e469a3b7f8a56d98414acf8a?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+      value: "ssl://aha00.default.svc.cluster.local:27272/5aa07a461673424fa19dcf7d5e17f460?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591"
 
 
 This can then be deployed via ``kubectl apply``:
@@ -2153,25 +2161,30 @@ made to the Axon and JSONStor services:
 ::
 
     $ kubectl logs -l app.kubernetes.io/instance=cortex00
-    2023-03-08 17:29:16,892 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
-    2023-03-08 17:29:16,893 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:16,893 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:16,894 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:16,896 [INFO] Provisioning cortex from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2023-03-08 17:29:17,008 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:17,009 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:17,009 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:17,010 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:17,010 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
-    2023-03-08 17:29:20,356 [INFO] Done provisioning cortex AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
-    2023-03-08 17:29:21,077 [INFO] dmon listening: ssl://0.0.0.0:27492?hostname=00.cortex.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initServiceNetwork:MainThread:MainProcess]
-    2023-03-08 17:29:21,078 [INFO] ...cortex API (telepath): ssl://0.0.0.0:27492?hostname=00.cortex.default.svc.cluster.local&ca=default.svc.cluster.local [cell.py:initFromArgv:MainThread:MainProcess]
-    2023-03-08 17:29:21,078 [INFO] ...cortex API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
-    2023-03-08 17:29:21,082 [DEBUG] Connected to remote axon aha://axon... [cortex.py:onlink:MainThread:MainProcess]
-    2023-03-08 17:29:21,174 [DEBUG] Connected to remote jsonstor aha://jsonstor... [cortex.py:onlink:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [INFO] log level set to DEBUG [common.py:setlogging:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [INFO] Starting cortex version 2.202.0, Synapse version: 2.202.0 [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:52,998 [INFO] Provisioning cortex from AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_AXON] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_JSONSTOR] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_STORM_LOG] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_HTTPS_PORT] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:53,030 [DEBUG] Set config valu from envar: [SYN_CORTEX_AHA_PROVISION] [config.py:setConfFromEnvs:MainThread:MainProcess]
+    2025-03-12 20:33:55,169 [INFO] Done provisioning cortex AHA service. [cell.py:_bootCellProv:MainThread:MainProcess]
+    2025-03-12 20:33:55,533 [WARNING] Detected 255 deprecated properties unlocked and not in use, recommend locking (https://v.vtx.lk/deprlock). [cortex.py:_warnDeprLocks:MainThread:MainProcess]
+    2025-03-12 20:33:55,660 [INFO] dmon listening: ssl://0.0.0.0:27492?hostname=00.cortex.dev.synapse&ca=dev.synapse [cell.py:_bindDmonListen:MainThread:MainProcess]
+    2025-03-12 20:33:55,661 [INFO] ...cortex API (telepath): ssl://0.0.0.0:27492?hostname=00.cortex.dev.synapse&ca=dev.synapse [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:33:55,661 [INFO] ...cortex API (https): disabled [cell.py:initFromArgv:MainThread:MainProcess]
+    2025-03-12 20:33:55,664 [DEBUG] Connected to remote axon aha://axon... [cortex.py:onlink:MainThread:MainProcess]
+    2025-03-12 20:33:55,697 [DEBUG] Connected to remote jsonstor aha://jsonstor... [cortex.py:onlink:MainThread:MainProcess]
 
+The hostname ``00.cortex.dev.synapse`` seen in the logs is **not** a DNS label in Kubernetes. That is an
+internal label used by the service to resolve SSL certificates that it provisioned with the Aha service, and as the
+name that it uses to register with the Aha service.
 
 CLI Tooling Example
 ^^^^^^^^^^^^^^^^^^^
@@ -2197,8 +2210,8 @@ Then we need to generate a user provisioning URL:
 
 ::
 
-    $ kubectl exec -it deployment/aha -- python -m synapse.tools.aha.provision.user visi
-    one-time use URL: ssl://aha.default.svc.cluster.local:27272/5d67f84c279afa240062d2f3b32fdb99?certhash=e32d0e1da01b5eb0cefd4c107ddc8c8221a9a39bce25dea04f469c6474d84a23
+    $ kubectl exec -it deployment/aha00 -- python -m synapse.tools.aha.provision.user visi
+    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/95e9d45d9b0f0b259026f6044a26f1de?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591
 
 Port-forward the AHA provisioning service to your local environment:
 
@@ -2206,18 +2219,18 @@ Port-forward the AHA provisioning service to your local environment:
 
 ::
 
-    $ kubectl port-forward service/aha 27272:provisioning
+    $ kubectl port-forward service/aha00 27272:provisioning
 
 Run the enroll tool to create a user certificate pair and have it signed by the Aha service. We replace the service DNS
-name of ``aha.default.svc.cluster.local`` with ``localhost`` in this example.
+name of ``aha00.default.svc.cluster.local`` with ``localhost`` in this example.
 
 .. highlight:: bash
 
 ::
 
-    $ python -m synapse.tools.aha.enroll ssl://localhost:27272/5d67f84c279afa240062d2f3b32fdb99?certhash=e32d0e1da01b5eb0cefd4c107ddc8c8221a9a39bce25dea04f469c6474d84a23
-    Saved CA certificate: /home/visi/.syn/certs/cas/default.svc.cluster.local.crt
-    Saved user certificate: /home/visi/.syn/certs/users/visi@default.svc.cluster.local.crt
+    $ python -m synapse.tools.aha.enroll ssl://localhost:27272/95e9d45d9b0f0b259026f6044a26f1de?certhash=e88f51ea894c9606fd610c4d46a46026fd25575d7f9851ea8b0ade4963207591
+    Saved CA certificate: /home/visi/.syn/certs/cas/dev.synapse.crt
+    Saved user certificate: /home/visi/.syn/certs/users/visi@dev.synapse.crt
     Updating known AHA servers
 
 The Aha service port-forward can be disabled, and replaced with a port-forward for the Cortex service:
@@ -2229,13 +2242,13 @@ The Aha service port-forward can be disabled, and replaced with a port-forward f
     kubectl port-forward service/cortex 27492:telepath
 
 Then connect to the Cortex via the Storm CLI, using the URL
-``ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local``.
+``ssl://visi@localhost:27492/?hostname=00.cortex.dev.synapse``.
 
 .. highlight:: bash
 
 ::
 
-    $ python -m synapse.tools.storm "ssl://visi@localhost:27492/?hostname=00.cortex.default.svc.cluster.local"
+    $ python -m synapse.tools.storm "ssl://visi@localhost:27492/?hostname=00.cortex.dev.synapse"
 
     Welcome to the Storm interpreter!
 
@@ -2245,7 +2258,21 @@ Then connect to the Cortex via the Storm CLI, using the URL
 
     storm>
 
-The Storm CLI tool can then be used to run Storm commands.
+The Storm CLI tool can now be used to run Storm commands. We can validate our work from earlier by running the Storm
+command ``aha.svc.list`` to list the services that are registered with the Aha service:
+
+.. highlight:: bash
+
+::
+
+    storm> aha.svc.list
+    Name                                          Leader Online Ready Host            Port
+    00.axon.dev.synapse                           true   true   true  10.244.0.10     38417
+    00.cortex.dev.synapse                         true   true   true  10.244.0.12     27492
+    00.jsonstor.dev.synapse                       true   true   true  10.244.0.11     45681
+    axon.dev.synapse                              true   true   true  10.244.0.10     38417
+    cortex.dev.synapse                            true   true   true  10.244.0.12     27492
+    jsonstor.dev.synapse                          true   true   true  10.244.0.11     45681
 
 Commercial Components
 ^^^^^^^^^^^^^^^^^^^^^
@@ -2273,8 +2300,8 @@ like the following:
 
 ::
 
-    $ kubectl exec deployment/aha -- python -m synapse.tools.aha.provision.service 00.optic
-    one-time use URL: ssl://aha.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
+    $ kubectl exec deployment/aha00 -- python -m synapse.tools.aha.provision.service 00.optic
+    one-time use URL: ssl://aha00.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f
 
 We want to copy that URL into the ``SYN_OPTIC_AHA_PROVISION`` environment variable, so that block looks like the
 following:
@@ -2284,7 +2311,7 @@ following:
 ::
 
     - name: SYN_OPTIC_AHA_PROVISION
-      value: "ssl://aha.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
+      value: "ssl://aha00.default.svc.cluster.local:27272/3f692cda9dfb152f74a8a0251165bcc4?certhash=09c8329ed29b89b77e0a2fdc23e64aea407ad4d7e71d67d3fea92ddd9466592f"
 
 
 This can then be deployed via ``kubectl apply``:

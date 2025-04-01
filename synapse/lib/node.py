@@ -14,21 +14,35 @@ logger = logging.getLogger(__name__)
 
 class NodeBase:
 
-    def repr(self, name=None, defv=None):
+    def repr(self, name=None, defv=None, virts=None):
 
         if name is None:
-            return self.form.type.repr(self.ndef[1])
+            typeitem = self.form.type
+            if virts is None:
+                return typeitem.repr(self.valu())
+
+            virtgetr = typeitem.getVirtGetr(virts)
+            virttype = typeitem.getVirtType(virts)
+            return virttype.repr(self.valu(virts=virtgetr))
 
         prop = self.form.props.get(name)
         if prop is None:
             mesg = f'No property named {name}.'
             raise s_exc.NoSuchProp(mesg=mesg, form=self.form.name, prop=name)
 
-        valu = self.get(name)
-        if valu is None:
-            return defv
+        typeitem = prop.type
 
-        return prop.type.repr(valu)
+        if virts is None:
+            if (valu := self.get(name)) is None:
+                return defv
+            return typeitem.repr(valu)
+
+        virtgetr = typeitem.getVirtGetr(virts)
+        virttype = typeitem.getVirtType(virts)
+
+        if (valu := self.get(name, virts=virtgetr)) is None:
+            return defv
+        return virttype.repr(valu)
 
     def reprs(self):
         '''
@@ -121,6 +135,12 @@ class NodeBase:
     def getTagNames(self):
         return ()
 
+    async def getStorNodes(self):
+        return ()
+
+    def getByLayer(self):
+        return {}
+
 class Node(NodeBase):
     '''
     A Cortex hypergraph node.
@@ -194,11 +214,11 @@ class Node(NodeBase):
     def __repr__(self):
         return f'Node{{{self.pack()}}}'
 
-    async def addEdge(self, verb, n2nid, n2form=None):
+    async def addEdge(self, verb, n2nid, n2form=None, extra=None):
         async with self.view.getNodeEditor(self) as editor:
             return await editor.addEdge(verb, n2nid, n2form=n2form)
 
-    async def delEdge(self, verb, n2nid):
+    async def delEdge(self, verb, n2nid, extra=None):
         async with self.view.getNodeEditor(self) as editor:
             return await editor.delEdge(verb, n2nid)
 
@@ -251,6 +271,9 @@ class Node(NodeBase):
     def iden(self):
         return s_common.ehex(self.buid)
 
+    def intnid(self):
+        return s_common.int64un(self.nid)
+
     def pack(self, dorepr=False):
         '''
         Return the serializable/packed version of the node.
@@ -263,6 +286,7 @@ class Node(NodeBase):
         '''
 
         pode = (self.ndef, {
+            'nid': s_common.int64un(self.nid),
             'iden': self.iden(),
             'tags': self._getTagsDict(),
             'props': self.getProps(),
@@ -290,10 +314,12 @@ class Node(NodeBase):
             if prop is None:
                 return None
 
-            if prop.modl.form(prop.type.name) is None:
+            if prop.modl.form(prop.type.name) is not None:
+                buid = s_common.buid((prop.type.name, valu))
+            elif prop.type.name == 'ndef':
+                buid = s_common.buid(valu)
+            else:
                 return None
-
-            buid = s_common.buid((prop.type.name, valu))
 
             step = cache.get(buid, s_common.novalu)
             if step is s_common.novalu:
@@ -317,7 +343,7 @@ class Node(NodeBase):
             embdnode = retn.get(nodepath)
             if embdnode is None:
                 embdnode = retn[nodepath] = {}
-                embdnode['*'] = s_common.ehex(node.buid)
+                embdnode['*'] = s_common.int64un(node.nid)
 
             for relp in relprops:
                 embdnode[relp] = node.get(relp)
@@ -382,7 +408,7 @@ class Node(NodeBase):
         async with self.view.getNodeEditor(self) as editor:
             return await editor.set(name, valu)
 
-    def has(self, name):
+    def has(self, name, virts=None):
 
         for sode in self.sodes:
             if sode.get('antivalu') is not None:
@@ -395,7 +421,11 @@ class Node(NodeBase):
             if props is None:
                 continue
 
-            if props.get(name) is not None:
+            if (valt := props.get(name)) is not None:
+                if virts:
+                    for virt in virts:
+                        if (valt := virt(valt)) is None:
+                            return False
                 return True
 
         return False
@@ -425,7 +455,32 @@ class Node(NodeBase):
 
         return False
 
-    def get(self, name, defv=None):
+    def valu(self, defv=None, virts=None):
+        if virts is None:
+            return self.ndef[1]
+
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defv
+
+            if (valu := sode.get('valu')) is not None:
+                for virt in virts:
+                    valu = virt(valu)
+                return valu
+
+        return defv
+
+    def valuvirts(self, defv=None):
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defv
+
+            if (valu := sode.get('valu')) is not None:
+                return valu[-1]
+
+        return defv
+
+    def get(self, name, defv=None, virts=None):
         '''
         Return a secondary property or tag value from the Node.
 
@@ -449,6 +504,10 @@ class Node(NodeBase):
                 continue
 
             if (valt := item.get(name)) is not None:
+                if virts:
+                    for virt in virts:
+                        valt = virt(valt)
+                    return valt
                 return valt[0]
 
         return defv
@@ -939,29 +998,43 @@ class RuntNode(NodeBase):
     Runtime node instances are a separate class to minimize isrunt checking in
     real node code.
     '''
-    def __init__(self, view, pode):
+    def __init__(self, view, pode, nid=None):
         self.view = view
         self.ndef = pode[0]
         self.pode = pode
         self.buid = s_common.buid(self.ndef)
         self.form = view.core.model.form(self.ndef[0])
 
-        self.nid = None
+        self.nid = nid
 
-    def get(self, name, defv=None):
+    def get(self, name, defv=None, virts=None):
         return self.pode[1]['props'].get(name, defv)
 
-    def has(self, name):
+    def has(self, name, virts=None):
         return self.pode[1]['props'].get(name) is not None
 
     def iden(self):
         return s_common.ehex(s_common.buid(self.ndef))
+
+    def intnid(self):
+        if self.nid is None:
+            return None
+        return s_common.int64un(self.nid)
 
     def pack(self, dorepr=False):
         pode = s_msgpack.deepcopy(self.pode)
         if dorepr:
             self._addPodeRepr(pode)
         return pode
+
+    def valu(self, defv=None, virts=None):
+        valu = self.ndef[1]
+        if virts is None:
+            return valu
+
+        for virt in virts:
+            valu = virt((valu,))
+        return valu
 
     async def set(self, name, valu):
         prop = self._reqValidProp(name)
@@ -976,13 +1049,21 @@ class RuntNode(NodeBase):
         mesg = f'You can not add a tag to a runtime only node (form: {self.form.name})'
         raise s_exc.IsRuntForm(mesg=mesg)
 
-    async def addEdge(self, verb, n2nid):
+    async def addEdge(self, verb, n2nid, n2form=None, extra=None):
         mesg = f'You can not add an edge to a runtime only node (form: {self.form.name})'
-        raise s_exc.IsRuntForm(mesg=mesg)
+        exc = s_exc.IsRuntForm(mesg=mesg)
+        if extra is not None:
+            exc = extra(exc)
 
-    async def delEdge(self, verb, n2nid):
+        raise exc
+
+    async def delEdge(self, verb, n2nid, extra=None):
         mesg = f'You can not delete an edge from a runtime only node (form: {self.form.name})'
-        raise s_exc.IsRuntForm(mesg=mesg)
+        exc = s_exc.IsRuntForm(mesg=mesg)
+        if extra is not None:
+            exc = extra(exc)
+
+        raise exc
 
     async def delTag(self, name, valu=None):
         mesg = f'You can not remove a tag from a runtime only node (form: {self.form.name})'
@@ -1084,7 +1165,7 @@ class Path:
 
         links = list(self.links)
         if self.node is not None and link is not None:
-            links.append((self.node.iden(), link))
+            links.append((self.node.intnid(), link))
 
         nodes = list(self.nodes)
         nodes.append(node)

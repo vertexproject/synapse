@@ -1,6 +1,5 @@
 import os
 import ssl
-import json
 import socket
 import asyncio
 import logging
@@ -19,6 +18,7 @@ import synapse.telepath as s_telepath
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
 import synapse.lib.link as s_link
+import synapse.lib.const as s_const
 import synapse.lib.share as s_share
 import synapse.lib.certdir as s_certdir
 import synapse.lib.version as s_version
@@ -53,6 +53,9 @@ class Beep:
     def beep(self):
         return f'{self.path}: beep'
 
+    def genbeep(self):
+        yield self.beep()
+
 class Foo:
 
     def __init__(self):
@@ -67,6 +70,10 @@ class Foo:
 
     def echo(self, x):
         return x
+
+    def echosize(self, array: list[bytes]):
+        total = sum([len(bytz) for bytz in array])
+        return total
 
     def speed(self):
         return
@@ -133,6 +140,9 @@ class TeleApi:
     def getFooBar(self, x, y):
         return x - y
 
+    def genGetFooBar(self, x, y):
+        yield self.getFooBar(x, y)
+
     async def customshare(self):
         return await CustomShare.anit(self.link, 42)
 
@@ -154,6 +164,11 @@ class TeleAware(s_telepath.Aware):
             return TeleApi(self, link)
 
         return self._initBeep(path[0])
+
+    async def getTeleFeats(self):
+        return {
+            'aware': 1,
+        }
 
 class TeleAuth(s_telepath.Aware):
 
@@ -230,11 +245,13 @@ class TeleTest(s_t_utils.SynTest):
             # Add an additional prox.fini handler.
             prox.onfini(evt.set)
 
-            # check a standard return value
-            self.eq(30, await prox.bar(10, 20))
+            with mock.patch('synapse.lib.link.MAXWRITE', 2):
 
-            # check a coroutine return value
-            self.eq(25, await prox.corovalu(10, 5))
+                # check a standard return value
+                self.eq(30, await prox.bar(10, 20))
+
+                # check a coroutine return value
+                self.eq(25, await prox.corovalu(10, 5))
 
             # check a generator return channel
             genr = await prox.genr()
@@ -285,6 +302,10 @@ class TeleTest(s_t_utils.SynTest):
             link = s_glob.sync(proxy.getPoolLink())
             link.onfini(evt.set)
             s_glob.sync(proxy._putPoolLink(link))
+
+            # Grab the fresh link from the pool so our original link is up next again
+            link2 = s_glob.sync(proxy.getPoolLink())
+            s_glob.sync(proxy._putPoolLink(link2))
 
             q = f'{form} | sleep 0.1'
 
@@ -564,7 +585,15 @@ class TeleTest(s_t_utils.SynTest):
                 self.len(1, snfo)
                 self.eq(snfo[0].get('items'), {None: 'synapse.tests.test_telepath.TeleApi'})
 
+                self.true(proxy._hasTeleFeat('aware'))
+                self.false(proxy._hasTeleFeat('aware', vers=2))
+                self.false(proxy._hasTeleFeat('newp'))
+
+                self.true(proxy._hasTeleMeth('getFooBar'))
+                self.false(proxy._hasTeleMeth('getBarBaz'))
+
                 self.eq(10, await proxy.getFooBar(20, 10))
+                self.eq([10], [m async for m in await proxy.genGetFooBar(20, 10)])
 
                 # check a custom share works
                 obj = await proxy.customshare()
@@ -606,7 +635,14 @@ class TeleTest(s_t_utils.SynTest):
 
             # check that a dynamic share works
             async with await self.getTestProxy(dmon, 'woke/up') as proxy:
+                self.isin('synapse.tests.test_telepath.Beep', proxy._getClasses())
+                self.notin('synapse.tests.test_telepath.TeleApi', proxy._getClasses())
                 self.eq('up: beep', await proxy.beep())
+                self.eq(['up: beep'], [m async for m in await proxy.genbeep()])
+                # Telepath features are a function of the base object, not the result of getTeleApi
+                self.true(proxy._hasTeleFeat('aware'))
+                self.false(proxy._hasTeleFeat('aware', vers=2))
+                self.false(proxy._hasTeleFeat('newp'))
 
     async def test_telepath_auth(self):
 
@@ -841,7 +877,6 @@ class TeleTest(s_t_utils.SynTest):
 
             # Validate the Proxy behavior then the client override
             prox = await s_telepath.openurl(url)  # type: Foo
-            prox._link_poolsize = 2
 
             # Start with no links
             self.len(0, prox.links)
@@ -853,53 +888,72 @@ class TeleTest(s_t_utils.SynTest):
             genr = await prox.genr()  # type: s_coro.GenrHelp
             self.eq(await genr.genr.__anext__(), 10)
 
-            # The link is being used by the genr
-            self.len(0, prox.links)
+            # A new link is in the pool
+            self.len(1, prox.links)
 
-            # and upon exhuastion, that link is put back
+            # and upon exhuastion, the first link is put back
             self.eq(await genr.list(), (20, 30))
-            self.len(1, prox.links)
-            self.true(prox.links[0] is l0)
+            self.len(2, prox.links)
+            self.true(prox.links[1] is l0)
 
-            # Grab the existing link, then do two more calls
-            genr0 = await prox.genr()  # contains l0
-            genr1 = await prox.genr()
-            genr2 = await prox.genr()
-            self.len(0, prox.links)
-            # Consume two of the three generators
-            self.eq(await genr2.list(), (10, 20, 30))
-            self.len(1, prox.links)
-            self.eq(await genr1.list(), (10, 20, 30))
+            # Grabbing a link will still spin up another since we are below low watermark
+            genr = await prox.genr()  # type: s_coro.GenrHelp
+            self.eq(await genr.genr.__anext__(), 10)
+
             self.len(2, prox.links)
-            # Exhausting the lsat generator results in his
-            # link not being placed back into the pool
-            self.eq(await genr0.list(), (10, 20, 30))
-            self.len(2, prox.links)
-            links = set(lnk for lnk in prox.links)
-            self.notin(l0, links)
-            # And that link l0 has been fini'd
-            self.true(l0.isfini)
+
+            self.eq(await genr.list(), (20, 30))
+            self.len(3, prox.links)
+
+            # Fill up pool above low watermark
+            genrs = [await prox.genr() for _ in range(2)]
+            [await genr.list() for genr in genrs]
+            self.len(5, prox.links)
+
+            # Grabbing a link no longer spins up a replacement
+            genr = await prox.genr()  # type: s_coro.GenrHelp
+            self.eq(await genr.genr.__anext__(), 10)
+            self.len(4, prox.links)
+
+            self.eq(await genr.list(), (20, 30))
+            self.len(5, prox.links)
 
             # Tear down a link by hand and place it back
             # into the pool - that will fail b/c the link
             # has been down down.
             l1 = await prox.getPoolLink()
-            self.len(1, prox.links)
+            self.len(4, prox.links)
             await l1.fini()
             await prox._putPoolLink(l1)
-            self.len(1, prox.links)
+            self.len(4, prox.links)
 
             # And all our links are torn down on fini
             await prox.fini()
-            self.len(1, prox.links)
-            for link in prox.links:
-                self.true(link.isfini)
+            self.len(4, prox.links)
+            for link in list(prox.links):
+                self.true(await link.waitfini(1))
+            self.len(0, prox.links)
 
-            # The telepath Client passes through this value as a configuration parameter
-            conf = {'link_poolsize': 2, 'timeout': 2}
-            async with await s_telepath.Client.anit(url, conf=conf) as client:
-                await client.waitready()
-                self.true(client._t_proxy._link_poolsize, 2)
+        with mock.patch('synapse.telepath.LINK_CULL_INTERVAL', 1):
+            async with self.getTestDmon() as dmon:
+                dmon.share('foo', foo)
+                url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
+
+                prox = await s_telepath.openurl(url)
+
+                # Fill up pool above high watermark
+                genrs = [await prox.genr() for _ in range(13)]
+                [await genr.list() for genr in genrs]
+                self.len(13, prox.links)
+
+                # Add a fini'd proxy for coverage
+                prox2 = await s_telepath.openurl(url)
+                await prox2.fini()
+                prox2._all_proxies.add(prox2)
+
+                wait = prox.waiter(1, 'pool:link:fini')
+                self.len(1, await wait.wait(timeout=5))
+                self.len(12, prox.links)
 
     async def test_link_fini_breaking_tasks(self):
         foo = Foo()
@@ -943,51 +997,6 @@ class TeleTest(s_t_utils.SynTest):
             await prox.fini()
 
             await self.asyncraises(s_exc.LinkShutDown, task)
-
-    async def test_telepath_pipeline(self):
-
-        foo = Foo()
-        async with self.getTestDmon() as dmon:
-
-            dmon.share('foo', foo)
-
-            async def genr():
-                yield s_common.todo('bar', 10, 30)
-                yield s_common.todo('bar', 20, 30)
-                yield s_common.todo('bar', 30, 30)
-
-            url = f'tcp://127.0.0.1:{dmon.addr[1]}/foo'
-            async with await s_telepath.openurl(url) as proxy:
-
-                self.eq(20, await proxy.bar(10, 10))
-                self.eq(1, len(proxy.links))
-
-                vals = []
-                async for retn in proxy.getPipeline(genr()):
-                    vals.append(s_common.result(retn))
-
-                self.eq(vals, (40, 50, 60))
-
-                self.eq(1, len(proxy.links))
-                self.eq(160, await proxy.bar(80, 80))
-
-                async def boomgenr():
-                    yield s_common.todo('bar', 10, 30)
-                    raise s_exc.NoSuchIden()
-
-                with self.raises(s_exc.NoSuchIden):
-                    async for retn in proxy.getPipeline(boomgenr()):
-                        pass
-
-                # This test must remain at the end of the with block
-                async def sleeper():
-                    yield s_common.todo('bar', 10, 30)
-                    await asyncio.sleep(3)
-
-                with self.raises(s_exc.LinkShutDown):
-                    async for retn in proxy.getPipeline(sleeper()):
-                        vals.append(s_common.result(retn))
-                        await proxy.fini()
 
     async def test_telepath_client_onlink_exc(self):
 
@@ -1166,7 +1175,7 @@ class TeleTest(s_t_utils.SynTest):
                 self.isin('synapse.tests.test_telepath.Foo', proxy._getClasses())
                 self.eq(await proxy.echo('oh hi mark!'), 'oh hi mark!')
 
-    async def test_tls_ciphers(self):
+    async def test_tls_support_and_ciphers(self):
 
         self.thisHostMustNot(platform='darwin')
 
@@ -1187,6 +1196,18 @@ class TeleTest(s_t_utils.SynTest):
             # Ensure tls listener is working before trying downgraded versions
             async with await s_telepath.openurl(f'ssl://{hostname}/foo', port=port) as prox:
                 self.eq(30, await prox.bar(10, 20))
+
+                # This will generate a large msgpack object which can cause
+                # openssl to have malloc failures. Prior to the write chunking
+                # changes, this would cause a generally fatal error to any
+                # processes which rely on the calls work, such as mirror loops.
+                blob = b'V' * s_const.mebibyte * 256
+                nblobs = 8
+                total = nblobs * len(blob)
+                blobarray = []
+                for i in range(nblobs):
+                    blobarray.append(blob)
+                self.eq(await prox.echosize(blobarray), total)
 
             sslctx = ssl.SSLContext(protocol=ssl.PROTOCOL_TLSv1)
             with self.raises((ssl.SSLError, ConnectionResetError)):

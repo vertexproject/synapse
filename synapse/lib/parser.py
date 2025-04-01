@@ -6,6 +6,7 @@ import lark  # type: ignore
 import regex  # type: ignore
 
 import synapse.exc as s_exc
+import synapse.common as s_common
 
 import synapse.lib.ast as s_ast
 import synapse.lib.coro as s_coro
@@ -26,8 +27,8 @@ terminalEnglishMap = {
     'BASEPROP': 'base property name',
     'BOOL': 'boolean',
     'BREAK': 'break',
-    'BYNAME': 'named comparison operator',
-    'BYNAMECMPR': 'named comparison operator',
+    'BYNAME': 'named comparison operator name',
+    'BYNAMECMPR': 'named comparison operator cmpr',
     'CATCH': 'catch',
     'CASEBARE': 'case value',
     'CCOMMENT': 'C comment',
@@ -47,6 +48,7 @@ terminalEnglishMap = {
     'DOT': '.',
     'DOUBLEQUOTEDSTRING': 'double-quoted string',
     'ELIF': 'elif',
+    'EMBEDPROPS': 'absolute property name with embed properties',
     'EQNOSPACE': '=',
     'EQSPACE': '=',
     'EQUAL': '=',
@@ -72,8 +74,9 @@ terminalEnglishMap = {
     'LSQB': '[',
     'MCASEBARE': 'case multi-value',
     'MODSET': '+= or -=',
+    'MODSETMULTI': '++= or --=',
     'NONQUOTEWORD': 'unquoted value',
-    'NOT': 'not',
+    'NOTOP': 'not',
     'NULL': 'null',
     'NUMBER': 'number',
     'OCTNUMBER': 'number',
@@ -92,12 +95,14 @@ terminalEnglishMap = {
     'TRY': 'try',
     'TRIPLEQUOTEDSTRING': 'triple-quoted string',
     'TRYSET': '?=',
-    'TRYSETPLUS': '?+=',
-    'TRYSETMINUS': '?-=',
+    'TRYMODSET': '?+= or ?-=',
+    'TRYMODSETMULTI': '?++= or ?--=',
     'UNIVNAME': 'universal property',
+    'UNSET': 'unset',
     'EXPRUNIVNAME': 'universal property',
     'VARTOKN': 'variable',
     'EXPRVARTOKN': 'variable',
+    'VIRTNAME': 'virtual prop name',
     'VBAR': '|',
     'WHILE': 'while',
     'WHITETOKN': 'An unquoted string terminated by whitespace',
@@ -106,6 +111,7 @@ terminalEnglishMap = {
     'WILDTAGSEGNOVAR': 'tag segment potentially with asterisks',
     'YIELD': 'yield',
     '_ARRAYCONDSTART': '*[',
+    '_BYVIRT': '*',
     '_COLONDOLLAR': ':$',
     '_COLONNOSPACE': ':',
     '_DEREF': '*',
@@ -131,6 +137,7 @@ terminalEnglishMap = {
     '_LPARNOSPACE': '(',
     '_MATCHHASH': '#',
     '_MATCHHASHWILD': '#',
+    '_NOT': 'not',
     '_RETURN': 'return',
     '_REVERSE': 'reverse',
     '_RIGHTJOIN': '-+>',
@@ -157,7 +164,7 @@ class AstConverter(lark.Transformer):
 
         # Keep the original text for error printing and weird subquery argv parsing
         self.text = text
-        self.texthash = hashlib.md5(text.encode(errors='surrogatepass'), usedforsecurity=False).hexdigest()
+        self.texthash = s_common.queryhash(text)
 
     def metaToAstInfo(self, meta, isterm=False):
         if isinstance(meta, lark.tree.Meta) and meta.empty:
@@ -247,9 +254,14 @@ class AstConverter(lark.Transformer):
     @lark.v_args(meta=True)
     def embedquery(self, meta, kids):
         assert len(kids) == 1
-        astinfo = self.metaToAstInfo(meta)
-        text = kids[0].getAstText()
-        return s_ast.EmbedQuery(kids[0].astinfo, text, kids=kids)
+        astinfo = AstInfo(self.text,
+            meta.start_pos + 2, meta.end_pos - 1,
+            meta.line, meta.end_line,
+            meta.column, meta.end_column, False)
+
+        kids[0].astinfo = astinfo
+
+        return s_ast.EmbedQuery(astinfo, kids[0].getAstText(), kids=kids)
 
     @lark.v_args(meta=True)
     def funccall(self, meta, kids):
@@ -300,20 +312,6 @@ class AstConverter(lark.Transformer):
         kids = self._convert_children(kids)
         astinfo = self.metaToAstInfo(meta)
         return s_ast.VarList(astinfo, [k.valu for k in kids])
-
-    @lark.v_args(meta=True)
-    def operrelprop_pivot(self, meta, kids, isjoin=False):
-        kids = self._convert_children(kids)
-        astinfo = self.metaToAstInfo(meta)
-        relprop, rest = kids[0], kids[1:]
-        if not rest:
-            return s_ast.PropPivotOut(astinfo, kids=kids, isjoin=isjoin)
-        pval = s_ast.RelPropValue(astinfo, kids=(relprop,))
-        return s_ast.PropPivot(astinfo, kids=(pval, *kids[1:]), isjoin=isjoin)
-
-    @lark.v_args(meta=True)
-    def operrelprop_join(self, meta, kids):
-        return self.operrelprop_pivot(meta, kids, isjoin=True)
 
     @lark.v_args(meta=True)
     def stormcmdargs(self, meta, kids):
@@ -470,7 +468,8 @@ class AstConverter(lark.Transformer):
     def byname(self, meta, kids):
         kids = self._convert_children(kids)
         astinfo = self.metaToAstInfo(meta)
-        return s_ast.ByNameCmpr(astinfo, kids[0].valu + kids[1].valu, kids)
+        names = [kid.valu for kid in kids[:-1]]
+        return s_ast.ByNameCmpr(astinfo, (names, kids[-1].valu), kids)
 
 with s_datfile.openDatFile('synapse.lib/storm.lark') as larkf:
     _grammar = larkf.read().decode()
@@ -494,18 +493,28 @@ class Parser:
         Convert lark exception to synapse BadSyntax exception
         '''
         mesg = regex.split('[\n]', str(e))[0]
-        at = len(self.text)
-        line = None
-        column = None
+        soff = eoff = len(self.text)
+        sline = eline = None
+        scol = ecol = None
         token = None
         if isinstance(e, lark.exceptions.UnexpectedToken):
             expected = sorted(set(terminalEnglishMap[t] for t in e.expected))
-            at = e.pos_in_stream
-            line = e.line
-            column = e.column
             token = e.token.value
-            valu = terminalEnglishMap.get(e.token.type, e.token.value)
-            mesg = f"Unexpected token '{valu}' at line {line}, column {column}," \
+            soff = e.pos_in_stream
+            eoff = soff + len(token)
+
+            lines = token.splitlines()
+            sline = e.line
+            eline = sline + len(lines) - 1
+
+            scol = e.column
+            if len(lines) > 1:
+                ecol = len(lines[-1])
+            else:
+                ecol = scol + len(token)
+
+            valu = terminalEnglishMap.get(e.token.type, token)
+            mesg = f"Unexpected token '{valu}' at line {sline}, column {scol}," \
                    f' expecting one of: {", ".join(expected)}'
 
         elif isinstance(e, lark.exceptions.VisitError):
@@ -513,22 +522,29 @@ class Parser:
             origexc = e.orig_exc
             if not isinstance(origexc, s_exc.SynErr):
                 raise e.orig_exc # pragma: no cover
-            origexc.errinfo['text'] = self.text
+            origexc.set('text', self.text)
             return s_exc.BadSyntax(**origexc.errinfo)
 
         elif isinstance(e, lark.exceptions.UnexpectedCharacters):  # pragma: no cover
             expected = sorted(set(terminalEnglishMap[t] for t in e.allowed))
             mesg += f'.  Expecting one of: {", ".join(expected)}'
-            at = e.pos_in_stream
-            line = e.line
-            column = e.column
+            soff = eoff = e.pos_in_stream
+            sline = eline = e.line
+            scol = ecol = e.column
         elif isinstance(e, lark.exceptions.UnexpectedEOF):  # pragma: no cover
             expected = sorted(set(terminalEnglishMap[t] for t in e.expected))
             mesg += ' ' + ', '.join(expected)
-            line = e.line
-            column = e.column
+            sline = eline = e.line
+            scol = ecol = e.column
 
-        return s_exc.BadSyntax(at=at, text=self.text, mesg=mesg, line=line, column=column, token=token)
+        highlight = {
+            'hash': s_common.queryhash(self.text),
+            'lines': (sline, eline),
+            'columns': (scol, ecol),
+            'offsets': (soff, eoff),
+        }
+        return s_exc.BadSyntax(at=soff, text=self.text, mesg=mesg, line=sline,
+                               column=scol, token=token, highlight=highlight)
 
     def eval(self):
         try:
@@ -648,6 +664,9 @@ ruleClassMap = {
     'andexpr': s_ast.AndCond,
     'baresubquery': s_ast.SubQuery,
     'catchblock': s_ast.CatchBlock,
+    'cmpr': lambda astinfo, kids: s_ast.Cmpr(astinfo, kids[0].valu),
+    'condsetoper': s_ast.CondSetOper,
+    'condtrysetoper': lambda astinfo, kids: s_ast.CondSetOper(astinfo, kids, errok=True),
     'condsubq': s_ast.SubqCond,
     'dollarexpr': s_ast.DollarExpr,
     'edgeaddn1': s_ast.EditEdgeAdd,
@@ -663,6 +682,8 @@ ruleClassMap = {
     'formname': s_ast.FormName,
     'editpropdel': lambda astinfo, kids: s_ast.EditPropDel(astinfo, kids[1:]),
     'editpropset': s_ast.EditPropSet,
+    'editcondpropset': s_ast.EditCondPropSet,
+    'editpropsetmulti': s_ast.EditPropSetMulti,
     'edittagadd': s_ast.EditTagAdd,
     'edittagdel': lambda astinfo, kids: s_ast.EditTagDel(astinfo, kids[1:]),
     'edittagpropset': s_ast.EditTagPropSet,
@@ -716,14 +737,19 @@ ruleClassMap = {
     'n1walknpivo': s_ast.N1WalkNPivo,
     'n2walknpivo': s_ast.N2WalkNPivo,
     'notcond': s_ast.NotCond,
+    'operrelprop_join': lambda astinfo, kids: s_ast.PropPivot(astinfo, kids, isjoin=True),
+    'operrelprop_joinout': lambda astinfo, kids: s_ast.PropPivotOut(astinfo, kids, isjoin=True),
+    'operrelprop_pivot': s_ast.PropPivot,
+    'operrelprop_pivotout': s_ast.PropPivotOut,
     'opervarlist': s_ast.VarListSetOper,
     'orexpr': s_ast.OrCond,
     'query': s_ast.Query,
+    'pivottarg': s_ast.PivotTarget,
+    'pivottarglist': s_ast.PivotTargetList,
     'rawpivot': s_ast.RawPivot,
     'return': s_ast.Return,
     'relprop': lambda astinfo, kids: s_ast.RelProp(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropcond': s_ast.RelPropCond,
-    'relpropvalu': lambda astinfo, kids: s_ast.RelPropValue(astinfo, [s_ast.Const(k.astinfo, k.valu.lstrip(':')) if isinstance(k, s_ast.Const) else k for k in kids]),
     'relpropvalue': s_ast.RelPropValue,
     'search': s_ast.Search,
     'setitem': lambda astinfo, kids: s_ast.SetItemOper(astinfo, [kids[0], kids[1], kids[3]]),
@@ -731,7 +757,6 @@ ruleClassMap = {
     'stop': s_ast.Stop,
     'stormcmd': lambda astinfo, kids: s_ast.CmdOper(astinfo, kids=kids if len(kids) == 2 else (kids[0], s_ast.Const(astinfo, tuple()))),
     'stormfunc': s_ast.Function,
-    'subprop': s_ast.SubProp,
     'tagcond': s_ast.TagCond,
     'tagname': s_ast.TagName,
     'tagmatch': s_ast.TagMatch,
@@ -742,10 +767,10 @@ ruleClassMap = {
     'tagpropcond': s_ast.TagPropCond,
     'trycatch': s_ast.TryCatch,
     'univprop': s_ast.UnivProp,
-    'univpropvalu': s_ast.UnivPropValue,
     'valulist': s_ast.List,
     'vareval': s_ast.VarEvalOper,
     'varvalue': s_ast.VarValue,
+    'virtprop': s_ast.VirtProp,
     'whileloop': s_ast.WhileLoop,
     'wordtokn': lambda astinfo, kids: s_ast.Const(astinfo, ''.join([str(k.valu) for k in kids]))
 }

@@ -141,7 +141,7 @@ Functions do not inherit or operate on the invoking Storm pipeline by default. I
 to operate on nodes in a pipeline, you must invoke the function in such a way as to pass the node (or a
 property or properties of the node) as input to the function.
 
-For example, if your invoking pipeline consists of a set of ``inet:ipv4`` nodes, a function can take the
+For example, if your invoking pipeline consists of a set of ``inet:ip`` nodes, a function can take the
 ``:asn`` property as input:
 
 ::
@@ -179,8 +179,8 @@ second function. A simple example:
 ::
   
   function getIPs() {
-      //Lift 10 IPv4 addresses
-      inet:ipv4 | limit 10
+      //Lift 10 IP addresses
+      inet:ip | limit 10
   }
 
 **Function 2 (callable function):**
@@ -208,11 +208,11 @@ second function. A simple example:
 
 When executed, the function produces the following output. Note that the ``$counter()`` function simply prints
 the nodes' human-readable representation (``$node.repr()``) as an example; it does not return or yield the
-``inet:ipv4`` nodes:
+``inet:ip`` nodes:
 
-.. storm-pre:: [ inet:ipv4=1.1.1.1 inet:ipv4=2.2.2.2 inet:ipv4=3.3.3.3 inet:ipv4=4.4.4.4 inet:ipv4=5.5.5.5 inet:ipv4=6.6.6.6 inet:ipv4=7.7.7.7 inet:ipv4=8.8.8.8 inet:ipv4=9.9.9.9 inet:ipv4=10.10.10.10 ]
+.. storm-pre:: [ inet:ip=1.1.1.1 inet:ip=2.2.2.2 inet:ip=3.3.3.3 inet:ip=4.4.4.4 inet:ip=5.5.5.5 inet:ip=6.6.6.6 inet:ip=7.7.7.7 inet:ip=8.8.8.8 inet:ip=9.9.9.9 inet:ip=10.10.10.10 ]
 
-.. storm-multiline:: FUNCTIONS="\nfunction getIPs() { \n    inet:ipv4 | limit 10 \n} \n\nfunction counter(genr) {\n    yield $genr \n    $lib.print($node.repr()) \n    fini { return() } \n} \n\n$counter($getIPs())"
+.. storm-multiline:: FUNCTIONS="\nfunction getIPs() { \n    inet:ip | limit 10 \n} \n\nfunction counter(genr) {\n    yield $genr \n    $lib.print($node.repr()) \n    fini { return() } \n} \n\n$counter($getIPs())"
 
 .. storm-cli:: MULTILINE=FUNCTIONS
 
@@ -241,7 +241,7 @@ Or:
   myFunction($asn)
 
 If the same function is invoked with a per-node, non-runtsafe value or values, the function is considered
-**non-runtsafe,** such as the example above where the invoking pipeline contains ``inet:ipv4`` nodes and the
+**non-runtsafe,** such as the example above where the invoking pipeline contains ``inet:ip`` nodes and the
 function is invoked with the value of each node's ``:asn`` property:
 
 ::
@@ -377,26 +377,26 @@ A callable function can take input and attempt to create (or lift) a node.
 
 ::
   
-  //Takes a value expected to be an IPv4 or IPv6 as input
-  function makeIP(ip) {
+  //Takes a value expected to be an FQDN and IPv4 or IPv6 as input
+  function makeDNS(fqdn, ip) {
       
-      //Attempt to create (or lift) an IPv4 from the input
-      //Return the IPv4 and exit if successful
-      [ inet:ipv4 ?= $ip ]
+      //Attempt to create (or lift) a DNS A record from the input
+      //Return the node and exit if successful
+      [ inet:dns:a ?= ($fqdn, $ip) ]
       return($node)
       
-      //Otherwise, atempt to create (or lift) an IPv6 from the input
-      //Return the IPv6 and exit if successful
-      [ inet:ipv6 ?= $ip ]
+      //Otherwise, atempt to create (or lift) a DNS AAAA  from the input
+      //Return the node and exit if successful
+      [ inet:dns:aaaa ?= ($fqdn, $ip) ]
       return($node)
       
-      //If the input is not a valid IPv4 or IPv6, the function
+      //If the input is not valid, the function
       // will execute but will not return a node.
   }
   
   //Invoke the function with the specified input and
   // yield the result (if any) into the pipeline
-  yield $makeIP(8.8.8.8)
+  yield $makeIP(foo.com, 8.8.8.8)
 
 
 **Return a node using secondary property deconfliction**

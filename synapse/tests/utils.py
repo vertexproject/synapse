@@ -24,8 +24,8 @@ import copy
 import math
 import types
 import shutil
+import typing
 import asyncio
-import hashlib
 import inspect
 import logging
 import tempfile
@@ -55,13 +55,13 @@ import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
@@ -94,6 +94,10 @@ def norm(z):
 
 def deguidify(x):
     return regex.sub('[0-9a-f]{32}', '*' * 32, x)
+
+def jsonlines(text: str):
+    lines = [k for k in text.split('\n') if k]
+    return [s_json.loads(line) for line in lines]
 
 async def waitForBehold(core, events):
     async for mesg in core.behold():
@@ -155,6 +159,7 @@ class LibTst(s_stormtypes.Lib):
     '''
     _storm_locals = (
         {'name': 'beep',
+         'deprecated': {'eoldate': '8080-08-08'},
          'desc': '''
         Example storm func.
 
@@ -167,6 +172,7 @@ class LibTst(s_stormtypes.Lib):
                   'returns': {'type': 'str', 'desc': 'The beeped string.', }}},
         {'name': 'someargs',
          'desc': '''Example storm func with args.''',
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'This is a test library was deprecated from the day it was made.'},
          'type': {'type': 'function', '_funcname': 'someargs',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The value to beep.', },
@@ -196,6 +202,32 @@ class LibTst(s_stormtypes.Lib):
         '''
         ret = f'A {valu} beep which {bar} the {faz}!'
         return ret
+
+class LibDepr(s_stormtypes.Lib):
+    '''
+    Deprecate me!
+    '''
+    _storm_locals = (
+        {'name': 'boop',
+         'desc': '''
+         An example storm function that's not deprecated on its own, but the entire library is.
+         ''',
+         'type': {'type': 'function', '_funcname': 'boop',
+                  'args': (
+                      {'name': 'valu', 'type': 'str', 'desc': 'What to boop.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The booped.', }}},
+    )
+    _storm_lib_path = ('depr',)
+    _storm_lib_deprecation = {'eolvers': 'v3.0.0'}
+
+    def addLibFuncs(self):  # pragma: no cover
+        self.locls.update({
+            'boop': self.boop,
+        })
+
+    async def boop(self, valu):  # pragma: no cover
+        return f'You have been booped, {valu}!'
 
 class TestType(s_types.Type):
 
@@ -251,242 +283,304 @@ class TestRunt:
             'props': pnorms,
         })
 
-testmodel = {
+testmodel = (
+    ('test', {
 
-    'ctors': (
-        ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
-        ('test:type', 'synapse.tests.utils.TestType', {}, {}),
-        ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
-    ),
-    'interfaces': (
-        ('test:interface', {
-            'doc': 'test interface',
-            'props': (
-                ('size', ('int', {}), {}),
-                ('seen', ('ival', {}), {}),
-                ('names', ('array', {'type': 'str'}), {}),
-            ),
-            'interfaces': ('inet:proto:request',)
-        }),
-    ),
-    'types': (
-        ('test:type10', ('test:type', {'foo': 10}), {
-            'doc': 'A fake type.'}),
+        'ctors': (
+            ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
+            ('test:type', 'synapse.tests.utils.TestType', {}, {}),
+            ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
+        ),
+        'interfaces': (
+            ('test:interface', {
+                'doc': 'test interface',
+                'props': (
+                    ('size', ('int', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                    ('names', ('array', {'type': 'str'}), {}),
+                ),
+                'interfaces': ('inet:proto:request',)
+            }),
+            ('test:virtarray', {
+                'doc': 'test interface',
+                'props': (
+                    ('server', ('inet:server', {}), {'alts': ('servers',)}),
+                    ('servers', ('array', {'type': 'inet:server'}), {}),
+                )
+            }),
+        ),
+        'types': (
+            ('test:type10', ('test:type', {'foo': 10}), {
+                'doc': 'A fake type.'}),
 
-        ('test:lower', ('str', {'lower': True}), {}),
+            ('test:lower', ('str', {'lower': True}), {}),
 
-        ('test:time', ('time', {}), {}),
+            ('test:time', ('time', {}), {}),
 
-        ('test:ival', ('ival', {}), {}),
+            ('test:ival', ('ival', {}), {}),
 
-        ('test:ro', ('str', {}), {}),
-        ('test:int', ('int', {}), {}),
-        ('test:float', ('float', {}), {}),
-        ('test:str', ('str', {}), {}),
-        ('test:migr', ('str', {}), {}),
-        ('test:auto', ('str', {}), {}),
-        ('test:guid', ('guid', {}), {}),
-        ('test:data', ('data', {}), {}),
-        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
-        ('test:hugenum', ('hugenum', {}), {}),
+            ('test:ro', ('str', {}), {}),
+            ('test:int', ('int', {}), {}),
+            ('test:float', ('float', {}), {}),
+            ('test:str', ('str', {}), {}),
+            ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
+            ('test:migr', ('str', {}), {}),
+            ('test:auto', ('str', {}), {}),
+            ('test:guid', ('guid', {}), {}),
+            ('test:data', ('data', {}), {}),
+            ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
+            ('test:hugenum', ('hugenum', {}), {}),
 
-        ('test:arrayprop', ('guid', {}), {}),
-        ('test:arrayform', ('array', {'type': 'int'}), {}),
+            ('test:arrayprop', ('guid', {}), {}),
+            ('test:arrayform', ('array', {'type': 'int'}), {}),
 
-        ('test:comp', ('comp', {'fields': (
-            ('hehe', 'test:int'),
-            ('haha', 'test:lower'))
-        }), {'doc': 'A fake comp type.'}),
-        ('test:compcomp', ('comp', {'fields': (
-            ('comp1', 'test:comp'),
-            ('comp2', 'test:comp'))
-        }), {}),
-        ('test:complexcomp', ('comp', {'fields': (
-            ('foo', 'test:int'),
-            ('bar', ('str', {'lower': True}),),
-        )}), {'doc': 'A complex comp type.'}),
-        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type'}),
-        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type'}),
-        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded'}),
-        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes'}),
+            ('test:comp', ('comp', {'fields': (
+                ('hehe', 'test:int'),
+                ('haha', 'test:lower'))
+            }), {'doc': 'A fake comp type.'}),
+            ('test:compcomp', ('comp', {'fields': (
+                ('comp1', 'test:comp'),
+                ('comp2', 'test:comp'))
+            }), {}),
+            ('test:complexcomp', ('comp', {'fields': (
+                ('foo', 'test:int'),
+                ('bar', ('str', {'lower': True}),),
+            )}), {'doc': 'A complex comp type.'}),
+            ('test:ndefcomp', ('comp', {'fields': (
+                ('hehe', 'test:int'),
+                ('ndef', 'test:ndef'))
+            }), {'doc': 'A comp type with an ndef.'}),
 
-        ('test:pivtarg', ('str', {}), {}),
-        ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
-        ('test:haspivcomp', ('int', {}), {}),
+            ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
+            ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
+            ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
+            ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
 
-        ('test:cycle0', ('str', {}), {}),
-        ('test:cycle1', ('str', {}), {}),
+            ('test:pivtarg', ('str', {}), {}),
+            ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
+            ('test:haspivcomp', ('int', {}), {}),
 
-        ('test:ndef', ('ndef', {}), {}),
-        ('test:ndef:formfilter1', ('ndef', {
-            'forms': ('inet:ipv4', 'inet:ipv6')
-        }), {}),
-        ('test:ndef:formfilter2', ('ndef', {
-            'interfaces': ('meta:taxonomy',)
-        }), {}),
-        ('test:ndef:formfilter3', ('ndef', {
-            'forms': ('inet:ipv4',),
-            'interfaces': ('file:mime:msoffice',)
-        }), {}),
+            ('test:cycle0', ('str', {}), {}),
+            ('test:cycle1', ('str', {}), {}),
 
-        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node'}),
-        ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
-        ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
-    ),
+            ('test:ndef', ('ndef', {}), {}),
+            ('test:ndef:formfilter1', ('ndef', {
+                'forms': ('inet:ip',)
+            }), {}),
+            ('test:ndef:formfilter2', ('ndef', {
+                'interfaces': ('meta:taxonomy',)
+            }), {}),
+            ('test:ndef:formfilter3', ('ndef', {
+                'forms': ('inet:ip',),
+                'interfaces': ('file:mime:msoffice',)
+            }), {}),
 
-    'univs': (
-        ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
-        ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
-    ),
+            ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
+            ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
+            ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+        ),
 
-    'forms': (
+        'univs': (
+            ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+            ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
+            ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props.'}),
+            ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props.'}),
+        ),
 
-        ('test:arrayprop', {}, (
-            ('ints', ('array', {'type': 'test:int'}), {}),
-            ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
-            ('strsnosplit', ('array', {'type': 'test:str'}), {}),
-        )),
-        ('test:arrayform', {}, (
-        )),
-        ('test:taxonomy', {}, ()),
-        ('test:type10', {}, (
+        'forms': (
 
-            ('intprop', ('int', {'min': 20, 'max': 30}), {}),
-            ('int2', ('int', {}), {}),
-            ('strprop', ('str', {'lower': 1}), {}),
-            ('guidprop', ('guid', {'lower': 1}), {}),
-            ('locprop', ('loc', {}), {}),
-        )),
+            ('test:arrayprop', {}, (
+                ('ints', ('array', {'type': 'test:int'}), {}),
+                ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
+                ('strsnosplit', ('array', {'type': 'test:str'}), {}),
+                ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
+            )),
+            ('test:arrayform', {}, (
+            )),
+            ('test:taxonomy', {}, ()),
+            ('test:type10', {}, (
 
-        ('test:cycle0', {}, (
-            ('cycle1', ('test:cycle1', {}), {}),
-        )),
+                ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+                ('int2', ('int', {}), {}),
+                ('strprop', ('str', {'lower': 1}), {}),
+                ('guidprop', ('guid', {'lower': 1}), {}),
+                ('locprop', ('loc', {}), {}),
+            )),
 
-        ('test:cycle1', {}, (
-            ('cycle0', ('test:cycle0', {}), {}),
-        )),
+            ('test:cycle0', {}, (
+                ('cycle1', ('test:cycle1', {}), {}),
+            )),
 
-        ('test:type', {}, ()),
+            ('test:cycle1', {}, (
+                ('cycle0', ('test:cycle0', {}), {}),
+            )),
 
-        ('test:comp', {}, (
-            ('hehe', ('test:int', {}), {'ro': True}),
-            ('haha', ('test:lower', {}), {'ro': True}),
-        )),
+            ('test:type', {}, ()),
 
-        ('test:compcomp', {}, (
-            ('comp1', ('test:comp', {}), {'ro': True}),
-            ('comp2', ('test:comp', {}), {'ro': True}),
-        )),
+            ('test:comp', {}, (
+                ('hehe', ('test:int', {}), {'ro': True}),
+                ('haha', ('test:lower', {}), {'ro': True}),
+            )),
 
-        ('test:complexcomp', {}, (
-            ('foo', ('test:int', {}), {'ro': True}),
-            ('bar', ('str', {'lower': 1}), {'ro': True})
-        )),
+            ('test:compcomp', {}, (
+                ('comp1', ('test:comp', {}), {'ro': True}),
+                ('comp2', ('test:comp', {}), {'ro': True}),
+            )),
 
-        ('test:int', {}, (
-            ('loc', ('loc', {}), {}),
-            ('int2', ('int', {}), {}),
-        )),
+            ('test:complexcomp', {}, (
+                ('foo', ('test:int', {}), {'ro': True}),
+                ('bar', ('str', {'lower': 1}), {'ro': True})
+            )),
 
-        ('test:float', {}, (
-            ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
-            ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
-        )),
+            ('test:ndefcomp', {}, (
+                ('hehe', ('test:int', {}), {'ro': True}),
+                ('ndef', ('test:ndef', {}), {'ro': True}),
+            )),
 
-        ('test:guid', {}, (
-            ('size', ('test:int', {}), {}),
-            ('tick', ('test:time', {}), {}),
-            ('posneg', ('test:sub', {}), {}),
-            ('posneg:isbig', ('bool', {}), {}),
-        )),
+            ('test:int', {}, (
+                ('loc', ('loc', {}), {}),
+                ('int2', ('int', {}), {}),
+            )),
 
-        ('test:data', {}, (
-            ('data', ('test:data', {}), {}),
-        )),
+            ('test:float', {}, (
+                ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+                ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
+            )),
 
-        ('test:hugenum', {}, (
-            ('huge', ('test:hugenum', {}), {}),
-        )),
+            ('test:guid', {}, (
+                ('size', ('test:int', {}), {}),
+                ('tick', ('test:time', {}), {}),
+                ('posneg', ('test:sub', {}), {}),
+                ('posneg:isbig', ('bool', {}), {}),
+            )),
 
-        ('test:str', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('test:time', {}), {}),
-            ('hehe', ('str', {}), {}),
-            ('ndefs', ('array', {'type': 'ndef'}), {}),
-        )),
+            ('test:data', {}, (
+                ('data', ('test:data', {}), {}),
+            )),
 
-        ('test:migr', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('test:time', {}), {}),
-        )),
+            ('test:hugenum', {}, (
+                ('huge', ('test:hugenum', {}), {}),
+            )),
 
-        ('test:threetype', {}, (
-            ('three', ('int', {}), {}),
-        )),
-        ('test:auto', {}, ()),
-        ('test:hexa', {}, ()),
-        ('test:hex4', {}, ()),
-        ('test:zeropad', {}, ()),
-        ('test:ival', {}, (
-            ('interval', ('ival', {}), {}),
-        )),
+            ('test:str', {}, (
+                ('bar', ('ndef', {}), {}),
+                ('baz', ('nodeprop', {}), {}),
+                ('tick', ('test:time', {}), {}),
+                ('hehe', ('str', {}), {}),
+                ('ndefs', ('array', {'type': 'ndef'}), {}),
+                ('cidr', ('inet:cidr', {}), {}),
+                ('somestr', ('test:str', {}), {}),
+            )),
 
-        ('test:pivtarg', {}, (
-            ('name', ('str', {}), {}),
-        )),
+            ('test:strregex', {}, ()),
 
-        ('test:pivcomp', {}, (
-            ('targ', ('test:pivtarg', {}), {'ro': True}),
-            ('lulz', ('test:str', {}), {'ro': True}),
-            ('tick', ('time', {}), {}),
-            ('size', ('test:int', {}), {}),
-            ('width', ('test:int', {}), {}),
-        )),
+            ('test:migr', {}, (
+                ('bar', ('ndef', {}), {}),
+                ('baz', ('nodeprop', {}), {}),
+                ('tick', ('test:time', {}), {}),
+            )),
 
-        ('test:haspivcomp', {}, (
-            ('have', ('test:pivcomp', {}), {}),
-        )),
+            ('test:threetype', {}, (
+                ('three', ('int', {}), {}),
+            )),
+            ('test:auto', {}, ()),
+            ('test:hexa', {}, ()),
+            ('test:hex4', {}, ()),
+            ('test:zeropad', {}, ()),
+            ('test:ival', {}, (
+                ('interval', ('ival', {}), {}),
+            )),
 
-        ('test:ndef', {}, (
-            ('form', ('str', {}), {'ro': True}),
-        )),
+            ('test:pivtarg', {}, (
+                ('name', ('str', {}), {}),
+            )),
 
-        ('test:runt', {'runt': True}, (
-            ('tick', ('time', {}), {'ro': True}),
-            ('lulz', ('str', {}), {}),
-            ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
-        )),
+            ('test:pivcomp', {}, (
+                ('targ', ('test:pivtarg', {}), {'ro': True}),
+                ('lulz', ('test:str', {}), {'ro': True}),
+                ('tick', ('time', {}), {}),
+                ('size', ('test:int', {}), {}),
+                ('width', ('test:int', {}), {}),
+            )),
 
-        ('test:ro', {}, (
-            ('writeable', ('str', {}), {'doc': 'writeable property'}),
-            ('readable', ('str', {}), {'doc': 'ro property', 'ro': True}),
-        )),
+            ('test:haspivcomp', {}, (
+                ('have', ('test:pivcomp', {}), {}),
+            )),
 
-        ('test:hasiface', {}, ()),
-        ('test:hasiface2', {}, ()),
+            ('test:ndef', {}, (
+                ('form', ('str', {}), {'ro': True}),
+            )),
 
-    ),
-}
+            ('test:ro', {}, (
+                ('writeable', ('str', {}), {'doc': 'writeable property.'}),
+                ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
+            )),
 
-deprmodel = {
-    'types': (
-        ('test:deprprop', ('test:str', {}), {'deprecated': True}),
-        ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
-        ('test:deprform', ('test:str', {}), {}),
-        ('test:deprndef', ('ndef', {}), {}),
-    ),
-    'forms': (
-        ('test:deprprop', {}, ()),
-        ('test:deprform', {}, (
-            ('ndefprop', ('test:deprndef', {}), {}),
-            ('deprprop', ('test:deprarray', {}), {}),
-            ('okayprop', ('str', {}), {}),
-        )),
-    ),
+            ('test:hasiface', {}, ()),
+            ('test:hasiface2', {}, ()),
+            ('test:virtiface', {}, ()),
+            ('test:virtiface2', {}, ()),
+        ),
+    }),
+)
 
-}
+deprmodel = (
+    ('depr', {
+        'ctors': (
+            ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
+        ),
+        'types': (
+            ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
+            ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
+            ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),
+            ('test:deprprop', ('test:str', {}), {'deprecated': True}),
+            ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
+            ('test:deprform', ('test:str', {}), {}),
+            ('test:deprndef', ('ndef', {}), {}),
+            ('test:deprform2', ('test:str', {}), {'deprecated': True}),
+            ('test:deprsub', ('str', {}), {}),
+            ('test:range', ('range', {}), {}),
+            ('test:deprsub2', ('comp', {'fields': (
+                ('name', 'test:str'),
+                ('range', 'test:range'))
+            }), {}),
+        ),
+        'forms': (
+            ('test:deprprop', {}, ()),
+            ('test:deprform', {}, (
+                ('ndefprop', ('test:deprndef', {}), {}),
+                ('deprprop', ('test:deprarray', {}), {}),
+                ('okayprop', ('str', {}), {}),
+                ('deprprop2', ('test:str', {}), {'deprecated': True}),
+            )),
+            ('test:deprform2', {}, ()),
+            ('test:deprsub', {}, (
+                ('range', ('test:range', {}), {}),
+                ('range:min', ('int', {}), {'deprecated': True}),
+                ('range:max', ('int', {}), {}),
+            )),
+            ('test:deprsub2', {}, (
+                ('name', ('str', {}), {}),
+                ('range', ('test:range', {}), {}),
+                ('range:min', ('int', {}), {}),
+                ('range:max', ('int', {}), {'deprecated': True}),
+            )),
+            ('test:dep:easy', {'deprecated': True}, (
+                ('guid', ('test:guid', {}), {'deprecated': True}),
+                ('array', ('test:dep:array', {}), {}),
+                ('comp', ('test:dep:comp', {}), {}),
+            )),
+            ('test:dep:str', {}, (
+                ('beep', ('test:dep:str', {}), {}),
+            )),
+        ),
+        'univs': (
+            ('udep', ('test:dep:easy', {}), {}),
+            ('pdep', ('test:str', {}), {'deprecated': True})
+        )
+    }),
+)
 
 class TestCmd(s_storm.Cmd):
     '''
@@ -497,13 +591,13 @@ class TestCmd(s_storm.Cmd):
     forms = {
         'input': [
             'test:str',
-            'inet:ipv6',
+            'inet:ip',
         ],
         'output': [
             'inet:fqdn',
         ],
         'nodedata': [
-            ('foo', 'inet:ipv4'),
+            ('foo', 'inet:ip'),
             ('bar', 'inet:fqdn'),
         ],
     }
@@ -516,91 +610,6 @@ class TestCmd(s_storm.Cmd):
         async for node, path in genr:
             await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
-
-class DeprModule(s_module.CoreModule):
-    def getModelDefs(self):
-        return (
-            ('depr', deprmodel),
-        )
-
-class TestModule(s_module.CoreModule):
-    testguid = '8f1401de15918358d5247e21ca29a814'
-
-    async def initCoreModule(self):
-
-        data = [(('meta:source', self.testguid), {'props': {'name': 'test'}})]
-        await self.core.addFeedData(data)
-
-        self.core.addStormLib(('test',), LibTst)
-
-        self.healthy = True
-        self.core.addHealthFunc(self._testModHealth)
-
-        form = self.model.form('test:runt')
-        self.core.addRuntLift(form.full, self._testRuntLift)
-
-        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
-        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
-
-    async def _testModHealth(self, health):
-        if self.healthy:
-            health.update(self.getModName(), 'nominal',
-                          'Test module is healthy', data={'beep': 0})
-        else:
-            health.update(self.getModName(), 'failed',
-                          'Test module is unhealthy', data={'beep': 1})
-
-    async def addTestRecords(self, view, items, user=None):
-        for name in items:
-            await view.addNode('test:str', name, user=user)
-
-    async def _testRuntLift(self, view, prop, cmprvalu=None):
-
-        now = s_common.now()
-        timetype = self.core.model.type('time')
-
-        podes = [
-            (('test:runt', 'beep'), {'props': {'tick': timetype.norm('2001')[0], 'lulz': 'beep.sys', '.created': now}}),
-            (('test:runt', 'boop'), {'props': {'tick': timetype.norm('2010')[0], '.created': now}}),
-            (('test:runt', 'blah'), {'props': {'tick': timetype.norm('2010')[0], 'lulz': 'blah.sys'}}),
-            (('test:runt', 'woah'), {'props': {}}),
-        ]
-
-        for p in podes:
-            yield p
-
-    async def _testRuntPropSetLulz(self, node, prop, valu):
-        curv = node.get(prop.name)
-        valu, _ = prop.type.norm(valu)
-        if curv == valu:
-            return False
-        if not valu.endswith('.sys'):
-            raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
-                                    valu=valu, name=prop.full)
-        node.pode[1]['props'][prop.name] = valu
-        # In this test helper, we do NOT persist the change to our in-memory
-        # storage of row data, so a re-lift of the node would not reflect the
-        # change that a user made here.
-        return True
-
-    async def _testRuntPropDelLulz(self, node, prop,):
-        curv = node.pode[1]['props'].pop(prop.name, s_common.novalu)
-        if curv is s_common.novalu:
-            return False
-
-        # In this test helper, we do NOT persist the change to our in-memory
-        # storage of row data, so a re-lift of the node would not reflect the
-        # change that a user made here.
-        return True
-
-    def getModelDefs(self):
-        return (
-            ('test', testmodel),
-        )
-
-    def getStormCmds(self):
-        return (TestCmd,
-                )
 
 class TstEnv:
 
@@ -714,6 +723,10 @@ class StreamEvent(io.StringIO, threading.Event):
         if self.mesg and self.mesg in s:
             self.set()
 
+    def jsonlines(self) -> typing.List[dict]:
+        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
+        return jsonlines(self.getvalue())
+
 class AsyncStreamEvent(io.StringIO, asyncio.Event):
     '''
     A combination of a io.StringIO object and an asyncio.Event object.
@@ -745,6 +758,10 @@ class AsyncStreamEvent(io.StringIO, asyncio.Event):
         if timeout is None:
             return await asyncio.Event.wait(self)
         return await s_coro.event_wait(self, timeout=timeout)
+
+    def jsonlines(self) -> typing.List[dict]:
+        '''Get the messages as jsonlines. May throw Json errors if the captured stream is not jsonlines.'''
+        return jsonlines(self.getvalue())
 
 class HttpReflector(s_httpapi.Handler):
     '''Test handler which reflects get/post data back to the caller'''
@@ -916,8 +933,6 @@ class SynTest(unittest.TestCase):
     '''
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
-        self._NextBuid = 0
-        self._NextGuid = 0
 
         def synchelp(f):
             def wrap(*args, **kwargs):
@@ -1055,6 +1070,28 @@ class SynTest(unittest.TestCase):
             TstOutPut: A TstOutPut instance.
         '''
         return TstOutPut()
+
+    def thisEnvMust(self, *envvars):
+        '''
+        Requires a host must have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being present.
+        '''
+        for envar in envvars:
+            if not s_common.envbool(envar):
+                self.skip(f'Envar {envar} is not set to a truthy value.')
+
+    def thisEnvMustNot(self, *envvars):
+        '''
+        Requires a host must not have environment variables set to truthy values.
+
+        Args:
+            *envars: Environment variables to require being absent or set to falsey values.
+        '''
+        for envar in envvars:
+            if s_common.envbool(envar):
+                self.skip(f'Envar {envar} is set to a truthy value.')
 
     def thisHostMust(self, **props):  # pragma: no cover
         '''
@@ -1262,16 +1299,12 @@ class SynTest(unittest.TestCase):
         '''
         conf = self.getCellConf(conf=conf)
 
-        mods = list(conf.get('modules', ()))
-        conf['modules'] = mods
-
-        mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
-
         with self.withNexusReplay():
 
             with self.mayTestDir(dirn) as dirn:
 
                 async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    await core._addDataModels(testmodel)
                     yield core
 
     @contextlib.asynccontextmanager
@@ -1636,7 +1669,7 @@ class SynTest(unittest.TestCase):
             slogger.setLevel(level)
 
     @contextlib.contextmanager
-    def getAsyncLoggerStream(self, logname, mesg=''):
+    def getAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[StreamEvent, None, None]:
         '''
         Async version of getLoggerStream.
 
@@ -1681,7 +1714,7 @@ class SynTest(unittest.TestCase):
             slogger.setLevel(level)
 
     @contextlib.contextmanager
-    def getStructuredAsyncLoggerStream(self, logname, mesg=''):
+    def getStructuredAsyncLoggerStream(self, logname, mesg='') -> contextlib.AbstractContextManager[AsyncStreamEvent, None, None]:
         '''
         Async version of getLoggerStream which uses structured logging.
 
@@ -1704,9 +1737,7 @@ class SynTest(unittest.TestCase):
                     # Wait for the mesg to be written to the stream
                     await stream.wait(timeout=10)
 
-                data = stream.getvalue()
-                raw_mesgs = [m for m in data.split('\n') if m]
-                msgs = [json.loads(m) for m in raw_mesgs]
+                msgs = stream.jsonlines()
                 # Do something with messages
 
         Returns:
@@ -2223,39 +2254,6 @@ class SynTest(unittest.TestCase):
         idel = await core.auth.addUser('icandel')
         await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
-
-    def stablebuid(self, valu=None):
-        '''
-        A stable buid generation for testing purposes
-        '''
-        if valu is None:
-            retn = self._NextBuid.to_bytes(32, 'big')
-            self._NextBuid += 1
-            return retn
-
-        byts = s_msgpack.en(valu)
-        return hashlib.sha256(byts).digest()
-
-    def stableguid(self, valu=None):
-        '''
-        A stable guid generation for testing purposes
-        '''
-        if valu is None:
-            retn = s_common.ehex(self._NextGuid.to_bytes(16, 'big'))
-            self._NextGuid += 1
-            return retn
-
-        byts = s_msgpack.en(valu)
-        return hashlib.md5(byts, usedforsecurity=False).hexdigest()
-
-    @contextlib.contextmanager
-    def withStableUids(self):
-        '''
-        A context manager that generates guids and buids in sequence so that successive test runs use the same
-        data
-        '''
-        with mock.patch('synapse.common.guid', self.stableguid), mock.patch('synapse.common.buid', self.stablebuid):
-            yield
 
     async def runCoreNodes(self, core, query, opts=None):
         '''
