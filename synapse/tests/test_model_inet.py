@@ -1358,6 +1358,12 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('[ it:network=* :dns:resolvers=(([6, 1]),)]')
             self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
 
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=("::1",)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=("[::1]",)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
+
     async def test_servfile(self):
         async with self.getTestCore() as core:
             valu = ('tcp://127.0.0.1:4040', 64 * 'f')

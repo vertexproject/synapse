@@ -461,9 +461,9 @@ class SockAddr(s_types.Str):
                     portstr = f':{port}'
 
                 elif self.defport:
-                    subs['port'] = self.port
-                    virts['port'] = (self.port, self.porttype.stortype)
-                    portstr = f':{self.port}'
+                    subs['port'] = self.defport
+                    virts['port'] = (self.defport, self.porttype.stortype)
+                    portstr = f':{self.defport}'
 
                 return f'{proto}://[{host}]{portstr}', {'subs': subs, 'virts': virts}
 
@@ -475,6 +475,12 @@ class SockAddr(s_types.Str):
             host = self.iptype.repr(ipv6)
             subs['ip'] = ipv6
             virts['ip'] = (ipv6, self.iptype.stortype)
+
+            if self.defport:
+                subs['port'] = self.defport
+                virts['port'] = (self.defport, self.porttype.stortype)
+                return f'{proto}://[{host}]:{self.defport}', {'subs': subs, 'virts': virts}
+
             return f'{proto}://{host}', {'subs': subs, 'virts': virts}
 
         # Otherwise treat as IPv4
