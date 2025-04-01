@@ -1337,6 +1337,10 @@ class InetModelTest(s_t_utils.SynTest):
                 'port': 12345,
                 'proto': 'host',
             }),
+            ((4, 2130706433), 'tcp://127.0.0.1', {
+                'ip': (4, 2130706433),
+                'proto': 'tcp',
+            }),
         )
 
         async with self.getTestCore() as core:
@@ -1347,6 +1351,12 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, ('inet:server', expected_valu))
                 for p, v in props.items():
                     self.eq(node.get(p), v)
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=(([4, 1]),)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://0.0.0.1:53',))
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=(([6, 1]),)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
 
     async def test_servfile(self):
         async with self.getTestCore() as core:
