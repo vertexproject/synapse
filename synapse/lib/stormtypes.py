@@ -3703,6 +3703,16 @@ class LibQueue(Lib):
                   'returns': {'type': 'list',
                               'desc': 'A list of queue definitions the current user is allowed to interact with.', }}},
     )
+    _storm_lib_perms = (
+        {'perm': ('queue', 'add'), 'gate': 'cortex',
+         'desc': 'Permits a user to create a named queue.'},
+        {'perm': ('queue', 'get'), 'gate': 'queue',
+         'desc': 'Permits a user to access a queue. This allows the user to read from the queue and remove items from it.'},
+        {'perm': ('queue', 'put'), 'gate': 'queue',
+         'desc': 'Permits a user to put items into a queue.'},
+        {'perm': ('cron', 'del'), 'gate': 'queue',
+         'desc': 'Permits a user to delete a queue.'},
+    )
     _storm_lib_path = ('queue',)
 
     def getObjLocals(self):

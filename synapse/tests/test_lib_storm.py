@@ -3690,7 +3690,7 @@ class StormTest(s_t_utils.SynTest):
             q = '''
             test:str
             parallel --size 4 {
-                if (not $lib.vars.get(vals)) {
+                if (not $lib.vars.vals) {
                     $vals = ()
                 }
                 $vals.append($node.repr())

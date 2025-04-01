@@ -1032,6 +1032,8 @@ modeldefs = (
         'edges': (
             (('it:prod:soft', 'uses', 'ou:technique'), {
                 'doc': 'The software uses the technique.'}),
+            (('it:prod:soft', 'uses', 'risk:vuln'), {
+                'doc': 'The software uses the vulnerability.'}),
             (('it:exec:query', 'found', None), {
                 'doc': 'The target node was returned as a result of running the query.'}),
             (('it:app:snort:rule', 'detects', None), {
@@ -1216,6 +1218,12 @@ modeldefs = (
                 ('net', ('inet:net', {}), {
                     'doc': 'The optional contiguous IP address range of this network.',
                     'prevnames': ('net4', 'net6')}),
+
+                ('dns:resolvers', ('array', {'type': 'inet:server',
+                                             'typeopts': {'defport': 53, 'defproto': 'udp'},
+                                             'sorted': True, 'uniq': True}), {
+                    'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
+
             )),
             ('it:account', {}, (
                 ('user', ('inet:user', {}), {

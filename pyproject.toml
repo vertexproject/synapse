@@ -11,10 +11,9 @@ authors = [
 description = 'Synapse Intelligence Analysis Framework'
 readme = 'README.rst'
 requires-python = '>=3.11'
-license = { text = 'Apache License 2.0' }
+license = 'Apache-2.0'
 classifiers = [
     'Development Status :: 5 - Production/Stable',
-    'License :: OSI Approved :: Apache Software License',
     'Topic :: Database :: Database Engines/Servers',
     'Topic :: System :: Clustering',
     'Topic :: System :: Distributed Computing',

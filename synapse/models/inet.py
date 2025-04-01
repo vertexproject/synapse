@@ -365,6 +365,9 @@ class SockAddr(s_types.Str):
         self.iptype = self.modl.type('inet:ip')
         self.porttype = self.modl.type('inet:port')
 
+        self.defport = self.opts.get('defport', None)
+        self.defproto = self.opts.get('defproto', 'tcp')
+
         self.virtindx |= {
             'ip': 'ip',
             'port': 'port',
@@ -399,6 +402,10 @@ class SockAddr(s_types.Str):
             valu, port = parts
             port = self.porttype.norm(port)[0]
             return valu, port, f':{port}'
+
+        if self.defport:
+            return valu, self.defport, f':{self.defport}'
+
         return valu, None, ''
 
     def _normPyStr(self, valu):
@@ -409,7 +416,7 @@ class SockAddr(s_types.Str):
         # no protos use case sensitivity yet...
         valu = valu.lower()
 
-        proto = 'tcp'
+        proto = self.defproto
         parts = valu.split('://', 1)
         if len(parts) == 2:
             proto, valu = parts

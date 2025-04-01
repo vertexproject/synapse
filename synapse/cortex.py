@@ -1142,6 +1142,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
              'desc': 'Controls removing a specific form of node in a layer.'},
 
+            {'perm': ('node', 'edge', 'add'), 'gate': 'layer',
+             'desc': 'Controls adding light edges to a node.'},
+            {'perm': ('node', 'edge', 'del'), 'gate': 'layer',
+             'desc': 'Controls adding light edges to a node.'},
+
+            {'perm': ('node', 'edge', 'add', '<verb>'), 'gate': 'layer',
+             'desc': 'Controls adding a specific light edge to a node.'},
+            {'perm': ('node', 'edge', 'del', '<verb>'), 'gate': 'layer',
+             'desc': 'Controls adding a specific light edge to a node.'},
+
             {'perm': ('node', 'tag'), 'gate': 'layer',
              'desc': 'Controls editing any tag on any node in a layer.'},
             {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
