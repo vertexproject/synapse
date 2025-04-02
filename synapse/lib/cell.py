@@ -1716,7 +1716,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         return self.drive.setItemPerm(iden, perm)
 
     @s_nexus.Pusher.onPushAuto('drive:data:path:set')
-    async def setDriveItemProp(self, iden, path, valu):
+    async def setDriveItemProp(self, iden, vers, path, valu):
         if isinstance(path, str):
             path = (path,)
         data = await self.getDriveData(iden)
@@ -1724,7 +1724,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             mesg = f'No drive item with ID {iden}.'
             raise s_exc.NoSuchIden(mesg=mesg)
 
-        vers, item = data
+        _, item = data
 
         try:
             step = item

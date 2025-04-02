@@ -283,7 +283,7 @@ class CellTest(s_t_utils.SynTest):
                 info, versinfo = await cell.setDriveData(iden, versinfo, {'type': 'haha', 'size': 17, 'stuff': 15})
                 self.eq(versinfo, (await cell.getDriveData(iden))[0])
 
-                await cell.setDriveItemProp(iden, ('stuff',), 1234)
+                await cell.setDriveItemProp(iden, versinfo, ('stuff',), 1234)
                 data = await cell.getDriveData(iden)
                 self.eq(data[1]['stuff'], 1234)
 
@@ -294,19 +294,24 @@ class CellTest(s_t_utils.SynTest):
 
                 await cell.drive.setTypeSchema('woot', testDataSchema_v1, migrate_v1)
 
-                await cell.setDriveItemProp(iden, 'stuff', 3829)
+                versinfo['version'] = (1, 1, 1)
+                await cell.setDriveItemProp(iden, versinfo, 'stuff', 3829)
                 data = await cell.getDriveData(iden)
+                self.eq(data[0]['version'], (1, 1, 1))
                 self.eq(data[1]['stuff'], 3829)
 
-                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), ('lolnope',), 'not real'))
+                await self.asyncraises(s_exc.NoSuchIden, cell.setDriveItemProp(s_common.guid(), versinfo, ('lolnope',), 'not real'))
 
-                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, ('blorp', 0, 'neato'), 'my special string'))
+                await self.asyncraises(s_exc.BadArg, cell.setDriveItemProp(iden, versinfo, ('blorp', 0, 'neato'), 'my special string'))
                 data[1]['blorp'] = {
                     'bleep': [{'neato': 'thing'}]
                 }
                 info, versinfo = await cell.setDriveData(iden, versinfo, data[1])
-                await cell.setDriveItemProp(iden, ('blorp', 'bleep', 0, 'neato'), 'my special string')
+                now = s_common.now()
+                versinfo['updated'] = now
+                await cell.setDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'), 'my special string')
                 data = await cell.getDriveData(iden)
+                self.eq(now, data[0]['updated'])
                 self.eq('my special string', data[1]['blorp']['bleep'][0]['neato'])
 
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
@@ -322,10 +327,10 @@ class CellTest(s_t_utils.SynTest):
                     await cell.getDriveInfo(iden, typename='newp')
 
                 self.nn(await cell.getDriveInfo(iden))
-                self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(3, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveData(iden)
-                self.len(1, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveInfo(iden)
 
