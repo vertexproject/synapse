@@ -1,0 +1,6 @@
+---
+desc: 'Added a ``has`` light edge between ``meta:ruleset`` and the following forms:
+  ``inet:service:rule``, ``it:app:snort:rule``, ``it:app:yara:rule``.'
+prs: []
+type: model
+...
