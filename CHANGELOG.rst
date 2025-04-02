@@ -6,6 +6,18 @@
 Synapse Changelog
 *****************
 
+v2.205.0 - 2025-03-28
+=====================
+
+Model Changes
+-------------
+- Added a ``uses`` light edge between ``it:prod:soft`` and ``risk:vuln`` forms.
+  (`#4198 <https://github.com/vertexproject/synapse/pull/4198>`_)
+- Added a ``targets`` light edge between ``risk:compromise`` and
+  ``ou:industry`` forms.
+  (`#4198 <https://github.com/vertexproject/synapse/pull/4198>`_)
+- See :ref:`userguide_model_v2_205_0` for more detailed model changes.
+
 v2.204.1 - 2025-03-25
 =====================
 
