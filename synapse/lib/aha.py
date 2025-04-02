@@ -172,6 +172,7 @@ class AhaApi(s_cell.CellApi):
         if network is None:
             await self._reqUserAllowed(('aha', 'service', 'get'))
         else:
+            s_common.deprecated('getAhaSvcs() network argument', curv='v2.206.0')
             await self._reqUserAllowed(('aha', 'service', 'get', network))
 
         async for info in self.cell.getAhaSvcs(network=network):
@@ -184,6 +185,8 @@ class AhaApi(s_cell.CellApi):
         NOTE: In order for the service to remain marked "up" a caller
               must maintain the telepath link.
         '''
+        if network is not None:
+            s_common.deprecated('addAhaSvc() network argument', curv='v2.206.0')
         svcname, svcnetw, svcfull = self.cell._nameAndNetwork(name, network)
 
         await self._reqUserAllowed(('aha', 'service', 'add', svcnetw, svcname))
@@ -250,26 +253,31 @@ class AhaApi(s_cell.CellApi):
         '''
         Remove an AHA service entry.
         '''
+        if network is not None:
+            s_common.deprecated('delAhaSvc() network argument', curv='v2.206.0')
         svcname, svcnetw, svcfull = self.cell._nameAndNetwork(name, network)
         await self._reqUserAllowed(('aha', 'service', 'del', svcnetw, svcname))
         return await self.cell.delAhaSvc(name, network=network)
 
     async def getCaCert(self, network):
-
+        s_common.deprecated('genCaCert() network argument', curv='v2.206.0')
         await self._reqUserAllowed(('aha', 'ca', 'get'))
         return await self.cell.getCaCert(network)
 
     async def genCaCert(self, network):
-
+        s_common.deprecated('genCaCert()', curv='v2.206.0')
         await self._reqUserAllowed(('aha', 'ca', 'gen'))
         return await self.cell.genCaCert(network)
 
     async def signHostCsr(self, csrtext, signas=None, sans=None):
-
+        if signas is not None:
+            s_common.deprecated('signHostCsr() signas argument', curv='v2.206.0')
         await self._reqUserAllowed(('aha', 'csr', 'host'))
         return await self.cell.signHostCsr(csrtext, signas=signas, sans=sans)
 
     async def signUserCsr(self, csrtext, signas=None):
+        if signas is not None:
+            s_common.deprecated('signUserCsr() signas argument', curv='v2.206.0')
         await self._reqUserAllowed(('aha', 'csr', 'user'))
         return await self.cell.signUserCsr(csrtext, signas=signas)
 

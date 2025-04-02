@@ -18,6 +18,9 @@ async def _main(argv, outp):
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
+    if opts.network:
+        s_common.deprecated('--network option.', curv='v2.206.0')
+
     cdir = s_certdir.CertDir(path=opts.certdir)
 
     async with await s_telepath.openurl(opts.aha) as prox:
