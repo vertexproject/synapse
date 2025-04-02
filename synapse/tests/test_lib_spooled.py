@@ -125,6 +125,8 @@ class SpooledTest(s_test.SynTest):
 
         async with await s_spooled.Dict.anit(size=2) as sd0:
             await runtest(sd0)
+            self.true(sd0.fallback)
 
         async with await s_spooled.Dict.anit(size=1000) as sd1:
             await runtest(sd1)
+            self.false(sd1.fallback)
