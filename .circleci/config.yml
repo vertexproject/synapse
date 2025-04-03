@@ -727,6 +727,7 @@ workflows:
             branches:
               only:
                 - master
+                - synapse-3xx
 
       - build_docker_tag:
           requires:
