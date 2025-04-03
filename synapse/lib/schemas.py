@@ -1128,3 +1128,14 @@ _reqValidOauth2TokenResponseSchema = {
     'required': ['access_token', 'expires_in'],
 }
 reqValidOauth2TokenResponse = s_config.getJsValidator(_reqValidOauth2TokenResponseSchema)
+
+_httpLoginV1Schema = {
+    'type': 'object',
+    'properties': {
+        'user': {'type': 'string'},
+        'passwd': {'type': 'string'},
+        },
+    'additionalProperties': False,
+    'required': ['user', 'passwd'],
+}
+reqValidHttpLoginV1 = s_config.getJsValidator(_httpLoginV1Schema)

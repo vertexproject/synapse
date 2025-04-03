@@ -815,7 +815,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         },
         'modules': {
             'default': [],
-            'description': 'A list of module classes to load.',
+            'description': 'Deprecated. A list of module classes to load.',
             'type': 'array'
         },
         'storm:log': {
@@ -1396,6 +1396,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
              'desc': 'Controls adding a specific form of node in a layer.'},
             {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
              'desc': 'Controls removing a specific form of node in a layer.'},
+
+            {'perm': ('node', 'edge', 'add'), 'gate': 'layer',
+             'desc': 'Controls adding light edges to a node.'},
+            {'perm': ('node', 'edge', 'del'), 'gate': 'layer',
+             'desc': 'Controls adding light edges to a node.'},
+
+            {'perm': ('node', 'edge', 'add', '<verb>'), 'gate': 'layer',
+             'desc': 'Controls adding a specific light edge to a node.'},
+            {'perm': ('node', 'edge', 'del', '<verb>'), 'gate': 'layer',
+             'desc': 'Controls adding a specific light edge to a node.'},
 
             {'perm': ('node', 'tag'), 'gate': 'layer',
              'desc': 'Controls editing any tag on any node in a layer.'},
@@ -6372,6 +6382,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         # allow module entry to be (ctor, conf) tuple
         if isinstance(ctor, (list, tuple)):
             ctor, conf = ctor
+
+        if not ctor.startswith('synapse.tests'):
+            s_common.deprecated("'modules' Cortex config value", curv='2.206.0')
 
         modu = self._loadCoreModule(ctor, conf=conf)
         if modu is None:

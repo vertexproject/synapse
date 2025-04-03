@@ -322,7 +322,7 @@ class EconModule(s_module.CoreModule):
                         'doc': 'The time the balance was recorded.'}),
 
                     ('instrument', ('econ:pay:instrument', {}), {
-                        'doc': 'The financial insutrument holding the balance.'}),
+                        'doc': 'The financial instrument holding the balance.'}),
 
                     ('pay:card', ('econ:pay:card', {}), {
                         'deprecated': True,

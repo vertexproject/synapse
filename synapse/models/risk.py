@@ -211,6 +211,8 @@ class RiskModule(s_module.CoreModule):
 
                 (('risk:attack', 'targets', 'ou:industry'), {
                     'doc': 'The attack targeted the industry.'}),
+                (('risk:compromise', 'targets', 'ou:industry'), {
+                    'doc': "The compromise was assessed to be based on the victim's role in the industry."}),
                 (('risk:threat', 'targets', 'ou:industry'), {
                     'doc': 'The threat cluster targets the industry.'}),
 

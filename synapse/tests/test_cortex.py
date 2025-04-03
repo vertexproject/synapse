@@ -1,5 +1,6 @@
 import os
 import copy
+import http
 import time
 import asyncio
 import hashlib
@@ -82,6 +83,12 @@ class CortexTest(s_t_utils.SynTest):
                 await core.setTagPropLocked('score', False)
 
                 await core.nodes('[ inet:ipv4=1.2.3.4 :asn=99 .seen=now +#foo:score=10 ]')
+
+            conf = {'modules': [('NewpModule', {})]}
+            warn = '''"'modules' Cortex config value" is deprecated'''
+            with self.assertWarnsRegex(DeprecationWarning, warn) as cm:
+                async with self.getTestCore(dirn=dirn) as core:
+                    pass
 
     async def test_cortex_cellguid(self):
         iden = s_common.guid()
@@ -1178,11 +1185,11 @@ class CortexTest(s_t_utils.SynTest):
             async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:
                 body = {'query': 'return(asdf)', 'opts': {'user': core.auth.rootuser.iden}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
-                    self.eq(resp.status, 403)
+                    self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
 
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/call')
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
 
             async with self.getHttpSess() as sess:
                 async with sess.post(f'https://localhost:{port}/api/v1/login',
@@ -1193,12 +1200,14 @@ class CortexTest(s_t_utils.SynTest):
 
                 body = {'query': 'return (asdf)'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, http.HTTPStatus.OK)
                     retn = await resp.json()
                     self.eq('ok', retn.get('status'))
                     self.eq('asdf', retn['result'])
 
                 body = {'query': '$foo=() $bar=$foo.index(10) return ( $bar )'}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormRuntimeError', retn.get('code'))
@@ -1206,6 +1215,7 @@ class CortexTest(s_t_utils.SynTest):
 
                 body = {'query': 'return ( $lib.exit() )'}
                 async with sess.post(f'https://localhost:{port}/api/v1/storm/call', json=body) as resp:
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                     retn = await resp.json()
                     self.eq('err', retn.get('status'))
                     self.eq('StormExit', retn.get('code'))
@@ -1214,6 +1224,7 @@ class CortexTest(s_t_utils.SynTest):
                 # No body
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/call') as resp:
                     retn = await resp.json()
+                    self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                     self.eq('err', retn.get('status'))
                     self.eq('SchemaViolation', retn.get('code'))
 
@@ -7402,18 +7413,17 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             async with self.getHttpSess(port=port) as sess:
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
 
             async with self.getHttpSess(port=port, auth=('visi', 'secret')) as sess:
                 body = {'query': 'inet:ipv4', 'opts': {'user': core.auth.rootuser.iden}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm/export', json=body) as resp:
-                    self.eq(resp.status, 403)
+                    self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
 
             async with self.getHttpSess(port=port, auth=('root', 'secret')) as sess:
 
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export')
-                self.eq(200, resp.status)
-
+                self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                 reply = await resp.json()
                 self.eq('err', reply.get('status'))
                 self.eq('SchemaViolation', reply.get('code'))
@@ -7423,6 +7433,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     'opts': {'scrub': {'include': {'tags': ('visi',)}}},
                 }
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 byts = await resp.read()
 
                 podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
@@ -7440,6 +7451,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                 body = {'query': 'inet:ipv4=asdfasdf'}
                 resp = await sess.post(f'https://localhost:{port}/api/v1/storm/export', json=body)
                 retval = await resp.json()
+                self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                 self.eq('err', retval['status'])
                 self.eq('BadTypeValu', retval['code'])
 
