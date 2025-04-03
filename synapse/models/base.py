@@ -29,9 +29,6 @@ modeldefs = (
             ('meta:source', ('guid', {}), {
                 'doc': 'A data source unique identifier.'}),
 
-            ('meta:source', ('guid', {}), {
-                'doc': 'A data source unique identifier.'}),
-
             ('meta:note', ('guid', {}), {
                 'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
 

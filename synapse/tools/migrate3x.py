@@ -102,6 +102,8 @@ class Migrator(s_base.Base):
             'biz:dealtype': (self.rename, {'name': 'biz:deal:type:taxonomy'}),
             'biz:prodtype': (self.rename, {'name': 'biz:product:type:taxonomy'}),
             'geo:place:taxonomy': (self.rename, {'name': 'geo:place:type:taxonomy'}),
+            'inet:cidr4': (self.rename, {'name': 'inet:cidr'}),
+            'inet:cidr6': (self.rename, {'name': 'inet:cidr'}),
             'it:prod:hardwaretype': (self.rename, {'name': 'it:prod:hardware:type:taxonomy'}),
             'mat:type': (self.rename, {'name': 'mat:item:type:taxonomy'}),
             'media:news:taxonomy': (self.rename, {'name': 'media:news:type:taxonomy'}),
@@ -121,6 +123,9 @@ class Migrator(s_base.Base):
             # auto populated migrations
             # 'inet:email:message:link': (self.renorm, {'name': 'inet:email:message:link'}),
             # 'inet:email:message:attachment': (self.renorm, {'name': 'inet:email:message:attachment'}),
+
+            'inet:ipv4': (self.ipv4norm, {'name': 'inet:ip'}),
+            'lang:trans': (self.toguidnorm, {'name': 'lang:translation'}),
         }
 
         # forms requiring renormalization which will not be populated automatically
@@ -139,6 +144,7 @@ class Migrator(s_base.Base):
             },
             'ou:campaign': {
                 'type': (None, None),
+                'camptype': (self.rename, {'name': 'type'}),
             },
             'ou:contract': {
                 'types': (None, None),
@@ -149,15 +155,32 @@ class Migrator(s_base.Base):
                 'jobtype': (self.rename, {'name': 'job:type'}),
                 'employment': (self.rename, {'name': 'employment:type'}),
             },
-            'ou:campaign': {
-                'camptype': (self.rename, {'name': 'type'}),
-            },
             'ou:org': {
                 'orgtype': (self.rename, {'name': 'type'}),
             },
             'ps:workhist': {
                 'jobtype': (self.rename, {'name': 'job:type'}),
                 'employment': (self.rename, {'name': 'employment:type'}),
+            },
+
+            # converted props
+            'risk:attack': {
+                'target:host': (self.proptoedge, {'verb': 'targets', 'destform': 'it:host'}),
+                'target:org': (self.proptoedge, {'verb': 'targets', 'destform': 'ou:org'}),
+                'target:person': (self.proptoedge, {'verb': 'targets', 'destform': 'ps:person'}),
+                'target:place': (self.proptoedge, {'verb': 'targets', 'destform': 'geo:place'}),
+                'techniques': (self.arrayproptoedge, {'verb': 'uses', 'destform': 'ou:technique'}),
+                'used:email': (self.proptoedge, {'verb': 'uses', 'destform': 'inet:email'}),
+                'used:file': (self.proptoedge, {'verb': 'uses', 'destform': 'file:bytes'}),
+                'used:host': (self.proptoedge, {'verb': 'uses', 'destform': 'it:host'}),
+                'used:software': (self.proptoedge, {'verb': 'uses', 'destform': 'it:prod:softver'}),
+                'used:software': (self.proptoedge, {'verb': 'uses', 'destform': 'it:prod:softver'}),
+                'used:url': (self.proptoedge, {'verb': 'uses', 'destform': 'inet:url', 'renorm': True}),
+                'used:vuln': (self.proptoedge, {'verb': 'uses', 'destform': 'risk:vuln'}),
+                'via:email': (self.proptoedge, {'verb': 'uses', 'destform': 'inet:email'}),
+                'via:ipv4': (self.ipv4proptoedge, {'verb': 'uses', 'destform': 'inet:ip', 'renorm': True}),
+                'via:ipv6': (self.proptoedge, {'verb': 'uses', 'destform': 'inet:ip', 'renorm': True}),
+                'via:phone': (self.proptoedge, {'verb': 'uses', 'destform': 'tel:phone'}),
             }
 
             # auto populated renorm migrations
@@ -166,21 +189,61 @@ class Migrator(s_base.Base):
             # inet:email:attachment:name
         }
 
+        self.fullmigr = {
+            'lang:translation': self.langtrans,
+        }
+
         # auto populated form creations
         self.typetoform = set()
         # biz:service:type:taxonomy
         # inet:service:login:method:taxonomy
         # it:software:image:type:taxonomy
 
-        self.proptoform = set([
-            ('meta:source:type', 'meta:source:type:taxonomy'),
-        ])
-
-    def rename(self, valu, opts):
+    def rename(self, valu, opts, edits=None):
         return valu, {}
 
-    def renorm(self, valu, opts):
+    def renorm(self, valu, opts, edits=None):
         return opts['type'].norm(valu)
+
+    def toguidnorm(self, valu, opts, edits=None):
+        return opts['type'].norm((valu,))
+
+    def ipv4norm(self, valu, opts, edits=None):
+        return opts['type'].norm((4, valu))
+
+    def proptoedge(self, valu, opts, edits=None):
+        # TODO: can we rely on the dest node existing from the first pass and just getNidByBuid?
+        if (desttype := opts.get('desttype')) is not None:
+            valu = desttype.norm(valu)[0]
+
+        destform = opts['destform']
+        destbuid = s_common.buid((destform, valu))
+        destnid = self._genIndxNid(destbuid, (destform, valu))
+        edits.append((s_layer.EDIT_EDGE_ADD, (opts['verb'], s_common.int64un(destnid))))
+        return s_common.novalu, None
+
+    def ipv4proptoedge(self, valu, opts, edits=None):
+        return self.proptoedge((4, valu), opts, edits=edits)
+
+    def arrayproptoedge(self, valu, opts, edits=None):
+        destform = opts['destform']
+        for aval in valu:
+            proptoedge(aval, opts, edits=edits)
+        return s_common.novalu, None
+
+    def langtrans(self, sode, edits):
+        if (valu := sode.get('valu')) is not None:
+            edits.append((s_layer.EDIT_NODE_ADD, (s_common.guid((valu[0],)), s_layer.STOR_TYPE_GUID, {})))
+            edits.append((s_layer.EDIT_PROP_SET, ('input', valu[0], None, valu[1], {})))
+
+        if (valu := sode['props'].get('text:en')) is not None:
+            edits.append((s_layer.EDIT_PROP_SET, ('output', valu[0], None, valu[1], {})))
+            edits.append((s_layer.EDIT_PROP_SET, ('output:lang', 'en', None, valu[1], {})))
+
+        if (valu := sode['props'].get('desc:en')) is not None:
+            edits.append((s_layer.EDIT_PROP_SET, ('desc', valu[0], None, valu[1], {})))
+
+        return
 
     async def _chkValid(self):
         '''
@@ -249,8 +312,19 @@ class Migrator(s_base.Base):
         # migrate all of the config data first so cortex is
         # in a valid state during node data migration
         await self._migrCell()
-        await self._migrDatamodel()
+
+        # load models
+        self.model = s_datamodel.Model()
+        self.oldmodel = self._get2xModel()
+
+        mdefs = []
+        for path in s_models.modeldefs:
+            if (defs := s_dyndeps.getDynLocal(path)) is not None:
+                mdefs.extend(defs)
+        self.model.addDataModels(mdefs)
+
         await self._migrExtmodel()
+        await self._migrDatamodel()
 
         self.newlayers = {}
         for iden, layrinfo in self.layrdefs.items():
@@ -286,7 +360,7 @@ class Migrator(s_base.Base):
 
                     if (nid := self.getNidByBuid(buid)) is None:
                         if (newv := self.migrslab.get(buid, db=self.migrinfo)) is None:
-                            view.trigqueue.pop(offs)
+                            trigqueue.pop(offs)
                             continue
                         nid = s_msgpack.un(newv)[0]
 
@@ -528,8 +602,6 @@ class Migrator(s_base.Base):
         async with await s_multislabseqn.MultiSlabSeqn.anit(spath) as srclog, \
                    await s_multislabseqn.MultiSlabSeqn.anit(dpath) as dstlog:
 
-            buidmap = {}
-
             async for offs, item in s_coro.pause(srclog.iter(0)):
                 if item[1] != 'edits':
                     await dstlog.add(item + (None,), indx=offs)
@@ -589,18 +661,20 @@ class Migrator(s_base.Base):
                                 # skip edges to unknown buids
                                 continue
 
-                            newedits.append((etyp, (verb, n2nid)))
+                            newedits.append((etyp, (verb, s_common.int64un(n2nid))))
+
+                        elif etyp in (s_layer.EDIT_NODE_ADD, s_layer.EDIT_PROP_SET):
+                            newedits.append((etyp, edit + ({},)))
+
                         else:
                             newedits.append((etyp, edit))
 
                     if newedits:
-                        newnodeedits.append((nid, form, newedits))
+                        newnodeedits.append((s_common.int64un(nid), form, newedits))
 
                 if newnodeedits:
                     await dstlog.add((nexsiden, event, (newnodeedits, meta), kwargs, meta, etime), indx=offs)
                     self.newlayers[nexsiden].nodeeditlog.add(None, indx=offs)
-
-                buidmap.clear()
 
         for slabseqn in editlogs.values():
             await slabseqn.slab.fini()
@@ -615,19 +689,8 @@ class Migrator(s_base.Base):
 
     async def _migrDatamodel(self):
         '''
-        Load datamodel and generate any automatic migrations from the 2.x model.
+        Generate datamodel migrations from the 2.x model.
         '''
-        self.model = s_datamodel.Model()
-        self.oldmodel = self._get2xModel()
-
-        mdefs = []
-
-        for path in s_models.modeldefs:
-            if (defs := s_dyndeps.getDynLocal(path)) is not None:
-                mdefs.extend(defs)
-
-        self.model.addDataModels(mdefs)
-
         for name in self.formrenorm:
             form = self.model.form(name)
             opts = {'name': name, 'type': form.type}
@@ -640,23 +703,33 @@ class Migrator(s_base.Base):
         for name, fdef in self.oldmodel['forms'].items():
 
             if name in self.formmigr:
+                if (normopts := self.formmigr[name][1]) is not None and 'type' not in normopts:
+                    normopts['type'] = self.model.form(normopts['name']).type
                 continue
 
+            newname = name
+
             if (form := self.model.form(name)) is None:
-                nomigr.append(f'form={name}')
-                continue
+                if (newname := self.model.formprevnames.get(name)) is None:
+                    nomigr.append(f'form={name}')
+                    continue
+
+                form = self.model.form(newname)
 
             oldt = self.oldmodel['types'].get(name)
             oldopts = s_common.flatten(oldt['opts'])
             newopts = s_common.flatten(form.type.opts)
             if oldopts != newopts or oldt['stortype'] != form.type.stortype:
-                opts = {'name': name, 'type': form.type}
+                opts = {'name': newname, 'type': form.type}
                 self.formmigr[name] = (self.renorm, opts)
 
         # generate automatic prop migrations where possible and verify all props exist
         # or have a migration defined
 
         for formname, fdef in self.oldmodel['forms'].items():
+
+            if formname in self.fullmigr:
+                continue
 
             if (migr := self.formmigr.get(formname)) is not None:
                 if (migropts := migr[1]) is None:
@@ -671,12 +744,18 @@ class Migrator(s_base.Base):
                     continue
 
                 if propmigr is not None and propname in propmigr:
+                    if (normopts := propmigr[propname][1]) is not None:
+                        if 'destform' in normopts and normopts.get('renorm'):
+                            normopts['desttype'] = self.model.form(normopts['destform']).type
                     continue
 
                 propfull = f'{formname}:{propname}'
                 if (prop := self.model.prop(propfull)) is None:
-                    nomigr.append(f'prop={propfull}')
-                    continue
+                    if (newpropfull := self.model.propprevnames.get(propfull)) is None:
+                        nomigr.append(f'prop={propfull}')
+                        continue
+
+                    prop = self.model.prop(newpropfull)
 
                 oldtname, oldtopts = pdef['type']
                 if (tmigr := self.formmigr.get(oldtname)) is not None:
@@ -688,10 +767,13 @@ class Migrator(s_base.Base):
 
                 if newtname != oldtname or oldtopts != newtopts:
                     opts = {'name': propname, 'type': prop.type}
+                    if self.model.form(prop.type.name):
+                        opts['addform'] = True
                     self.propmigr[formname][propname] = (self.renorm, opts)
 
         if nomigr:
-            raise Exception(f'Missing model elements with no defined migration: {", ".join(nomigr)}')
+            pass
+            # raise Exception(f'Missing model elements with no defined migration: {", ".join(nomigr)}')
 
         for name in self.model.forms.keys():
             if name in self.oldmodel['types'] and name not in self.oldmodel['forms']:
@@ -759,7 +841,7 @@ class Migrator(s_base.Base):
             except Exception as e:  # pragma: no cover
                 logger.warning(f'ext tag prop ({prop}) error: {e}')
 
-        logger.info('Completed datamodel migration')
+        logger.info('Completed extended datamodel migration')
         await self._migrlogAdd('dmodel', 'prog', 'none', s_common.now())
 
     def _genIndxNid(self, buid, ndef):
@@ -982,54 +1064,72 @@ class Migrator(s_base.Base):
                 edits = []
                 logedits = []
 
-                if valt is not None:
-                    ftyp = self.model.type(form)
-                    if ftyp is None:
-                        print(f'Unknown form {form} in layer {iden}')
-                        continue
+                if (fullmigr := self.fullmigr.get(form)) is not None:
+                    fullmigr(sode, edits)
 
-                    stortype = ftyp.stortype
-                    if stortype == 10 and isinstance(valu, tuple):
-                        print(sode)
-                    edits.append((s_layer.EDIT_NODE_ADD, (valu, stortype)))
-
-                    if migr is not None and (subs := norminfo.get('subs')) is not None:
-                        migrsubs.clear()
-                        for subn, subv in subs.items():
-                            migrsubs.add(subn)
-                            stortype = self.model.prop(f'{form}:{subn}').type.stortype
-                            edits.append((s_layer.EDIT_PROP_SET, (subn, subv, None, stortype)))
-
-                propmigr = self.propmigr.get(form)
-                for prop, (valu, stortype) in sode.get('props', {}).items():
-                    if prop in migrsubs:
-                        continue
-
-                    if propmigr and (pmig := propmigr.get(prop)) is not None:
-                        (pmigfunc, pmigopts) = pmig
-                        if pmigfunc is None:
+                else:
+                    if valt is not None:
+                        ftyp = self.model.type(form)
+                        if ftyp is None:
+                            print(f'Unknown form {form} in layer {iden}')
                             continue
 
-                        try:
-                            valu, norminfo = pmigfunc(valu, pmigopts)
-                        except:
-                            print(f'Failed to migrate value for {form}:{prop}={valu}')
+                        stortype = ftyp.stortype
+                        if stortype == 10 and isinstance(valu, tuple):
+                            print(sode)
+
+                        virts = None if migr is None else norminfo.get('virts')
+
+                        edits.append((s_layer.EDIT_NODE_ADD, (valu, stortype, virts)))
+
+                        if migr is not None and (subs := norminfo.get('subs')) is not None:
+                            migrsubs.clear()
+                            for subn, subv in subs.items():
+                                migrsubs.add(subn)
+                                stortype = self.model.prop(f'{form}:{subn}').type.stortype
+                                edits.append((s_layer.EDIT_PROP_SET, (subn, subv, None, stortype, {})))
+
+                    propmigr = self.propmigr.get(form)
+                    for prop, (valu, stortype) in sode.get('props', {}).items():
+                        if prop in migrsubs:
                             continue
 
-                        if (newtype := pmigopts.get('type')) is not None:
-                            stortype = newtype.stortype
+                        if propmigr and (pmig := propmigr.get(prop)) is not None:
+                            (pmigfunc, pmigopts) = pmig
+                            if pmigfunc is None:
+                                continue
 
-                    elif stortype == s_layer.STOR_TYPE_NDEF:
-                        (nform, nvalu) = valu
-                        if (migr := self.formmigr.get(nform)) is not None:
-                            (migrfunc, migropts) = migr
                             try:
-                                valu = (migropts['name'], migrfunc(nvalu, migropts)[0])
+                                valu, norminfo = pmigfunc(valu, pmigopts, edits=edits)
                             except:
                                 print(f'Failed to migrate value for {form}:{prop}={valu}')
                                 continue
 
-                    edits.append((s_layer.EDIT_PROP_SET, (prop, valu, None, stortype)))
+                            if valu is s_common.novalu:
+                                continue
+
+                            if (newtype := pmigopts.get('type')) is not None:
+                                stortype = newtype.stortype
+
+                                if pmigopts.get('addform'):
+                                    # TODO: do we need to calc proptoform virts?
+                                    newform = newtype.name
+                                    addbuid = s_common.buid((newform, valu))
+                                    addnid = self._genIndxNid(addbuid, (newform, valu))
+                                    addedit = (s_layer.EDIT_NODE_ADD, (valu, stortype, {}))
+                                    yield [(s_common.int64un(addnid), newform, (addedit,))]
+
+                        elif stortype == s_layer.STOR_TYPE_NDEF:
+                            (nform, nvalu) = valu
+                            if (migr := self.formmigr.get(nform)) is not None:
+                                (migrfunc, migropts) = migr
+                                try:
+                                    valu = (migropts['name'], migrfunc(nvalu, migropts, edits=edits)[0])
+                                except:
+                                    print(f'Failed to migrate value for {form}:{prop}={valu}')
+                                    continue
+
+                        edits.append((s_layer.EDIT_PROP_SET, (prop, valu, None, stortype, {})))
 
                 for tag, tagv in sode.get('tags', {}).items():
                     edits.append((s_layer.EDIT_TAG_SET, (tag, tagv, None)))
@@ -1058,15 +1158,16 @@ class Migrator(s_base.Base):
                         if verb[0] != '_':
                             verb = '_' + verb
 
-                        edge = ('*', verb, '*')
-                        edgeinfo = {'doc': 'Automatically added during 3.0.0 migration.'}
-                        self.model.addEdge(edge, edgeinfo)
-                        self.extedges.set(s_common.guid(edge), (edge, edgeinfo))
+                        if not self.model.edgeIsValid(form, verb, n2form):
+                            edge = ('*', verb, '*')
+                            edgeinfo = {'doc': 'Automatically added during 3.0.0 migration.'}
+                            self.model.addEdge(edge, edgeinfo)
+                            self.extedges.set(s_common.guid(edge), (edge, edgeinfo))
 
-                    edits.append((s_layer.EDIT_EDGE_ADD, (verb, n2nid)))
+                    edits.append((s_layer.EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
 
                 if self.migrslab.get(nid, db=self.migrnids) is not None:
-                    yield await layr.calcEdits([(nid, form, edits)], {})
+                    yield await layr.calcEdits([(s_common.int64un(nid), form, edits)], {})
                     continue
 
 #                if newedits:
@@ -1075,7 +1176,7 @@ class Migrator(s_base.Base):
 #                if newnodeedits:
 #                    await dstlog.add((nexsiden, event, (newnodeedits, meta), kwargs, meta, etime), indx=offs)
 
-                yield [(nid, form, edits)]
+                yield [(s_common.int64un(nid), form, edits)]
 
     async def _migrlogAdd(self, migrop, logtyp, key, val):
         '''
