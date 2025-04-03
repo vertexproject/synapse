@@ -3070,3 +3070,21 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
             self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
+
+    async def test_ipv4_fallback(self):
+
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[inet:ip=192.168.1.1]'))
+
+            self.len(1, await core.nodes('[inet:ip=3.0.000.115]'))
+            self.len(1, await core.nodes('[inet:ip=192.168.001.001]'))
+            self.len(1, await core.nodes('[inet:ip=10.0.0.001]'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=256.256.256.256]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=192.168.001.001.001]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=192.168.001.001.abc]')
