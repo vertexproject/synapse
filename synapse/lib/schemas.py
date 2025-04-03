@@ -1199,3 +1199,14 @@ TrigSchema = {
     ],
 }
 reqValidTriggerDef = s_config.getJsValidator(TrigSchema)
+
+_httpLoginV1Schema = {
+    'type': 'object',
+    'properties': {
+        'user': {'type': 'string'},
+        'passwd': {'type': 'string'},
+        },
+    'additionalProperties': False,
+    'required': ['user', 'passwd'],
+}
+reqValidHttpLoginV1 = s_config.getJsValidator(_httpLoginV1Schema)

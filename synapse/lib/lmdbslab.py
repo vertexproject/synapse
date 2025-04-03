@@ -1882,6 +1882,8 @@ class Scan:
         '''
         Returns if the cursor is at the value in atitem
         '''
+        if not self.dupsort:
+            return self.atitem[0] == self.curs.item()[0]
         return self.atitem == self.curs.item()
 
 class ScanKeys(Scan):
