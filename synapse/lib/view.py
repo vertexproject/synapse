@@ -979,7 +979,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # an ease-of-use API for testing
         return [m async for m in self.storm(text, opts=opts)]
 
-    async def storm(self, text, opts=None):
+    async def storm(self, text, opts=None, promote=True):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
@@ -1002,7 +1002,7 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
 
         synt = None
-        if opts.get('promote', True):
+        if promote:
             synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())

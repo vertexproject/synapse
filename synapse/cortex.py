@@ -5793,7 +5793,6 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             opts = {}
 
         opts.setdefault('user', self.auth.rootuser.iden)
-        opts.setdefault('promote', True)
         return opts
 
     def _viewFromOpts(self, opts, user=None):
@@ -5925,7 +5924,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         logger.warning('Pool members exhausted. Running query locally.', extra=await self.getLogExtra())
         return None
 
-    async def storm(self, text, opts=None):
+    async def storm(self, text, opts=None, promote=True):
 
         opts = self._initStormOpts(opts)
 
@@ -5956,7 +5955,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 raise s_exc.TimeOut(mesg=f'Timeout waiting for nexus offset {nexsoffs} in storm().')
 
         view = self._viewFromOpts(opts)
-        async for mesg in view.storm(text, opts=opts):
+        async for mesg in view.storm(text, opts=opts, promote=promote):
             yield mesg
 
     async def callStorm(self, text, opts=None):
