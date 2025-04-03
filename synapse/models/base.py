@@ -143,6 +143,15 @@ modeldefs = (
             (('meta:ruleset', 'has', 'meta:rule'), {
                 'doc': 'The meta:ruleset includes the meta:rule.'}),
 
+            (('meta:ruleset', 'has', 'inet:service:rule'), {
+                'doc': 'The meta:ruleset includes the inet:service:rule.'}),
+
+            (('meta:ruleset', 'has', 'it:app:snort:rule'), {
+                'doc': 'The meta:ruleset includes the it:app:snort:rule.'}),
+
+            (('meta:ruleset', 'has', 'it:app:yara:rule'), {
+                'doc': 'The meta:ruleset includes the it:app:yara:rule.'}),
+
             (('meta:rule', 'matches', None), {
                 'doc': 'The meta:rule has matched on target node.'}),
 

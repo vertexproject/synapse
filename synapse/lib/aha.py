@@ -79,12 +79,9 @@ class AhaProvisionServiceV1(s_httpapi.Handler):
             url = await self.cell.addAhaSvcProv(name, provinfo=provinfo)
         except asyncio.CancelledError:  # pragma: no cover
             raise
-        except s_exc.SynErr as e:
+        except Exception as e:
             logger.exception(f'Error provisioning {name}')
-            return self.sendRestErr(e.__class__.__name__, e.get('mesg', str(e)))
-        except Exception as e:  # pragma: no cover
-            logger.exception(f'Error provisioning {name}')
-            return self.sendRestErr(e.__class__.__name__, str(e))
+            return self.sendRestExc(e, status_code=s_httpapi.HTTPStatus.BAD_REQUEST)
         return self.sendRestRetn({'url': url})
 
 _getAhaSvcSchema = {
