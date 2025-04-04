@@ -1,5 +1,4 @@
 import io
-import json
 
 import orjson
 
@@ -17,7 +16,7 @@ class JsonTest(s_test.SynTest):
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('newp')
-        self.eq(exc.exception.get('mesg'), 'Expecting value: line 1 column 1 (char 0)')
+        self.eq(exc.exception.get('mesg'), 'invalid literal: line 1 column 1 (char 0)')
 
     async def test_lib_json_load(self):
         with self.getTestDir() as dirn:
@@ -31,7 +30,7 @@ class JsonTest(s_test.SynTest):
             with s_common.genfile(dirn, 'empty') as empty:
                 with self.raises(s_exc.BadJsonText) as exc:
                     s_json.load(empty)
-                self.eq(exc.exception.get('mesg'), 'Expecting value: line 1 column 1 (char 0)')
+                self.eq(exc.exception.get('mesg'), 'Input is a zero-length, empty document: line 1 column 1 (char 0)')
 
             buf = io.BytesIO(b'{"a": "b"}')
             self.eq({'a': 'b'}, s_json.load(buf))
@@ -40,42 +39,26 @@ class JsonTest(s_test.SynTest):
             self.eq({'a': 'b'}, s_json.load(buf))
 
     async def test_lib_json_load_surrogates(self):
-
         inval = '{"a": "😀\ud83d\ude47"}'
-        outval = {'a': '😀\ud83d\ude47'}
 
-        # orjson.dumps fails because of the surrogate pairs
-        with self.raises(orjson.JSONDecodeError):
-            orjson.loads(inval)
+        # orjson.loads fails because of the surrogate pairs
+        with self.raises(s_exc.BadJsonText):
+            s_json.loads(inval)
 
-        # stdlib json.loads passes because of voodoo magic
-        self.eq(outval, json.loads(inval))
-
-        self.eq(outval, s_json.loads(inval))
-
-        buf = io.StringIO(inval)
-        self.eq(outval, s_json.load(buf))
-
-        buf = io.BytesIO(inval.encode('utf8', errors='surrogatepass'))
-        self.eq(outval, s_json.load(buf))
+        with self.raises(s_exc.BadJsonText):
+            buf = io.StringIO(inval)
+            s_json.load(buf)
 
     async def test_lib_json_dump_surrogates(self):
         inval = {'a': '😀\ud83d\ude47'}
-        outval = b'{"a": "\\ud83d\\ude00\\ud83d\\ude47"}'
 
         # orjson.dumps fails because of the surrogate pairs
-        with self.raises(TypeError):
-            orjson.dumps(inval)
+        with self.raises(s_exc.MustBeJsonSafe):
+            s_json.dumps(inval)
 
-        # stdlib json.dumps passes because of voodoo magic
-        self.eq(outval.decode(), json.dumps(inval))
-
-        self.eq(outval, s_json.dumps(inval))
-        self.eq(outval + b'\n', s_json.dumps(inval, newline=True))
-
-        buf = io.BytesIO()
-        s_json.dump(inval, buf)
-        self.eq(outval, buf.getvalue())
+        with self.raises(s_exc.MustBeJsonSafe):
+            buf = io.BytesIO()
+            s_json.dump(inval, buf)
 
     async def test_lib_json_dumps(self):
         self.eq(b'{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
@@ -90,12 +73,6 @@ class JsonTest(s_test.SynTest):
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({1: 'foo'})
         self.eq(exc.exception.get('mesg'), 'Dict key must be str')
-
-        with self.raises(s_exc.MustBeJsonSafe) as exc:
-            s_json.dumps({'\ud83d\ude47': {}.items()})
-        self.eq(exc.exception.get('mesg'), 'Object of type dict_items is not JSON serializable')
-
-        self.eq(b'"dict_items([])"', s_json.dumps({}.items(), default=str))
 
     async def test_lib_json_dump(self):
         with self.getTestDir() as dirn:
@@ -178,7 +155,6 @@ class JsonTest(s_test.SynTest):
                     s_json.reqjsonsafe(item)
 
         text = '😀\ud83d\ude47'
-        s_json.reqjsonsafe(text)
         with self.raises(s_exc.MustBeJsonSafe) as exc:
-            s_json.reqjsonsafe(text, strict=True)
+            s_json.reqjsonsafe(text)
         self.eq(exc.exception.get('mesg'), 'str is not valid UTF-8: surrogates not allowed')

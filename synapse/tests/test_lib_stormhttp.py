@@ -198,16 +198,16 @@ class StormHttpTest(s_test.SynTest):
             badopts = {'vars': {'url': badurl}}
             q = '''
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json() )
+            return ( $resp.json(strict=(true)) )
             '''
             with self.raises(s_exc.StormRuntimeError) as cm:
                 resp = await core.callStorm(q, opts=badopts)
 
             q = '''
             $resp = $lib.inet.http.get($url, ssl_verify=$lib.false)
-            return ( $resp.json(encoding=utf8, errors=ignore) )
+            return ( $resp.json(encoding=utf8) )
             '''
-            self.eq({"foo": "bar"}, await core.callStorm(q, opts=badopts))
+            self.eq({"foo": "bar�"}, await core.callStorm(q, opts=badopts))
 
             retn = await core.callStorm('return($lib.inet.http.codereason(404))')
             self.eq(retn, 'Not Found')
