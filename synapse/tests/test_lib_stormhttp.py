@@ -473,6 +473,19 @@ class StormHttpTest(s_test.SynTest):
             data = resp.get('result')
             self.eq(data.get('params'), {'foo': ['bar', 'baz'], 'key': ["('valu',)"]})
 
+            # headers are safe to serialize
+            q = '''
+            $headers = ({'Foo': 'Bar'})
+            $resp = $lib.inet.http.request(GET, $url, headers=$headers, ssl_verify=$lib.false)
+            return ( ($lib.json.save($resp.headers), $lib.json.save($resp.request_headers)) )
+            '''
+            resp = await core.callStorm(q, opts=opts)
+            (headers, req_headers) = resp
+            headers = s_json.loads(headers)
+            self.eq(headers.get('Content-Type'), 'application/json; charset=UTF-8')
+            req_headers = s_json.loads(req_headers)
+            self.eq(req_headers.get('Foo'), 'Bar')
+
     async def test_storm_http_post(self):
 
         async with self.getTestCore() as core:
