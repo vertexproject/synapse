@@ -1,6 +1,5 @@
 ---
-desc: Deprecated network related API arguments for AHA APIs and related tools. Multi-network
-  support will be removed in Synapse ``3.0.0``.
+desc: Deprecated support for multiple AHA network names being hosted by one AHA deployment. Synapse 3.0 AHA deployments will be simplified to hosting only one network.
 prs: []
 type: deprecation
 ...
