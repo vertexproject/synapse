@@ -69,6 +69,9 @@ class Drive(s_base.Base):
 
     def getItemInfo(self, iden, typename=None):
         info = self._getItemInfo(s_common.uhex(iden))
+        if not info:
+            return
+
         if typename is not None:
             self._reqInfoType(info, typename)
         return info
@@ -210,7 +213,7 @@ class Drive(s_base.Base):
 
     def _setItemPerm(self, bidn, perm):
         info = self._reqItemInfo(bidn)
-        info['perm'] = perm
+        info['permissions'] = perm
         s_schemas.reqValidDriveInfo(info)
         self.slab.put(LKEY_INFO + bidn, s_msgpack.en(info), db=self.dbname)
         return info
@@ -286,7 +289,7 @@ class Drive(s_base.Base):
         info['kids'] = 0
         info['parent'] = pariden
 
-        info.setdefault('perm', {'users': {}, 'roles': {}})
+        info.setdefault('permissions', {'users': {}, 'roles': {}})
         info.setdefault('version', (0, 0, 0))
 
         s_schemas.reqValidDriveInfo(info)
@@ -447,6 +450,8 @@ class Drive(s_base.Base):
 
         if vers is None:
             info = self._getItemInfo(bidn)
+            if info is None:
+                return None
             vers = info.get('version')
 
         versindx = getVersIndx(vers)
