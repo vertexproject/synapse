@@ -34,7 +34,7 @@ class FileTest(s_t_utils.SynTest):
                     :exe:compiler = {[ it:prod:softver=* :name="Visi Studio 31337" ]}
                 ]
             ''', opts={'vars': {'byts': b'visi'}})
-            pref = nodes[0].props.get('sha256')[:4]
+            pref = nodes[0].get('sha256')[:4]
 
             self.nn(nodes[0].get('exe:packer'))
             self.nn(nodes[0].get('exe:compiler'))
@@ -223,15 +223,6 @@ class FileTest(s_t_utils.SynTest):
             self.eq(0, sect.get('type'))
             self.eq(5678, sect.get('offset'))
 
-    async def test_model_filebytes_string(self):
-        async with self.getTestCore() as core:
-            file0 = 'a' * 64
-            nodes = await core.nodes('[file:string=($valu, foo)]', opts={'vars': {'valu': file0}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.get('file'), f'sha256:{file0}')
-            self.eq(node.get('string'), 'foo')
-
     async def test_model_file_types(self):
 
         async with self.getTestCore() as core:
@@ -297,6 +288,24 @@ class FileTest(s_t_utils.SynTest):
             self.none(node.get('base:ext'))
             self.none(node.get('dir'))
 
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' /foo/bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': '\\foo\\bar'}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '/foo/bar')
+
+            nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ' '}})
+            self.len(1, nodes)
+            node = nodes[0]
+            self.eq(node.ndef[1], '')
+            self.none(node.get('base'))
+            self.none(node.get('base:ext'))
+            self.none(node.get('dir'))
+
             nodes = await core.nodes('[file:path=$valu]', opts={'vars': {'valu': ''}})
             self.len(1, nodes)
             node = nodes[0]
@@ -330,14 +339,13 @@ class FileTest(s_t_utils.SynTest):
             fake = nodes[0]
             self.true(fake.ndef[1].startswith('guid:'))
 
-            nodes = await core.nodes('[file:subfile=$valu :name=embed.BIN :path="foo/embed.bin"]',
+            nodes = await core.nodes('[file:subfile=$valu :path="foo/embed.bin"]',
                                      opts={'vars': {'valu': (node1.ndef[1], node2.ndef[1])}})
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef[1], (node1.ndef[1], node2.ndef[1]))
             self.eq(node.get('parent'), node1.ndef[1])
             self.eq(node.get('child'), node2.ndef[1])
-            self.eq(node.get('name'), 'embed.bin')
             self.eq(node.get('path'), 'foo/embed.bin')
 
             fp = 'C:\\www\\woah\\really\\sup.exe'
@@ -346,9 +354,9 @@ class FileTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('file'), node0.ndef[1])
             self.eq(node.get('path'), 'c:/www/woah/really/sup.exe')
-            self.eq(node.get('path:dir'), 'c:/www/woah/really')
-            self.eq(node.get('path:base'), 'sup.exe')
-            self.eq(node.get('path:base:ext'), 'exe')
+            self.len(1, await core.nodes('file:filepath:path*dir=c:/www/woah/really'))
+            self.len(1, await core.nodes('file:filepath:path*base=sup.exe'))
+            self.len(1, await core.nodes('file:filepath:path*ext=exe'))
 
             self.len(1, await core.nodes('file:path="c:/www/woah/really"'))
             self.len(1, await core.nodes('file:path="c:/www"'))
@@ -374,6 +382,12 @@ class FileTest(s_t_utils.SynTest):
 
             node = nodes[0]
             self.eq(node.ndef, ('file:ismime', (guid, 'text/plain')))
+
+            nodes = await core.nodes('[ file:bytes=(nomime,) :mime="??" ]')
+            self.len(1, nodes)
+
+            nodes = await core.nodes('file:ismime:file=(nomime,)')
+            self.len(0, nodes)
 
     async def test_model_file_mime_msoffice(self):
 

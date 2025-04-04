@@ -124,24 +124,24 @@ class AhaServicesV1(s_httpapi.Handler):
 class AhaApi(s_cell.CellApi):
 
     @s_cell.adminapi()
-    async def addAhaClone(self, host, port=27492, conf=None):
+    async def addAhaClone(self, host, *, port=27492, conf=None):
         return await self.cell.addAhaClone(host, port=port, conf=conf)
 
-    async def getAhaUrls(self, user='root'):
+    async def getAhaUrls(self, *, user='root'):
         ahaurls = await self.cell.getAhaUrls(user=user)
         return ahaurls
 
     @s_cell.adminapi()
-    async def callAhaPeerApi(self, iden, todo, timeout=None, skiprun=None):
+    async def callAhaPeerApi(self, iden, todo, *, timeout=None, skiprun=None):
         async for item in self.cell.callAhaPeerApi(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
     @s_cell.adminapi()
-    async def callAhaPeerGenr(self, iden, todo, timeout=None, skiprun=None):
+    async def callAhaPeerGenr(self, iden, todo, *, timeout=None, skiprun=None):
         async for item in self.cell.callAhaPeerGenr(iden, todo, timeout=timeout, skiprun=skiprun):
             yield item
 
-    async def getAhaSvc(self, name, filters=None):
+    async def getAhaSvc(self, name, *, filters=None):
         '''
         Return an AHA service description dictionary for a service name.
         '''
@@ -162,7 +162,7 @@ class AhaApi(s_cell.CellApi):
 
         return svcinfo
 
-    async def getAhaSvcs(self, network=None):
+    async def getAhaSvcs(self, *, network=None):
         '''
         Yield AHA svcinfo dictionaries.
 
@@ -177,7 +177,7 @@ class AhaApi(s_cell.CellApi):
         async for info in self.cell.getAhaSvcs(network=network):
             yield info
 
-    async def addAhaSvc(self, name, info, network=None):
+    async def addAhaSvc(self, name, info, *, network=None):
         '''
         Register a service with the AHA discovery server.
 
@@ -246,7 +246,7 @@ class AhaApi(s_cell.CellApi):
 
         return await self.cell.getAhaSvcMirrors(svciden)
 
-    async def delAhaSvc(self, name, network=None):
+    async def delAhaSvc(self, name, *, network=None):
         '''
         Remove an AHA service entry.
         '''
@@ -264,12 +264,12 @@ class AhaApi(s_cell.CellApi):
         await self._reqUserAllowed(('aha', 'ca', 'gen'))
         return await self.cell.genCaCert(network)
 
-    async def signHostCsr(self, csrtext, signas=None, sans=None):
+    async def signHostCsr(self, csrtext, *, signas=None, sans=None):
 
         await self._reqUserAllowed(('aha', 'csr', 'host'))
         return await self.cell.signHostCsr(csrtext, signas=signas, sans=sans)
 
-    async def signUserCsr(self, csrtext, signas=None):
+    async def signUserCsr(self, csrtext, *, signas=None):
         await self._reqUserAllowed(('aha', 'csr', 'user'))
         return await self.cell.signUserCsr(csrtext, signas=signas)
 
@@ -323,7 +323,7 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.delAhaServer(host, port)
 
     @s_cell.adminapi()
-    async def addAhaSvcProv(self, name, provinfo=None):
+    async def addAhaSvcProv(self, name, *, provinfo=None):
         '''
         Provision the given relative service name within the configured network name.
         '''
@@ -337,7 +337,7 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.delAhaSvcProv(iden)
 
     @s_cell.adminapi()
-    async def addAhaUserEnroll(self, name, userinfo=None, again=False):
+    async def addAhaUserEnroll(self, name, *, userinfo=None, again=False):
         '''
         Create and return a one-time user enroll key.
         '''
@@ -419,7 +419,7 @@ class CloneApi:
     async def readyToMirror(self):
         return await self.aha.readyToMirror()
 
-    async def iterNewBackupArchive(self, name=None, remove=False):
+    async def iterNewBackupArchive(self, *, name=None, remove=False):
         async with self.aha.getLocalProxy() as proxy:
             async for byts in proxy.iterNewBackupArchive(name=name, remove=remove):
                 yield byts
