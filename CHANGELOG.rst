@@ -6,6 +6,47 @@
 Synapse Changelog
 *****************
 
+v2.206.0 - 2025-04-04
+=====================
+
+Model Changes
+-------------
+- Added ``tel:mob:tadig`` and ``tel:mob:carrier:tadig`` to track GSM carrier
+  TADIG codes.
+  (`#4216 <https://github.com/vertexproject/synapse/pull/4216>`_)
+- Added ``it:network:dns:resolvers`` to track DNS resolvers for a network.
+  (`#4216 <https://github.com/vertexproject/synapse/pull/4216>`_)
+- Added a ``has`` light edge between ``meta:ruleset`` and the following forms:
+  ``inet:service:rule``, ``it:app:snort:rule``, ``it:app:yara:rule``.
+  (`#4218 <https://github.com/vertexproject/synapse/pull/4218>`_)
+- See :ref:`userguide_model_v2_206_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated the ``aha.svc.mirror`` command to print the individual service
+  version alongside the Synapse version.
+  (`#4215 <https://github.com/vertexproject/synapse/pull/4215>`_)
+
+Bugfixes
+--------
+- Updated Synapse HTTP APIs to set a non-200 HTTP status code when errors are
+  returned.
+  (`#4169 <https://github.com/vertexproject/synapse/pull/4169>`_)
+- Fixed a bug in storage iteration which could cause an item to be yielded
+  twice if a very narrow race window was encountered.
+  (`#4200 <https://github.com/vertexproject/synapse/pull/4200>`_)
+- Added missing permission declarations for light edges and queues.
+  (`#4214 <https://github.com/vertexproject/synapse/pull/4214>`_)
+
+Deprecations
+------------
+- Deprecated the ``modules`` Cortex configuration option.
+  (`#4188 <https://github.com/vertexproject/synapse/pull/4188>`_)
+- Deprecated support for multiple AHA network names being hosted by one AHA
+  deployment. Synapse 3.0 AHA deployments will be simplified to hosting only
+  one network.
+  (`#4221 <https://github.com/vertexproject/synapse/pull/4221>`_)
+
 v2.205.0 - 2025-03-28
 =====================
 
