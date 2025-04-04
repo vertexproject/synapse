@@ -260,7 +260,7 @@ class AhaApi(s_cell.CellApi):
         return await self.cell.delAhaSvc(name, network=network)
 
     async def getCaCert(self, network):
-        s_common.deprecated('genCaCert() will no longer accept a network argument', curv='v2.206.0')
+        s_common.deprecated('getCaCert() will no longer accept a network argument', curv='v2.206.0')
         await self._reqUserAllowed(('aha', 'ca', 'get'))
         return await self.cell.getCaCert(network)
 
