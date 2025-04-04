@@ -979,7 +979,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # an ease-of-use API for testing
         return [m async for m in self.storm(text, opts=opts)]
 
-    async def storm(self, text, opts=None):
+    async def storm(self, text, opts=None, promote=True):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
@@ -1000,7 +1000,10 @@ class View(s_nexus.Pusher):  # type: ignore
         keepalive = opts.get('keepalive')
         if keepalive is not None and keepalive <= 0:
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
-        synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+        synt = None
+        if promote:
+            synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
 
@@ -1019,8 +1022,17 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
 
                 # Always start with an init message.
-                await chan.put(('init', {'tick': tick, 'text': text, 'abstick': abstick,
-                                         'hash': texthash, 'task': synt.iden}))
+                init = ('init', {
+                    'tick': tick,
+                    'text': text,
+                    'abstick': abstick,
+                    'hash': texthash,
+                })
+
+                if synt is not None:
+                    init[1]['task'] = synt.iden
+
+                await chan.put(init)
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime in the snap, so catch and pass the `err` message
@@ -1086,7 +1098,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     tock = tick + abstook
                     await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook, 'count': count, }))
 
-        await synt.worker(runStorm(), name='runstorm')
+        self.core.boss.schedCoro(runStorm())
 
         editformat = opts.get('editformat', 'nodeedits')
 

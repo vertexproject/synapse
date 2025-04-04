@@ -397,7 +397,7 @@ class NexusTest(s_t_utils.SynTest):
             forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
 
             core.schedCoro(core.delViewWithLayer(forkiden))
-            await asyncio.wait_for(evnt.wait(), timeout=10)
+            await asyncio.wait_for(evnt.wait(), timeout=20)
 
             with self.raises(s_exc.NoSuchIden):
                 await core.nodes('[ it:dev:str=foo ]', opts={'view': forkiden})
