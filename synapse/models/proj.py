@@ -54,10 +54,10 @@ modeldefs = (
                     ('assignee', ('syn:user', {}), {
                         'doc': 'The user assigned to complete the {task}.'}),
 
-                    ('ext:creator', ('ps:contact', {}), {
+                    ('ext:creator', ('entity:contact', {}), {
                         'doc': 'The contact information of the creator from an external system.'}),
 
-                    ('ext:assignee', ('ps:contact', {}), {
+                    ('ext:assignee', ('entity:contact', {}), {
                         'doc': 'The contact information of the assignee from an external system.'}),
                 ),
             }),

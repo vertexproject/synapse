@@ -1447,7 +1447,7 @@ modeldefs = (
 
             ('inet:service:account', ('guid', {}), {
                 'interfaces': ('inet:service:subscriber',),
-                'template': {'service:base': 'account'},
+                'template': {'service:base': 'account', 'contactable': 'account'},
                 'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
             ('inet:service:relationship:type:taxonomy', ('taxonomy', {}), {
@@ -1536,7 +1536,7 @@ modeldefs = (
 
             ('inet:service:tenant', ('guid', {}), {
                 'interfaces': ('inet:service:subscriber',),
-                'template': {'service:base': 'tenant'},
+                'template': {'service:base': 'tenant', 'contactable': 'tenant'},
                 'doc': 'A tenant which groups accounts and instances.'}),
 
             ('inet:service:subscription:level:taxonomy', ('taxonomy', {}), {
@@ -1658,12 +1658,8 @@ modeldefs = (
 
             ('inet:service:subscriber', {
                 'doc': 'Properties common to the nodes which subscribe to services.',
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'subscriber'},
-                'props': (
-                    ('profile', ('ps:contact', {}), {
-                        'doc': 'The primary contact information for the {service:base}.'}),
-                ),
+                'interfaces': ('inet:service:object', 'entity:abstract'),
+                'template': {'service:base': 'subscriber', 'contactable': 'subscriber'},
             }),
 
             ('inet:service:action', {
@@ -2020,7 +2016,7 @@ modeldefs = (
                     'doc': 'The server where client traffic enters the tunnel.'}),
                 ('egress', ('inet:server', {}), {
                     'doc': 'The server where client traffic leaves the tunnel.'}),
-                ('operator', ('ps:contact', {}), {
+                ('operator', ('entity:actor', {}), {
                     'doc': 'The contact information for the tunnel operator.'}),
             )),
 
@@ -2136,8 +2132,10 @@ modeldefs = (
             )),
 
             ('inet:http:session', {}, (
-                ('contact', ('ps:contact', {}), {
-                    'doc': 'The ps:contact which owns the session.'}),
+
+                ('contact', ('entity:contact', {}), {
+                    'doc': 'The entity contact which owns the session.'}),
+
                 ('cookies', ('array', {'type': 'inet:http:cookie', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of cookies used to identify this specific session.'}),
             )),
@@ -2235,7 +2233,7 @@ modeldefs = (
             )),
 
             ('inet:rfc2822:addr', {}, (
-                ('name', ('ps:name', {}), {
+                ('name', ('entity:name', {}), {
                     'ro': True,
                     'doc': 'The name field parsed from an RFC 2822 address string.'
                 }),
@@ -2441,7 +2439,8 @@ modeldefs = (
                 ('email', ('inet:email', {}), {
                     'doc': 'The email address of the contact.'
                 }),
-                ('orgname', ('ou:name', {}), {
+                ('org:name', ('entity:name', {}), {
+                    'prevnames': ('orgname',),
                     'doc': 'The name of the contact organization.'
                 }),
                 ('address', ('str', {'lower': True}), {
@@ -2614,7 +2613,7 @@ modeldefs = (
             )),
 
             ('inet:whois:ipcontact', {}, (
-                ('contact', ('ps:contact', {}), {
+                ('contact', ('entity:contact', {}), {
                     'doc': 'Contact information associated with a registration.'
                 }),
                 ('asof', ('time', {}), {
@@ -2771,7 +2770,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which operates the platform.'}),
 
-                ('provider:name', ('ou:name', {}), {
+                ('provider:name', ('entity:name', {}), {
                     'doc': 'The name of the organization which operates the platform.'}),
             )),
 
@@ -2813,13 +2812,6 @@ modeldefs = (
             )),
 
             ('inet:service:account', {}, (
-
-                ('user', ('inet:user', {}), {
-                    'doc': 'The current user name of the account.'}),
-
-                ('email', ('inet:email', {}), {
-                    'doc': 'The current email address associated with the account.'}),
-
                 ('tenant', ('inet:service:tenant', {}), {
                     'doc': 'The tenant which contains the account.'}),
             )),
@@ -2843,7 +2835,7 @@ modeldefs = (
                 ('name', ('inet:group', {}), {
                     'doc': 'The name of the group on this platform.'}),
 
-                ('profile', ('ps:contact', {}), {
+                ('profile', ('entity:contact', {}), {
                     'doc': 'Current detailed contact information for this group.'}),
             )),
 
