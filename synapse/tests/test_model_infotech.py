@@ -370,6 +370,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :net="10.1.0.0/16"
                 :org={ gen.ou.org "Vertex Project" }
                 :type=virtual.sdn
+                :dns:resolvers=(1.2.3.4, tcp://1.2.3.4:99)
             ]
             '''
             nodes = await core.nodes(q)
@@ -379,6 +380,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'opslan.lax.vertex.link')
             self.eq(nodes[0].get('net'), ((4, 167837696), (4, 167903231)))
             self.eq(nodes[0].get('type'), 'virtual.sdn.')
+            self.eq(nodes[0].get('dns:resolvers'), ('tcp://1.2.3.4:99', 'udp://1.2.3.4:53'))
 
             nodes = await core.nodes('''[
                 it:sec:stix:indicator=*

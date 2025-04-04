@@ -6,6 +6,55 @@
 Synapse Changelog
 *****************
 
+v2.205.0 - 2025-03-28
+=====================
+
+Model Changes
+-------------
+- Added a ``uses`` light edge between ``it:prod:soft`` and ``risk:vuln`` forms.
+  (`#4198 <https://github.com/vertexproject/synapse/pull/4198>`_)
+- Added a ``targets`` light edge between ``risk:compromise`` and
+  ``ou:industry`` forms.
+  (`#4198 <https://github.com/vertexproject/synapse/pull/4198>`_)
+- See :ref:`userguide_model_v2_205_0` for more detailed model changes.
+
+v2.204.1 - 2025-03-25
+=====================
+
+Bugfixes
+--------
+- Fixed a regression in the Storm ``parallel`` command where variables
+  containing certain heavy Storm object types were not passed into the parallel
+  runtimes.
+  (`#4197 <https://github.com/vertexproject/synapse/pull/4197>`_)
+
+v2.204.0 - 2025-03-21
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_204_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Fixed an issue where locked users could still access HTTP endpoints with an
+  existing session cookie. User lock status now invalidates existing sessions
+  across all authenticated endpoints.
+  (`#4180 <https://github.com/vertexproject/synapse/pull/4180>`_)
+- Fixed an issue in Storm where the ``(`` and ``$`` control characters were
+  allowed in unquoted strings.
+  (`#4187 <https://github.com/vertexproject/synapse/pull/4187>`_)
+- Fixed a regression where the Storm ``not`` operator was incorrectly
+  whitespace sensitive.
+  (`#4187 <https://github.com/vertexproject/synapse/pull/4187>`_)
+- Fixed an issue with URL sanitizing where incorrect data was being removed
+  from the URL string.
+  (`#4190 <https://github.com/vertexproject/synapse/pull/4190>`_)
+- Fixed an issue with the Storm ``parallel`` command where variables
+  initialized within a parallel runtime were not properly isolated to that
+  specific runtime.
+  (`#4194 <https://github.com/vertexproject/synapse/pull/4194>`_)
+
 v2.203.0 - 2025-03-14
 =====================
 

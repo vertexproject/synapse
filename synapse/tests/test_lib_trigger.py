@@ -19,20 +19,20 @@ class TrigTest(s_t_utils.SynTest):
                 await core.callStorm('[ inet:ip=1.2.3.4 ]')
 
                 msgs = await core.stormlist('trigger.list')
-                self.stormIsInPrint('true   true   node:add  inet:ip', msgs)
+                self.stormIsInPrint('Y    Y       node:add   inet:ip', msgs)
 
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
                 nodes = await core.nodes('inet:ip=1.2.3.4')
                 self.nn(nodes[0].get('#foo'))
 
                 # test dynamically updating the trigger async to off
-                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
+                await core.stormlist('$lib.view.get().triggers.0.async = (false)')
                 nodes = await core.nodes('[ inet:ip=5.5.5.5 ]')
                 self.nn(nodes[0].get('#foo'))
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
 
                 # reset the trigger to async...
-                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.true)')
+                await core.stormlist('$lib.view.get().triggers.0.async = (true)')
 
                 # kill off the async consumer and queue up some requests
                 # to test persistance and proper resuming...
@@ -517,11 +517,11 @@ class TrigTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     opts = {'vars': {'iden': trigiden}}
-                    await proxy.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
+                    await proxy.callStorm('$lib.trigger.get($iden).enabled = (false)', opts=opts)
 
                 await newb.addRule((True, ('trigger', 'set')))
                 opts = {'vars': {'iden': trigiden}}
-                await proxy.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
+                await proxy.callStorm('$lib.trigger.get($iden).enabled = (false)', opts=opts)
 
                 await newb.addRule((True, ('trigger', 'del')))
                 await proxy.callStorm('$lib.trigger.del($iden)', opts={'vars': {'iden': trigiden}})
@@ -554,7 +554,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('foo'))
 
             opts = {'vars': {'iden': trig.get('iden'), 'derp': derp.iden}}
-            await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts | inview)
+            await core.callStorm('$lib.trigger.get($iden).user = $derp', opts=opts | inview)
 
             nodes = await core.nodes('[ inet:ip=8.8.8.8 ]')
             self.len(1, nodes)
@@ -755,6 +755,12 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(node[0].getTag('cookies'))
             self.nn(node[0].getTag('cupcake'))
             # the other two edge:del triggers cannot run because we can't get to n2 anymore
+
+            msgs = await core.stormlist('trigger.list --all')
+            self.stormIsInPrint('edge:del   * -(refs)> *', msgs)
+            self.stormIsInPrint('edge:del   test:int -(refs)> *', msgs)
+            self.stormIsInPrint('edge:del   * -(refs)> test:int', msgs)
+            self.stormIsInPrint('edge:del   test:int -(refs)> test:int', msgs)
 
             await core.nodes('for $trig in $lib.trigger.list() { $lib.trigger.del($trig.iden) }', opts=opts)
             self.len(0, await core.callStorm('return($lib.trigger.list())', opts=opts))

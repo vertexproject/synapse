@@ -348,7 +348,7 @@ modeldefs = (
                 'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.',
             }),
 
-            ('file:mime', ('str', {'lower': 1}), {
+            ('file:mime', ('str', {'lower': True}), {
                 'doc': 'A file mime name string.',
                 'ex': 'text/plain',
             }),

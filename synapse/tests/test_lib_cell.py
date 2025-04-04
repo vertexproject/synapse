@@ -1,3 +1,4 @@
+import http
 import os
 import ssl
 import sys
@@ -2811,7 +2812,7 @@ class CellTest(s_t_utils.SynTest):
                 headers2 = {'X-API-KEY': rtk1}
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -2833,7 +2834,7 @@ class CellTest(s_t_utils.SynTest):
 
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/onepass/issue', headers=headers2,
                                        json={'user': lowuser})
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
@@ -2873,13 +2874,14 @@ class CellTest(s_t_utils.SynTest):
                 await cell.setUserLocked(lowuser, True)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 
                 await cell.delUser(lowuser)
                 resp = await sess.post(f'https://localhost:{hport}/api/v1/auth/password/{lowuser}', headers=headers2,
                                        json={'passwd': 'secret'})
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 answ = await resp.json()
                 self.eq('err', answ['status'])
 

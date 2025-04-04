@@ -1142,6 +1142,16 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             {'perm': ('node', 'del', '<form>'), 'gate': 'layer',
              'desc': 'Controls removing a specific form of node in a layer.'},
 
+            {'perm': ('node', 'edge', 'add'), 'gate': 'layer',
+             'desc': 'Controls adding light edges to a node.'},
+            {'perm': ('node', 'edge', 'del'), 'gate': 'layer',
+             'desc': 'Controls adding light edges to a node.'},
+
+            {'perm': ('node', 'edge', 'add', '<verb>'), 'gate': 'layer',
+             'desc': 'Controls adding a specific light edge to a node.'},
+            {'perm': ('node', 'edge', 'del', '<verb>'), 'gate': 'layer',
+             'desc': 'Controls adding a specific light edge to a node.'},
+
             {'perm': ('node', 'tag'), 'gate': 'layer',
              'desc': 'Controls editing any tag on any node in a layer.'},
             {'perm': ('node', 'tag', 'add'), 'gate': 'layer',
@@ -5796,7 +5806,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         cdef['created'] = s_common.now()
 
-        opts = {'user': cdef['creator'], 'view': cdef.get('view')}
+        opts = {'user': cdef['user'], 'view': cdef.get('view')}
 
         view = self._viewFromOpts(opts)
         cdef['view'] = view.iden
@@ -5814,7 +5824,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         self.auth.reqNoAuthGate(iden)
 
-        user = await self.auth.reqUser(cdef['creator'])
+        user = await self.auth.reqUser(cdef['user'])
 
         cdef = await self.agenda.add(cdef)
 
@@ -5849,7 +5859,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         realedits = {}
 
         for name, valu in edits.items():
-            if name == 'creator':
+            if name == 'user':
                 await self.auth.reqUser(valu)
 
             elif name == 'view':
@@ -5885,9 +5895,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         appt = await self.agenda.get(iden)
 
         for name, valu in edits.items():
-            if name == 'creator':
+            if name == 'user':
                 await self.auth.reqUser(valu)
-                appt.creator = valu
+                appt.user = valu
 
             elif name == 'view':
                 self.reqView(valu)
@@ -5960,9 +5970,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
             info = cron.pack()
 
-            user = self.auth.user(cron.creator)
+            user = self.auth.user(cron.user)
             if user is not None:
                 info['username'] = user.name
+
+            creator = self.auth.user(cron.creator)
+            if creator is not None:
+                info['creatorname'] = creator.name
 
             crons.append(info)
 
