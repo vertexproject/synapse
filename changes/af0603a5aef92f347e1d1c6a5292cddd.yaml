@@ -1,5 +1,0 @@
----
-desc: Deprecated support for multiple AHA network names being hosted by one AHA deployment. Synapse 3.0 AHA deployments will be simplified to hosting only one network.
-prs: []
-type: deprecation
-...
