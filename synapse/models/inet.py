@@ -242,12 +242,16 @@ class IPAddr(s_types.Type):
 
             try:
                 byts = socket.inet_pton(socket.AF_INET, valu)
-                addr = (4, int.from_bytes(byts, 'big'))
-                ipaddr = ipaddress.IPv4Address(addr[1])
-                subs['version'] = 4
-            except OSError as e:
-                mesg = f'Invalid IP address: {text}'
-                raise s_exc.BadTypeValu(mesg=mesg) from None
+            except OSError:
+                try:
+                    byts = socket.inet_aton(valu)
+                except OSError as e:
+                    mesg = f'Invalid IP address: {text}'
+                    raise s_exc.BadTypeValu(mesg=mesg) from None
+
+            addr = (4, int.from_bytes(byts, 'big'))
+            ipaddr = ipaddress.IPv4Address(addr[1])
+            subs['version'] = 4
 
         subs['type'] = getAddrType(ipaddr)
 
