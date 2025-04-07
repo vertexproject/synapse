@@ -1627,9 +1627,13 @@ class ModelMigration_0_2_31:
                     if propvalu is None:
                         continue
 
-                    newvalu, _ = form.type.norm(propvalu)
                     # This prop is going to be the new primary value so delete the secondary prop
                     await self.editPropDel(layriden, buid, 'it:sec:cpe', 'v2_2', propvalu, stortype)
+
+                    try:
+                        newvalu, _ = form.type.norm(propvalu)
+                    except s_exc.BadTypeValu:
+                        continue
 
                     # Oh yeah! Migrate the node instead of removing it
                     await self.moveNode(buid, newvalu)
