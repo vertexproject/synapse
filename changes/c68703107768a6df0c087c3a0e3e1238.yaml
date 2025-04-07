@@ -1,5 +1,0 @@
----
-desc: Deprecated the ``modules`` Cortex configuration option.
-prs: []
-type: deprecation
-...

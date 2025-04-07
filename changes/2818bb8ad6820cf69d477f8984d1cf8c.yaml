@@ -1,5 +1,0 @@
----
-desc: Added ``tel:mob:tadig`` and ``tel:mob:carrier:tadig`` to track GSM carrier TADIG codes.
-prs: []
-type: model
-...
