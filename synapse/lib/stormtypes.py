@@ -4659,6 +4659,26 @@ class Str(Prim):
         {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
          'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
                   'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
+        {'name': 'join', 'desc': '''
+                Join items into a string using the current string as a separator.
+
+                Examples:
+                    Join together a list of strings with a dot separator::
+
+                        cli> storm $sepr='.' $foo=$sepr.join(('rep', 'vtx', 'tag')) $lib.print($foo)
+
+                        rep.vtx.tag
+
+                    Join values inline together with a dot separator::
+
+                        cli> storm  $foo=('.').join(('rep', 'vtx', 'tag')) $lib.print($foo)
+
+                        rep.vtx.tag''',
+         'type': {'type': 'function', '_funcname': '_methStrJoin',
+                  'args': (
+                      {'name': 'items', 'type': 'list', 'desc': 'A list of items to join together.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -4689,6 +4709,7 @@ class Str(Prim):
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
             'json': self._methStrJson,
+            'join': self._methStrJoin,
         }
 
     def __int__(self):
@@ -4807,6 +4828,11 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methStrJson(self):
         return s_json.loads(self.valu)
+
+    @stormfunc(readonly=True)
+    async def _methStrJoin(self, items):
+        strs = [await tostr(item) async for item in toiter(items)]
+        return self.valu.join(strs)
 
 @registry.registerType
 class Bytes(Prim):
