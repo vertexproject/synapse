@@ -1457,6 +1457,7 @@ class ModelMigration_0_2_31:
                 if (v2_2 := props.get('v2_2')) is not None:
                     propvalu, stortype = v2_2
                     if not s_infotech.isValidCpe22(propvalu):
+                        logger.debug(f'Queueing invalid v2_2 value for deletion iden={s_common.ehex(buid)} valu={propvalu}')
                         await self._queueEdit(
                             layer.iden,
                             (buid, 'it:sec:cpe', (
@@ -1633,6 +1634,7 @@ class ModelMigration_0_2_31:
                     try:
                         newvalu, _ = form.type.norm(propvalu)
                     except s_exc.BadTypeValu:
+                        logger.debug('Unexpectedly encountered invalid v2_2 prop: %s', propvalu)
                         continue
 
                     # Oh yeah! Migrate the node instead of removing it
