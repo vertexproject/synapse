@@ -1003,11 +1003,9 @@ class View(s_nexus.Pusher):  # type: ignore
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
 
         if (synt := s_task.current()) is not None:
+            # Attach the task info if there isn't already one
             if not synt.info:
                 synt.info = taskinfo
-
-            if not synt.iden:
-                synt.iden = taskiden
 
         else:
             # we only want to promote if we aren't already a syntask because we're probably a worker task that shouldn't

@@ -147,43 +147,56 @@ class LibStormTest(s_test.SynTest):
 
     async def test_lib_stormlib_storm_tasks(self):
 
-        async with self.getTestCore() as core:
+        with self.getStructuredAsyncLoggerStream('synapse') as stream:
 
-            async with core.getLocalProxy() as prox:
+            async with self.getTestCore() as core:
 
-                event = asyncio.Event()
+                async with core.getLocalProxy() as prox:
 
-                q = 'for $mesg in $lib.storm.run("$lib.time.sleep(120)") { $lib.fire(storm, mesg=$mesg) }'
+                    event = asyncio.Event()
 
-                async def doit():
-                    async for mesg in prox.storm(q):
-                        if mesg[0] == 'storm:fire':
-                            event.set()
+                    q = 'for $mesg in $lib.storm.run("$lib.time.sleep(120)") { $lib.fire(storm, mesg=$mesg) }'
 
-                task00 = core.schedCoro(doit())
-                await asyncio.wait_for(event.wait(), timeout=10)
+                    async def doit():
+                        async for mesg in prox.storm(q):
+                            if mesg[0] == 'storm:fire':
+                                event.set()
 
-                tasks = core.boss.ps()
-                self.len(1, tasks)
+                    task00 = core.schedCoro(doit())
+                    await asyncio.wait_for(event.wait(), timeout=10)
 
-                viewiden = await prox.callStorm('return($lib.view.get().iden)')
+                    tasks = core.boss.ps()
+                    self.len(1, tasks)
 
-                self.eq(tasks[0].name, 'storm')
-                self.eq(tasks[0].info, {'query': q, 'view': viewiden})
-                self.len(1, tasks[0].kids)
+                    viewiden = core.getView().iden
+                    # viewiden = await prox.callStorm('return($lib.view.get().iden)')
 
-                kid = list(tasks[0].kids.values())[0]
-                self.nn(kid.iden)
-                self.nn(kid.user)
-                self.eq(kid.name, 'runstorm')
-                self.eq(kid.info, {'query': '$lib.time.sleep(120)', 'view': viewiden})
+                    self.eq(tasks[0].name, 'storm')
+                    self.eq(tasks[0].info, {'query': q, 'view': viewiden})
+                    self.len(1, tasks[0].kids)
 
-                tasks = core.boss.ps()
-                self.len(2, tasks)
-                for task in tasks:
-                    await task.kill()
+                    kid = list(tasks[0].kids.values())[0]
+                    self.nn(kid.iden)
+                    self.nn(kid.user)
+                    self.eq(kid.name, 'runstorm')
+                    self.eq(kid.info, {'query': '$lib.time.sleep(120)', 'view': viewiden})
+                    self.len(1, kid.kids)
+                    gkid = list(kid.kids.values())[0]
+                    self.eq(gkid.name, 'runstorm')
+                    self.eq(gkid.info, {})
 
-                tasks = core.boss.ps()
-                self.len(0, tasks)
+                    tasks = core.boss.ps()
+                    self.len(1, tasks)
+                    await tasks[0].kill()
 
-                task00.cancel('oh bye')
+                    tasks = core.boss.ps()
+                    self.len(0, tasks)
+
+                    task00.cancel('oh bye')
+
+        msgs = stream.jsonlines()
+        self.gt(len(msgs), 0)
+
+        msgs = [(k.get('message'), k.get('text')) for k in msgs]
+        self.isin(('Storm runtime cancelled.', '$lib.time.sleep(120)'), msgs)
+        self.isin(('Storm runtime cancelled.', q), msgs)
