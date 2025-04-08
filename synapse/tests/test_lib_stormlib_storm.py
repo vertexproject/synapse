@@ -160,7 +160,7 @@ class LibStormTest(s_test.SynTest):
                         if mesg[0] == 'storm:fire':
                             event.set()
 
-                task = core.schedCoro(doit())
+                task00 = core.schedCoro(doit())
                 await asyncio.wait_for(event.wait(), timeout=10)
 
                 tasks = core.boss.ps()
@@ -173,9 +173,10 @@ class LibStormTest(s_test.SynTest):
                 self.len(1, tasks[0].kids)
 
                 kid = list(tasks[0].kids.values())[0]
+                self.nn(kid.iden)
+                self.nn(kid.user)
                 self.eq(kid.name, 'runstorm')
-
-                task.cancel('oh bye')
+                self.eq(kid.info, {'query': '$lib.time.sleep(120)', 'view': viewiden})
 
                 tasks = core.boss.ps()
                 self.len(2, tasks)
@@ -184,3 +185,5 @@ class LibStormTest(s_test.SynTest):
 
                 tasks = core.boss.ps()
                 self.len(0, tasks)
+
+                task00.cancel('oh bye')
