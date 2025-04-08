@@ -7,7 +7,7 @@ modeldefs = (
             # FIXME meta:sourced?
 
             ('entity:contactable', {
-                'interfaces': ('geo:locatable',),
+
                 'doc': 'An interface for forms which contain contact info.',
                 'props': (
 
@@ -72,7 +72,7 @@ modeldefs = (
             }),
 
             ('entity:actor', {
-                'interfaces': ('entity:contactable',),
+                'interfaces': ('entity:contactable', 'geo:locatable'),
                 'doc': 'An interface for entities which have initiative to act.',
             }),
 
