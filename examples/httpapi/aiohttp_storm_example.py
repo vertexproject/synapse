@@ -51,7 +51,7 @@ async def main(argv):
         # storm/call - this is intended for use with the Storm return() syntax
         # as they return a singular value, instead of a stream of messages.
 
-        query = '$foo = $lib.str.format("hello {valu}", valu="world") return ($foo)'
+        query = '$valu="world" $foo=`"hello {$valu}` return ($foo)'
         data = {'query': query}
         url = f'{base_url}/api/v1/storm/call'
 

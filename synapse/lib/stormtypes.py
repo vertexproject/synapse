@@ -1308,7 +1308,7 @@ class LibBase(Lib):
                     storm> if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
-        {'name': 'text', 'desc': 'Get a Storm Text object. This is deprecated; please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.',
+        {'name': 'text', 'desc': "Get a Storm Text object. This is deprecated; please use a list to append strings to, and then use ``('.').join($listOfStr)`` to join them on demand.",
          'deprecated': {'eolvers': '3.0.0'},
          'type': {'type': 'function', '_funcname': '_text',
                   'args': (
@@ -1691,7 +1691,7 @@ class LibBase(Lib):
         s_common.deprecated('$lib.text()', curv='2.194.0')
         runt = s_scope.get('runt')
         if runt:
-            await runt.snap.warnonce('$lib.text() is deprecated. Please use a list to append strings to, and then use ``$lib.str.join()`` to join them on demand.')
+            await runt.snap.warnonce("$lib.text() is deprecated. Please use a list to append strings to, and then use ``('').join($listOfStr)`` to join them on demand.")
         valu = ''.join(args)
         return Text(valu)
 
@@ -2023,15 +2023,8 @@ class LibStr(Lib):
     A Storm Library for interacting with strings.
     '''
     _storm_locals = (
-        {'name': 'join', 'desc': '''
-            Join items into a string using a separator.
-
-            Examples:
-                Join together a list of strings with a dot separator::
-
-                    storm> $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
-
-                    rep.vtx.tag''',
+        {'name': 'join', 'desc': 'Join items into a string using a separator.',
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``('').join($foo, $bar, $baz, ....)`` instead.'},
          'type': {'type': 'function', '_funcname': 'join',
                   'args': (
                       {'name': 'sepr', 'type': 'str', 'desc': 'The separator used to join strings with.', },
@@ -2039,22 +2032,14 @@ class LibStr(Lib):
                   ),
                   'returns': {'type': 'str', 'desc': 'The joined string.', }}},
         {'name': 'concat', 'desc': 'Concatenate a set of strings together.',
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': "Use ``('').join($foo, $bar, $baz, ....)`` instead."},
          'type': {'type': 'function', '_funcname': 'concat',
                   'args': (
                       {'name': '*args', 'type': 'any', 'desc': 'Items to join together.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The joined string.', }}},
-        {'name': 'format', 'desc': '''
-            Format a text string.
-
-            Examples:
-                Format a string with a fixed argument and a variable::
-
-                    storm> $list=(1,2,3,4)
-                         $str=$lib.str.format('Hello {name}, your list is {list}!', name='Reader', list=$list)
-                         $lib.print($str)
-
-                    Hello Reader, your list is ['1', '2', '3', '4']!''',
+        {'name': 'format', 'desc': 'Format a text string.',
+         'deprecated': {'eolvers': 'v3.0.0', 'mesg': 'Use ``$mystr.format(foo=$bar)`` instead.'},
          'type': {'type': 'function', '_funcname': 'format',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The base text string.', },
@@ -2074,17 +2059,20 @@ class LibStr(Lib):
 
     @stormfunc(readonly=True)
     async def concat(self, *args):
+        s_common.deprecated("$lib.str.concat(), use ('').join($foo, $bar, $baz, ....) instead.")
         strs = [await tostr(a) for a in args]
         return ''.join(strs)
 
     @stormfunc(readonly=True)
     async def format(self, text, **kwargs):
+        s_common.deprecated('$lib.str.format(), use "$mystr.format(foo=$bar)" instead.')
         text = await kwarg_format(text, **kwargs)
 
         return text
 
     @stormfunc(readonly=True)
     async def join(self, sepr, items):
+        s_common.deprecated('$lib.str.join(), use "$sepr.join($items)" instead.')
         strs = [await tostr(item) async for item in toiter(items)]
         return sepr.join(strs)
 
