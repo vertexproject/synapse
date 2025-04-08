@@ -1,0 +1,6 @@
+---
+desc: Fixed an issue with Storm ``inet:http:resp`` objects containing header values
+  which could fail to save as JSON.
+prs: []
+type: bug
+...

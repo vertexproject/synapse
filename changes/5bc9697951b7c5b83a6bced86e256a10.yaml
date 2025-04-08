@@ -1,5 +1,0 @@
----
-desc: Update Synapse HTTP APIs to set a non-200 HTTP status code when errors are returned.
-prs: []
-type: bug
-...
