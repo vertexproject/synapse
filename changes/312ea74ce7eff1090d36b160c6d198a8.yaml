@@ -1,0 +1,5 @@
+---
+desc: Added a ``join()`` method on the Storm ``str`` object.
+prs: []
+type: feat
+...
