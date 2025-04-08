@@ -315,6 +315,13 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(now, data[0]['updated'])
                 self.eq('my special string', data[1]['blorp']['bleep'][0]['neato'])
 
+                versinfo['version'] = (1, 2, 1)
+                await cell.delDriveItemProp(iden, versinfo, ('blorp', 'bleep', 0, 'neato'))
+                vers, data = await cell.getDriveData(iden)
+                self.eq((1, 2, 1), vers['version'])
+                self.nn(data['blorp']['bleep'][0])
+                self.notin('neato', data['blorp']['bleep'][0])
+
                 versinfo, data = await cell.getDriveData(iden, vers=(1, 0, 0))
                 self.eq('woot', data.get('woot'))
 
@@ -328,10 +335,10 @@ class CellTest(s_t_utils.SynTest):
                     await cell.getDriveInfo(iden, typename='newp')
 
                 self.nn(await cell.getDriveInfo(iden))
-                self.len(3, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(4, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveData(iden)
-                self.len(2, [vers async for vers in cell.getDriveDataVersions(iden)])
+                self.len(3, [vers async for vers in cell.getDriveDataVersions(iden)])
 
                 await cell.delDriveInfo(iden)
 

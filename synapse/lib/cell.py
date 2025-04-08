@@ -1719,6 +1719,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
     async def setDriveItemProp(self, iden, vers, path, valu):
         if isinstance(path, str):
             path = (path,)
+
         data = await self.getDriveData(iden)
         if data is None:
             mesg = f'No drive item with ID {iden}.'
@@ -1731,7 +1732,30 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             for p in path[:-1]:
                 step = step[p]
             step[path[-1]] = valu
-        except (KeyError, IndexError):
+        except (KeyError, IndexError) as exc:
+            breakpoint()
+            raise s_exc.BadArg(mesg=f'Invalid path {path}')
+
+        return await self.drive.setItemData(iden, vers, item)
+
+    @s_nexus.Pusher.onPushAuto('drive:data:path:del')
+    async def delDriveItemProp(self, iden, vers, path):
+        if isinstance(path, str):
+            path = (path,)
+
+        data = await self.getDriveData(iden)
+        if data is None:
+            mesg = f'No drive item with ID {iden}.'
+            raise s_exc.NoSuchIden(mesg=mesg)
+
+        _, item = data
+
+        try:
+            step = item
+            for p in path[:-1]:
+                step = step[p]
+            del step[path[-1]]
+        except (KeyError, IndexError) as exc:
             raise s_exc.BadArg(mesg=f'Invalid path {path}')
 
         return await self.drive.setItemData(iden, vers, item)
