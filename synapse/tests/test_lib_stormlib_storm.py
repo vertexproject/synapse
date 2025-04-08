@@ -165,35 +165,40 @@ class LibStormTest(s_test.SynTest):
                     task00 = core.schedCoro(doit())
                     await asyncio.wait_for(event.wait(), timeout=10)
 
+                    viewiden = core.getView().iden
+
+                    # One task for the main query
                     tasks = core.boss.ps()
                     self.len(1, tasks)
-
-                    viewiden = core.getView().iden
-                    # viewiden = await prox.callStorm('return($lib.view.get().iden)')
-
                     self.eq(tasks[0].name, 'storm')
                     self.eq(tasks[0].info, {'query': q, 'view': viewiden})
                     self.len(1, tasks[0].kids)
 
+                    # The main query has one kid, the worker
                     kid = list(tasks[0].kids.values())[0]
                     self.nn(kid.iden)
                     self.nn(kid.user)
                     self.eq(kid.name, 'runstorm')
-                    self.eq(kid.info, {'query': '$lib.time.sleep(120)', 'view': viewiden})
+                    self.eq(kid.info, {})
+
+                    # The worker has a kid which is the $lib.storm.run() worker
                     self.len(1, kid.kids)
                     gkid = list(kid.kids.values())[0]
                     self.eq(gkid.name, 'runstorm')
                     self.eq(gkid.info, {})
 
+                    # Kill the main task
                     tasks = core.boss.ps()
                     self.len(1, tasks)
                     await tasks[0].kill()
 
+                    # No tasks running
                     tasks = core.boss.ps()
                     self.len(0, tasks)
 
                     task00.cancel('oh bye')
 
+        # Verify we saw two storm runtime cancellations
         msgs = stream.jsonlines()
         self.gt(len(msgs), 0)
 
