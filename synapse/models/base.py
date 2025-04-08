@@ -19,6 +19,9 @@ modeldefs = (
     ('base', {
         'types': (
 
+            ('meta:id', ('str', {'strip': True}), {
+                'doc': 'A case sensitive identifier string.'}),
+
             ('meta:feed', ('guid', {}), {
                 'doc': 'A data feed provided by a specific source.'}),
 
@@ -150,6 +153,8 @@ modeldefs = (
                 'doc': 'The meta:rule is designed to detect instances of the target node.'}),
         ),
         'forms': (
+
+            ('meta:id', {}, ()),
 
             ('meta:source:type:taxonomy', {}, ()),
             ('meta:source', {}, (

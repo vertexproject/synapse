@@ -1293,11 +1293,10 @@ modeldefs = (
             }),
 
             ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
-                'doc': 'A URL mirror site.',
-            }),
+                'doc': 'A URL mirror site.'}),
+
             ('inet:user', ('str', {'lower': True}), {
-                'doc': 'A username string.'
-            }),
+                'doc': 'A username string.'}),
 
             ('inet:service:object', ('ndef', {'interfaces': ('inet:service:object',)}), {
                 'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
@@ -1319,49 +1318,49 @@ modeldefs = (
                 'doc': 'A hashtag used in a web post.',
             }),
 
-            ('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
-                'doc': 'An individual contact from a domain whois record.'
+            #('inet:whois:contact', ('comp', {'fields': (('rec', 'inet:whois:rec'), ('type', ('str', {'lower': True})))}), {
+                #'doc': 'An individual contact from a domain whois record.'
+            #}),
+
+            #('inet:whois:rar', ('str', {'lower': True}), {
+                #'doc': 'A domain registrar.',
+                #'ex': 'godaddy, inc.'
+            #}),
+
+            ('inet:whois:record', ('guid', {}), {
+                'prevnames': ('inet:whois:rec',),
+                'doc': 'An FQDN whois registration record.'
             }),
 
-            ('inet:whois:rar', ('str', {'lower': True}), {
-                'doc': 'A domain registrar.',
-                'ex': 'godaddy, inc.'
-            }),
+            #('inet:whois:recns', ('comp', {'fields': (('ns', 'inet:fqdn'), ('rec', 'inet:whois:rec'))}), {
+                #'doc': 'A nameserver associated with a domain whois record.'
+            #}),
 
-            ('inet:whois:rec', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('asof', 'time'))}), {
-                'doc': 'A domain whois record.'
-            }),
-
-            ('inet:whois:recns', ('comp', {'fields': (('ns', 'inet:fqdn'), ('rec', 'inet:whois:rec'))}), {
-                'doc': 'A nameserver associated with a domain whois record.'
-            }),
-
-            ('inet:whois:reg', ('str', {'lower': True}), {
-                'doc': 'A domain registrant.',
-                'ex': 'woot hostmaster'
-            }),
+            #('inet:whois:reg', ('str', {'lower': True}), {
+                #'doc': 'A domain registrant.',
+                #'ex': 'woot hostmaster'
+            #}),
 
             ('inet:whois:email', ('comp', {'fields': (('fqdn', 'inet:fqdn'), ('email', 'inet:email'))}), {
-                'doc': 'An email address associated with an FQDN via whois registration text.',
-            }),
+                'doc': 'An email address associated with an FQDN via whois registration text.'}),
 
             ('inet:whois:ipquery', ('guid', {}), {
                 'doc': 'Query details used to retrieve an IP record.'
             }),
 
             ('inet:whois:iprec', ('guid', {}), {
-                'doc': 'An IPv4/IPv6 block registration record.'
-            }),
+                'doc': 'An IPv4/IPv6 block registration record.'}),
 
-            ('inet:whois:ipcontact', ('guid', {}), {
-                'doc': 'An individual contact from an IP block record.'
-            }),
+            #('inet:whois:ipcontact', ('guid', {}), {
+                #'doc': 'An individual contact from an IP block record.'
+            #}),
 
-            ('inet:whois:regid', ('str', {}), {
-                'doc': 'The registry unique identifier of the registration record.',
-                'ex': 'NET-10-0-0-0-1'
-            }),
+            #('inet:whois:regid', ('str', {}), {
+                #'doc': 'The registry unique identifier of the registration record.',
+                #'ex': 'NET-10-0-0-0-1'
+            #}),
 
+            # FIXME de-comp
             ('inet:wifi:ap', ('comp', {'fields': (('ssid', 'inet:wifi:ssid'), ('bssid', 'inet:mac'))}), {
                 'doc': 'An SSID/MAC address combination for a wireless access point.'
             }),
@@ -1577,7 +1576,7 @@ modeldefs = (
                 'template': {'service:base': 'node'},
                 'props': (
 
-                    ('id', ('str', {'strip': True}), {
+                    ('id', ('meta:id', {}), {
                         'doc': 'A platform specific ID which identifies the {service:base}.'}),
 
                     ('platform', ('inet:service:platform', {}), {
@@ -1677,7 +1676,7 @@ modeldefs = (
 
             ('inet:email:message', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID parsed from the "message-id" header.'}),
 
                 ('to', ('inet:email', {}), {
@@ -1851,12 +1850,14 @@ modeldefs = (
             )),
 
             ('inet:flow', {}, (
+
+                # FIXME period
                 ('time', ('time', {}), {
-                    'doc': 'The time the network connection was initiated.'
-                }),
+                    'doc': 'The time the network connection was initiated.'}),
+
                 ('duration', ('int', {}), {
-                    'doc': 'The duration of the flow in seconds.'
-                }),
+                    'doc': 'The duration of the flow in seconds.'}),
+
                 ('from', ('guid', {}), {
                     'doc': 'The ingest source file/iden. Used for reparsing.'
                 }),
@@ -1886,14 +1887,14 @@ modeldefs = (
                     'doc': 'A text representation of the initial handshake sent by the server.'
                 }),
                 ('src', ('inet:client', {}), {
-                    'doc': 'The source address / port for a connection.'
-                }),
+                    'doc': 'The source address / port for a connection.'}),
+
                 ('src:host', ('it:host', {}), {
-                    'doc': 'The guid of the source host.'
-                }),
+                    'doc': 'The guid of the source host.'}),
+
                 ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'The guid of the source process.'
-                }),
+                    'doc': 'The guid of the source process.'}),
+
                 ('src:exe', ('file:bytes', {}), {
                     'doc': 'The file (executable) that created the connection.'}),
 
@@ -1901,33 +1902,33 @@ modeldefs = (
                     'doc': 'An array of files sent by the source host.'}),
 
                 ('src:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent by the source host.'
-                }),
+                    'doc': 'The number of packets sent by the source host.'}),
+
                 ('src:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent by the source host.'
-                }),
+                    'doc': 'The number of bytes sent by the source host.'}),
+
                 ('tot:txcount', ('int', {}), {
-                    'doc': 'The number of packets sent in both directions.'
-                }),
+                    'doc': 'The number of packets sent in both directions.'}),
+
                 ('tot:txbytes', ('int', {}), {
-                    'doc': 'The number of bytes sent in both directions.'
-                }),
+                    'doc': 'The number of bytes sent in both directions.'}),
+
                 ('src:handshake', ('str', {}), {
                     'disp': {'hint': 'text'},
-                    'doc': 'A text representation of the initial handshake sent by the client.'
-                }),
+                    'doc': 'A text representation of the initial handshake sent by the client.'}),
+
                 ('dst:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of NIST CPEs identified on the destination host.',
-                }),
+                    'doc': 'An array of NIST CPEs identified on the destination host.'}),
+
                 ('dst:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the destination host.',
-                }),
+                    'doc': 'An array of software names identified on the destination host.'}),
+
                 ('src:cpes', ('array', {'type': 'it:sec:cpe', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of NIST CPEs identified on the source host.',
-                }),
+                    'doc': 'An array of NIST CPEs identified on the source host.'}),
+
                 ('src:softnames', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of software names identified on the source host.',
-                }),
+                    'doc': 'An array of software names identified on the source host.'}),
+
                 ('ip:proto', ('int', {'min': 0, 'max': 0xff}), {
                     'doc': 'The IP protocol number of the flow.',
                 }),
@@ -2230,6 +2231,7 @@ modeldefs = (
                 }),
             )),
 
+            # FIXME dedup with urlfile?
             ('inet:servfile', {}, (
                 ('file', ('file:bytes', {}), {
                     'ro': True,
@@ -2257,65 +2259,65 @@ modeldefs = (
 
                 ('passwd', ('inet:passwd', {}), {
                     'ro': True,
-                    'doc': 'The optional password used to access the URL.'
-                }),
+                    'doc': 'The optional password used to access the URL.'}),
+
                 ('base', ('str', {}), {
                     'ro': True,
-                    'doc': 'The base scheme, user/pass, fqdn, port and path w/o parameters.'
-                }),
+                    'doc': 'The base scheme, user/pass, fqdn, port and path w/o parameters.'}),
+
                 ('path', ('str', {}), {
                     'ro': True,
-                    'doc': 'The path in the URL w/o parameters.'
-                }),
+                    'doc': 'The path in the URL w/o parameters.'}),
+
                 ('params', ('str', {}), {
                     'ro': True,
-                    'doc': 'The URL parameter string.'
-                }),
+                    'doc': 'The URL parameter string.'}),
+
                 ('port', ('inet:port', {}), {
                     'ro': True,
                     'doc': 'The port of the URL. URLs prefixed with http will be set to port 80 and '
-                           'URLs prefixed with https will be set to port 443 unless otherwise specified.'
-                }),
+                           'URLs prefixed with https will be set to port 443 unless otherwise specified.'}),
+
                 ('proto', ('str', {'lower': True}), {
                     'ro': True,
-                    'doc': 'The protocol in the URL.'
-                }),
+                    'doc': 'The protocol in the URL.'}),
+
                 ('user', ('inet:user', {}), {
                     'ro': True,
-                    'doc': 'The optional username used to access the URL.'
-                }),
+                    'doc': 'The optional username used to access the URL.'}),
+
             )),
 
             ('inet:urlfile', {}, (
+
                 ('url', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The URL where the file was hosted.'
-                }),
+                    'doc': 'The URL where the file was hosted.'}),
+
                 ('file', ('file:bytes', {}), {
                     'ro': True,
-                    'doc': 'The file that was hosted at the URL.'
-                }),
+                    'doc': 'The file that was hosted at the URL.'}),
             )),
 
             ('inet:urlredir', {}, (
                 ('src', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The original/source URL before redirect.'
-                }),
+                    'doc': 'The original/source URL before redirect.'}),
+
                 ('src:fqdn', ('inet:fqdn', {}), {
                     'ro': True,
-                    'doc': 'The FQDN within the src URL (if present).'
-                }),
+                    'doc': 'The FQDN within the src URL (if present).'}),
+
                 ('dst', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'The redirected/destination URL.'
-                }),
+                    'doc': 'The redirected/destination URL.'}),
+
                 ('dst:fqdn', ('inet:fqdn', {}), {
                     'ro': True,
-                    'doc': 'The FQDN within the dst URL (if present).'
-                }),
+                    'doc': 'The FQDN within the dst URL (if present).'}),
             )),
 
+            # FIXME used anywhere?
             ('inet:url:mirror', {}, (
                 ('of', ('inet:url', {}), {
                     'ro': True,
@@ -2332,19 +2334,20 @@ modeldefs = (
             ('inet:search:query', {}, (
 
                 ('text', ('str', {}), {
-                    'doc': 'The search query text.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The search query text.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the web search was issued.',
-                }),
+                    'doc': 'The time the web search was issued.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host that issued the query.',
-                }),
+                    'doc': 'The host that issued the query.'}),
+
+                # FIXME software name? ( runs software interface?!?! )
                 ('engine', ('str', {'lower': True}), {
                     'ex': 'google',
-                    'doc': 'A simple name for the search engine used.',
-                }),
+                    'doc': 'A simple name for the search engine used.'}),
+
                 ('request', ('inet:http:request', {}), {
                     'doc': 'The HTTP request used to issue the query.'}),
             )),
@@ -2370,114 +2373,119 @@ modeldefs = (
 
             ('inet:web:hashtag', {}, ()),
 
-            ('inet:whois:contact', {}, (
-                ('rec', ('inet:whois:rec', {}), {
-                    'ro': True,
-                    'doc': 'The whois record containing the contact data.'
-                }),
-                ('rec:fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The domain associated with the whois record.'
-                }),
-                ('rec:asof', ('time', {}), {
-                    'ro': True,
-                    'doc': 'The date of the whois record.'
-                }),
-                ('type', ('str', {'lower': True}), {
-                    'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).',
-                    'ro': True,
-                }),
-                ('id', ('str', {'lower': True}), {
-                    'doc': 'The ID associated with the contact.'
-                }),
-                ('name', ('str', {'lower': True}), {
-                    'doc': 'The name of the contact.'
-                }),
-                ('email', ('inet:email', {}), {
-                    'doc': 'The email address of the contact.'
-                }),
-                ('org:name', ('entity:name', {}), {
-                    'prevnames': ('orgname',),
-                    'doc': 'The name of the contact organization.'
-                }),
-                ('address', ('str', {'lower': True}), {
-                    'doc': 'The content of the street address field(s) of the contact.'
-                }),
-                ('city', ('str', {'lower': True}), {
-                    'doc': 'The content of the city field of the contact.'
-                }),
-                ('state', ('str', {'lower': True}), {
-                    'doc': 'The content of the state field of the contact.'
-                }),
-                ('country', ('str', {'lower': True}), {
-                    'doc': 'The two-letter country code of the contact.'
-                }),
-                ('phone', ('tel:phone', {}), {
-                    'doc': 'The content of the phone field of the contact.'
-                }),
-                ('fax', ('tel:phone', {}), {
-                    'doc': 'The content of the fax field of the contact.'
-                }),
-                ('url', ('inet:url', {}), {
-                    'doc': 'The URL specified for the contact.'
-                }),
-                ('whois:fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The whois server FQDN for the given contact (most likely a registrar).'
-                }),
-            )),
+            #('inet:whois:contact', {}, (
+            #    ('rec', ('inet:whois:rec', {}), {
+            #        'ro': True,
+            #        'doc': 'The whois record containing the contact data.'
+            #    }),
+            #    ('rec:fqdn', ('inet:fqdn', {}), {
+            #        'ro': True,
+            #        'doc': 'The domain associated with the whois record.'
+            #    }),
+            #    ('rec:asof', ('time', {}), {
+            #        'ro': True,
+            #        'doc': 'The date of the whois record.'
+            #    }),
+            #    ('type', ('str', {'lower': True}), {
+            #        'doc': 'The contact type (e.g., registrar, registrant, admin, billing, tech, etc.).',
+            #        'ro': True,
+            #    }),
+            #    ('id', ('str', {'lower': True}), {
+            #        'doc': 'The ID associated with the contact.'
+            #    }),
+            #    ('name', ('str', {'lower': True}), {
+            #        'doc': 'The name of the contact.'
+            #    }),
+            #    ('email', ('inet:email', {}), {
+            #        'doc': 'The email address of the contact.'
+            #    }),
+            #    ('org:name', ('entity:name', {}), {
+            #        'prevnames': ('orgname',),
+            #        'doc': 'The name of the contact organization.'
+            #    }),
+            #    ('address', ('str', {'lower': True}), {
+            #        'doc': 'The content of the street address field(s) of the contact.'
+            #    }),
+            #    ('city', ('str', {'lower': True}), {
+            #        'doc': 'The content of the city field of the contact.'
+            #    }),
+            #    ('state', ('str', {'lower': True}), {
+            #        'doc': 'The content of the state field of the contact.'
+            #    }),
+            #    ('country', ('str', {'lower': True}), {
+            #        'doc': 'The two-letter country code of the contact.'
+            #    }),
+            #    ('phone', ('tel:phone', {}), {
+            #        'doc': 'The content of the phone field of the contact.'
+            #    }),
+            #    ('fax', ('tel:phone', {}), {
+            #        'doc': 'The content of the fax field of the contact.'
+            #    }),
+            #    ('url', ('inet:url', {}), {
+            #        'doc': 'The URL specified for the contact.'
+            #    }),
+            #    ('whois:fqdn', ('inet:fqdn', {}), {
+            #        'doc': 'The whois server FQDN for the given contact (most likely a registrar).'
+            #    }),
+            #)),
 
-            ('inet:whois:rar', {}, ()),
+            ##('inet:whois:rar', {}, ()),
 
-            ('inet:whois:rec', {}, (
-                ('fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The domain associated with the whois record.'
-                }),
+            ('inet:whois:record', {}, (
+
                 ('asof', ('time', {}), {
-                    'ro': True,
-                    'doc': 'The date of the whois record.'
-                }),
+                    'doc': 'The date of the whois record.'}),
+
+                ('fqdn', ('inet:fqdn', {}), {
+                    'doc': 'The domain associated with the whois record.'}),
+
                 ('text', ('str', {'lower': True}), {
-                    'doc': 'The full text of the whois record.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The full text of the whois record.'}),
+
                 ('created', ('time', {}), {
-                    'doc': 'The "created" time from the whois record.'
-                }),
+                    'doc': 'The "created" time from the whois record.'}),
+
                 ('updated', ('time', {}), {
-                    'doc': 'The "last updated" time from the whois record.'
-                }),
+                    'doc': 'The "last updated" time from the whois record.'}),
+
                 ('expires', ('time', {}), {
-                    'doc': 'The "expires" time from the whois record.'
-                }),
-                ('registrar', ('inet:whois:rar', {}), {
-                    'doc': 'The registrar name from the whois record.'
-                }),
-                ('registrant', ('inet:whois:reg', {}), {
-                    'doc': 'The registrant name from the whois record.'
-                }),
+                    'doc': 'The "expires" time from the whois record.'}),
+
+                ('registrar', ('entity:name', {}), {
+                    'doc': 'The registrar name from the whois record.'}),
+
+                ('registrant', ('entity:name', {}), {
+                    'doc': 'The registrant name from the whois record.'}),
+
+                ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The whois registraction contacts.'}),
+
+                ('nameservers', ('array', {'type': 'inet:fqdn'}), {
+                    'doc': 'The DNS nameserver FQDNs for the registered FQDN.'}),
+
             )),
 
-            ('inet:whois:recns', {}, (
-                ('ns', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'A nameserver for a domain as listed in the domain whois record.'
-                }),
-                ('rec', ('inet:whois:rec', {}), {
-                    'ro': True,
-                    'doc': 'The whois record containing the nameserver data.'
-                }),
-                ('rec:fqdn', ('inet:fqdn', {}), {
-                    'ro': True,
-                    'doc': 'The domain associated with the whois record.'
-                }),
-                ('rec:asof', ('time', {}), {
-                    'ro': True,
-                    'doc': 'The date of the whois record.'
-                }),
-            )),
+            #('inet:whois:recns', {}, (
+            #    ('ns', ('inet:fqdn', {}), {
+            #        'ro': True,
+            #        'doc': 'A nameserver for a domain as listed in the domain whois record.'
+            #    }),
+            #    ('rec', ('inet:whois:rec', {}), {
+            #        'ro': True,
+            #        'doc': 'The whois record containing the nameserver data.'
+            #    }),
+            #    ('rec:fqdn', ('inet:fqdn', {}), {
+            #        'ro': True,
+            #        'doc': 'The domain associated with the whois record.'
+            #    }),
+            #    ('rec:asof', ('time', {}), {
+            #        'ro': True,
+            #        'doc': 'The date of the whois record.'
+            #    }),
+            #)),
 
-            ('inet:whois:reg', {}, ()),
+            #('inet:whois:reg', {}, ()),
 
             ('inet:whois:email', {}, (
                 ('fqdn', ('inet:fqdn', {}), {'ro': True,
@@ -2510,102 +2518,100 @@ modeldefs = (
                 }),
             )),
 
-            ('inet:whois:iprec', {}, (
+            ('inet:whois:iprecord', {}, (
+
                 ('net', ('inet:net', {}), {
-                    'doc': 'The IP address range assigned.',
-                    'prevnames': ('net4', 'net6')}),
-
-                ('net:min', ('inet:ip', {}), {
-                    'doc': 'The first IP in the range assigned.',
-                    'prevnames': ('net4:min', 'net6:min')}),
-
-                ('net:max', ('inet:ip', {}), {
-                    'doc': 'The last IP in the range assigned.',
-                    'prevnames': ('net4:max', 'net6:max')}),
+                    'prevnames': ('net4', 'net6'),
+                    'doc': 'The IP address range assigned.'}),
 
                 ('asof', ('time', {}), {
-                    'doc': 'The date of the record.'
-                }),
+                    'doc': 'The date of the record.'}),
+
                 ('created', ('time', {}), {
-                    'doc': 'The "created" time from the record.'
-                }),
+                    'doc': 'The "created" time from the record.'}),
+
                 ('updated', ('time', {}), {
-                    'doc': 'The "last updated" time from the record.'
-                }),
+                    'doc': 'The "last updated" time from the record.'}),
+
                 ('text', ('str', {'lower': True}), {
-                    'doc': 'The full text of the record.',
                     'disp': {'hint': 'text'},
-                }),
-                ('desc', ('str', {'lower': True}), {
-                    'doc': 'Notes concerning the record.',
-                    'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The full text of the record.'}),
+
+                #('desc', ('str', {'lower': True}), {
+                    #'doc': 'Notes concerning the record.',
+                    #'disp': {'hint': 'text'},
+                #}),
                 ('asn', ('inet:asn', {}), {
-                    'doc': 'The associated Autonomous System Number (ASN).'
-                }),
-                ('id', ('inet:whois:regid', {}), {
-                    'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
-                }),
+                    'doc': 'The associated Autonomous System Number (ASN).'}),
+
+                ('id', ('meta:id', {}), {
+                    'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'}),
+
+                ('parentid', ('meta:id', {}), {
+                    'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'}),
+
                 ('name', ('str', {}), {
-                    'doc': 'The name assigned to the network by the registrant.'
-                }),
-                ('parentid', ('inet:whois:regid', {}), {
-                    'doc': 'The registry unique identifier of the parent whois record (e.g. NET-74-0-0-0-0).'
-                }),
-                ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Additional contacts from the record.',
-                }),
+                    'doc': 'The name assigned to the network by the registrant.'}),
+
+                #('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
+                    #'doc': 'Additional contacts from the record.'}),
+
+                # FIXME ISO 2
                 ('country', ('str', {'lower': True, 'regex': '^[a-z]{2}$'}), {
-                    'doc': 'The two-letter ISO 3166 country code.'
-                }),
+                    'doc': 'The two-letter ISO 3166 country code.'}),
+
                 ('status', ('str', {'lower': True}), {
-                    'doc': 'The state of the registered network.'
-                }),
+                    'doc': 'The state of the registered network.'}),
+
                 ('type', ('str', {'lower': True}), {
-                    'doc': 'The classification of the registered network (e.g. direct allocation).'
-                }),
+                    'doc': 'The classification of the registered network (e.g. direct allocation).'}),
+
+                # FIXME is this legit?
                 ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'URLs provided with the record.',
-                }),
+                    'doc': 'URLs provided with the record.'}),
+
+                ('contacts', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
+                    'doc': 'The whois registraction contacts.'}),
+
             )),
 
-            ('inet:whois:ipcontact', {}, (
-                ('contact', ('entity:contact', {}), {
-                    'doc': 'Contact information associated with a registration.'
-                }),
-                ('asof', ('time', {}), {
-                    'doc': 'The date of the record.'
-                }),
-                ('created', ('time', {}), {
-                    'doc': 'The "created" time from the record.'
-                }),
-                ('updated', ('time', {}), {
-                    'doc': 'The "last updated" time from the record.'
-                }),
-                ('role', ('str', {'lower': True}), {
-                    'doc': 'The primary role for the contact.'
-                }),
-                ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Additional roles assigned to the contact.',
-                }),
-                ('asn', ('inet:asn', {}), {
-                    'doc': 'The associated Autonomous System Number (ASN).'
-                }),
-                ('id', ('inet:whois:regid', {}), {
-                    'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
-                }),
-                ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'URLs provided with the record.',
-                }),
-                ('status', ('str', {'lower': True}), {
-                    'doc': 'The state of the registered contact (e.g. validated, obscured).'
-                }),
-                ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Additional contacts referenced by this contact.',
-                }),
-            )),
+            #('inet:whois:ipcontact', {}, (
+            #    ('contact', ('entity:contact', {}), {
+            #        'doc': 'Contact information associated with a registration.'
+            #    }),
+            #    ('asof', ('time', {}), {
+            #        'doc': 'The date of the record.'
+            #    }),
+            #    ('created', ('time', {}), {
+            #        'doc': 'The "created" time from the record.'
+            #    }),
+            #    ('updated', ('time', {}), {
+            #        'doc': 'The "last updated" time from the record.'
+            #    }),
+            #    ('role', ('str', {'lower': True}), {
+            #        'doc': 'The primary role for the contact.'
+            #    }),
+            #    ('roles', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
+            #        'doc': 'Additional roles assigned to the contact.',
+            #    }),
+            #    ('asn', ('inet:asn', {}), {
+            #        'doc': 'The associated Autonomous System Number (ASN).'
+            #    }),
+            #    ('id', ('meta:id', {}), {
+            #        'doc': 'The registry unique identifier (e.g. NET-74-0-0-0-1).'
+            #    }),
+            #    ('links', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
+            #        'doc': 'URLs provided with the record.',
+            #    }),
+            #    ('status', ('str', {'lower': True}), {
+            #        'doc': 'The state of the registered contact (e.g. validated, obscured).'
+            #    }),
+            #    ('contacts', ('array', {'type': 'inet:whois:ipcontact', 'uniq': True, 'sorted': True}), {
+            #        'doc': 'Additional contacts referenced by this contact.',
+            #    }),
+            #)),
 
-            ('inet:whois:regid', {}, ()),
+            #('inet:whois:regid', {}, ()),
 
             ('inet:wifi:ap', {}, (
 
@@ -2615,6 +2621,7 @@ modeldefs = (
                 ('bssid', ('inet:mac', {}), {
                     'doc': 'The MAC address for the wireless access point.', 'ro': True, }),
 
+                # FIXME locatable
                 ('latlong', ('geo:latlong', {}), {
                     'doc': 'The best known latitude/longitude for the wireless access point.'}),
 
@@ -2622,17 +2629,18 @@ modeldefs = (
                     'doc': 'The reported accuracy of the latlong telemetry reading.',
                 }),
                 ('channel', ('int', {}), {
-                    'doc': 'The WIFI channel that the AP was last observed operating on.',
-                }),
+                    'doc': 'The WIFI channel that the AP was last observed operating on.'}),
+
                 ('encryption', ('str', {'lower': True, 'strip': True}), {
-                    'doc': 'The type of encryption used by the WIFI AP such as "wpa2".',
-                }),
+                    'doc': 'The type of encryption used by the WIFI AP such as "wpa2".'}),
+
                 ('place', ('geo:place', {}), {
                     'doc': 'The geo:place associated with the latlong property.'}),
 
                 ('loc', ('loc', {}), {
                     'doc': 'The geo-political location string for the wireless access point.'}),
 
+                # FIXME ownable interface?
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization that owns/operates the access point.'}),
             )),
@@ -2676,36 +2684,44 @@ modeldefs = (
             )),
 
             ('inet:tls:ja3s:sample', {}, (
+
                 ('server', ('inet:server', {}), {
                     'ro': True,
                     'doc': 'The server that was sampled to produce the JA3S hash.'}),
+
                 ('ja3s', ('hash:md5', {}), {
                     'ro': True,
                     'doc': "The JA3S hash computed from the server's TLS hello packet."})
             )),
 
             ('inet:tls:ja3:sample', {}, (
+
                 ('client', ('inet:client', {}), {
                     'ro': True,
                     'doc': 'The client that was sampled to produce the JA3 hash.'}),
+
                 ('ja3', ('hash:md5', {}), {
                     'ro': True,
                     'doc': "The JA3 hash computed from the client's TLS hello packet."})
             )),
 
             ('inet:tls:servercert', {}, (
+
                 ('server', ('inet:server', {}), {
                     'ro': True,
                     'doc': 'The server associated with the x509 certificate.'}),
+
                 ('cert', ('crypto:x509:cert', {}), {
                     'ro': True,
                     'doc': 'The x509 certificate sent by the server.'})
             )),
 
             ('inet:tls:clientcert', {}, (
+
                 ('client', ('inet:client', {}), {
                     'ro': True,
                     'doc': 'The client associated with the x509 certificate.'}),
+
                 ('cert', ('crypto:x509:cert', {}), {
                     'ro': True,
                     'doc': 'The x509 certificate sent by the client.'})
@@ -2733,7 +2749,7 @@ modeldefs = (
 
             ('inet:service:instance', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'ex': 'B8ZS2',
                     'doc': 'A platform specific ID to identify the service instance.'}),
 

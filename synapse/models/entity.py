@@ -11,7 +11,7 @@ modeldefs = (
                 'doc': 'An interface for forms which contain contact info.',
                 'props': (
 
-                    ('id', ('str', {'strip': True}), {
+                    ('id', ('meta:id', {}), {
                         'doc': 'A type or source specific unique ID for the {contactable}.'}),
 
                     # FIXME

@@ -16,6 +16,7 @@ modeldefs = (
             ('pol:vitals', ('guid', {}), {
                 'doc': 'A set of vital statistics about a country.'}),
 
+            # FIXME rename now?!?!
             ('pol:iso2', ('str', {'lower': True, 'regex': '^[a-z0-9]{2}$'}), {
                 'doc': 'The 2 digit ISO 3166 country code.', 'ex': 'us'}),
 
@@ -173,7 +174,7 @@ modeldefs = (
             )),
             ('pol:candidate', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'A unique ID for the candidate issued by an election authority.'}),
 
                 ('contact', ('entity:contact', {}), {

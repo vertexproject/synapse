@@ -267,7 +267,7 @@ modeldefs = (
 
             ('risk:threat', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'A reporter specific identifier for the threat.'}),
 
                 ('type', ('risk:threat:type:taxonomy', {}), {

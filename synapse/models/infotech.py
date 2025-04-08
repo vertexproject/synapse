@@ -1130,7 +1130,7 @@ modeldefs = (
             ('it:storage:volume:type:taxonomy', {}, ()),
             ('it:storage:volume', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The unique volume ID.'}),
 
                 ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -1829,8 +1829,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'The commit message describing the changes in the commit.'}),
 
-                # we mirror the interface type options...
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The version control system specific commit identifier.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1870,13 +1869,13 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the issue is hosted.'}),
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID of the issue in the repository system.'}),
             )),
 
             ('it:dev:repo:label', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID of the label.'}),
 
                 ('title', ('str', {'lower': True, 'strip': True}), {
@@ -1979,7 +1978,7 @@ modeldefs = (
             ('it:prod:soft:taxonomy', {}, ()),
             ('it:prod:soft', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'An ID for the software.'}),
 
                 ('name', ('it:prod:softname', {}), {
