@@ -1614,10 +1614,22 @@ class ModelMigration_0_2_31:
                     if propvalu is not None:
                         break
 
-                newvalu, _ = form.type.norm(propvalu)
-                await self.moveNode(buid, newvalu)
+                if propvalu is None:
+                    await self.removeNode(buid)
+                    removed += 1
 
-                migrated += 1
+                else:
+                    try:
+                        newvalu, _ = form.type.norm(propvalu)
+
+                    except s_exc.BadTypeValu:
+                        logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
+                        await self.removeNode(buid)
+                        removed += 1
+
+                    else:
+                        await self.moveNode(buid, newvalu)
+                        migrated += 1
 
             elif action == 'remove':
                 newvalu = None
@@ -1634,7 +1646,7 @@ class ModelMigration_0_2_31:
                     try:
                         newvalu, _ = form.type.norm(propvalu)
                     except s_exc.BadTypeValu:
-                        logger.debug('Unexpectedly encountered invalid v2_2 prop: %s', propvalu)
+                        logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
                         continue
 
                     # Oh yeah! Migrate the node instead of removing it
