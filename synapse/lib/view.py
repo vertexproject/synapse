@@ -8,6 +8,7 @@ import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.snap as s_snap
+import synapse.lib.task as s_task
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.scope as s_scope
@@ -979,7 +980,7 @@ class View(s_nexus.Pusher):  # type: ignore
         # an ease-of-use API for testing
         return [m async for m in self.storm(text, opts=opts)]
 
-    async def storm(self, text, opts=None, promote=True):
+    async def storm(self, text, opts=None):
         '''
         Evaluate a storm query and yield result messages.
         Yields:
@@ -1001,8 +1002,9 @@ class View(s_nexus.Pusher):  # type: ignore
         if keepalive is not None and keepalive <= 0:
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
 
-        synt = None
-        if promote:
+        if (synt := s_task.current()) is None:
+            # we only want to promote if we aren't already a syntask because we're probably a worker task that shouldn't
+            # show up in the main task list
             synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
@@ -1022,17 +1024,8 @@ class View(s_nexus.Pusher):  # type: ignore
             try:
 
                 # Always start with an init message.
-                init = ('init', {
-                    'tick': tick,
-                    'text': text,
-                    'abstick': abstick,
-                    'hash': texthash,
-                })
-
-                if synt is not None:
-                    init[1]['task'] = synt.iden
-
-                await chan.put(init)
+                await chan.put(('init', {'tick': tick, 'text': text, 'abstick': abstick,
+                                         'hash': texthash, 'task': synt.iden}))
 
                 # Try text parsing. If this fails, we won't be able to get a storm
                 # runtime in the snap, so catch and pass the `err` message
@@ -1098,7 +1091,7 @@ class View(s_nexus.Pusher):  # type: ignore
                     tock = tick + abstook
                     await chan.put(('fini', {'tock': tock, 'abstock': abstock, 'took': abstook, 'count': count, }))
 
-        self.core.boss.schedCoro(runStorm())
+        await synt.worker(runStorm(), name='runstorm')
 
         editformat = opts.get('editformat', 'nodeedits')
 

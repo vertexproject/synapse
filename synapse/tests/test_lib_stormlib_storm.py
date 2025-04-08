@@ -149,24 +149,38 @@ class LibStormTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            event = asyncio.Event()
+            async with core.getLocalProxy() as prox:
 
-            q = '$lib.storm.run("$lib.time.sleep(10)")'
+                event = asyncio.Event()
 
-            async def doit():
-                event.set()
-                await core.callStorm(q)
+                q = 'for $mesg in $lib.storm.run("$lib.time.sleep(120)") { $lib.fire(storm, mesg=$mesg) }'
 
-            task = core.schedCoro(doit())
-            await asyncio.wait_for(event.wait(), timeout=10)
+                async def doit():
+                    async for mesg in prox.storm(q):
+                        if mesg[0] == 'storm:fire':
+                            event.set()
 
-            tasks = core.boss.ps()
-            self.len(1, tasks)
+                task = core.schedCoro(doit())
+                await asyncio.wait_for(event.wait(), timeout=10)
 
-            viewiden = await core.callStorm('return($lib.view.get().iden)')
+                tasks = core.boss.ps()
+                self.len(1, tasks)
 
-            self.eq(tasks[0].name, 'storm')
-            self.eq(tasks[0].info, {'query': q, 'view': viewiden})
-            self.len(0, tasks[0].kids)
+                viewiden = await prox.callStorm('return($lib.view.get().iden)')
 
-            task.cancel('oh bye')
+                self.eq(tasks[0].name, 'storm')
+                self.eq(tasks[0].info, {'query': q, 'view': viewiden})
+                self.len(1, tasks[0].kids)
+
+                kid = list(tasks[0].kids.values())[0]
+                self.eq(kid.name, 'runstorm')
+
+                task.cancel('oh bye')
+
+                tasks = core.boss.ps()
+                self.len(2, tasks)
+                for task in tasks:
+                    await task.kill()
+
+                tasks = core.boss.ps()
+                self.len(0, tasks)

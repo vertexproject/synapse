@@ -143,7 +143,7 @@ class LibStorm(s_stormtypes.Lib):
 
         opts.setdefault('view', self.runt.snap.view.iden)
 
-        async for mesg in self.runt.snap.view.core.storm(query, opts=opts, promote=False):
+        async for mesg in self.runt.snap.view.core.storm(query, opts=opts):
             yield mesg
 
     @s_stormtypes.stormfunc(readonly=True)
