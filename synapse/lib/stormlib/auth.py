@@ -589,7 +589,7 @@ stormcmds = (
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
-                $perm = $lib.str.join(".", $pdef.perm)
+                $perm = ('.').join($pdef.perm)
 
                 if $cmdopts.find {
                     $find = $cmdopts.find.lower()

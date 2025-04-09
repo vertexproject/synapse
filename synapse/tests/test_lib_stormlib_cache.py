@@ -120,12 +120,12 @@ class StormlibCacheTest(s_test.SynTest):
 
                 $rets.append($cache.get(foo))
                 $rets.append($sent)
-                $rets.append($lib.str.join(",", $vals))
+                $rets.append((',').join($vals))
 
                 $val = one
                 $rets.append($cache.get(bar))
                 $rets.append($sent)
-                $rets.append($lib.str.join(",", $vals))
+                $rets.append((',').join($vals))
 
                 return($rets)
             ''')

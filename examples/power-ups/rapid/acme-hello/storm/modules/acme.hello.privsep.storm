@@ -7,7 +7,7 @@ function getFooByBar(bar) {
         "apikey": $apikey
     })
 
-    $url = $lib.str.format("https://acme.newp/api/v1/foo/{bar}", bar=$bar)
+    $url = `https://acme.newp/api/v1/foo/{$bar}`
 
     // Use the API key on the callers behalf
     $resp = $lib.inet.http.get($url, headers=$headers)

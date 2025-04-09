@@ -172,7 +172,7 @@ class StormScrapeTest(s_test.SynTest):
 
             text = text + ' and then there was another 1.2.3.4 that happened at woot.com '
             query = '''$tally = $lib.stats.tally() for ($form, $ndef) in $lib.scrape.ndefs($text)
-            { $valu=$lib.str.format('{f}={n}', f=$form, n=$ndef) $tally.inc($valu) }
+            { $valu=`{$form}={$ndef}` $tally.inc($valu) }
             fini { return ( $tally ) }
             '''
             varz = {'text': text}

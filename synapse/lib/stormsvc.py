@@ -68,7 +68,7 @@ stormcmds = (
                 if $sname {} else { $sname = 'Unknown' }
                 $svers = $sdef.svcvers
                 if $svers {
-                    $svers = $lib.str.join('.', $svers)
+                    $svers = ('.').join($svers)
                 } else {
                     $svers = 'Unknown'
                 }
