@@ -36,6 +36,9 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('20501217030432101567'), 2554859072101567)
         self.raises(s_exc.BadTypeValu, s_time.parse, '2050121703043210156789')
 
+        self.eq(s_time.repr(2554859072101567, pack=True), '20501217030432101567')
+        self.eq(s_time.repr(0x7fffffffffffffff), '?')
+
         # malformed times that can still be parsed
         self.eq(s_time.parse('2020 jun 10 12:14:34'), s_time.parse('2020-10-12 14:34'))
 

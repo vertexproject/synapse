@@ -231,7 +231,7 @@ def repr(tick, pack=False):
     if pack:
         if micros > 0:
             mstr = f'{micros:06d}'.rstrip('0')
-        return '{dt.year:04d}{dt.month:02d}{dt.day:02d}{dt.hour:02d}{dt.minute:02d}{dt.second:02d}{mstr}'
+        return f'{dt.year:04d}{dt.month:02d}{dt.day:02d}{dt.hour:02d}{dt.minute:02d}{dt.second:02d}{mstr}'
 
     if micros > 0:
         mstr = f'.{micros:06d}'.rstrip('0')
