@@ -571,7 +571,6 @@ workflows:
             branches:
               only:
                 - master
-                - dev_ci_tweak
 
       - deploy_pypi:
           requires:
