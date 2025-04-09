@@ -178,10 +178,10 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:str=foo :tick?=2019 ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), 1546300800000)
+            self.eq(nodes[0].get('tick'), 1546300800000000)
             nodes = await core.nodes('[ test:str=foo :tick?=notatime ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), 1546300800000)
+            self.eq(nodes[0].get('tick'), 1546300800000000)
 
     async def test_ast_autoadd(self):
 
@@ -3802,7 +3802,7 @@ class AstTest(s_test.SynTest):
             )
 
             for query in queries:
-                self.eq(1577836800000, await core.callStorm(query))
+                self.eq(1577836800000000, await core.callStorm(query))
 
             await core.nodes('test:ival +test:ival*min=2020 | delnode')
             self.len(0, await core.nodes('test:ival +test:ival*min=2020'))

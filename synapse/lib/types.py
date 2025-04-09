@@ -1321,7 +1321,7 @@ class Ival(Type):
 
     def postTypeInit(self):
         self.futsize = 0x7fffffffffffffff
-        self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
+        self.maxsize = 253402300799999999  # 9999/12/31 23:59:59.999999
 
         self.timetype = self.modl.type('time')
         self.duratype = self.modl.type('duration')
@@ -2244,13 +2244,17 @@ class Duration(IntBase):
         days, rem = divmod(valu, s_time.oneday)
         hours, rem = divmod(rem, s_time.onehour)
         minutes, rem = divmod(rem, s_time.onemin)
-        seconds, millis = divmod(rem, s_time.onesec)
+        seconds, micros = divmod(rem, s_time.onesec)
 
         retn = ''
         if days:
             retn += f'{days}D '
 
-        retn += f'{hours:02}:{minutes:02}:{seconds:02}.{millis:03}'
+        mstr = ''
+        if micros > 0:
+            mstr = f'.{micros:06d}'.rstrip('0')
+
+        retn += f'{hours:02}:{minutes:02}:{seconds:02}{mstr}'
         return retn
 
 class Time(IntBase):
@@ -2265,7 +2269,7 @@ class Time(IntBase):
     def postTypeInit(self):
 
         self.futsize = 0x7fffffffffffffff
-        self.maxsize = 253402300799999  # 9999/12/31 23:59:59.999
+        self.maxsize = 253402300799999999  # 9999/12/31 23:59:59.999999
 
         self.setNormFunc(int, self._normPyInt)
         self.setNormFunc(str, self._normPyStr)

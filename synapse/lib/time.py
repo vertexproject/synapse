@@ -1,5 +1,5 @@
 '''
-Time related utilities for synapse "epoch millis" time values.
+Time related utilities for synapse "epoch micros" time values.
 '''
 import logging
 import datetime
@@ -17,11 +17,12 @@ import synapse.lookup.timezones as s_l_timezones
 logger = logging.getLogger(__name__)
 
 EPOCH = datetime.datetime(1970, 1, 1)
+EPOCHUTC = datetime.datetime(1970, 1, 1, tzinfo=pytz.utc)
 
-onesec = 1000
-onemin = 60000
-onehour = 3600000
-oneday = 86400000
+onesec = 1000000
+onemin = 60000000
+onehour = 3600000000
+oneday = 86400000000
 
 timeunits = {
     'sec': onesec,
@@ -39,6 +40,9 @@ timeunits = {
     'day': oneday,
     'days': oneday,
 }
+
+def total_microseconds(delta):
+    return (delta.days * oneday) + (delta.seconds * onesec) + delta.microseconds
 
 tzcat = '|'.join(sorted(s_l_timezones.getTzNames(), key=lambda x: len(x), reverse=True))
 unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
@@ -83,7 +87,7 @@ def _rawparse(text, base=None, chop=False):
     text = (''.join([c for c in text if c.isdigit()]))
 
     if chop:
-        text = text[:17]
+        text = text[:20]
 
     tlen = len(text)
 
@@ -131,18 +135,18 @@ def _rawparse(text, base=None, chop=False):
 
 def parse(text, base=None, chop=False):
     '''
-    Parse a time string into an epoch millis value.
+    Parse a time string into an epoch micros value.
 
     Args:
         text (str): Time string to parse
-        base (int or None): Milliseconds to offset the time from
-        chop (bool): Whether to chop the digit-only string to 17 chars
+        base (int or None): Microseconds to offset the time from
+        chop (bool): Whether to chop the digit-only string to 20 chars
 
     Returns:
-        int: Epoch milliseconds
+        int: Epoch microseconds
     '''
     dtraw, base, tlen = _rawparse(text, base=base, chop=chop)
-    return int((dtraw - EPOCH).total_seconds() * 1000 + base)
+    return total_microseconds(dtraw - EPOCH) + base
 
 def wildrange(text):
     '''
@@ -166,8 +170,8 @@ def wildrange(text):
     else:  # tlen = 14
         dttock = dttick + relativedelta(seconds=1)
 
-    tick = int((dttick - EPOCH).total_seconds() * 1000 + base)
-    tock = int((dttock - EPOCH).total_seconds() * 1000 + base)
+    tick = total_microseconds(dttick - EPOCH) + base
+    tock = total_microseconds(dttock - EPOCH) + base
     return (tick, tock)
 
 def parsetz(text):
@@ -178,7 +182,7 @@ def parsetz(text):
         text (str): Time string
 
     Returns:
-        tuple: A tuple of text with tz chars removed and base milliseconds to offset time.
+        tuple: A tuple of text with tz chars removed and base microseconds to offset time.
     '''
 
     match = tz_re.search(text)
@@ -208,10 +212,10 @@ def parsetz(text):
 
 def repr(tick, pack=False):
     '''
-    Return a date string for an epoch-millis timestamp.
+    Return a date string for an epoch-micros timestamp.
 
     Args:
-        tick (int): The timestamp in milliseconds since the epoch.
+        tick (int): The timestamp in microseconds since the epoch.
 
     Returns:
         (str):  A date time string
@@ -219,38 +223,46 @@ def repr(tick, pack=False):
     if tick == 0x7fffffffffffffff:
         return '?'
 
-    dt = EPOCH + datetime.timedelta(milliseconds=tick)
-    millis = dt.microsecond / 1000
+    dt = EPOCH + datetime.timedelta(microseconds=tick)
+
+    mstr = ''
+    micros = dt.microsecond
+
     if pack:
-        return '%d%.2d%.2d%.2d%.2d%.2d%.3d' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
-    return '%d-%.2d-%.2dT%.2d:%.2d:%.2d.%.3dZ' % (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, millis)
+        if micros > 0:
+            mstr = f'{micros:06d}'.rstrip('0')
+        return '{dt.year:04d}{dt.month:02d}{dt.day:02d}{dt.hour:02d}{dt.minute:02d}{dt.second:02d}{mstr}'
+
+    if micros > 0:
+        mstr = f'.{micros:06d}'.rstrip('0')
+    return f'{dt.year:04d}-{dt.month:02d}-{dt.day:02d}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}{mstr}Z'
 
 def day(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).day
+    return (EPOCH + datetime.timedelta(microseconds=tick)).day
 
 def year(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).year
+    return (EPOCH + datetime.timedelta(microseconds=tick)).year
 
 def month(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).month
+    return (EPOCH + datetime.timedelta(microseconds=tick)).month
 
 def hour(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).hour
+    return (EPOCH + datetime.timedelta(microseconds=tick)).hour
 
 def minute(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).minute
+    return (EPOCH + datetime.timedelta(microseconds=tick)).minute
 
 def second(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).second
+    return (EPOCH + datetime.timedelta(microseconds=tick)).second
 
 def dayofmonth(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).day - 1
+    return (EPOCH + datetime.timedelta(microseconds=tick)).day - 1
 
 def dayofweek(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).weekday()
+    return (EPOCH + datetime.timedelta(microseconds=tick)).weekday()
 
 def dayofyear(tick):
-    return (EPOCH + datetime.timedelta(milliseconds=tick)).timetuple().tm_yday - 1
+    return (EPOCH + datetime.timedelta(microseconds=tick)).timetuple().tm_yday - 1
 
 def ival(*times):
 
@@ -312,5 +324,5 @@ def toUTC(tick, fromzone):
         mesg = f'Unknown timezone: {fromzone}'
         raise s_exc.BadArg(mesg=mesg) from e
 
-    base = datetime.datetime(1970, 1, 1, tzinfo=tz) + datetime.timedelta(milliseconds=tick)
-    return int(base.astimezone(pytz.UTC).timestamp() * 1000)
+    base = datetime.datetime(1970, 1, 1, tzinfo=tz) + datetime.timedelta(microseconds=tick)
+    return total_microseconds(base.astimezone(pytz.UTC) - EPOCHUTC)

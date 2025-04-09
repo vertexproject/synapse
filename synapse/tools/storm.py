@@ -586,7 +586,7 @@ class StormCli(s_cli.Cli):
                 took = mesg[1].get('took')
                 took = max(took, 1)
                 count = mesg[1].get('count')
-                pers = float(count) / float(took / 1000)
+                pers = float(count) / float(took / 1000000)
                 self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
             elif mtyp == 'print':

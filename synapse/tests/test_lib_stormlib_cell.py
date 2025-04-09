@@ -68,13 +68,13 @@ class StormCellTest(s_test.SynTest):
             msgs = await core.stormlist('uptime newp')
             self.stormIsInErr('No service with name/iden: newp', msgs)
 
-            svc.starttime = svc.starttime - (1 * s_const.day + 2 * s_const.hour) / 1000
+            svc.starttime = svc.starttime - (1 * s_const.day + 2 * s_const.hour)
             msgs = await core.stormlist('uptime stormvar')
             self.stormIsInPrint('up 1D 02:00:', msgs)
             self.stormIsInPrint(day, msgs)
 
             resp = await core.callStorm('return($lib.cell.uptime())')
-            self.eq(core.startms, resp['starttime'])
+            self.eq(core.startmicros, resp['starttime'])
             self.lt(resp['uptime'], s_const.minute)
 
     async def test_stormlib_cell_getmirrors(self):

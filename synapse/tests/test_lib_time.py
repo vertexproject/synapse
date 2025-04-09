@@ -9,41 +9,41 @@ class TimeTest(s_t_utils.SynTest):
 
     def test_time_delta(self):
 
-        self.eq(s_time.delta('3days'), 259200000)
-        self.eq(s_time.delta('3  days'), 259200000)
-        self.eq(s_time.delta('  3days'), 259200000)
-        self.eq(s_time.delta('  3   days'), 259200000)
+        self.eq(s_time.delta('3days'), 259200000000)
+        self.eq(s_time.delta('3  days'), 259200000000)
+        self.eq(s_time.delta('  3days'), 259200000000)
+        self.eq(s_time.delta('  3   days'), 259200000000)
 
-        self.eq(s_time.delta('+3days'), 259200000)
-        self.eq(s_time.delta('+3  days'), 259200000)
-        self.eq(s_time.delta('+  3days'), 259200000)
-        self.eq(s_time.delta('+  3   days'), 259200000)
+        self.eq(s_time.delta('+3days'), 259200000000)
+        self.eq(s_time.delta('+3  days'), 259200000000)
+        self.eq(s_time.delta('+  3days'), 259200000000)
+        self.eq(s_time.delta('+  3   days'), 259200000000)
 
-        self.eq(s_time.delta('-3days'), -259200000)
-        self.eq(s_time.delta('-3  days'), -259200000)
-        self.eq(s_time.delta('-  3days'), -259200000)
-        self.eq(s_time.delta('-  3   days'), -259200000)
+        self.eq(s_time.delta('-3days'), -259200000000)
+        self.eq(s_time.delta('-3  days'), -259200000000)
+        self.eq(s_time.delta('-  3days'), -259200000000)
+        self.eq(s_time.delta('-  3   days'), -259200000000)
 
     def test_time_parse(self):
-        self.eq(s_time.parse('2050'), 2524608000000)
-        self.eq(s_time.parse('205012'), 2553465600000)
-        self.eq(s_time.parse('20501217'), 2554848000000)
-        self.eq(s_time.parse('2050121703'), 2554858800000)
-        self.eq(s_time.parse('205012170304'), 2554859040000)
-        self.eq(s_time.parse('20501217030432'), 2554859072000)
-        self.eq(s_time.parse('20501217030432101'), 2554859072101)
-        self.eq(s_time.parse('205012170304321015'), 2554859072101)
-        self.eq(s_time.parse('20501217030432101567'), 2554859072101)
+        self.eq(s_time.parse('2050'), 2524608000000000)
+        self.eq(s_time.parse('205012'), 2553465600000000)
+        self.eq(s_time.parse('20501217'), 2554848000000000)
+        self.eq(s_time.parse('2050121703'), 2554858800000000)
+        self.eq(s_time.parse('205012170304'), 2554859040000000)
+        self.eq(s_time.parse('20501217030432'), 2554859072000000)
+        self.eq(s_time.parse('20501217030432101'), 2554859072101000)
+        self.eq(s_time.parse('205012170304321015'), 2554859072101500)
+        self.eq(s_time.parse('20501217030432101567'), 2554859072101567)
         self.raises(s_exc.BadTypeValu, s_time.parse, '2050121703043210156789')
 
         # malformed times that can still be parsed
         self.eq(s_time.parse('2020 jun 10 12:14:34'), s_time.parse('2020-10-12 14:34'))
 
         # rfc822
-        self.eq(s_time.parse('Sat, 17 Dec 2050 03:04:32'), 2554859072000)
-        self.eq(s_time.parse('Sat, 03 Dec 2050 03:04:32'), 2554859072000 - 14 * s_time.oneday)
-        self.eq(s_time.parse('Sat, 3 Dec 2050 03:04:32'), 2554859072000 - 14 * s_time.oneday)
-        self.eq(s_time.parse('17 Dec 2050 03:04:32'), 2554859072000)
+        self.eq(s_time.parse('Sat, 17 Dec 2050 03:04:32'), 2554859072000000)
+        self.eq(s_time.parse('Sat, 03 Dec 2050 03:04:32'), 2554859072000000 - 14 * s_time.oneday)
+        self.eq(s_time.parse('Sat, 3 Dec 2050 03:04:32'), 2554859072000000 - 14 * s_time.oneday)
+        self.eq(s_time.parse('17 Dec 2050 03:04:32'), 2554859072000000)
 
         self.eq(s_time.parse('20200106030432'), s_time.parse('Mon, 06 Jan 2020 03:04:32'))
         self.eq(s_time.parse('20200105030432'), s_time.parse('Sun, 05 Jan 2020 03:04:32'))
@@ -71,20 +71,20 @@ class TimeTest(s_t_utils.SynTest):
     def test_time_parse_tz(self):
 
         # explicit iso8601
-        self.eq(s_time.parse('2020-07-07T16:29:53Z'), 1594139393000)
-        self.eq(s_time.parse('2020-07-07T16:29:53.234Z'), 1594139393234)
-        self.eq(s_time.parse('2020-07-07T16:29:53.234567Z'), 1594139393234)
+        self.eq(s_time.parse('2020-07-07T16:29:53Z'), 1594139393000000)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234Z'), 1594139393234000)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234567Z'), 1594139393234567)
 
-        self.eq(s_time.parse('2020-07-07T16:29:53+00:00'), 1594139393000)
-        self.eq(s_time.parse('2020-07-07T16:29:53-04:00'), 1594153793000)
-        self.eq(s_time.parse('2020-07-07T16:29:53-04:30'), 1594155593000)
-        self.eq(s_time.parse('2020-07-07T16:29:53+02:00'), 1594132193000)
-        self.eq(s_time.parse('2020-07-07T16:29:53-0430'), 1594155593000)
-        self.eq(s_time.parse('2020-07-07T16:29:53+0200'), 1594132193000)
-        self.eq(s_time.parse('2021-11-03T08:32:14.506-0400'), 1635942734506)
-        self.eq(s_time.parse('2020-07-07T16:29:53.234+02:00'), 1594132193234)
-        self.eq(s_time.parse('2020-07-07T16:29:53.234567+02:00'), 1594132193234)
-        self.eq(s_time.parse('2020-07-07T16:29:53.234567+10:00'), 1594103393234)
+        self.eq(s_time.parse('2020-07-07T16:29:53+00:00'), 1594139393000000)
+        self.eq(s_time.parse('2020-07-07T16:29:53-04:00'), 1594153793000000)
+        self.eq(s_time.parse('2020-07-07T16:29:53-04:30'), 1594155593000000)
+        self.eq(s_time.parse('2020-07-07T16:29:53+02:00'), 1594132193000000)
+        self.eq(s_time.parse('2020-07-07T16:29:53-0430'), 1594155593000000)
+        self.eq(s_time.parse('2020-07-07T16:29:53+0200'), 1594132193000000)
+        self.eq(s_time.parse('2021-11-03T08:32:14.506-0400'), 1635942734506000)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234+02:00'), 1594132193234000)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234567+02:00'), 1594132193234567)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234567+10:00'), 1594103393234567)
 
         self.eq(('2020-07-07T16:29:53', s_time.onehour * 4), s_time.parsetz('2020-07-07T16:29:53 -04:00'))
         self.eq(('2020-07-07T16:29:53', s_time.onehour * 4), s_time.parsetz('2020-07-07T16:29:53-04:00'))
@@ -92,19 +92,18 @@ class TimeTest(s_t_utils.SynTest):
         utc = s_time.parse('2020-07-07 16:29')
         self.eq(s_time.parse('2020-07-07 16:29-06:00'), utc + 6 * s_time.onehour)
 
-        self.eq(s_time.parse('20200707162953+00:00'), 1594139393000)
-        self.eq(s_time.parse('20200707162953-04:00'), 1594153793000)
+        self.eq(s_time.parse('20200707162953+00:00'), 1594139393000000)
+        self.eq(s_time.parse('20200707162953-04:00'), 1594153793000000)
 
-        self.eq(s_time.parse('20200707162953'), 1594139393000)
-        self.eq(s_time.parse('20200707162953+423'),
-                1594139393000 - s_time.onehour * 4 - s_time.onemin * 23)
+        self.eq(s_time.parse('20200707162953'), 1594139393000000)
+        self.eq(s_time.parse('20200707162953+423'), 1594139393000000 - s_time.onehour * 4 - s_time.onemin * 23)
 
         # named timezones
-        utc = 1594139393000
+        utc = 1594139393000000
         self.eq(s_time.parse('2020-07-07T16:29:53 EDT'), utc + s_time.onehour * 4)
         self.eq(s_time.parse('2020-07-07T16:29:53 edt'), utc + s_time.onehour * 4)
-        self.eq(s_time.parse('2020-07-07T16:29:53.234 EDT'), utc + s_time.onehour * 4 + 234)
-        self.eq(s_time.parse('2020-07-07T16:29:53.234567 EDT'), utc + s_time.onehour * 4 + 234)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234 EDT'), utc + s_time.onehour * 4 + 234000)
+        self.eq(s_time.parse('2020-07-07T16:29:53.234567 EDT'), utc + s_time.onehour * 4 + 234567)
         self.eq(s_time.parse('2020-07-07T16:29:53-04:00'), s_time.parse('2020-07-07T16:29:53EDT'))
 
         self.eq(('2020-07-07T16:29:53', s_time.onehour * 4), s_time.parsetz('2020-07-07T16:29:53 EDT'))
@@ -129,7 +128,7 @@ class TimeTest(s_t_utils.SynTest):
         # unsupported timezone names are not recognized and get stripped as before
         self.eq(s_time.parse('2020-07-07T16:29:53 ET'), utc)
         self.eq(s_time.parse('2020-07-07T16:29:53 NEWP'), utc)
-        self.eq(s_time.parse('2020-07-07T16:29:53 Etc/GMT-4'), utc + 400)
+        self.eq(s_time.parse('2020-07-07T16:29:53 Etc/GMT-4'), utc + 400000)
         self.eq(s_time.parse('2020-07-07T16:29:53 America/New_York'), utc)
 
         # coverage for bad args
@@ -143,7 +142,7 @@ class TimeTest(s_t_utils.SynTest):
         self.eq(s_time.parse('Tue, 7 Jul 2020 16:29:53 -0400'), utc + s_time.onehour * 4)
 
         # This partial value is ignored and treated like a millisecond value
-        self.eq(s_time.parse('20200707162953+04'), 1594139393040)
+        self.eq(s_time.parse('20200707162953+04'), 1594139393040000)
 
         # A partial time (without mm) is ignored as a timestamp.
         self.eq(s_time.parse('202007+04'), s_time.parse('20200704'))
