@@ -1733,7 +1733,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 step = step[p]
             step[path[-1]] = valu
         except (KeyError, IndexError) as exc:
-            breakpoint()
             raise s_exc.BadArg(mesg=f'Invalid path {path}')
 
         return await self.drive.setItemData(iden, vers, item)
