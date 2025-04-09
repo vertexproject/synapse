@@ -2050,6 +2050,10 @@ class LibStr(Lib):
     )
     _storm_lib_path = ('str',)
 
+    _lib_str_join_depr_mesg = '$lib.str.join(), use "$sepr.join($items)" instead.'
+    _lib_str_concat_depr_mesg = "$lib.str.concat(), use ('').join($foo, $bar, $baz, ....) instead."
+    _lib_str_format_depr_mesg = '$lib.str.format(), use "$mystr.format(foo=$bar)" instead.'
+
     def getObjLocals(self):
         return {
             'join': self.join,
@@ -2059,20 +2063,29 @@ class LibStr(Lib):
 
     @stormfunc(readonly=True)
     async def concat(self, *args):
-        s_common.deprecated("$lib.str.concat(), use ('').join($foo, $bar, $baz, ....) instead.")
+        s_common.deprecated(self._lib_str_concat_depr_mesg)
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce(self._lib_str_concat_depr_mesg)
         strs = [await tostr(a) for a in args]
         return ''.join(strs)
 
     @stormfunc(readonly=True)
     async def format(self, text, **kwargs):
-        s_common.deprecated('$lib.str.format(), use "$mystr.format(foo=$bar)" instead.')
+        s_common.deprecated(self._lib_str_format_depr_mesg)
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce(self._lib_str_format_depr_mesg)
         text = await kwarg_format(text, **kwargs)
 
         return text
 
     @stormfunc(readonly=True)
     async def join(self, sepr, items):
-        s_common.deprecated('$lib.str.join(), use "$sepr.join($items)" instead.')
+        s_common.deprecated(self._lib_str_join_depr_mesg)
+        runt = s_scope.get('runt')
+        if runt:
+            await runt.snap.warnonce(self._lib_str_join_depr_mesg)
         strs = [await tostr(item) async for item in toiter(items)]
         return sepr.join(strs)
 
