@@ -1,0 +1,5 @@
+---
+desc: Fixed epoch timestamp calculation by anchoring to UTC instead of local timezone.
+prs: []
+type: bug
+...
