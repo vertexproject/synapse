@@ -225,17 +225,17 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         t = model.type('duration')
 
-        self.eq('2D 00:00:00.000', t.repr(172800000))
-        self.eq('00:05:00.333', t.repr(300333))
-        self.eq('11D 11:47:12.344', t.repr(992832344))
+        self.eq('2D 00:00:00', t.repr(172800000000))
+        self.eq('00:05:00.333333', t.repr(300333333))
+        self.eq('11D 11:47:12.344', t.repr(992832344000))
 
-        self.eq(300333, t.norm('00:05:00.333')[0])
-        self.eq(992832344, t.norm('11D 11:47:12.344')[0])
+        self.eq(300333333, t.norm('00:05:00.333333')[0])
+        self.eq(992832344000, t.norm('11D 11:47:12.344')[0])
 
-        self.eq(172800000, t.norm('2D')[0])
-        self.eq(60000, t.norm('1:00')[0])
-        self.eq(60200, t.norm('1:00.2')[0])
-        self.eq(9999, t.norm('9.9999')[0])
+        self.eq(172800000000, t.norm('2D')[0])
+        self.eq(60000000, t.norm('1:00')[0])
+        self.eq(60200000, t.norm('1:00.2')[0])
+        self.eq(9999999, t.norm('9.9999999')[0])
 
         with self.raises(s_exc.BadTypeValu):
             t.norm('    ')
@@ -634,32 +634,32 @@ class TypesTest(s_t_utils.SynTest):
         model = s_datamodel.Model()
         ival = model.types.get('ival')
 
-        self.eq(('2016-01-01T00:00:00.000Z', '2017-01-01T00:00:00.000Z'), ival.repr(ival.norm(('2016', '2017'))[0]))
+        self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr(ival.norm(('2016', '2017'))[0]))
 
         self.gt(s_common.now(), ival._normRelStr('-1 min'))
 
-        self.eq((0, 5356800000), ival.norm((0, '1970-03-04'))[0])
-        self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
-        self.eq((1451606400000, 1451606400001), ival.norm(1451606400000)[0])
-        self.eq((1451606400000, 1451606400001), ival.norm(s_stormtypes.Number(1451606400000))[0])
-        self.eq((1451606400000, 1451606400001), ival.norm('2016')[0])
-        self.eq((1451606400000, 1483228800000), ival.norm(('2016', '  2017'))[0])
-        self.eq((1451606400000, 1483228800000), ival.norm(('2016-01-01', '  2017'))[0])
-        self.eq((1451606400000, 1483142400000), ival.norm(('2016', '+365 days'))[0])
-        self.eq((1448150400000, 1451606400000), ival.norm(('2016', '-40 days'))[0])
-        self.eq((1447891200000, 1451347200000), ival.norm(('2016-3days', '-40 days   '))[0])
-        self.eq((1451347200000, 0x7fffffffffffffff), ival.norm(('2016-3days', '?'))[0])
-        self.eq((1593576000000, 1593576000001), ival.norm('2020-07-04:00')[0])
-        self.eq((1594124993000, 1594124993001), ival.norm('2020-07-07T16:29:53+04:00')[0])
-        self.eq((1594153793000, 1594153793001), ival.norm('2020-07-07T16:29:53-04:00')[0])
-        self.eq((1594211393000, 1594211393001), ival.norm('20200707162953+04:00+1day')[0])
-        self.eq((1594038593000, 1594038593001), ival.norm('20200707162953+04:00-1day')[0])
-        self.eq((1594240193000, 1594240193001), ival.norm('20200707162953-04:00+1day')[0])
-        self.eq((1594067393000, 1594067393001), ival.norm('20200707162953-04:00-1day')[0])
-        self.eq((1594240193000, 1594240193001), ival.norm('20200707162953EDT+1day')[0])
-        self.eq((1594067393000, 1594067393001), ival.norm('20200707162953EDT-1day')[0])
-        self.eq((1594240193000, 1594240193001), ival.norm('7 Jul 2020 16:29:53 EDT+1day')[0])
-        self.eq((1594067393000, 1594067393001), ival.norm('7 Jul 2020 16:29:53 -0400-1day')[0])
+        self.eq((0, 5356800000000), ival.norm((0, '1970-03-04'))[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm(1451606400000000)[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm(s_stormtypes.Number(1451606400000000))[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
+        self.eq((1451606400000000, 1483228800000000), ival.norm(('2016', '  2017'))[0])
+        self.eq((1451606400000000, 1483228800000000), ival.norm(('2016-01-01', '  2017'))[0])
+        self.eq((1451606400000000, 1483142400000000), ival.norm(('2016', '+365 days'))[0])
+        self.eq((1448150400000000, 1451606400000000), ival.norm(('2016', '-40 days'))[0])
+        self.eq((1447891200000000, 1451347200000000), ival.norm(('2016-3days', '-40 days   '))[0])
+        self.eq((1451347200000000, 0x7fffffffffffffff), ival.norm(('2016-3days', '?'))[0])
+        self.eq((1593576000000000, 1593576000000001), ival.norm('2020-07-04:00')[0])
+        self.eq((1594124993000000, 1594124993000001), ival.norm('2020-07-07T16:29:53+04:00')[0])
+        self.eq((1594153793000000, 1594153793000001), ival.norm('2020-07-07T16:29:53-04:00')[0])
+        self.eq((1594211393000000, 1594211393000001), ival.norm('20200707162953+04:00+1day')[0])
+        self.eq((1594038593000000, 1594038593000001), ival.norm('20200707162953+04:00-1day')[0])
+        self.eq((1594240193000000, 1594240193000001), ival.norm('20200707162953-04:00+1day')[0])
+        self.eq((1594067393000000, 1594067393000001), ival.norm('20200707162953-04:00-1day')[0])
+        self.eq((1594240193000000, 1594240193000001), ival.norm('20200707162953EDT+1day')[0])
+        self.eq((1594067393000000, 1594067393000001), ival.norm('20200707162953EDT-1day')[0])
+        self.eq((1594240193000000, 1594240193000001), ival.norm('7 Jul 2020 16:29:53 EDT+1day')[0])
+        self.eq((1594067393000000, 1594067393000001), ival.norm('7 Jul 2020 16:29:53 -0400-1day')[0])
 
         # these fail because ival norming will split on a comma
         self.raises(s_exc.BadTypeValu, ival.norm, 'Tue, 7 Jul 2020 16:29:53 EDT+1day')
@@ -671,9 +671,9 @@ class TypesTest(s_t_utils.SynTest):
 
         oldv = ival.norm(('2016', '2017'))[0]
         newv = ival.norm(('2015', '2018'))[0]
-        self.eq((1420070400000, 1514764800000), ival.merge(oldv, newv))
+        self.eq((1420070400000000, 1514764800000000), ival.merge(oldv, newv))
 
-        self.eq((1420070400000, 1420070400001), ival.norm(('2015', '2015'))[0])
+        self.eq((1420070400000000, 1420070400000001), ival.norm(('2015', '2015'))[0])
 
         self.raises(s_exc.BadTypeValu, ival.norm, '?')
         self.raises(s_exc.BadTypeValu, ival.norm, ('', ''))
@@ -1263,14 +1263,14 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.repr(future), '?')
 
             # Explicitly test our max time vs. future marker
-            maxtime = 253402300799999  # 9999/12/31 23:59:59.999
+            maxtime = 253402300799999999  # 9999/12/31 23:59:59.999999
             self.eq(t.norm(maxtime)[0], maxtime)
-            self.eq(t.repr(maxtime), '9999-12-31T23:59:59.999Z')
-            self.eq(t.norm('9999-12-31T23:59:59.999Z')[0], maxtime)
+            self.eq(t.repr(maxtime), '9999-12-31T23:59:59.999999Z')
+            self.eq(t.norm('9999-12-31T23:59:59.999999Z')[0], maxtime)
             self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
 
             tick = t.norm('2014')[0]
-            self.eq(t.repr(tick), '2014-01-01T00:00:00.000Z')
+            self.eq(t.repr(tick), '2014-01-01T00:00:00Z')
 
             tock = t.norm('2015')[0]
 

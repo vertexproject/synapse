@@ -482,8 +482,8 @@ class AxonApi(s_cell.CellApi, s_share.Share):  # type: ignore
         Yield hash rows for files that existing in the Axon after a given point in time.
 
         Args:
-            tick (int): The starting time (in epoch milliseconds).
-            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+            tick (int): The starting time (in epoch microseconds).
+            tock (int): The ending time to stop iterating at (in epoch microseconds).
 
         Yields:
             (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.
@@ -991,8 +991,8 @@ class Axon(s_cell.Cell):
         Yield hash rows for files that existing in the Axon after a given point in time.
 
         Args:
-            tick (int): The starting time (in epoch milliseconds).
-            tock (int): The ending time to stop iterating at (in epoch milliseconds).
+            tick (int): The starting time (in epoch microseconds).
+            tock (int): The ending time to stop iterating at (in epoch microseconds).
 
         Yields:
             (int, (bytes, int)): A tuple containing time of the hash was added and the file SHA-256 and size.

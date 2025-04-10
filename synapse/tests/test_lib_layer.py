@@ -649,7 +649,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(tagv, nodes[0].getTag('foo.bar'))
 
             nodes = await core.nodes('inet:ip=1.2.3.4 [ +#foo.bar=2015 ]')
-            self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))
+            self.eq((1325376000000000, 1420070400000001), nodes[0].getTag('foo.bar'))
 
             await core.addTagProp('tval', ('ival', {}), {})
             await core.addTagProp('mintime', ('time', {'ismin': True}), {})

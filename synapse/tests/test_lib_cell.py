@@ -2748,8 +2748,8 @@ class CellTest(s_t_utils.SynTest):
             # Verify duration arg for expiration is applied
             with self.raises(s_exc.BadArg):
                 await cell.addUserApiKey(root, 'newp', duration=0)
-            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200)
-            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200)
+            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200000)
+            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200000)
 
             isok, info = await cell.checkUserApiKey(rtk1)
             self.true(isok)

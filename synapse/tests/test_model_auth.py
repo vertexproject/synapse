@@ -51,4 +51,4 @@ class AuthModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('person'))
 
             self.eq(True, nodes[0].get('success'))
-            self.eq(1580601600000, nodes[0].get('time'))
+            self.eq(1580601600000000, nodes[0].get('time'))

@@ -100,7 +100,7 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(sorc.get('url'), 'https://foo.bar/index.html')
             self.eq(sorc.get('ingest:offset'), 17)
             self.eq(sorc.get('ingest:cursor'), 'Woot Woot ')
-            self.eq(sorc.get('ingest:latest'), 1733356800000)
+            self.eq(sorc.get('ingest:latest'), 1733356800000000)
 
             valu = (sorc.ndef[1], ('inet:fqdn', 'woot.com'))
 
@@ -116,8 +116,8 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
             self.nn(nodes[0].get('author'))
-            self.eq(nodes[0].get('created'), 1580601600000)
-            self.eq(nodes[0].get('updated'), 1648771200000)
+            self.eq(nodes[0].get('created'), 1580601600000000)
+            self.eq(nodes[0].get('updated'), 1648771200000000)
             self.eq(nodes[0].get('name'), 'my rules')
             self.eq(nodes[0].get('desc'), 'My cool ruleset')
 
@@ -136,8 +136,8 @@ class BaseTest(s_t_utils.SynTest):
 
             self.nn(nodes[0].get('author'))
             self.eq(nodes[0].get('type'), 'foo.bar.')
-            self.eq(nodes[0].get('created'), 1580601600000)
-            self.eq(nodes[0].get('updated'), 1648771200000)
+            self.eq(nodes[0].get('created'), 1580601600000000)
+            self.eq(nodes[0].get('updated'), 1648771200000000)
             self.eq(nodes[0].get('name'), 'my rule')
             self.eq(nodes[0].get('desc'), 'My cool rule')
             self.eq(nodes[0].get('text'), 'while TRUE { BAD }')
@@ -241,7 +241,7 @@ class BaseTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(99, nodes[0].get('count'))
             self.eq('bottles.', nodes[0].get('type'))
-            self.eq(1706832000000, nodes[0].get('time'))
+            self.eq(1706832000000000, nodes[0].get('time'))
             self.len(1, await core.nodes('meta:aggregate -> meta:aggregate:type:taxonomy'))
 
     async def test_model_feed(self):
@@ -268,8 +268,8 @@ class BaseTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('url'), 'https://v.vtx.lk/slack')
             self.eq(nodes[0].get('query'), 'Hi There')
             self.eq(nodes[0].get('opts'), {"foo": "bar"})
-            self.eq(nodes[0].get('period'), (1704067200000, 1735689600000))
-            self.eq(nodes[0].get('latest'), 1735689600000)
+            self.eq(nodes[0].get('period'), (1704067200000000, 1735689600000000))
+            self.eq(nodes[0].get('latest'), 1735689600000000)
             self.eq(nodes[0].get('offset'), 17)
             self.eq(nodes[0].get('cursor'), 'FooBar')
 

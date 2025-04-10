@@ -1053,7 +1053,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist('pkg.list --verbose')
             self.stormIsInPrint('not available', msgs)
 
-            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000}}
+            pkg2 = {'name': 'hoho', 'version': '4.5.6', 'build': {'time': 1732017600000000}}
             await core.addStormPkg(pkg2)
             self.eq('4.5.6', await core.callStorm('return($lib.pkg.get(hoho).version)'))
             msgs = await core.stormlist('pkg.list --verbose')
@@ -1145,7 +1145,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('11.22.33.44', ipv4)
 
             sodes = await core.callStorm('inet:ip=11.22.33.44 return($node.getStorNodes())', opts=opts)
-            self.eq((1577836800000, 1577836800001), sodes[0]['tags']['foo'])
+            self.eq((1577836800000000, 1577836800000001), sodes[0]['tags']['foo'])
             self.eq((99, 9, None), sodes[0]['props']['asn'])
             self.eq(((4, 185999660), 26, None), sodes[1]['valu'])
             self.eq(('unicast', 1, None), sodes[1]['props']['type'])
@@ -1163,14 +1163,14 @@ class StormTest(s_t_utils.SynTest):
 
             msgs = await core.stormlist('inet:ip=11.22.33.44 | merge', opts=opts)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip:asn = 99', msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.001Z')", msgs)
+            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo:score = 100", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
 
             msgs = await core.stormlist('ps:person | merge --diff', opts=opts)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip:asn = 99', msgs)
-            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00.000Z', '2020-01-01T00:00:00.001Z')", msgs)
+            self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo = ('2020-01-01T00:00:00Z', '2020-01-01T00:00:00.000001Z')", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip#foo:score = 100", msgs)
             self.stormIsInPrint("6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip DATA foo = 'bar'", msgs)
             self.stormIsInPrint('6720190a3ac94559e1e7e55d2177024734f940954988649b59454bf2324a351d inet:ip +(refs)> a0df14eab785847912993519f5606bbe741ad81afb51b81455ac6982a5686436', msgs)
@@ -1859,7 +1859,7 @@ class StormTest(s_t_utils.SynTest):
 
             await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].get('founded'), 1609459200000)
+            self.eq(nodes[0].get('founded'), 1609459200000000)
             self.none(nodes[0].get('url'))
             self.none(nodes[0].get('.seen'))
 
@@ -2084,8 +2084,8 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'layr1')
-            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1640995200001))
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1640995200001))
+            self.eq(sode['props'].get('.seen')[0], (1640995200000000, 1640995200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1640995200000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
             data = await core.callStorm('ou:org=(foo,) return($node.data.get(foo))', opts=view2)
@@ -2114,8 +2114,8 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'layr1')
-            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1672531200001))
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1672531200001))
+            self.eq(sode['props'].get('.seen')[0], (1640995200000000, 1672531200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
 
@@ -2131,8 +2131,8 @@ class StormTest(s_t_utils.SynTest):
 
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view2)
             sode = sodes[0]
-            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1672531200001))
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1672531200001))
+            self.eq(sode['props'].get('.seen')[0], (1640995200000000, 1672531200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1672531200000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 1)
             self.eq(sode['tagprops'].get('two').get('score')[0], 1)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view2))
@@ -2162,8 +2162,8 @@ class StormTest(s_t_utils.SynTest):
             sodes = await core.callStorm('ou:org=(foo,) return($node.getStorNodes())', opts=view3)
             sode = sodes[0]
             self.eq(sode['props'].get('desc')[0], 'prio')
-            self.eq(sode['props'].get('.seen')[0], (1640995200000, 1704067200001))
-            self.eq(sode['tags'].get('hehe.haha'), (1640995200000, 1704067200001))
+            self.eq(sode['props'].get('.seen')[0], (1640995200000000, 1704067200000001))
+            self.eq(sode['tags'].get('hehe.haha'), (1640995200000000, 1704067200000001))
             self.eq(sode['tagprops'].get('one').get('score')[0], 2)
             self.eq(sode['tagprops'].get('two').get('score')[0], 2)
             self.len(1, await core.nodes('ou:org=(foo,) -(_bar)> *', opts=view3))
@@ -4121,10 +4121,10 @@ class StormTest(s_t_utils.SynTest):
         opts = pars.parse_args(['2022'])
         self.none(opts)
         errmesg = pars.exc.errinfo['mesg']
-        self.eq('Invalid choice for argument <foo> (choose from: 2022, 1672531200000): 1640995200000', errmesg)
+        self.eq('Invalid choice for argument <foo> (choose from: 2022, 1672531200000000): 1640995200000000', errmesg)
 
         pars.help()
-        self.eq('  <foo>                       : foohelp (choices: 2022, 1672531200000)', pars.mesgs[-1])
+        self.eq('  <foo>                       : foohelp (choices: 2022, 1672531200000000)', pars.mesgs[-1])
 
         # choices - nargs
         pars = s_storm.Parser()
