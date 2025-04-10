@@ -6,6 +6,20 @@
 Synapse Changelog
 *****************
 
+v2.207.0 - 2025-04-10
+=====================
+
+Features and Enhancements
+-------------------------
+- Added a ``join()`` method on the Storm ``str`` object.
+  (`#4227 <https://github.com/vertexproject/synapse/pull/4227>`_)
+
+Bugfixes
+--------
+- Fixed an issue with Storm ``inet:http:resp`` objects containing header values
+  which could fail to save as JSON.
+  (`#4224 <https://github.com/vertexproject/synapse/pull/4224>`_)
+
 v2.206.0 - 2025-04-04
 =====================
 
