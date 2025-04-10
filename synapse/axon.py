@@ -1640,7 +1640,7 @@ class Axon(s_cell.Cell):
                         'code': resp.status,
                         'body': await resp.read(),
                         'reason': s_common.httpcodereason(resp.status),
-                        'headers': dict(resp.headers),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
                     }
                     return info
 
@@ -1687,7 +1687,7 @@ class Axon(s_cell.Cell):
                         'url': str(resp.url),
                         'code': resp.status,
                         'reason': s_common.httpcodereason(resp.status),
-                        'headers': dict(resp.headers),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
                     }
                     return info
 
@@ -1717,11 +1717,11 @@ class Axon(s_cell.Cell):
             'ok': True,
             'url': str(resp.real_url),
             'code': resp.status,
-            'headers': dict(resp.headers),
+            'headers': {str(k): v for k, v in resp.headers.items()},
             'reason': s_common.httpcodereason(resp.status),
             'request': {
                 'url': str(resp.request_info.real_url),
-                'headers': dict(resp.request_info.headers),
+                'headers': {str(k): v for k, v in resp.request_info.headers.items()},
                 'method': str(resp.request_info.method),
             }
         }
