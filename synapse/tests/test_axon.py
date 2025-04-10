@@ -1006,10 +1006,10 @@ bar baz",vv
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
 
-            q = f'''$resp = $lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0))
+            jsonq = f'''$resp = $lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0))
             return ( $lib.json.save($resp) )
             '''
-            resp = await core.callStorm(q, opts=opts)
+            resp = await core.callStorm(jsonq, opts=opts)
             self.isinstance(resp, str)
             resp = s_json.loads(resp)
             self.eq(True, resp['ok'])
