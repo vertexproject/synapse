@@ -1,16 +1,13 @@
-import synapse.lib.module as s_module
+modeldefs = (
+    ('entity', {
 
-class EntityModule(s_module.CoreModule):
+        'types': (
+            ('entity:name', ('str', {'onespace': True, 'lower': True}), {
+                'doc': 'A name used to refer to an entity.'}),
+        ),
 
-    def getModelDefs(self):
-        return (('entity', {
-
-            'types': (
-                ('entity:name', ('str', {'onespace': True, 'lower': True}), {
-                    'doc': 'A name used to refer to an entity.'}),
-            ),
-
-            'forms': (
-                ('entity:name', {}, ()),
-            ),
-        }),)
+        'forms': (
+            ('entity:name', {}, ()),
+        ),
+    }),
+)

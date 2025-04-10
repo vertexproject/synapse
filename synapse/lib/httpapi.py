@@ -70,7 +70,6 @@ class HandlerBase:
     def initialize(self, cell):
         self.cell = cell
         self._web_sess = None
-        self._web_user = None  # Deprecated for new handlers
         self.web_useriden = None  # The user iden at the time of authentication.
         self.web_username = None  # The user name at the time of authentication.
 
@@ -557,43 +556,6 @@ class StormHandler(Handler):
         if isinstance(err, s_exc.NoSuchView):
             return self.sendRestExc(err, status_code=HTTPStatus.NOT_FOUND)
         return self.sendRestExc(err, status_code=HTTPStatus.BAD_REQUEST)
-
-class StormNodesV1(StormHandler):
-
-    async def post(self):
-        return await self.get()
-
-    async def get(self):
-
-        user, body = await self.getUseridenBody()
-        if body is s_common.novalu:
-            return
-
-        s_common.deprecated('HTTP API /api/v1/storm/nodes', curv='2.110.0')
-
-        opts = body.get('opts')
-        query = body.get('query')
-        stream = body.get('stream')
-        jsonlines = stream == 'jsonlines'
-
-        opts = await self._reqValidOpts(opts)
-        if opts is None:
-            return
-
-        flushed = False
-        try:
-            view = self.cell._viewFromOpts(opts)
-
-            taskinfo = {'query': query, 'view': view.iden}
-            await self.cell.boss.promote('storm', user=user, info=taskinfo)
-
-            async for pode in view.iterStormPodes(query, opts=opts):
-                self.write(s_json.dumps(pode, newline=jsonlines))
-                await self.flush()
-                flushed = True
-        except Exception as e:
-            if not flushed:
-                return self._handleStormErr(e)
 
 class StormV1(StormHandler):
 
@@ -1216,7 +1178,7 @@ class StormVarsPopV1(Handler):
         varname = str(body.get('name'))
         defvalu = body.get('default')
 
-        if not await self.allowed(('globals', 'pop', varname)):
+        if not await self.allowed(('globals', 'del', varname)):
             return
 
         valu = await self.cell.popStormVar(varname, default=defvalu)
@@ -1275,7 +1237,6 @@ class FeedV1(Handler):
         Example data::
 
             {
-                'name': 'syn.nodes',
                 'view': null,
                 'items': [...],
             }
@@ -1291,12 +1252,6 @@ class FeedV1(Handler):
             return
 
         items = body.get('items')
-        name = body.get('name', 'syn.nodes')
-
-        func = self.cell.getFeedFunc(name)
-        if func is None:
-            return self.sendRestErr('NoSuchFunc', f'The feed type {name} does not exist.',
-                                    status_code=HTTPStatus.BAD_REQUEST)
 
         user = self.cell.auth.user(self.web_useriden)
 
@@ -1305,22 +1260,19 @@ class FeedV1(Handler):
             return self.sendRestErr('NoSuchView', 'The specified view does not exist.',
                                     status_code=HTTPStatus.NOT_FOUND)
 
-        wlyr = view.layers[0]
-        perm = ('feed:data', *name.split('.'))
+        perm = ('feed:data',)
 
-        if not user.allowed(perm, gateiden=wlyr.iden):
+        if not user.allowed(perm, gateiden=view.wlyr.iden):
             permtext = '.'.join(perm)
-            mesg = f'User does not have {permtext} permission on gate: {wlyr.iden}.'
+            mesg = f'User does not have {permtext} permission on gate: {view.wlyr.iden}.'
             return self.sendRestErr('AuthDeny', mesg, status_code=HTTPStatus.FORBIDDEN)
 
         try:
 
-            info = {'name': name, 'view': view.iden, 'nitems': len(items)}
+            info = {'view': view.iden, 'nitems': len(items)}
             await self.cell.boss.promote('feeddata', user=user, info=info)
 
-            async with await self.cell.snap(user=user, view=view) as snap:
-                snap.strict = False
-                await snap.addFeedData(name, items)
+            await self.cell.addFeedData(items, user=user, viewiden=view.iden)
 
             return self.sendRestRetn(None)
 

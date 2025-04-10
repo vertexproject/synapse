@@ -55,8 +55,6 @@ import synapse.lib.aha as s_aha
 import synapse.lib.base as s_base
 import synapse.lib.cell as s_cell
 import synapse.lib.coro as s_coro
-import synapse.lib.cmdr as s_cmdr
-import synapse.lib.hive as s_hive
 import synapse.lib.json as s_json
 import synapse.lib.task as s_task
 import synapse.lib.const as s_const
@@ -64,7 +62,6 @@ import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.storm as s_storm
 import synapse.lib.types as s_types
-import synapse.lib.module as s_module
 import synapse.lib.output as s_output
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
@@ -286,270 +283,304 @@ class TestRunt:
             'props': pnorms,
         })
 
-testmodel = {
+testmodel = (
+    ('test', {
 
-    'ctors': (
-        ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
-        ('test:type', 'synapse.tests.utils.TestType', {}, {}),
-        ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
-    ),
-    'interfaces': (
-        ('test:interface', {
-            'doc': 'test interface',
-            'props': (
-                ('size', ('int', {}), {}),
-                ('names', ('array', {'type': 'str'}), {}),
-            ),
-            'interfaces': ('inet:proto:request',)
-        }),
-    ),
-    'types': (
-        ('test:type10', ('test:type', {'foo': 10}), {
-            'doc': 'A fake type.'}),
+        'ctors': (
+            ('test:sub', 'synapse.tests.utils.TestSubType', {}, {}),
+            ('test:type', 'synapse.tests.utils.TestType', {}, {}),
+            ('test:threetype', 'synapse.tests.utils.ThreeType', {}, {}),
+        ),
+        'interfaces': (
+            ('test:interface', {
+                'doc': 'test interface',
+                'props': (
+                    ('size', ('int', {}), {}),
+                    ('seen', ('ival', {}), {}),
+                    ('names', ('array', {'type': 'str'}), {}),
+                ),
+                'interfaces': ('inet:proto:request',)
+            }),
+            ('test:virtarray', {
+                'doc': 'test interface',
+                'props': (
+                    ('server', ('inet:server', {}), {'alts': ('servers',)}),
+                    ('servers', ('array', {'type': 'inet:server'}), {}),
+                )
+            }),
+        ),
+        'types': (
+            ('test:type10', ('test:type', {'foo': 10}), {
+                'doc': 'A fake type.'}),
 
-        ('test:lower', ('str', {'lower': True}), {}),
+            ('test:lower', ('str', {'lower': True}), {}),
 
-        ('test:time', ('time', {}), {}),
+            ('test:time', ('time', {}), {}),
 
-        ('test:ival', ('ival', {}), {}),
+            ('test:ival', ('ival', {}), {}),
 
-        ('test:ro', ('str', {}), {}),
-        ('test:int', ('int', {}), {}),
-        ('test:float', ('float', {}), {}),
-        ('test:str', ('str', {}), {}),
-        ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
-        ('test:migr', ('str', {}), {}),
-        ('test:auto', ('str', {}), {}),
-        ('test:edge', ('edge', {}), {}),
-        ('test:guid', ('guid', {}), {}),
-        ('test:data', ('data', {}), {}),
-        ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
-        ('test:hugenum', ('hugenum', {}), {}),
+            ('test:ro', ('str', {}), {}),
+            ('test:int', ('int', {}), {}),
+            ('test:float', ('float', {}), {}),
+            ('test:str', ('str', {}), {}),
+            ('test:strregex', ('str', {'lower': True, 'strip': True, 'regex': r'^#[^\p{Z}#]+$'}), {}),
+            ('test:migr', ('str', {}), {}),
+            ('test:auto', ('str', {}), {}),
+            ('test:guid', ('guid', {}), {}),
+            ('test:data', ('data', {}), {}),
+            ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
+            ('test:hugenum', ('hugenum', {}), {}),
 
-        ('test:arrayprop', ('guid', {}), {}),
-        ('test:arrayform', ('array', {'type': 'int'}), {}),
+            ('test:arrayprop', ('guid', {}), {}),
+            ('test:arrayform', ('array', {'type': 'int'}), {}),
 
-        ('test:comp', ('comp', {'fields': (
-            ('hehe', 'test:int'),
-            ('haha', 'test:lower'))
-        }), {'doc': 'A fake comp type.'}),
-        ('test:compcomp', ('comp', {'fields': (
-            ('comp1', 'test:comp'),
-            ('comp2', 'test:comp'))
-        }), {}),
-        ('test:complexcomp', ('comp', {'fields': (
-            ('foo', 'test:int'),
-            ('bar', ('str', {'lower': True}),),
-        )}), {'doc': 'A complex comp type.'}),
-        ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
-        ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
-        ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
-        ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
+            ('test:comp', ('comp', {'fields': (
+                ('hehe', 'test:int'),
+                ('haha', 'test:lower'))
+            }), {'doc': 'A fake comp type.'}),
+            ('test:compcomp', ('comp', {'fields': (
+                ('comp1', 'test:comp'),
+                ('comp2', 'test:comp'))
+            }), {}),
+            ('test:complexcomp', ('comp', {'fields': (
+                ('foo', 'test:int'),
+                ('bar', ('str', {'lower': True}),),
+            )}), {'doc': 'A complex comp type.'}),
+            ('test:ndefcomp', ('comp', {'fields': (
+                ('hehe', 'test:int'),
+                ('ndef', 'test:ndef'))
+            }), {'doc': 'A comp type with an ndef.'}),
 
-        ('test:pivtarg', ('str', {}), {}),
-        ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
-        ('test:haspivcomp', ('int', {}), {}),
+            ('test:hexa', ('hex', {}), {'doc': 'anysize test hex type.'}),
+            ('test:hex4', ('hex', {'size': 4}), {'doc': 'size 4 test hex type.'}),
+            ('test:hexpad', ('hex', {'size': 8, 'zeropad': True}), {'doc': 'size 8 test hex type, zero padded.'}),
+            ('test:zeropad', ('hex', {'zeropad': 20}), {'doc': 'test hex type, zero padded to 40 bytes.'}),
 
-        ('test:cycle0', ('str', {}), {}),
-        ('test:cycle1', ('str', {}), {}),
+            ('test:pivtarg', ('str', {}), {}),
+            ('test:pivcomp', ('comp', {'fields': (('targ', 'test:pivtarg'), ('lulz', 'test:str'))}), {}),
+            ('test:haspivcomp', ('int', {}), {}),
 
-        ('test:ndef', ('ndef', {}), {}),
-        ('test:ndef:formfilter1', ('ndef', {
-            'forms': ('inet:ipv4', 'inet:ipv6')
-        }), {}),
-        ('test:ndef:formfilter2', ('ndef', {
-            'interfaces': ('meta:taxonomy',)
-        }), {}),
-        ('test:ndef:formfilter3', ('ndef', {
-            'forms': ('inet:ipv4',),
-            'interfaces': ('file:mime:msoffice',)
-        }), {}),
+            ('test:cycle0', ('str', {}), {}),
+            ('test:cycle1', ('str', {}), {}),
 
-        ('test:runt', ('str', {'lower': True, 'strip': True}), {'doc': 'A Test runt node.'}),
-        ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
-        ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
-    ),
+            ('test:ndef', ('ndef', {}), {}),
+            ('test:ndef:formfilter1', ('ndef', {
+                'forms': ('inet:ip',)
+            }), {}),
+            ('test:ndef:formfilter2', ('ndef', {
+                'interfaces': ('meta:taxonomy',)
+            }), {}),
+            ('test:ndef:formfilter3', ('ndef', {
+                'forms': ('inet:ip',),
+                'interfaces': ('file:mime:msoffice',)
+            }), {}),
 
-    'univs': (
-        ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
-        ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
-    ),
+            ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
+            ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
+            ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+        ),
 
-    'forms': (
+        'univs': (
+            ('test:univ', ('int', {'min': -1, 'max': 10}), {'doc': 'A test universal property.'}),
+            ('univarray', ('array', {'type': 'int'}), {'doc': 'A test array universal property.'}),
+            ('virtuniv', ('inet:server', {}), {'doc': 'A test universal prop with virtual props.'}),
+            ('virtunivarray', ('array', {'type': 'inet:server'}), {'doc': 'A test universal array prop with virtual props.'}),
+        ),
 
-        ('test:arrayprop', {}, (
-            ('ints', ('array', {'type': 'test:int'}), {}),
-            ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
-            ('strsnosplit', ('array', {'type': 'test:str'}), {}),
-            ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
-        )),
-        ('test:arrayform', {}, (
-        )),
-        ('test:taxonomy', {}, ()),
-        ('test:type10', {}, (
+        'forms': (
 
-            ('intprop', ('int', {'min': 20, 'max': 30}), {}),
-            ('int2', ('int', {}), {}),
-            ('strprop', ('str', {'lower': 1}), {}),
-            ('guidprop', ('guid', {'lower': 1}), {}),
-            ('locprop', ('loc', {}), {}),
-        )),
+            ('test:arrayprop', {}, (
+                ('ints', ('array', {'type': 'test:int'}), {}),
+                ('strs', ('array', {'type': 'test:str', 'split': ','}), {}),
+                ('strsnosplit', ('array', {'type': 'test:str'}), {}),
+                ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
+            )),
+            ('test:arrayform', {}, (
+            )),
+            ('test:taxonomy', {}, ()),
+            ('test:type10', {}, (
 
-        ('test:cycle0', {}, (
-            ('cycle1', ('test:cycle1', {}), {}),
-        )),
+                ('intprop', ('int', {'min': 20, 'max': 30}), {}),
+                ('int2', ('int', {}), {}),
+                ('strprop', ('str', {'lower': 1}), {}),
+                ('guidprop', ('guid', {'lower': 1}), {}),
+                ('locprop', ('loc', {}), {}),
+            )),
 
-        ('test:cycle1', {}, (
-            ('cycle0', ('test:cycle0', {}), {}),
-        )),
+            ('test:cycle0', {}, (
+                ('cycle1', ('test:cycle1', {}), {}),
+            )),
 
-        ('test:type', {}, ()),
+            ('test:cycle1', {}, (
+                ('cycle0', ('test:cycle0', {}), {}),
+            )),
 
-        ('test:comp', {}, (
-            ('hehe', ('test:int', {}), {'ro': True}),
-            ('haha', ('test:lower', {}), {'ro': True}),
-        )),
+            ('test:type', {}, ()),
 
-        ('test:compcomp', {}, (
-            ('comp1', ('test:comp', {}), {'ro': True}),
-            ('comp2', ('test:comp', {}), {'ro': True}),
-        )),
+            ('test:comp', {}, (
+                ('hehe', ('test:int', {}), {'ro': True}),
+                ('haha', ('test:lower', {}), {'ro': True}),
+            )),
 
-        ('test:complexcomp', {}, (
-            ('foo', ('test:int', {}), {'ro': True}),
-            ('bar', ('str', {'lower': 1}), {'ro': True})
-        )),
+            ('test:compcomp', {}, (
+                ('comp1', ('test:comp', {}), {'ro': True}),
+                ('comp2', ('test:comp', {}), {'ro': True}),
+            )),
 
-        ('test:int', {}, (
-            ('loc', ('loc', {}), {}),
-            ('int2', ('int', {}), {}),
-        )),
+            ('test:complexcomp', {}, (
+                ('foo', ('test:int', {}), {'ro': True}),
+                ('bar', ('str', {'lower': 1}), {'ro': True})
+            )),
 
-        ('test:float', {}, (
-            ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
-            ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
-        )),
+            ('test:ndefcomp', {}, (
+                ('hehe', ('test:int', {}), {'ro': True}),
+                ('ndef', ('test:ndef', {}), {'ro': True}),
+            )),
 
-        ('test:edge', {}, (
-            ('n1', ('ndef', {}), {'ro': True}),
-            ('n1:form', ('str', {}), {'ro': True}),
-            ('n2', ('ndef', {}), {'ro': True}),
-            ('n2:form', ('str', {}), {'ro': True}),
-        )),
+            ('test:int', {}, (
+                ('loc', ('loc', {}), {}),
+                ('int2', ('int', {}), {}),
+            )),
 
-        ('test:guid', {}, (
-            ('size', ('test:int', {}), {}),
-            ('tick', ('test:time', {}), {}),
-            ('posneg', ('test:sub', {}), {}),
-            ('posneg:isbig', ('bool', {}), {}),
-        )),
+            ('test:float', {}, (
+                ('closed', ('float', {'min': 0.0, 'max': 360.0}), {}),
+                ('open', ('float', {'min': 0.0, 'max': 360.0, 'minisvalid': False, 'maxisvalid': False}), {}),
+            )),
 
-        ('test:data', {}, (
-            ('data', ('test:data', {}), {}),
-        )),
+            ('test:guid', {}, (
+                ('size', ('test:int', {}), {}),
+                ('tick', ('test:time', {}), {}),
+                ('posneg', ('test:sub', {}), {}),
+                ('posneg:isbig', ('bool', {}), {}),
+            )),
 
-        ('test:hugenum', {}, (
-            ('huge', ('test:hugenum', {}), {}),
-        )),
+            ('test:data', {}, (
+                ('data', ('test:data', {}), {}),
+            )),
 
-        ('test:str', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('test:time', {}), {}),
-            ('hehe', ('str', {}), {}),
-            ('ndefs', ('array', {'type': 'ndef'}), {}),
-            ('somestr', ('test:str', {}), {}),
-        )),
-        ('test:strregex', {}, ()),
+            ('test:hugenum', {}, (
+                ('huge', ('test:hugenum', {}), {}),
+            )),
 
-        ('test:migr', {}, (
-            ('bar', ('ndef', {}), {}),
-            ('baz', ('nodeprop', {}), {}),
-            ('tick', ('test:time', {}), {}),
-        )),
+            ('test:str', {}, (
+                ('bar', ('ndef', {}), {}),
+                ('baz', ('nodeprop', {}), {}),
+                ('tick', ('test:time', {}), {}),
+                ('hehe', ('str', {}), {}),
+                ('ndefs', ('array', {'type': 'ndef'}), {}),
+                ('cidr', ('inet:cidr', {}), {}),
+                ('somestr', ('test:str', {}), {}),
+            )),
 
-        ('test:threetype', {}, (
-            ('three', ('int', {}), {}),
-        )),
-        ('test:auto', {}, ()),
-        ('test:hexa', {}, ()),
-        ('test:hex4', {}, ()),
-        ('test:zeropad', {}, ()),
-        ('test:ival', {}, (
-            ('interval', ('ival', {}), {}),
-        )),
+            ('test:strregex', {}, ()),
 
-        ('test:pivtarg', {}, (
-            ('name', ('str', {}), {}),
-        )),
+            ('test:migr', {}, (
+                ('bar', ('ndef', {}), {}),
+                ('baz', ('nodeprop', {}), {}),
+                ('tick', ('test:time', {}), {}),
+            )),
 
-        ('test:pivcomp', {}, (
-            ('targ', ('test:pivtarg', {}), {'ro': True}),
-            ('lulz', ('test:str', {}), {'ro': True}),
-            ('tick', ('time', {}), {}),
-            ('size', ('test:int', {}), {}),
-            ('width', ('test:int', {}), {}),
-        )),
+            ('test:threetype', {}, (
+                ('three', ('int', {}), {}),
+            )),
+            ('test:auto', {}, ()),
+            ('test:hexa', {}, ()),
+            ('test:hex4', {}, ()),
+            ('test:zeropad', {}, ()),
+            ('test:ival', {}, (
+                ('interval', ('ival', {}), {}),
+            )),
 
-        ('test:haspivcomp', {}, (
-            ('have', ('test:pivcomp', {}), {}),
-        )),
+            ('test:pivtarg', {}, (
+                ('name', ('str', {}), {}),
+            )),
 
-        ('test:ndef', {}, (
-            ('form', ('str', {}), {'ro': True}),
-        )),
+            ('test:pivcomp', {}, (
+                ('targ', ('test:pivtarg', {}), {'ro': True}),
+                ('lulz', ('test:str', {}), {'ro': True}),
+                ('tick', ('time', {}), {}),
+                ('size', ('test:int', {}), {}),
+                ('width', ('test:int', {}), {}),
+            )),
 
-        ('test:runt', {'runt': True}, (
-            ('tick', ('time', {}), {'ro': True}),
-            ('lulz', ('str', {}), {}),
-            ('newp', ('str', {}), {'doc': 'A stray property we never use in nodes.'}),
-        )),
+            ('test:haspivcomp', {}, (
+                ('have', ('test:pivcomp', {}), {}),
+            )),
 
-        ('test:ro', {}, (
-            ('writeable', ('str', {}), {'doc': 'writeable property.'}),
-            ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
-        )),
+            ('test:ndef', {}, (
+                ('form', ('str', {}), {'ro': True}),
+            )),
 
-        ('test:hasiface', {}, ()),
-        ('test:hasiface2', {}, ()),
+            ('test:ro', {}, (
+                ('writeable', ('str', {}), {'doc': 'writeable property.'}),
+                ('readable', ('str', {}), {'doc': 'ro property.', 'ro': True}),
+            )),
 
-    ),
-}
+            ('test:hasiface', {}, ()),
+            ('test:hasiface2', {}, ()),
+            ('test:virtiface', {}, ()),
+            ('test:virtiface2', {}, ()),
+        ),
+    }),
+)
 
-deprmodel = {
-    'types': (
-        ('test:deprprop', ('test:str', {}), {'deprecated': True}),
-        ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
-        ('test:deprform', ('test:str', {}), {}),
-        ('test:deprndef', ('ndef', {}), {}),
-        ('test:deprsub', ('str', {}), {}),
-        ('test:range', ('range', {}), {}),
-        ('test:deprsub2', ('comp', {'fields': (
-            ('name', 'test:str'),
-            ('range', 'test:range'))
-        }), {}),
-    ),
-    'forms': (
-        ('test:deprprop', {}, ()),
-        ('test:deprform', {}, (
-            ('ndefprop', ('test:deprndef', {}), {}),
-            ('deprprop', ('test:deprarray', {}), {}),
-            ('okayprop', ('str', {}), {}),
-        )),
-        ('test:deprsub', {}, (
-            ('range', ('test:range', {}), {}),
-            ('range:min', ('int', {}), {'deprecated': True}),
-            ('range:max', ('int', {}), {}),
-        )),
-        ('test:deprsub2', {}, (
-            ('name', ('str', {}), {}),
-            ('range', ('test:range', {}), {}),
-            ('range:min', ('int', {}), {}),
-            ('range:max', ('int', {}), {'deprecated': True}),
-        )),
-    ),
-
-}
+deprmodel = (
+    ('depr', {
+        'ctors': (
+            ('test:dep:str', 'synapse.lib.types.Str', {'strip': True}, {'deprecated': True}),
+        ),
+        'types': (
+            ('test:dep:easy', ('test:str', {}), {'deprecated': True}),
+            ('test:dep:comp', ('comp', {'fields': (('int', 'test:int'), ('str', 'test:dep:easy'))}), {}),
+            ('test:dep:array', ('array', {'type': 'test:dep:easy'}), {}),
+            ('test:deprprop', ('test:str', {}), {'deprecated': True}),
+            ('test:deprarray', ('array', {'type': 'test:deprprop'}), {}),
+            ('test:deprform', ('test:str', {}), {}),
+            ('test:deprndef', ('ndef', {}), {}),
+            ('test:deprform2', ('test:str', {}), {'deprecated': True}),
+            ('test:deprsub', ('str', {}), {}),
+            ('test:range', ('range', {}), {}),
+            ('test:deprsub2', ('comp', {'fields': (
+                ('name', 'test:str'),
+                ('range', 'test:range'))
+            }), {}),
+        ),
+        'forms': (
+            ('test:deprprop', {}, ()),
+            ('test:deprform', {}, (
+                ('ndefprop', ('test:deprndef', {}), {}),
+                ('deprprop', ('test:deprarray', {}), {}),
+                ('okayprop', ('str', {}), {}),
+                ('deprprop2', ('test:str', {}), {'deprecated': True}),
+            )),
+            ('test:deprform2', {}, ()),
+            ('test:deprsub', {}, (
+                ('range', ('test:range', {}), {}),
+                ('range:min', ('int', {}), {'deprecated': True}),
+                ('range:max', ('int', {}), {}),
+            )),
+            ('test:deprsub2', {}, (
+                ('name', ('str', {}), {}),
+                ('range', ('test:range', {}), {}),
+                ('range:min', ('int', {}), {}),
+                ('range:max', ('int', {}), {'deprecated': True}),
+            )),
+            ('test:dep:easy', {'deprecated': True}, (
+                ('guid', ('test:guid', {}), {'deprecated': True}),
+                ('array', ('test:dep:array', {}), {}),
+                ('comp', ('test:dep:comp', {}), {}),
+            )),
+            ('test:dep:str', {}, (
+                ('beep', ('test:dep:str', {}), {}),
+            )),
+        ),
+        'univs': (
+            ('udep', ('test:dep:easy', {}), {}),
+            ('pdep', ('test:str', {}), {'deprecated': True})
+        )
+    }),
+)
 
 class TestCmd(s_storm.Cmd):
     '''
@@ -560,13 +591,13 @@ class TestCmd(s_storm.Cmd):
     forms = {
         'input': [
             'test:str',
-            'inet:ipv6',
+            'inet:ip',
         ],
         'output': [
             'inet:fqdn',
         ],
         'nodedata': [
-            ('foo', 'inet:ipv4'),
+            ('foo', 'inet:ip'),
             ('bar', 'inet:fqdn'),
         ],
     }
@@ -579,129 +610,6 @@ class TestCmd(s_storm.Cmd):
         async for node, path in genr:
             await runt.printf(f'{self.name}: {node.ndef}')
             yield node, path
-
-class DeprModule(s_module.CoreModule):
-    def getModelDefs(self):
-        return (
-            ('depr', deprmodel),
-        )
-
-
-class TestModule(s_module.CoreModule):
-    testguid = '8f1401de15918358d5247e21ca29a814'
-
-    async def initCoreModule(self):
-
-        self.core.setFeedFunc('com.test.record', self.addTestRecords)
-
-        await self.core.addNode(self.core.auth.rootuser, 'meta:source', self.testguid, {'name': 'test'})
-
-        self.core.addStormLib(('test',), LibTst)
-
-        self.healthy = True
-        self.core.addHealthFunc(self._testModHealth)
-
-        form = self.model.form('test:runt')
-        self.core.addRuntLift(form.full, self._testRuntLift)
-
-        for prop in form.props.values():
-            self.core.addRuntLift(prop.full, self._testRuntLift)
-
-        self.core.addRuntPropSet('test:runt:lulz', self._testRuntPropSetLulz)
-        self.core.addRuntPropDel('test:runt:lulz', self._testRuntPropDelLulz)
-
-    async def _testModHealth(self, health):
-        if self.healthy:
-            health.update(self.getModName(), 'nominal',
-                          'Test module is healthy', data={'beep': 0})
-        else:
-            health.update(self.getModName(), 'failed',
-                          'Test module is unhealthy', data={'beep': 1})
-
-    async def addTestRecords(self, snap, items):
-        for name in items:
-            await snap.addNode('test:str', name)
-
-    async def _testRuntLift(self, full, valu=None, cmpr=None, view=None):
-
-        now = s_common.now()
-        modl = self.core.model
-
-        runtdefs = [
-            (' BEEP ', {'tick': modl.type('time').norm('2001')[0], 'lulz': 'beep.sys', '.created': now}),
-            ('boop', {'tick': modl.type('time').norm('2010')[0], '.created': now}),
-            ('blah', {'tick': modl.type('time').norm('2010')[0], 'lulz': 'blah.sys'}),
-            ('woah', {}),
-        ]
-
-        runts = {}
-        for name, props in runtdefs:
-            runts[name] = TestRunt(name, **props)
-
-        genr = runts.values
-
-        async for node in self._doRuntLift(genr, full, valu, cmpr):
-            yield node
-
-    async def _doRuntLift(self, genr, full, valu=None, cmpr=None):
-
-        if cmpr is not None:
-            filt = self.model.prop(full).type.getCmprCtor(cmpr)(valu)
-            if filt is None:
-                raise s_exc.BadCmprValu(cmpr=cmpr)
-
-        fullprop = self.model.prop(full)
-        if fullprop.isform:
-
-            if cmpr is None:
-                for obj in genr():
-                    yield obj.getStorNode(fullprop)
-                return
-
-            for obj in genr():
-                sode = obj.getStorNode(fullprop)
-                if filt(sode[1]['ndef'][1]):
-                    yield sode
-        else:
-            for obj in genr():
-                sode = obj.getStorNode(fullprop.form)
-                propval = sode[1]['props'].get(fullprop.name)
-
-                if propval is not None and (cmpr is None or filt(propval)):
-                    yield sode
-
-    async def _testRuntPropSetLulz(self, node, prop, valu):
-        curv = node.get(prop.name)
-        valu, _ = prop.type.norm(valu)
-        if curv == valu:
-            return False
-        if not valu.endswith('.sys'):
-            raise s_exc.BadTypeValu(mesg='test:runt:lulz must end with ".sys"',
-                                    valu=valu, name=prop.full)
-        node.props[prop.name] = valu
-        # In this test helper, we do NOT persist the change to our in-memory
-        # storage of row data, so a re-lift of the node would not reflect the
-        # change that a user made here.
-        return True
-
-    async def _testRuntPropDelLulz(self, node, prop,):
-        curv = node.props.pop(prop.name, s_common.novalu)
-        if curv is s_common.novalu:
-            return False
-
-        # In this test helper, we do NOT persist the change to our in-memory
-        # storage of row data, so a re-lift of the node would not reflect the
-        # change that a user made here.
-        return True
-
-    def getModelDefs(self):
-        return (
-            ('test', testmodel),
-        )
-
-    def getStormCmds(self):
-        return (TestCmd,
-                )
 
 class TstEnv:
 
@@ -926,7 +834,7 @@ async def _doubleapply(self, indx, item):
         assert nestitem is None, f'Failure: have nested nexus actions, inner item is {item},  outer item was {nestitem}'
         s_task.varset('applynest', item)
 
-        nexsiden, event, args, kwargs, _ = item
+        nexsiden, event, args, kwargs, meta, tick = item
 
         nexus = self._nexskids[nexsiden]
         func, passitem = nexus._nexshands[event]
@@ -1018,7 +926,7 @@ class ReloadCell(s_cell.Cell):
 
 class SynTest(unittest.TestCase):
     '''
-    Mark all async test methods as s_glob.synchelp decorated.
+    Wrap all async test methods with s_glob.sync.
 
     Note:
         This precludes running a single unit test via path using the unittest module.
@@ -1026,18 +934,23 @@ class SynTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **kwargs)
 
+        def synchelp(f):
+            def wrap(*args, **kwargs):
+                return s_glob.sync(f(*args, **kwargs))
+            return wrap
+
         for s in dir(self):
             attr = getattr(self, s, None)
             # If s is an instance method and starts with 'test_', synchelp wrap it
             if inspect.iscoroutinefunction(attr) and s.startswith('test_') and inspect.ismethod(attr):
-                setattr(self, s, s_glob.synchelp(attr))
+                setattr(self, s, synchelp(attr))
 
     def checkNode(self, node, expected):
         ex_ndef, ex_props = expected
         self.eq(node.ndef, ex_ndef)
         [self.eq(node.get(k), v, msg=f'Prop {k} does not match') for (k, v) in ex_props.items()]
 
-        diff = {prop for prop in (set(node.props) - set(ex_props)) if not prop.startswith('.')}
+        diff = {prop for prop in (set(node.getProps()) - set(ex_props)) if not prop.startswith('.')}
         if diff:
             logger.warning('form(%s): untested properties: %s', node.form.name, diff)
 
@@ -1234,19 +1147,6 @@ class SynTest(unittest.TestCase):
                     yield axon
 
     @contextlib.contextmanager
-    def withTestCmdr(self, cmdg):
-
-        getItemCmdr = s_cmdr.getItemCmdr
-
-        async def getTestCmdr(*a, **k):
-            cli = await getItemCmdr(*a, **k)
-            cli.prompt = cmdg
-            return cli
-
-        with mock.patch('synapse.lib.cmdr.getItemCmdr', getTestCmdr):
-            yield
-
-    @contextlib.contextmanager
     def withCliPromptMockExtendOutp(self, outp):
         '''
         Context manager to mock our use of Prompt Toolkit's print_formatted_text function and
@@ -1399,16 +1299,12 @@ class SynTest(unittest.TestCase):
         '''
         conf = self.getCellConf(conf=conf)
 
-        mods = list(conf.get('modules', ()))
-        conf['modules'] = mods
-
-        mods.insert(0, ('synapse.tests.utils.TestModule', {'key': 'valu'}))
-
         with self.withNexusReplay():
 
             with self.mayTestDir(dirn) as dirn:
 
                 async with await s_cortex.Cortex.anit(dirn, conf=conf) as core:
+                    await core._addDataModels(testmodel)
                     yield core
 
     @contextlib.asynccontextmanager
@@ -2358,23 +2254,6 @@ class SynTest(unittest.TestCase):
         idel = await core.auth.addUser('icandel')
         await idel.grant(deleter.iden)
         await idel.setPasswd('secret')
-
-    @contextlib.asynccontextmanager
-    async def getTestHive(self):
-        with self.getTestDir() as dirn:
-            async with self.getTestHiveFromDirn(dirn) as hive:
-                yield hive
-
-    @contextlib.asynccontextmanager
-    async def getTestHiveFromDirn(self, dirn):
-
-        import synapse.lib.const as s_const
-        map_size = s_const.gibibyte
-
-        async with await s_lmdbslab.Slab.anit(dirn, map_size=map_size) as slab:
-
-            async with await s_hive.SlabHive.anit(slab) as hive:
-                yield hive
 
     async def runCoreNodes(self, core, query, opts=None):
         '''
