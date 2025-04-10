@@ -5,7 +5,7 @@
 %ignore CPPCOMMENT
 %ignore WS
 
-WS: /[\s]/+
+WS.-1: /[\s]/+
 
 // C comment: /* */
 // From https://stackoverflow.com/a/36328890/6518334
@@ -466,7 +466,7 @@ TRIPLEQUOTEDSTRING: /'''.*?'''/s
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
-FORMATTEXT: /[^`{].*?(?<!\\)(\\\\)*?(?=[`{])/s
+FORMATTEXT.-1: /((?<!\\)(\\\\)*\\[`{]|[^`{])+/s
 _formatexpr: "{" expror "}"
 formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
 

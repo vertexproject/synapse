@@ -322,6 +322,14 @@ class StormTest(s_t_utils.SynTest):
 
             self.eq("foo 'bar'", await core.callStorm("$foo=bar return(`foo '{$foo}'`)"))
             self.eq(r"\'''''bar'''", await core.callStorm(r"$foo=bar return(`\\'\''''{$foo}'''`)"))
+            self.eq(r"\bar", await core.callStorm(r"$foo=bar return(`\\{$foo}`)"))
+            self.eq(r"\`bar", await core.callStorm(r"$foo=bar return(`\\\`{$foo}`)"))
+            self.eq(r"\{bar", await core.callStorm(r"$foo=bar return(`\\\{{$foo}`)"))
+            self.eq(r"foo\bar", await core.callStorm(r"$foo=foo $bar=bar return(`{$foo}\\{$bar}`)"))
+            self.eq(r"foo \bar", await core.callStorm(r"$foo=foo $bar=bar return(`{$foo} \\{$bar}`)"))
+
+            with self.raises(s_exc.BadSyntax):
+                await core.callStorm(r"$foo=bar return(`\\{{$foo}`)")
 
     async def test_lib_storm_emit(self):
         async with self.getTestCore() as core:
