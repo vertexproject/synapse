@@ -865,9 +865,6 @@ class Proxy(s_base.Base):
 
                     await func(mesg)
 
-                except asyncio.CancelledError:
-                    raise
-
                 except Exception:
                     logger.exception('Proxy.rxloop for %r' % (mesg,))
 
