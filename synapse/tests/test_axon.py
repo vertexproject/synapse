@@ -19,6 +19,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -1002,6 +1003,15 @@ bar baz",vv
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
             q = f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))'
             resp = await core.callStorm(q, opts=opts)
+            self.eq(True, resp['ok'])
+            self.eq(200, resp['code'])
+
+            jsonq = f'''$resp = $lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0))
+            return ( $lib.json.save($resp) )
+            '''
+            resp = await core.callStorm(jsonq, opts=opts)
+            self.isinstance(resp, str)
+            resp = s_json.loads(resp)
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
 
