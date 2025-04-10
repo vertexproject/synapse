@@ -300,7 +300,7 @@ modeldefs = (
                         'doc': 'MIME specific creation timestamp extracted from metadata.'}),
                     ('imageid', ('str', {}), {
                         'doc': 'MIME specific unique identifier extracted from metadata.'}),
-                    ('author', ('ps:contact', {}), {
+                    ('author', ('entity:contact', {}), {
                         'doc': 'MIME specific contact information extracted from metadata.'}),
                     ('latlong', ('geo:latlong', {}), {
                         'doc': 'MIME specific lat/long information extracted from metadata.'}),

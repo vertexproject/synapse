@@ -40,7 +40,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the purpose and use case for the planning system.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the system.'}),
 
                 ('created', ('time', {}), {
@@ -84,7 +84,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'A summary of the purpose and use cases for the procedure.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact of the person or organization which authored the procedure.'}),
 
                 ('created', ('time', {}), {

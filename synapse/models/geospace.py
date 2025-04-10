@@ -491,7 +491,7 @@ modeldefs = (
 
             ('geo:place', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'A type specific identifier such as an airport ID.'}),
 
                 ('name', ('geo:name', {}), {

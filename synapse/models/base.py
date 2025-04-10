@@ -19,6 +19,9 @@ modeldefs = (
     ('base', {
         'types': (
 
+            ('meta:id', ('str', {'strip': True}), {
+                'doc': 'A case sensitive identifier string.'}),
+
             ('meta:feed', ('guid', {}), {
                 'doc': 'A data feed provided by a specific source.'}),
 
@@ -160,6 +163,8 @@ modeldefs = (
         ),
         'forms': (
 
+            ('meta:id', {}, ()),
+
             ('meta:source:type:taxonomy', {}, ()),
             ('meta:source', {}, (
 
@@ -226,7 +231,7 @@ modeldefs = (
                     'disp': {'hint': 'text', 'syntax': 'markdown'},
                     'doc': 'The analyst authored note text.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact information of the author.'}),
 
                 ('creator', ('syn:user', {}), {
@@ -294,7 +299,7 @@ modeldefs = (
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ruleset.'}),
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact information of the ruleset author.'}),
                 ('created', ('time', {}), {
                     'doc': 'The time the ruleset was initially created.'}),
@@ -314,7 +319,7 @@ modeldefs = (
                 ('text', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The text of the rule logic.'}),
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:actor', {}), {
                     'doc': 'The contact information of the rule author.'}),
                 ('created', ('time', {}), {
                     'doc': 'The time the rule was initially created.'}),
