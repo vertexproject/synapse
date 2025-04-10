@@ -456,23 +456,23 @@ class LibHttp(s_stormtypes.Lib):
                         hnfo = {
                             'code': hist.status,
                             'reason': await self.codereason(hist.status),
-                            'headers': dict(hist.headers),
+                            'headers': {str(k): v for k, v in hist.headers.items()},
                             'url': str(hist.url),
                             # aiohttp has already closed the connection by this point
                             # so there is no connection to read a body from.
                             'body': b'',
                             'history': [],
-                            'request_headers': dict(hist.request_info.headers)
+                            'request_headers': {str(k): v for k, v in hist.request_info.headers.items()}
                         }
                         history.append(hnfo)
                     info = {
                         'code': resp.status,
                         'reason': await self.codereason(resp.status),
-                        'headers': dict(resp.headers),
+                        'headers': {str(k): v for k, v in resp.headers.items()},
                         'url': str(resp.url),
                         'body': await resp.read(),
                         'history': history,
-                        'request_headers': dict(resp.request_info.headers)
+                        'request_headers': {str(k): v for k, v in resp.request_info.headers.items()},
                     }
                     return HttpResp(info)
 
@@ -491,11 +491,11 @@ class LibHttp(s_stormtypes.Lib):
                     'err': err,
                     'code': -1,
                     'reason': reason,
-                    'headers': dict(),
+                    'headers': {},
                     'url': url,
                     'body': b'',
                     'history': [],
-                    'request_headers': dict(),
+                    'request_headers': {},
                 }
                 return HttpResp(info)
 

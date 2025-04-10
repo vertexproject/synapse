@@ -1089,6 +1089,10 @@ class AhaTest(s_test.SynTest):
                     msgs = await core00.stormlist('$lib.print($lib.aha.pool.get(pool00.synapse))')
                     self.stormIsInPrint('aha:pool: pool00.synapse', msgs)
 
+                    pdef = await core00.callStorm('return($lib.aha.pool.get(pool00.synapse))')
+                    self.eq('pool00.synapse', pdef.get('name'))
+                    self.isin('00.synapse', pdef.get('services'))
+
                     async with await s_telepath.open('aha://pool00...') as pool:
 
                         replay = s_common.envbool('SYNDEV_NEXUS_REPLAY')
