@@ -1,0 +1,5 @@
+---
+desc: Fixed an issue with ``$lib.time.toUTC()`` conversions by anchoring epoch to UTC instead of local timezone.
+prs: []
+type: bug
+...
