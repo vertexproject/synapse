@@ -965,7 +965,7 @@ class StormTypesTest(s_test.SynTest):
             iden = s_common.guid()
 
             async def runLongStorm():
-                q = f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'
+                q = f'[ test:str=foo test:str={"x" * 100} ] | sleep 10 | [ test:str=endofquery ]'
                 async for mesg in core.storm(q, opts={'task': iden}):
                     if mesg[0] == 'init':
                         self.true(mesg[1]['task'] == iden)

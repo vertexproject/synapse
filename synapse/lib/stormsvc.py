@@ -173,9 +173,6 @@ class StormSvcClient(s_base.Base):
                 # push the svciden in the package metadata for later reference.
                 await self.core._addStormPkg(pdef)
 
-            except asyncio.CancelledError:
-                raise
-
             except Exception:
                 logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
@@ -190,18 +187,12 @@ class StormSvcClient(s_base.Base):
             if evts is not None:
                 self.sdef = await self.core.setStormSvcEvents(self.iden, evts)
 
-        except asyncio.CancelledError:
-            raise
-
         except Exception:
             logger.exception(f'setStormSvcEvents failed for service {self.name} ({self.iden})')
 
         try:
             if self.core.isactive:
                 await self.core._runStormSvcAdd(self.iden)
-
-        except asyncio.CancelledError:
-            raise
 
         except Exception:
             logger.exception(f'service.add storm hook failed for service {self.name} ({self.iden})')

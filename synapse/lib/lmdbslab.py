@@ -901,9 +901,6 @@ class Slab(s_base.Base):
 
                 await clas.syncLoopOnce()
 
-            except asyncio.CancelledError:
-                raise
-
             except Exception:  # pragma: no cover
                 logger.exception('Slab.syncLoopTask')
 

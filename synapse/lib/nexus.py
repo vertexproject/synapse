@@ -260,9 +260,6 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
-        except asyncio.CancelledError:
-            raise
-
         except Exception:
             logger.exception(f'Exception while replaying log: {s_common.trimText(repr(indxitem))}')
 
@@ -637,9 +634,6 @@ class NexsRoot(s_base.Base):
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
                 await proxy.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
-
-        except asyncio.CancelledError:
-            raise
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error trying to set aha ready: {status}')
