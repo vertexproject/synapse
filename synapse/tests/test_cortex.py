@@ -5507,7 +5507,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                             await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
 
                     # consumer offline
-                    await asyncio.sleep(0)
                     await self.asyncraises(ConnectionRefusedError, core00.callStorm(strim, opts=opts))
 
                     # admin can still cull and break the mirror

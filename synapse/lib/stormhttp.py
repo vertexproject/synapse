@@ -68,7 +68,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     async def rx(self, timeout=None):
 
         try:
-            _type, data, extra = await s_common.wait_for(self.resp.receive(), timeout=timeout)
+            _type, data, extra = await asyncio.wait_for(self.resp.receive(), timeout=timeout)
             if _type in (aiohttp.WSMsgType.BINARY, aiohttp.WSMsgType.TEXT):
                 return (True, s_json.loads(data))
             if _type == aiohttp.WSMsgType.CLOSED:  # pragma: no cover

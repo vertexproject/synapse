@@ -2643,16 +2643,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Cannot format a timestamp for ongoing/future time.', ernfos[0][1].get('mesg'))
 
-            # strftime fail - taken from
-            # https://github.com/python/cpython/blob/3.7/Lib/test/datetimetester.py#L1404
-            query = r'''[test:str=1234 :tick=20190917]
-            $lib.print($lib.time.format(:tick, "%y\ud800%m"))
-            '''
-            mesgs = await core.stormlist(query)
-            ernfos = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, ernfos)
-            self.isin('Error during time format', ernfos[0][1].get('mesg'))
-
             # Get time parts
             self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
             self.eq(10, await core.callStorm('return($lib.time.month(20211031020304))'))
@@ -2672,6 +2662,38 @@ class StormTypesTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.time.toUTC(2020, VISI))')
             self.false(valu[0])
             self.eq(valu[1]['err'], 'BadArg')
+
+            # Test with different timezone abbreviations
+
+            # EST (Eastern Standard Time) - UTC-5
+            tick = s_time.parse('2020-02-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, EST))')
+            self.eq(valu, (True, tick + (s_time.onehour * 5)))
+
+            # PST (Pacific Standard Time) - UTC-8
+            tick = s_time.parse('2020-02-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, US/Pacific))')
+            self.eq(valu, (True, tick + (s_time.onehour * 8)))
+
+            # America/Los_Angeles - during DST - UTC-7
+            tick = s_time.parse('2020-07-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-07-11@14:08:00.123, America/Los_Angeles))')
+            self.eq(valu, (True, tick + (s_time.onehour * 7)))
+
+            # America/New_York - during DST - UTC-4
+            tick = s_time.parse('2020-07-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-07-11@14:08:00.123, America/New_York))')
+            self.eq(valu, (True, tick + (s_time.onehour * 4)))
+
+            # America/New_York - not during DST - UTC-5
+            tick = s_time.parse('2020-02-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, America/New_York))')
+            self.eq(valu, (True, tick + (s_time.onehour * 5)))
+
+            # Invalid timezone
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, InvalidTZ))')
+            self.false(valu[0])
+            self.isin('Unknown timezone', valu[1]['errinfo']['mesg'])
 
     async def test_storm_lib_time_ticker(self):
 

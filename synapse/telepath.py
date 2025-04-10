@@ -178,7 +178,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
         try:
             proxy = await client.proxy(timeout=timeout)
 
-            cellinfo = await s_common.wait_for(proxy.getCellInfo(), timeout=5)
+            cellinfo = await asyncio.wait_for(proxy.getCellInfo(), timeout=5)
 
             kwargs = {}
             synvers = cellinfo['synapse']['version']
@@ -188,7 +188,7 @@ async def _getAhaSvc(urlinfo, timeout=None):
                     'mirror': bool(s_common.yamlloads(urlinfo.get('mirror', 'false'))),
                 }
 
-            ahasvc = await s_common.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
+            ahasvc = await asyncio.wait_for(proxy.getAhaSvc(host, **kwargs), timeout=5)
             if ahasvc is None:
                 continue
 
@@ -865,7 +865,7 @@ class Proxy(s_base.Base):
 
                     await func(mesg)
 
-                except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
+                except asyncio.CancelledError:
                     raise
 
                 except Exception:
@@ -1003,7 +1003,7 @@ class ClientV2(s_base.Base):
                 await self.waitfini(timeout=retrysleep)
 
     async def waitready(self, timeout=None):
-        await s_common.wait_for(self.ready.wait(), timeout=timeout)
+        await asyncio.wait_for(self.ready.wait(), timeout=timeout)
 
     def size(self):
         return len(self.proxies)
@@ -1107,7 +1107,7 @@ class ClientV2(s_base.Base):
                 return self.deque.popleft()
 
         # use an inner function so we can wait overall...
-        return await s_common.wait_for(getNextProxy(), timeout)
+        return await asyncio.wait_for(getNextProxy(), timeout)
 
 class Client(s_base.Base):
     '''
@@ -1250,7 +1250,7 @@ class Client(s_base.Base):
         return await proxy.task(todo, name=name)
 
     async def waitready(self, timeout=10):
-        await s_common.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
+        await asyncio.wait_for(self._t_ready.wait(), self._t_conf.get('timeout', timeout))
 
     def __getattr__(self, name):
         if self._t_methinfo is None:

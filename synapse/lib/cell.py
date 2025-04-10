@@ -147,8 +147,7 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
-        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
+        with tarfile.open(output_filename, 'w|gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -3700,7 +3699,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         continue
                     memb.name = memb.name.split('/', 1)[1]
                     logger.warning(f'Extracting {memb.name}')
-                    tgz.extract(memb, dirn)
+                    tgz.extract(memb, dirn, filter='data')
 
             # and record the rurliden
             with s_common.genfile(donepath) as fd:
@@ -3899,7 +3898,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         if memb.name.find('/') == -1:
                             continue
                         memb.name = memb.name.split('/', 1)[1]
-                        tgz.extract(memb, self.dirn)
+                        tgz.extract(memb, self.dirn, filter='data')
 
         finally:
 
@@ -4748,6 +4747,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sslctx = s_common.getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH)
         else:
             sslctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+
+        sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
 
         if not opts['verify']:
             sslctx.check_hostname = False
