@@ -512,12 +512,12 @@ commands:
 
 jobs:
 
-  python311:
+  python313:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.13
           RUN_SYNTAX: 1
           SYN_VENDOR_TEST: 1
           CODECOV_FLAG: linux
@@ -530,12 +530,12 @@ jobs:
     steps:
       - test_steps_python
 
-  python311_replay:
+  python313_replay:
     resource_class: xlarge
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.13
           RUN_SYNTAX: 1
           CODECOV_FLAG: linux_replay
           SYN_REGRESSION_REPO: ~/git/synapse-regression
@@ -549,9 +549,9 @@ jobs:
 
   doctests:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
-          PYVERS: 3.11
+          PYVERS: 3.13
 
     working_directory: ~/repo
 
@@ -560,10 +560,10 @@ jobs:
 
   python_package_smoketest:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py311
+          PYTHON_TAG: py313
 
     steps:
       - deploy_pypi_prologue
@@ -572,10 +572,10 @@ jobs:
 
   deploy_pypi:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
         environment:
           PYPI_SMOKE_CODE: import synapse; print(synapse.version)
-          PYTHON_TAG: py311
+          PYTHON_TAG: py313
 
     steps:
       - deploy_pypi_prologue
@@ -619,7 +619,7 @@ jobs:
 
   devpi_synapse_3xx:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.13
     steps:
       - checkout
       - run:
@@ -633,7 +633,7 @@ jobs:
       - deploy_to_devpi:
           devpi_base_url: ${DEVPI_BASE_URL}
           devpi_index: vertex/synapse-3xx
-          python_tag: py311
+          python_tag: py313
           tag_verify: false
           python_smoke_code: import synapse; print(synapse.version)
 
@@ -648,14 +648,14 @@ workflows:
             branches:
                only: /.*/
 
-      - python311:
+      - python313:
           filters:
             tags:
               only: /.*/
             branches:
               only: /.*/
 
-      - python311_replay:
+      - python313_replay:
           filters:
             tags:
               only: /.*/
@@ -674,8 +674,8 @@ workflows:
       - deploy_pypi:
           requires:
             - doctests
-            - python311
-            - python311_replay
+            - python313
+            - python313_replay
             - python_package_smoketest
           context:
             - PublicPypiAccess
@@ -690,8 +690,8 @@ workflows:
             - Devpi00Access
           requires:
             - doctests
-            - python311
-            - python311_replay
+            - python313
+            - python313_replay
             - python_package_smoketest
           filters:
             tags:
@@ -703,8 +703,8 @@ workflows:
       - gh-release/dorelease:
           requires:
             - doctests
-            - python311
-            - python311_replay
+            - python313
+            - python313_replay
             - python_package_smoketest
           context:
             - GithubMachine
@@ -718,7 +718,7 @@ workflows:
       - build_docker_branch:
           requires:
             - doctests
-            - python311
+            - python313
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -732,7 +732,7 @@ workflows:
       - build_docker_tag:
           requires:
             - doctests
-            - python311
+            - python313
           context:
             - AWSEcrPusherOSS
             - SynapseDockerCloudUpload
@@ -754,7 +754,7 @@ workflows:
                 - master
     jobs:
       - doctests
-      - python311
+      - python313
 
   weekly:
     triggers:
@@ -765,4 +765,4 @@ workflows:
               only:
                 - master
     jobs:
-      - python311_replay
+      - python313_replay
