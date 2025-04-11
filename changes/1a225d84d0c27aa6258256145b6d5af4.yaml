@@ -1,0 +1,6 @@
+---
+desc: Fixed a bug where ``$lib.storm.run()`` calls would cause a task to be improperly
+  promoted.
+prs: []
+type: bug
+...
