@@ -1581,6 +1581,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for layer in self.layers.values():
                 await layer.initLayerActive()
 
+            for pkgdef in self.stormpkgs.values():
+                self._runStormPkgOnload(pkgdef)
+
         self.runActiveTask(_runMigrations())
 
         await self.initStormPool()
@@ -2638,6 +2641,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 return
 
         self.loadStormPkg(pkgdef)
+        self._runStormPkgOnload(pkgdef)
         self.pkgdefs.set(name, pkgdef)
 
         self._clearPermDefs()
@@ -2929,9 +2933,13 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             self._initEasyPerm(gdef)
             self.pkggraphs[gdef['iden']] = gdef
 
+    def _runStormPkgOnload(self, pkgdef):
+        name = pkgdef.get('name')
         onload = pkgdef.get('onload')
-        if onload is not None and self.isactive:
+
+        if onload is not None:
             async def _onload():
+                await self.fire('core:pkg:onload:start', pkg=name)
                 try:
                     async for mesg in self.storm(onload):
                         if mesg[0] == 'print':
@@ -2943,10 +2951,11 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                         await asyncio.sleep(0)
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
-                except Exception:  # pragma: no cover
-                    logger.warning(f'onload failed for package: {name}')
+                except Exception as exc:  # pragma: no cover
+                    logger.warning(f'onload failed for package: {name}, {str(exc)}')
                 await self.fire('core:pkg:onload:complete', pkg=name)
-            self.schedCoro(_onload())
+
+            self.runActiveTask(_onload())
 
     # N.B. This function is intentionally not async in order to prevent possible user race conditions for code
     # executing outside of the nexus lock.
