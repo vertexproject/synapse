@@ -312,5 +312,11 @@ def toUTC(tick, fromzone):
         mesg = f'Unknown timezone: {fromzone}'
         raise s_exc.BadArg(mesg=mesg) from e
 
-    base = datetime.datetime(1970, 1, 1, tzinfo=tz) + datetime.timedelta(milliseconds=tick)
-    return int(base.astimezone(pytz.UTC).timestamp() * 1000)
+    base = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=tick)
+    try:
+        localized = tz.localize(base, is_dst=None)
+    except pytz.exceptions.AmbiguousTimeError as e:
+        mesg = f'Ambiguous time: {base} {fromzone}'
+        raise s_exc.BadArg(mesg=mesg) from e
+
+    return int(localized.astimezone(pytz.UTC).timestamp() * 1000)

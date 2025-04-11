@@ -2432,7 +2432,7 @@ class Parser:
                 desc = endpoint.get('desc', '')
                 base = f'    {path}'
                 wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
-                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                self._printf(f'{base:<{base_w - 2}}: {wrap_desc[0]}')
                 for ln in wrap_desc[1:]:
                     self._printf(f'{"":<{base_w}}{ln}')
 
@@ -2528,7 +2528,7 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:

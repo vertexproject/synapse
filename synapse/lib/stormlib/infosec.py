@@ -502,7 +502,7 @@ class CvssLib(s_stormtypes.Lib):
                        'desc': f'''
                             A valid version string or None to autodetect the
                             version from the vector string. Accepted values
-                            are: { ', '.join(s_cvss.versions) }, None.''',
+                            are: {', '.join(s_cvss.versions)}, None.''',
                        'default': None}
                   ),
                   'returns': {'type': 'dict',

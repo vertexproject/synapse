@@ -203,7 +203,7 @@ class SmtpMessage(s_stormtypes.StormType):
                                    tls_context=ctx,
                                    )
 
-            await s_common.wait_for(futu, timeout=timeout)
+            await asyncio.wait_for(futu, timeout=timeout)
 
         except asyncio.CancelledError:  # pragma: no cover
             raise
