@@ -2426,6 +2426,7 @@ class CellTest(s_t_utils.SynTest):
                     with self.getAsyncLoggerStream('synapse.lib.lmdbslab',
                                                    'Error during slab resize callback - foo') as stream:
                         nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ip=([4, $x])]}', opts=opts)
+                        await stream.wait(timeout=10)
                     stream.seek(0)
                     self.isin('Error during slab resize callback - foo', stream.read())
 
