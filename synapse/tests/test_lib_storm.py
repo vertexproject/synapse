@@ -2826,7 +2826,7 @@ class StormTest(s_t_utils.SynTest):
             ]
             self.eq(exp, evnts)
 
-    async def test_storm_pkg_onload(self):
+    async def test_storm_pkg_onload_active(self):
         pkg = {
             'name': 'testload',
             'version': '0.3.0',
