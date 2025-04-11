@@ -603,7 +603,6 @@ workflows:
             branches:
               only:
                 - master
-                - dev_v2_187_1rc
 
       - build_docker_tag:
           requires:
