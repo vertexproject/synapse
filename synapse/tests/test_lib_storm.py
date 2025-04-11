@@ -1558,16 +1558,16 @@ class StormTest(s_t_utils.SynTest):
                 ]))
             '''))
 
-            # surrogate escapes are allowed
-            nodes = await core.nodes(" [ test:str='pluto\udcbaneptune' ]")
-            self.len(1, nodes)
-            self.eq(nodes[0].ndef, ('test:str', 'pluto\udcbaneptune'))
+            # surrogate escapes are not allowed
+            with self.raises(s_exc.BadDataValu):
+                await core.nodes(" [ test:str='pluto\udcbaneptune' ]")
 
             nodes = await core.nodes('[ media:news=* :publisher:name=woot ] $name=:publisher:name [ :publisher={ gen.ou.org $name } ]')
             self.len(1, nodes)
             self.nn(nodes[0].get('publisher'))
 
             # test regular expressions are case insensitive by default
+            await core.nodes(" [ test:str='pluto neptune' ]")
             self.len(1, await core.nodes('test:str~=Pluto'))
             self.len(1, await core.nodes('test:str +test:str~=Pluto'))
             self.true(await core.callStorm('return(("Foo" ~= "foo"))'))
