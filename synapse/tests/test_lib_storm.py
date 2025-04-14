@@ -2840,9 +2840,12 @@ class StormTest(s_t_utils.SynTest):
                 $lib.print(testprint)
                 $lib.warn(testwarn)
 
+                $queue = $lib.queue.gen(onload:test)
+
                 $vers = $lib.globals.get(testload:version, (0))
                 $vers = ($vers + 1)
                 $lib.globals.set(testload:version, $vers)
+                $queue.put($vers)
             '''
         }
 
@@ -2862,18 +2865,13 @@ class StormTest(s_t_utils.SynTest):
                     ('core:pkg:onload:complete', {'pkg': 'testload'}),
                 ])
 
-                self.eq(await core00.callStorm('return($lib.globals.get(testload:version))'), 1)
+                self.eq((0, 1), await core00.callStorm('return($lib.queue.gen(onload:test).get((0), cull=(false)))'))
 
             s_tools_backup.backup(dirn00, dirn01)
 
             async with self.getTestCore(dirn=dirn00) as core00:
-                waiter = core00.waiter(1, 'core:pkg:onload:complete')
-                events = await waiter.wait(timeout=10)
-                self.eq(events, [
-                    ('core:pkg:onload:complete', {'pkg': 'testload'}),
-                ])
 
-                self.eq(await core00.callStorm('return($lib.globals.get(testload:version))'), 2)
+                self.eq((1, 2), await core00.callStorm('return($lib.queue.gen(onload:test).get((1), cull=(false)))'))
 
                 conf01 = {'mirror': core00.getLocalUrl()}
 
@@ -2891,7 +2889,7 @@ class StormTest(s_t_utils.SynTest):
                         ('core:pkg:onload:complete', {'pkg': 'testload'}),
                     ])
 
-                    self.eq(await core01.callStorm('return($lib.globals.get(testload:version))'), 3)
+                    self.eq((2, 3), await core01.callStorm('return($lib.queue.gen(onload:test).get((2), cull=(false)))'))
 
                 await core01.waitfini()
 
