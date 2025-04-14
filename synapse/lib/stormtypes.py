@@ -1901,6 +1901,11 @@ class LibDict(Lib):
 
     @stormfunc(readonly=True)
     async def _has(self, valu, key):
+        key = await toprim(key)
+
+        if hasattr(valu, '_storm_contains'):
+            return await valu._storm_contains(key)
+
         await self._check_type(valu)
         key = await toprim(key)
         valu = await toprim(valu)
@@ -4815,6 +4820,10 @@ class Dict(Prim):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
 
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        return item in self.valu
+
     async def iter(self):
         for item in tuple(self.valu.items()):
             yield item
@@ -4861,6 +4870,11 @@ class CmdOpts(Dict):
     def __hash__(self):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
+
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        valu = getattr(self.valu.opts, item, s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
@@ -4962,6 +4976,9 @@ class Set(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def _storm_contains(self, item):
+        return item in self.valu
 
     async def _methSetSize(self):
         return len(self)
@@ -5141,6 +5158,9 @@ class List(Prim):
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
+
+    async def _storm_contains(self, item):
+        return await self._methListHas(item)
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)
@@ -5505,6 +5525,13 @@ class GlobalVars(Prim):
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.confirm(('globals', 'get', item))
+        valu = await runt.view.core.getStormVar(item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await tostr(name)
         runt = s_scope.get('runt')
@@ -5546,6 +5573,18 @@ class EnvVars(Prim):
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+
+        if not item.startswith('SYN_STORM_ENV_'):
+            mesg = f'Environment variable must start with SYN_STORM_ENV_ : {item}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        valu = os.getenv(item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     @stormfunc(readonly=True)
     async def deref(self, name):
         runt = s_scope.get('runt')
@@ -5584,6 +5623,12 @@ class RuntVars(Prim):
 
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        valu = runt.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def deref(self, name):
@@ -5723,7 +5768,13 @@ class NodeProps(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.valu.get(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def _derefGet(self, name):
+        name = await tostr(name)
         return self.valu.get(name)
 
     async def setitem(self, name, valu):
@@ -5861,6 +5912,10 @@ class NodeData(Prim):
     async def cacheset(self, name, valu):
         envl = {'asof': s_common.now(), 'data': valu}
         return await self._setNodeData(name, envl)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return await self.valu.hasData(name)
 
     @stormfunc(readonly=True)
     async def _hasNodeData(self, name):
@@ -6258,6 +6313,10 @@ class PathMeta(Prim):
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return item in self.path.metadata
+
     async def deref(self, name):
         name = await tostr(name)
         return self.path.metadata.get(name)
@@ -6285,6 +6344,11 @@ class PathVars(Prim):
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.path.getVar(name, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     async def deref(self, name):
         name = await tostr(name)

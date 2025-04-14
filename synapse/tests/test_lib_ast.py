@@ -2730,6 +2730,17 @@ class AstTest(s_test.SynTest):
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '5c293425e676da3823b81093c7cd829e')
 
+            await core.callStorm('$lib.globals.foo = bar')
+            self.true(await core.callStorm("return(('foo' in $lib.globals))"))
+            self.false(await core.callStorm("return(('newp' in $lib.globals))"))
+            self.true(await core.callStorm("$foo=bar return(('foo' in $lib.vars))"))
+            self.false(await core.callStorm("$foo=bar return(('newp' in $lib.vars))"))
+
+            self.false(await core.callStorm("return(('foo' not in $lib.globals))"))
+            self.true(await core.callStorm("return(('newp' not in $lib.globals))"))
+            self.false(await core.callStorm("$foo=bar return(('foo' not in $lib.vars))"))
+            self.true(await core.callStorm("$foo=bar return(('newp' not in $lib.vars))"))
+
     async def test_ast_subgraph_light_edges(self):
         async with self.getTestCore() as core:
             await core.nodes('[ test:int=20 <(refs)+ { [media:news=*] } ]')

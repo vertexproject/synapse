@@ -3709,6 +3709,18 @@ async def expr_re(x, y):
         return True
     return False
 
+async def expr_in(x, y):
+    x = await toprim(x)
+    if hasattr(y, '_storm_contains'):
+        return await y._storm_contains(x)
+    return x in await toprim(y)
+
+async def expr_notin(x, y):
+    x = await toprim(x)
+    if hasattr(y, '_storm_contains'):
+        return not (await y._storm_contains(x))
+    return x not in await toprim(y)
+
 _ExprFuncMap = {
     '+': expr_add,
     '-': expr_sub,
@@ -3724,6 +3736,8 @@ _ExprFuncMap = {
     '>=': expr_ge,
     '<=': expr_le,
     '^=': expr_prefix,
+    'in': expr_in,
+    'not in': expr_notin,
 }
 
 async def expr_not(x):

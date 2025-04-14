@@ -644,6 +644,13 @@ class UserProfile(s_stormtypes.Prim):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
 
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        if self.runt.user.iden != self.valu:
+            self.runt.confirm(('auth', 'user', 'get', 'profile', item))
+        valu = await self.runt.view.core.getUserProfInfo(self.valu, item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
         if self.runt.user.iden != self.valu:
@@ -822,6 +829,11 @@ class UserVars(s_stormtypes.Prim):
     def __init__(self, runt, valu, path=None):
         s_stormtypes.Prim.__init__(self, valu, path=path)
         self.runt = runt
+
+    async def _storm_contains(self, item):
+        item = await s_stormtypes.tostr(item)
+        valu = await self.runt.view.core.getUserVarValu(self.valu, item, default=s_common.novalu)
+        return valu is not s_common.novalu
 
     async def deref(self, name):
         name = await s_stormtypes.tostr(name)
