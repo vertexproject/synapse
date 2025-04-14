@@ -3812,6 +3812,10 @@ class StormTypesTest(s_test.SynTest):
                 msgs = await core.stormlist(q)
                 self.stormIsInErr('Layer only supports setting "mirror" and "upstream" to null.', msgs)
 
+                with self.raises(s_exc.BadOptValu) as exc:
+                    await layr.setLayerInfo('upstream', False)
+                self.eq(exc.exception.get('mesg'), 'Layer only supports setting "mirror" and "upstream" to None.', msgs)
+
                 # Now remove the upstream configuration
                 q = f'layer.set {uplayr} upstream (null)'
                 msgs = await core.stormlist(q)
@@ -3851,6 +3855,10 @@ class StormTypesTest(s_test.SynTest):
                 q = f'layer.set {uplayr} mirror (true)'
                 msgs = await core.stormlist(q)
                 self.stormIsInErr('Layer only supports setting "mirror" and "upstream" to null.', msgs)
+
+                with self.raises(s_exc.BadOptValu) as exc:
+                    await layr.setLayerInfo('mirror', False)
+                self.eq(exc.exception.get('mesg'), 'Layer only supports setting "mirror" and "upstream" to None.', msgs)
 
                 # Now remove the mirror configuration
                 q = f'layer.set {uplayr} mirror (null)'
