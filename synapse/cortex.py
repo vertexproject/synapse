@@ -1581,7 +1581,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             for layer in self.layers.values():
                 await layer.initLayerActive()
 
-            for pkgdef in self.stormpkgs.values():
+            for pkgdef in list(self.stormpkgs.values()):
                 self._runStormPkgOnload(pkgdef)
 
         self.runActiveTask(_runMigrations())
