@@ -3805,6 +3805,64 @@ class StormTypesTest(s_test.SynTest):
                 evnt = await layr.waitUpstreamOffs(layriden, offs)
                 self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
 
+                self.len(1, layr.activetasks)
+
+                # The upstream key only accepts null
+                q = f'layer.set {uplayr} upstream (true)'
+                msgs = await core.stormlist(q)
+                self.stormIsInErr('Layer only supports setting "mirror" and "upstream" to null.', msgs)
+
+                # Now remove the upstream configuration
+                q = f'layer.set {uplayr} upstream (null)'
+                msgs = await core.stormlist(q)
+                self.stormHasNoWarnErr(msgs)
+
+                layr = core.getLayer(uplayr)
+                self.len(0, layr.activetasks)
+                self.none(layr.layrinfo.get('upstream'))
+
+    async def test_storm_lib_layer_mirror(self):
+        async with self.getTestCore() as core:
+            async with self.getTestCore() as core2:
+
+                await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
+                url = core2.getLocalUrl('*/layer')
+                offs = await core2.view.layers[0].getEditOffs()
+
+                layers = set(core.layers.keys())
+                q = f'layer.add --mirror {url}'
+                mesgs = await core.stormlist(q)
+                uplayr = list(set(core.layers.keys()) - layers)[0]
+
+                q = f'layer.set {uplayr} name "woot woot"'
+                mesgs = await core.stormlist(q)
+                self.stormIsInPrint('(name: woot woot)', mesgs)
+
+                layr = core.getLayer(uplayr)
+
+                self.true(await layr.waitEditOffs(offs, timeout=10))
+
+                self.true(layr.ismirror)
+                self.nn(layr.leadtask)
+                self.nn(layr.leader)
+                self.len(0, layr.activetasks)
+
+                # The mirror key only accepts null
+                q = f'layer.set {uplayr} mirror (true)'
+                msgs = await core.stormlist(q)
+                self.stormIsInErr('Layer only supports setting "mirror" and "upstream" to null.', msgs)
+
+                # Now remove the mirror configuration
+                q = f'layer.set {uplayr} mirror (null)'
+                msgs = await core.stormlist(q)
+                self.stormHasNoWarnErr(msgs)
+
+                layr = core.getLayer(uplayr)
+                self.none(layr.layrinfo.get('mirror'))
+                self.none(layr.leadtask)
+                self.none(layr.leader)
+                self.false(layr.ismirror)
+
     async def test_storm_lib_view(self):
 
         async with self.getTestCore() as core:
