@@ -583,10 +583,10 @@ class StormCli(s_cli.Cli):
                 self.indented = True
 
             elif mtyp == 'fini':
-                took = mesg[1].get('took')
+                took = mesg[1].get('took') / 1000
                 took = max(took, 1)
                 count = mesg[1].get('count')
-                pers = float(count) / float(took / 1000000)
+                pers = float(count) / float(took / 1000)
                 self.printf('complete. %d nodes in %d ms (%d/sec).' % (count, took, pers))
 
             elif mtyp == 'print':
