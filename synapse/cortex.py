@@ -2952,7 +2952,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
                 except asyncio.CancelledError:  # pragma: no cover
                     raise
                 except Exception as exc:  # pragma: no cover
-                    logger.warning(f'onload failed for package: {name}, {str(exc)}')
+                    logger.warning(f'onload failed for package: {name}', exc_info=exc)
                 await self.fire('core:pkg:onload:complete', pkg=name)
 
             self.runActiveTask(_onload())

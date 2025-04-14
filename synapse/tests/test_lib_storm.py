@@ -2867,8 +2867,6 @@ class StormTest(s_t_utils.SynTest):
             s_tools_backup.backup(dirn00, dirn01)
 
             async with self.getTestCore(dirn=dirn00) as core00:
-                conf01 = {'mirror': core00.getLocalUrl()}
-
                 waiter = core00.waiter(1, 'core:pkg:onload:complete')
                 events = await waiter.wait(timeout=10)
                 self.eq(events, [
@@ -2876,6 +2874,8 @@ class StormTest(s_t_utils.SynTest):
                 ])
 
                 self.eq(await core00.callStorm('return($lib.globals.get(testload:version))'), 2)
+
+                conf01 = {'mirror': core00.getLocalUrl()}
 
                 async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
 
