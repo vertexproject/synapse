@@ -203,7 +203,7 @@ class CellLib(s_stormtypes.Lib):
             mesg = '$lib.cell.stormFixesApply() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        curv = self.runt.view.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
+        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
         for vers, info in hotfixes:
             if vers <= curv:
                 continue
@@ -241,7 +241,7 @@ class CellLib(s_stormtypes.Lib):
             mesg = '$lib.cell.stormFixesCheck() requires admin privs.'
             raise s_exc.AuthDeny(mesg=mesg, user=self.runt.user.iden, username=self.runt.user.name)
 
-        curv = self.runt.view.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
+        curv = await self.runt.view.core.getStormVar(runtime_fixes_key, default=(0, 0, 0))
 
         dowork = False
         for vers, info in hotfixes:
