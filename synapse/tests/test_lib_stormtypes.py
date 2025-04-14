@@ -1409,6 +1409,14 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(((1, 2, 3)), await core.callStorm('return(("[1, 2, 3]").json())'))
 
+            self.eq('hehe,haha', await core.callStorm("$sepr=',' $l=(hehe, haha) return( $sepr.join($l) )"))
+            self.eq('hehehaha', await core.callStorm("$sepr='' $l=(hehe, haha) return( $sepr.join($l) )"))
+            self.eq('a|++|b|++|c', await core.callStorm("$sepr='|++|' $l=(a, b, c) return( $sepr.join($l) )"))
+            self.eq('hehe,haha', await core.callStorm("$l=(hehe, haha) return( (',').join($l) )"))
+            self.eq('hehehaha', await core.callStorm("$l=(hehe, haha) return( ('').join($l) )"))
+            self.eq('', await core.callStorm("$sepr=',' $l=() return( $sepr.join($l) )"))
+            self.eq('', await core.callStorm("$sepr='' $l=() return( $sepr.join($l) )"))
+
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return(("foo").json())')
 
