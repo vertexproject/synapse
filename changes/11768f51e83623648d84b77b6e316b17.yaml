@@ -1,6 +1,0 @@
----
-desc: Deprecated ``$lib.str.concat()``, ``$lib.str.format()``, and ``$lib.str.join()``.
-  See :ref:`stormlibs-lib-str` for replacement information.
-prs: []
-type: deprecation
-...
