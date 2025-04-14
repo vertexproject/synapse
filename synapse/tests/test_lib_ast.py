@@ -2763,6 +2763,8 @@ class AstTest(s_test.SynTest):
             self.false(await core.callStorm("test:str=foo $path.meta.foo = 1 return(('newp' in $path.meta))"))
             self.true(await core.callStorm("test:str=foo $foo = 1 return(('foo' in $path.vars))"))
             self.false(await core.callStorm("test:str=foo $foo = 1 return(('newp' in $path.vars))"))
+            self.true(await core.callStorm("return(('bar' in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+            self.false(await core.callStorm("return(('newp' in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
 
             self.false(await core.callStorm("return(('foo' not in $lib.globals))"))
             self.true(await core.callStorm("return(('newp' not in $lib.globals))"))
@@ -2772,6 +2774,20 @@ class AstTest(s_test.SynTest):
             self.true(await core.callStorm("$foo=$lib.set(bar) return(('newp' not in $foo))"))
             self.false(await core.callStorm("$foo=(['bar']) return(('bar' not in $foo))"))
             self.true(await core.callStorm("$foo=(['bar']) return(('newp' not in $foo))"))
+            self.false(await core.callStorm("return(('bar' not in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+            self.true(await core.callStorm("return(('newp' not in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return(('newp' in $foo))", opts={'vars': {'foo': 5}})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return(('newp' not in $foo))", opts={'vars': {'foo': 5}})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return((({}) in ({})))")
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return((({}) not in ({})))")
 
     async def test_ast_subgraph_light_edges(self):
         async with self.getTestCore() as core:

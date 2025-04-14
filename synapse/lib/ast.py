@@ -3713,13 +3713,17 @@ async def expr_in(x, y):
     x = await toprim(x)
     if hasattr(y, '_storm_contains'):
         return await y._storm_contains(x)
-    return x in await toprim(y)
+
+    y = await toprim(y)
+    return x in y
 
 async def expr_notin(x, y):
     x = await toprim(x)
     if hasattr(y, '_storm_contains'):
         return not (await y._storm_contains(x))
-    return x not in await toprim(y)
+
+    y = await toprim(y)
+    return x not in y
 
 _ExprFuncMap = {
     '+': expr_add,
@@ -3788,6 +3792,8 @@ class ExprNode(Value):
         except decimal.InvalidOperation:
             exc = s_exc.StormRuntimeError(mesg='Invalid operation on a Number')
             raise self.addExcInfo(exc)
+        except TypeError as e:
+            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=str(e)))
 
 class ExprOrNode(Value):
     async def compute(self, runt, path):

@@ -1901,11 +1901,6 @@ class LibDict(Lib):
 
     @stormfunc(readonly=True)
     async def _has(self, valu, key):
-        key = await toprim(key)
-
-        if hasattr(valu, '_storm_contains'):
-            return await valu._storm_contains(key)
-
         await self._check_type(valu)
         key = await toprim(key)
         valu = await toprim(valu)
