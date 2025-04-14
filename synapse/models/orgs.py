@@ -25,7 +25,7 @@ modeldefs = (
 
             ('ou:org', ('guid', {}), {
                 'interfaces': ('entity:actor',),
-                'templates': {'contactable': 'organization'},
+                'template': {'contactable': 'organization'},
                 'doc': 'An organization, such as a company or military unit.',
                 'aliases': (
                     ('founded', {'target': 'lifespan*max',
@@ -38,7 +38,7 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'names'}},
-                        {'type': 'prop', 'opts': {'name': 'country:code'}},
+                        {'type': 'prop', 'opts': {'name': 'place:country:code'}},
                     ),
                 }}),
 
@@ -74,28 +74,27 @@ modeldefs = (
                 }}),
 
             ('ou:contract', ('guid', {}), {
-                'doc': 'An contract between multiple entities.',
-            }),
+                'doc': 'An contract between multiple entities.'}),
+
             ('ou:contract:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of contract types.',
-            }),
+                'doc': 'A hierarchical taxonomy of contract types.'}),
+
             ('ou:industry', ('guid', {}), {
-                'doc': 'An industry classification type.',
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                     ),
                 },
-            }),
+                'doc': 'An industry classification type.'}),
+
             ('ou:industry:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of industry types.',
-            }),
+                'doc': 'A hierarchical taxonomy of industry types.'}),
+
             # FIXME
             ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'The name of an industry.',
-            }),
+                'doc': 'The name of an industry.'}),
 
             # FIXME
             ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
@@ -105,24 +104,26 @@ modeldefs = (
                 'doc': 'A position within an org.  May be organized into an org chart.'}),
 
             ('ou:suborg', ('comp', {'fields': (('org', 'ou:org'), ('sub', 'ou:org'))}), {
-                'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.',
-            }),
+                'doc': 'Any parent/child relationship between two orgs. May represent ownership, organizational structure, etc.'}),
+
+            # FIXME decomp
             ('ou:user', ('comp', {'fields': (('org', 'ou:org'), ('user', 'inet:user'))}), {
-                'doc': 'A user name within an organization.',
-            }),
+                'doc': 'A user name within an organization.'}),
+
+            # FIXME title?
             ('ou:role', ('str', {'lower': True, 'regex': r'^\w+$'}), {
                 'ex': 'staff',
-                'doc': 'A named role when participating in an event.',
-            }),
+                'doc': 'A named role when participating in an event.'}),
+
             ('ou:attendee', ('guid', {}), {
-                'doc': 'A node representing a person attending a meeting, conference, or event.',
-            }),
+                'doc': 'A node representing a person attending a meeting, conference, or event.'}),
+
             ('ou:meet', ('guid', {}), {
-                'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.',
-            }),
+                'doc': 'An informal meeting of people which has no title or sponsor.  See also: ou:conference.'}),
+
             ('ou:preso', ('guid', {}), {
-                'doc': 'A webinar, conference talk, or other type of presentation.',
-            }),
+                'doc': 'A webinar, conference talk, or other type of presentation.'}),
+
             ('ou:conference', ('guid', {}), {
                 'doc': 'A conference with a name and sponsoring org.',
                 'display': {
@@ -145,27 +146,29 @@ modeldefs = (
 
             # FIXME decompify?
             ('ou:contest:result', ('comp', {'fields': (('contest', 'ou:contest'), ('participant', 'entity:contact'))}), {
-                'doc': 'The results from a single contest participant.',
-            }),
+                'doc': 'The results from a single contest participant.'}),
+
             ('ou:goal', ('guid', {}), {
-                'doc': 'An assessed or stated goal which may be abstract or org specific.',
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                     ),
                 },
-            }),
+                'doc': 'An assessed or stated goal which may be abstract or org specific.'}),
+
+            # FIXME unified name
             ('ou:goalname', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'A goal name.',
-            }),
+                'doc': 'A goal name.'}),
+
             ('ou:goal:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of goal types.',
-            }),
+                'doc': 'A hierarchical taxonomy of goal types.'}),
+
             ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of campaign types.',
-            }),
+                'doc': 'A hierarchical taxonomy of campaign types.'}),
+
+            # FIXME unified name
             ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'A campaign name.'}),
 
@@ -181,8 +184,8 @@ modeldefs = (
                 }}),
 
             ('ou:conflict', ('guid', {}), {
-                'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.',
-            }),
+                'doc': 'Represents a conflict where two or more campaigns have mutually exclusive goals.'}),
+
             ('ou:contribution', ('guid', {}), {
                 'doc': 'Represents a specific instance of contributing material support to a campaign.'}),
 
@@ -198,20 +201,19 @@ modeldefs = (
 
             ('ou:technique:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of technique types.',
-            }),
+                'doc': 'A hierarchical taxonomy of technique types.'}),
+
             ('ou:id:type', ('guid', {}), {
-                'doc': 'A type of id number issued by an org.',
-            }),
+                'doc': 'A type of id number issued by an org.'}),
+
             ('ou:id:value', ('str', {'strip': True}), {
-                'doc': 'The value of an org:id:number.',
-            }),
+                'doc': 'The value of an org:id:number.'}),
+
             ('ou:id:number', ('comp', {'fields': (('type', 'ou:id:type'), ('value', 'ou:id:value'))}), {
-                'doc': 'A unique id number issued by a specific organization.',
-            }),
+                'doc': 'A unique id number issued by a specific organization.'}),
+
             ('ou:id:update', ('guid', {}), {
-                'doc': 'A status update to an org:id:number.',
-            }),
+                'doc': 'A status update to an org:id:number.'}),
 
             ('ou:award:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
@@ -252,6 +254,7 @@ modeldefs = (
                 'interfaces': ('meta:taxonomy',),
                 'doc': 'A hierarchical taxonomy of employment types.'}),
 
+            # FIXME remove job?
             ('ou:jobtitle', ('str', {'lower': True, 'onespace': True}), {
                 'doc': 'A title for a position within an org.'}),
 
@@ -265,36 +268,43 @@ modeldefs = (
                     'task': 'adoption task'},
                 'doc': 'An organization enacting a document.'}),
 
-            ('ou:requirement:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
-                'doc': 'A taxonomy of requirement types.'}),
+            #('ou:requirement:type:taxonomy', ('taxonomy', {}), {
+                #'interfaces': ('meta:taxonomy',),
+                #'doc': 'A taxonomy of requirement types.'}),
 
-            ('ou:requirement', ('guid', {}), {
-                'doc': 'A specific requirement.'}),
+            #('ou:requirement', ('guid', {}), {
+                #'doc': 'A specific requirement.'}),
 
         ),
         'edges': (
+
             (('ou:campaign', 'uses', 'ou:technique'), {
                 'doc': 'The campaign used the technique.'}),
+
             (('ou:org', 'uses', 'ou:technique'), {
                 'doc': 'The org uses the technique.'}),
+
             (('risk:vuln', 'uses', 'ou:technique'), {
                 'doc': 'The vulnerability uses the technique.'}),
 
             (('ou:org', 'uses', None), {
                 'doc': 'The ou:org makes use of the target node.'}),
+
             (('ou:org', 'targets', None), {
                 'doc': 'The organization targets the target node.'}),
+
             (('ou:campaign', 'targets', None), {
                 'doc': 'The campaign targeted the target nodes.'}),
+
             (('ou:campaign', 'uses', None), {
                 'doc': 'The campaign made use of the target node.'}),
+
             (('ou:contribution', 'includes', None), {
                 'doc': 'The contribution includes the specific node.'}),
-            ((None, 'meets', 'ou:requirement'), {
-                'doc': 'The requirement is met by the source node.'}),
+
             (('ou:org', 'has', None), {
                 'doc': 'The organization is or was in possession of the target node.'}),
+
             (('ou:org', 'owns', None), {
                 'doc': 'The organization owns or owned the target node.'}),
         ),
@@ -328,7 +338,7 @@ modeldefs = (
                 ('postings', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
                     'doc': 'URLs where the opening is listed.'}),
 
-                ('contact', ('entity:contact', {}), {
+                ('contact', ('entity:actor', {}), {
                     'doc': 'The contact details to inquire about the opening.'}),
 
                 ('loc', ('loc', {}), {
@@ -402,11 +412,11 @@ modeldefs = (
                     'doc': 'The resolved org.'}),
 
                 ('org:name', ('entity:name', {}), {
-                    'prevnames': ('orgname',)}),
+                    'prevnames': ('orgname',),
                     'doc': 'The org name as reported by the source of the vitals.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
-                    'prevnames': ('orgfqdn',)}),
+                    'prevnames': ('orgfqdn',),
                     'doc': 'The org FQDN as reported by the source of the vitals.'}),
 
                 ('currency', ('econ:currency', {}), {
@@ -450,31 +460,34 @@ modeldefs = (
             )),
             ('ou:award:type:taxonomy', {}, ()),
             ('ou:award', {}, (
+
                 ('name', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The name of the award.',
-                    'ex': 'Bachelors of Science',
-                }),
+                    'ex': 'Bachelors of Science'}),
+
                 ('type', ('ou:award:type:taxonomy', {}), {
                     'doc': 'The type of award.',
-                    'ex': 'certification',
-                }),
+                    'ex': 'certification'}),
+
                 ('org', ('ou:org', {}), {
-                    'doc': 'The organization which issues the award.',
-                }),
+                    'doc': 'The organization which issues the award.'}),
+
             )),
             ('ou:id:type', {}, (
+
                 ('org', ('ou:org', {}), {
-                    'doc': 'The org which issues id numbers of this type.',
-                }),
+                    'doc': 'The org which issues id numbers of this type.'}),
+
                 ('name', ('str', {}), {
                     'alts': ('names',),
-                    'doc': 'The friendly name of the ID number type.',
-                }),
+                    'doc': 'The friendly name of the ID number type.'}),
+
                 ('names', ('array', {'type': 'str', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the ID number type.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'The official URL of the issuer.',
-                }),
+                    'doc': 'The official URL of the issuer.'}),
+
             )),
             ('ou:id:number', {}, (
 
@@ -629,17 +642,17 @@ modeldefs = (
             ('ou:conflict', {}, (
                 ('name', ('str', {'onespace': True}), {
                     'doc': 'The name of the conflict.'}),
-                ('started', ('time', {}), {
-                    'doc': 'The time the conflict began.'}),
-                ('ended', ('time', {}), {
-                    'doc': 'The time the conflict ended.'}),
+                ('period', ('ival', {}), {
+                    'doc': 'The period of time when the conflict was ongoing.'}),
+                # FIXME timeline interface?
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'A timeline of significant events related to the conflict.'}),
             )),
             ('ou:contribution', {}, (
 
-                ('from', ('entity:contact', {}), {
-                    'doc': 'The contact information of the contributor.'}),
+                # FIXME entity:actor?
+                ('from', ('entity:actor', {}), {
+                    'doc': 'The actor who made the contribution.'}),
 
                 ('campaign', ('ou:campaign', {}), {
                     'doc': 'The campaign receiving the contribution.'}),
@@ -718,8 +731,8 @@ modeldefs = (
                     'doc': 'The most recent/accurate ou:vitals for the org.'}),
 
                 ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'}
-                    'doc': 'A description of the org.'}),
+                    'disp': {'hint': 'text'},
+                    'doc': 'A description of the organization.'}),
 
                 ('logo', ('file:bytes', {}), {
                     'doc': 'An image file representing the logo for the organization.'}),
@@ -825,40 +838,57 @@ modeldefs = (
                 'prevnames': ('ou:conttype',)}, ()),
 
             ('ou:contract', {}, (
+
                 ('title', ('str', {}), {
                     'doc': 'A terse title for the contract.'}),
+
                 ('type', ('ou:contract:type:taxonomy', {}), {
                     'doc': 'The type of contract.'}),
+
                 ('sponsor', ('entity:contact', {}), {
                     'doc': 'The contract sponsor.'}),
+
                 ('parties', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {
                     'doc': 'The non-sponsor entities bound by the contract.'}),
+
                 ('document', ('file:bytes', {}), {
                     'doc': 'The best/current contract document.'}),
+
                 ('signed', ('time', {}), {
                     'doc': 'The date that the contract signing was complete.'}),
+
                 ('begins', ('time', {}), {
                     'doc': 'The date that the contract goes into effect.'}),
+
                 ('expires', ('time', {}), {
                     'doc': 'The date that the contract expires.'}),
+
                 ('completed', ('time', {}), {
                     'doc': 'The date that the contract was completed.'}),
+
                 ('terminated', ('time', {}), {
                     'doc': 'The date that the contract was terminated.'}),
+
                 ('award:price', ('econ:price', {}), {
                     'doc': 'The value of the contract at time of award.'}),
+
                 ('budget:price', ('econ:price', {}), {
                     'doc': 'The amount of money budgeted for the contract.'}),
+
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency of the econ:price values.'}),
+
                 ('purchase', ('econ:purchase', {}), {
                     'doc': 'Purchase details of the contract.'}),
+
+                # FIXME should this be modified?
                 ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
                     'doc': 'The requirements levied upon the parties.'}),
             )),
             ('ou:industry:type:taxonomy', {}, ()),
             ('ou:industry', {}, (
 
+                # FIXME item/entity name?
                 ('name', ('ou:industryname', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the industry.'}),
@@ -866,10 +896,12 @@ modeldefs = (
                 ('type', ('ou:industry:type:taxonomy', {}), {
                     'doc': 'A taxonomy entry for the industry.'}),
 
+                # FIXME item/entity name?
                 ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternative names for the industry.'}),
 
-                ('reporter', ('ou:org', {}), {
+                # FIXME source?
+                ('reporter', ('entity:actor', {}), {
                     'doc': 'The organization reporting on the industry.'}),
 
                 ('reporter:name', ('entity:name', {}), {
@@ -971,7 +1003,7 @@ modeldefs = (
             )),
             ('ou:preso', {}, (
 
-                ('organizer', ('entity:contact', {}), {
+                ('organizer', ('entity:actor', {}), {
                     'doc': 'Contact information for the primary organizer of the presentation.'}),
 
                 ('sponsors', ('array', {'type': 'entity:contact', 'uniq': True, 'sorted': True}), {

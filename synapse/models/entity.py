@@ -5,6 +5,7 @@ modeldefs = (
 
             # FIXME phys:made? ( product :manufacturer :made=<time> etc
             # FIXME meta:sourced?
+            # FIXME attendable? entity:attended?
 
             ('entity:contactable', {
 
@@ -90,12 +91,16 @@ modeldefs = (
 
         'types': (
 
+            ('entity:contactable', ('ndef', {'interface': 'entity:contactable'}), {
+                'doc': 'A node which implements the entity:contactable interrface..'}),
+
             ('entity:resolved', ('ndef', {'forms': ('ou:org', 'ps:person')}), {
                 'doc': 'A fully resolved entity such as a person or organization.'}),
 
             ('entity:individual', ('ndef', {'forms': ('ps:person', 'entity:contact', 'inet:service:account')}), {
                 'doc': 'A singular entity such as a person.'}),
 
+            # FIXME syn:user is an actor...
             ('entity:actor', ('ndef', {'interface': 'entity:actor'}), {
                 'doc': 'An entity which has initiative to act.'}),
 
@@ -110,12 +115,15 @@ modeldefs = (
             ('entity:contact', ('guid', {}), {
                 'interfaces': ('entity:abstract',),
                 'template': {'contactable': 'contact'},
+
                 'display': {
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         {'type': 'prop', 'opts': {'name': 'type'}},
                         {'type': 'prop', 'opts': {'name': 'email'}},
                     ),
+                },
+
                 'aliases': (
 
                     ('dob', {'target': 'lifespan*min',
@@ -130,28 +138,36 @@ modeldefs = (
                     ('dissolved', {'target': 'lifespan*max',
                         'doc': 'The dissolved time for the {contactable}.'}),
                 ),
+
                 'doc': 'A group of contact information which is used by an entity.'}),
 
             ('entity:history', ('guid', {}), {
                 'interfaces': ('entity:contactable',),
-                'templates': {'contactable': 'contact'},
+                'template': {'contactable': 'contact'},
                 'doc': 'Historical contact information about another contact.'}),
         ),
 
         'edges': (
             # FIXME like so?
-            (('entity:actor', 'had', 'entity:havable'), {
-                'doc': 'The source entity was in possession of the target node.'}),
+            #(('entity:actor', 'had', 'entity:havable'), {
+                #'doc': 'The source entity was in possession of the target node.'}),
 
-            (('entity:actor', 'owned', 'entity:havable'),
-                'doc': 'The source entity owned the target node.'}),
+            #(('entity:actor', 'owned', 'entity:havable'), {
+                #'doc': 'The source entity owned the target node.'}),
         ),
 
         'forms': (
 
             ('entity:name', {}, ()),
 
-            ('entity:contact', {}, ()),
+            ('entity:contact:type:taxonomy', {}, ()),
+            ('entity:contact', {}, (
+
+                # FIXME should this be part of the template?
+                ('type', ('entity:contact:type:taxonomy', {}), {
+                    'doc': 'The contact type.'}),
+
+            )),
 
             ('entity:history', {}, (
 

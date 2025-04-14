@@ -60,12 +60,13 @@ modeldefs = (
 
             ('risk:threat', ('guid', {}), {
                 'interfaces': ('entity:abstract',),
-                'templates': {'contactable': 'threat'},
+                'template': {'contactable': 'threat'},
                 'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'org:name'}},
-                        {'type': 'prop', 'opts': {'name': 'org:names'}},
+                        {'type': 'prop', 'opts': {'name': 'name'}},
+                        #{'type': 'prop', 'opts': {'name': 'org:name'}},
+                        #{'type': 'prop', 'opts': {'name': 'org:names'}},
                         {'type': 'prop', 'opts': {'name': 'reporter:name'}},
                         {'type': 'prop', 'opts': {'name': 'tag'}},
                     ),

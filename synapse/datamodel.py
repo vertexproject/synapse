@@ -1009,7 +1009,12 @@ class Model:
                 propname = colopts.get('name')
                 parts = propname.split('::')
 
-                for partname in parts:
+                for i, partname in enumerate(parts):
+
+                    if curf is None and i == (len(parts) - 1):
+                        mesg = f'No form named {prop.type.name} for property {prop.full}.'
+                        raise s_exc.NoSuchForm(mesg=mesg)
+
                     prop = curf.prop(partname)
                     if prop is None:
                         mesg = (f'Form {form.name} defines prop column {propname}'

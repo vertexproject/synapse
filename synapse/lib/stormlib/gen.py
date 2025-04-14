@@ -12,12 +12,6 @@ class LibGen(s_stormtypes.Lib):
                       {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
                   ),
                   'returns': {'type': 'node', 'desc': 'An ou:org node with the given name.'}}},
-        {'name': 'orgHqByName', 'desc': 'Returns a ps:contact node for the ou:org, adding the node if it does not exist.',
-         'type': {'type': 'function', '_funcname': '_storm_query',
-                  'args': (
-                      {'name': 'name', 'type': 'str', 'desc': 'The name of the org.'},
-                  ),
-                  'returns': {'type': 'node', 'desc': 'A ps:contact node for the ou:org with the given name.'}}},
         {'name': 'orgByFqdn', 'desc': 'Returns an ou:org node by FQDN, adding the node if it does not exist.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
@@ -194,10 +188,10 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByName(name, try=$lib.false) {
-            ($ok, $name) = $__maybeCast($try, ou:name, $name)
+            ($ok, $name) = $__maybeCast($try, entity:name, $name)
             if (not $ok) { return() }
 
-            ou:name=$name -> ou:org
+            entity:name=$name -> ou:org
             return($node)
 
             [ ou:org=(gen, name, $name) :name=$name ]
@@ -212,19 +206,6 @@ class LibGen(s_stormtypes.Lib):
             return($node)
 
             [ ou:org=(gen, fqdn, $fqdn) :dns:mx+=$fqdn ]
-            return($node)
-        }
-
-        function orgHqByName(name) {
-            yield $lib.gen.orgByName($name)
-            $org=$node
-            $name = :name
-
-            { -:hq [ :hq = {[ ps:contact=(gen, hq, name, $name) :orgname=$name ]} ] }
-
-            :hq -> ps:contact
-            { -:org [ :org=$org ] }
-
             return($node)
         }
 
@@ -271,7 +252,7 @@ class LibGen(s_stormtypes.Lib):
 
             $guid = (gen, cve, $cve)
             if $reporter {
-                $reporter = $lib.cast(ou:name, $reporter)
+                $reporter = $lib.cast(entity:name, $reporter)
                 $guid.append($reporter)
             }
 
@@ -283,17 +264,16 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function riskThreat(name, reporter) {
-            ou:name=$name
-            tee { -> risk:threat:org:name } { -> risk:threat:org:names } |
+            entity:name=$name -> risk:threat
             +:reporter:name=$reporter
             { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
-            $name = $lib.cast(ou:name, $name)
-            $reporter = $lib.cast(ou:name, $reporter)
+            $name = $lib.cast(entity:name, $name)
+            $reporter = $lib.cast(entity:name, $reporter)
 
             [ risk:threat=(gen, name, reporter, $name, $reporter)
-                :org:name=$name
+                :name=$name
                 :reporter = { yield $orgByName($reporter) }
                 :reporter:name = $reporter
             ]
@@ -309,7 +289,7 @@ class LibGen(s_stormtypes.Lib):
             return($node)
 
             $name = $lib.cast(it:prod:softname, $name)
-            $reporter = $lib.cast(ou:name, $reporter)
+            $reporter = $lib.cast(entity:name, $reporter)
 
             [ risk:tool:software=(gen, $name, $reporter)
                 :soft:name = $name
@@ -386,7 +366,7 @@ class LibGen(s_stormtypes.Lib):
             return($node)
 
             $name = $lib.cast(ou:campname, $name)
-            $reporter = $lib.cast(ou:name, $reporter)
+            $reporter = $lib.cast(entity:name, $reporter)
 
             [ ou:campaign=(gen, name, reporter, $name, $reporter)
                 :name=$name
@@ -532,14 +512,6 @@ stormcmds = (
             ('name', {'help': 'The name of the organization.'}),
         ),
         'storm': 'yield $lib.gen.orgByName($cmdopts.name)',
-    },
-    {
-        'name': 'gen.ou.org.hq',
-        'descr': 'Lift (or create) the primary ps:contact node for the ou:org based on the organization name.',
-        'cmdargs': (
-            ('name', {'help': 'The name of the organization.'}),
-        ),
-        'storm': 'yield $lib.gen.orgHqByName($cmdopts.name)',
     },
     {
         'name': 'gen.ou.campaign',

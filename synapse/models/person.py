@@ -50,7 +50,8 @@ modeldefs = (
                 'doc': 'The assessment that a given contact possesses a specific skill.',
                 'display': {
                     'columns': (
-                        {'type': 'prop', 'opts': {'name': 'contact::name'}},
+                        # FIXME interface embed props
+                        #{'type': 'prop', 'opts': {'name': 'contact::name'}},
                         {'type': 'prop', 'opts': {'name': 'skill::name'}},
                     ),
                 }}),
@@ -134,7 +135,7 @@ modeldefs = (
                 ('instructor', ('entity:individual', {}), {
                     'doc': 'The primary instructor for the class.'}),
 
-                ('assistants', ('array', {'type': 'ps:contact', 'uniq': True, 'sorted': True}), {
+                ('assistants', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of assistant/co-instructor contacts.'}),
 
                 ('period', ('ival', {'precision': 8, 'inclusive': True}), {
@@ -165,7 +166,7 @@ modeldefs = (
                 ('institution', ('ou:org', {}), {
                     'doc': 'The organization providing educational services.'}),
 
-                ('period', ('ival', {'precision': 8, 'inclusive': True}),
+                ('period', ('ival', {'precision': 8, 'inclusive': True}), {
                     'prevnames': ('attended:first', 'attended:last'),
                     'doc': 'The period of time when the student attended the institution.'}),
 

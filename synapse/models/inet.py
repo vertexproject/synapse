@@ -1174,7 +1174,7 @@ modeldefs = (
         ),
 
         'edges': (
-            (('inet:whois:iprec', 'ipwhois', 'inet:ip'), {
+            (('inet:whois:iprecord', 'ipwhois', 'inet:ip'), {
                 'doc': 'The source IP whois record describes the target IP address.'}),
         ),
 
@@ -1348,7 +1348,7 @@ modeldefs = (
                 'doc': 'Query details used to retrieve an IP record.'
             }),
 
-            ('inet:whois:iprec', ('guid', {}), {
+            ('inet:whois:iprecord', ('guid', {}), {
                 'doc': 'An IPv4/IPv6 block registration record.'}),
 
             #('inet:whois:ipcontact', ('guid', {}), {
@@ -2513,7 +2513,7 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Whether the host returned a valid response for the query.'
                 }),
-                ('rec', ('inet:whois:iprec', {}), {
+                ('rec', ('inet:whois:iprecord', {}), {
                     'doc': 'The resulting record from the query.'
                 }),
             )),
@@ -3071,7 +3071,7 @@ modeldefs = (
                     ('inet:fqdn:zone', _onSetFqdnZone),
                     ('inet:fqdn:iszone', _onSetFqdnIsZone),
                     ('inet:fqdn:issuffix', _onSetFqdnIsSuffix),
-                    ('inet:whois:rec:text', _onSetWhoisText),
+                    ('inet:whois:record:text', _onSetWhoisText),
                 )
             }
         },
