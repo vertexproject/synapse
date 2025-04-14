@@ -546,7 +546,7 @@ For more information about Storm APIs, including opts behavior, see :ref:`dev_st
             import pprint
             # Assumes sess is an requests client session that has previously logged in
 
-            query = '$valu = "world" $foo = `"hello {$valu}` return ($foo)'
+            query = '$valu = "world" $foo = `hello {$valu}` return ($foo)'
             data = {'query': query}
             url = 'https://localhost:4443/api/v1/storm/call'
 

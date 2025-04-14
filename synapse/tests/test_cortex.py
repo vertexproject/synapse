@@ -7731,7 +7731,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     $ddef = $lib.dmon.add(${
                         $lib.print(hi)
                         $lib.warn(omg)
-                        $s = `'Running {$auto.type} {$auto.iden}`
+                        $s = `Running {$auto.type} {$auto.iden}`
                         $lib.log.info($s, ({"iden": $auto.iden}))
                     })
                 ''')

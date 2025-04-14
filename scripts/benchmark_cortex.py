@@ -498,7 +498,7 @@ class Benchmarker:
         '''
         The same as do10AutoAdds without the adds (to isolate the autoadd part)
         '''
-        q = "$template='{num}.rev' inet:ipv4 $val=$template.rev(num=$(1000000-$node.value()))"
+        q = "$template='{num}.rev' inet:ipv4 $val=$template.format(num=$(1000000-$node.value()))"
         count = await acountPodes(prox.storm(q, opts=self.opts))
         assert count == self.workfactor
         return self.workfactor
