@@ -3714,16 +3714,14 @@ async def expr_in(x, y):
     if hasattr(y, '_storm_contains'):
         return await y._storm_contains(x)
 
-    y = await toprim(y)
-    return x in y
+    return x in await toprim(y)
 
 async def expr_notin(x, y):
     x = await toprim(x)
     if hasattr(y, '_storm_contains'):
         return not (await y._storm_contains(x))
 
-    y = await toprim(y)
-    return x not in y
+    return x not in await toprim(y)
 
 _ExprFuncMap = {
     '+': expr_add,
