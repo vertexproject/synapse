@@ -10,6 +10,10 @@ class Boss(s_base.Base):
 
     '''
     An object to track "promoted" async tasks.
+
+    Promoted tasks are asyncio tasks, wrapped in a synapse task
+    (``s_task.Task``), that are visible to storm users via the task tracking
+    libs/commands such as ``ps.list`` and ``$lib.ps.list()``.
     '''
     async def __anit__(self):
         await s_base.Base.__anit__(self)
@@ -45,7 +49,7 @@ class Boss(s_base.Base):
 
     async def promotetask(self, task, name, user, info=None, taskiden=None):
 
-        synt = getattr(task, '_syn_task', None)
+        synt = s_task.syntask(task)
 
         if synt is not None:
 
