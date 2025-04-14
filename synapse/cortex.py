@@ -2937,7 +2937,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         name = pkgdef.get('name')
         onload = pkgdef.get('onload')
 
-        if onload is not None:
+        if onload is not None and self.isactive:
             async def _onload():
                 await self.fire('core:pkg:onload:start', pkg=name)
                 try:
