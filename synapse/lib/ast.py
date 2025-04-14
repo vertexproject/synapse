@@ -3776,8 +3776,8 @@ class ExprNode(Value):
         assert len(self.kids) == 3
         assert isinstance(self.kids[1], Const)
 
-        oper = self.kids[1].value()
-        self._operfunc = _ExprFuncMap[oper]
+        self.oper = self.kids[1].value()
+        self._operfunc = _ExprFuncMap[self.oper]
 
     async def compute(self, runt, path):
         parm1 = await self.kids[0].compute(runt, path)
@@ -3791,7 +3791,8 @@ class ExprNode(Value):
             exc = s_exc.StormRuntimeError(mesg='Invalid operation on a Number')
             raise self.addExcInfo(exc)
         except TypeError as e:
-            raise self.addExcInfo(s_exc.StormRuntimeError(mesg=str(e)))
+            exc = s_exc.StormRuntimeError(mesg=f'Error evaluating "{self.oper}" operator: {str(e)}')
+            raise self.addExcInfo(exc)
 
 class ExprOrNode(Value):
     async def compute(self, runt, path):
