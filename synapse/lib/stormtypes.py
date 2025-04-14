@@ -5915,7 +5915,7 @@ class NodeData(Prim):
 
     async def _storm_contains(self, item):
         item = await tostr(item)
-        return await self.valu.hasData(name)
+        return await self.valu.hasData(item)
 
     @stormfunc(readonly=True)
     async def _hasNodeData(self, name):
@@ -6347,7 +6347,7 @@ class PathVars(Prim):
 
     async def _storm_contains(self, item):
         item = await tostr(item)
-        valu = self.path.getVar(name, defv=s_common.novalu)
+        valu = self.path.getVar(item, defv=s_common.novalu)
         return valu is not s_common.novalu
 
     async def deref(self, name):

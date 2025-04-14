@@ -85,6 +85,9 @@ class StormlibVaultTest(s_test.SynTest):
             self.eq(vault.get('secrets').get('foo2'), 'bar2')
             self.eq(vault.get('configs').get('p2'), 'np2')
 
+            self.true(await core.callStorm("$vault = $lib.vault.get($iden) return(('foo2' in $vault.secrets))", opts=opts))
+            self.false(await core.callStorm("$vault = $lib.vault.get($iden) return(('newp' in $vault.secrets))", opts=opts))
+
             await core.callStorm('$vault = $lib.vault.get($iden) $vault.secrets.foo2 = $lib.undef $vault.configs.p2 = $lib.undef', opts=opts)
             vault = core.getVault(uiden)
             self.eq(vault.get('secrets').get('foo2', s_common.novalu), s_common.novalu)
