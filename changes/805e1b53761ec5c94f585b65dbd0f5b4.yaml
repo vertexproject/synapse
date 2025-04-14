@@ -1,5 +1,0 @@
----
-desc: Fixed a bug in storage iteration which could cause an item to be yielded twice if a very narrow race window was encountered.
-prs: []
-type: bug
-...
