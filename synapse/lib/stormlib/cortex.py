@@ -107,7 +107,7 @@ stormcmds = [
         if $perms {
             $lib.print('The following user permissions are required to run this HTTP API endpoint:')
             for $pdef in $perms {
-                $perm = $lib.str.join(".", $pdef.perm)
+                $perm = ('.').join($pdef.perm)
                 $lib.print($perm)
                 $lib.print(`    default: {$pdef.default}`)
             }

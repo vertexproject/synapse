@@ -689,7 +689,7 @@ class ViewTest(s_t_utils.SynTest):
                 puller_iden, puller_view, puller_layr = await core2.callStorm('''
                     $lyr = $lib.layer.add()
                     $view = $lib.view.add(($lyr.iden,))
-                    $pdef = $lyr.addPull($lib.str.concat($baseurl, "/", $baseiden))
+                    $pdef = $lyr.addPull(`{$baseurl}/{$baseiden}`)
                     return(($pdef.iden, $view.iden, $lyr.iden))
                 ''', opts=opts)
 
@@ -707,7 +707,7 @@ class ViewTest(s_t_utils.SynTest):
                 opts['vars']['pushiden'] = pushee_layr
                 pushee_iden = await core.callStorm('''
                     $lyr = $lib.layer.get()
-                    $pdef = $lyr.addPush($lib.str.concat($syncurl, "/", $pushiden))
+                    $pdef = $lyr.addPush(`{$syncurl}/{$pushiden}`)
                     return($pdef.iden)
                 ''', opts=opts)
 
@@ -717,7 +717,7 @@ class ViewTest(s_t_utils.SynTest):
 
                 mirror_catchup = await core2.getNexsIndx() - 1 + 2 + layr.nodeeditlog.size
                 mirror_view, mirror_layr = await core2.callStorm('''
-                    $ldef = ({'mirror':$lib.str.concat($baseurl, "/", $baseiden)})
+                    $ldef = ({'mirror': `{$baseurl}/{$baseiden}`})
                     $lyr = $lib.layer.add(ldef=$ldef)
                     $view = $lib.view.add(($lyr.iden,))
                     return(($view.iden, $lyr.iden))

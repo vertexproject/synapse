@@ -299,7 +299,7 @@ class DataModelTest(s_t_utils.SynTest):
             syn:type:subof=comp $opts=:opts
             -> syn:form:type $valu=$node.value()
             for ($name, $thing) in $opts.fields {
-                $v=$lib.str.format('{v}:{t}', v=$valu, t=$name)  syn:prop=$v
+                $v=`{$valu}:{$name}`  syn:prop=$v
             }
             +syn:prop
             -:ro=1

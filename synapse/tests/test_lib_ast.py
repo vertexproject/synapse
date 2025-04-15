@@ -74,9 +74,9 @@ foo_stormpkg = {
             }
 
             function outer(arg1, add) {
-                $strbase = $lib.str.format("(Run: {c}) we got back ", c=$counter)
+                $strbase = `(Run: {$counter}) we got back `
                 $reti = $inner($arg1, $add)
-                $mesg = $lib.str.concat($strbase, $reti)
+                $mesg = `{$strbase}{$reti}`
                 $counter = $( $counter + $add )
                 $lib.print("foobar is {foobar}", foobar=$foobar)
                 return ($mesg)
@@ -296,7 +296,7 @@ class AstTest(s_test.SynTest):
                 $newvar=:hehe
                 -.created
                 $s.append("yar {x}", x=$newvar)
-                $lib.print($lib.str.join('', $s))
+                $lib.print(('').join($s))
             '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
@@ -2029,7 +2029,7 @@ class AstTest(s_test.SynTest):
             q = '$val=$lib.base64.decode("dmlzaQ==") function x(parm1=$val) { return($parm1) }'
             self.len(0, await core.nodes(q))
 
-            self.eq('foo', await core.callStorm('return($lib.str.format("{func}", func=foo))'))
+            self.eq('foo', await core.callStorm('$template="{func}" return($template.format(func=foo))'))
 
             msgs = await core.stormlist('$lib.null()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
@@ -3580,7 +3580,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             init { $foo = bar }
-            init { $baz = $lib.str.format('foo={foo}', foo=$foo) }
+            init { $baz = `foo={$foo}` }
             $lib.print($baz)
             '''
             msgs = await core.stormlist(q)
