@@ -6,6 +6,12 @@
 Synapse Changelog
 *****************
 
+v3.0.0 - 2025-XX-YY
+===================
+
+Initial 3.0.0 release. See :ref:`300_changes` for notable new features and changes, as well as backwards incompatible
+changes.
+
 v2.207.0 - 2025-04-10
 =====================
 
