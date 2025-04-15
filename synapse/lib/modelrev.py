@@ -1623,7 +1623,7 @@ class ModelMigration_0_2_31:
                     if propvalu is not None:
                         break
 
-                if propvalu is None:
+                if propvalu is None: # pragma: no cover
                     # We didn't find a v2_2 value so remove this node
                     await self.removeNode(buid)
                     removed += 1
@@ -1634,7 +1634,7 @@ class ModelMigration_0_2_31:
                     try:
                         newvalu, _ = form.type.norm(propvalu)
 
-                    except s_exc.BadTypeValu:
+                    except s_exc.BadTypeValu: # pragma: no cover
                         logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
                         await self.removeNode(buid)
                         removed += 1
@@ -1659,7 +1659,7 @@ class ModelMigration_0_2_31:
                     # remove the node.
                     try:
                         newvalu, _ = form.type.norm(propvalu)
-                    except s_exc.BadTypeValu:
+                    except s_exc.BadTypeValu: # pragma: no cover
                         logger.debug('Unexpectedly encountered invalid v2_2 prop: iden=%s valu=%s', s_common.ehex(buid), propvalu)
                         continue
 
