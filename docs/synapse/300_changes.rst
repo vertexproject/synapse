@@ -95,15 +95,16 @@ Removed Upstream/Mirror Layers
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 What changed
-    Cortexes no longer support Core modules.
+    Layers no longer support the ``upstream`` or ``mirror`` configuration options.
 
 Why make the change
-    Core modules can significantly change Cortex behavior and cause performance/stability issues.
-    In general, any functionality added by a Core module can now be accomplished with the use of
-    a Storm package or other Synapse features, making support for them an unnecessary risk.
+    These are old options which have been replaced by Cortex mirroring and Layer push/pull
+    configurations, the newer more efficient methods of synchronizing data between layers
+    should be used.
 
 What you need to do
-    Ensure your Cortex configuration does not specify the ``modules`` option.
+    Update any Layer ``upstream`` or ``mirror`` configurations to use push/pull configurations
+    if they are still needed.
 
 Additional Changes
 ------------------
