@@ -4,43 +4,43 @@ Model elements related to sales / bizdev / procurement
 modeldefs = (
     ('biz', {
         'types': (
+
             ('biz:rfp', ('guid', {}), {
-                'doc': 'An RFP (Request for Proposal) soliciting proposals.',
-            }),
+                'doc': 'An RFP (Request for Proposal) soliciting proposals.'}),
+
             ('biz:deal', ('guid', {}), {
-                'doc': 'A sales or procurement effort in pursuit of a purchase.',
-            }),
+                'doc': 'A sales or procurement effort in pursuit of a purchase.'}),
+
             ('biz:stake', ('guid', {}), {
-                'doc': 'A stake or partial ownership in a company.',
-            }),
+                'doc': 'A stake or partial ownership in a company.'}),
+
             ('biz:listing', ('guid', {}), {
-                'doc': 'A product or service being listed for sale at a given price by a specific seller.',
-            }),
+                'doc': 'A product or service being listed for sale at a given price by a specific seller.'}),
+
             ('biz:bundle', ('guid', {}), {
-                'doc': 'A bundle allows construction of products which bundle instances of other products.',
-            }),
+                'doc': 'A bundle allows construction of products which bundle instances of other products.'}),
+
             ('biz:product', ('guid', {}), {
-                'doc': 'A product which is available for purchase.',
-            }),
+                'doc': 'A product which is available for purchase.'}),
+
             ('biz:service', ('guid', {}), {
-                'doc': 'A service which is performed by a specific organization.',
-            }),
+                'doc': 'A service which is performed by a specific organization.'}),
+
             ('biz:service:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of service types.',
-            }),
+                'doc': 'A hierarchical taxonomy of service types.'}),
+
             ('biz:deal:status:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of deal status values.',
-            }),
+                'doc': 'A hierarchical taxonomy of deal status values.'}),
+
             ('biz:deal:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of deal types.',
-            }),
+                'doc': 'A hierarchical taxonomy of deal types.'}),
+
             ('biz:product:type:taxonomy', ('taxonomy', {}), {
-                'doc': 'A hierarchical taxonomy of product types.',
                 'interfaces': ('meta:taxonomy',),
-            }),
+                'doc': 'A hierarchical taxonomy of product types.'}),
         ),
         'forms': (
             ('biz:deal:type:taxonomy', {
@@ -55,122 +55,122 @@ modeldefs = (
             ('biz:service:type:taxonomy', {}, ()),
 
             ('biz:rfp', {}, (
-                ('ext:id', ('str', {}), {
-                    'doc': 'An externally specified identifier for the RFP.',
-                }),
+
+                ('id', ('meta:id', {}), {
+                    'prevnames': ('ext:id',),
+                    'doc': 'An externally specified identifier for the RFP.'}),
+
                 ('title', ('str', {}), {
-                    'doc': 'The title of the RFP.',
-                }),
+                    'doc': 'The title of the RFP.'}),
+
                 ('summary', ('str', {}), {
                     'disp': {'hint': 'text'},
-                    'doc': 'A brief summary of the RFP.',
-                }),
+                    'doc': 'A brief summary of the RFP.'}),
+
                 ('status', ('biz:deal:status:taxonomy', {}), {
-                    'doc': 'The status of the RFP.',
-                }),
+                    'doc': 'The status of the RFP.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'The official URL for the RFP.',
-                }),
+                    'doc': 'The official URL for the RFP.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The RFP document.',
-                }),
+                    'doc': 'The RFP document.'}),
+
                 ('posted', ('time', {}), {
-                    'doc': 'The date/time that the RFP was posted.',
-                }),
+                    'doc': 'The date/time that the RFP was posted.'}),
+
                 ('quesdue', ('time', {}), {
-                    'doc': 'The date/time that questions are due.',
-                }),
+                    'doc': 'The date/time that questions are due.'}),
+
                 ('propdue', ('time', {}), {
-                    'doc': 'The date/time that proposals are due.',
-                }),
+                    'doc': 'The date/time that proposals are due.'}),
+
                 ('contact', ('entity:actor', {}), {
-                    'doc': 'The contact information given for the org requesting offers.',
-                }),
+                    'doc': 'The contact information given for the org requesting offers.'}),
+
                 ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Any known purchases that resulted from the RFP.',
-                }),
+                    'doc': 'Any known purchases that resulted from the RFP.'}),
+
                 ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {}),
             )),
             ('biz:deal', {}, (
-                ('id', ('str', {'strip': True}), {
-                    'doc': 'An identifier for the deal.',
-                }),
+
+                ('id', ('meta:id', {}), {
+                    'doc': 'An identifier for the deal.'}),
 
                 ('title', ('str', {}), {
-                    'doc': 'A title for the deal.',
-                }),
+                    'doc': 'A title for the deal.'}),
+
                 ('type', ('biz:deal:type:taxonomy', {}), {
-                    'doc': 'The type of deal.',
-                }),
+                    'doc': 'The type of deal.'}),
+
                 ('status', ('biz:deal:status:taxonomy', {}), {
-                    'doc': 'The status of the deal.',
-                }),
+                    'doc': 'The status of the deal.'}),
+
                 ('updated', ('time', {}), {
-                    'doc': 'The last time the deal had a significant update.',
-                }),
+                    'doc': 'The last time the deal had a significant update.'}),
+
                 ('contacted', ('time', {}), {
-                    'doc': 'The last time the contacts communicated about the deal.',
-                }),
+                    'doc': 'The last time the contacts communicated about the deal.'}),
+
                 ('rfp', ('biz:rfp', {}), {
-                    'doc': 'The RFP that the deal is in response to.',
-                }),
+                    'doc': 'The RFP that the deal is in response to.'}),
                 ('buyer', ('entity:actor', {}), {
-                    'doc': 'The primary contact information for the buyer.',
-                }),
+                    'doc': 'The primary contact information for the buyer.'}),
                 # FIXME remove orgname / orgfqdn
                 ('buyer:org', ('ou:org', {}), {
-                    'doc': 'The buyer org.',
-                }),
+                    'doc': 'The buyer org.'}),
+
                 ('buyer:orgname', ('entity:name', {}), {
-                    'doc': 'The reported name of the buyer org.',
-                }),
+                    'doc': 'The reported name of the buyer org.'}),
+
                 ('buyer:orgfqdn', ('inet:fqdn', {}), {
-                    'doc': 'The reported inet:fqdn of the buyer org.',
-                }),
+                    'doc': 'The reported inet:fqdn of the buyer org.'}),
+
                 ('seller', ('entity:actor', {}), {
-                    'doc': 'The primary contact information for the seller.',
-                }),
+                    'doc': 'The primary contact information for the seller.'}),
+
                 ('seller:org', ('ou:org', {}), {
-                    'doc': 'The seller org.',
-                }),
+                    'doc': 'The seller org.'}),
+
                 ('seller:orgname', ('entity:name', {}), {
-                    'doc': 'The reported name of the seller org.',
-                }),
+                    'doc': 'The reported name of the seller org.'}),
+
                 ('seller:orgfqdn', ('inet:fqdn', {}), {
-                    'doc': 'The reported inet:fqdn of the seller org.',
-                }),
+                    'doc': 'The reported inet:fqdn of the seller org.'}),
+
                 ('currency', ('econ:currency', {}), {
-                    'doc': 'The currency of econ:price values associated with the deal.',
-                }),
+                    'doc': 'The currency of econ:price values associated with the deal.'}),
+
                 ('buyer:budget', ('econ:price', {}), {
-                    'doc': 'The buyers budget for the eventual purchase.',
-                }),
+                    'doc': 'The buyers budget for the eventual purchase.'}),
+
                 ('buyer:deadline', ('time', {}), {
-                    'doc': 'When the buyer intends to make a decision.',
-                }),
+                    'doc': 'When the buyer intends to make a decision.'}),
+
                 ('offer:price', ('econ:price', {}), {
-                    'doc': 'The total price of the offered products.',
-                }),
+                    'doc': 'The total price of the offered products.'}),
+
                 ('offer:expires', ('time', {}), {
-                    'doc': 'When the offer expires.',
-                }),
+                    'doc': 'When the offer expires.'}),
+
                 ('purchase', ('econ:purchase', {}), {
-                    'doc': 'Records a purchase resulting from the deal.',
-                }),
+                    'doc': 'Records a purchase resulting from the deal.'}),
             )),
+            # FIXME convert to aggregates?
             ('biz:bundle', {}, (
+
                 ('count', ('int', {}), {
-                    'doc': 'The number of instances of the product or service included in the bundle.',
-                }),
+                    'doc': 'The number of instances of the product or service included in the bundle.'}),
+
                 ('price', ('econ:price', {}), {
-                    'doc': 'The price of the bundle.',
-                }),
+                    'doc': 'The price of the bundle.'}),
+
                 ('product', ('biz:product', {}), {
-                    'doc': 'The product included in the bundle.',
-                }),
+                    'doc': 'The product included in the bundle.'}),
+
                 ('service', ('biz:service', {}), {
-                    'doc': 'The service included in the bundle.',
-                }),
+                    'doc': 'The service included in the bundle.'}),
             )),
             ('biz:listing', {}, (
 
@@ -205,21 +205,27 @@ modeldefs = (
                     'doc': 'The current remaining number of instances for sale.'}),
             )),
             ('biz:service', {}, (
+
                 ('provider', ('entity:actor', {}), {
                     'doc': 'The contact info of the entity which performs the service.'}),
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the service being performed.'}),
+
                 ('summary', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A brief summary of the service.'}),
+
                 ('type', ('biz:service:type:taxonomy', {}), {
                     'doc': 'A taxonomy of service types.'}),
                 ('launched', ('time', {}), {
+
                     'doc': 'The time when the operator first made the service available.'}),
                 # TODO: billing types (fixed, hourly, subscription, etc)
             )),
             ('biz:product', {}, (
-                ('name', ('str', {}), {
+
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the product.'}),
 
                 ('type', ('biz:product:type:taxonomy', {}), {
@@ -241,16 +247,17 @@ modeldefs = (
                     'doc': 'The minimum offered or observed price of the product.'}),
 
                 ('price:currency', ('econ:currency', {}), {
-                    'doc': 'The currency of the retail and bottom price properties.',
-                }),
+                    'doc': 'The currency of the retail and bottom price properties.'}),
+
                 ('bundles', ('array', {'type': 'biz:bundle', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of bundles included with the product.',
-                }),
+                    'doc': 'An array of bundles included with the product.'}),
             )),
+            # biz:stake should become part of entity:ownership?
             ('biz:stake', {}, (
+
                 ('vitals', ('ou:vitals', {}), {
-                    'doc': 'The ou:vitals snapshot this stake is part of.',
-                }),
+                    'doc': 'The ou:vitals snapshot this stake is part of.'}),
+
                 ('org', ('ou:org', {}), {
                     'doc': 'The resolved org.'}),
 
@@ -262,9 +269,9 @@ modeldefs = (
                     'doc': 'The org FQDN as reported by the source of the stake.'}),
 
                 ('name', ('str', {}), {
-                    'doc': 'An arbitrary name for this stake. Can be non-contact like "pool".'}),
+                    'doc': 'An arbitrary name for this stake.'}),
 
-                # FIXME asof -> updated ( in general? )
+                # FIXME asof -> updated ( in general? ) period?
                 ('asof', ('time', {}), {
                     'doc': 'The time the stake is being measured.'}),
 

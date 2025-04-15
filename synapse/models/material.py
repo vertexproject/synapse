@@ -107,7 +107,7 @@ modeldefs = (
             )),
             ('mat:item', {}, (
 
-                ('name', ('str', {'lower': True}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the material item.'}),
 
                 ('type', ('mat:item:type:taxonomy', {}), {
@@ -118,15 +118,22 @@ modeldefs = (
             )),
 
             ('mat:spec', {}, (
-                ('name', ('str', {'lower': True}), {
+
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the material specification.'}),
+
                 ('type', ('mat:item:type:taxonomy', {}), {
                     'doc': 'The taxonomy type for the specification.'}),
             )),
 
+            # FIXME keep? Genericize?
             ('mat:itemimage', {}, (
-                ('item', ('mat:item', {}), {'doc': 'The item contained within the image file.', 'ro': True, }),
-                ('file', ('file:bytes', {}), {'doc': 'The file containing an image of the item.', 'ro': True, }),
+
+                ('item', ('mat:item', {}), {
+                    'doc': 'The item contained within the image file.', 'ro': True, }),
+
+                ('file', ('file:bytes', {}), {
+                    'doc': 'The file containing an image of the item.', 'ro': True, }),
             )),
 
             ('mat:specimage', {}, (

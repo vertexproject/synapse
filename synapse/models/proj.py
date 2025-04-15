@@ -23,7 +23,7 @@ modeldefs = (
 
                 'props': (
 
-                    ('id', ('str', {'strip': True}), {
+                    ('id', ('meta:id', {}), {
                         'doc': 'The ID of the {task}.'}),
 
                     ('project', ('proj:project', {}), {

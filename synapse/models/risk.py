@@ -370,7 +370,7 @@ modeldefs = (
                 ('mitre:attack:software', ('it:mitre:attack:software', {}), {
                     'doc': 'A mapping to a MITRE ATT&CK software if applicable.'}),
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'An ID for the tool.'}),
 
             )),
@@ -380,8 +380,8 @@ modeldefs = (
                 ('vuln', ('risk:vuln', {}), {
                     'doc': 'The vulnerability that this mitigation addresses.'}),
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A brief name for this risk mitigation.'}),
+                ('name', ('entity:name', {}), {
+                    'doc': 'The name of the risk mitigation.'}),
 
                 ('type', ('risk:mitigation:type:taxonomy', {}), {
                     'doc': 'A taxonomy type entry for the mitigation.'}),
@@ -402,16 +402,16 @@ modeldefs = (
                 ('tag', ('syn:tag', {}), {
                     'doc': 'The tag used to annotate nodes which have the mitigation in place.'}),
             )),
-            ('risk:vulnname', {}, ()),
+
             ('risk:vuln:type:taxonomy', {}, ()),
 
             ('risk:vuln', {}, (
 
-                ('name', ('risk:vulnname', {}), {
+                ('name', ('entity:name', {}), {
                     'alts': ('names',),
-                    'doc': 'A user specified name for the vulnerability.'}),
+                    'doc': 'The name of the vulnerability.'}),
 
-                ('names', ('array', {'type': 'risk:vulnname', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the vulnerability.'}),
 
                 ('type', ('risk:vuln:type:taxonomy', {}), {
@@ -454,7 +454,7 @@ modeldefs = (
                 ('timeline:exploited', ('time', {"ismin": True}), {
                     'doc': 'The earliest known time when the vulnerability was exploited in the wild.'}),
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'An identifier for the vulnerability.'}),
 
                 ('tag', ('syn:tag', {}), {
@@ -557,8 +557,9 @@ modeldefs = (
                 ('type', ('risk:alert:type:taxonomy', {}), {
                     'doc': 'A type for the alert, as a taxonomy entry.'}),
 
-                ('name', ('str', {}), {
-                    'doc': 'A brief name for the alert.'}),
+                # FIXME should this even exist?
+                #('name', ('str', {}), {
+                    #'doc': 'A brief name for the alert.'}),
 
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
@@ -620,8 +621,9 @@ modeldefs = (
                 'prevnames': ('risk:compromisetype',)}, ()),
 
             ('risk:compromise', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A brief name for the compromise event.'}),
+
+                ('name', ('entity:name', {}), {
+                    'doc': 'The name of the compromise event.'}),
 
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
@@ -768,8 +770,8 @@ modeldefs = (
             ('risk:leak:type:taxonomy', {}, ()),
             ('risk:leak', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A simple name for the leak event.'}),
+                ('name', ('entity:name', {}), {
+                    'doc': 'The name of the leak event.'}),
 
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
@@ -826,8 +828,8 @@ modeldefs = (
             ('risk:outage:cause:taxonomy', {}, ()),
             ('risk:outage', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A name for the outage event.'}),
+                ('name', ('entity:name', {}), {
+                    'doc': 'The name of the outage event.'}),
 
                 ('period', ('ival', {}), {
                     'doc': 'The time period where the outage impacted availability.'}),
@@ -861,8 +863,8 @@ modeldefs = (
             ('risk:extortion:type:taxonomy', {}, ()),
             ('risk:extortion', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'A name for the extortion event.'}),
+                ('name', ('entity:name', {}), {
+                    'doc': 'The name of the extortion event.'}),
 
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},

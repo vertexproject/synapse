@@ -93,10 +93,6 @@ modeldefs = (
                 'doc': 'A hierarchical taxonomy of industry types.'}),
 
             # FIXME
-            ('ou:industryname', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'The name of an industry.'}),
-
-            # FIXME
             ('ou:orgnet', ('comp', {'fields': (('org', 'ou:org'), ('net', 'inet:net'))}), {
                 'doc': "An organization's IPv4 netblock."}),
 
@@ -156,10 +152,6 @@ modeldefs = (
                 },
                 'doc': 'An assessed or stated goal which may be abstract or org specific.'}),
 
-            # FIXME unified name
-            ('ou:goalname', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'A goal name.'}),
-
             ('ou:goal:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
                 'doc': 'A hierarchical taxonomy of goal types.'}),
@@ -167,10 +159,6 @@ modeldefs = (
             ('ou:campaign:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': ('meta:taxonomy',),
                 'doc': 'A hierarchical taxonomy of campaign types.'}),
-
-            # FIXME unified name
-            ('ou:campname', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'A campaign name.'}),
 
             ('ou:campaign', ('guid', {}), {
                 'doc': "Represents an org's activity in pursuit of a goal.",
@@ -461,7 +449,7 @@ modeldefs = (
             ('ou:award:type:taxonomy', {}, ()),
             ('ou:award', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the award.',
                     'ex': 'Bachelors of Science'}),
 
@@ -473,6 +461,7 @@ modeldefs = (
                     'doc': 'The organization which issues the award.'}),
 
             )),
+            # FIXME refactor ou:id
             ('ou:id:type', {}, (
 
                 ('org', ('ou:org', {}), {
@@ -521,15 +510,14 @@ modeldefs = (
                     'doc': 'The date/time that the id number was updated.',
                 }),
             )),
-            ('ou:goalname', {}, ()),
             ('ou:goal:type:taxonomy', {}, ()),
             ('ou:goal', {}, (
 
-                ('name', ('ou:goalname', {}), {
+                ('name', ('entity:name', {}), {
                     'alts': ('names',),
                     'doc': 'A terse name for the goal.'}),
 
-                ('names', ('array', {'type': 'ou:goalname', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the goal. Used to merge/resolve goals.'}),
 
                 ('type', ('ou:goal:type:taxonomy', {}), {
@@ -542,8 +530,12 @@ modeldefs = (
             ('ou:campaign:type:taxonomy', {
                 'prevnames': ('ou:camptype',)}, ()),
 
-            ('ou:campname', {}, ()),
             ('ou:campaign', {}, (
+
+                ('id', ('meta:id', {}), {
+                    'prevnames': ('ext:id',),
+                    'doc': 'The campaign ID.'}),
+
                 # political campaign, funding round, ad campaign, fund raising
                 ('org', ('ou:org', {}), {
                     'doc': 'The org carrying out the campaign.'}),
@@ -558,6 +550,7 @@ modeldefs = (
                     'alts': ('goals',),
                     'doc': 'The assessed primary goal of the campaign.'}),
 
+                # FIXME social media taglines?
                 ('slogan', ('lang:phrase', {}), {
                     'doc': 'The slogan used by the campaign.'}),
 
@@ -571,12 +564,12 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Records the success/failure status of the campaign if known.'}),
 
-                ('name', ('ou:campname', {}), {
+                ('name', ('entity:name', {}), {
                     'alts': ('names',),
                     'ex': 'operation overlord',
                     'doc': 'A terse name of the campaign.'}),
 
-                ('names', ('array', {'type': 'ou:campname', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the campaign.'}),
 
                 ('reporter', ('ou:org', {}), {
@@ -636,14 +629,15 @@ modeldefs = (
                 ('mitre:attack:campaign', ('it:mitre:attack:campaign', {}), {
                     'doc': 'A mapping to a MITRE ATT&CK campaign if applicable.'}),
 
-                ('ext:id', ('str', {'strip': True}), {
-                    'doc': 'An external identifier for the campaign.'}),
             )),
             ('ou:conflict', {}, (
-                ('name', ('str', {'onespace': True}), {
+
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the conflict.'}),
+
                 ('period', ('ival', {}), {
                     'doc': 'The period of time when the conflict was ongoing.'}),
+
                 # FIXME timeline interface?
                 ('timeline', ('meta:timeline', {}), {
                     'doc': 'A timeline of significant events related to the conflict.'}),
@@ -709,8 +703,9 @@ modeldefs = (
                 ('reporter:name', ('entity:name', {}), {
                     'doc': 'The name of the organization reporting on the technique.'}),
 
-                ('ext:id', ('str', {'strip': True}), {
-                    'doc': 'An external identifier for the technique.'}),
+                ('id', ('meta:id', {}), {
+                    'prevnames': ('ext:id',),
+                    'doc': 'The technique ID.'}),
             )),
             ('ou:technique:type:taxonomy', {
                 'prevnames': ('ou:technique:taxonomy',)}, ()),
@@ -777,7 +772,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization which owns the asset.'}),
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID of the asset.'}),
 
                 ('name', ('str', {'lower': True, 'onespace': True}), {
@@ -817,21 +812,22 @@ modeldefs = (
                     'doc': 'The contact information of the user or operator of the asset.'}),
             )),
             ('ou:position', {}, (
+
                 ('org', ('ou:org', {}), {
-                    'doc': 'The org which has the position.',
-                }),
+                    'doc': 'The org which has the position.'}),
+
                 ('team', ('ou:team', {}), {
-                    'doc': 'The team that the position is a member of.',
-                }),
+                    'doc': 'The team that the position is a member of.'}),
+
+                #FIXME entity:individual?
                 ('contact', ('entity:contact', {}), {
-                    'doc': 'The contact info for the person who holds the position.',
-                }),
+                    'doc': 'The contact info for the person who holds the position.'}),
+
                 ('title', ('ou:jobtitle', {}), {
-                    'doc': 'The title of the position.',
-                }),
+                    'doc': 'The title of the position.'}),
+
                 ('reports', ('array', {'type': 'ou:position', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of positions which report to this position.',
-                }),
+                    'doc': 'An array of positions which report to this position.'}),
             )),
 
             ('ou:contract:type:taxonomy', {
@@ -888,17 +884,15 @@ modeldefs = (
             ('ou:industry:type:taxonomy', {}, ()),
             ('ou:industry', {}, (
 
-                # FIXME item/entity name?
-                ('name', ('ou:industryname', {}), {
+                ('name', ('entity:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the industry.'}),
 
+                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of alternative names for the industry.'}),
+
                 ('type', ('ou:industry:type:taxonomy', {}), {
                     'doc': 'A taxonomy entry for the industry.'}),
-
-                # FIXME item/entity name?
-                ('names', ('array', {'type': 'ou:industryname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of alternative names for the industry.'}),
 
                 # FIXME source?
                 ('reporter', ('entity:actor', {}), {
@@ -920,7 +914,6 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the industry.'}),
             )),
-            ('ou:industryname', {}, ()),
             ('ou:orgnet', {
                 'prevnames': ('ou:orgnet4', 'ou:orgnet6')}, (
 

@@ -60,11 +60,11 @@ modeldefs = (
 
                 ('tld', ('inet:fqdn', {}), {}),
 
-                ('name', ('geo:name', {}), {
+                ('name', ('entity:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the country.'}),
 
-                ('names', ('array', {'type': 'geo:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
@@ -125,9 +125,11 @@ modeldefs = (
                     'doc': 'The gross domestic product of the country.'}),
             )),
             ('pol:election', {}, (
-                ('name', ('str', {'onespace': True, 'lower': True}), {
+
+                ('name', ('entity:name', {}), {
                     'ex': '2022 united states congressional midterm election',
                     'doc': 'The name of the election.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'The date of the election.'}),
             )),
@@ -159,16 +161,22 @@ modeldefs = (
                     'doc': 'The governmental body which contains the office.'}),
             )),
             ('pol:term', {}, (
+
                 ('office', ('pol:office', {}), {
                     'doc': 'The office held for the term.'}),
+
                 ('start', ('time', {}), {
                     'doc': 'The start of the term of office.'}),
+
                 ('end', ('time', {}), {
                     'doc': 'The end of the term of office.'}),
+
                 ('race', ('pol:race', {}), {
                     'doc': 'The race that determined who held office during the term.'}),
+
                 ('contact', ('entity:contact', {}), {
                     'doc': 'The contact information of the person who held office during the term.'}),
+
                 ('party', ('ou:org', {}), {
                     'doc': 'The political party of the person who held office during the term.'}),
             )),
@@ -196,18 +204,25 @@ modeldefs = (
                     'doc': 'Set to true if the candidate is an incumbent in this race.'}),
             )),
             ('pol:pollingplace', {}, (
+
                 ('election', ('pol:election', {}), {
                     'doc': 'The election that the polling place is designated for.'}),
-                ('name', ('geo:name', {}), {
+
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the polling place at the time of the election. This may differ from the official place name.'}),
+
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where votes were cast.'}),
+
                 ('opens', ('time', {}), {
                     'doc': 'The time that the polling place is scheduled to open.'}),
+
                 ('closes', ('time', {}), {
                     'doc': 'The time that the polling place is scheduled to close.'}),
+
                 ('opened', ('time', {}), {
                     'doc': 'The time that the polling place opened.'}),
+
                 ('closed', ('time', {}), {
                     'doc': 'The time that the polling place closed.'}),
             )),

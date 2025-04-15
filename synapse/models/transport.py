@@ -282,35 +282,49 @@ modeldefs = (
             ('transport:land:drive', {}, ()),
 
             ('transport:land:license', {}, (
-                ('id', ('str', {'strip': True}), {
+
+                ('id', ('meta:id', {}), {
                     'doc': 'The license ID.'}),
+
                 # TODO type ( drivers license, commercial trucking, etc? )
                 ('contact', ('entity:actor', {}), {
                     'doc': 'The contact info of the licensee.'}),
+
                 ('issued', ('time', {}), {
                     'doc': 'The time the license was issued.'}),
+
                 ('expires', ('time', {}), {
                     'doc': 'The time the license expires.'}),
+
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the license.'}),
+
                 ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the org which issued the license.'}),
             )),
             ('transport:land:registration', {}, (
-                ('id', ('str', {'strip': True}), {
+
+                ('id', ('meta:id', {}), {
                     'doc': 'The vehicle registration ID or license plate.'}),
+
                 ('contact', ('entity:actor', {}), {
                     'doc': 'The contact info of the registrant.'}),
+
                 ('license', ('transport:land:license', {}), {
                     'doc': 'The license used to register the vehicle.'}),
+
                 ('issued', ('time', {}), {
                     'doc': 'The time the vehicle registration was issued.'}),
+
                 ('expires', ('time', {}), {
                     'doc': 'The time the vehicle registration expires.'}),
+
                 ('vehicle', ('transport:land:vehicle', {}), {
                     'doc': 'The vehicle being registered.'}),
+
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the registration.'}),
+
                 ('issuer:name', ('entity:name', {}), {
                     'doc': 'The name of the org which issued the registration.'}),
             )),
@@ -341,25 +355,33 @@ modeldefs = (
                     'doc': 'The type of aircraft.'}),
             )),
             ('transport:air:port', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the airport.'}),
+
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where the IATA airport code is assigned.'}),
             )),
             ('transport:air:tailnum:type:taxonomy', {}, ()),
             ('transport:air:tailnum', {}, (
+
                 ('loc', ('loc', {}), {
                     'doc': 'The geopolitical location that the tailnumber is allocated to.'}),
+
                 ('type', ('transport:air:tailnum:type:taxonomy', {}), {
                     'doc': 'A type which may be specific to the country prefix.'}),
             )),
             ('transport:air:flightnum', {}, (
+
                 ('carrier', ('ou:org', {}), {
                     'doc': 'The org which operates the given flight number.'}),
+
                 ('to:port', ('transport:air:port', {}), {
                     'doc': 'The most recently registered destination for the flight number.'}),
+
                 ('from:port', ('transport:air:port', {}), {
                     'doc': 'The most recently registered origin for the flight number.'}),
+
                 ('stops', ('array', {'type': 'transport:air:port'}), {
                     'doc': 'An ordered list of aiport codes for the flight segments.'}),
             )),
@@ -425,33 +447,48 @@ modeldefs = (
                     'doc': 'The contact information of the operator.'}),
                 # TODO tonnage / gross tonnage?
             )),
+            # FIXME vectorable interface?
             ('transport:sea:telem', {}, (
+
                 ('vessel', ('transport:sea:vessel', {}), {
                     'doc': 'The vessel being measured.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'The time the telemetry was sampled.'}),
+
                 ('latlong', ('geo:latlong', {}), {
                     'doc': 'The lat/lon of the vessel at the time.'}),
+
                 ('loc', ('loc', {}), {
                     'doc': 'The location of the vessel at the time.'}),
+
                 ('place', ('geo:place', {}), {
                     'doc': 'The place that the lat/lon geocodes to.'}),
+
                 ('accuracy', ('geo:dist', {}), {
                     'doc': 'The horizontal accuracy of the latlong sample.'}),
+
                 ('course', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the vessel is traveling.'}),
+
                 ('heading', ('transport:direction', {}), {
                     'doc': 'The direction, in degrees from true North, that the bow of the vessel is pointed.'}),
+
                 ('speed', ('velocity', {}), {
                     'doc': 'The speed of the vessel at the time.'}),
+
                 ('draft', ('geo:dist', {}), {
                     'doc': 'The keel depth at the time.'}),
+
                 ('airdraft', ('geo:dist', {}), {
                     'doc': 'The maximum height of the ship from the waterline.'}),
+
                 ('destination', ('geo:place', {}), {
                     'doc': 'The fully resolved destination that the vessel has declared.'}),
-                ('destination:name', ('geo:name', {}), {
+
+                ('destination:name', ('entity:name', {}), {
                     'doc': 'The name of the destination that the vessel has declared.'}),
+
                 ('destination:eta', ('time', {}), {
                     'doc': 'The estimated time of arrival that the vessel has declared.'}),
             )),
@@ -464,7 +501,7 @@ modeldefs = (
 
             ('transport:rail:train', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID assigned to the train.'}),
             )),
 

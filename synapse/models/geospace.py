@@ -397,7 +397,7 @@ modeldefs = (
                     ('place:loc', ('loc', {}), {
                         'doc': 'The geopolitical location of the {geo:locatable}.'}),
 
-                    ('place:name', ('geo:name', {}), {
+                    ('place:name', ('entity:name', {}), {
                         'doc': 'The name of the place where the {geo:locatable} was located.'}),
 
                     ('place:address', ('geo:address', {}), {
@@ -427,9 +427,6 @@ modeldefs = (
 
             ('geo:json', ('data', {'schema': geojsonschema}), {
                 'doc': 'GeoJSON structured JSON data.'}),
-
-            ('geo:name', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'An unstructured place name or address.'}),
 
             ('geo:place', ('guid', {}), {
                 'doc': 'A GUID for a geographic place.'}),
@@ -472,8 +469,6 @@ modeldefs = (
 
         'forms': (
 
-            ('geo:name', {}, ()),
-
             ('geo:telem', {}, (
 
                 ('time', ('time', {}), {
@@ -494,14 +489,14 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'A type specific identifier such as an airport ID.'}),
 
-                ('name', ('geo:name', {}), {
+                ('name', ('entity:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),
 
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                ('names', ('array', {'type': 'geo:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternative place names.'}),
 
                 ('desc', ('str', {}), {

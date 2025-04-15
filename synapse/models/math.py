@@ -29,7 +29,7 @@ modeldefs = (
 
             ('math:algorithm', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The name of the algorithm.'}),
 
                 ('type', ('math:algorithm:type:taxonomy', {}), {

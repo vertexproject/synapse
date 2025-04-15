@@ -13,9 +13,6 @@ modeldefs = (
             ('lang:translation', ('guid', {}), {
                 'doc': 'A translation of text from one language to another.'}),
 
-            ('lang:name', ('str', {'lower': True, 'onespace': True}), {
-                'doc': 'A name used to refer to a language.'}),
-
             ('lang:language', ('guid', {}), {
                 'doc': 'A specific written or spoken language.'}),
         ),
@@ -47,17 +44,15 @@ modeldefs = (
                     'doc': 'The translation engine version used.'}),
             )),
 
-            ('lang:name', {}, ()),
-
             ('lang:language', {}, (
 
                 ('code', ('lang:code', {}), {
                     'doc': 'The language code for this language.'}),
 
-                ('name', ('lang:name', {}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The primary name of the language.'}),
 
-                ('names', ('array', {'type': 'lang:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternative names for the language.'}),
 
                 ('skill', ('ps:skill', {}), {

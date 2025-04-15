@@ -105,7 +105,9 @@ modeldefs = (
                 'doc': 'An entity which has initiative to act.'}),
 
             ('entity:name', ('str', {'onespace': True, 'lower': True}), {
-                'prevnames': ('ps:name', 'ou:name'),
+                'prevnames': ('ps:name', 'ou:name', 'ou:industryname',
+                              'ou:campname', 'ou:goalname', 'lang:name',
+                              'risk:vulnname', 'it:prod:softname'),
                 'doc': 'A name used to refer to an entity.'}),
 
             ('entity:contact:type:taxonomy', ('taxonomy', {}), {

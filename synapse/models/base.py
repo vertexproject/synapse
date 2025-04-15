@@ -22,6 +22,9 @@ modeldefs = (
             ('meta:id', ('str', {'strip': True}), {
                 'doc': 'A case sensitive identifier string.'}),
 
+            ('meta:name', ('str', {'onespace': True, 'strip': True}), {
+                'doc': 'A case sensitive identifier string.'}),
+
             ('meta:feed', ('guid', {}), {
                 'doc': 'A data feed provided by a specific source.'}),
 
@@ -159,7 +162,7 @@ modeldefs = (
             ('meta:source:type:taxonomy', {}, ()),
             ('meta:source', {}, (
 
-                ('name', ('str', {'lower': True}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'A human friendly name for the source.'}),
 
                 ('type', ('meta:source:type:taxonomy', {}), {
@@ -181,7 +184,7 @@ modeldefs = (
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'A name for the feed.'}),
 
                 ('type', ('meta:feed:type:taxonomy', {}), {
@@ -281,7 +284,8 @@ modeldefs = (
                 'prevnames': ('meta:event:taxonomy',)}, ()),
 
             ('meta:ruleset', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+
+                ('name', ('entity:name', {}), {
                     'doc': 'A name for the ruleset.'}),
 
                 ('type', ('meta:ruleset:type:taxonomy', {}), {
@@ -290,36 +294,49 @@ modeldefs = (
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ruleset.'}),
+
                 ('author', ('entity:actor', {}), {
                     'doc': 'The contact information of the ruleset author.'}),
+
                 ('created', ('time', {}), {
                     'doc': 'The time the ruleset was initially created.'}),
+
                 ('updated', ('time', {}), {
                     'doc': 'The time the ruleset was most recently modified.'}),
             )),
 
             ('meta:rule:type:taxonomy', {}, ()),
             ('meta:rule', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+
+                ('id', ('meta:id', {}), {
+                    'prevnames': ('ext:id',),
+                    'doc': 'The rule ID.'}),
+
+                ('name', ('entity:name', {}), {
                     'doc': 'A name for the rule.'}),
+
                 ('type', ('meta:rule:type:taxonomy', {}), {
                     'doc': 'The rule type.'}),
+
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the rule.'}),
+
                 ('text', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The text of the rule logic.'}),
+
                 ('author', ('entity:actor', {}), {
                     'doc': 'The contact information of the rule author.'}),
+
                 ('created', ('time', {}), {
                     'doc': 'The time the rule was initially created.'}),
+
                 ('updated', ('time', {}), {
                     'doc': 'The time the rule was most recently modified.'}),
+
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL which documents the rule.'}),
-                ('ext:id', ('str', {}), {
-                    'doc': 'An external identifier for the rule.'}),
             )),
 
             ('meta:aggregate:type:taxonomy', {}, ()),

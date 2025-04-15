@@ -2921,7 +2921,7 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'The place that the message was sent from.'}),
 
-                ('place:name', ('geo:name', {}), {
+                ('place:name', ('entity:name', {}), {
                     'doc': 'The name of the place that the message was sent from.'}),
 
                 ('client:software', ('it:prod:softver', {}), {

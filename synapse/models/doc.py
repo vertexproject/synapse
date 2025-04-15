@@ -14,7 +14,7 @@ modeldefs = (
 
                 'props': (
 
-                    ('id', ('str', {'strip': True}), {
+                    ('id', ('meta:id', {}), {
                         'doc': 'The {document} ID.'}),
 
                     ('name', ('str', {'lower': True, 'onespace': True}), {

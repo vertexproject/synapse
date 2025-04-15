@@ -131,7 +131,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The issuer organization.'}),
 
-                ('name', ('str', {'lower': True}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'The registered name of the issuer.'}),
             )),
 
@@ -173,6 +173,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time of the purchase.'}),
 
+                # FIXME locatable
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where the purchase took place.'}),
 
@@ -272,7 +273,7 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where the payment occurred.'}),
 
-                ('place:name', ('geo:name', {}), {
+                ('place:name', ('entity:name', {}), {
                     'doc': 'The name of the place where the payment occurred.'}),
 
                 ('place:address', ('geo:address', {}), {
@@ -307,7 +308,7 @@ modeldefs = (
 
             ('econ:fin:exchange', {}, (
 
-                ('name', ('str', {'lower': True, 'strip': True}), {
+                ('name', ('entity:name', {}), {
                     'doc': 'A simple name for the exchange.',
                     'ex': 'nasdaq'}),
 

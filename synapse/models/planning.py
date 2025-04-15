@@ -32,7 +32,7 @@ modeldefs = (
         'forms': (
             ('plan:system', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('entity:name', {}), {
                     'ex': 'mitre att&ck flow',
                     'doc': 'The name of the planning system.'}),
 
@@ -110,11 +110,12 @@ modeldefs = (
             )),
             ('plan:procedure:variable', {}, (
 
-                ('name', ('str', {}), {
+                ('name', ('str', {'strip': True}), {
                     'doc': 'The name of the variable.'}),
 
+                # FIXME taxonomy (TODO: grep type)
                 ('type', ('str', {}), {
-                    'doc': 'The type for the input. Types are specific to the planning system.'}),
+                    'doc': 'The type for the input. Types are specific to the planning system.'}), 
 
                 ('default', ('data', {}), {
                     'doc': 'The optional default value if the procedure is invoked without the input.'}),
