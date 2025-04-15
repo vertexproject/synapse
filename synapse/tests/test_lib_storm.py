@@ -2834,6 +2834,75 @@ class StormTest(s_t_utils.SynTest):
             ]
             self.eq(exp, evnts)
 
+    async def test_storm_pkg_onload_active(self):
+        pkg = {
+            'name': 'testload',
+            'version': '0.3.0',
+            'modules': (
+                {
+                    'name': 'testload',
+                    'storm': 'function x() { return((0)) }',
+                },
+            ),
+            'onload': '''
+                $lib.print(testprint)
+                $lib.warn(testwarn)
+
+                $queue = $lib.queue.gen(onload:test)
+
+                $vers = $lib.globals.get(testload:version, (0))
+                $vers = ($vers + 1)
+                $lib.globals.set(testload:version, $vers)
+                $queue.put($vers)
+            '''
+        }
+
+        with self.getTestDir() as dirn:
+            dirn00 = s_common.gendir(dirn, 'core00')
+            dirn01 = s_common.gendir(dirn, 'core01')
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                waiter = core00.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
+
+                await core00.addStormPkg(pkg)
+
+                events = await waiter.wait(timeout=10)
+                self.eq(events, [
+                    ('core:pkg:onload:start', {'pkg': 'testload'}),
+                    ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                ])
+
+                self.eq((0, 1), await core00.callStorm('return($lib.queue.gen(onload:test).get((0), cull=(false)))'))
+
+            s_tools_backup.backup(dirn00, dirn01)
+
+            async with self.getTestCore(dirn=dirn00) as core00:
+
+                self.eq((1, 2), await core00.callStorm('return($lib.queue.gen(onload:test).get((1), cull=(false)))'))
+
+                conf01 = {'mirror': core00.getLocalUrl()}
+
+                async with self.getTestCore(dirn=dirn01, conf=conf01) as core01:
+
+                    await core01.sync()
+
+                    waiter = core01.waiter(2, 'core:pkg:onload:start', 'core:pkg:onload:complete')
+
+                    await core01.promote()
+
+                    events = await waiter.wait(timeout=10)
+                    self.eq(events, [
+                        ('core:pkg:onload:start', {'pkg': 'testload'}),
+                        ('core:pkg:onload:complete', {'pkg': 'testload'}),
+                    ])
+
+                    self.eq((2, 3), await core01.callStorm('return($lib.queue.gen(onload:test).get((2), cull=(false)))'))
+
+                await core01.waitfini()
+
+            await core00.waitfini()
+
     async def test_storm_tree(self):
 
         async with self.getTestCore() as core:
