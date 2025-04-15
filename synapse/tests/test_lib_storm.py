@@ -308,7 +308,7 @@ class StormTest(s_t_utils.SynTest):
             ''')
             self.eq('valu=12', retn)
 
-            q = "$hehe=({'k': 'v'}) $fs=$lib.str.format('{v}56', v=$hehe) return((`{$hehe}56`, $fs))"
+            q = "$hehe=({'k': 'v'}) $fs=`{$hehe}56` return((`{$hehe}56`, $fs))"
             retn = await core.callStorm(q)
             self.eq("{'k': 'v'}56", retn[0])
             self.eq(retn[0], retn[1])
@@ -2179,7 +2179,7 @@ class StormTest(s_t_utils.SynTest):
             [ ou:org=(cov,) ]
 
             { for $i in $lib.range(1001) {
-                $prop = $lib.str.format('_test{i}', i=$i)
+                $prop = `_test{$i}`
                 [ :$prop = $i
                   +#$prop:score = $i
                   +($i)> { ou:org=(cov,) }
@@ -5152,7 +5152,7 @@ class StormTest(s_t_utils.SynTest):
                 batch $lib.true --size 5 ${
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
-                    $lib.print($lib.str.join(',', $vals))
+                    $lib.print((',').join($vals))
                 }
             '''
             msgs = await core.stormlist(q)
@@ -5167,7 +5167,7 @@ class StormTest(s_t_utils.SynTest):
                 batch $lib.false --size 5 {
                     $vals=([])
                     for $n in $nodes { $vals.append($n.repr()) }
-                    $lib.print($lib.str.join(',', $vals))
+                    $lib.print((',').join($vals))
                 }
             '''
             msgs = await core.stormlist(q)
@@ -5273,7 +5273,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.stormHasNoErr(msgs)
 
-            await core.nodes('''$token=foo $lib.print(({"Authorization":$lib.str.format("Bearer {token}", token=$token)}))''')
+            await core.nodes('''$token=foo $lib.print(({"Authorization":`Bearer {$token}`}))''')
 
             q = '#rep.clearsky.dreamjob -># +syn:tag^=rep |uniq -syn:tag~=rep.clearsky'
             msgs = await core.stormlist(q)
@@ -5287,7 +5287,7 @@ class StormTest(s_t_utils.SynTest):
             msgs = await core.stormlist(q)
             self.stormIsInWarn('Failed to decode iden: [ssl://svcrs:27492?certname=root=bar]', msgs)
 
-            q = "$foo=one $bar=two $lib.print($lib.str.concat($foo, '=', $bar))"
+            q = "$foo=one $bar=two $lib.print(`{$foo}={$bar}`)"
             msgs = await core.stormlist(q)
             self.stormIsInPrint("one=two", msgs)
 
