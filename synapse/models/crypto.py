@@ -14,123 +14,138 @@ modeldefs = (
         'types': (
 
             ('crypto:currency:transaction', ('guid', {}), {
-                'doc': 'An individual crypto currency transaction recorded on the blockchain.',
-            }),
+                'doc': 'An individual crypto currency transaction recorded on the blockchain.'}),
+
             ('crypto:currency:block', ('comp', {'fields': (
                                                     ('coin', 'crypto:currency:coin'),
                                                     ('offset', 'int'),
                                                ), 'sepr': '/'}), {
-                'doc': 'An individual crypto currency block record on the blockchain.',
-            }),
+                'doc': 'An individual crypto currency block record on the blockchain.'}),
+
             ('crypto:smart:contract', ('guid', {}), {
-                'doc': 'A smart contract.',
-            }),
+                'doc': 'A smart contract.'}),
+
             ('crypto:smart:effect:transfertoken', ('guid', {}), {
-                'doc': 'A smart contract effect which transfers ownership of a non-fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which transfers ownership of a non-fungible token.'}),
+
             ('crypto:smart:effect:transfertokens', ('guid', {}), {
-                'doc': 'A smart contract effect which transfers fungible tokens.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which transfers fungible tokens.'}),
+
             ('crypto:smart:effect:edittokensupply', ('guid', {}), {
-                'doc': 'A smart contract effect which increases or decreases the supply of a fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which increases or decreases the supply of a fungible token.'}),
+
             ('crypto:smart:effect:minttoken', ('guid', {}), {
-                'doc': 'A smart contract effect which creates a new non-fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which creates a new non-fungible token.'}),
+
             ('crypto:smart:effect:burntoken', ('guid', {}), {
-                'doc': 'A smart contract effect which destroys a non-fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which destroys a non-fungible token.'}),
+
             ('crypto:smart:effect:proxytoken', ('guid', {}), {
-                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate a specific non-fungible token.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate a specific non-fungible token.'}),
+
             ('crypto:smart:effect:proxytokenall', ('guid', {}), {
-                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate all non-fungible tokens of the owner.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate all non-fungible tokens of the owner.'}),
+
             ('crypto:smart:effect:proxytokens', ('guid', {}), {
-                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.',
-                'interfaces': ('crypto:smart:effect',),
-            }),
+                'interfaces': (
+                    ('crypto:smart:effect', {}),
+                ),
+                'doc': 'A smart contract effect which grants a non-owner address the ability to manipulate fungible tokens.'}),
+
             # TODO crypto:smart:effect:call - call another smart contract
             # TODO crypto:smart:effect:giveproxy - grant your proxy for a token based vote
             ('crypto:payment:input', ('guid', {}), {
-                'doc': 'A payment made into a transaction.',
-            }),
+                'doc': 'A payment made into a transaction.'}),
+
             ('crypto:payment:output', ('guid', {}), {
-                'doc': 'A payment received from a transaction.',
-            }),
+                'doc': 'A payment received from a transaction.'}),
+
             ('crypto:smart:token', ('comp', {'fields': (('contract', 'crypto:smart:contract'), ('tokenid', 'hugenum'))}), {
-                'doc': 'A token managed by a smart contract.',
-            }),
+                'doc': 'A token managed by a smart contract.'}),
+
             ('crypto:currency:coin', ('str', {'lower': True}), {
-                'doc': 'An individual crypto currency type.',
                 'ex': 'btc',
-            }),
+                'doc': 'An individual crypto currency type.'}),
+
             ('crypto:currency:address', ('comp', {'fields': (('coin', 'crypto:currency:coin'), ('iden', 'str')), 'sepr': '/'}), {
 
-                'interfaces': ('econ:pay:instrument',),
+                'interfaces': (
+                    ('econ:pay:instrument', {}),
+                ),
                 'template': {
                     'instrument': 'crypto currency address'},
 
-                'doc': 'An individual crypto currency address.',
                 'ex': 'btc/1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2',
-            }),
+                'doc': 'An individual crypto currency address.'}),
+
             ('crypto:currency:client', ('comp', {'fields': (
                                                     ('inetaddr', 'inet:client'),
                                                     ('coinaddr', 'crypto:currency:address')
                                                 )}), {
-                'doc': 'A fused node representing a crypto currency address used by an Internet client.',
                 'ex': '(1.2.3.4, (btc, 1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2))',
-            }),
+                'doc': 'A fused node representing a crypto currency address used by an Internet client.'}),
 
             ('hash:md5', ('hex', {'size': 32}), {
-                'doc': 'A hex encoded MD5 hash.',
-                'ex': ex_md5
-            }),
+                'ex': ex_md5,
+                'doc': 'A hex encoded MD5 hash.'}),
+
             ('hash:sha1', ('hex', {'size': 40}), {
-                'doc': 'A hex encoded SHA1 hash.',
-                'ex': ex_sha1
-            }),
+                'ex': ex_sha1,
+                'doc': 'A hex encoded SHA1 hash.'}),
+
             ('hash:sha256', ('hex', {'size': 64}), {
-                'doc': 'A hex encoded SHA256 hash.',
-                'ex': ex_sha256
-            }),
+                'ex': ex_sha256,
+                'doc': 'A hex encoded SHA256 hash.'}),
+
             ('hash:sha384', ('hex', {'size': 96}), {
-                'doc': 'A hex encoded SHA384 hash.',
-                'ex': ex_sha384
-            }),
+                'ex': ex_sha384,
+                'doc': 'A hex encoded SHA384 hash.'}),
+
             ('hash:sha512', ('hex', {'size': 128}), {
-                'doc': 'A hex encoded SHA512 hash.',
-                'ex': ex_sha512
-            }),
+                'ex': ex_sha512,
+                'doc': 'A hex encoded SHA512 hash.'}),
+
             ('hash:lm', ('hex', {'size': 32}), {
-                'doc': 'A hex encoded Microsoft Windows LM password hash.',
-                'ex': ex_md5
-            }),
+                'ex': ex_md5,
+                'doc': 'A hex encoded Microsoft Windows LM password hash.'}),
+
             ('hash:ntlm', ('hex', {'size': 32}), {
-                'doc': 'A hex encoded Microsoft Windows NTLM password hash.',
-                'ex': ex_md5
-            }),
+                'ex': ex_md5,
+                'doc': 'A hex encoded Microsoft Windows NTLM password hash.'}),
 
             ('rsa:key', ('comp', {'fields': (('mod', 'hex'), ('pub:exp', 'int')), }), {
-                'doc': 'An RSA keypair modulus and public exponent.'
-            }),
+                'doc': 'An RSA keypair modulus and public exponent.'}),
+
             ('crypto:key', ('guid', {}), {
-                'doc': 'A cryptographic key and algorithm.',
-            }),
+                'doc': 'A cryptographic key and algorithm.'}),
+
             ('crypto:algorithm', ('str', {'lower': True, 'onespace': True}), {
                 'ex': 'aes256',
-                'doc': 'A cryptographic algorithm name.'
-            }),
+                'doc': 'A cryptographic algorithm name.'}),
+
             ('crypto:x509:cert', ('guid', {}), {
-                'doc': 'A unique X.509 certificate.',
-            }),
+                'doc': 'A unique X.509 certificate.'}),
 
             ('crypto:x509:san', ('comp', {'fields': (('type', 'str'), ('value', 'str'))}), {
                 'doc': 'An X.509 Subject Alternative Name (SAN).',

@@ -2,15 +2,21 @@ modeldefs = (
     ('sci', {
         'types': (
             ('sci:hypothesis:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of hypothesis types.'}),
+
             ('sci:hypothesis', ('guid', {}), {
                 'doc': 'A hypothesis or theory.'}),
 
             # TODO link experiment to eventual procedure node
             ('sci:experiment:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of experiment types.'}),
+
             ('sci:experiment', ('guid', {}), {
                 'doc': 'An instance of running an experiment.'}),
 
@@ -22,10 +28,13 @@ modeldefs = (
         ),
 
         'edges': (
+            # FIXME tense
             (('sci:experiment', 'uses', None), {
                 'doc': 'The experiment used the target nodes when it was run.'}),
+
             (('sci:observation', 'has', None), {
                 'doc': 'The observations are summarized from the target nodes.'}),
+
             (('sci:evidence', 'has', None), {
                 'doc': 'The evidence includes observations from the target nodes.'}),
         ),

@@ -11,7 +11,9 @@ modeldefs = (
                 'doc': 'A procedure consisting of steps.'}),
 
             ('plan:procedure:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of procedure types.'}),
 
             ('plan:procedure:variable', ('guid', {}), {

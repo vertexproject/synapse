@@ -170,26 +170,24 @@ modeldefs = (
                 'doc': 'A single mobile telemetry measurement.'}),
 
             ('tel:mob:mcc', ('str', {'regex': '^[0-9]{3}$', 'strip': True}), {
-                'doc': 'ITU Mobile Country Code.',
-            }),
+                'doc': 'ITU Mobile Country Code.'}),
 
             ('tel:mob:mnc', ('str', {'regex': '^[0-9]{2,3}$', 'strip': True}), {
-                'doc': 'ITU Mobile Network Code.',
-            }),
+                'doc': 'ITU Mobile Network Code.'}),
 
             ('tel:mob:carrier', ('comp', {'fields': (('mcc', 'tel:mob:mcc'), ('mnc', 'tel:mob:mnc'))}), {
-                'doc': 'The fusion of a MCC/MNC.'
-            }),
+                'doc': 'The fusion of a MCC/MNC.'}),
 
             ('tel:mob:cell:radio:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of cell radio types.'}),
 
             ('tel:mob:cell', ('comp', {'fields': (('carrier', 'tel:mob:carrier'),
                                                   ('lac', ('int', {})),
                                                   ('cid', ('int', {})))}), {
-                'doc': 'A mobile cell site which a phone may connect to.'
-            }),
+                'doc': 'A mobile cell site which a phone may connect to.'}),
 
         ),
 

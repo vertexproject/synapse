@@ -389,15 +389,16 @@ modeldefs = (
         'interfaces': (
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
-                'template': {'geo:locatable': 'item'},
+                'template': {'prefix': 'place', 'geo:locatable': 'item'},
+                'prefix': 'place',
                 'props': (
-                    ('place', ('geo:place', {}), {
+                    ('', ('geo:place', {}), {
                         'doc': 'The place where the {geo:locatable} was located.'}),
 
-                    ('place:loc', ('loc', {}), {
+                    ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location of the {geo:locatable}.'}),
 
-                    ('place:name', ('entity:name', {}), {
+                    ('name', ('entity:name', {}), {
                         'doc': 'The name of the place where the {geo:locatable} was located.'}),
 
                     ('place:address', ('geo:address', {}), {
@@ -421,7 +422,10 @@ modeldefs = (
         'types': (
 
             ('geo:telem', ('guid', {}), {
-                'interfaces': ('phys:object', 'geo:locatable'),
+                'interfaces': (
+                    ('phys:object', {}),
+                    ('geo:locatable', {}),
+                ),
                 'template': {'phys:object': 'object', 'geo:locatable': 'object'},
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
@@ -432,7 +436,9 @@ modeldefs = (
                 'doc': 'A GUID for a geographic place.'}),
 
             ('geo:place:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of place types.',
             }),
 

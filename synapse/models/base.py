@@ -29,7 +29,9 @@ modeldefs = (
                 'doc': 'A data feed provided by a specific source.'}),
 
             ('meta:feed:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy',{}),
+                ),
                 'doc': 'A data feed type taxonomy.'}),
 
             ('meta:source', ('guid', {}), {
@@ -42,36 +44,48 @@ modeldefs = (
                 'doc': 'An analyst note about nodes linked with -(about)> edges.'}),
 
             ('meta:note:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of note types.'}),
 
             ('meta:source:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of source types.'}),
 
             ('meta:timeline', ('guid', {}), {
                 'doc': 'A curated timeline of analytically relevant events.'}),
 
             ('meta:timeline:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of timeline types.'}),
 
             ('meta:event', ('guid', {}), {
                 'doc': 'An analytically relevant event in a curated timeline.'}),
 
             ('meta:event:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of event types.'}),
 
             ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy',{}),
+                ),
                 'doc': 'A taxonomy for meta:ruleset types.'}),
 
             ('meta:ruleset', ('guid', {}), {
                 'doc': 'A set of rules linked with -(has)> edges.'}),
 
             ('meta:rule:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of rule types.'}),
 
             ('meta:rule', ('guid', {}), {
@@ -90,7 +104,9 @@ modeldefs = (
                 'doc': 'A sophistication score with named values: very low, low, medium, high, and very high.'}),
 
             ('meta:aggregate:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A type of item being counted in aggregate.'}),
 
             ('meta:aggregate', ('guid', {}), {
@@ -267,6 +283,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'A prose summary of the event.'}),
 
+                # FIXME period
                 ('time', ('time', {}), {
                     'doc': 'The time that the event occurred.'}),
 
@@ -295,6 +312,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the ruleset.'}),
 
+                # FIXME authored interface?
                 ('author', ('entity:actor', {}), {
                     'doc': 'The contact information of the ruleset author.'}),
 
@@ -306,6 +324,7 @@ modeldefs = (
             )),
 
             ('meta:rule:type:taxonomy', {}, ()),
+            # FIXME doc:document interface
             ('meta:rule', {}, (
 
                 ('id', ('meta:id', {}), {
@@ -340,6 +359,7 @@ modeldefs = (
             )),
 
             ('meta:aggregate:type:taxonomy', {}, ()),
+            # FIXME valuable?
             ('meta:aggregate', {}, (
 
                 ('type', ('meta:aggregate:type:taxonomy', {}), {

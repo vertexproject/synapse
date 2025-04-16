@@ -608,23 +608,34 @@ modeldefs = (
                 'doc': 'The name of a host or system.'}),
 
             ('it:host', ('guid', {}), {
-                'interfaces': ('inet:service:object', 'phys:object'),
-                'template': {'service:base': 'host', 'phys:object': 'physical host'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'host'}}),
+
+                    ('phys:object', {
+                        'template': {'phys:object': 'physical host'}}),
+                ),
                 'doc': 'A GUID that represents a host or system.'}),
 
             ('it:log:event:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of log event types.',
             }),
             ('it:log:event', ('guid', {}), {
                 'doc': 'A GUID representing an individual log event.',
-                'interfaces': ('it:host:activity',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
             }),
             ('it:network', ('guid', {}), {
                 'doc': 'A GUID that represents a logical network.'}),
 
             ('it:network:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of network types.'}),
 
             ('it:domain', ('guid', {}), {
@@ -644,7 +655,9 @@ modeldefs = (
             }),
             ('it:screenshot', ('guid', {}), {
                 'doc': 'A screenshot of a host.',
-                'interfaces': ('it:host:activity',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
             }),
             ('it:sec:cve', ('str', {'lower': True, 'replace': s_chop.unicode_dashes_replace,
                                     'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
@@ -731,84 +744,106 @@ modeldefs = (
                 'doc': 'A Windows registry key/value pair.',
             }),
             ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of repository types.',
-            }),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of repository types.'}),
+
             ('it:dev:repo:label', ('guid', {}), {
-                'doc': 'A developer selected label.',
-            }),
+                'doc': 'A developer selected label.'}),
+
             ('it:dev:repo', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository'},
-                'doc': 'A version control system instance.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository'}}),
+                ),
+                'doc': 'A version control system instance.'}),
+
             ('it:dev:repo:remote', ('guid', {}), {
-                'doc': 'A remote repo that is tracked for changes/branches/etc.',
-            }),
+                'doc': 'A remote repo that is tracked for changes/branches/etc.'}),
+
             ('it:dev:repo:branch', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository branch'},
-                'doc': 'A branch in a version control system instance.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository branch'}}),
+                ),
+                'doc': 'A branch in a version control system instance.'}),
+
             ('it:dev:repo:commit', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository commit'},
-                'doc': 'A commit to a repository.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository commit'}}),
+                ),
+                'doc': 'A commit to a repository.'}),
+
             ('it:dev:repo:diff', ('guid', {}), {
-                'doc': 'A diff of a file being applied in a single commit.',
-            }),
+                'doc': 'A diff of a file being applied in a single commit.'}),
+
             ('it:dev:repo:issue:label', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository issue label'},
-                'doc': 'A label applied to a repository issue.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository issue label'}}),
+                ),
+                'doc': 'A label applied to a repository issue.'}),
+
             ('it:dev:repo:issue', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository issue'},
-                'doc': 'An issue raised in a repository.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository issue'}}),
+                ),
+                'doc': 'An issue raised in a repository.'}),
+
             ('it:dev:repo:issue:comment', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository issue comment'},
-                'doc': 'A comment on an issue in a repository.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository issue comment'}}),
+                ),
+                'doc': 'A comment on an issue in a repository.'}),
+
             ('it:dev:repo:diff:comment', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository diff comment'},
-                'doc': 'A comment on a diff in a repository.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository diff comment'}}),
+                ),
+                'doc': 'A comment on a diff in a repository.'}),
+
+            # FIXME
             ('it:prod:soft', ('guid', {}), {
-                'doc': 'A software product.',
-            }),
+                'doc': 'A software product.'}),
+
+            # FIXME
             ('it:prod:softname', ('str', {'onespace': True, 'lower': True}), {
-                'doc': 'A software product name.',
-            }),
+                'doc': 'A software product name.'}),
+
+            # FIXME
             ('it:prod:soft:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of software types.',
             }),
             ('it:prod:softid', ('guid', {}), {
                 'doc': 'An identifier issued to a given host by a specific software application.'}),
 
             ('it:prod:hardware', ('guid', {}), {
-                'doc': 'A specification for a piece of IT hardware.',
-            }),
+                'doc': 'A specification for a piece of IT hardware.'}),
+
             ('it:prod:component', ('guid', {}), {
-                'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.',
-            }),
+                'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.'}),
+
             ('it:prod:hardware:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of IT hardware types.',
-            }),
-            ('it:adid', ('str', {'lower': True, 'strip': True}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of IT hardware types.'}),
+
+            ('it:adid', ('meta:id', {}), {
                 'doc': 'An advertising identification string.'}),
 
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
             ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
-                'doc': 'A Microsoft Windows Security Identifier.',
                 'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
-            }),
+                'doc': 'A Microsoft Windows Security Identifier.'}),
 
             ('it:os:android:perm', ('str', {}), {
                 'doc': 'An android permission string.'}),
@@ -856,8 +891,7 @@ modeldefs = (
                 'doc': 'The software version is known to be compatible with the given os software version.'}),
 
             ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
-               'doc': 'A version of a software product which is present on a given host.',
-            }),
+               'doc': 'A version of a software product which is present on a given host.'}),
 
             ('it:av:signame', ('str', {'lower': True}), {
                 'doc': 'An antivirus signature name.'}),
@@ -866,24 +900,32 @@ modeldefs = (
                 'doc': 'The result of running an antivirus scanner.'}),
 
             ('it:auth:passwdhash', ('guid', {}), {
-                'doc': 'An instance of a password hash.',
-            }),
+                'doc': 'An instance of a password hash.'}),
+
             ('it:exec:proc', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.'}),
+
             ('it:exec:thread', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A thread executing in a process.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A thread executing in a process.'}),
+
             ('it:exec:loadlib', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A library load event in a process.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A library load event in a process.'}),
+
             ('it:exec:mmap', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A memory mapped segment located in a process.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A memory mapped segment located in a process.'}),
+
             ('it:cmd', ('str', {'strip': True}), {
                 'doc': 'A unique command-line string.',
                 'ex': 'foo.exe --dostuff bar'}),
@@ -895,107 +937,135 @@ modeldefs = (
                 'doc': 'A single command executed within a session.'}),
 
             ('it:query', ('str', {'strip': True}), {
-                'doc': 'A unique query string.',
-            }),
+                'doc': 'A unique query string.'}),
+
             ('it:exec:query', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of an executed query.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of an executed query.'}),
+
             ('it:exec:mutex', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A mutex created by a process at runtime.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A mutex created by a process at runtime.'}),
+
             ('it:exec:pipe', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'doc': 'A named pipe created by a process at runtime.'}),
 
             ('it:exec:url', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
 
             ('it:exec:bind', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host binding a listening port.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host binding a listening port.'}),
+
             ('it:fs:file', ('guid', {}), {
-                'doc': 'A file on a host.'
-            }),
+                'doc': 'A file on a host.'}),
+
             ('it:exec:file:add', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host adding a file to a filesystem.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host adding a file to a filesystem.'}),
+
             ('it:exec:file:del', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host deleting a file from a filesystem.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host deleting a file from a filesystem.'}),
+
             ('it:exec:file:read', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host reading a file from a filesystem.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host reading a file from a filesystem.'}),
+
             ('it:exec:file:write', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host writing a file to a filesystem.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host writing a file to a filesystem.'}),
+
             ('it:exec:reg:get', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host getting a registry key.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host getting a registry key.', }),
             ('it:exec:reg:set', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host creating or setting a registry key.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host creating or setting a registry key.', }),
             ('it:exec:reg:del', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host deleting a registry key.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host deleting a registry key.', }),
+
             ('it:app:yara:rule', ('guid', {}), {
-                'doc': 'A YARA rule unique identifier.',
-            }),
+                'doc': 'A YARA rule unique identifier.'}),
+
             ('it:sec:stix:bundle', ('guid', {}), {
-                'doc': 'A STIX bundle.',
-            }),
+                'doc': 'A STIX bundle.'}),
+
             ('it:sec:stix:indicator', ('guid', {}), {
-                'doc': 'A STIX indicator pattern.',
-            }),
+                'doc': 'A STIX indicator pattern.'}),
+
             ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
-                'doc': 'A YARA rule match to a file.',
-            }),
+                'doc': 'A YARA rule match to a file.'}),
+
             ('it:app:yara:netmatch', ('guid', {}), {
-                'doc': 'An instance of a YARA rule network hunting match.',
-            }),
+                'doc': 'An instance of a YARA rule network hunting match.'}),
+
             ('it:app:yara:procmatch', ('guid', {}), {
-                'doc': 'An instance of a YARA rule match to a process.',
-            }),
+                'doc': 'An instance of a YARA rule match to a process.'}),
+
             ('it:app:snort:rule', ('guid', {}), {
-                'doc': 'A snort rule.',
-            }),
+                'doc': 'A snort rule.'}),
+
             ('it:app:snort:hit', ('guid', {}), {
-                'doc': 'An instance of a snort rule hit.',
-            }),
+                'doc': 'An instance of a snort rule hit.'}),
+
             ('it:reveng:function', ('guid', {}), {
-                'doc': 'A function inside an executable.',
-            }),
+                'doc': 'A function inside an executable.'}),
+
             ('it:reveng:filefunc', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
-                'doc': 'An instance of a function in an executable.',
-            }),
+                'doc': 'An instance of a function in an executable.'}),
+
             ('it:reveng:impfunc', ('str', {'lower': True}), {
-                'doc': 'A function from an imported library.',
-            }),
+                'doc': 'A function from an imported library.'}),
+
             ('it:sec:c2:config', ('guid', {}), {
                 'doc': 'An extracted C2 config from an executable.'}),
 
             ('it:host:tenancy', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'host tenancy'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'host tenancy'}}),
+                ),
                 'doc': 'A time window where a host was a tenant run by another host.'}),
 
             ('it:software:image:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of software image types.'}),
 
             ('it:software:image', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'software image'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'software image'}}),
+                ),
                 'doc': 'The base image used to create a container or OS.'}),
 
             ('it:storage:mount', ('guid', {}), {
@@ -1006,9 +1076,10 @@ modeldefs = (
 
             ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
                 'ex': 'network.smb',
-                'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of storage volume types.',
-            }),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of storage volume types.'}),
         ),
         'interfaces': (
             ('it:host:activity', {

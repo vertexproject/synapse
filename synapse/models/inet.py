@@ -1209,7 +1209,9 @@ modeldefs = (
                 'doc': 'An individual network connection between a given source and destination.'}),
 
             ('inet:tunnel:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of tunnel types.'}),
 
             ('inet:tunnel', ('guid', {}), {
@@ -1240,57 +1242,51 @@ modeldefs = (
                 'doc': 'An HTTP session.'}),
 
             ('inet:http:request', ('guid', {}), {
-                'interfaces': ('inet:proto:request',),
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
                 'doc': 'A single HTTP request.'}),
 
             ('inet:iface:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of network interface types.'}),
 
             ('inet:iface', ('guid', {}), {
-                'doc': 'A network interface with a set of associated protocol addresses.'
-            }),
+                'doc': 'A network interface with a set of associated protocol addresses.'}),
 
             ('inet:mac', ('str', {'lower': True, 'regex': '^([0-9a-f]{2}[:]){5}([0-9a-f]{2})$'}), {
-                'doc': 'A 48-bit Media Access Control (MAC) address.',
-                'ex': 'aa:bb:cc:dd:ee:ff'
-            }),
+                'ex': 'aa:bb:cc:dd:ee:ff',
+                'doc': 'A 48-bit Media Access Control (MAC) address.'}),
 
             ('inet:net', ('inet:iprange', {}), {
-                'doc': 'An IP address range.',
-                'ex': '(1.2.3.4, 1.2.3.20)'
-            }),
+                'ex': '(1.2.3.4, 1.2.3.20)',
+                'doc': 'An IP address range.'}),
 
             ('inet:passwd', ('str', {}), {
-                'doc': 'A password string.'
-            }),
+                'doc': 'A password string.'}),
 
             ('inet:port', ('int', {'min': 0, 'max': 0xffff}), {
-                'doc': 'A network port.',
-                'ex': '80'
-            }),
+                'ex': '80',
+                'doc': 'A network port.' }),
 
             ('inet:server', ('inet:sockaddr', {}), {
-                'doc': 'A network server address.'
-            }),
+                'doc': 'A network server address.'}),
 
             ('inet:banner', ('comp', {'fields': (('server', 'inet:server'), ('text', 'it:dev:str'))}), {
-                'doc': 'A network protocol banner string presented by a server.',
-            }),
+                'doc': 'A network protocol banner string presented by a server.'}),
 
             ('inet:servfile', ('comp', {'fields': (('server', 'inet:server'), ('file', 'file:bytes'))}), {
-                'doc': 'A file hosted on a server for access over a network protocol.',
-            }),
+                'doc': 'A file hosted on a server for access over a network protocol.'}),
 
             ('inet:urlfile', ('comp', {'fields': (('url', 'inet:url'), ('file', 'file:bytes'))}), {
-                'doc': 'A file hosted at a specific Universal Resource Locator (URL).'
-            }),
+                'doc': 'A file hosted at a specific Universal Resource Locator (URL).'}),
 
             ('inet:urlredir', ('comp', {'fields': (('src', 'inet:url'), ('dst', 'inet:url'))}), {
+                'ex': '(http://foo.com/,http://bar.com/)',
                 'doc': 'A URL that redirects to another URL, such as via a URL shortening service '
-                       'or an HTTP 302 response.',
-                'ex': '(http://foo.com/,http://bar.com/)'
-            }),
+                       'or an HTTP 302 response.'}),
 
             ('inet:url:mirror', ('comp', {'fields': (('of', 'inet:url'), ('at', 'inet:url'))}), {
                 'doc': 'A URL mirror site.'}),
@@ -1302,7 +1298,9 @@ modeldefs = (
                 'doc': 'An ndef type including all forms which implement the inet:service:object interface.'}),
 
             ('inet:search:query', ('guid', {}), {
-                'interfaces': ('inet:service:action',),
+                'interfaces': (
+                    ('inet:service:action', {}),
+                ),
                 'doc': 'An instance of a search query issued to a search engine.',
             }),
 
@@ -1402,73 +1400,103 @@ modeldefs = (
                 'doc': 'An object status enumeration.'}),
 
             ('inet:service:account', ('guid', {}), {
-                'interfaces': ('inet:service:subscriber',),
-                'template': {'service:base': 'account', 'contactable': 'account'},
+                'interfaces': (
+                    ('inet:service:subscriber', {
+                        'template': {'service:base': 'account', 'contactable': 'account'}}),
+                ),
                 'doc': 'An account within a service platform. Accounts may be instance specific.'}),
 
             ('inet:service:relationship:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A service object relationship type taxonomy.'}),
 
             ('inet:service:relationship', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'relationship'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'relationship'}}),
+                ),
                 'doc': 'A relationship between two service objects.'}),
 
             ('inet:service:permission:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of service permission types.'}),
 
             ('inet:service:permission', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'permission'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'permission'}}),
+                ),
                 'doc': 'A permission which may be granted to a service account or role.'}),
 
             ('inet:service:rule', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'rule'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'rule'}}),
+                ),
                 'doc': 'A rule which grants or denies a permission to a service account or role.'}),
 
             ('inet:service:login', ('guid', {}), {
-                'interfaces': ('inet:service:action',),
+                'interfaces': (
+                    ('inet:service:action', {}),
+                ),
                 'doc': 'A login event for a service account.'}),
 
             ('inet:service:login:method:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of service login methods.'}),
 
             ('inet:service:session', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'session'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'session'}}),
+                ),
                 'doc': 'An authenticated session.'}),
 
             ('inet:service:group', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'group'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'group'}}),
+                ),
                 'doc': 'A group or role which contains member accounts.'}),
 
             ('inet:service:group:member', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'group membership'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'group membership'}}),
+                ),
                 'doc': 'Represents a service account being a member of a group.'}),
 
             ('inet:service:channel', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'channel'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'channel'}}),
+                ),
                 'doc': 'A channel used to distribute messages.'}),
 
             ('inet:service:thread', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'thread'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'thread'}}),
+                ),
                 'doc': 'A message thread.'}),
 
             ('inet:service:channel:member', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'channel membership'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'channel membership'}}),
+                ),
                 'doc': 'Represents a service account being a member of a channel.'}),
 
             ('inet:service:message', ('guid', {}), {
-                'interfaces': ('inet:service:action',),
+                'interfaces': (
+                    ('inet:service:action', {}),
+                ),
                 'doc': 'A message or post created by an account.'}),
 
             ('inet:service:message:link', ('guid', {}), {
@@ -1478,52 +1506,72 @@ modeldefs = (
                 'doc': 'A file attachment included within a message.'}),
 
             ('inet:service:message:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of message types.'}),
 
             ('inet:service:emote', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'emote'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'emote'}}),
+                ),
                 'doc': 'An emote or reaction by an account.'}),
 
             ('inet:service:access', ('guid', {}), {
-                'interfaces': ('inet:service:action',),
+                'interfaces': (
+                    ('inet:service:action', {}),
+                ),
                 'doc': 'Represents a user access request to a service resource.'}),
 
             ('inet:service:tenant', ('guid', {}), {
-                'interfaces': ('inet:service:subscriber',),
-                'template': {'service:base': 'tenant', 'contactable': 'tenant'},
+                'interfaces': (
+                    ('inet:service:subscriber', {
+                        'template': {'service:base': 'tenant', 'contactable': 'tenant'}}),
+                ),
                 'doc': 'A tenant which groups accounts and instances.'}),
 
             ('inet:service:subscription:level:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of platform specific subscription levels.'}),
 
             ('inet:service:subscription', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'subscription'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'subscription'}}),
+                ),
                 'doc': 'A subscription to a service platform or instance.'}),
 
             ('inet:service:subscriber', ('ndef', {'interface': 'inet:service:subscriber'}), {
                 'doc': 'A node which may subscribe to a service subscription.'}),
 
             ('inet:service:resource:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of service resource types.'}),
 
             ('inet:service:resource', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'resource'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'resource'}}),
+                ),
                 'doc': 'A generic resource provided by the service architecture.'}),
 
             ('inet:service:bucket', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'bucket'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'bucket'}}),
+                ),
                 'doc': 'A file/blob storage object within a service architecture.'}),
 
             ('inet:service:bucket:item', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'bucket item'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'bucket item'}}),
+                ),
                 'doc': 'An individual file stored within a bucket.'}),
 
             ('inet:tls:handshake', ('guid', {}), {
@@ -1551,8 +1599,9 @@ modeldefs = (
             ('inet:proto:request', {
 
                 'doc': 'Properties common to network protocol requests and responses.',
-                'interfaces': ('it:host:activity',),
-
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'props': (
                     ('flow', ('inet:flow', {}), {
                         'doc': 'The raw inet:flow containing the request.'}),
@@ -1590,8 +1639,10 @@ modeldefs = (
             ('inet:service:object', {
 
                 'doc': 'Properties common to objects within a service platform.',
-                'interfaces': ('inet:service:base',),
-                'template': {'service:base': 'object'},
+                'interfaces': (
+                    ('inet:service:base', {
+                        'template': {'service:base': 'object'}}),
+                ),
                 'props': (
 
                     ('url', ('inet:url', {}), {
@@ -1614,14 +1665,21 @@ modeldefs = (
 
             ('inet:service:subscriber', {
                 'doc': 'Properties common to the nodes which subscribe to services.',
-                'interfaces': ('inet:service:object', 'entity:abstract'),
-                'template': {'service:base': 'subscriber', 'contactable': 'subscriber'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'subscriber'}}),
+
+                    ('entity:abstract', {
+                        'template': {'contactable': 'subscriber'}}),
+                ),
             }),
 
             ('inet:service:action', {
 
                 'doc': 'Properties common to events within a service platform.',
-                'interfaces': ('inet:service:base',),
+                'interfaces': (
+                    ('inet:service:base', {}),
+                ),
                 'props': (
 
                     ('time', ('time', {}), {

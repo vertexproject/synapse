@@ -65,7 +65,9 @@ modeldefs = (
                 'doc': 'A GUID for a news article or report.'}),
 
             ('media:news:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of news types.',
             }),
 

@@ -5,6 +5,10 @@ modeldefs = (
                 'doc': 'A course of study taught by an org.'}),
 
             ('edu:class', ('guid', {}), {
+                'interfaces': (
+                    # FIXME attendable?
+                    ('geo:locatable', {}),
+                ),
                 'doc': 'An instance of an edu:course taught at a given time.'}),
 
             ('ps:education', ('guid', {}), {
@@ -14,8 +18,10 @@ modeldefs = (
                 'doc': 'An instance of an individual receiving an award.'}),
 
             ('ps:person', ('guid', {}), {
-                'interfaces': ('entity:actor',),
-                'template': {'contactable': 'person'},
+                'interfaces': (
+                    ('entity:actor', {
+                        'template': {'contactable': 'person'}}),
+                ),
                 'aliases': (
                     ('dob', {'target': 'lifespan*min',
                         'doc': 'The date of birth for the entity.'}),
@@ -29,8 +35,10 @@ modeldefs = (
                 'doc': "An entry in a contact's work history."}),
 
             ('ps:vitals', ('guid', {}), {
-                'interfaces': ('phys:object',),
-                'template': {'phys:object': 'person'},
+                'interfaces': (
+                    ('phys:object', {
+                        'template': {'phys:object': 'person'}}),
+                ),
                 'doc': 'Statistics and demographic data about a person or contact.'}),
 
             ('ps:skill', ('guid', {}), {
@@ -43,7 +51,9 @@ modeldefs = (
                 }}),
 
             ('ps:skill:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of skill types.'}),
 
             ('ps:proficiency', ('guid', {}), {
@@ -81,7 +91,7 @@ modeldefs = (
                     'doc': 'The reported name of the org the contact worked for.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
-                    'prevnames': ('orgname',),
+                    'prevnames': ('orgfqdn',),
                     'doc': 'The reported fqdn of the org the contact worked for.'}),
 
                 ('job:type', ('ou:job:type:taxonomy', {}), {
@@ -92,34 +102,41 @@ modeldefs = (
                     'doc': 'The type of employment.',
                     'prevnames': ('employment',)}),
 
-                ('jobtitle', ('ou:jobtitle', {}), {
-                    'doc': 'The job title.'}),
+                ('title', ('entity:title', {}), {
+                    'prevnames': ('jobtitle',),
+                    'doc': 'The title held by the contact.'}),
 
                 ('period', ('ival', {}), {
                     'prevnames': ('started', 'ended', 'duration'),
                     'doc': 'The period of time that the contact worked for the organization.'}),
 
+                # FIXME come up with a unversalized protocol for nested price/asof/currency
                 ('pay', ('econ:price', {}), {
                     'doc': 'The estimated/average yearly pay for the work.'}),
 
-                ('currency', ('econ:currency', {}), {
+                ('pay:asof', ('time', {}), {
+                    'doc': 'The time that the pay is adjusted for.'}),
+
+                ('pay:currency', ('econ:currency', {}), {
+                    'prevnames': ('currency',),
                     'doc': 'The currency that the yearly pay was delivered in.'}),
             )),
             ('edu:course', {}, (
 
                 # FIXME event names?
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('entity:name', {}), {
                     'ex': 'organic chemistry for beginners',
                     'doc': 'The name of the course.'}),
 
                 ('desc', ('str', {}), {
                     'doc': 'A brief course description.'}),
 
-                ('code', ('str', {'lower': True, 'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'ex': 'chem101',
-                    'doc': 'The course catalog number or designator.'}),
+                    'prevnames': ('code',),
+                    'doc': 'The course catalog number or ID.'}),
 
-                # FIXME
+                # FIXME actor? (educator?)
                 ('institution', ('ou:org', {}), {
                     'doc': 'The org or department which teaches the course.'}),
 
@@ -138,7 +155,7 @@ modeldefs = (
                 ('assistants', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of assistant/co-instructor contacts.'}),
 
-                ('period', ('ival', {'precision': 8, 'inclusive': True}), {
+                ('period', ('ival', {'precision': 'day', 'maxfill': 1}), {
                     'prevnames': ('date:first', 'date:last'),
                     'doc': 'The preiod over which the class was run.'}),
 
@@ -152,10 +169,6 @@ modeldefs = (
                     'doc': 'Contact info for the virtual infrastructure provider.'}),
 
                 # FIXME event interface?
-                # FIXME geo:locatable?
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place that the class is held.'}),
-
             )),
             ('ps:education', {}, (
 

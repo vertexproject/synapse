@@ -14,7 +14,9 @@ modeldefs = (
                 'doc': 'A trip such as a flight or train ride.'}),
 
             ('transport:stop', ('guid', {}), {
-                'interfaces': ('transport:schedule',),
+                'interfaces': (
+                    ('transport:schedule', {}),
+                ),
                 'doc': 'A stop made by a vehicle on a trip.'}),
 
             ('transport:container', ('ndef', {'interface': 'transport:container'}), {
@@ -27,19 +29,25 @@ modeldefs = (
                 'doc': 'An occupant of a vehicle on a trip.'}),
 
             ('transport:occupant:role:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of transportation occupant roles.'}),
 
             ('transport:direction', ('hugenum', {'modulo': 360}), {
                 'doc': 'A direction measured in degrees with 0.0 being true North.'}),
 
             ('transport:land:vehicle:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A type taxonomy for land vehicles.'}),
 
             ('transport:land:vehicle', ('guid', {}), {
-                'interfaces': ('transport:vehicle',),
-                'template': {'phys:object': 'vehicle'},
+                'interfaces': (
+                    ('transport:vehicle', {
+                        'template': {'phys:object': 'vehicle'}}),
+                ),
                 'doc': 'An individual land based vehicle.'}),
 
             ('transport:land:registration', ('guid', {}), {
@@ -49,25 +57,33 @@ modeldefs = (
                 'doc': 'A license to operate a land vehicle issued to a contact.'}),
 
             ('transport:air:craft:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of aircraft types.'}),
 
             ('transport:land:drive', ('guid', {}), {
-                'interfaces': ('transport:trip',),
-                'template': {
-                    'trip': 'drive',
-                    'gate': 'docking bay',
-                    'place': 'place',
-                    'vehicle': 'vehicle'},
+                'interfaces': (
+                    ('transport:trip', {
+                        'template': {
+                            'trip': 'drive',
+                            'gate': 'docking bay',
+                            'place': 'place',
+                            'vehicle': 'vehicle'}}),
+                ),
                 'doc': 'A drive taken by a land vehicle.'}),
 
             ('transport:air:craft', ('guid', {}), {
-                'interfaces': ('transport:vehicle',),
-                'template': {'phys:object': 'aircraft'},
+                'interfaces': (
+                    ('transport:vehicle', {
+                        'template': {'phys:object': 'aircraft'}}),
+                ),
                 'doc': 'An individual aircraft.'}),
 
             ('transport:air:tailnum:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of aircraft registration number types.'}),
 
             ('transport:air:tailnum', ('str', {'lower': True, 'strip': True, 'regex': '^[a-z0-9-]{2,}$'}), {
@@ -82,24 +98,30 @@ modeldefs = (
                 'doc': 'A telemetry sample from an aircraft in transit.'}),
 
             ('transport:air:flight', ('guid', {}), {
-                'interfaces': ('transport:trip',),
-                'template': {
-                    'trip': 'flight',
-                    'point': 'gate',
-                    'place': 'airport',
-                    'vehicle': 'aircraft'},
+                'interfaces': (
+                    ('transport:trip', {
+                        'template': {
+                            'trip': 'flight',
+                            'point': 'gate',
+                            'place': 'airport',
+                            'vehicle': 'aircraft'}}),
+                ),
                 'doc': 'An individual instance of a flight.'}),
 
             ('transport:air:port', ('str', {'lower': True}), {
                 'doc': 'An IATA assigned airport code.'}),
 
             ('transport:sea:vessel:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of sea vessel types.'}),
 
             ('transport:sea:vessel', ('guid', {}), {
-                'interfaces': ('transport:vehicle',),
-                'template': {'phys:object': 'vessel'},
+                'interfaces': (
+                    ('transport:vehicle', {
+                        'template': {'phys:object': 'vessel'}}),
+                ),
                 'doc': 'An individual sea vessel.'}),
 
             ('transport:sea:mmsi', ('str', {'regex': '[0-9]{9}'}), {
@@ -112,39 +134,51 @@ modeldefs = (
                 'doc': 'A telemetry sample from a vessel in transit.'}),
 
             ('transport:rail:train', ('guid', {}), {
-                'interfaces': ('transport:trip',),
-                'template': {
-                    'point': 'gate',
-                    'place': 'station',
-                    'trip': 'train trip',
-                    'vehicle': 'train'},
+                'interfaces': (
+                    ('transport:trip', {
+                        'template': {
+                            'point': 'gate',
+                            'place': 'station',
+                            'trip': 'train trip',
+                            'vehicle': 'train'}}),
+                ),
                 'doc': 'An individual instance of a consist of train cars running a route.'}),
 
             ('transport:rail:car:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'ex': 'engine.diesel',
                 'doc': 'A hierarchical taxonomy of rail car types.'}),
 
             ('transport:rail:car', ('guid', {}), {
-                'interfaces': ('transport:container',),
-                'template': {'phys:object': 'train car'},
+                'interfaces': (
+                    ('transport:container', {
+                        'template': {'phys:object': 'train car'}}),
+                ),
                 'doc': 'An individual train car.'}),
 
             ('transport:rail:consist', ('guid', {}), {
-                'interfaces': ('transport:vehicle',),
-                'template': {'phys:object': 'train'},
+                'interfaces': (
+                    ('transport:vehicle', {
+                        'template': {'phys:object': 'train'}}),
+                ),
                 'doc': 'A group of rail cars and locomotives connected together.'}),
 
             ('transport:shipping:container', ('guid', {}), {
-                'interfaces': ('transport:container',),
-                'template': {'phys:object': 'shipping container'},
+                'interfaces': (
+                    ('transport:container', {
+                        'template': {'phys:object': 'shipping container'}}),
+                ),
                 'doc': 'An individual shipping container.'}),
 
         ),
         'interfaces': (
 
             ('transport:container', {
-                'interfaces': ('phys:object',),
+                'interfaces': (
+                    ('phys:object', {}),
+                ),
                 'doc': 'Properties common to a container used to transport cargo or people.',
                 'props': (
 
@@ -179,8 +213,10 @@ modeldefs = (
             }),
             # most containers are vehicles, but some are not...
             ('transport:vehicle', {
-                'interfaces': ('transport:container',),
-                'templates': {'phys:object': 'vehicle'},
+                'interfaces': (
+                    ('transport:container', {
+                        'templates': {'phys:object': 'vehicle'}}),
+                ),
                 'doc': 'Properties common to a vehicle.',
                 'props': (
                     ('operator', ('entity:actor', {}), {
@@ -245,8 +281,9 @@ modeldefs = (
             ('transport:trip', {
                 # train, flight, drive, launch...
                 'doc': 'Properties common to a specific trip taken by a vehicle.',
-                'interfaces': ('transport:schedule',),
-
+                'interfaces': (
+                    ('transport:schedule', {}),
+                ),
                 'props': (
 
                     ('status', ('str', {'enums': 'scheduled,cancelled,in-progress,completed,aborted,failed,unknown'}), {

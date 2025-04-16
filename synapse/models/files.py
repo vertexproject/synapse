@@ -288,7 +288,9 @@ modeldefs = (
                         'doc': 'The last_saved_time extracted from Microsoft Office metadata.'}),
                 ),
                 'doc': 'Properties common to various microsoft office file formats.',
-                'interfaces': ('file:mime:meta',),
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
             }),
             ('file:mime:image', {
                 'props': (
@@ -310,7 +312,9 @@ modeldefs = (
                         'doc': 'The text contained within the image.'}),
                 ),
                 'doc': 'Properties common to image file formats.',
-                'interfaces': ('file:mime:meta',),
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
             }),
             ('file:mime:macho:loadcmd', {
                 'props': (
@@ -359,42 +363,58 @@ modeldefs = (
 
             ('file:mime:msdoc', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.',
-                'interfaces': ('file:mime:msoffice',),
+                'interfaces': (
+                    ('file:mime:msoffice', {}),
+                ),
             }),
 
             ('file:mime:msxls', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a Microsoft Excel file.',
-                'interfaces': ('file:mime:msoffice',),
+                'interfaces': (
+                    ('file:mime:msoffice', {}),
+                ),
             }),
 
             ('file:mime:msppt', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.',
-                'interfaces': ('file:mime:msoffice',),
+                'interfaces': (
+                    ('file:mime:msoffice', {}),
+                ),
             }),
 
             ('file:mime:rtf', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a .rtf file.',
-                'interfaces': ('file:mime:meta',),
+                'interfaces': (
+                    ('file:mime:meta', {}),
+                ),
             }),
 
             ('file:mime:jpg', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a .jpg file.',
-                'interfaces': ('file:mime:image',),
+                'interfaces': (
+                    ('file:mime:image', {}),
+                ),
             }),
 
             ('file:mime:tif', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a .tif file.',
-                'interfaces': ('file:mime:image',),
+                'interfaces': (
+                    ('file:mime:image', {}),
+                ),
             }),
 
             ('file:mime:gif', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a .gif file.',
-                'interfaces': ('file:mime:image',),
+                'interfaces': (
+                    ('file:mime:image', {}),
+                ),
             }),
 
             ('file:mime:png', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a .png file.',
-                'interfaces': ('file:mime:image',),
+                'interfaces': (
+                    ('file:mime:image', {}),
+                ),
             }),
 
             ('file:mime:pe:section', ('comp', {'fields': (
@@ -437,22 +457,30 @@ modeldefs = (
 
             ('file:mime:macho:loadcmd', ('guid', {}), {
                 'doc': 'A generic load command pulled from the Mach-O headers.',
-                'interfaces': ('file:mime:macho:loadcmd',),
+                'interfaces': (
+                    ('file:mime:macho:loadcmd', {}),
+                ),
             }),
 
             ('file:mime:macho:version', ('guid', {}), {
                 'doc': 'A specific load command used to denote the version of the source used to build the Mach-O binary.',
-                'interfaces': ('file:mime:macho:loadcmd',),
+                'interfaces': (
+                    ('file:mime:macho:loadcmd', {}),
+                ),
             }),
 
             ('file:mime:macho:uuid', ('guid', {}), {
                 'doc': 'A specific load command denoting a UUID used to uniquely identify the Mach-O binary.',
-                'interfaces': ('file:mime:macho:loadcmd',),
+                'interfaces': (
+                    ('file:mime:macho:loadcmd', {}),
+                ),
             }),
 
             ('file:mime:macho:segment', ('guid', {}), {
                 'doc': 'A named region of bytes inside a Mach-O binary.',
-                'interfaces': ('file:mime:macho:loadcmd',),
+                'interfaces': (
+                    ('file:mime:macho:loadcmd', {}),
+                ),
             }),
 
             ('file:mime:macho:section', ('guid', {}), {

@@ -67,31 +67,36 @@ modeldefs = (
                 'doc': 'A collection of tickets related to a topic.'}),
 
             ('proj:ticket:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of project ticket types.'}),
 
             ('proj:ticket', ('guid', {}), {
-                'interfaces': ('proj:task',),
-                'template': {
-                    'task': 'ticket'},
+                'interfaces': (
+                    ('proj:task', {
+                        'template': {
+                            'task': 'ticket'}}),
+                ),
                 'doc': 'A ticket in a ticketing system.'}),
 
             ('proj:project:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A type taxonomy for projects.'}),
 
             ('proj:sprint', ('guid', {}), {
-                'doc': 'A timeboxed period to complete a set amount of work.',
-            }),
+                'doc': 'A timeboxed period to complete a set amount of work.'}),
+
             ('proj:comment', ('guid', {}), {
-                'doc': 'A user comment on a ticket.',
-            }),
+                'doc': 'A user comment on a ticket.'}),
+
             ('proj:project', ('guid', {}), {
-                'doc': 'A project in a ticketing system.',
-            }),
+                'doc': 'A project in a ticketing system.'}),
+
             ('proj:attachment', ('guid', {}), {
-                'doc': 'A file attachment added to a ticket or comment.',
-            }),
+                'doc': 'A file attachment added to a ticket or comment.'}),
         ),
 
         'forms': (

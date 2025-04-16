@@ -10,7 +10,9 @@ modeldefs = (
                 'doc': 'A node which tracks the immigration status of a contact.'}),
 
             ('pol:immigration:status:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of immigration status types.'}),
 
             ('pol:vitals', ('guid', {}), {
@@ -147,7 +149,7 @@ modeldefs = (
             )),
             ('pol:office', {}, (
 
-                ('title', ('ou:jobtitle', {}), {
+                ('title', ('entity:title', {}), {
                     'ex': 'united states senator',
                     'doc': 'The title of the political office.'}),
 

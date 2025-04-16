@@ -49,7 +49,9 @@ modeldefs = (
                 'doc': 'A vulnerability name such as log4j or rowhammer.'}),
 
             ('risk:vuln:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of vulnerability types.'}),
 
             ('risk:vuln:soft:range', ('guid', {}), {
@@ -59,8 +61,10 @@ modeldefs = (
                 'doc': 'Indicates that a node is susceptible to a vulnerability.'}),
 
             ('risk:threat', ('guid', {}), {
-                'interfaces': ('entity:abstract',),
-                'template': {'contactable': 'threat'},
+                'interfaces': (
+                    ('entity:abstract', {
+                        'template': {'contactable': 'threat'}}),
+                ),
                 'doc': 'A threat cluster or subgraph of threat activity, as reported by a specific organization.',
                 'display': {
                     'columns': (
@@ -76,7 +80,9 @@ modeldefs = (
                 'doc': 'An instance of an actor attacking a target.',
             }),
             ('risk:alert:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of alert types.',
             }),
             ('risk:alert', ('guid', {}), {
@@ -92,7 +98,9 @@ modeldefs = (
                 },
             }),
             ('risk:mitigation:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of mitigation types.',
             }),
             ('risk:mitigation', ('guid', {}), {
@@ -107,21 +115,29 @@ modeldefs = (
                 },
             }),
             ('risk:attack:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of attack types.',
             }),
             ('risk:compromise:type:taxonomy', ('taxonomy', {}), {
                 'ex': 'cno.breach',
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of compromise types.',
             }),
             ('risk:tool:software:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of software tool types.',
             }),
             # FIXME
             ('risk:availability', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of availability status values.',
             }),
             ('risk:tool:software', ('guid', {}), {
@@ -137,30 +153,40 @@ modeldefs = (
             }),
 
             ('risk:alert:verdict:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of alert verdicts.',
             }),
 
             ('risk:threat:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of threat types.'}),
 
             ('risk:leak', ('guid', {}), {
                 'doc': 'An event where information was disclosed without permission.'}),
 
             ('risk:leak:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of leak event types.'}),
 
             ('risk:extortion', ('guid', {}), {
                 'doc': 'An event where an attacker attempted to extort a victim.'}),
 
             ('risk:outage:cause:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'An outage cause taxonomy.'}),
 
             ('risk:outage:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'An outage type taxonomy.'}),
 
             ('risk:outage', ('guid', {}), {
@@ -177,7 +203,9 @@ modeldefs = (
                 'doc': 'An outage event which affected resource availability.'}),
 
             ('risk:extortion:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of extortion event types.'}),
 
             ('risk:technique:masquerade', ('guid', {}), {

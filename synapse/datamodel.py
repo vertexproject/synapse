@@ -982,8 +982,8 @@ class Model:
 
         # interfaces are listed in typeinfo for the form to
         # maintain backward compatibility for populated models
-        for ifname in form.type.info.get('interfaces', ()):
-            self._addFormIface(form, ifname)
+        for ifname, ifinfo in form.type.info.get('interfaces', ()):
+            self._addFormIface(form, ifname, ifinfo)
 
         if checks:
             self._checkFormDisplay(form)
@@ -1145,10 +1145,13 @@ class Model:
 
         return prop
 
-    def _prepFormIface(self, form, iface):
+    def _prepFormIface(self, form, iface, ifinfo):
+
+        prefix = iface.get('prefix')
+        prefix = ifinfo.get('prefix', prefix)
 
         template = s_msgpack.deepcopy(iface.get('template', {}))
-        template.update(form.type.info.get('template', {}))
+        template.update(ifinfo.get('template', {}))
 
         def convert(item):
 
@@ -1174,9 +1177,15 @@ class Model:
 
             return item
 
-        return convert(iface)
+        iface = convert(iface)
 
-    def _addFormIface(self, form, name, subifaces=None):
+        if prefix:
+            props = iface.get('props', ())
+            iface['props'] = tuple([ (f'{prefix}:{prop[0]}', prop[1], prop[2]) for prop in props ])
+
+        return iface
+
+    def _addFormIface(self, form, name, ifinfo, subifaces=None):
 
         iface = self.ifaces.get(name)
 
@@ -1188,7 +1197,7 @@ class Model:
             mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'
             logger.warning(mesg)
 
-        iface = self._prepFormIface(form, iface)
+        iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
 
@@ -1213,15 +1222,15 @@ class Model:
 
             subifaces.append(name)
 
-            for ifname in ifaces:
-                self._addFormIface(form, ifname, subifaces=subifaces)
+            for ifname, ifinfo in ifaces:
+                self._addFormIface(form, ifname, ifinfo, subifaces=subifaces)
 
-    def _delFormIface(self, form, name, subifaces=None):
+    def _delFormIface(self, form, name, ifinfo, subifaces=None):
 
         if (iface := self.ifaces.get(name)) is None:
             return
 
-        iface = self._prepFormIface(form, iface)
+        iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
             fullprop = f'{form.name}:{propname}'

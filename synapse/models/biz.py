@@ -11,14 +11,11 @@ modeldefs = (
             ('biz:deal', ('guid', {}), {
                 'doc': 'A sales or procurement effort in pursuit of a purchase.'}),
 
-            ('biz:stake', ('guid', {}), {
-                'doc': 'A stake or partial ownership in a company.'}),
-
             ('biz:listing', ('guid', {}), {
                 'doc': 'A product or service being listed for sale at a given price by a specific seller.'}),
 
-            ('biz:bundle', ('guid', {}), {
-                'doc': 'A bundle allows construction of products which bundle instances of other products.'}),
+            #('biz:bundle', ('guid', {}), {
+                #'doc': 'A bundle allows construction of products which bundle instances of other products.'}),
 
             ('biz:product', ('guid', {}), {
                 'doc': 'A product which is available for purchase.'}),
@@ -27,19 +24,27 @@ modeldefs = (
                 'doc': 'A service which is performed by a specific organization.'}),
 
             ('biz:service:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of service types.'}),
 
             ('biz:deal:status:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of deal status values.'}),
 
             ('biz:deal:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of deal types.'}),
 
             ('biz:product:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of product types.'}),
         ),
         'forms': (
@@ -115,29 +120,31 @@ modeldefs = (
 
                 ('rfp', ('biz:rfp', {}), {
                     'doc': 'The RFP that the deal is in response to.'}),
+
                 ('buyer', ('entity:actor', {}), {
                     'doc': 'The primary contact information for the buyer.'}),
+
                 # FIXME remove orgname / orgfqdn
-                ('buyer:org', ('ou:org', {}), {
-                    'doc': 'The buyer org.'}),
+                #('buyer:org', ('ou:org', {}), {
+                    #'doc': 'The buyer org.'}),
 
-                ('buyer:orgname', ('entity:name', {}), {
-                    'doc': 'The reported name of the buyer org.'}),
+                #('buyer:orgname', ('entity:name', {}), {
+                    #'doc': 'The reported name of the buyer org.'}),
 
-                ('buyer:orgfqdn', ('inet:fqdn', {}), {
-                    'doc': 'The reported inet:fqdn of the buyer org.'}),
+                #('buyer:orgfqdn', ('inet:fqdn', {}), {
+                    #'doc': 'The reported inet:fqdn of the buyer org.'}),
 
                 ('seller', ('entity:actor', {}), {
                     'doc': 'The primary contact information for the seller.'}),
 
-                ('seller:org', ('ou:org', {}), {
-                    'doc': 'The seller org.'}),
+                #('seller:org', ('ou:org', {}), {
+                    #'doc': 'The seller org.'}),
 
-                ('seller:orgname', ('entity:name', {}), {
-                    'doc': 'The reported name of the seller org.'}),
+                #('seller:orgname', ('entity:name', {}), {
+                    #'doc': 'The reported name of the seller org.'}),
 
-                ('seller:orgfqdn', ('inet:fqdn', {}), {
-                    'doc': 'The reported inet:fqdn of the seller org.'}),
+                #('seller:orgfqdn', ('inet:fqdn', {}), {
+                    #'doc': 'The reported inet:fqdn of the seller org.'}),
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency of econ:price values associated with the deal.'}),
@@ -158,25 +165,26 @@ modeldefs = (
                     'doc': 'Records a purchase resulting from the deal.'}),
             )),
             # FIXME convert to aggregates?
-            ('biz:bundle', {}, (
+            #('biz:bundle', {}, (
 
-                ('count', ('int', {}), {
-                    'doc': 'The number of instances of the product or service included in the bundle.'}),
+                #('count', ('int', {}), {
+                    #'doc': 'The number of instances of the product or service included in the bundle.'}),
 
-                ('price', ('econ:price', {}), {
-                    'doc': 'The price of the bundle.'}),
+                #('price', ('econ:price', {}), {
+                    #'doc': 'The price of the bundle.'}),
 
-                ('product', ('biz:product', {}), {
-                    'doc': 'The product included in the bundle.'}),
+                #('product', ('biz:product', {}), {
+                    #'doc': 'The product included in the bundle.'}),
 
-                ('service', ('biz:service', {}), {
-                    'doc': 'The service included in the bundle.'}),
-            )),
+                #('service', ('biz:service', {}), {
+                    #'doc': 'The service included in the bundle.'}),
+            #)),
             ('biz:listing', {}, (
 
                 ('seller', ('entity:actor', {}), {
                     'doc': 'The contact information for the seller.'}),
 
+                # FIXME valuable?
                 ('product', ('biz:product', {}), {
                     'doc': 'The product being offered.'}),
 
@@ -186,12 +194,14 @@ modeldefs = (
                 ('current', ('bool', {}), {
                     'doc': 'Set to true if the offer is still current.'}),
 
+                # FIXME period
                 ('time', ('time', {}), {
                     'doc': 'The first known offering of this product/service by the organization for the asking price.'}),
 
                 ('expires', ('time', {}), {
                     'doc': 'Set if the offer has a known expiration date.'}),
 
+                # FIXME valuable
                 ('price', ('econ:price', {}), {
                     'doc': 'The asking price of the product or service.'}),
 
@@ -206,11 +216,11 @@ modeldefs = (
             )),
             ('biz:service', {}, (
 
-                ('provider', ('entity:actor', {}), {
-                    'doc': 'The contact info of the entity which performs the service.'}),
-
                 ('name', ('entity:name', {}), {
                     'doc': 'The name of the service being performed.'}),
+
+                ('provider', ('entity:actor', {}), {
+                    'doc': 'The contact info of the entity which performs the service.'}),
 
                 ('summary', ('str', {}), {
                     'disp': {'hint': 'text'},
@@ -218,8 +228,9 @@ modeldefs = (
 
                 ('type', ('biz:service:type:taxonomy', {}), {
                     'doc': 'A taxonomy of service types.'}),
-                ('launched', ('time', {}), {
 
+                # FIXME offered=ival?
+                ('launched', ('time', {}), {
                     'doc': 'The time when the operator first made the service available.'}),
                 # TODO: billing types (fixed, hourly, subscription, etc)
             )),
@@ -233,8 +244,8 @@ modeldefs = (
 
                 # TODO ('upc', ('biz:upc', {}), {}),
                 ('summary', ('str', {}), {
-                    'doc': 'A brief summary of the product.',
-                    'disp': {'hint': 'text'}}),
+                    'disp': {'hint': 'text'},
+                    'doc': 'A brief summary of the product.'}),
 
                 # FIXME: manufactur?
                 ('maker', ('entity:actor', {}), {
@@ -249,49 +260,8 @@ modeldefs = (
                 ('price:currency', ('econ:currency', {}), {
                     'doc': 'The currency of the retail and bottom price properties.'}),
 
-                ('bundles', ('array', {'type': 'biz:bundle', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of bundles included with the product.'}),
-            )),
-            # biz:stake should become part of entity:ownership?
-            ('biz:stake', {}, (
-
-                ('vitals', ('ou:vitals', {}), {
-                    'doc': 'The ou:vitals snapshot this stake is part of.'}),
-
-                ('org', ('ou:org', {}), {
-                    'doc': 'The resolved org.'}),
-
-                ('org:name', ('entity:name', {}), {
-                    'prevnames': ('orgname',),
-                    'doc': 'The org name as reported by the source of the stake.'}),
-
-                ('org:fqdn', ('inet:fqdn', {}), {
-                    'doc': 'The org FQDN as reported by the source of the stake.'}),
-
-                ('name', ('str', {}), {
-                    'doc': 'An arbitrary name for this stake.'}),
-
-                # FIXME asof -> updated ( in general? ) period?
-                ('asof', ('time', {}), {
-                    'doc': 'The time the stake is being measured.'}),
-
-                ('shares', ('int', {}), {
-                    'doc': 'The number of shares represented by the stake.'}),
-
-                ('invested', ('econ:price', {}), {
-                    'doc': 'The amount of money invested in the cap table iteration.'}),
-
-                ('value', ('econ:price', {}), {
-                    'doc': 'The monetary value of the stake.'}),
-
-                ('percent', ('hugenum', {}), {
-                    'doc': 'The percentage ownership represented by this stake.'}),
-
-                ('owner', ('entity:actor', {}), {
-                    'doc': 'Contact information of the owner of the stake.'}),
-
-                ('purchase', ('econ:purchase', {}), {
-                    'doc': 'The purchase event for the stake.'}),
+                #('bundles', ('array', {'type': 'biz:bundle', 'uniq': True, 'sorted': True}), {
+                    #'doc': 'An array of bundles included with the product.'}),
             )),
         ),
     }),

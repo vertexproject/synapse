@@ -20,10 +20,11 @@ modeldefs = (
 
             ('econ:pay:card', ('guid', {}), {
 
-                'interfaces': ('econ:pay:instrument',),
-                'template': {
-                    'instrument': 'payment card'},
-
+                'interfaces': (
+                    ('econ:pay:instrument', {
+                        'template': {
+                            'instrument': 'payment card'}}),
+                ),
                 'doc': 'A single payment card.'}),
 
             ('econ:purchase', ('guid', {}), {
@@ -56,7 +57,9 @@ modeldefs = (
                 'doc': 'A financial exchange where securities are traded.'}),
 
             ('econ:fin:security:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of financial security types.'}),
 
             ('econ:fin:security', ('guid', {}), {
@@ -69,15 +72,18 @@ modeldefs = (
                 'doc': 'A sample of the price of a security at a single moment in time.'}),
 
             ('econ:bank:account:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A bank account type taxonomy.'}),
 
             ('econ:bank:account', ('guid', {}), {
 
-                'interfaces': ('econ:pay:instrument',),
-                'template': {
-                    'instrument': 'bank account'},
-
+                'interfaces': (
+                    ('econ:pay:instrument', {
+                        'template': {
+                            'instrument': 'bank account'}}),
+                ),
                 'doc': 'A bank account.'}),
 
             ('econ:bank:balance', ('guid', {}), {
@@ -113,11 +119,27 @@ modeldefs = (
                         'doc': 'The primary contact for the {instrument}.'}),
                 ),
             }),
+            ('econ:valuable', {
+                'template': {'econ:valuable': 'item'},
+                'props': (
+
+                    ('price', ('econ:price', {}), {
+                        'doc': 'The value of the {econ:valuable}.'}),
+
+                    ('price:asof', ('time', {}), {
+                        'doc': 'The time the price was determined.'}),
+
+                    ('price:currency', ('econ:currency', {}), {
+                        'doc': 'The currency used to represent the price.'}),
+                ),
+                'doc': 'Properties common to forms with intrinsic monitary value.'}),
+            # FIXME econ valuable interface and econ:value=<guid> history
         ),
 
         'edges': (
-            (('econ:purchase', 'acquired', None), {
-                'doc': 'The purchase was used to acquire the target node.'}),
+            # FIXME econ:valuable
+            #(('econ:purchase', 'acquired', 'entity:havable'), {
+                #'doc': 'The purchase was used to acquire the target node.'}),
 
             (('econ:bank:statement', 'has', 'econ:acct:payment'), {
                 'doc': 'The bank statement includes the payment.'}),
@@ -162,6 +184,7 @@ modeldefs = (
                     'doc': 'A bank account associated with the payment card.'}),
             )),
 
+            # FIXME econ:valuable?
             ('econ:purchase', {}, (
 
                 ('by:contact', ('entity:actor', {}), {
@@ -189,6 +212,7 @@ modeldefs = (
                 ('campaign', ('ou:campaign', {}), {
                     'doc': 'The campaign that the purchase was in support of.'}),
 
+                # FIXME econ:priced?
                 ('price', ('econ:price', {}), {
                     'doc': 'The econ:price of the purchase.'}),
 
@@ -210,14 +234,16 @@ modeldefs = (
                 ('price', ('econ:price', {}), {
                     'doc': 'The total cost of this receipt line item.'}),
 
+                # FIXME econ:valuable
                 ('product', ('biz:product', {}), {
                     'doc': 'The product being being purchased in this line item.'}),
             )),
 
             ('econ:acct:payment', {}, (
 
-                ('txnid', ('str', {'strip': True}), {
-                    'doc': 'A payment processor specific transaction id.'}),
+                ('id', ('meta:id', {}), {
+                    'prevnames': ('txnid',),
+                    'doc': 'A payment processor specific transaction ID.'}),
 
                 ('fee', ('econ:price', {}), {
                     'doc': 'The transaction fee paid by the recipient to the payment processor.'}),
@@ -243,6 +269,7 @@ modeldefs = (
                 ('to:contact', ('entity:actor', {}), {
                     'doc': 'Contact information for the person/org being paid.'}),
 
+                # FIXME
                 ('to:contract', ('ou:contract', {}), {
                     'doc': 'A contract used as an aggregate payment destination.'}),
 
@@ -270,6 +297,7 @@ modeldefs = (
                 ('receipt', ('econ:acct:receipt', {}), {
                     'doc': 'The receipt that was issued for the payment.'}),
 
+                # FIXME geo:locatable
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where the payment occurred.'}),
 
@@ -287,20 +315,29 @@ modeldefs = (
             )),
 
             ('econ:acct:balance', {}, (
+
                 ('time', ('time', {}), {
                     'doc': 'The time the balance was recorded.'}),
+
+                # FIXME fin:instrument
                 ('pay:card', ('econ:pay:card', {}), {
                     'doc': 'The payment card holding the balance.'}),
+
                 ('crypto:address', ('crypto:currency:address', {}), {
                     'doc': 'The crypto currency address holding the balance.'}),
+
                 ('amount', ('econ:price', {}), {
                     'doc': 'The account balance at the time.'}),
+
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency of the balance amount.'}),
+
                 ('delta', ('econ:price', {}), {
                     'doc': 'The change since last regular sample.'}),
+
                 ('total:received', ('econ:price', {}), {
                     'doc': 'The total amount of currency received by the account.'}),
+
                 ('total:sent', ('econ:price', {}), {
                     'doc': 'The total amount of currency sent from the account.'}),
             )),
@@ -332,11 +369,11 @@ modeldefs = (
                 ('type', ('econ:fin:security:type:taxonomy', {}), {
                     'doc': 'The type of security.'}),
 
-                ('price', ('econ:price', {}), {
-                    'doc': 'The last known/available price of the security.'}),
+                #('price', ('econ:price', {}), {
+                    #'doc': 'The last known/available price of the security.'}),
 
-                ('time', ('time', {}), {
-                    'doc': 'The time of the last know price sample.'}),
+                #('time', ('time', {}), {
+                    #'doc': 'The time of the last know price sample.'}),
             )),
 
             ('econ:fin:tick', {}, (
