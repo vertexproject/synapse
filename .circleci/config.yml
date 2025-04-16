@@ -524,6 +524,7 @@ jobs:
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_FILE: test_reports/${CIRCLE_SHA1}/.coverage
           COVERAGE_ARGS: --cov synapse --cov-append
+          COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
 
@@ -541,6 +542,7 @@ jobs:
           SYN_REGRESSION_REPO: ~/git/synapse-regression
           COVERAGE_ARGS: --cov synapse
           SYNDEV_NEXUS_REPLAY: 1
+          COVERAGE_CORE: sysmon
 
     working_directory: ~/repo
 
