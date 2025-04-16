@@ -306,7 +306,7 @@ class AhaPoolLib(s_stormtypes.Lib):
             yield AhaPool(self.runt, poolinfo)
 
 @s_stormtypes.registry.registerType
-class AhaPool(s_stormtypes.StormType):
+class AhaPool(s_stormtypes.Prim):
     '''
     Implements the Storm API for an AHA pool.
     '''
@@ -343,9 +343,8 @@ class AhaPool(s_stormtypes.StormType):
     _storm_typename = 'aha:pool'
 
     def __init__(self, runt, poolinfo):
-        s_stormtypes.StormType.__init__(self)
+        s_stormtypes.Prim.__init__(self, poolinfo)
         self.runt = runt
-        self.poolinfo = poolinfo
 
         self.locls.update({
             'add': self._methPoolSvcAdd,
@@ -353,10 +352,10 @@ class AhaPool(s_stormtypes.StormType):
         })
 
     async def stormrepr(self):
-        return f'{self._storm_typename}: {self.poolinfo.get("name")}'
+        return f'{self._storm_typename}: {self.valu.get("name")}'
 
     async def _derefGet(self, name):
-        return self.poolinfo.get(name)
+        return self.valu.get(name)
 
     async def _methPoolSvcAdd(self, svcname):
         self.runt.reqAdmin()
@@ -364,12 +363,12 @@ class AhaPool(s_stormtypes.StormType):
 
         proxy = await self.runt.view.core.reqAhaProxy()
 
-        poolname = self.poolinfo.get('name')
+        poolname = self.valu.get('name')
 
         poolinfo = {'creator': self.runt.user.iden}
         poolinfo = await proxy.addAhaPoolSvc(poolname, svcname, poolinfo)
 
-        self.poolinfo.update(poolinfo)
+        self.valu.update(poolinfo)
 
     async def _methPoolSvcDel(self, svcname):
         self.runt.reqAdmin()
@@ -377,19 +376,19 @@ class AhaPool(s_stormtypes.StormType):
 
         proxy = await self.runt.view.core.reqAhaProxy()
 
-        poolname = self.poolinfo.get('name')
+        poolname = self.valu.get('name')
         newinfo = await proxy.delAhaPoolSvc(poolname, svcname)
 
         tname = svcname
         if tname.endswith('...'):
             tname = tname[:-2]
         deleted_service = None
-        deleted_services = [svc for svc in self.poolinfo.get('services').keys()
+        deleted_services = [svc for svc in self.valu.get('services').keys()
                             if svc not in newinfo.get('services') and svc.startswith(tname)]
         if deleted_services:
             deleted_service = deleted_services[0]
 
-        self.poolinfo = newinfo
+        self.valu = newinfo
 
         return deleted_service
 

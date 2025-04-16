@@ -18,6 +18,9 @@ async def _main(argv, outp):
     pars = getArgParser()
     opts = pars.parse_args(argv)
 
+    if opts.network:
+        s_common.deprecated('--network option.', curv='v2.206.0')
+
     cdir = s_certdir.CertDir(path=opts.certdir)
 
     async with await s_telepath.openurl(opts.aha) as prox:
@@ -29,6 +32,7 @@ async def _main(argv, outp):
             # before attempting to generate a new CA.
             certbyts = await prox.getCaCert(name)
             if not certbyts:
+                s_common.deprecated('AHA CA certificate generation.', curv='v2.206.0')
                 certbyts = await prox.genCaCert(name)
             cert = c_x509.load_pem_x509_certificate(certbyts.encode())
             path = cdir._saveCertTo(cert, 'cas', f'{name}.crt')
