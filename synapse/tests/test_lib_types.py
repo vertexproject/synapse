@@ -907,25 +907,25 @@ class TypesTest(s_t_utils.SynTest):
             exp = ((1743856496123456, 1743856496123457), {})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_MICRO), exp)
 
-            exp = ((1743856496123000, 1743856496123999), {'virts': {'precision': 27}})
+            exp = ((1743856496123000, 1743856496123999), {'virts': {'precision': s_time.PREC_MILLI}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_MILLI), exp)
 
-            exp = ((1743856496000000, 1743856496999999), {'virts': {'precision': 24}})
+            exp = ((1743856496000000, 1743856496999999), {'virts': {'precision': s_time.PREC_SECOND}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_SECOND), exp)
 
-            exp = ((1743856440000000, 1743856499999999), {'virts': {'precision': 20}})
+            exp = ((1743856440000000, 1743856499999999), {'virts': {'precision': s_time.PREC_MINUTE}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_MINUTE), exp)
 
-            exp = ((1743854400000000, 1743857999999999), {'virts': {'precision': 16}})
+            exp = ((1743854400000000, 1743857999999999), {'virts': {'precision': s_time.PREC_HOUR}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_HOUR), exp)
 
-            exp = ((1743811200000000, 1743897599999999), {'virts': {'precision': 12}})
+            exp = ((1743811200000000, 1743897599999999), {'virts': {'precision': s_time.PREC_DAY}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_DAY), exp)
 
-            exp = ((1743465600000000, 1746057599999999), {'virts': {'precision': 8}})
+            exp = ((1743465600000000, 1746057599999999), {'virts': {'precision': s_time.PREC_MONTH}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_MONTH), exp)
 
-            exp = ((1735689600000000, 1767225599999999), {'virts': {'precision': 4}})
+            exp = ((1735689600000000, 1767225599999999), {'virts': {'precision': s_time.PREC_YEAR}})
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
 
     async def test_loc(self):

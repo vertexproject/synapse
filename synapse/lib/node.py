@@ -1054,7 +1054,7 @@ class RuntNode(NodeBase):
             return None
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False):
+    def pack(self, dorepr=False, virts=False):
         pode = s_msgpack.deepcopy(self.pode)
         if dorepr:
             self._addPodeRepr(pode)
