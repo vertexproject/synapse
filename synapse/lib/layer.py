@@ -841,7 +841,7 @@ class StorTypeUtf8(StorType):
 
     def _getIndxByts(self, valu):
 
-        indx = valu.encode('utf8', 'surrogatepass')
+        indx = valu.encode('utf8')
         # cut down an index value to 256 bytes...
         if len(indx) <= 256:
             return indx
@@ -856,7 +856,7 @@ class StorTypeUtf8(StorType):
     def decodeIndx(self, bytz):
         if len(bytz) >= 256:
             return s_common.novalu
-        return bytz.decode('utf8', 'surrogatepass')
+        return bytz.decode('utf8')
 
 class StorTypeHier(StorType):
 
@@ -910,7 +910,7 @@ class StorTypeFqdn(StorTypeUtf8):
     def decodeIndx(self, bytz):
         if len(bytz) >= 256:
             return s_common.novalu
-        return bytz.decode('utf8', 'surrogatepass')[::-1]
+        return bytz.decode('utf8')[::-1]
 
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)

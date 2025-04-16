@@ -56,7 +56,7 @@ class CryoCatTest(s_t_utils.SynTest):
             inp = mock.Mock()
             inp.buffer = io.BytesIO(bad_encoding)
             with self.redirectStdin(inp):
-                with self.raises(msgpack.UnpackValueError):
+                with self.raises(s_exc.BadMsgpackData):
                     retn, outp = await self.execToolMain(s_cryocat.main, argv)
 
             argv = ['--offset', '0', '--size', '1', cryourl]

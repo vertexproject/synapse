@@ -160,7 +160,7 @@ class Link(s_base.Base):
         elif self.sock.family == socket.AF_INET6:
             self._addrinfo['ipver'] = 'ipv6'
 
-        self.unpk = s_msgpack.Unpk()
+        self.unpk = s_msgpack.Unpk(strict=True)
 
         async def fini():
             self.writer.close()

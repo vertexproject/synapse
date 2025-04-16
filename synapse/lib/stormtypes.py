@@ -4520,7 +4520,7 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methEncode(self, encoding='utf8'):
         try:
-            return self.valu.encode(encoding, 'surrogatepass')
+            return self.valu.encode(encoding)
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
@@ -4614,7 +4614,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
-                      {'name': 'errors', 'type': 'str', 'desc': 'The error handling scheme to use.', 'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid values rather than replacing the character.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -4666,8 +4667,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.',
-                       'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
                   ),
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
 
@@ -4762,9 +4763,10 @@ class Bytes(Prim):
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
     @stormfunc(readonly=True)
-    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+    async def _methDecode(self, encoding='utf8', strict=False):
         encoding = await tostr(encoding)
-        errors = await tostr(errors)
+        strict = await tobool(strict)
+        errors = 'strict' if strict else 'replace'
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
@@ -4785,10 +4787,11 @@ class Bytes(Prim):
         return gzip.compress(self.valu)
 
     @stormfunc(readonly=True)
-    async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
+    async def _methJsonLoad(self, encoding=None, strict=False):
         try:
             valu = self.valu
-            errors = await tostr(errors)
+            strict = await tobool(strict)
+            errors = 'strict' if strict else 'replace'
 
             if encoding is None:
                 encoding = s_json.detect_encoding(valu)
@@ -4814,6 +4817,10 @@ class Dict(Prim):
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
+
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        return item in self.valu
 
     async def iter(self):
         for item in tuple(self.valu.items()):
@@ -4861,6 +4868,11 @@ class CmdOpts(Dict):
     def __hash__(self):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
+
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        valu = getattr(self.valu.opts, item, s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
@@ -4962,6 +4974,9 @@ class Set(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def _storm_contains(self, item):
+        return item in self.valu
 
     async def _methSetSize(self):
         return len(self)
@@ -5141,6 +5156,9 @@ class List(Prim):
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
+
+    async def _storm_contains(self, item):
+        return await self._methListHas(item)
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)
@@ -5505,6 +5523,13 @@ class GlobalVars(Prim):
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.confirm(('globals', 'get', item))
+        valu = await runt.view.core.getStormVar(item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await tostr(name)
         runt = s_scope.get('runt')
@@ -5546,6 +5571,18 @@ class EnvVars(Prim):
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+
+        if not item.startswith('SYN_STORM_ENV_'):
+            mesg = f'Environment variable must start with SYN_STORM_ENV_ : {item}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        valu = os.getenv(item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     @stormfunc(readonly=True)
     async def deref(self, name):
         runt = s_scope.get('runt')
@@ -5584,6 +5621,12 @@ class RuntVars(Prim):
 
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        valu = runt.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def deref(self, name):
@@ -5723,7 +5766,13 @@ class NodeProps(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.valu.get(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def _derefGet(self, name):
+        name = await tostr(name)
         return self.valu.get(name)
 
     async def setitem(self, name, valu):
@@ -5861,6 +5910,10 @@ class NodeData(Prim):
     async def cacheset(self, name, valu):
         envl = {'asof': s_common.now(), 'data': valu}
         return await self._setNodeData(name, envl)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return await self.valu.hasData(item)
 
     @stormfunc(readonly=True)
     async def _hasNodeData(self, name):
@@ -6258,6 +6311,10 @@ class PathMeta(Prim):
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return item in self.path.metadata
+
     async def deref(self, name):
         name = await tostr(name)
         return self.path.metadata.get(name)
@@ -6285,6 +6342,11 @@ class PathVars(Prim):
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.path.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     async def deref(self, name):
         name = await tostr(name)
@@ -9539,7 +9601,7 @@ async def tostr(valu, noneok=False):
 
     try:
         if isinstance(valu, bytes):
-            return valu.decode('utf8', 'surrogatepass')
+            return valu.decode('utf8')
 
         if isinstance(valu, s_node.Node):
             return valu.repr()
