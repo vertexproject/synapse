@@ -532,6 +532,16 @@ class VaultConfigs(s_stormtypes.Prim):
         mesg = f'User requires {s_cell.permnames.get(self._vault_perm)} permission on vault: {valu}.'
         s_stormtypes.confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
 
+    async def _storm_contains(self, item):
+        vault = self.runt.view.core.reqVault(self.valu)
+        mesg = f'User requires {s_cell.permnames.get(self._vault_perm)} permission on vault: {self.valu}.'
+        s_stormtypes.confirmEasyPerm(vault, self._vault_perm, mesg=mesg)
+
+        item = await s_stormtypes.tostr(item)
+
+        data = vault.get(self._vault_field_name)
+        return item in data
+
     @s_stormtypes.stormfunc(readonly=False)
     async def setitem(self, name, valu):
         vault = self.runt.view.core.reqVault(self.valu)
