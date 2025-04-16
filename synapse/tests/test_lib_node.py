@@ -195,7 +195,7 @@ class NodeTest(s_t_utils.SynTest):
             async with core.getLocalProxy() as prox:
                 telepath_nodes = []
                 async for m in prox.storm('test:str=cool test:int=1234',
-                                          opts={'repr': True}):
+                                          opts={'node:opts': {'repr': True}}):
                     if m[0] == 'node':
                         telepath_nodes.append(m[1])
                 self.len(2, telepath_nodes)
@@ -215,7 +215,7 @@ class NodeTest(s_t_utils.SynTest):
                     self.eq('root', retn['result']['name'])
 
                 body = {'query': 'test:str=cool test:int=1234',
-                        'opts': {'repr': True}}
+                        'opts': {'node:opts': {'repr': True}}}
                 async with sess.get(f'https://localhost:{port}/api/v1/storm', json=body) as resp:
                     async for byts, x in resp.content.iter_chunks():
                         if not byts:

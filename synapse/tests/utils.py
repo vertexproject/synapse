@@ -490,6 +490,7 @@ testmodel = (
             ('test:zeropad', {}, ()),
             ('test:ival', {}, (
                 ('interval', ('ival', {}), {}),
+                ('daymax', ('ival', {'precision': 'day', 'maxfill': True}), {}),
             )),
 
             ('test:pivtarg', {}, (

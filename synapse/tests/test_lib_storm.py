@@ -1581,15 +1581,24 @@ class StormTest(s_t_utils.SynTest):
                 with self.raises(s_exc.AuthDeny):
                     runt.reqAdmin(gateiden=layr)
 
+    async def test_storm_node_opts(self):
+
+        async with self.getTestCore() as core:
+
             await core.stormlist('[ inet:fqdn=vertex.link ]')
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            opts = {'view': fork, 'show:storage': True}
+            opts = {'view': fork, 'node:opts': {'show:storage': True}}
             msgs = await core.stormlist('inet:fqdn=vertex.link [ +#foo ]', opts=opts)
             nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
             self.len(1, nodes)
             self.nn(nodes[0][1]['storage'][1]['props']['.created'])
             self.eq((None, None), nodes[0][1]['storage'][0]['tags']['foo'])
+
+            opts = {'node:opts': {'virts': True}}
+            msgs = await core.stormlist('[ it:exec:query=* :time=2025-04? ]', opts=opts)
+            nodes = [mesg[1] for mesg in msgs if mesg[0] == 'node']
+            self.eq(nodes[0][1]['props']['time*precision'], 8)
 
     async def test_storm_diff_merge(self):
 
@@ -2241,7 +2250,7 @@ class StormTest(s_t_utils.SynTest):
             await nodes[0].getEmbeds({'newp::newp': {}})
             await nodes[0].getEmbeds({'asn::name::foo': {}})
 
-            opts = {'embeds': {'inet:ip': {'asn': ('name',)}}}
+            opts = {'node:opts': {'embeds': {'inet:ip': {'asn': ('name',)}}}}
             msgs = await core.stormlist('inet:ip=1.2.3.4', opts=opts)
 
             nodes = [m[1] for m in msgs if m[0] == 'node']
@@ -2249,7 +2258,7 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq('hehe', node[1]['embeds']['asn']['name'])
 
-            opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
+            opts = {'node:opts': {'embeds': {'ou:org': {'hq::email': ('user',)}}}}
             msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
@@ -2264,10 +2273,10 @@ class StormTest(s_t_utils.SynTest):
                 'sha1': '40b8e76cff472e593bd0ba148c09fec66ae72362'
             }
             opts['view'] = fork
-            opts['show:storage'] = True
-            opts['embeds']['ou:org']['lol::nope'] = ('notreal',)
-            opts['embeds']['ou:org']['country::flag'] = ('md5', 'sha1')
-            opts['embeds']['ou:org']['country::tld'] = ('domain',)
+            opts['node:opts']['show:storage'] = True
+            opts['node:opts']['embeds']['ou:org']['lol::nope'] = ('notreal',)
+            opts['node:opts']['embeds']['ou:org']['country::flag'] = ('md5', 'sha1')
+            opts['node:opts']['embeds']['ou:org']['country::tld'] = ('domain',)
 
             await core.stormlist('pol:country [ :flag={[ file:bytes=* :md5=fa818a259cbed7ce8bc2a22d35a464fc ]} ]')
 
@@ -2351,15 +2360,17 @@ class StormTest(s_t_utils.SynTest):
             ''')
 
             opts = {
-                'embeds': {
-                    'risk:vulnerable': {
-                        'vuln': ['name'],
-                        'node': ['name'],
-                    },
-                    'inet:service:rule': {
-                        'object': ['mitigated', 'newp'],
-                        'object::node': ['name', 'newp'],
-                        'grantee': ['id', 'newp'],
+                'node:opts': {
+                    'embeds': {
+                        'risk:vulnerable': {
+                            'vuln': ['name'],
+                            'node': ['name'],
+                        },
+                        'inet:service:rule': {
+                            'object': ['mitigated', 'newp'],
+                            'object::node': ['name', 'newp'],
+                            'grantee': ['id', 'newp'],
+                        }
                     }
                 }
             }
@@ -3427,7 +3438,7 @@ class StormTest(s_t_utils.SynTest):
             self.len(4, nodes)
 
             q = 'inet:ip=1.2.3.4 | tee --join { -> * } { <- * }'
-            msgs = await core.stormlist(q, opts={'links': True})
+            msgs = await core.stormlist(q, opts={'node:opts': {'links': True}})
             nodes = [m[1] for m in msgs if m[0] == 'node']
             self.len(4, nodes)
 
@@ -4376,7 +4387,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(sorted([n.ndef[1] for n in nodes]), ['test1', 'test2'])
 
             q = '[(test:str=refs) (test:str=foo)] $v=$node.value() | lift.byverb $v'
-            msgs = await core.stormlist(q, opts={'links': True})
+            msgs = await core.stormlist(q, opts={'node:opts': {'links': True}})
             nodes = [n[1] for n in msgs if n[0] == 'node']
             self.len(4, nodes)
             self.eq({n[0][1] for n in nodes},

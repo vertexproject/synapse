@@ -749,6 +749,14 @@ Queries = [
     '$foo=(not $x)',
     '$foo=(not($x))',
     '$foo=(not ($x))',
+    '[ :foo*precision=day ]',
+    '[ :$foo*precision=day ]',
+    '[ .foo*precision=day ]',
+    '[ .foo*unset=heval ]',
+    '[ .foo*$foo=heval ]',
+    '[ .$foo*precision=day ]',
+    '[ .$foo*unset=heval ]',
+    '[ .$foo*$bar=heval ]',
 ]
 
 # Generated with print_parse_list below
@@ -1398,6 +1406,14 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, VarValue: [Const: x]]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
+    'Query: [EditCondPropSet: [RelProp: [Const: foo], CondSetOper: [Const: precision], Const: day]]',
+    'Query: [EditCondPropSet: [RelProp: [VarValue: [Const: foo]], CondSetOper: [Const: precision], Const: day]]',
+    'Query: [EditCondPropSet: [UnivProp: [Const: .foo], CondSetOper: [Const: precision], Const: day]]',
+    'Query: [EditCondPropSet: [UnivProp: [Const: .foo], CondSetOper: [Const: unset], Const: heval]]',
+    'Query: [EditCondPropSet: [UnivProp: [Const: .foo], CondSetOper: [VarValue: [Const: foo]], Const: heval]]',
+    'Query: [EditCondPropSet: [UnivProp: [VarValue: [Const: foo]], CondSetOper: [Const: precision], Const: day]]',
+    'Query: [EditCondPropSet: [UnivProp: [VarValue: [Const: foo]], CondSetOper: [Const: unset], Const: heval]]',
+    'Query: [EditCondPropSet: [UnivProp: [VarValue: [Const: foo]], CondSetOper: [VarValue: [Const: bar]], Const: heval]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):
