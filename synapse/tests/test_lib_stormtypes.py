@@ -2736,6 +2736,21 @@ class StormTypesTest(s_test.SynTest):
             self.false(valu[0])
             self.eq(valu[1]['err'], 'BadArg')
 
+            query = '''$valu="2020-10-01 01:30:00"
+            $parsed=$lib.time.parse($valu, "%Y-%m-%d %H:%M:%S")
+            $lib.print($lib.time.toUTC($parsed, US/Eastern))
+            '''
+            mesgs = await core.stormlist(query)
+            self.stormIsInPrint('1601530200000', mesgs)
+
+            query = '''$valu="2020-11-01 01:30:00"
+            $parsed=$lib.time.parse($valu, "%Y-%m-%d %H:%M:%S")
+            return($lib.time.toUTC($parsed, America/New_York))
+            '''
+            mesgs = await core.callStorm(query)
+            self.false(mesgs[0])
+            self.isin('Ambiguous time', mesgs[1]['errinfo']['mesg'])
+
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
