@@ -3827,13 +3827,18 @@ class AstTest(s_test.SynTest):
                 await core.nodes('ou:campaign $lib.print(:period*newp)')
 
             self.eq(s_time.PREC_MICRO, await core.callStorm('[ it:exec:query=* :time=now ] return(:time*precision)'))
-            self.eq(s_time.PREC_DAY, await core.callStorm('it:exec:query  [ :time*precision=day ] return(:time*precision)'))
+            self.eq(s_time.PREC_MICRO, await core.callStorm('it:exec:query  [ :time*precision?=newp ] return(:time*precision)'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('it:exec:query [ :time*precision=day ] return(:time*precision)'))
             self.len(1, await core.nodes('it:exec:query +:time*precision=day'))
+            self.eq(s_time.PREC_HOUR, await core.callStorm('it:exec:query [ :time*precision=hour ] return(:time*precision)'))
+            self.none(await core.callStorm('it:exec:query [ -:time ] return(:time*precision)'))
             self.eq(s_time.PREC_MONTH, await core.callStorm('[ it:exec:query=* :time=2024-03? ] return(:time*precision)'))
 
             self.eq(s_time.PREC_MICRO, await core.callStorm('[ ou:asset=* .seen=now ] return(.seen*precision)'))
             self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset [ .seen*precision=day ] return(.seen*precision)'))
             self.len(1, await core.nodes('ou:asset +.seen*precision=day'))
+            self.len(1, await core.nodes('ou:asset [ .seen*precision=month ] +.seen*precision=month'))
+            self.none(await core.callStorm('ou:asset [ -.seen ] return(.seen*precision)'))
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:

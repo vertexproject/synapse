@@ -1519,7 +1519,7 @@ class Ival(Type):
         if (valu := virts.get('precision')) is None:
             return self.prec
 
-        return valu
+        return valu[0]
 
     def _storVirtPrec(self, valu, newprec):
         prec = self.prectype.norm(newprec)[0]
@@ -2379,7 +2379,7 @@ class Time(IntBase):
         if (valu := virts.get('precision')) is None:
             return self.prec
 
-        return valu
+        return valu[0]
 
     def _storVirtPrec(self, valu, newprec):
         prec = self.prectype.norm(newprec)[0]
@@ -2441,7 +2441,7 @@ class Time(IntBase):
             raise s_exc.BadTypeValu(mesg=mesg, valu=valu, prec=prec, name=self.name)
 
         valu = precfunc(valu, maxfill=self.maxfill)
-        return valu, {'virts': {'precision': prec}}
+        return valu, {'virts': {'precision': (prec, self.prectype.stortype)}}
 
     def _normPyDecimal(self, valu, prec=None):
         return self._normPyInt(int(valu), prec=prec)

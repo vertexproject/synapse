@@ -718,7 +718,7 @@ class Node(NodeBase):
                     retn[name] = valt[0]
                     if (vprops := valt[2]) is not None:
                         for vname, valu in vprops.items():
-                            retn[f'{name}*{vname}'] = valu
+                            retn[f'{name}*{vname}'] = valu[0]
             else:
                 for name, valt in props.items():
                     retn[name] = valt[0]

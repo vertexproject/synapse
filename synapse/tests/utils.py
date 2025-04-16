@@ -333,6 +333,7 @@ testmodel = (
 
             ('test:arrayprop', ('guid', {}), {}),
             ('test:arrayform', ('array', {'type': 'int'}), {}),
+            ('test:arrayvirtform', ('array', {'type': 'time'}), {}),
 
             ('test:comp', ('comp', {'fields': (
                 ('hehe', 'test:int'),
@@ -396,8 +397,8 @@ testmodel = (
                 ('strsnosplit', ('array', {'type': 'test:str'}), {}),
                 ('strregexs', ('array', {'type': 'test:strregex', 'uniq': True, 'sorted': True}), {}),
             )),
-            ('test:arrayform', {}, (
-            )),
+            ('test:arrayform', {}, ()),
+            ('test:arrayvirtform', {}, ()),
             ('test:taxonomy', {}, ()),
             ('test:type10', {}, (
 
