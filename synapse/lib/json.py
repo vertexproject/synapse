@@ -1,6 +1,5 @@
 import io
 import os
-import json
 import logging
 
 from typing import Any, BinaryIO, Callable, Iterator, Optional
@@ -12,13 +11,6 @@ import orjson
 import synapse.exc as s_exc
 
 logger = logging.getLogger(__name__)
-
-def _fallback_loads(s: str | bytes) -> Any:
-
-    try:
-        return json.loads(s)
-    except json.JSONDecodeError as exc:
-        raise s_exc.BadJsonText(mesg=exc.args[0])
 
 def loads(s: str | bytes) -> Any:
     '''
@@ -39,9 +31,7 @@ def loads(s: str | bytes) -> Any:
     try:
         return orjson.loads(s)
     except orjson.JSONDecodeError as exc:
-        extra = {'synapse': {'fn': 'loads', 'reason': str(exc)}}
-        logger.warning('Using fallback JSON deserialization. Please report this to Vertex.', extra=extra)
-        return _fallback_loads(s)
+        raise s_exc.BadJsonText(mesg=exc.args[0])
 
 def load(fp: BinaryIO) -> Any:
     '''
@@ -60,15 +50,6 @@ def load(fp: BinaryIO) -> Any:
             deserializing the provided data.
     '''
     return loads(fp.read())
-
-def _fallback_dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None) -> bytes:
-    indent = 2 if indent else None
-
-    try:
-        ret = json.dumps(obj, sort_keys=sort_keys, indent=indent, default=default)
-        return ret.encode()
-    except TypeError as exc:
-        raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
 def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> bytes:
     '''
@@ -104,18 +85,7 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
         return orjson.dumps(obj, option=opts, default=default)
 
     except orjson.JSONEncodeError as exc:
-        if not isinstance(exc.__cause__, UnicodeEncodeError):
-            raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
-
-        extra = {'synapse': {'fn': 'dumps', 'reason': str(exc)}}
-        logger.warning('Using fallback JSON serialization. Please report this to Vertex.', extra=extra)
-
-        ret = _fallback_dumps(obj, sort_keys=sort_keys, indent=indent, default=default)
-
-        if newline:
-            ret += b'\n'
-
-        return ret
+        raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
 def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> None:
     '''
@@ -198,7 +168,7 @@ def jssave(js: Any, *paths: list[str]) -> None:
     with io.open(path, 'wb') as fd:
         dump(js, fd, sort_keys=True, indent=True)
 
-def reqjsonsafe(item: Any, strict: bool = False) -> None:
+def reqjsonsafe(item: Any) -> None:
     '''
     Check if a python object is safe to be serialized to JSON.
 
@@ -206,8 +176,6 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
 
     Arguments:
         item (any): The python object to check.
-        strict (bool): If specified, do not fallback to python json library which is
-                more permissive of unicode strings. Default: False
 
     Returns: None if item is json serializable, otherwise raises an exception.
 
@@ -215,10 +183,7 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
         synapse.exc.MustBeJsonSafe: This exception is raised when the item
         cannot be serialized.
     '''
-    if strict:
-        try:
-            orjson.dumps(item)
-        except Exception as exc:
-            raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
-    else:
-        dumps(item)
+    try:
+        orjson.dumps(item)
+    except Exception as exc:
+        raise s_exc.MustBeJsonSafe(mesg=exc.args[0])

@@ -1409,6 +1409,14 @@ class StormTypesTest(s_test.SynTest):
 
             self.eq(((1, 2, 3)), await core.callStorm('return(("[1, 2, 3]").json())'))
 
+            self.eq('hehe,haha', await core.callStorm("$sepr=',' $l=(hehe, haha) return( $sepr.join($l) )"))
+            self.eq('hehehaha', await core.callStorm("$sepr='' $l=(hehe, haha) return( $sepr.join($l) )"))
+            self.eq('a|++|b|++|c', await core.callStorm("$sepr='|++|' $l=(a, b, c) return( $sepr.join($l) )"))
+            self.eq('hehe,haha', await core.callStorm("$l=(hehe, haha) return( (',').join($l) )"))
+            self.eq('hehehaha', await core.callStorm("$l=(hehe, haha) return( ('').join($l) )"))
+            self.eq('', await core.callStorm("$sepr=',' $l=() return( $sepr.join($l) )"))
+            self.eq('', await core.callStorm("$sepr='' $l=() return( $sepr.join($l) )"))
+
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return(("foo").json())')
 
@@ -1526,11 +1534,15 @@ class StormTypesTest(s_test.SynTest):
             resp = await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-16'}})
             self.eq(resp, {'k': 'v'})
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadJsonText):
                 await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
 
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
+
+            q = 'return( $buf.json(encoding=$encoding, strict=(true)) )'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
 
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
@@ -3142,19 +3154,18 @@ class StormTypesTest(s_test.SynTest):
 
             # Mismatch surrogates from real world data
             surrogate_data = "FOO\ufffd\ufffd\ufffd\udfab\ufffd\ufffdBAR"
-            resp = await core.callStorm('$buf=$s.encode() return ( ($buf, $buf.decode() ) )',
-                                        opts={'vars': {'s': surrogate_data}})
-            self.eq(resp[0], surrogate_data.encode('utf-8', 'surrogatepass'))
-            self.eq(resp[1], surrogate_data)
+            with self.raises(s_exc.StormRuntimeError):
+                resp = await core.callStorm('$buf=$s.encode() return ( ($buf, $buf.decode() ) )',
+                                                opts={'vars': {'s': surrogate_data}})
 
             # Encoding/decoding errors are caught
-            q = '$valu="valu" $valu.encode("utf16").decode()'
+            q = '$valu="valu" $valu.encode("utf16").decode(strict=(true))'
             msgs = await core.stormlist(q)
             errs = [m for m in msgs if m[0] == 'err']
             self.len(1, errs)
             self.eq(errs[0][1][0], 'StormRuntimeError')
 
-            q = '$lib.print($byts.decode(errors=ignore))'
+            q = '$lib.print($byts.decode())'
             msgs = await core.stormlist(q, opts={'vars': {'byts': b'foo\x80'}})
             self.stormHasNoErr(msgs)
             self.stormIsInPrint('foo', msgs)

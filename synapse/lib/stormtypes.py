@@ -1216,7 +1216,7 @@ class LibBase(Lib):
             Examples:
                 Fire an event called ``demo`` with some data::
 
-                    cli> storm $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
+                    storm> $foo='bar' $lib.fire('demo', foo=$foo, knight='ni')
                     ...
                     ('storm:fire', {'type': 'demo', 'data': {'foo': 'bar', 'knight': 'ni'}})
                     ...
@@ -1242,7 +1242,7 @@ class LibBase(Lib):
             Examples:
                 Create a dictionary object with a key whose value is null, and call ``$lib.fire()`` with it::
 
-                    cli> storm $d=({"key": $lib.null}) $lib.fire('demo', d=$d)
+                    storm> $d=({"key": $lib.null}) $lib.fire('demo', d=$d)
                     ('storm:fire', {'type': 'demo', 'data': {'d': {'key': None}}})
             ''',
             'type': 'null', },
@@ -1269,7 +1269,7 @@ class LibBase(Lib):
             Examples:
                 Conditionally print a statement based on the constant value::
 
-                    cli> storm if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
+                    storm> if $lib.true { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is True
                 ''',
          'type': 'boolean', },
@@ -1279,7 +1279,7 @@ class LibBase(Lib):
             Examples:
                 Conditionally print a statement based on the constant value::
 
-                    cli> storm if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
+                    storm> if $lib.false { $lib.print('Is True') } else { $lib.print('Is False') }
                     Is False''',
          'type': 'boolean', },
         {'name': 'cast', 'desc': 'Normalize a value as a Synapse Data Model Type.',
@@ -1309,19 +1309,19 @@ class LibBase(Lib):
             Examples:
                 Print a simple string::
 
-                    cli> storm $lib.print("Hello world!")
+                    storm> $lib.print("Hello world!")
                     Hello world!
 
                 Format and print string based on variables::
 
-                    cli> storm $d=({"key1": (1), "key2": "two"})
+                    storm> $d=({"key1": (1), "key2": "two"})
                          for ($key, $value) in $d { $lib.print('{k} => {v}', k=$key, v=$value) }
                     key1 => 1
                     key2 => two
 
                 Use values off of a node to format and print string::
 
-                    cli> storm inet:ipv4:asn
+                    storm> inet:ipv4:asn
                          $lib.print("node: {ndef}, asn: {asn}", ndef=$node.ndef(), asn=:asn) | spin
                     node: ('inet:ipv4', 16909060), asn: 1138
 
@@ -1341,7 +1341,7 @@ class LibBase(Lib):
         Examples:
             Generate a sequence of integers based on the size of an array::
 
-                cli> storm $a=(foo,bar,(2)) for $i in $lib.range($lib.len($a)) {$lib.fire('test', indx=$i, valu=$a.$i)}
+                storm> $a=(foo,bar,(2)) for $i in $lib.range($lib.len($a)) {$lib.fire('test', indx=$i, valu=$a.$i)}
                 Executing query at 2021/03/22 19:25:48.835
                 ('storm:fire', {'type': 'test', 'data': {'index': 0, 'valu': 'foo'}})
                 ('storm:fire', {'type': 'test', 'data': {'index': 1, 'valu': 'bar'}})
@@ -2014,7 +2014,7 @@ class LibStr(Lib):
             Examples:
                 Join together a list of strings with a dot separator::
 
-                    cli> storm $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
+                    storm> $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
 
                     rep.vtx.tag''',
          'type': {'type': 'function', '_funcname': 'join',
@@ -2035,7 +2035,7 @@ class LibStr(Lib):
             Examples:
                 Format a string with a fixed argument and a variable::
 
-                    cli> storm $list=(1,2,3,4)
+                    storm> $list=(1,2,3,4)
                          $str=$lib.str.format('Hello {name}, your list is {list}!', name='Reader', list=$list)
                          $lib.print($str)
 
@@ -2308,7 +2308,7 @@ class LibAxon(Lib):
             Examples:
                 Save a base64 encoded buffer to the Axon::
 
-                    cli> storm $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.axon.put($buf)
+                    storm> $s='dGVzdA==' $buf=$lib.base64.decode($s) ($size, $sha256)=$lib.axon.put($buf)
                          $lib.print('size={size} sha256={sha256}', size=$size, sha256=$sha256)
 
                     size=4 sha256=9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08''',
@@ -2324,7 +2324,7 @@ class LibAxon(Lib):
                 Check if the Axon has a given file::
 
                     # This example assumes the Axon does have the bytes
-                    cli> storm if $lib.axon.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
+                    storm> if $lib.axon.has(9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08) {
                             $lib.print("Has bytes")
                         } else {
                             $lib.print("Does not have bytes")
@@ -2806,7 +2806,7 @@ class LibTime(Lib):
             Examples:
                 Convert a timestamp from seconds to millis and format it::
 
-                    cli> storm $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
+                    storm> $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
                          $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
@@ -2821,7 +2821,7 @@ class LibTime(Lib):
             Examples:
                 Parse a string as for its month/day/year value into a timestamp::
 
-                    cli> storm $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
+                    storm> $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
 
                     1590969600000''',
          'type': {'type': 'function', '_funcname': '_parse',
@@ -2838,7 +2838,7 @@ class LibTime(Lib):
             Examples:
                 Format a timestamp into a string::
 
-                    cli> storm $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
+                    storm> $now=$lib.time.now() $str=$lib.time.format($now, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
          'type': {'type': 'function', '_funcname': '_format',
@@ -4429,6 +4429,26 @@ class Str(Prim):
         {'name': 'json', 'desc': 'Parse a JSON string and return the deserialized data.',
          'type': {'type': 'function', '_funcname': '_methStrJson', 'args': (),
                   'returns': {'type': 'prim', 'desc': 'The JSON deserialized object.', }}},
+        {'name': 'join', 'desc': '''
+                Join items into a string using the current string as a separator.
+
+                Examples:
+                    Join together a list of strings with a dot separator::
+
+                        storm> $sepr='.' $foo=$sepr.join(('rep', 'vtx', 'tag')) $lib.print($foo)
+
+                        rep.vtx.tag
+
+                    Join values inline together with a dot separator::
+
+                        storm> $foo=('.').join(('rep', 'vtx', 'tag')) $lib.print($foo)
+
+                        rep.vtx.tag''',
+         'type': {'type': 'function', '_funcname': '_methStrJoin',
+                  'args': (
+                      {'name': 'items', 'type': 'list', 'desc': 'A list of items to join together.', },
+                  ),
+                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
     )
     _storm_typename = 'str'
     _ismutable = False
@@ -4459,6 +4479,7 @@ class Str(Prim):
             'reverse': self._methStrReverse,
             'format': self._methStrFormat,
             'json': self._methStrJson,
+            'join': self._methStrJoin,
         }
 
     def __int__(self):
@@ -4499,7 +4520,7 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methEncode(self, encoding='utf8'):
         try:
-            return self.valu.encode(encoding, 'surrogatepass')
+            return self.valu.encode(encoding)
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
@@ -4578,6 +4599,11 @@ class Str(Prim):
     async def _methStrJson(self):
         return s_json.loads(self.valu)
 
+    @stormfunc(readonly=True)
+    async def _methStrJoin(self, items):
+        strs = [await tostr(item) async for item in toiter(items)]
+        return self.valu.join(strs)
+
 @registry.registerType
 class Bytes(Prim):
     '''
@@ -4588,7 +4614,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
-                      {'name': 'errors', 'type': 'str', 'desc': 'The error handling scheme to use.', 'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid values rather than replacing the character.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -4640,8 +4667,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.',
-                       'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
                   ),
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
 
@@ -4736,9 +4763,10 @@ class Bytes(Prim):
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
     @stormfunc(readonly=True)
-    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+    async def _methDecode(self, encoding='utf8', strict=False):
         encoding = await tostr(encoding)
-        errors = await tostr(errors)
+        strict = await tobool(strict)
+        errors = 'strict' if strict else 'replace'
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
@@ -4759,10 +4787,11 @@ class Bytes(Prim):
         return gzip.compress(self.valu)
 
     @stormfunc(readonly=True)
-    async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
+    async def _methJsonLoad(self, encoding=None, strict=False):
         try:
             valu = self.valu
-            errors = await tostr(errors)
+            strict = await tobool(strict)
+            errors = 'strict' if strict else 'replace'
 
             if encoding is None:
                 encoding = s_json.detect_encoding(valu)
@@ -4788,6 +4817,10 @@ class Dict(Prim):
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
+
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        return item in self.valu
 
     async def iter(self):
         for item in tuple(self.valu.items()):
@@ -4835,6 +4868,11 @@ class CmdOpts(Dict):
     def __hash__(self):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
+
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        valu = getattr(self.valu.opts, item, s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
@@ -4936,6 +4974,9 @@ class Set(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def _storm_contains(self, item):
+        return item in self.valu
 
     async def _methSetSize(self):
         return len(self)
@@ -5115,6 +5156,9 @@ class List(Prim):
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
+
+    async def _storm_contains(self, item):
+        return await self._methListHas(item)
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)
@@ -5479,6 +5523,13 @@ class GlobalVars(Prim):
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.confirm(('globals', 'get', item))
+        valu = await runt.view.core.getStormVar(item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await tostr(name)
         runt = s_scope.get('runt')
@@ -5520,6 +5571,18 @@ class EnvVars(Prim):
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+
+        if not item.startswith('SYN_STORM_ENV_'):
+            mesg = f'Environment variable must start with SYN_STORM_ENV_ : {item}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        valu = os.getenv(item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     @stormfunc(readonly=True)
     async def deref(self, name):
         runt = s_scope.get('runt')
@@ -5558,6 +5621,12 @@ class RuntVars(Prim):
 
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        valu = runt.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def deref(self, name):
@@ -5697,7 +5766,13 @@ class NodeProps(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.valu.get(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def _derefGet(self, name):
+        name = await tostr(name)
         return self.valu.get(name)
 
     async def setitem(self, name, valu):
@@ -5835,6 +5910,10 @@ class NodeData(Prim):
     async def cacheset(self, name, valu):
         envl = {'asof': s_common.now(), 'data': valu}
         return await self._setNodeData(name, envl)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return await self.valu.hasData(item)
 
     @stormfunc(readonly=True)
     async def _hasNodeData(self, name):
@@ -6232,6 +6311,10 @@ class PathMeta(Prim):
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return item in self.path.metadata
+
     async def deref(self, name):
         name = await tostr(name)
         return self.path.metadata.get(name)
@@ -6259,6 +6342,11 @@ class PathVars(Prim):
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.path.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     async def deref(self, name):
         name = await tostr(name)
@@ -9513,7 +9601,7 @@ async def tostr(valu, noneok=False):
 
     try:
         if isinstance(valu, bytes):
-            return valu.decode('utf8', 'surrogatepass')
+            return valu.decode('utf8')
 
         if isinstance(valu, s_node.Node):
             return valu.repr()

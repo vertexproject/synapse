@@ -76,6 +76,7 @@ terminalEnglishMap = {
     'MODSET': '+= or -=',
     'MODSETMULTI': '++= or --=',
     'NONQUOTEWORD': 'unquoted value',
+    'NOTIN': 'not in',
     'NOTOP': 'not',
     'NULL': 'null',
     'NUMBER': 'number',
@@ -650,6 +651,7 @@ terminalClassMap = {
     'OCTNUMBER': lambda astinfo, x: s_ast.Const(astinfo, s_ast.parseNumber(x)),
     'BOOL': lambda astinfo, x: s_ast.Bool(astinfo, x == 'true'),
     'NULL': lambda astinfo, x: s_ast.Const(astinfo, None),
+    'NOTIN': lambda astinfo, x: s_ast.Const(astinfo, 'not in'),
     'SINGLEQUOTEDSTRING': lambda astinfo, x: s_ast.Const(astinfo, x[1:-1]),  # drop quotes
     'NONQUOTEWORD': massage_vartokn,
     'VARTOKN': massage_vartokn,
