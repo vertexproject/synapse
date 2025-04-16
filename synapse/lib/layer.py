@@ -3108,9 +3108,10 @@ class Layer(s_nexus.Pusher):
             await self.layrslab.putmulti(kvpairs, db=self.indxdb)
 
         if self.logedits and nexsitem is not None:
-            nexsindx = nexsitem[0] if nexsitem is not None else None
-            offs = self.nodeeditlog.add(None, indx=nexsindx)
-            [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
+            nexsindx = nexsitem[0]
+            if nexsindx >= self.nodeeditlog.index():
+                offs = self.nodeeditlog.add(None, indx=nexsindx)
+                [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
 
         await asyncio.sleep(0)
         return nodeedits
