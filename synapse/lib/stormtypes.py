@@ -4520,7 +4520,7 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methEncode(self, encoding='utf8'):
         try:
-            return self.valu.encode(encoding, 'surrogatepass')
+            return self.valu.encode(encoding)
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
@@ -4614,7 +4614,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
-                      {'name': 'errors', 'type': 'str', 'desc': 'The error handling scheme to use.', 'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid values rather than replacing the character.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -4666,8 +4667,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.',
-                       'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
                   ),
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
 
@@ -4762,9 +4763,10 @@ class Bytes(Prim):
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
     @stormfunc(readonly=True)
-    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+    async def _methDecode(self, encoding='utf8', strict=False):
         encoding = await tostr(encoding)
-        errors = await tostr(errors)
+        strict = await tobool(strict)
+        errors = 'strict' if strict else 'replace'
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
@@ -4785,10 +4787,11 @@ class Bytes(Prim):
         return gzip.compress(self.valu)
 
     @stormfunc(readonly=True)
-    async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
+    async def _methJsonLoad(self, encoding=None, strict=False):
         try:
             valu = self.valu
-            errors = await tostr(errors)
+            strict = await tobool(strict)
+            errors = 'strict' if strict else 'replace'
 
             if encoding is None:
                 encoding = s_json.detect_encoding(valu)
@@ -9598,7 +9601,7 @@ async def tostr(valu, noneok=False):
 
     try:
         if isinstance(valu, bytes):
-            return valu.decode('utf8', 'surrogatepass')
+            return valu.decode('utf8')
 
         if isinstance(valu, s_node.Node):
             return valu.repr()
