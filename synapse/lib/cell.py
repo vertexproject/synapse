@@ -4657,7 +4657,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - volsize - Volume where cell is running total space
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
-                - backupvolfree - Backup di this on therectory volume free space
+                - backupvolfree - Backup directory volume free space
                 - cellstarttime - Cell start time in epoch milliseconds
                 - celluptime - Cell uptime in milliseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
