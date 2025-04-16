@@ -8367,7 +8367,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     dirn01 = s_common.genpath(dirn, 'cell01')
 
                     core00 = await base.enter_context(self.addSvcToAha(aha, '00.core', s_cortex.Cortex, dirn=dirn00))
-                    provinfo = {'mirror': '00.core'}
+                    provinfo = {'mirror': 'core'}
                     core01 = await base.enter_context(self.addSvcToAha(aha, '01.core', s_cortex.Cortex, dirn=dirn01, provinfo=provinfo))
 
                     self.len(1, await core00.nodes('[inet:asn=0]'))
@@ -8645,6 +8645,9 @@ class CortexBasicTest(s_t_utils.SynTest):
 
                     self.true(core01.isactive)
                     self.false(core00.isactive)
+
+                    await core00.sync()
+                    await asyncio.sleep(10)
 
                     # Let the mirror reconnect
                     self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), timeout=12))

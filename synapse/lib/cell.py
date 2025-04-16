@@ -378,8 +378,8 @@ class CellApi(s_base.Base):
         return await self.cell.promote(graceful=graceful)
 
     @adminapi(log=True)
-    async def handoff(self, turl, timeout=30):
-        return await self.cell.handoff(turl, timeout=timeout)
+    async def handoff(self, turl, mirror_url=None, timeout=30):
+        return await self.cell.handoff(turl, mirror_url=mirror_url, timeout=timeout)
 
     def getCellUser(self):
         return self.user.pack()
@@ -2003,6 +2003,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
 
+        self.addReloadableSystem('mirror:loop', self._restartMirror)
+
     async def getAhaInfo(self):
 
         # Default to static information
@@ -2186,9 +2188,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             myurl = self.getMyUrl()
 
+            tgt_mirrorurl = None
+            if mirurl.startswith('aha://'):
+                tgt_mirrorurl = mirurl
+            logger.info(f'PROMOTION: {tgt_mirrorurl=}')
+
             logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff{_dispname}.')
             async with await s_telepath.openurl(mirurl) as lead:
-                await lead.handoff(myurl)
+                await lead.handoff(myurl, mirror_url=tgt_mirrorurl)
                 logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}{_dispname}')
                 return
 
@@ -2203,11 +2210,14 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'PROMOTION: Finished leadership promotion{_dispname}.')
 
-    async def handoff(self, turl, timeout=30):
+    async def handoff(self, turl, mirror_url=None, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
+
+        if mirror_url is None:
+            mirror_url = turl
 
         if not self.isactive:
             mesg = f'HANDOFF: {_dispname} is not the current leader and cannot handoff leadership to' \
@@ -2247,8 +2257,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 logger.debug(f'HANDOFF: Setting the service as inactive{_dispname}.')
                 await self.setCellActive(False)
 
-                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname}.')
-                self.modCellConf({'mirror': turl})
+                logger.debug(f'HANDOFF: Configuring service to sync from new leader{_dispname} @ {s_urlhelp.sanitizeUrl(mirror_url)}.')
+                self.modCellConf({'mirror': mirror_url})
 
                 logger.debug(f'HANDOFF: Restarting the nexus{_dispname}.')
                 await self.nexsroot.startup()
@@ -4647,7 +4657,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - volsize - Volume where cell is running total space
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
-                - backupvolfree - Backup directory volume free space
+                - backupvolfree - Backup di this on therectory volume free space
                 - cellstarttime - Cell start time in epoch milliseconds
                 - celluptime - Cell uptime in milliseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
@@ -4764,6 +4774,21 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return s_common.retnexc(e)
         logger.debug(f'Completed cell reload system {name}')
         return (True, ret)
+
+    async def _restartMirror(self):
+        # FIXME define this business logic on the NexusRoot
+        client = self.nexsroot.client
+        if client is None:
+            logger.info('Cannot reload the mirror loop when the service is not a follower.')
+            return False
+        try:
+            proxy = await client.proxy(timeout=30)
+        except BaseException as e:
+            logger.exception('Failed to get proxy????')
+            return False
+        # This **should** kill the running mirror loop task on the proxy
+        await proxy.fini()
+        return True
 
     async def addUserApiKey(self, useriden, name, duration=None):
         '''
