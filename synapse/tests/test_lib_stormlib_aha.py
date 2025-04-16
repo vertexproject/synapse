@@ -216,7 +216,7 @@ Connection information:
 
                 # PeerGenr
                 resp = await core00.callStorm('''
-                    $resps = ([])
+                    $resps = ()
                     $todo = $lib.utils.todo('getTasks')
                     for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {
                         $resps.append(($name, $info))
@@ -226,7 +226,7 @@ Connection information:
                 self.len(0, resp)
 
                 resp = await core00.callStorm('''
-                    $resps = ([])
+                    $resps = ()
                     $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
                     for ($name, $info) in $lib.aha.callPeerGenr(cell..., $todo) {
                         $resps.append(($name, $info))
@@ -237,7 +237,7 @@ Connection information:
 
                 cell00_rid = (await cell00.getCellInfo())['cell']['run']
                 resp = await core00.callStorm('''
-                    $resps = ([])
+                    $resps = ()
                     $todo = $lib.utils.todo('getNexusChanges', (0), wait=(false))
                     for $info in $lib.aha.callPeerGenr(cell..., $todo, skiprun=$skiprun) {
                         $resps.append($info)
@@ -253,7 +253,7 @@ Connection information:
 
                 # PeerApi
                 resp = await core00.callStorm('''
-                    $resps = ([])
+                    $resps = ()
                     $todo = $lib.utils.todo('getCellInfo')
                     for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo) {
                         $resps.append(($name, $info))
@@ -266,7 +266,7 @@ Connection information:
                 self.isinstance(resp[0][1][1], dict)
 
                 resp = await core00.callStorm('''
-                    $resps = ([])
+                    $resps = ()
                     $todo = $lib.utils.todo(getCellInfo)
                     for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo) {
                         $resps.append(($name, $info))
@@ -276,7 +276,7 @@ Connection information:
                 self.len(2, resp)
 
                 resp = await core00.callStorm('''
-                    $resps = ([])
+                    $resps = ()
                     $todo = $lib.utils.todo(getCellInfo)
                     for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo, skiprun=$skiprun) {
                         $resps.append(($name, $info))
@@ -286,7 +286,7 @@ Connection information:
                 self.len(1, resp)
 
                 resp = await core00.callStorm('''
-                    $resps = ([])
+                    $resps = ()
                     $todo = $lib.utils.todo('getCellInfo')
                     for ($name, $info) in $lib.aha.callPeerApi(cell..., $todo, timeout=(10)) {
                         $resps.append(($name, $info))
