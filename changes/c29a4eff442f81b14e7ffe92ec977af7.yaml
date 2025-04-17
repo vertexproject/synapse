@@ -1,6 +1,0 @@
----
-desc: Updated Cortex to run Storm package ``onload()`` handlers every time it becomes
-  active.
-prs: []
-type: feat
-...
