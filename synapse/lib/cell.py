@@ -2003,8 +2003,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             await self.addHttpsPort(port)
             logger.info(f'https listening: {port}')
 
-        self.addReloadableSystem('mirror:loop', self._restartMirror)
-
     async def getAhaInfo(self):
 
         # Default to static information
@@ -4776,23 +4774,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             return s_common.retnexc(e)
         logger.debug(f'Completed cell reload system {name}')
         return (True, ret)
-
-    async def _restartMirror(self):
-        # FIXME define this business logic on the NexusRoot
-        client = self.nexsroot.client
-        if client is None:
-            mesg = 'Cannot reload the mirror loop when the service is not a follower.'
-            logger.info(mesg)
-            return (False, mesg)
-        try:
-            proxy = await client.proxy(timeout=30)
-        except BaseException as e:
-            mesg = 'Failed to get proxy????'
-            logger.exception(mesg)
-            return (False, mesg)
-        # This **should** kill the running mirror loop task on the proxy
-        await proxy.fini()
-        return (True, 'Restarted mirror proxy.')
 
     async def addUserApiKey(self, useriden, name, duration=None):
         '''
