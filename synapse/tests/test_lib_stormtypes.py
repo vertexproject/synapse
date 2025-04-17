@@ -2707,6 +2707,15 @@ class StormTypesTest(s_test.SynTest):
             self.false(valu[0])
             self.isin('Unknown timezone', valu[1]['errinfo']['mesg'])
 
+            # Ambiguous time
+            query = '''$valu="2020-11-01 01:30:00"
+            $parsed=$lib.time.parse($valu, "%Y-%m-%d %H:%M:%S")
+            return($lib.time.toUTC($parsed, America/New_York))
+            '''
+            mesgs = await core.callStorm(query)
+            self.false(mesgs[0])
+            self.isin('Ambiguous time', mesgs[1]['errinfo']['mesg'])
+
     async def test_storm_lib_time_ticker(self):
 
         async with self.getTestCore() as core:
