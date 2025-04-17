@@ -4382,6 +4382,10 @@ class Layer(s_nexus.Pusher):
             async for verb, n2iden in self.iterNodeEdgesN1(buid):
                 edits.append((EDIT_EDGE_ADD, (verb, n2iden), ()))
 
+                if len(edits) >= 1000:
+                    yield nodeedit
+                    edits.clear()
+
             yield nodeedit
 
     async def initUpstreamSync(self, url):

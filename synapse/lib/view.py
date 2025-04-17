@@ -405,20 +405,6 @@ class View(s_nexus.Pusher):  # type: ignore
                 'merge': merge.get('iden'),
             }
 
-            async def chunked():
-                nodeedits = []
-
-                async for nodeedit in self.layers[0].iterLayerNodeEdits():
-
-                    nodeedits.append(nodeedit)
-
-                    if len(nodeedits) == 10:
-                        yield nodeedits
-                        nodeedits.clear()
-
-                if nodeedits:
-                    yield nodeedits
-
             total = self.layers[0].getStorNodeCount()
 
             count = 0
@@ -428,14 +414,13 @@ class View(s_nexus.Pusher):  # type: ignore
 
             async with await self.parent.snap(user=self.core.auth.rootuser) as snap:
 
-                async for edits in chunked():
+                async for nodeedit in self.layers[0].iterLayerNodeEdits():
 
                     meta['time'] = s_common.now()
 
-                    await snap.saveNodeEdits(edits, meta)
-                    await asyncio.sleep(0)
+                    await snap.saveNodeEdits([nodeedit], meta)
 
-                    count += len(edits)
+                    count += 1
 
                     if count >= nextprog:
                         await self.core.feedBeholder('view:merge:prog', {'view': self.iden, 'count': count, 'total': total, 'merge': merge, 'votes': votes})
