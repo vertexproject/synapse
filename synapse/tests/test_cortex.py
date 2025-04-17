@@ -8646,9 +8646,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                     self.true(core01.isactive)
                     self.false(core00.isactive)
 
-                    await core00.sync()
-                    await asyncio.sleep(10)
-
                     # Let the mirror reconnect
                     self.true(await asyncio.wait_for(core01.stormpool.ready.wait(), timeout=12))
 
