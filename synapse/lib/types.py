@@ -1513,13 +1513,9 @@ class Ival(Type):
         return ival[1] - ival[0]
 
     def _getPrec(self, valu):
-        if (virts := valu[2]) is None:
+        if (virts := valu[2]) is None or (vval := virts.get('precision')) is None:
             return self.prec
-
-        if (valu := virts.get('precision')) is None:
-            return self.prec
-
-        return valu[0]
+        return vval[0]
 
     def _storVirtPrec(self, valu, newprec):
         prec = self.prectype.norm(newprec)[0]
@@ -1554,10 +1550,6 @@ class Ival(Type):
 
         minv, _ = self.ticktype.norm(valu)
         maxv, _ = self.tocktype._normPyInt(minv + 1)
-
-        if maxv > self.maxsize:
-            mesg = f'Time exceeds max size [{self.maxsize}] allowed for a non-future marker, got {maxv}'
-            raise s_exc.BadTypeValu(mesg=mesg, valu=maxv, prec=prec, name=self.name)
 
         return (minv, maxv), {}
 
@@ -2373,13 +2365,9 @@ class Time(IntBase):
         )
 
     def _getPrec(self, valu):
-        if (virts := valu[2]) is None:
+        if (virts := valu[2]) is None or (vval := virts.get('precision')) is None:
             return self.prec
-
-        if (valu := virts.get('precision')) is None:
-            return self.prec
-
-        return valu[0]
+        return vval[0]
 
     def _storVirtPrec(self, valu, newprec):
         prec = self.prectype.norm(newprec)[0]
@@ -2446,7 +2434,7 @@ class Time(IntBase):
     def _normPyDecimal(self, valu, prec=None):
         return self._normPyInt(int(valu), prec=prec)
 
-    def _normNumber(self, valu):
+    def _normNumber(self, valu, prec=None):
         return self._normPyInt(int(valu.valu), prec=prec)
 
     def norm(self, valu, prec=None):

@@ -60,7 +60,7 @@ def yearprec(ts, maxfill=False):
     if maxfill:
         try:
             return total_microseconds(datetime.datetime(dtime.year + 1, 1, 1) - EPOCH) - 1
-        except OverflowError:
+        except (ValueError, OverflowError):
             return MAX_TIME
     return total_microseconds(datetime.datetime(dtime.year, 1, 1) - EPOCH)
 
@@ -71,7 +71,7 @@ def monthprec(ts, maxfill=False):
     if maxfill:
         try:
             dtime += relativedelta(months=1)
-        except OverflowError:
+        except (ValueError, OverflowError):
             return MAX_TIME
         subv = 1
 
@@ -83,7 +83,10 @@ def dayprec(ts, maxfill=False):
 
     subv = 0
     if maxfill:
-        dtime += relativedelta(days=1)
+        try:
+            dtime += relativedelta(days=1)
+        except (ValueError, OverflowError):
+            return MAX_TIME
         subv = 1
 
     newdt = datetime.datetime(dtime.year, dtime.month, dtime.day)
@@ -96,7 +99,7 @@ def hourprec(ts, maxfill=False):
     if maxfill:
         try:
             dtime += relativedelta(hours=1)
-        except OverflowError:
+        except (ValueError, OverflowError):
             return MAX_TIME
         subv = 1
 
@@ -110,7 +113,7 @@ def minuteprec(ts, maxfill=False):
     if maxfill:
         try:
             dtime += relativedelta(minutes=1)
-        except OverflowError:
+        except (ValueError, OverflowError):
             return MAX_TIME
         subv = 1
 
@@ -124,7 +127,7 @@ def secprec(ts, maxfill=False):
     if maxfill:
         try:
             dtime += relativedelta(seconds=1)
-        except OverflowError:
+        except (ValueError, OverflowError):
             return MAX_TIME
         subv = 1
 
@@ -138,7 +141,7 @@ def milliprec(ts, maxfill=False):
     if maxfill:
         try:
             dtime += relativedelta(microseconds=1000)
-        except OverflowError:
+        except (ValueError, OverflowError):
             return MAX_TIME
         subv = 1
 

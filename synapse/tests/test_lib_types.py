@@ -639,6 +639,7 @@ class TypesTest(s_t_utils.SynTest):
         self.eq((0, 5356800000000), ival.norm((0, '1970-03-04'))[0])
         self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
         self.eq((1451606400000000, 1451606400000001), ival.norm(1451606400000000)[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm(decimal.Decimal(1451606400000000))[0])
         self.eq((1451606400000000, 1451606400000001), ival.norm(s_stormtypes.Number(1451606400000000))[0])
         self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
         self.eq((1451606400000000, 1483228800000000), ival.norm(('2016', '  2017'))[0])
@@ -930,7 +931,7 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
 
             with self.raises(s_exc.BadTypeDef):
-                await core.addFormProp('test:int', '_hehe', ('array', {'type': 'array'}), {})
+                await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -1309,7 +1310,22 @@ class TypesTest(s_t_utils.SynTest):
             self.raises(s_exc.BadCmprValu,
                         t.cmpr, '2015', 'range=', tick)
 
-            styp = core.model.type('timeprecision').stortype
+            prec = core.model.type('timeprecision')
+            styp = prec.stortype
+
+            self.eq(prec.norm(4), (s_time.PREC_YEAR, {}))
+            self.eq(prec.norm('4'), (s_time.PREC_YEAR, {}))
+            self.eq(prec.norm('year'), (s_time.PREC_YEAR, {}))
+            self.eq(prec.repr(s_time.PREC_YEAR), 'year')
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.norm('123')
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.norm(123)
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.repr(123)
 
             self.eq(t.norm('2025?'), (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}}))
             self.eq(t.norm('2025-04?'), (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}}))
@@ -1324,6 +1340,15 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.norm('2025-04-05 12:34:56.12345?'), (1743856496123450, {}))
             self.eq(t.norm('2025-04-05 12:34:56.123456?'), (1743856496123456, {}))
             self.eq(t.norm('2025-04-05 12:34:56.123456'), (1743856496123456, {}))
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(1743856496123456, prec=s_time.PREC_YEAR), exp)
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(decimal.Decimal(1743856496123456), prec=s_time.PREC_YEAR), exp)
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(s_stormtypes.Number(1743856496123456), prec=s_time.PREC_YEAR), exp)
 
             exp = (1743856496123456, {})
             self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
@@ -1374,6 +1399,20 @@ class TypesTest(s_t_utils.SynTest):
 
             exp = (1767225599999999, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
             self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_YEAR)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MONTH)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_DAY)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_HOUR)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MINUTE)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_SECOND)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MILLI)[0])
+
+            with self.raises(s_exc.BadTypeValu):
+                tmax.norm('2025-04-05 12:34:56.123456', prec=123)
+
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_newp', ('time', {'precision': 'newp'}), {})
 
             self.len(1, await core.nodes('[(test:str=a :tick=2014)]'))
             self.len(1, await core.nodes('[(test:str=b :tick=2015)]'))
