@@ -10,6 +10,7 @@ import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.node as s_node
+import synapse.lib.task as s_task
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
@@ -1548,7 +1549,11 @@ class View(s_nexus.Pusher):  # type: ignore
         keepalive = opts.get('keepalive')
         if keepalive is not None and keepalive <= 0:
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
-        synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+        if (synt := s_task.current()) is None:
+            # we only want to promote if we aren't already a syntask because we're probably a worker task that shouldn't
+            # show up in the main task list
+            synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
 
@@ -1702,8 +1707,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Set a mutable view property.
         '''
-        if name not in ('name', 'desc', 'parent', 'nomerge', 'protected', 'quorum'):
-            # TODO: Remove nomerge after Synapse 3.x.x
+        if name not in ('name', 'desc', 'parent', 'protected', 'quorum'):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
 

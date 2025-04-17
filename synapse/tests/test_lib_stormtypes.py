@@ -156,7 +156,7 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm(q, opts=opts)
 
             # Push a handful of notifications and list a subset of them
-            q = '''$m=$lib.str.format('hello {i}', i=$i) return($lib.auth.users.byname(root).tell($m))'''
+            q = '''$m=`hello {$i}` return($lib.auth.users.byname(root).tell($m))'''
             for i in range(5):
                 opts = {'user': visi.iden, 'vars': {'i': i}}
                 await core.callStorm(q, opts=opts)
@@ -1072,7 +1072,7 @@ class StormTypesTest(s_test.SynTest):
             # exec vars do not populate upwards
             q = '''
             $foo = "that is one neato burrito"
-            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) $lib.print("in exec") }
+            $baz = ${ $bar=`wompwomp{$lib.guid()}` $lib.print("in exec") }
             $baz.exec()
             $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
@@ -1286,11 +1286,6 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
-            q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
-                ' [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq('visi@vertex.link', nodes[0].ndef[1])
 
             nodes = await core.nodes('$s = woot [ test:int=$s.startswith(w) ]')
             self.eq(1, nodes[0].ndef[1])
@@ -1313,7 +1308,7 @@ class StormTypesTest(s_test.SynTest):
             sobj = s_stormtypes.Str('beepbeep')
             self.len(8, sobj)
 
-            nodes = await core.nodes('$s = (foo, bar, baz) [ test:str=$lib.str.join(".", $s) ]')
+            nodes = await core.nodes("$s = (foo, bar, baz) [ test:str=('.').join($s) ]")
             self.eq('foo.bar.baz', nodes[0].ndef[1])
 
             nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".") ]')
@@ -1767,7 +1762,7 @@ class StormTypesTest(s_test.SynTest):
             $ipv4 = $node.repr()
             $loc = $node.repr(loc)
             $latlong = $node.repr(latlong, defv="??")
-            $valu = $lib.str.format("{ipv4} in {loc} at {latlong}", ipv4=$ipv4, loc=$loc, latlong=$latlong)
+            $valu = `{$ipv4} in {$loc} at {$latlong}`
             [ test:str=$valu ]
             +test:str
         '''
@@ -2446,7 +2441,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('get valu is 0', mesgs)
 
                     listq = '''for ($key, $valu) in $lib.globals {
-                    $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                    $string = `{$key} is {$valu}`
                     $lib.print($string)
                     }
                     '''
@@ -2487,7 +2482,7 @@ class StormTypesTest(s_test.SynTest):
                     self.len(1, await core.nodes('test:str=hehe'))
 
                     listq = '''for ($key, $valu) in $lib.user.vars {
-                        $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                        $string = `{$key} is {$valu}`
                         $lib.print($string)
                     }
                     '''
@@ -2540,7 +2535,7 @@ class StormTypesTest(s_test.SynTest):
                     # core.vars, they only get the values they can read.
                     corelistq = '''
                     for ($key, $valu) in $lib.globals {
-                        $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                        $string = `{$key} is {$valu}`
                         $lib.print($string)
                     }
                     '''
@@ -2674,6 +2669,13 @@ class StormTypesTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.time.toUTC(2020, VISI))')
             self.false(valu[0])
             self.eq(valu[1]['err'], 'BadArg')
+
+            query = '''$valu="2020-10-01 01:30:00"
+            $parsed=$lib.time.parse($valu, "%Y-%m-%d %H:%M:%S")
+            $lib.print($lib.time.toUTC($parsed, US/Eastern))
+            '''
+            mesgs = await core.stormlist(query)
+            self.stormIsInPrint('1601530200000', mesgs)
 
             # Test with different timezone abbreviations
 
@@ -4806,7 +4808,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
 
-                q = '{$lib.queue.get(foo).put(m3) $s=$lib.str.format("m3 {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden})) }'
+                q = '{$lib.queue.get(foo).put(m3) $s=`m3 {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden})) }'
                 text = f'cron.add --minute 17 {q}'
                 async with getCronJob(text) as guid:
                     with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
@@ -5927,13 +5929,13 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'d', 'c'}, ret)
 
             # str join
-            ret = await core.callStorm('$x=(foo,bar,baz) $y=$lib.str.join("-", $x) return($y)')
+            ret = await core.callStorm('$x=(foo,bar,baz) $y=("-").join($x) return($y)')
             self.eq('foo-bar-baz', ret)
 
-            ret = await core.callStorm('$y=$lib.str.join("-", (foo, bar, baz)) return($y)')
+            ret = await core.callStorm('$y=("-").join((foo, bar, baz)) return($y)')
             self.eq('foo-bar-baz', ret)
 
-            ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
+            ret = await core.callStorm('$x=abcd $y=("-").join($x) return($y)')
             self.eq('a-b-c-d', ret)
 
     async def test_storm_lib_axon(self):
@@ -5947,7 +5949,7 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'user': visi.iden, 'vars': {'port': port}}
             wget = '''
-               $url = $lib.str.format("https://visi:secret@127.0.0.1:{port}/api/v1/healthcheck", port=$port)
+               $url = `https://visi:secret@127.0.0.1:{$port}/api/v1/healthcheck`
                return($lib.axon.wget($url, ssl=$lib.false))
            '''
             with self.raises(s_exc.AuthDeny):
