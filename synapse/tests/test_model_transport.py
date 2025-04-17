@@ -6,10 +6,9 @@ class TransportTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            craft = (await core.nodes('[ transport:air:craft=* :tailnum=FF023 :type=helicopter :built=202002 :make=boeing :model=747 :serial=1234 :operator=*]'))[0]
-            self.eq('helicopter', craft.get('type'))
+            craft = (await core.nodes('[ transport:air:craft=* :tailnum=FF023 :type=helicopter :built=202002 :model=747 :serial=1234 :operator=*]'))[0]
+            self.eq('helicopter.', craft.get('type'))
             self.eq(1580515200000, craft.get('built'))
-            self.eq('boeing', craft.get('make'))
             self.eq('747', craft.get('model'))
             self.eq('1234', craft.get('serial'))
             self.nn(craft.get('operator'))
@@ -24,34 +23,13 @@ class TransportTest(s_test.SynTest):
                     :scheduled:arrival=20200203
                     :departed=2020020202
                     :arrived=202002020302
-                    :carrier=*
-                    :craft=*
-                    :from:port=IAD
-                    :to:port=LAS
-                    :stops=(iad, visi, las)
-                    :cancelled=true
                 ]'''))[0]
-
-            self.len(1, await core.nodes('transport:air:flight -> transport:air:craft'))
 
             self.eq('ua2437', flight.get('num'))
             self.eq(1580601600000, flight.get('scheduled:departure'))
             self.eq(1580688000000, flight.get('scheduled:arrival'))
             self.eq(1580608800000, flight.get('departed'))
             self.eq(1580612520000, flight.get('arrived'))
-            self.true(flight.get('cancelled'))
-
-            self.nn(flight.get('carrier'))
-
-            self.eq('las', flight.get('to:port'))
-            self.eq('iad', flight.get('from:port'))
-
-            flightiden = flight.ndef[1]
-            occup = (await core.nodes(f'[ transport:air:occupant=* :flight={flightiden} :seat=1A :contact=* ]'))[0]
-
-            self.eq('1a', occup.get('seat'))
-            self.len(1, await core.nodes('transport:air:occupant -> ps:contact'))
-            self.len(1, await core.nodes('transport:air:occupant -> transport:air:flight'))
 
             telem = (await core.nodes('''
                 [ transport:air:telem=*
@@ -91,21 +69,17 @@ class TransportTest(s_test.SynTest):
                     :type=cargo.tanker.oil
                     :imo="IMO 1234567"
                     :built=2020
-                    :make="The Vertex Project"
                     :model="Speed Boat 9000"
-                    :length=20m
                     :beam=10m
                     :operator=*
                 ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
             self.eq('slice of life', vessel.get('name'))
             self.eq('cargo.tanker.oil.', vessel.get('type'))
-            self.eq('the vertex project', vessel.get('make'))
             self.eq('speed boat 9000', vessel.get('model'))
             self.eq('us', vessel.get('flag'))
             self.eq('imo1234567', vessel.get('imo'))
             self.eq(1577836800000, vessel.get('built'))
-            self.eq(20000, vessel.get('length'))
             self.eq(10000, vessel.get('beam'))
             self.nn(vessel.get('operator'))
 
@@ -167,7 +141,6 @@ class TransportTest(s_test.SynTest):
                     :vehicle={[ transport:land:vehicle=*
                         :serial=V-31337
                         :built=2005
-                        :make=lotus
                         :model=elise
                         :registration=$regid
                         :type=car
@@ -198,7 +171,6 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('transport:land:registration:id=zeroday :vehicle -> transport:land:vehicle')
             self.len(1, nodes)
             self.eq(nodes[0].get('type'), 'car.')
-            self.eq(nodes[0].get('make'), 'lotus')
             self.eq(nodes[0].get('model'), 'elise')
             self.eq(nodes[0].get('serial'), 'V-31337')
             self.eq(nodes[0].get('built'), 1104537600000)

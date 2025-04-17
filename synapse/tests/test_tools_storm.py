@@ -67,23 +67,23 @@ class StormCliTest(s_test.SynTest):
             self.eq('woot', opts.cortex)
             self.none(opts.view)
 
-            q = '$lib.model.ext.addFormProp(inet:ipv4, "_test:score", (int, ({})), ({}))'
+            q = '$lib.model.ext.addFormProp(inet:ip, "_test:score", (int, ({})), ({}))'
             await core.callStorm(q)
 
             async with core.getLocalProxy() as proxy:
 
                 outp = s_output.OutPutStr()
                 async with await s_t_storm.StormCli.anit(proxy, outp=outp) as scli:
-                    await scli.runCmdLine('[inet:ipv4=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10 :_test:score=7]')
+                    await scli.runCmdLine('[inet:ip=1.2.3.4 +#foo=2012 +#bar +#baz:foo=10 :_test:score=7]')
                     text = str(outp)
                     self.isin('.....', text)
-                    self.isin('inet:ipv4=1.2.3.4', text)
+                    self.isin('inet:ip=1.2.3.4', text)
                     self.isin(':type = unicast', text)
                     self.isin(':_test:score = 7', text)
                     self.isin('.created = ', text)
                     self.isin('#bar', text)
                     self.isin('#baz:foo = 10', text)
-                    self.isin('#foo = (2012/01/01 00:00:00.000, 2012/01/01 00:00:00.001)', text)
+                    self.isin('#foo = (2012-01-01T00:00:00.000Z, 2012-01-01T00:00:00.001Z)', text)
                     self.isin('complete. 1 nodes in', text)
 
                 outp = s_output.OutPutStr()
@@ -225,33 +225,6 @@ class StormCliTest(s_test.SynTest):
                     for pode in podes:
                         self.sorteq(('bar', 'baz', 'foo'), pode[1]['tags'])
 
-                path = os.path.join(dirn, 'export2.nodes')
-                q = f'!export {path} {{ test:str }} --include-tags foo bar'
-                await s_t_storm.main((lurl, q), outp=outp)
-                text = str(outp)
-                self.isin(f'saved 2 nodes to: {path}', text)
-
-                with open(path, 'rb') as fd:
-                    byts = fd.read()
-                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
-                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
-                    for pode in podes:
-                        self.sorteq(('bar', 'foo'), pode[1]['tags'])
-
-                path = os.path.join(dirn, 'export3.nodes')
-                q = f'!export {path} {{ test:str }} --no-tags'
-                ret = await s_t_storm.main((lurl, q), outp=outp)
-                self.eq(ret, 0)
-                text = str(outp)
-                self.isin(f'saved 2 nodes to: {path}', text)
-
-                with open(path, 'rb') as fd:
-                    byts = fd.read()
-                    podes = [i[1] for i in s_msgpack.Unpk().feed(byts)]
-                    self.sorteq(('bar', 'foo'), [p[0][1] for p in podes])
-                    for pode in podes:
-                        self.eq({}, pode[1]['tags'])
-
                 ret = await s_t_storm.main((lurl, f'!export {path} {{ test:newp }}'), outp=outp)
                 self.eq(ret, 1)
                 text = str(outp)
@@ -270,7 +243,7 @@ class StormCliTest(s_test.SynTest):
             view = await core.callStorm('$view = $lib.view.get() $fork=$view.fork() return ( $fork.iden )')
 
             outp = s_output.OutPutStr()
-            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a"*64}]'), outp=outp)
+            await s_t_storm.main(('--view', view, url, f'[file:bytes={"a" * 64}]'), outp=outp)
             self.len(0, await core.nodes('file:bytes'))
             self.len(1, await core.nodes('file:bytes', opts={'view': view}))
 
@@ -331,44 +304,44 @@ class StormCliTest(s_test.SynTest):
 
             vals = await get_completions('[inet:')
             self.isin(Completion('fqdn', display='[form] inet:fqdn - A Fully Qualified Domain Name (FQDN).'), vals)
-            self.isin(Completion('ipv4', display='[form] inet:ipv4 - An IPv4 address.'), vals)
+            self.isin(Completion('ip', display='[form] inet:ip - An IPv4 or IPv6 address.'), vals)
 
             # No tags to return
-            vals = await get_completions('inet:ipv4#')
+            vals = await get_completions('inet:ip#')
             self.len(0, vals)
 
             # Add some tags
-            await core.stormlist('[inet:ipv4=1.2.3.4 +#rep.foo]')
-            await core.stormlist('[inet:ipv4=1.2.3.5 +#rep.foo.bar]')
-            await core.stormlist('[inet:ipv4=1.2.3.6 +#rep.bar]')
-            await core.stormlist('[inet:ipv4=1.2.3.7 +#rep.baz]')
+            await core.stormlist('[inet:ip=1.2.3.4 +#rep.foo]')
+            await core.stormlist('[inet:ip=1.2.3.5 +#rep.foo.bar]')
+            await core.stormlist('[inet:ip=1.2.3.6 +#rep.bar]')
+            await core.stormlist('[inet:ip=1.2.3.7 +#rep.baz]')
             await core.stormlist('[syn:tag=rep :doc="Reputation base."]')
 
             # Check completion of tags
-            vals = await get_completions('inet:ipv4#')
+            vals = await get_completions('inet:ip#')
             self.len(4, vals)
             self.isin(Completion('rep', display='[tag] rep - Reputation base.'), vals)
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
             self.isin(Completion('rep.bar', display='[tag] rep.bar'), vals)
             self.isin(Completion('rep.baz', display='[tag] rep.baz'), vals)
 
-            vals = await get_completions('inet:ipv4#rep.')
+            vals = await get_completions('inet:ip#rep.')
             self.len(4, vals)
             self.isin(Completion('foo', display='[tag] rep.foo'), vals)
             self.isin(Completion('foo.bar', display='[tag] rep.foo.bar'), vals)
             self.isin(Completion('bar', display='[tag] rep.bar'), vals)
             self.isin(Completion('baz', display='[tag] rep.baz'), vals)
 
-            vals = await get_completions('inet:ipv4 +#')
+            vals = await get_completions('inet:ip +#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
-            vals = await get_completions('inet:ipv4 -#')
+            vals = await get_completions('inet:ip -#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
-            vals = await get_completions('[inet:ipv4 +#')
+            vals = await get_completions('[inet:ip +#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
-            vals = await get_completions('inet:ipv4 { +#')
+            vals = await get_completions('inet:ip { +#')
             self.isin(Completion('rep.foo', display='[tag] rep.foo'), vals)
 
             # Tag completion is view sensitive
@@ -397,16 +370,16 @@ class StormCliTest(s_test.SynTest):
             self.isin(Completion('lt.list', display='[cmd] vault.list - List available vaults.'), vals)
             self.isin(Completion('lt.set.perm', display='[cmd] vault.set.perm - Set permissions on a vault.'), vals)
 
-            vals = await get_completions('inet:ipv4 +#rep.foo | ser')
+            vals = await get_completions('inet:ip +#rep.foo | ser')
             self.isin(Completion('vice.add', display='[cmd] service.add - Add a storm service to the cortex.'), vals)
             self.isin(Completion('vice.del', display='[cmd] service.del - Remove a storm service from the cortex.'), vals)
             self.isin(Completion('vice.list', display='[cmd] service.list - List the storm services configured in the cortex.'), vals)
 
             # Check completion of libs
-            vals = await get_completions('inet:ipv4 $li')
+            vals = await get_completions('inet:ip $li')
             self.len(0, vals)
 
-            vals = await get_completions('inet:ipv4 $lib')
+            vals = await get_completions('inet:ip $lib')
             self.isin(
                 Completion(
                     '.auth.easyperm.allowed',
