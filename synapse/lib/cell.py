@@ -378,8 +378,8 @@ class CellApi(s_base.Base):
         return await self.cell.promote(graceful=graceful)
 
     @adminapi(log=True)
-    async def handoff(self, turl, mirror_url=None, timeout=30):
-        return await self.cell.handoff(turl, mirror_url=mirror_url, timeout=timeout)
+    async def handoff(self, turl, timeout=30):
+        return await self.cell.handoff(turl, timeout=timeout)
 
     def getCellUser(self):
         return self.user.pack()
@@ -2188,14 +2188,9 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             myurl = self.getMyUrl()
 
-            tgt_mirrorurl = None
-            if mirurl.startswith('aha://'):
-                tgt_mirrorurl = mirurl
-            logger.info(f'PROMOTION: {tgt_mirrorurl=}')
-
             logger.debug(f'PROMOTION: Connecting to {mirurl} to request leadership handoff{_dispname}.')
             async with await s_telepath.openurl(mirurl) as lead:
-                await lead.handoff(myurl, mirror_url=tgt_mirrorurl)
+                await lead.handoff(myurl)
                 logger.warning(f'PROMOTION: Completed leadership handoff to {myurl}{_dispname}')
                 return
 
@@ -2210,14 +2205,11 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
         logger.warning(f'PROMOTION: Finished leadership promotion{_dispname}.')
 
-    async def handoff(self, turl, mirror_url=None, timeout=30):
+    async def handoff(self, turl, timeout=30):
         '''
         Hand off leadership to a mirror in a transactional fashion.
         '''
         _dispname = f' ahaname={self.conf.get("aha:name")}' if self.conf.get('aha:name') else ''
-
-        if mirror_url is None:
-            mirror_url = turl
 
         if not self.isactive:
             mesg = f'HANDOFF: {_dispname} is not the current leader and cannot handoff leadership to' \
@@ -2230,13 +2222,23 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             logger.debug(f'HANDOFF: Connected to {s_urlhelp.sanitizeUrl(turl)}{_dispname}.')
 
-            if self.iden != await cell.getCellIden(): # pragma: no cover
+            cellinfo = await cell.getCellInfo()
+            cnfo = cellinfo.get('cell')
+            if self.iden != cnfo.get('iden'):  # pragma: no cover
                 mesg = 'Mirror handoff remote cell iden does not match!'
                 raise s_exc.BadArg(mesg=mesg)
 
-            if self.runid == await cell.getCellRunId(): # pragma: no cover
+            if self.runid == cnfo.get('run'): # pragma: no cover
                 mesg = 'Cannot handoff mirror leadership to myself!'
                 raise s_exc.BadArg(mesg=mesg)
+
+            ahalead = cnfo.get('aha', {}).get('leader')
+            mirror_url = turl
+            if turl.startswith('aha://') and ahalead is not None:
+                ahauser = self.conf.get('aha:user')
+                if ahauser is not None:
+                    ahauser = f'{ahauser}@'
+                mirror_url = f'aha://{ahauser}{ahalead}...'
 
             logger.debug(f'HANDOFF: Obtaining nexus lock{_dispname}.')
 
@@ -4634,6 +4636,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
+                    'user': self.conf.get('aha:user'),
                     'leader': self.conf.get('aha:leader'),
                     'network': self.conf.get('aha:network'),
                 },
