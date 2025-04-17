@@ -664,6 +664,7 @@ workflows:
             branches:
               only:
                 - master
+                - synapse-3xx
 
       - python_package_smoketest:
           filters:
