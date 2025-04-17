@@ -14,7 +14,7 @@ Features and Enhancements
 - Updated Cortex to run Storm package ``onload()`` handlers every time it
   becomes active.
   (`#4237 <https://github.com/vertexproject/synapse/pull/4237>`_)
-- Update the allowed versions of the ``pycryptodome``, ``fastjsonschema``,
+- Updated the allowed versions of the ``pycryptodome``, ``fastjsonschema``,
   ``idna``, ``pygments``, and ``pytz`` libraries.
   (`#4230 <https://github.com/vertexproject/synapse/pull/4230>`_)
   (`#4240 <https://github.com/vertexproject/synapse/pull/4240>`_)
