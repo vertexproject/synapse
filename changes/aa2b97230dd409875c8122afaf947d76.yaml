@@ -1,6 +1,0 @@
----
-desc: Fixed an issue with backtick format strings where certain combinations of escape
-  characters preceding an expression could cause the substitution to fail.
-prs: []
-type: bug
-...
