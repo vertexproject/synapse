@@ -663,7 +663,6 @@ workflows:
               only:
                 - master
                 - synapse-3xx
-                - synapse-3xx-replay
 
       - python_package_smoketest:
           filters:
