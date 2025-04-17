@@ -6,6 +6,32 @@
 Synapse Changelog
 *****************
 
+v2.208.0 - 2025-04-17
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Cortex to run Storm package ``onload()`` handlers every time it
+  becomes active.
+  (`#4237 <https://github.com/vertexproject/synapse/pull/4237>`_)
+- Update the allowed versions of the ``cryptodome``, ``fastjsonschema``,
+  ``idna``, ``pygments``, and ``pytz`` libraries.
+  (`#4230 <https://github.com/vertexproject/synapse/pull/4230>`_)
+  (`#4240 <https://github.com/vertexproject/synapse/pull/4240>`_)
+
+Bugfixes
+--------
+- Fixed a bug where ``$lib.storm.run()`` calls would cause a task to be
+  improperly promoted.
+  (`#4186 <https://github.com/vertexproject/synapse/pull/4186>`_)
+- Fixed an issue with ``$lib.time.toUTC()`` conversions by anchoring epoch to
+  UTC instead of local timezone.
+  (`#4230 <https://github.com/vertexproject/synapse/pull/4230>`_)
+- Fixed an issue with backtick format strings where certain combinations of
+  escape characters preceding an expression could cause the substitution to
+  fail.
+  (`#4234 <https://github.com/vertexproject/synapse/pull/4234>`_)
+
 v2.207.0 - 2025-04-10
 =====================
 
