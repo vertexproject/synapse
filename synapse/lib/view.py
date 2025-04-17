@@ -418,7 +418,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     meta['time'] = s_common.now()
 
-                    await snap.saveNodeEdits([nodeedit], meta)
+                    await snap.saveNodeEdits((nodeedit,), meta)
 
                     count += 1
 
