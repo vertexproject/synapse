@@ -3105,11 +3105,15 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell() as cell:
 
             self.none(await cell.getAhaProxy())
-            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
 
-            # coverage for failure of aha client to connect
-            with self.raises(TimeoutError):
-                self.none(await cell.getAhaProxy(timeout=0.1))
+            class MockClient:
+                async def proxy(self, timeout=None):
+                    raise s_exc.LinkShutDown(mesg='client connection failed')
+
+            cell.ahaclient = MockClient()
+
+            with self.raises(s_exc.LinkShutDown):
+                self.none(await cell.getAhaProxy())
 
     async def test_stream_backup_exception(self):
 
