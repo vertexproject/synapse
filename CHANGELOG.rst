@@ -767,6 +767,16 @@ Bugfixes
   incorrectly throw NoSuchVar exceptions when validating query arguments.
   (`#3991 <https://github.com/vertexproject/synapse/pull/3991>`_)
 
+v2.187.1 - 2025-04-14
+=====================
+
+Bugfixes
+--------
+- Fixed a bug in storage iteration which could cause an item to be yielded
+  twice if a very narrow race window was encountered.
+  (`#4207 <https://github.com/vertexproject/synapse/pull/4207>`_)
+  (`#4226 <https://github.com/vertexproject/synapse/pull/4226>`_)
+
 v2.187.0 - 2024-11-01
 =====================
 
