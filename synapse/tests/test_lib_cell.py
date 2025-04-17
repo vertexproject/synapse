@@ -3323,8 +3323,8 @@ class CellTest(s_t_utils.SynTest):
                     #     await cell00.promote(graceful=True)
                     # self.isin('02.cell is not the current leader', cm.exception.get('mesg'))
 
-                    async def test_cell_mirror_reload(self):
-                        self.skip('FIXME write the test for the mirror reload function.')
+    async def test_cell_mirror_reload(self):
+        self.skip('FIXME write the test for the mirror reload function.')
 
     async def test_cell_get_aha_proxy(self):
 
