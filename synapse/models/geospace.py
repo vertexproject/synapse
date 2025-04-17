@@ -389,7 +389,7 @@ modeldefs = (
         'interfaces': (
             ('geo:locatable', {
                 'doc': 'Properties common to items and events which may be geolocated.',
-                'template': {'prefix': 'place', 'geo:locatable': 'item'},
+                'template': {'geo:locatable': 'item'},
                 'prefix': 'place',
                 'props': (
                     ('', ('geo:place', {}), {
@@ -401,19 +401,19 @@ modeldefs = (
                     ('name', ('entity:name', {}), {
                         'doc': 'The name of the place where the {geo:locatable} was located.'}),
 
-                    ('place:address', ('geo:address', {}), {
+                    ('address', ('geo:address', {}), {
                         'doc': 'The postal address of the place where the {geo:locatable} was located.'}),
 
-                    ('place:latlong', ('geo:latlong', {}), {
+                    ('latlong', ('geo:latlong', {}), {
                         'doc': 'The latlong where the {geo:locatable} was located.'}),
 
-                    ('place:latlong:accuracy', ('geo:dist', {}), {
+                    ('latlong:accuracy', ('geo:dist', {}), {
                         'doc': 'The accuracy of the latlong where the {geo:locatable} was located.'}),
 
-                    ('place:country', ('pol:country', {}), {
+                    ('country', ('pol:country', {}), {
                         'doc': 'The country where the {geo:locatable} was located.'}),
 
-                    ('place:country:code', ('pol:iso2', {}), {
+                    ('country:code', ('pol:iso2', {}), {
                         'doc': 'The country code where the {geo:locatable} was located.'}),
                 ),
             }),
@@ -423,10 +423,13 @@ modeldefs = (
 
             ('geo:telem', ('guid', {}), {
                 'interfaces': (
-                    ('phys:object', {}),
-                    ('geo:locatable', {}),
+                    ('phys:object', {
+                        'template': {'phys:object': 'object'}}),
+
+                    ('geo:locatable', {
+                        'prefix': 'place',
+                        'template': {'geo:locatable': 'object'}}),
                 ),
-                'template': {'phys:object': 'object', 'geo:locatable': 'object'},
                 'doc': 'The geospatial position and physical characteristics of a node at a given time.'}),
 
             ('geo:json', ('data', {'schema': geojsonschema}), {

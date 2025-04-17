@@ -166,7 +166,6 @@ class OuModelTest(s_t_utils.SynTest):
 
             opts = {'vars': {
                 'orgiden': orgiden,
-                'contact': contact,
                 'position': position,
                 'subpos': subpos,
                 'suborg': suborg,
@@ -175,11 +174,14 @@ class OuModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ ou:org=$orgiden :orgchart=$position ]
                 -> ou:position
-                [ :contact=$contact :title=ceo :org=$orgiden ]
+                [
+                    :contact={[ entity:contact=39f8d9599cd663b00013bfedf69dcf53 ]}
+                    :title=ceo :org=$orgiden
+                ]
             ''', opts=opts)
             self.eq('ceo', nodes[0].get('title'))
             self.eq(orgiden, nodes[0].get('org'))
-            self.eq(contact, nodes[0].get('contact'))
+            self.eq(('entity:contact', '39f8d9599cd663b00013bfedf69dcf53'), nodes[0].get('contact'))
 
             nodes = await core.nodes('''
                 ou:org=$orgiden
@@ -207,15 +209,14 @@ class OuModelTest(s_t_utils.SynTest):
                 'names': altnames,
                 'logo': '*',
                 'phone': '+15555555555',
-                'url': 'http://www.arrowinc.link',
-                'us:cage': '7qe71',
+                'url': 'http://arrowinc.link',
                 'founded': '2015',
                 'dissolved': '2019',
                 'goals': (goal,),
             }
             q = '''[(ou:org=$valu :place:loc=$p.loc :name=$p.name :type=$p.type :names=$p.names
                 :logo=$p.logo :phone=$p.phone :url=$p.url
-                :us:cage=$p."us:cage" :lifespan=($p.founded, $p.dissolved)
+                :lifespan=($p.founded, $p.dissolved)
                 :goals=$p.goals
                 :id=Foo :motto="DONT BE EVIL"
             )]'''
@@ -228,15 +229,14 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('name'), normname)
             self.eq(node.get('names'), altnames)
             self.eq(node.get('phone'), '15555555555')
-            self.eq(node.get('url'), 'http://www.arrowinc.link')
-            self.eq(node.get('us:cage'), '7qe71')
+            self.eq(node.get('url'), 'http://arrowinc.link')
             self.eq(node.get('lifespan'), (1420070400000, 1546300800000))
             self.eq(node.get('goals'), (goal,))
             self.eq(node.get('id'), 'Foo')
             self.nn(node.get('logo'))
             self.eq('dont be evil', node.get('motto'))
 
-            await core.nodes('ou:org:us:cage=7qe71 [ :place:country={ gen.pol.country ua } :place:country:code=ua ]')
+            await core.nodes('ou:org:url=http://arrowinc.link [ :place:country={ gen.pol.country ua } :place:country:code=ua ]')
             self.len(1, await core.nodes('ou:org:place:country:code=ua'))
             self.len(1, await core.nodes('pol:country:iso2=ua -> ou:org'))
             self.len(1, await core.nodes('ou:org -> ou:org:type:taxonomy'))
@@ -251,26 +251,6 @@ class OuModelTest(s_t_utils.SynTest):
             opts = {'vars': {'name': name}}
             nodes = await core.nodes('ou:org:names*[=$name]', opts=opts)
             self.len(0, nodes)  # primary ou:org:name is not in ou:org:names
-
-            guid1 = s_common.guid()
-            nodes = await core.nodes('[(ou:suborg=$valu :perc=50 :current=$lib.true)]',
-                                     opts={'vars': {'valu': (guid0, guid1)}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], (guid0, guid1))
-            self.eq(node.get('perc'), 50)
-            self.eq(node.get('current'), 1)
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:suborg=$valu [:perc="-1"]', opts={'vars': {'valu': (guid0, guid1)}})
-            with self.raises(s_exc.BadTypeValu):
-                await core.nodes('ou:suborg=$valu [:perc=101]', opts={'vars': {'valu': (guid0, guid1)}})
-
-            nodes = await core.nodes('[ou:user=$valu]', opts={'vars': {'valu': (guid0, 'arrowman')}})
-            self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], (guid0, 'arrowman'))
-            self.eq(node.get('org'), guid0)
-            self.eq(node.get('user'), 'arrowman')
 
             nodes = await core.nodes('[ou:orgnet=$valu]',
                                      opts={'vars': {'valu': (guid0, ('192.168.1.1', '192.168.1.127'))}})
@@ -291,86 +271,60 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('org'), guid0)
 
             # ou:meet
-            place0 = s_common.guid()
-            m0 = s_common.guid()
-            props = {
-                'name': 'Working Lunch',
-                'start': '201604011200',
-                'end': '201604011300',
-                'place': place0,
-            }
-            q = '[(ou:meet=$valu :name=$p.name :start=$p.start :end=$p.end :place=$p.place)]'
-            nodes = await core.nodes(q, opts={'vars': {'valu': m0, 'p': props}})
+            nodes = await core.nodes('''[
+                ou:meet=39f8d9599cd663b00013bfedf69dcf53
+                    :name="Working Lunch"
+                    :period=(201604011200, 201604011300)
+                    :place={[ geo:place=39f8d9599cd663b00013bfedf69dcf53 ]}
+            ]''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], m0)
-            self.eq(node.get('name'), 'working lunch')
-            self.eq(node.get('start'), 1459512000000)
-            self.eq(node.get('end'), 1459515600000)
-            self.eq(node.get('place'), place0)
+            self.eq(nodes[0].ndef, ('ou:meet', '39f8d9599cd663b00013bfedf69dcf53'))
+            self.eq(nodes[0].get('name'), 'working lunch')
+            self.eq(nodes[0].get('period'), (1459512000000, 1459515600000))
+            self.eq(nodes[0].get('place'), '39f8d9599cd663b00013bfedf69dcf53')
 
             # ou:conference
-            c0 = s_common.guid()
-            props = {
-                'org': guid0,
-                'name': 'arrowcon 2018',
-                'names': ('Arrow Conference 2018', 'ArrCon18', 'ArrCon18'),
-                'base': 'arrowcon',
-                'start': '20180301',
-                'end': '20180303',
-                'place': place0,
-                'url': 'http://arrowcon.org/2018',
-            }
-            q = '''[
-                ou:conference=$valu
-                    :org=$p.org :name=$p.name :names=$p.names
-                    :base=$p.base :start=$p.start :end=$p.end
-                    :place=$p.place :url=$p.url
-            ]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': c0, 'p': props}})
+            nodes = await core.nodes('''[
+                ou:conference=39f8d9599cd663b00013bfedf69dcf53
+                    :org=39f8d9599cd663b00013bfedf69dcf53
+                    :name="arrowcon 2018"
+                    :names=("arrow conference 2018", "arrcon18", "arrcon18")
+                    :family=arrowcon
+                    :period=(20180301, 20180303)
+                    :website=http://arrowcon.org/2018
+                    :place=39f8d9599cd663b00013bfedf69dcf53
+            ]''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], c0)
-            self.eq(node.get('name'), 'arrowcon 2018')
-            self.eq(node.get('names'), ('arrcon18', 'arrow conference 2018',))
-            self.eq(node.get('base'), 'arrowcon')
-            self.eq(node.get('org'), guid0)
-            self.eq(node.get('start'), 1519862400000)
-            self.eq(node.get('end'), 1520035200000)
-            self.eq(node.get('place'), place0)
-            self.eq(node.get('url'), 'http://arrowcon.org/2018')
+            self.eq(nodes[0].ndef, ('ou:conference', '39f8d9599cd663b00013bfedf69dcf53'))
+            self.eq(nodes[0].get('name'), 'arrowcon 2018')
+            self.eq(nodes[0].get('names'), ('arrcon18', 'arrow conference 2018',))
+            self.eq(nodes[0].get('family'), 'arrowcon')
+            self.eq(nodes[0].get('org'), '39f8d9599cd663b00013bfedf69dcf53')
+            self.eq(nodes[0].get('period'), (1519862400000, 1520035200000))
+            self.eq(nodes[0].get('place'), '39f8d9599cd663b00013bfedf69dcf53')
+            self.eq(nodes[0].get('website'), 'http://arrowcon.org/2018')
 
-            self.len(1, nodes := await core.nodes('[ ou:conference=({"name": "arrcon18"}) ]'))
-            self.eq(node.ndef, nodes[0].ndef)
+            gutors = await core.nodes('[ ou:conference=({"name": "arrcon18"}) ]')
+            self.eq(nodes[0].ndef, gutors[0].ndef)
 
-            # ou:conference:event
-            confguid = c0
-            con0 = s_common.guid()
-            c0 = s_common.guid()
-            props = {
-                'conference': confguid,
-                'name': 'arrowcon 2018 dinner',
-                'desc': 'arrowcon dinner',
-                'start': '201803011900',
-                'end': '201803012200',
-                'contact': con0,
-                'place': place0,
-                'url': 'http://arrowcon.org/2018/dinner',
-            }
-            q = '''[(ou:conference:event=$valu :name=$p.name :desc=$p.desc :start=$p.start :end=$p.end
-                    :conference=$p.conference :contact=$p.contact :place=$p.place :url=$p.url)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': c0, 'p': props}})
+            # ou:event
+            nodes = await core.nodes('''[
+                ou:event=39f8d9599cd663b00013bfedf69dcf53
+                    :name='arrowcon 2018 dinner'
+                    :desc='arrowcon dinner'
+                    :period=(201803011900, 201803012200)
+                    :parent=(ou:conference, 39f8d9599cd663b00013bfedf69dcf53)
+                    :place=39f8d9599cd663b00013bfedf69dcf53
+                    :website=http://arrowcon.org/2018/dinner
+            ]''')
             self.len(1, nodes)
-            node = nodes[0]
-            self.eq(node.ndef[1], c0)
-            self.eq(node.get('name'), 'arrowcon 2018 dinner')
-            self.eq(node.get('desc'), 'arrowcon dinner')
-            self.eq(node.get('conference'), confguid)
-            self.eq(node.get('start'), 1519930800000)
-            self.eq(node.get('end'), 1519941600000)
-            self.eq(node.get('contact'), con0)
-            self.eq(node.get('place'), place0)
-            self.eq(node.get('url'), 'http://arrowcon.org/2018/dinner')
+            self.eq(nodes[0].ndef, ('ou:event', '39f8d9599cd663b00013bfedf69dcf53'))
+            self.eq(nodes[0].get('name'), 'arrowcon 2018 dinner')
+            self.eq(nodes[0].get('desc'), 'arrowcon dinner')
+            self.eq(nodes[0].get('parent'), ('ou:conference', '39f8d9599cd663b00013bfedf69dcf53'))
+            self.eq(nodes[0].get('period'), (1519930800000, 1519941600000))
+            self.eq(nodes[0].get('place'), '39f8d9599cd663b00013bfedf69dcf53')
+            self.eq(nodes[0].get('website'), 'http://arrowcon.org/2018/dinner')
 
             nodes = await core.nodes('[ ou:id:type=* :org=* :name=foobar :names=(alt1,alt2) :url="http://foobar.com/ids"]')
             self.len(1, nodes)
@@ -425,41 +379,33 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 ou:attendee=*
-                    :person=*
-                    :arrived=201202
-                    :departed=201203
-                    :meet=*
-                    :preso=*
-                    :conference=*
-                    :conference:event=*
+                    :person={[ entity:contact=* ]}
+                    :period=(201202,201203)
+                    :event={ ou:event }
                     :roles+=staff
                     :roles+=STAFF
             ]''')
             self.len(1, nodes)
             self.eq(('staff',), nodes[0].get('roles'))
-            self.eq(1328054400000, nodes[0].get('arrived'))
-            self.eq(1330560000000, nodes[0].get('departed'))
+            self.eq(nodes[0].get('period'), (1328054400000, 1330560000000))
 
             self.len(1, await core.nodes('ou:attendee -> entity:contact'))
 
-            self.len(1, await core.nodes('ou:attendee -> ou:meet'))
-            self.len(1, await core.nodes('ou:attendee -> ou:preso'))
-            self.len(1, await core.nodes('ou:attendee -> ou:conference'))
-            self.len(1, await core.nodes('ou:attendee -> ou:conference:event'))
+            self.len(1, await core.nodes('ou:attendee -> ou:event'))
+            self.len(1, await core.nodes('ou:attendee :event -> ou:event'))
 
             nodes = await core.nodes('''[
                 ou:preso=*
                     :title=syn101
                     :desc=squeee
-                    :time=20200808
-                    :duration=2:00:00
+                    :period=(202008081200, 202008081400)
 
                     :place=*
-                    :loc=us.nv.lasvegas
+                    :place:loc=us.nv.lasvegas
 
-                    :conference=*
-                    :organizer={[ entity:contact=* ]}
+                    :parent={ ou:conference }
                     :sponsors={[ entity:contact=* ]}
+                    :organizers={[ entity:contact=* ]}
                     :presenters={[ entity:contact=* entity:contact=* ]}
 
                     :deck:file=*
@@ -473,21 +419,21 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('syn101', nodes[0].get('title'))
             self.eq('squeee', nodes[0].get('desc'))
 
-            self.eq(1596844800000, nodes[0].get('time'))
-            self.eq(7200000, nodes[0].get('duration'))
+            self.eq(nodes[0].get('period'), (1596888000000, 1596895200000))
 
             self.eq('http://vertex.link/syn101deck', nodes[0].get('deck:url'))
             self.eq('http://vertex.link/syn101live', nodes[0].get('attendee:url'))
             self.eq('http://vertex.link/syn101recording', nodes[0].get('recording:url'))
 
+            self.nn(nodes[0].get('place'))
             self.nn(nodes[0].get('deck:file'))
             self.nn(nodes[0].get('recording:file'))
 
-            self.eq('us.nv.lasvegas', nodes[0].get('loc'))
+            self.eq(nodes[0].get('place:loc'), 'us.nv.lasvegas')
 
             self.len(1, await core.nodes(f'ou:preso -> ou:conference'))
             self.len(1, await core.nodes(f'ou:preso :sponsors -> entity:contact'))
-            self.len(1, await core.nodes(f'ou:preso :organizer -> entity:contact'))
+            self.len(1, await core.nodes(f'ou:preso :organizers -> entity:contact'))
             self.len(2, await core.nodes(f'ou:preso :presenters -> entity:contact'))
 
             nodes = await core.nodes('''[
@@ -495,19 +441,16 @@ class OuModelTest(s_t_utils.SynTest):
                     :name="defcon ctf 2020"
                     :type=cyber.ctf
                     :family="defcon ctf"
-                    :start=20200808
-                    :end=20200811
-                    :url=http://vertex.link/contest
+                    :period=(20200808, 20200811)
+                    :website=http://vertex.link/contest
 
-                    :loc=us.nv.lasvegas
                     :place=*
-                    :latlong=(20, 30)
+                    :place:latlong=(20, 30)
+                    :place:loc=us.nv.lasvegas
 
-                    :conference=*
-                    :contests=(*,*)
+                    :parent={ ou:conference }
                     :organizers={[ entity:contact=* ]}
                     :sponsors={[ entity:contact=* ]}
-                    :participants={[ entity:contact=* entity:contact=* ]}
 
             ]''')
             self.len(1, nodes)
@@ -515,26 +458,25 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('cyber.ctf.', nodes[0].get('type'))
             self.eq('defcon ctf', nodes[0].get('family'))
 
-            self.eq(1596844800000, nodes[0].get('start'))
-            self.eq(1597104000000, nodes[0].get('end'))
+            self.eq(nodes[0].get('period'), (1596844800000, 1597104000000))
 
-            self.eq('http://vertex.link/contest', nodes[0].get('url'))
+            self.eq('http://vertex.link/contest', nodes[0].get('website'))
 
-            self.eq((20, 30), nodes[0].get('latlong'))
-            self.eq('us.nv.lasvegas', nodes[0].get('loc'))
+            self.eq((20, 30), nodes[0].get('place:latlong'))
+            self.eq('us.nv.lasvegas', nodes[0].get('place:loc'))
 
-            self.len(2, await core.nodes(f'ou:contest:name^=defcon -> ou:contest'))
             self.len(1, await core.nodes(f'ou:contest -> ou:conference'))
+            self.len(1, await core.nodes(f'ou:contest :parent -> ou:conference'))
             self.len(1, await core.nodes(f'ou:contest :sponsors -> entity:contact'))
             self.len(1, await core.nodes(f'ou:contest :organizers -> entity:contact'))
-            self.len(2, await core.nodes(f'ou:contest :participants -> entity:contact'))
 
             nodes = await core.nodes('''[
                 ou:contest:result=(*, *)
                     :rank=1
                     :score=20
                     :period=(20250101, 20250102)
-                    :url=http://vertex.link/contest/result
+                    :contest={ou:contest}
+                    :participant={[ entity:contact=* ]}
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].get('contest'))
@@ -542,7 +484,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(1, nodes[0].get('rank'))
             self.eq(20, nodes[0].get('score'))
             self.eq((1735689600000, 1735776000000), nodes[0].get('period'))
-            self.eq('http://vertex.link/contest/result', nodes[0].get('url'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
             self.len(1, await core.nodes('ou:contest:result -> entity:contact'))
 
@@ -773,7 +714,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :loc = us.va
                     :job:type = it.dev
                     :employment:type = fulltime.salary
-                    :jobtitle = PyDev
+                    :title = PyDev
                     :remote = (1)
                     :yearlypay = 20
                     :paycurrency = BTC
@@ -782,7 +723,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(nodes[0].get('org:name'), 'vertex')
             self.eq(nodes[0].get('org:fqdn'), 'vertex.link')
-            self.eq(nodes[0].get('jobtitle'), 'pydev')
+            self.eq(nodes[0].get('title'), 'pydev')
             self.eq(nodes[0].get('remote'), 1)
             self.eq(nodes[0].get('yearlypay'), '20')
             self.eq(nodes[0].get('paycurrency'), 'btc')
@@ -798,7 +739,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:opening -> entity:name'))
             self.len(1, await core.nodes('ou:opening -> inet:url'))
             self.len(1, await core.nodes('ou:opening -> inet:fqdn'))
-            self.len(1, await core.nodes('ou:opening -> ou:jobtitle'))
+            self.len(1, await core.nodes('ou:opening -> entity:title'))
             self.len(1, await core.nodes('ou:opening -> ou:employment:type:taxonomy'))
             self.len(1, await core.nodes('ou:opening :contact -> entity:contact'))
 
@@ -879,7 +820,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :monetary:payment=*
                     :material:spec=*
                     :material:count=1
-                    :personnel:jobtitle=analysts
+                    :personnel:title=analysts
                     :personnel:count=1
                 ]
             ''')
@@ -891,7 +832,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:contribution -> ou:campaign'))
             self.len(1, await core.nodes('ou:contribution -> econ:acct:payment'))
             self.len(1, await core.nodes('ou:contribution -> mat:spec'))
-            self.len(1, await core.nodes('ou:contribution -> ou:jobtitle +ou:jobtitle=analysts'))
+            self.len(1, await core.nodes('ou:contribution -> entity:title +entity:title=analysts'))
 
     async def test_ou_technique(self):
 

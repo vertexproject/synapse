@@ -21,6 +21,7 @@ modeldefs = (
                 ),
                 'props': (
                     ('name', ('entity:name', {}), {
+                        'alts': ('names',),
                         'doc': 'The name of the {ou:attendable}.'}),
 
                     ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
@@ -164,7 +165,10 @@ modeldefs = (
 
             ('ou:meet', ('guid', {}), {
                 'interfaces': (
-                    ('ou:attendable', {}),
+                    ('ou:attendable', {
+                        'template': {
+                            'ou:attendable': 'meet',
+                            'geo:locatable': 'meet'}}),
                 ),
                 'doc': 'A meeting of people which has no title or sponsor.'}),
 
@@ -179,7 +183,7 @@ modeldefs = (
                     ('ou:attendable', {
                         'template': {
                             'ou:attendable': 'conference',
-                            'geo:locatable': 'conference' }}),
+                            'geo:locatable': 'conference'}}),
                 ),
 
                 'display': {
