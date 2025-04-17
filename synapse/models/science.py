@@ -44,7 +44,7 @@ modeldefs = (
             ('sci:hypothesis:type:taxonomy', {}, {}),
             ('sci:hypothesis', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the hypothesis.'}),
 
                 ('type', ('sci:hypothesis:type:taxonomy', {}), {
@@ -59,7 +59,7 @@ modeldefs = (
             ('sci:experiment:type:taxonomy', {}, {}),
             ('sci:experiment', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the experiment.'}),
 
                 ('summary', ('str', {}), {

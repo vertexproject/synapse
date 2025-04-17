@@ -432,7 +432,7 @@ class SynModelTest(s_t_utils.SynTest):
                 $count = ($count + 1)
 
                 if ($count = (2)) {
-                    $info = ({"doc": "test taxonomy", "interfaces": ["meta:taxonomy"]})
+                    $info = ({"doc": "test taxonomy", "interfaces": [["meta:taxonomy", {}]]})
                     $lib.model.ext.addForm(_test:taxonomy, taxonomy, ({}), $info)
                 }
 

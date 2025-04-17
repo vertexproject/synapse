@@ -61,18 +61,18 @@ modeldefs = (
                 'display': {
                     'columns': (
                         # FIXME interface embed props
-                        #{'type': 'prop', 'opts': {'name': 'contact::name'}},
+                        # {'type': 'prop', 'opts': {'name': 'contact::name'}},
                         {'type': 'prop', 'opts': {'name': 'skill::name'}},
                     ),
                 }}),
         ),
         'edges': (
             # FIXME
-            # (('ps:contact', 'has', None), {
+            # (('entity:contact', 'has', None), {
             #     'doc': 'The contact is or was in possession of the target node.'}),
             # (('ps:person', 'has', None), {
             #     'doc': 'The person is or was in possession of the target node.'}),
-            # (('ps:contact', 'owns', None), {
+            # (('entity:contact', 'owns', None), {
             #     'doc': 'The contact owns or owned the target node.'}),
             # (('ps:person', 'owns', None), {
             #     'doc': 'The person owns or owned the target node.'}),
@@ -86,7 +86,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org that this work history orgname refers to.'}),
 
-                ('org:name', ('entity:name', {}), {
+                ('org:name', ('meta:name', {}), {
                     'prevnames': ('orgname',),
                     'doc': 'The reported name of the org the contact worked for.'}),
 
@@ -123,8 +123,7 @@ modeldefs = (
             )),
             ('edu:course', {}, (
 
-                # FIXME event names?
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'ex': 'organic chemistry for beginners',
                     'doc': 'The name of the course.'}),
 
@@ -210,7 +209,11 @@ modeldefs = (
 
             )),
 
-            ('ps:person', {}, ()),
+            ('ps:person', {}, (
+                 # FIXME vitals interface?
+                ('vitals', ('ps:vitals', {}), {
+                    'doc': 'The most recent vitals for the person.'}),
+            )),
             ('ps:vitals', {}, (
 
                 ('asof', ('time', {}), {

@@ -667,8 +667,8 @@ class CortexTest(s_t_utils.SynTest):
                 [ ou:org=* ]
             }
 
-            [ ps:contact=* ]
-            [ ps:contact=* ]
+            [ entity:contact=* ]
+            [ entity:contact=* ]
             divert --size 2 $lib.true $y($node)
             '''
             self.len(4, await core.nodes(storm))
@@ -683,8 +683,8 @@ class CortexTest(s_t_utils.SynTest):
                 [ ou:org=* ]
             }
 
-            [ ps:contact=* ]
-            [ ps:contact=* ]
+            [ entity:contact=* ]
+            [ entity:contact=* ]
             divert --size 2 $lib.false $y($node)
             '''
             self.len(2, await core.nodes(storm))
@@ -1476,7 +1476,7 @@ class CortexTest(s_t_utils.SynTest):
                                          opts={'vars': {'somestr': sorc, 'valu': node.ndef}}))
 
             # test un-populated properties
-            nodes = await core.nodes('[ps:contact="*"]')
+            nodes = await core.nodes('[entity:contact="*"]')
             self.len(1, nodes)
             node = nodes[0]
             self.len(0, node.getNodeRefs())
@@ -2876,14 +2876,14 @@ class CortexTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:ip.created +:asn::name'))
 
-            await core.nodes('[ ps:contact=* :org={[ou:org=* :url=http://vertex.link]} ]')
-            nodes = await core.nodes('ps:contact +:org::url::fqdn::iszone=1')
+            await core.nodes('[ entity:contact=* :org={[ou:org=* :url=http://vertex.link]} ]')
+            nodes = await core.nodes('entity:contact +:org::url::fqdn::iszone=1')
             self.len(1, nodes)
 
-            nodes = await core.nodes('ps:contact +:org::url::fqdn::iszone')
+            nodes = await core.nodes('entity:contact +:org::url::fqdn::iszone')
             self.len(1, nodes)
 
-            nodes = await core.nodes('ps:contact +:org::url::fqdn::notaprop')
+            nodes = await core.nodes('entity:contact +:org::url::fqdn::notaprop')
             self.len(0, nodes)
 
             # test pivprop with an extmodel prop
@@ -2914,12 +2914,12 @@ class CortexTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchForm):
                 await core.nodes('inet:ip +:asn::_pivo::notaprop')
 
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=a@v.lk]}]')
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=b@v.lk]}]')
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :email=c@v.lk]}]')
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(a@v.lk, b@v.lk)]}]')
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(c@v.lk, d@v.lk)]}]')
-            await core.nodes('[ou:org=* :hq={[ps:contact=* :emails=(a@v.lk, d@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[entity:contact=* :email=a@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[entity:contact=* :email=b@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[entity:contact=* :email=c@v.lk]}]')
+            await core.nodes('[ou:org=* :hq={[entity:contact=* :emails=(a@v.lk, b@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[entity:contact=* :emails=(c@v.lk, d@v.lk)]}]')
+            await core.nodes('[ou:org=* :hq={[entity:contact=* :emails=(a@v.lk, d@v.lk)]}]')
 
             nodes = await core.nodes('ou:org:hq::email::user=a')
             self.len(1, nodes)

@@ -69,15 +69,15 @@ class LibGen(s_stormtypes.Lib):
                   ),
                   'returns': {'type': 'node', 'desc': 'A risk:tool:software node.'}}},
 
-        {'name': 'psContactByEmail', 'desc': 'Returns a ps:contact by deconflicting the type and email address.',
+        {'name': 'psContactByEmail', 'desc': 'Returns a entity:contact by deconflicting the type and email address.',
          'type': {'type': 'function', '_funcname': '_storm_query',
                   'args': (
-                      {'name': 'type', 'type': 'str', 'desc': 'The ps:contact:type property.'},
-                      {'name': 'email', 'type': 'str', 'desc': 'The ps:contact:email property.'},
+                      {'name': 'type', 'type': 'str', 'desc': 'The entity:contact:type property.'},
+                      {'name': 'email', 'type': 'str', 'desc': 'The entity:contact:email property.'},
                       {'name': 'try', 'type': 'boolean', 'default': False,
                        'desc': 'Type normalization will fail silently instead of raising an exception.'},
                   ),
-                  'returns': {'type': 'node', 'desc': 'A ps:contact node.'}}},
+                  'returns': {'type': 'node', 'desc': 'A entity:contact node.'}}},
 
         {'name': 'polCountryByIso2', 'desc': 'Returns a pol:country node by deconflicting the :iso2 property.',
          'type': {'type': 'function', '_funcname': '_storm_query',
@@ -188,10 +188,10 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByName(name, try=$lib.false) {
-            ($ok, $name) = $__maybeCast($try, entity:name, $name)
+            ($ok, $name) = $__maybeCast($try, meta:name, $name)
             if (not $ok) { return() }
 
-            entity:name=$name -> ou:org
+            meta:name=$name -> ou:org
             return($node)
 
             [ ou:org=(gen, name, $name) :name=$name ]
@@ -230,11 +230,11 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function softByName(name) {
-            it:prod:softname=$name
+            meta:name=$name
             -> it:prod:soft
             return($node)
 
-            $name = $lib.cast(it:prod:softname, $name)
+            $name = $lib.cast(meta:name, $name)
             [ it:prod:soft=(gen, name, $name) :name=$name ]
             return($node)
         }
@@ -252,7 +252,7 @@ class LibGen(s_stormtypes.Lib):
 
             $guid = (gen, cve, $cve)
             if $reporter {
-                $reporter = $lib.cast(entity:name, $reporter)
+                $reporter = $lib.cast(meta:name, $reporter)
                 $guid.append($reporter)
             }
 
@@ -264,13 +264,13 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function riskThreat(name, reporter) {
-            entity:name=$name -> risk:threat
+            meta:name=$name -> risk:threat
             +:reporter:name=$reporter
             { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
-            $name = $lib.cast(entity:name, $name)
-            $reporter = $lib.cast(entity:name, $reporter)
+            $name = $lib.cast(meta:name, $name)
+            $reporter = $lib.cast(meta:name, $reporter)
 
             [ risk:threat=(gen, name, reporter, $name, $reporter)
                 :name=$name
@@ -282,14 +282,14 @@ class LibGen(s_stormtypes.Lib):
 
         function riskToolSoftware(name, reporter) {
 
-            it:prod:softname = $name
+            meta:name = $name
             -> risk:tool:software
             +:reporter:name = $reporter
             { -:reporter [ :reporter=$orgByName($reporter) ] }
             return($node)
 
-            $name = $lib.cast(it:prod:softname, $name)
-            $reporter = $lib.cast(entity:name, $reporter)
+            $name = $lib.cast(meta:name, $name)
+            $reporter = $lib.cast(meta:name, $reporter)
 
             [ risk:tool:software=(gen, $name, $reporter)
                 :soft:name = $name
@@ -304,14 +304,14 @@ class LibGen(s_stormtypes.Lib):
             ($ok, $email) = $__maybeCast($try, inet:email, $email)
             if (not $ok) { return() }
 
-            ($ok, $type) = $__maybeCast($try, ps:contact:type:taxonomy, $type)
+            ($ok, $type) = $__maybeCast($try, entity:contact:type:taxonomy, $type)
             if (not $ok) { return() }
 
-            ps:contact:email = $email
+            entity:contact:email = $email
             +:type = $type
             return($node)
 
-            [ ps:contact=(gen, type, email, $type, $email)
+            [ entity:contact=(gen, type, email, $type, $email)
                 :email = $email
                 :type = $type
             ]
@@ -366,7 +366,7 @@ class LibGen(s_stormtypes.Lib):
             return($node)
 
             $name = $lib.cast(ou:campname, $name)
-            $reporter = $lib.cast(entity:name, $reporter)
+            $reporter = $lib.cast(meta:name, $reporter)
 
             [ ou:campaign=(gen, name, reporter, $name, $reporter)
                 :name=$name
@@ -397,7 +397,7 @@ class LibGen(s_stormtypes.Lib):
             if (not $ok) { return() }
 
             if ($scanner != $lib.null) {
-                ($ok, $scanner) = $__maybeCast($try, it:prod:softname, $scanner)
+                ($ok, $scanner) = $__maybeCast($try, meta:name, $scanner)
                 if (not $ok) { return() }
             }
 
@@ -424,9 +424,9 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function geoPlaceByName(name) {
-            $geoname = $lib.cast(geo:name, $name)
+            $geoname = $lib.cast(meta:name, $name)
 
-            geo:name=$geoname -> geo:place
+            meta:name=$geoname -> geo:place
             return($node)
 
             [ geo:place=(gen, name, $geoname) :name=$geoname ]
@@ -627,11 +627,11 @@ stormcmds = (
     {
         'name': 'gen.ps.contact.email',
         'descr': '''
-            Lift (or create) the ps:contact node by deconflicting the email and type.
+            Lift (or create) the entity:contact node by deconflicting the email and type.
 
             Examples:
 
-                // Yield the ps:contact node for the type and email
+                // Yield the entity:contact node for the type and email
                 gen.ps.contact.email vertex.employee visi@vertex.link
         ''',
         'cmdargs': (

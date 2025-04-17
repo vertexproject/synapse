@@ -398,7 +398,7 @@ modeldefs = (
                     ('loc', ('loc', {}), {
                         'doc': 'The geopolitical location of the {geo:locatable}.'}),
 
-                    ('name', ('entity:name', {}), {
+                    ('name', ('meta:name', {}), {
                         'doc': 'The name of the place where the {geo:locatable} was located.'}),
 
                     ('address', ('geo:address', {}), {
@@ -498,14 +498,14 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'A type specific identifier such as an airport ID.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the place.'}),
 
                 ('type', ('geo:place:type:taxonomy', {}), {
                     'doc': 'The type of place.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternative place names.'}),
 
                 ('desc', ('str', {}), {

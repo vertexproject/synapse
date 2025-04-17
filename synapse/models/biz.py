@@ -14,9 +14,6 @@ modeldefs = (
             ('biz:listing', ('guid', {}), {
                 'doc': 'A product or service being listed for sale at a given price by a specific seller.'}),
 
-            #('biz:bundle', ('guid', {}), {
-                #'doc': 'A bundle allows construction of products which bundle instances of other products.'}),
-
             ('biz:product', ('guid', {}), {
                 'doc': 'A product which is available for purchase.'}),
 
@@ -62,7 +59,7 @@ modeldefs = (
             ('biz:rfp', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'prevnames': ('ext:id',),
+                    'prevnames': ('id',),
                     'doc': 'An externally specified identifier for the RFP.'}),
 
                 ('title', ('str', {}), {
@@ -96,7 +93,8 @@ modeldefs = (
                 ('purchases', ('array', {'type': 'econ:purchase', 'uniq': True, 'sorted': True}), {
                     'doc': 'Any known purchases that resulted from the RFP.'}),
 
-                ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {}),
+                ('requirements', ('array', {'type': 'ou:goal', 'uniq': True, 'sorted': True}), {
+                    'doc': 'Any stated goals of the RFP.'}),
             )),
             ('biz:deal', {}, (
 
@@ -124,27 +122,8 @@ modeldefs = (
                 ('buyer', ('entity:actor', {}), {
                     'doc': 'The primary contact information for the buyer.'}),
 
-                # FIXME remove orgname / orgfqdn
-                #('buyer:org', ('ou:org', {}), {
-                    #'doc': 'The buyer org.'}),
-
-                #('buyer:orgname', ('entity:name', {}), {
-                    #'doc': 'The reported name of the buyer org.'}),
-
-                #('buyer:orgfqdn', ('inet:fqdn', {}), {
-                    #'doc': 'The reported inet:fqdn of the buyer org.'}),
-
                 ('seller', ('entity:actor', {}), {
                     'doc': 'The primary contact information for the seller.'}),
-
-                #('seller:org', ('ou:org', {}), {
-                    #'doc': 'The seller org.'}),
-
-                #('seller:orgname', ('entity:name', {}), {
-                    #'doc': 'The reported name of the seller org.'}),
-
-                #('seller:orgfqdn', ('inet:fqdn', {}), {
-                    #'doc': 'The reported inet:fqdn of the seller org.'}),
 
                 ('currency', ('econ:currency', {}), {
                     'doc': 'The currency of econ:price values associated with the deal.'}),
@@ -165,20 +144,7 @@ modeldefs = (
                     'doc': 'Records a purchase resulting from the deal.'}),
             )),
             # FIXME convert to aggregates?
-            #('biz:bundle', {}, (
-
-                #('count', ('int', {}), {
-                    #'doc': 'The number of instances of the product or service included in the bundle.'}),
-
-                #('price', ('econ:price', {}), {
-                    #'doc': 'The price of the bundle.'}),
-
-                #('product', ('biz:product', {}), {
-                    #'doc': 'The product included in the bundle.'}),
-
-                #('service', ('biz:service', {}), {
-                    #'doc': 'The service included in the bundle.'}),
-            #)),
+            # ('biz:bundle', {}, (
             ('biz:listing', {}, (
 
                 ('seller', ('entity:actor', {}), {
@@ -216,7 +182,7 @@ modeldefs = (
             )),
             ('biz:service', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the service being performed.'}),
 
                 ('provider', ('entity:actor', {}), {
@@ -236,7 +202,7 @@ modeldefs = (
             )),
             ('biz:product', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the product.'}),
 
                 ('type', ('biz:product:type:taxonomy', {}), {
@@ -259,9 +225,6 @@ modeldefs = (
 
                 ('price:currency', ('econ:currency', {}), {
                     'doc': 'The currency of the retail and bottom price properties.'}),
-
-                #('bundles', ('array', {'type': 'biz:bundle', 'uniq': True, 'sorted': True}), {
-                    #'doc': 'An array of bundles included with the product.'}),
             )),
         ),
     }),

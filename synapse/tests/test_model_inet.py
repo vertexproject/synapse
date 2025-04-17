@@ -2000,68 +2000,9 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:user', 'cool user '))
 
-#    async def test_whois_contact(self):
-#        async with self.getTestCore() as core:
-#            valu = (('vertex.link', '@2015'), 'regiStrar')
-#            props = {
-#                'id': 'ID',
-#                'name': 'NAME',
-#                'email': 'unittest@vertex.link',
-#                'orgname': 'unittest org',
-#                'address': '1234 Not Real Road',
-#                'city': 'Faketown',
-#                'state': 'Stateland',
-#                'country': 'US',
-#                'phone': '555-555-5555',
-#                'fax': '555-555-5556',
-#                'url': 'https://vertex.link/contact',
-#                'whois:fqdn': 'vertex.link'
-#            }
-#            q = '''[(inet:whois:contact=$valu :id=$p.id :name=$p.name :email=$p.email :orgname=$p.orgname
-#                            :address=$p.address :city=$p.city :state=$p.state :country=$p.country :phone=$p.phone :fax=$p.fax
-#                            :url=$p.url :whois:fqdn=$p."whois:fqdn")]'''
-#            nodes = await core.nodes(q, opts={'vars': {'valu': valu, 'p': props}})
-#            self.len(1, nodes)
-#            node = nodes[0]
-#            self.eq(node.ndef, ('inet:whois:contact', (('vertex.link', 1420070400000), 'registrar')))
-#            self.eq(node.get('rec'), ('vertex.link', 1420070400000))
-#            self.eq(node.get('rec:asof'), 1420070400000)
-#            self.eq(node.get('rec:fqdn'), 'vertex.link')
-#            self.eq(node.get('type'), 'registrar')
-#            self.eq(node.get('id'), 'id')
-#            self.eq(node.get('name'), 'name')
-#            self.eq(node.get('email'), 'unittest@vertex.link')
-#            self.eq(node.get('orgname'), 'unittest org')
-#            self.eq(node.get('address'), '1234 not real road')
-#            self.eq(node.get('city'), 'faketown')
-#            self.eq(node.get('state'), 'stateland')
-#            self.eq(node.get('country'), 'us')
-#            self.eq(node.get('phone'), '5555555555')
-#            self.eq(node.get('fax'), '5555555556')
-#            self.eq(node.get('url'), 'https://vertex.link/contact')
-#            self.eq(node.get('whois:fqdn'), 'vertex.link')
-#            self.len(1, await core.nodes('inet:fqdn=vertex.link'))
-#
     async def test_whois_collection(self):
+
         async with self.getTestCore() as core:
-            #nodes = await core.nodes('[inet:whois:rar="cool Registrar "]')
-            #self.len(1, nodes)
-            #node = nodes[0]
-            #self.eq(node.ndef, ('inet:whois:rar', 'cool registrar '))
-
-            #nodes = await core.nodes('[inet:whois:reg="cool Registrant "]')
-            #self.len(1, nodes)
-            #node = nodes[0]
-            #self.eq(node.ndef, ('inet:whois:reg', 'cool registrant '))
-
-            #nodes = await core.nodes('[inet:whois:recns=(ns1.woot.com, (woot.com, "@20501217"))]')
-            #self.len(1, nodes)
-            #node = nodes[0]
-            #self.eq(node.ndef, ('inet:whois:recns', ('ns1.woot.com', ('woot.com', 2554848000000))))
-            #self.eq(node.get('ns'), 'ns1.woot.com')
-            #self.eq(node.get('rec'), ('woot.com', 2554848000000))
-            #self.eq(node.get('rec:fqdn'), 'woot.com')
-            #self.eq(node.get('rec:asof'), 2554848000000)
 
             valu = s_common.guid()
             rec = s_common.guid()
@@ -2101,50 +2042,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.none(node.get('rec'))
             self.eq(node.get('ip'), (6, 0x3300010000010000000000000000ffff))
 
-            contact = s_common.guid()
-            pscontact = s_common.guid()
-            subcontact = s_common.guid()
-            props = {
-                'contact': pscontact,
-                'asof': 2554869000000,
-                'created': 2554858000000,
-                'updated': 2554858000000,
-                'role': 'registrant',
-                'roles': ('abuse', 'administrative', 'technical'),
-                'asn': 123456,
-                'id': 'SPM-3',
-                'links': ('http://myrdap.com/SPM3',),
-                'status': 'active',
-                'contacts': (subcontact,),
-            }
-
-            #q = '''[(inet:whois:ipcontact=$valu :contact=$p.contact
-            #:asof=$p.asof :created=$p.created :updated=$p.updated :role=$p.role :roles=$p.roles
-            #:asn=$p.asn :id=$p.id :links=$p.links :status=$p.status :contacts=$p.contacts)]'''
-            #nodes = await core.nodes(q, opts={'vars': {'valu': contact, 'p': props}})
-            #self.len(1, nodes)
-            #node = nodes[0]
-            #self.eq(node.ndef, ('inet:whois:ipcontact', contact))
-            #self.eq(node.get('contact'), pscontact)
-            #self.eq(node.get('contacts'), (subcontact,))
-            #self.eq(node.get('asof'), 2554869000000)
-            #self.eq(node.get('created'), 2554858000000)
-            #self.eq(node.get('updated'), 2554858000000)
-            #self.eq(node.get('role'), 'registrant')
-            #self.eq(node.get('roles'), ('abuse', 'administrative', 'technical'))
-            #self.eq(node.get('asn'), 123456)
-            #self.eq(node.get('id'), 'SPM-3')
-            #self.eq(node.get('links'), ('http://myrdap.com/SPM3',))
-            #self.eq(node.get('status'), 'active')
-            #  check regid pivot
-            valu = s_common.guid()
-            nodes = await core.nodes('[inet:whois:iprecord=$valu :id=$id]',
-                                     opts={'vars': {'valu': valu, 'id': props.get('id')}})
-            self.len(1, nodes)
-            #nodes = await core.nodes('inet:whois:ipcontact=$valu :id -> inet:whois:iprecord:id',
-                                     #opts={'vars': {'valu': contact}})
-            #self.len(1, nodes)
-
     async def test_whois_record(self):
 
         async with self.getTestCore() as core:
@@ -2163,7 +2060,6 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(node.get('fqdn'), 'woot.com')
             self.eq(node.get('asof'), 1765929600000)
             self.eq(node.get('text'), 'yelling at pennywise@vertex.link loudly')
-            # FIXME registrant / registrar renorm / populate entity
             self.eq(node.get('registrar'), 'cool registrar')
             self.eq(node.get('registrant'), 'cool registrant')
 
@@ -2201,9 +2097,9 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:iprecord', rec_ipv4))
             self.eq(node.get('net'), ((4, 167772160), (4, 167772175)))
-            # FIXME
-            #self.eq(node.get('net*min'), (4, 167772160))
-            #self.eq(node.get('net*max'), (4, 167772175))
+            # FIXME virtual props
+            # self.eq(node.get('net*min'), (4, 167772160))
+            # self.eq(node.get('net*max'), (4, 167772175))
             self.eq(node.get('asof'), 2554869000000)
             self.eq(node.get('created'), 2554858000000)
             self.eq(node.get('updated'), 2554858000000)
@@ -2244,9 +2140,9 @@ class InetModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('inet:whois:iprecord', rec_ipv6))
             self.eq(node.get('net'), (minv, maxv))
-            # FIXME
-            #self.eq(node.get('net*min'), minv)
-            #self.eq(node.get('net*max'), maxv)
+            # FIXME virtual props
+            # self.eq(node.get('net*min'), minv)
+            # self.eq(node.get('net*max'), maxv)
             self.eq(node.get('asof'), 2554869000000)
             self.eq(node.get('created'), 2554858000000)
             self.eq(node.get('updated'), 2554858000000)
@@ -2629,13 +2525,8 @@ class InetModelTest(s_t_utils.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
 
-            #profiles = await core.nodes('ps:contact:email=developers@vertex.slack.com')
-            #self.len(1, profiles)
-            #devsprof = profiles[0]
-
             self.eq(nodes[0].get('id'), 'X1234')
             self.eq(nodes[0].get('name'), 'developers, developers, developers')
-            #self.eq(nodes[0].get('profile'), devsprof.ndef[1])
             devsgrp = nodes[0]
 
             q = '''

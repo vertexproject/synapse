@@ -242,9 +242,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('ou:org -> ou:org:type:taxonomy'))
             self.len(1, await core.nodes('ou:org :motto -> lang:phrase'))
 
-            #nodes = await core.nodes('entity:name')
-            #self.sorteq([x.ndef[1] for x in nodes], (normname, 'vertex') + altnames)
-
             nodes = await core.nodes('ou:org:names*[=otheraltarrow]')
             self.len(1, nodes)
 
@@ -372,9 +369,6 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('hehe', nodes[0].get('desc'))
 
             opts = {'vars': {'iden': nodes[0].ndef[1]}}
-            #self.len(3, await core.nodes('ou:org=$iden -> ps:contact', opts=opts))
-            #self.len(1, await core.nodes('ou:org=$iden :hq -> ps:contact', opts=opts))
-            #self.len(2, await core.nodes('ou:org=$iden :locations -> ps:contact', opts=opts))
             self.len(2, await core.nodes('ou:org=$iden :dns:mx -> inet:fqdn', opts=opts))
 
             nodes = await core.nodes('''[
@@ -396,7 +390,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''[
                 ou:preso=*
-                    :title=syn101
+                    :name=syn101
                     :desc=squeee
                     :period=(202008081200, 202008081400)
 
@@ -416,7 +410,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :recording:url=http://vertex.link/syn101recording
             ]''')
             self.len(1, nodes)
-            self.eq('syn101', nodes[0].get('title'))
+            self.eq('syn101', nodes[0].get('name'))
             self.eq('squeee', nodes[0].get('desc'))
 
             self.eq(nodes[0].get('period'), (1596888000000, 1596895200000))
@@ -736,7 +730,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('contact'))
 
             self.len(1, await core.nodes('ou:opening -> ou:org'))
-            self.len(1, await core.nodes('ou:opening -> entity:name'))
+            self.len(1, await core.nodes('ou:opening -> meta:name'))
             self.len(1, await core.nodes('ou:opening -> inet:url'))
             self.len(1, await core.nodes('ou:opening -> inet:fqdn'))
             self.len(1, await core.nodes('ou:opening -> entity:title'))
@@ -787,7 +781,7 @@ class OuModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('ou:vitals -> ou:org'))
             self.len(1, await core.nodes('ou:vitals -> inet:fqdn'))
-            self.len(1, await core.nodes('ou:vitals -> entity:name'))
+            self.len(1, await core.nodes('ou:vitals -> meta:name'))
 
             self.len(1, await core.nodes('ou:org [ :vitals=* ] :vitals -> ou:vitals'))
 

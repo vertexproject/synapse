@@ -149,17 +149,17 @@ class StormTest(s_t_utils.SynTest):
             orgn = nodes[0].ndef
             self.eq(orgn, nodes11[0].ndef)
 
-            q = '[ ps:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
+            q = '[ entity:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             cont = nodes[0]
             self.eq(cont.get('org'), orgn[1])
 
-            nodes = await core.nodes('ps:contact:org=({"name": "the vertex project", "type": "lulz"})')
+            nodes = await core.nodes('entity:contact:org=({"name": "the vertex project", "type": "lulz"})')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, cont.ndef)
 
-            self.len(0, await core.nodes('ps:contact:org=({"name": "vertex", "type": "newp"})'))
+            self.len(0, await core.nodes('entity:contact:org=({"name": "vertex", "type": "newp"})'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
@@ -554,7 +554,7 @@ class StormTest(s_t_utils.SynTest):
                 [(ou:org=* :names=(foo, baz))]
                 [(ou:org=* :names=(foo, hehe))]
             ''')
-            nodes = await core.nodes('ou:org | intersect { -> ou:name }')
+            nodes = await core.nodes('ou:org | intersect { -> meta:name }')
             self.len(1, nodes)
             self.eq(nodes[0].ndef[1], 'foo')
 
@@ -880,8 +880,8 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('inet:ip=1.2.3.4', opts={'view': view1}))
 
-            self.len(0, await core.nodes('$x = $lib.null if ($x and $x > 20) { [ ps:contact=* ] }'))
-            self.len(1, await core.nodes('$x = $lib.null if ($lib.true or $x > 20) { [ ps:contact=* ] }'))
+            self.len(0, await core.nodes('$x = $lib.null if ($x and $x > 20) { [ entity:contact=* ] }'))
+            self.len(1, await core.nodes('$x = $lib.null if ($lib.true or $x > 20) { [ entity:contact=* ] }'))
 
             visi = await core.auth.addUser('visi')
             await visi.setPasswd('secret')
@@ -1015,9 +1015,9 @@ class StormTest(s_t_utils.SynTest):
                 $iden = $lib.guid()
                 $props = ({"email": "visi@vertex.link"})
                 $lib.feed.ingest((
-                    ( (ps:contact, $iden), ({"props": $props})),
+                    ( (entity:contact, $iden), ({"props": $props})),
                 ))
-                ps:contact=$iden
+                entity:contact=$iden
                 return(:email)
             ''')
             self.eq(email, 'visi@vertex.link')
@@ -1026,7 +1026,7 @@ class StormTest(s_t_utils.SynTest):
                 $iden = $lib.guid()
                 $props = ({"email": "visi@vertex.link"})
                 yield $lib.feed.genr((
-                    ( (ps:contact, $iden), ({"props": $props})),
+                    ( (entity:contact, $iden), ({"props": $props})),
                 ))
                 return(:email)
             ''')
@@ -1644,7 +1644,7 @@ class StormTest(s_t_utils.SynTest):
             self.none(nodes[0].getTag('haha'))
 
             self.len(2, await core.nodes('ou:org'))
-            self.len(1, await core.nodes('ou:name=haha'))
+            self.len(1, await core.nodes('meta:name=haha'))
             self.len(1, await core.nodes('ou:org:name=haha'))
 
             self.len(0, await core.nodes('#haha'))
@@ -1663,14 +1663,14 @@ class StormTest(s_t_utils.SynTest):
 
             self.len(0, await core.nodes('diff', opts=altview))
 
-            await core.nodes('[ ps:contact=* :name=con0 +#con0 +#con0.foo +#conalt ]', opts=altview)
-            await core.nodes('[ ps:contact=* :name=con1 +#con1 +#conalt ]', opts=altview)
+            await core.nodes('[ entity:contact=* :name=con0 +#con0 +#con0.foo +#conalt ]', opts=altview)
+            await core.nodes('[ entity:contact=* :name=con1 +#con1 +#conalt ]', opts=altview)
 
             nodes = await core.nodes('diff --tag conalt con1 con0.foo con0 newp', opts=altview)
             self.sorteq(['con0', 'con1'], [n.get('name') for n in nodes])
 
             q = '''
-            [ ou:name=foo +(refs)> {[ ou:name=bar ]} ]
+            [ meta:name=foo +(refs)> {[ meta:name=bar ]} ]
             { for $i in $lib.range(1001) { $node.data.set($i, $i) }}
             '''
             nodes = await core.nodes(q, opts=altview)
@@ -1690,70 +1690,70 @@ class StormTest(s_t_utils.SynTest):
             await visi.addRule((True, ('node', 'data')), gateiden=lowriden)
 
             with self.raises(s_exc.AuthDeny):
-                await core.nodes('ou:name | merge --apply', opts=altview)
+                await core.nodes('meta:name | merge --apply', opts=altview)
 
-            self.len(0, await core.nodes('ou:name=foo'))
+            self.len(0, await core.nodes('meta:name=foo'))
 
             await visi.addRule((True, ('node', 'edge')), gateiden=lowriden)
 
-            await core.nodes('ou:name | merge --apply', opts=altview)
-            self.len(1, await core.nodes('ou:name=foo -(refs)> *'))
+            await core.nodes('meta:name | merge --apply', opts=altview)
+            self.len(1, await core.nodes('meta:name=foo -(refs)> *'))
 
             await visi.delRule((True, ('node', 'add')), gateiden=lowriden)
 
-            self.len(1, await core.nodes('ou:name=foo [ .seen=now ]', opts=altview))
-            await core.nodes('ou:name=foo | merge --apply', opts=altview)
+            self.len(1, await core.nodes('meta:name=foo [ .seen=now ]', opts=altview))
+            await core.nodes('meta:name=foo | merge --apply', opts=altview)
 
             await visi.addRule((True, ('node', 'add')), gateiden=lowriden)
 
             with self.getAsyncLoggerStream('synapse.lib.view') as stream:
-                await core.stormlist('ou:name | merge --apply', opts=altview)
+                await core.stormlist('meta:name | merge --apply', opts=altview)
 
             stream.seek(0)
             buf = stream.read()
             self.notin("No form named None", buf)
 
-            await core.nodes('[ ou:name=baz ]')
-            await core.nodes('ou:name=baz [ +#new.tag .seen=now ]', opts=altview)
-            await core.nodes('ou:name=baz | delnode')
+            await core.nodes('[ meta:name=baz ]')
+            await core.nodes('meta:name=baz [ +#new.tag .seen=now ]', opts=altview)
+            await core.nodes('meta:name=baz | delnode')
 
             self.stormHasNoErr(await core.stormlist('diff', opts=altview))
             self.stormHasNoErr(await core.stormlist('diff --tag new.tag', opts=altview))
             self.stormHasNoErr(await core.stormlist('diff --prop ".seen"', opts=altview))
             self.stormHasNoErr(await core.stormlist('merge --diff', opts=altview))
 
-            oldn = await core.nodes('[ ou:name=readonly ]', opts=altview)
-            newn = await core.nodes('[ ou:name=readonly ]')
+            oldn = await core.nodes('[ meta:name=readonly ]', opts=altview)
+            newn = await core.nodes('[ meta:name=readonly ]')
             self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             with self.getAsyncLoggerStream('synapse.lib.view') as stream:
-                await core.stormlist('ou:name | merge --apply', opts=altview)
+                await core.stormlist('meta:name | merge --apply', opts=altview)
 
             stream.seek(0)
             buf = stream.read()
-            self.notin("Property is read only: ou:name.created", buf)
+            self.notin("Property is read only: meta:name.created", buf)
 
-            newn = await core.nodes('ou:name=readonly')
+            newn = await core.nodes('meta:name=readonly')
             self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
             viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)', opts={'view': viewiden})
 
-            oldn = await core.nodes('[ ou:name=readonly2 ]', opts=altview)
-            newn = await core.nodes('[ ou:name=readonly2 ]')
+            oldn = await core.nodes('[ meta:name=readonly2 ]', opts=altview)
+            newn = await core.nodes('[ meta:name=readonly2 ]')
             self.ne(oldn[0].get('.created'), newn[0].get('.created'))
 
             altview2 = {'view': viewiden2}
-            q = 'ou:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
+            q = 'meta:name=readonly2 | movenodes --apply --srclayers $lib.view.get().layers.2.iden'
             await core.nodes(q, opts=altview2)
 
             with self.getAsyncLoggerStream('synapse.lib.view') as stream:
-                await core.stormlist('ou:name | merge --apply', opts=altview2)
+                await core.stormlist('meta:name | merge --apply', opts=altview2)
 
             stream.seek(0)
             buf = stream.read()
-            self.notin("Property is read only: ou:name.created", buf)
+            self.notin("Property is read only: meta:name.created", buf)
 
-            newn = await core.nodes('ou:name=readonly2', opts=altview)
+            newn = await core.nodes('meta:name=readonly2', opts=altview)
             self.eq(oldn[0].get('.created'), newn[0].get('.created'))
 
             await core.nodes('[ test:ro=bad :readable=foo ]', opts=altview)
@@ -1920,12 +1920,12 @@ class StormTest(s_t_utils.SynTest):
             await visi.addRule((True, ('node', 'data', 'set')), gateiden=layr2)
             await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr2)
 
-            await core.nodes('[ ou:name=test ]')
+            await core.nodes('[ meta:name=test ]')
 
             await core.nodes('''
-                [ ps:contact=*
+                [ entity:contact=*
                     :name=test0
-                    +(refs)> { ou:name=test }
+                    +(refs)> { meta:name=test }
                     +#test1.foo=now
                     +#test2
                     +#test3:score=42
@@ -1934,76 +1934,76 @@ class StormTest(s_t_utils.SynTest):
             ''', opts=view2opts)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
-            self.eq('node.del.ps:contact', ecm.exception.errinfo['perm'])
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
+            self.eq('node.del.entity:contact', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'del')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
-            self.eq('node.add.ps:contact', ecm.exception.errinfo['perm'])
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
+            self.eq('node.add.entity:contact', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'add')), gateiden=layr1)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
-            self.eq('node.prop.del.ps:contact..created', ecm.exception.errinfo['perm'])
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
+            self.eq('node.prop.del.entity:contact..created', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'prop', 'del')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
-            self.eq('node.prop.set.ps:contact..created', ecm.exception.errinfo['perm'])
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
+            self.eq('node.prop.set.entity:contact..created', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'prop', 'set')), gateiden=layr1)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.tag.del.test1.foo', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'tag', 'del', 'test1', 'foo')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.tag.add.test1.foo', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'tag', 'add', 'test1', 'foo')), gateiden=layr1)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.tag.del.test3', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'tag', 'del', 'test3')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.tag.add.test3', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'tag', 'add', 'test3')), gateiden=layr1)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.tag.del.test2', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'tag', 'del', 'test2')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.tag.add.test2', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'tag', 'add', 'test2')), gateiden=layr1)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.data.del.foo', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'data', 'del')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.data.set.foo', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'data', 'set')), gateiden=layr1)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.edge.del.refs', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'edge', 'del')), gateiden=layr2)
 
             with self.raises(s_exc.AuthDeny) as ecm:
-                await core.nodes('ps:contact merge --apply', opts=view2opts)
+                await core.nodes('entity:contact merge --apply', opts=view2opts)
             self.eq('node.edge.add.refs', ecm.exception.errinfo['perm'])
             await visi.addRule((True, ('node', 'edge', 'add')), gateiden=layr1)
 
-            await core.nodes('ps:contact merge --apply', opts=view2opts)
+            await core.nodes('entity:contact merge --apply', opts=view2opts)
 
     async def test_storm_movenodes(self):
 
@@ -2250,7 +2250,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq('hehe', node[1]['embeds']['asn']['name'])
 
             opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
-            msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> ps:contact [ :email=visi@vertex.link ] }', opts=opts)
+            msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> entity:contact [ :email=visi@vertex.link ] }', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
@@ -2727,7 +2727,7 @@ class StormTest(s_t_utils.SynTest):
 
             # pernode variants
             self.none(await core.callStorm('''
-                [ ps:contact = * ]
+                [ entity:contact = * ]
                 if $node {
                     $foo = ({})
                     $foo.bar = $lib.undef
@@ -2735,11 +2735,11 @@ class StormTest(s_t_utils.SynTest):
                 }
             '''))
             with self.raises(s_exc.NoSuchVar):
-                await core.callStorm('[ps:contact=*] $foo = $node.repr() $foo = $lib.undef return($foo)')
+                await core.callStorm('[entity:contact=*] $foo = $node.repr() $foo = $lib.undef return($foo)')
 
             with self.raises(s_exc.StormRuntimeError):
                 await core.callStorm('''
-                    [ps:contact=*]
+                    [entity:contact=*]
                     $path.vars.foo = lol
                     $path.vars.foo = $lib.undef
                     return($path.vars.foo)
@@ -2774,7 +2774,7 @@ class StormTest(s_t_utils.SynTest):
                     'storm': 'function x() { return((0)) }',
                 },
             ),
-            'onload': f'[ ps:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
+            'onload': f'[ entity:contact={cont} ] $lib.print(teststring) $lib.warn(testwarn, key=valu) return($path.vars.newp)'
         }
         class PkgHandler(s_httpapi.Handler):
 
@@ -2821,7 +2821,7 @@ class StormTest(s_t_utils.SynTest):
             self.isin("testload onload output: teststring", buf)
             self.isin("testload onload output: testwarn", buf)
             self.isin("No var with name: newp", buf)
-            self.len(1, await core.nodes(f'ps:contact={cont}'))
+            self.len(1, await core.nodes(f'entity:contact={cont}'))
 
             evnts = await waiter.wait(timeout=4)
             exp = [
@@ -4551,18 +4551,18 @@ class StormTest(s_t_utils.SynTest):
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer pull:')])
                 self.len(1, [t for t in tasks if t.get('name').startswith('layer push:')])
 
-                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.nodes('[ entity:contact=* ]', opts={'view': view0})
 
                 # wait for first write so we can get the correct offset
                 await core.layers.get(layr2).waitEditOffs(0, timeout=3)
                 offs = await core.layers.get(layr2).getEditOffs()
 
-                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.nodes('[ entity:contact=* ]', opts={'view': view0})
+                await core.nodes('[ entity:contact=* ]', opts={'view': view0})
                 await core.layers.get(layr2).waitEditOffs(offs + 10, timeout=3)
 
-                self.len(3, await core.nodes('ps:contact', opts={'view': view1}))
-                self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
+                self.len(3, await core.nodes('entity:contact', opts={'view': view1}))
+                self.len(3, await core.nodes('entity:contact', opts={'view': view2}))
 
                 # Check offset reporting
                 q = '$layer=$lib.layer.get($layr0) return ($layer)'
@@ -4580,8 +4580,8 @@ class StormTest(s_t_utils.SynTest):
                 self.lt(10, pdef.get('offs', 0))
 
                 # remove and ensure no replay on restart
-                await core.nodes('ps:contact | delnode', opts={'view': view2})
-                self.len(0, await core.nodes('ps:contact', opts={'view': view2}))
+                await core.nodes('entity:contact | delnode', opts={'view': view2})
+                self.len(0, await core.nodes('entity:contact', opts={'view': view2}))
 
             conf = {'dmon:listen': f'tcp://127.0.0.1:{port}'}
             async with self.getTestCore(dirn=dirn, conf=conf) as core:
@@ -4589,13 +4589,13 @@ class StormTest(s_t_utils.SynTest):
                 await asyncio.sleep(0)
 
                 offs = await core.layers.get(layr2).getEditOffs()
-                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
-                await core.nodes('[ ps:contact=* ]', opts={'view': view0})
+                await core.nodes('[ entity:contact=* ]', opts={'view': view0})
+                await core.nodes('[ entity:contact=* ]', opts={'view': view0})
+                await core.nodes('[ entity:contact=* ]', opts={'view': view0})
                 await core.layers.get(layr2).waitEditOffs(offs + 6, timeout=3)
 
                 # confirm we dont replay and get the old one back...
-                self.len(3, await core.nodes('ps:contact', opts={'view': view2}))
+                self.len(3, await core.nodes('entity:contact', opts={'view': view2}))
 
                 actv = len(core.activecoros)
                 # remove all pushes / pulls

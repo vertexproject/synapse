@@ -62,11 +62,11 @@ modeldefs = (
 
                 ('tld', ('inet:fqdn', {}), {}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the country.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate or localized names for the country.'}),
 
                 ('government', ('ou:org', {}), {
@@ -128,7 +128,7 @@ modeldefs = (
             )),
             ('pol:election', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'ex': '2022 united states congressional midterm election',
                     'doc': 'The name of the election.'}),
 
@@ -210,7 +210,7 @@ modeldefs = (
                 ('election', ('pol:election', {}), {
                     'doc': 'The election that the polling place is designated for.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the polling place at the time of the election. This may differ from the official place name.'}),
 
                 ('place', ('geo:place', {}), {

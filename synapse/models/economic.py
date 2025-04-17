@@ -28,6 +28,10 @@ modeldefs = (
                 'doc': 'A single payment card.'}),
 
             ('econ:purchase', ('guid', {}), {
+                'interfaces': (
+                    ('geo:locatable', {
+                        'template': {'geo:locatable': 'purchase'}}),
+                ),
                 'doc': 'A purchase event.'}),
 
             ('econ:receipt:item', ('guid', {}), {
@@ -138,8 +142,8 @@ modeldefs = (
 
         'edges': (
             # FIXME econ:valuable
-            #(('econ:purchase', 'acquired', 'entity:havable'), {
-                #'doc': 'The purchase was used to acquire the target node.'}),
+            # (('econ:purchase', 'acquired', 'entity:havable'), {
+                # 'doc': 'The purchase was used to acquire the target node.'}),
 
             (('econ:bank:statement', 'has', 'econ:acct:payment'), {
                 'doc': 'The bank statement includes the payment.'}),
@@ -153,7 +157,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The issuer organization.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The registered name of the issuer.'}),
             )),
 
@@ -168,7 +172,7 @@ modeldefs = (
                 ('pan:iin', ('econ:pay:iin', {}), {
                     'doc': 'The payment card IIN.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name as it appears on the card.'}),
 
                 ('expr', ('time', {}), {
@@ -187,18 +191,16 @@ modeldefs = (
             # FIXME econ:valuable?
             ('econ:purchase', {}, (
 
-                ('by:contact', ('entity:actor', {}), {
-                    'doc': 'The contact information used to make the purchase.'}),
+                ('buyer', ('entity:actor', {}), {
+                    'prevnames': ('by:contact',),
+                    'doc': 'The buyer who purchased the items.'}),
 
-                ('from:contact', ('entity:actor', {}), {
-                    'doc': 'The contact information used to sell the item.'}),
+                ('seller', ('entity:actor', {}), {
+                    'prevnames': ('from:contact',),
+                    'doc': 'The seller who sold the items.'}),
 
                 ('time', ('time', {}), {
                     'doc': 'The time of the purchase.'}),
-
-                # FIXME locatable
-                ('place', ('geo:place', {}), {
-                    'doc': 'The place where the purchase took place.'}),
 
                 ('paid', ('bool', {}), {
                     'doc': 'Set to True if the purchase has been paid in full.'}),
@@ -266,10 +268,10 @@ modeldefs = (
                 ('to:cash', ('bool', {}), {
                     'doc': 'Set to true if the payment output was in cash.'}),
 
+                # FIXME - rename to payer / payee?
                 ('to:contact', ('entity:actor', {}), {
                     'doc': 'Contact information for the person/org being paid.'}),
 
-                # FIXME
                 ('to:contract', ('ou:contract', {}), {
                     'doc': 'A contract used as an aggregate payment destination.'}),
 
@@ -301,7 +303,7 @@ modeldefs = (
                 ('place', ('geo:place', {}), {
                     'doc': 'The place where the payment occurred.'}),
 
-                ('place:name', ('entity:name', {}), {
+                ('place:name', ('meta:name', {}), {
                     'doc': 'The name of the place where the payment occurred.'}),
 
                 ('place:address', ('geo:address', {}), {
@@ -345,7 +347,7 @@ modeldefs = (
 
             ('econ:fin:exchange', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'A simple name for the exchange.',
                     'ex': 'nasdaq'}),
 
@@ -369,11 +371,12 @@ modeldefs = (
                 ('type', ('econ:fin:security:type:taxonomy', {}), {
                     'doc': 'The type of security.'}),
 
-                #('price', ('econ:price', {}), {
-                    #'doc': 'The last known/available price of the security.'}),
+                # FIXME valuable
+                ('price', ('econ:price', {}), {
+                    'doc': 'The last known/available price of the security.'}),
 
-                #('time', ('time', {}), {
-                    #'doc': 'The time of the last know price sample.'}),
+                ('time', ('time', {}), {
+                    'doc': 'The time of the last know price sample.'}),
             )),
 
             ('econ:fin:tick', {}, (
@@ -462,7 +465,7 @@ modeldefs = (
                 ('bank', ('ou:org', {}), {
                     'doc': 'The bank which was issued the ABA RTN.'}),
 
-                ('bank:name', ('entity:name', {}), {
+                ('bank:name', ('meta:name', {}), {
                     'doc': 'The name which is registered for this ABA RTN.'}),
 
             )),
@@ -497,7 +500,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The bank which issued the account.'}),
 
-                ('issuer:name', ('entity:name', {}), {
+                ('issuer:name', ('meta:name', {}), {
                     'doc': 'The name of the bank which issued the account.'}),
 
                 ('currency', ('econ:currency', {}), {

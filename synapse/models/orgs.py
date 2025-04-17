@@ -20,18 +20,18 @@ modeldefs = (
                         'template': {'geo:locatable': 'event'}}),
                 ),
                 'props': (
-                    ('name', ('entity:name', {}), {
+                    ('name', ('meta:name', {}), {
                         'alts': ('names',),
                         'doc': 'The name of the {ou:attendable}.'}),
 
-                    ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the {ou:attendable}.'}),
 
                     ('desc', ('str', {}), {
                         'disp': {'hint': 'text'},
                         'doc': 'An organizer provided description of the {ou:attendable}.'}),
 
-                    ('family', ('entity:name', {}), {
+                    ('family', ('meta:name', {}), {
                         'ex': 'cyberwarcon',
                         'doc': 'A base name for a series of recurring {ou:attendable}s.'}),
 
@@ -190,8 +190,8 @@ modeldefs = (
                     'columns': (
                         {'type': 'prop', 'opts': {'name': 'name'}},
                         # FIXME
-                        #{'type': 'prop', 'opts': {'name': 'period*min'}},
-                        #{'type': 'prop', 'opts': {'name': 'period*max'}},
+                        # {'type': 'prop', 'opts': {'name': 'period*min'}},
+                        # {'type': 'prop', 'opts': {'name': 'period*max'}},
                     ),
                 },
                 'doc': 'A conference.'}),
@@ -395,7 +395,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org which has the opening.'}),
 
-                ('org:name', ('entity:name', {}), {
+                ('org:name', ('meta:name', {}), {
                     'doc': 'The name of the organization as listed in the opening.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -484,7 +484,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The resolved org.'}),
 
-                ('org:name', ('entity:name', {}), {
+                ('org:name', ('meta:name', {}), {
                     'prevnames': ('orgname',),
                     'doc': 'The org name as reported by the source of the vitals.'}),
 
@@ -534,7 +534,7 @@ modeldefs = (
             ('ou:award:type:taxonomy', {}, ()),
             ('ou:award', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the award.',
                     'ex': 'Bachelors of Science'}),
 
@@ -598,11 +598,11 @@ modeldefs = (
             ('ou:goal:type:taxonomy', {}, ()),
             ('ou:goal', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'A terse name for the goal.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the goal. Used to merge/resolve goals.'}),
 
                 ('type', ('ou:goal:type:taxonomy', {}), {
@@ -618,14 +618,14 @@ modeldefs = (
             ('ou:campaign', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'prevnames': ('ext:id',),
+                    'prevnames': ('id',),
                     'doc': 'The campaign ID.'}),
 
                 # political campaign, funding round, ad campaign, fund raising
                 ('org', ('ou:org', {}), {
                     'doc': 'The org carrying out the campaign.'}),
 
-                ('org:name', ('entity:name', {}), {
+                ('org:name', ('meta:name', {}), {
                     'doc': 'The name of the org responsible for the campaign. Used for entity resolution.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -649,18 +649,18 @@ modeldefs = (
                 ('success', ('bool', {}), {
                     'doc': 'Records the success/failure status of the campaign if known.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'ex': 'operation overlord',
                     'doc': 'A terse name of the campaign.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternate names for the campaign.'}),
 
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the campaign.'}),
 
-                ('reporter:name', ('entity:name', {}), {
+                ('reporter:name', ('meta:name', {}), {
                     'doc': 'The name of the organization reporting on the campaign.'}),
 
                 ('sophistication', ('meta:sophistication', {}), {
@@ -717,7 +717,7 @@ modeldefs = (
             )),
             ('ou:conflict', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the conflict.'}),
 
                 ('period', ('ival', {}), {
@@ -786,11 +786,11 @@ modeldefs = (
                 ('reporter', ('ou:org', {}), {
                     'doc': 'The organization reporting on the technique.'}),
 
-                ('reporter:name', ('entity:name', {}), {
+                ('reporter:name', ('meta:name', {}), {
                     'doc': 'The name of the organization reporting on the technique.'}),
 
                 ('id', ('meta:id', {}), {
-                    'prevnames': ('ext:id',),
+                    'prevnames': ('id',),
                     'doc': 'The technique ID.'}),
             )),
             ('ou:technique:type:taxonomy', {
@@ -822,8 +822,8 @@ modeldefs = (
                     'doc': 'The industries associated with the org.'}),
 
                 # FIXME: invert this or use org ID?
-                #('us:cage', ('gov:us:cage', {}), {
-                    #'doc': 'The Commercial and Government Entity (CAGE) code for the organization.'}),
+                # ('us:cage', ('gov:us:cage', {}), {
+                    # 'doc': 'The Commercial and Government Entity (CAGE) code for the organization.'}),
 
                 # FIXME discuss
                 # ('subs', ('array', {'type': 'ou:org', 'uniq': True, 'sorted': True}), {
@@ -849,7 +849,7 @@ modeldefs = (
             )),
             ('ou:team', {}, (
                 ('org', ('ou:org', {}), {}),
-                ('name', ('entity:name', {}), {}),
+                ('name', ('meta:name', {}), {}),
             )),
 
             ('ou:asset:type:taxonomy', {}, ()),
@@ -969,11 +969,11 @@ modeldefs = (
             ('ou:industry:type:taxonomy', {}, ()),
             ('ou:industry', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the industry.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternative names for the industry.'}),
 
                 ('type', ('ou:industry:type:taxonomy', {}), {
@@ -983,7 +983,7 @@ modeldefs = (
                 ('reporter', ('entity:actor', {}), {
                     'doc': 'The organization reporting on the industry.'}),
 
-                ('reporter:name', ('entity:name', {}), {
+                ('reporter:name', ('meta:name', {}), {
                     'doc': 'The name of the organization reporting on the industry.'}),
 
                 ('sic', ('array', {'type': 'ou:sic', 'split': ',', 'uniq': True, 'sorted': True}), {
@@ -1031,37 +1031,8 @@ modeldefs = (
             )),
             ('ou:preso', {}, (
 
-                #('organizer', ('entity:actor', {}), {
-                    #'doc': 'Contact information for the primary organizer of the presentation.'}),
-
-                #('sponsors', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
-                    #'doc': 'A set of contacts which sponsored the presentation.'}),
-
                 ('presenters', ('array', {'type': 'entity:individual', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of individuals who gave the presentation.'}),
-
-                # FIXME entity:name?
-                ('title', ('str', {'lower': True}), {
-                    'doc': 'The full name of the presentation.',
-                    'ex': 'Synapse 101 - 2021/06/22'}),
-
-                ('desc', ('str', {'lower': True}), {
-                    'doc': 'A description of the presentation.',
-                    'disp': {'hint': 'text'}}),
-
-                # FIXME period
-                #('time', ('time', {}), {
-                    #'doc': 'The scheduled presentation start time.'}),
-
-                #('duration', ('duration', {}), {
-                    #'doc': 'The scheduled duration of the presentation.'}),
-
-                # FIXME locatable
-                #('loc', ('loc', ()), {
-                    #'doc': 'The geopolitical location string for where the presentation was given.'}),
-
-                #('place', ('geo:place', ()), {
-                    #'doc': 'The geo:place node where the presentation was held.'}),
 
                 ('deck:url', ('inet:url', ()), {
                     'doc': 'The URL hosting a copy of the presentation materials.'}),
@@ -1077,72 +1048,17 @@ modeldefs = (
 
                 ('recording:file', ('file:bytes', ()), {
                     'doc': 'A file containing a recording of the presentation.'}),
-
-                #('conference', ('ou:conference', ()), {
-                    #'doc': 'The conference which hosted the presentation.'}),
             )),
-            ('ou:meet', {}, (
-                #('name', ('str', {'lower': True}), {
-                    #'doc': 'The name of the meeting.'}),
-                # FIXME period? scheduleable?
-                #('start', ('time', {}), {
-                    #'doc': 'The date / time the meet starts.',
-                #}),
-                #('end', ('time', {}), {
-                    #'doc': 'The date / time the meet ends.',
-                #}),
-                # FIXME geo:locatable
-                #('place', ('geo:place', ()), {
-                    #'doc': 'The geo:place node where the meet was held.',
-                #}),
-            )),
+            ('ou:meet', {}, ()),
             ('ou:conference', {}, (
-
+                # FIXME remove?
                 ('org', ('ou:org', {}), {
                     'doc': 'The org which created/managed the conference.'}),
-
-                #('organizer', ('entity:actor', {}), {
-                    #'doc': 'The primary organizer of the conference.'}),
-
-                #('sponsors', ('array', {'type': 'entity:actor', 'uniq': True, 'sorted': True}), {
-                    #'doc': 'An array of contacts which sponsored the conference.'}),
-
-                #('name', ('entity:name', {}), {
-                    #'alts': ('names',),
-                    #'ex': 'defcon 2017',
-                    #'doc': 'The full name of the conference.'}),
-
-                #('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
-                    #'doc': 'An array of alternate names for the conference.'}),
-
-                # FIXME attendable?
-                #('desc', ('str', {'lower': True}), {
-                    #'ex': 'annual cybersecurity conference',
-                    #'disp': {'hint': 'text'},
-                    #'doc': 'A description of the conference.'}),
-
-                # FIXME family? ( attendable? )
-                #('family', ('entity:name', {}), {
-                    #'ex': 'defcon',
-                    #'prevnames': ('base',),
-                    #'doc': 'A name which is shared by all conference instances.'}),
-
-                #('website', ('inet:url', {}), {
-                    #'prevnames': ('url',),
-                    #'doc': 'The URL of the conference website.'}),
-
-                #('url', ('inet:url', ()), {
-                    #'doc': 'The inet:url node for the conference website.'}),
             )),
             ('ou:event', {}, (
-
+                # FIXME make type part of the interface template
                 ('type', ('ou:event:type:taxonomy', {}), {
                     'doc': 'The type of event.'}),
-
-                ('desc', ('str', {'lower': True}), {
-                    'ex': 'foobar networking dinner at ridge hotel',
-                    'disp': {'hint': 'text'},
-                    'doc': 'A description of the event.'}),
             )),
             ('ou:contest:type:taxonomy', {}, ()),
             ('ou:contest', {}, (
@@ -1181,51 +1097,6 @@ modeldefs = (
                 ('scope', ('ndef', {}), {
                     'doc': 'The scope of responsbility for the assignee to enact the document.'}),
             )),
-
-#            ('ou:requirement:type:taxonomy', {}, ()),
-#            ('ou:requirement', {}, (
-#
-#                ('name', ('str', {'lower': True, 'onespace': True}), {
-#                    'doc': 'A name for the requirement.'}),
-#
-#                ('type', ('ou:requirement:type:taxonomy', {}), {
-#                    'doc': 'The type of requirement.'}),
-#
-#                ('text', ('str', {}), {
-#                    'disp': {'hint': 'text'},
-#                    'doc': 'The text of the stated requirement.'}),
-#
-#                ('optional', ('bool', {}), {
-#                    'doc': 'Set to true if the requirement is optional.'}),
-#
-#                ('priority', ('meta:priority', {}), {
-#                    'doc': 'The priority of the requirement.'}),
-#
-#                ('goal', ('ou:goal', {}), {
-#                    'doc': 'The goal that the requirement is designed to achieve.'}),
-#
-#                ('active', ('bool', {}), {
-#                    'doc': 'Set to true if the requirement is currently active.'}),
-#
-#                ('issued', ('time', {}), {
-#                    'doc': 'The time that the requirement was first issued.'}),
-#
-#                ('period', ('ival', {}), {
-#                    'doc': 'The time window where the goal must be met. Can be ongoing.'}),
-#
-#                ('issuer', ('entity:contact', {}), {
-#                    'doc': 'The contact information of the entity which issued the requirement.'}),
-#
-#                ('assignee', ('entity:contact', {}), {
-#                    'doc': 'The contact information of the entity which is assigned to meet the requirement.'}),
-#
-#                ('deps', ('array', {'type': 'ou:requirement', 'sorted': True, 'uniq': True}), {
-#                    'doc': 'A list of sub-requirements which must be met to complete the requirement.'}),
-#
-#                ('deps:min', ('int', {'min': 0}), {
-#                    'doc': 'The minimum number dependant requirements which must be met. If unset, assume all must be met.'}),
-#            )),
         ),
     }),
-    #}),
 )

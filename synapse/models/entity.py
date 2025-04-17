@@ -26,11 +26,11 @@ modeldefs = (
                     ('photo', ('file:bytes', {}), {
                         'doc': 'The profile picture or avatar for this {contactable}.'}),
 
-                    ('name', ('entity:name', {}), {
+                    ('name', ('meta:name', {}), {
                         'alts': ('names',),
                         'doc': 'The primary name of the {contactable}.'}),
 
-                    ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                    ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate names for the {contactable}.'}),
 
                     ('title', ('entity:title', {}), {
@@ -56,7 +56,7 @@ modeldefs = (
                     ('email', ('inet:email', {}), {
                         'doc': 'The primary email address for the {contactable}.'}),
 
-                    ('emails', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                    ('emails', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                         'doc': 'An array of alternate email addresses for the {contactable}.'}),
 
                     ('phone', ('tel:phone', {}), {
@@ -114,12 +114,6 @@ modeldefs = (
             # FIXME syn:user is an actor...
             ('entity:actor', ('ndef', {'interface': 'entity:actor'}), {
                 'doc': 'An entity which has initiative to act.'}),
-
-            ('entity:name', ('str', {'onespace': True, 'lower': True}), {
-                'prevnames': ('ps:name', 'ou:name', 'ou:industryname',
-                              'ou:campname', 'ou:goalname', 'lang:name',
-                              'risk:vulnname', 'it:prod:softname'),
-                'doc': 'A name used to refer to an entity.'}),
 
             ('entity:title', ('str', {'onespace': True, 'lower': True}), {
                 'prevnames': ('ou:jobtitle', 'ou:role'),
@@ -197,7 +191,6 @@ modeldefs = (
 
         'forms': (
 
-            ('entity:name', {}, ()),
             ('entity:title', {}, ()),
 
             ('entity:contact:type:taxonomy', {}, ()),
@@ -232,8 +225,8 @@ modeldefs = (
                     'doc': 'The percentage of the item owned by the owner.'}),
 
                 # FIXME transaction / exchange event to allow theft or purchase?
-                #('purchase', ('econ:purchase', {}), {
-                    #'doc': 'The purchase event where the owner bought the item.'}),
+                # ('purchase', ('econ:purchase', {}), {
+                    # 'doc': 'The purchase event where the owner bought the item.'}),
 
                 # FIXME shares:count / shares:total
             )),

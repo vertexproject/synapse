@@ -53,7 +53,7 @@ modeldefs = (
         'forms': (
             ('gov:us:cage', {}, (
                 ('org', ('ou:org', {}), {'doc': 'The organization which was issued the CAGE code.'}),
-                ('name0', ('entity:name', {}), {'doc': 'The name of the organization.'}),
+                ('name0', ('meta:name', {}), {'doc': 'The name of the organization.'}),
                 ('name1', ('str', {'lower': True}), {'doc': 'Name Part 1.'}),
                 ('street', ('str', {'lower': True}), {}),
                 ('city', ('str', {'lower': True}), {}),

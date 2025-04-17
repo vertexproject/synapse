@@ -295,7 +295,7 @@ modeldefs = (
             )),
             ('crypto:currency:coin', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The full name of the crypto coin.'}),
             )),
 

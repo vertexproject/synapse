@@ -49,10 +49,10 @@ modeldefs = (
                 ('code', ('lang:code', {}), {
                     'doc': 'The language code for this language.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The primary name of the language.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'sorted': True, 'uniq': True}), {
+                ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {
                     'doc': 'An array of alternative names for the language.'}),
 
                 ('skill', ('ps:skill', {}), {

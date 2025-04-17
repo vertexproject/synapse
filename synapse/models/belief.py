@@ -21,7 +21,7 @@ modeldefs = (
 
             ('belief:system', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the belief system.'}),
 
                 ('desc', ('str', {}), {
@@ -40,7 +40,7 @@ modeldefs = (
 
             ('belief:tenet', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the tenet.'}),
 
                 ('desc', ('str', {}), {

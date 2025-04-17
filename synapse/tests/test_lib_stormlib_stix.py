@@ -82,7 +82,7 @@ class StormLibStixTest(s_test.SynTest):
                 (inet:ip=1.2.3.4 :asn=30)
                 (inet:ip="::ff" :asn=40)
                 inet:email=visi@vertex.link
-                (ps:contact=* :name="visi stark" :email=visi@vertex.link)
+                (entity:contact=* :name="visi stark" :email=visi@vertex.link)
                 (ou:org=$targetorg :name=target :industries+={[ou:industry=$ind :name=aerospace]})
                 (ou:org=$attackorg :name=attacker :hq={[geo:place=$place :loc=ru :name=moscow :latlong=(55.7558, 37.6173)]})
                 (ou:campaign=$campaign :name=woot :org={ou:org:name=attacker} :goal={[ou:goal=$goal :name=pwning]})
@@ -335,7 +335,7 @@ class StormLibStixTest(s_test.SynTest):
             stix = s_common.yamlload(self.getTestFilePath('stix_import', 'oasis-example-00.json'))
             msgs = await core.stormlist('yield $lib.stix.import.ingest($stix)', opts={'view': viewiden, 'vars': {'stix': stix}})
             # self.stormHasNoWarnErr(msgs)
-            self.len(1, await core.nodes('ps:contact:name="adversary bravo"', opts={'view': viewiden}))
+            self.len(1, await core.nodes('entity:contact:name="adversary bravo"', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
 
             # Pass in a heavy dict object
@@ -344,7 +344,7 @@ class StormLibStixTest(s_test.SynTest):
             q = '''init { $data = ({"id": $stix.id, "type": $stix.type, "objects": $stix.objects}) }
             yield $lib.stix.import.ingest($data)'''
             msgs = await core.stormlist(q, opts={'view': viewiden, 'vars': {'stix': stix}})
-            self.len(1, await core.nodes('ps:contact:name="adversary bravo"', opts={'view': viewiden}))
+            self.len(1, await core.nodes('entity:contact:name="adversary bravo"', opts={'view': viewiden}))
             self.len(1, await core.nodes('it:prod:soft', opts={'view': viewiden}))
 
             viewiden = await core.callStorm('return($lib.view.get().fork().iden)')

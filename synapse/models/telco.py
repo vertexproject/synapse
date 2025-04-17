@@ -380,7 +380,7 @@ modeldefs = (
 
                 # FIXME contact prop or interface?
                 # User related data
-                ('name', ('entity:name', {}), {}),
+                ('name', ('meta:name', {}), {}),
                 ('email', ('inet:email', {}), {}),
 
                 ('account', ('inet:service:account', {}), {

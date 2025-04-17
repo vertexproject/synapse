@@ -586,14 +586,14 @@ class AstTest(s_test.SynTest):
             self.nn(nodes[1].getTag('foo'))
 
             # test nested
-            nodes = await core.nodes('[ inet:fqdn=woot.com ( ps:person="*" :name=visi (ps:contact="*" +#foo )) ]')
+            nodes = await core.nodes('[ inet:fqdn=woot.com ( ps:person="*" :name=visi (entity:contact="*" +#foo )) ]')
             self.eq(nodes[0].ndef, ('inet:fqdn', 'woot.com'))
 
             self.eq(nodes[1].ndef[0], 'ps:person')
             self.eq(nodes[1].get('name'), 'visi')
             self.none(nodes[1].getTag('foo'))
 
-            self.eq(nodes[2].ndef[0], 'ps:contact')
+            self.eq(nodes[2].ndef[0], 'entity:contact')
             self.nn(nodes[2].getTag('foo'))
 
             user = await core.auth.addUser('newb')
@@ -1387,7 +1387,7 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].get('name'))
 
-            nodes = await core.nodes('[ ps:contact=* :org={ou:org:name=visiacme}]')
+            nodes = await core.nodes('[ entity:contact=* :org={ou:org:name=visiacme}]')
             self.len(1, nodes)
             self.nn(nodes[0].get('org'))
 
@@ -3238,13 +3238,13 @@ class AstTest(s_test.SynTest):
     async def test_ast_highlight(self):
 
         async with self.getTestCore() as core:
-            text = '[ ps:contact=* :name=$visi ]'
+            text = '[ entity:contact=* :name=$visi ]'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']
             self.eq('visi', text[off:end])
 
-            text = '[ ps:contact=* :foo:bar=haha ]'
+            text = '[ entity:contact=* :foo:bar=haha ]'
             msgs = await core.stormlist(text)
             errm = [m for m in msgs if m[0] == 'err'][0]
             off, end = errm[1][1]['highlight']['offsets']

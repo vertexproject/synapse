@@ -812,7 +812,7 @@ modeldefs = (
                 'doc': 'A software product.'}),
 
             # FIXME
-            ('it:prod:softname', ('str', {'onespace': True, 'lower': True}), {
+            ('meta:name', ('str', {'onespace': True, 'lower': True}), {
                 'doc': 'A software product name.'}),
 
             # FIXME
@@ -1142,7 +1142,7 @@ modeldefs = (
                 ('os', ('it:prod:softver', {}), {
                     'doc': 'The operating system of the host.'}),
 
-                ('os:name', ('it:prod:softname', {}), {
+                ('os:name', ('meta:name', {}), {
                     'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
 
                 ('hardware', ('it:prod:hardware', {}), {
@@ -1157,7 +1157,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The org that operates the given host.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An external identifier for the host.'}),
 
                 ('keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
@@ -1183,7 +1183,7 @@ modeldefs = (
             ('it:software:image:type:taxonomy', {}, ()),
             ('it:software:image', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the image.'}),
 
                 ('type', ('it:software:image:type:taxonomy', {}), {
@@ -1205,7 +1205,7 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'The unique volume ID.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the volume.'}),
 
                 ('type', ('it:storage:volume:type:taxonomy', {}), {
@@ -1243,7 +1243,7 @@ modeldefs = (
                 ('data', ('data', {}), {
                     'doc': 'A raw JSON record of the log event.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An external id that uniquely identifies this log entry.'}),
 
                 ('product', ('it:prod:softver', {}), {
@@ -1261,7 +1261,7 @@ modeldefs = (
             )),
             ('it:domain', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the domain.'}),
 
                 ('desc', ('str', {}), {
@@ -1273,7 +1273,7 @@ modeldefs = (
             ('it:network:type:taxonomy', {}, ()),
             ('it:network', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the network.'}),
 
                 ('desc', ('str', {}), {
@@ -1331,7 +1331,7 @@ modeldefs = (
             # FIXME it:host:group?
             ('it:group', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the group.'}),
 
                 ('desc', ('str', {}), {
@@ -1376,7 +1376,7 @@ modeldefs = (
                 ('duration', ('duration', {}), {
                     'doc': 'The duration of the logon session.'}),
 
-                #FIXME client
+                # FIXME client
                 ('client:host', ('it:host', {}), {
                     'doc': 'The host where the logon originated.'}),
 
@@ -1411,7 +1411,7 @@ modeldefs = (
             )),
             ('it:sec:cve', {}, (
 
-                ('nist:nvd:source', ('entity:name', {}), {
+                ('nist:nvd:source', ('meta:name', {}), {
                     'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
 
                 ('nist:nvd:published', ('time', {}), {
@@ -1429,10 +1429,10 @@ modeldefs = (
                 ('cisa:kev:action', ('str', {}), {
                     'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
 
-                ('cisa:kev:vendor', ('entity:name', {}), {
+                ('cisa:kev:vendor', ('meta:name', {}), {
                     'doc': 'The vendor name listed in the CISA KEV database.'}),
 
-                ('cisa:kev:product', ('it:prod:softname', {}), {
+                ('cisa:kev:product', ('meta:name', {}), {
                     'doc': 'The product name listed in the CISA KEV database.'}),
 
                 ('cisa:kev:added', ('time', {}), {
@@ -1440,63 +1440,72 @@ modeldefs = (
 
                 ('cisa:kev:duedate', ('time', {}), {
                     'doc': 'The date the action is due according to the CISA KEV database.'}),
-
             )),
             ('it:sec:cpe', {}, (
+
                 ('v2_2', ('it:sec:cpe:v2_2', {}), {
-                    'doc': 'The CPE 2.2 string which is equivalent to the primary property.',
-                }),
+                    'doc': 'The CPE 2.2 string which is equivalent to the primary property.'}),
+
                 ('part', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "part" field from the CPE 2.3 string.'}),
-                ('vendor', ('entity:name', {}), {
+
+                ('vendor', ('meta:name', {}), {
                     'ro': True,
                     'doc': 'The "vendor" field from the CPE 2.3 string.'}),
+
                 ('product', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "product" field from the CPE 2.3 string.'}),
+
                 ('version', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "version" field from the CPE 2.3 string.'}),
+
                 ('update', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "update" field from the CPE 2.3 string.'}),
+
                 ('edition', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "edition" field from the CPE 2.3 string.'}),
+
                 ('language', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "language" field from the CPE 2.3 string.'}),
+
                 ('sw_edition', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
+
                 ('target_sw', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
+
                 ('target_hw', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
+
                 ('other', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "other" field from the CPE 2.3 string.'}),
             )),
             ('it:sec:cwe', {}, (
-                # FIXME meta:name?
+
                 ('name', ('str', {}), {
                     'doc': 'The CWE description field.',
-                    'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)',
-                }),
+                    'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)'}),
+
                 ('desc', ('str', {}), {
-                    'doc': 'The CWE description field.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The CWE description field.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'A URL linking this CWE to a full description.',
-                }),
+                    'doc': 'A URL linking this CWE to a full description.'}),
+
                 ('parents', ('array', {'type': 'it:sec:cwe',
                                        'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ChildOf CWE Relationships.'
-                }),
+                    'doc': 'An array of ChildOf CWE Relationships.'}),
             )),
 
             ('it:sec:metrics', {}, (
@@ -1504,7 +1513,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization whose security program is being measured.'}),
 
-                ('org:name', ('entity:name', {}), {
+                ('org:name', ('meta:name', {}), {
                     'doc': 'The organization name. Used for entity resolution.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -1554,7 +1563,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'Description of the scan and scope.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An externally generated ID for the scan.'}),
 
                 ('ext:url', ('inet:url', {}), {
@@ -1563,7 +1572,7 @@ modeldefs = (
                 ('software', ('it:prod:softver', {}), {
                     'doc': 'The scanning software used.'}),
 
-                ('software:name', ('it:prod:softname', {}), {
+                ('software:name', ('meta:name', {}), {
                     'doc': 'The name of the scanner software.'}),
 
                 ('operator', ('entity:contact', {}), {
@@ -1588,7 +1597,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time that the scan result was produced.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An externally generated ID for the scan result.'}),
 
                 ('ext:url', ('inet:url', {}), {
@@ -1613,10 +1622,10 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'Used to map an ATT&CK group to a synapse ou:org.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The primary name for the ATT&CK group.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate names for the ATT&CK group.'}),
 
                 ('desc', ('str', {}), {
@@ -1697,10 +1706,10 @@ modeldefs = (
                 ('software', ('it:prod:soft', {}), {
                     'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.'}),
 
-                ('name', ('it:prod:softname', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The primary name for the ATT&CK software.'}),
 
-                ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'Associated names for the ATT&CK software.'}),
 
                 ('desc', ('str', {'strip': True}), {
@@ -1722,7 +1731,7 @@ modeldefs = (
             )),
             ('it:mitre:attack:mitigation', {}, (
                 # TODO map to an eventual risk:mitigation
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The primary name for the ATT&CK mitigation.'}),
 
                 ('matrix', ('it:mitre:attack:matrix', {}), {
@@ -1744,10 +1753,10 @@ modeldefs = (
             )),
             ('it:mitre:attack:campaign', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The primary name for the ATT&CK campaign.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of alternate names for the ATT&CK campaign.'}),
 
                 ('desc', ('str', {'strip': True}), {
@@ -1786,7 +1795,8 @@ modeldefs = (
                     'doc': 'The time that the campaign was last updated by MITRE.'}),
             )),
             ('it:mitre:attack:flow', {}, (
-                ('name', ('entity:name', {}), {
+
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the attack-flow diagram.'}),
 
                 ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
@@ -1808,7 +1818,7 @@ modeldefs = (
             )),
             ('it:mitre:attack:datasource', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the datasource.'}),
 
                 ('description', ('str', {}), {
@@ -1820,7 +1830,7 @@ modeldefs = (
             )),
             ('it:mitre:attack:data:component', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'ro': True,
                     'doc': 'The name of the data component.'}),
 
@@ -1876,7 +1886,7 @@ modeldefs = (
 
             ('it:dev:repo:remote', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'ex': 'origin',
                     'doc': 'The name the repo is using for the remote repo.'}),
 
@@ -2041,7 +2051,7 @@ modeldefs = (
             # FIXME it:hardware / it:software
             ('it:prod:hardware', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of this hardware specification.'}),
 
                 ('type', ('it:prod:hardware:type:taxonomy', {}), {
@@ -2054,11 +2064,11 @@ modeldefs = (
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
 
-                #FIXME actor?
+                # FIXME actor? phy:manufactured?
                 ('manufacturer', ('ou:org', {}), {
                     'doc': 'The organization that manufactures this hardware.'}),
 
-                ('manufacturer:name', ('entity:name', {}), {
+                ('manufacturer:name', ('meta:name', {}), {
                     'doc': 'The name of the organization that manufactures this hardware.'}),
 
                 ('model', ('str', {'lower': True, 'onespace': True}), {
@@ -2090,14 +2100,14 @@ modeldefs = (
                 ('id', ('meta:id', {}), {
                     'doc': 'An ID for the software.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'The name of the software.'}),
 
                 ('type', ('it:prod:soft:taxonomy', {}), {
                     'doc': 'The software type.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'A list of alternate names for this software.'}),
 
                 ('desc', ('str', {}), {
@@ -2134,7 +2144,7 @@ modeldefs = (
                 ('soft', ('it:prod:softver', {}), {
                     'doc': 'The software which issued the ID to the host.'}),
 
-                ('soft:name', ('entity:name', {}), {
+                ('soft:name', ('meta:name', {}), {
                     'doc': 'The name of the software which issued the ID to the host.'}),
             )),
 
@@ -2184,11 +2194,11 @@ modeldefs = (
                 ('software', ('it:prod:soft', {}), {
                     'doc': 'Software associated with this version instance.',
                 }),
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
                     'doc': 'Name of the software version.'}),
 
-                ('names', ('array', {'type': 'entity:name', 'uniq': True, 'sorted': True}), {
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
                     'doc': 'Observed/variant names for this software version.'}),
 
                 ('desc', ('str', {}), {
@@ -2276,7 +2286,7 @@ modeldefs = (
                 ('scanner', ('it:prod:softver', {}), {
                     'doc': 'The scanner software used to produce the result.'}),
 
-                ('scanner:name', ('entity:name', {}), {
+                ('scanner:name', ('meta:name', {}), {
                     'doc': 'The name of the scanner software.'}),
 
                 ('signame', ('it:av:signame', {}), {
@@ -2404,22 +2414,22 @@ modeldefs = (
                     'doc': 'The display name specified by the process.'}),
 
                 ('exited', ('time', {}), {
-                    'doc': 'The time the process exited.', }),
+                    'doc': 'The time the process exited.'}),
 
                 ('exitcode', ('int', {}), {
-                    'doc': 'The exit code for the process.', }),
+                    'doc': 'The exit code for the process.'}),
 
                 ('account', ('it:account', {}), {
-                    'doc': 'The account of the process owner.', }),
+                    'doc': 'The account of the process owner.'}),
 
                 ('path', ('file:path', {}), {
-                    'doc': 'The path to the executable of the process.', }),
+                    'doc': 'The path to the executable of the process.'}),
 
                 ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'The process which created the process.' }),
+                    'doc': 'The process which created the process.'}),
 
                 ('killedby', ('it:exec:proc', {}), {
-                    'doc': 'The process which killed this process.', }),
+                    'doc': 'The process which killed this process.'}),
 
                 ('sandbox:file', ('file:bytes', {}), {
                     'doc': 'The initial sample given to a sandbox environment to analyze.'}),
@@ -2847,7 +2857,7 @@ modeldefs = (
                     'doc': 'The rule enabled status to be used for snort evaluation engines.'}),
 
                 # FIXME family:name?
-                ('family', ('entity:name', {}), {
+                ('family', ('meta:name', {}), {
                     'doc': 'The name of the software family the rule is designed to detect.'}),
             )),
 
@@ -2926,7 +2936,7 @@ modeldefs = (
             ('it:app:yara:rule', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'prevnames': ('ext:id',),
+                    'prevnames': ('id',),
                     'doc': 'The YARA rule ID.'}),
 
                 # FIXME id?
@@ -2956,7 +2966,7 @@ modeldefs = (
                     'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
 
                 # FIXME family:name?
-                ('family', ('entity:name', {}), {
+                ('family', ('meta:name', {}), {
                     'doc': 'The name of the software family the rule is designed to detect.'}),
             )),
 
@@ -3034,7 +3044,7 @@ modeldefs = (
 
             ('it:sec:c2:config', {}, (
 
-                ('family', ('entity:name', {}), {
+                ('family', ('meta:name', {}), {
                     'doc': 'The name of the software family which uses the config.'}),
 
                 ('file', ('file:bytes', {}), {

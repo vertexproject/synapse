@@ -2297,7 +2297,7 @@ class StormTypesTest(s_test.SynTest):
 
             async with core.getLocalProxy() as proxy:
                 msgs = await proxy.storm('''
-                    [ ps:contact=* ]
+                    [ entity:contact=* ]
                     $path.meta.foo = bar
                     $path.meta.baz = faz
                     $path.meta.baz = $lib.undef
@@ -5618,7 +5618,7 @@ class StormTypesTest(s_test.SynTest):
             uniqvals = [ival.norm('2020')[0], ival.norm('2021')[0], ival.norm('2023')[0]]
             self.sorteq(uniqvals, await core.callStorm(viewq, opts=opts))
 
-            opts['vars']['prop'] = 'ps:contact:name'
+            opts['vars']['prop'] = 'entity:contact:name'
             self.eq([], await core.callStorm(viewq, opts=opts))
 
             opts['vars']['prop'] = 'newp:newp'
@@ -5662,11 +5662,11 @@ class StormTypesTest(s_test.SynTest):
             forkview2 = await core.callStorm('return($lib.view.get().fork().iden)', opts=forkopts)
             forkopts2 = {'view': forkview2}
 
-            await core.nodes('[ ps:contact=(foo,) :name=foo ]', opts=forkopts2)
-            await core.nodes('[ ps:contact=(foo,) :name=bar ]', opts=forkopts)
-            await core.nodes('[ ps:contact=(bar,) :name=bar ]')
+            await core.nodes('[ entity:contact=(foo,) :name=foo ]', opts=forkopts2)
+            await core.nodes('[ entity:contact=(foo,) :name=bar ]', opts=forkopts)
+            await core.nodes('[ entity:contact=(bar,) :name=bar ]')
 
-            opts = {'view': forkview2, 'vars': {'prop': 'ps:contact:name'}}
+            opts = {'view': forkview2, 'vars': {'prop': 'entity:contact:name'}}
             self.eq(['bar', 'foo'], await core.callStorm(viewq, opts=opts))
 
             self.eq([], await alist(core.getLayer().iterPropIndxNids('newp', 'newp', 'newp')))
@@ -6415,7 +6415,7 @@ words\tword\twrd'''
             [ inet:fqdn=foo.com ]
             $foo = (1.23)
             $bar = $node
-            [ ps:contact=(test, $foo, $bar) ]
+            [ entity:contact=(test, $foo, $bar) ]
             '''
             self.len(2, await core.nodes(q))
 

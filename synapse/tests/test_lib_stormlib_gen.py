@@ -18,11 +18,11 @@ class StormLibGenTest(s_test.SynTest):
             self.eq('vertex', nodes00[0].get('orgname'))
             self.eq(vtxguid, nodes00[0].get('org'))
 
-            await core.nodes('ps:contact:orgname=vertex [ -:org ]')
+            await core.nodes('entity:contact:orgname=vertex [ -:org ]')
             nodes00 = await core.nodes('gen.ou.org.hq vertex')
             self.eq(vtxguid, nodes00[0].get('org'))
 
-            await core.nodes('ps:contact:orgname=vertex [ :org=$lib.guid() ]')
+            await core.nodes('entity:contact:orgname=vertex [ :org=$lib.guid() ]')
             nodes00 = await core.nodes('gen.ou.org.hq vertex')
             self.ne(vtxguid, nodes00[0].get('org'))
 
@@ -190,8 +190,8 @@ class StormLibGenTest(s_test.SynTest):
             self.eq('No type or prop found for name newp.', cm.exception.errinfo['mesg'])
 
             with self.raises(s_exc.BadArg) as cm:
-                await core.nodes('gen.it.av.scan.result ps:name nah foosig --try')
-            self.eq('Unsupported target form ps:name', cm.exception.errinfo['mesg'])
+                await core.nodes('gen.it.av.scan.result meta:name nah foosig --try')
+            self.eq('Unsupported target form meta:name', cm.exception.errinfo['mesg'])
 
             self.len(0, await core.nodes('gen.it.av.scan.result file:bytes newp foosig --try'))
 

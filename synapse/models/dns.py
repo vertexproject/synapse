@@ -307,7 +307,7 @@ modeldefs = (
                 ('provider', ('ou:org', {}), {
                     'doc': 'The organization which provides the dynamic DNS FQDN.'}),
 
-                ('provider:name', ('entity:name', {}), {
+                ('provider:name', ('meta:name', {}), {
                     'doc': 'The name of the organization which provides the dynamic DNS FQDN.'}),
 
                 ('provider:fqdn', ('inet:fqdn', {}), {

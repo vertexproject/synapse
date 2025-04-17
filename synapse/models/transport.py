@@ -188,7 +188,7 @@ modeldefs = (
                     ('manufacturer', ('ou:org', {}), {
                         'doc': 'The organization which manufactured the {phys:object}.'}),
 
-                    ('manufacturer:name', ('entity:name', {}), {
+                    ('manufacturer:name', ('meta:name', {}), {
                         'doc': 'The name of the organization which manufactured the {phys:object}.'}),
 
                     ('model', ('str', {'lower': True, 'onespace': True}), {
@@ -336,7 +336,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the license.'}),
 
-                ('issuer:name', ('entity:name', {}), {
+                ('issuer:name', ('meta:name', {}), {
                     'doc': 'The name of the org which issued the license.'}),
             )),
             ('transport:land:registration', {}, (
@@ -362,7 +362,7 @@ modeldefs = (
                 ('issuer', ('ou:org', {}), {
                     'doc': 'The org which issued the registration.'}),
 
-                ('issuer:name', ('entity:name', {}), {
+                ('issuer:name', ('meta:name', {}), {
                     'doc': 'The name of the org which issued the registration.'}),
             )),
 
@@ -393,7 +393,7 @@ modeldefs = (
             )),
             ('transport:air:port', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the airport.'}),
 
                 ('place', ('geo:place', {}), {
@@ -468,7 +468,7 @@ modeldefs = (
                 ('type', ('transport:sea:vessel:type:taxonomy', {}), {
                     'doc': 'The type of vessel.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the vessel.'}),
 
                 ('beam', ('geo:dist', {}), {
@@ -523,7 +523,7 @@ modeldefs = (
                 ('destination', ('geo:place', {}), {
                     'doc': 'The fully resolved destination that the vessel has declared.'}),
 
-                ('destination:name', ('entity:name', {}), {
+                ('destination:name', ('meta:name', {}), {
                     'doc': 'The name of the destination that the vessel has declared.'}),
 
                 ('destination:eta', ('time', {}), {

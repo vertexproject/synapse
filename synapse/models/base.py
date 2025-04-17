@@ -19,18 +19,28 @@ modeldefs = (
     ('base', {
         'types': (
 
-            ('meta:id', ('str', {'strip': True}), {
+            ('base:id', ('str', {'strip': True}), {
+                'doc': 'A base type for ID strings.'}),
+
+            ('meta:id', ('base:id', {}), {
                 'doc': 'A case sensitive identifier string.'}),
 
-            ('meta:name', ('str', {'onespace': True, 'strip': True}), {
-                'doc': 'A case sensitive identifier string.'}),
+            ('base:name', ('str', {'onespace': True, 'lower': True}), {
+                'doc': 'A base type for case insensitive names.'}),
+
+            ('meta:name', ('base:name', {}), {
+                'prevnames': ('meta:name', 'ou:name', 'ou:industryname',
+                              'ou:campname', 'ou:goalname', 'lang:name',
+                              'risk:vulnname', 'meta:name', 'it:prod:softname',
+                              'entity:name', 'geo:name'),
+                'doc': 'A name used to refer to a node.'}),
 
             ('meta:feed', ('guid', {}), {
                 'doc': 'A data feed provided by a specific source.'}),
 
             ('meta:feed:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
-                    ('meta:taxonomy',{}),
+                    ('meta:taxonomy', {}),
                 ),
                 'doc': 'A data feed type taxonomy.'}),
 
@@ -75,7 +85,7 @@ modeldefs = (
 
             ('meta:ruleset:type:taxonomy', ('taxonomy', {}), {
                 'interfaces': (
-                    ('meta:taxonomy',{}),
+                    ('meta:taxonomy', {}),
                 ),
                 'doc': 'A taxonomy for meta:ruleset types.'}),
 
@@ -129,8 +139,8 @@ modeldefs = (
                         'doc': 'A brief title of the definition.'}),
 
                     ('desc', ('str', {}), {
-                        'doc': 'A definition of the taxonomy entry.',
-                        'disp': {'hint': 'text'}}),
+                        'disp': {'hint': 'text'},
+                        'doc': 'A definition of the taxonomy entry.'}),
 
                     ('sort', ('int', {}), {
                         'doc': 'A display sort order for siblings.'}),
@@ -174,11 +184,12 @@ modeldefs = (
         'forms': (
 
             ('meta:id', {}, ()),
+            ('meta:name', {}, ()),
 
             ('meta:source:type:taxonomy', {}, ()),
             ('meta:source', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'A human friendly name for the source.'}),
 
                 ('type', ('meta:source:type:taxonomy', {}), {
@@ -200,7 +211,7 @@ modeldefs = (
             ('meta:feed:type:taxonomy', {}, ()),
             ('meta:feed', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'A name for the feed.'}),
 
                 ('type', ('meta:feed:type:taxonomy', {}), {
@@ -302,7 +313,7 @@ modeldefs = (
 
             ('meta:ruleset', {}, (
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'A name for the ruleset.'}),
 
                 ('type', ('meta:ruleset:type:taxonomy', {}), {
@@ -328,10 +339,10 @@ modeldefs = (
             ('meta:rule', {}, (
 
                 ('id', ('meta:id', {}), {
-                    'prevnames': ('ext:id',),
+                    'prevnames': ('id',),
                     'doc': 'The rule ID.'}),
 
-                ('name', ('entity:name', {}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'A name for the rule.'}),
 
                 ('type', ('meta:rule:type:taxonomy', {}), {
