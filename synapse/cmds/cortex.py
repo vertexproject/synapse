@@ -363,7 +363,7 @@ class StormCmd(s_cli.Cmd):
                         pos = 33
 
                 self.printf(text, color=BLUE)
-                self.printf(f'{" "*pos}^', color=BLUE)
+                self.printf(f'{" " * pos}^', color=BLUE)
                 self.printf(f'Syntax Error: {mesg}', color=SYNTAX_ERROR_COLOR)
                 return
 

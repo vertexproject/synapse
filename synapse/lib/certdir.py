@@ -186,6 +186,7 @@ def getServerSSLContext() -> ssl.SSLContext:
         ssl.SSLContext: The context object.
     '''
     sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
     sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
     sslctx.set_ciphers(TLS_SERVER_CIPHERS)
     # Disable client renegotiation if available.
@@ -1336,6 +1337,7 @@ class CertDir:
              A SSLContext object.
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
         sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
         self._loadCasIntoSSLContext(sslctx)
 
