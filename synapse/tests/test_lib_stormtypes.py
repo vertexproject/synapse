@@ -2566,9 +2566,8 @@ class StormTypesTest(s_test.SynTest):
     async def test_storm_lib_time(self):
 
         async with self.getTestCore() as core:
-            nodes = await core.nodes('[ ps:person="*" :dob = $lib.time.fromunix(20) ]')
-            self.len(1, nodes)
-            self.eq(20000, nodes[0].get('dob'))
+
+            self.eq(20000, await core.callStorm('return($lib.time.fromunix(20))'))
 
             query = '''$valu="10/1/2017 2:52"
             $parsed=$lib.time.parse($valu, "%m/%d/%Y %H:%M")
@@ -5498,10 +5497,10 @@ class StormTypesTest(s_test.SynTest):
             q = 'return($lib.layer.get().getPropArrayCount(test:arrayform, valu=2))'
             self.eq(2, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs))'
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:emails))'
             self.eq(0, await core.callStorm(q))
 
-            q = 'return($lib.layer.get().getPropArrayCount(ou:org:subs, valu=*))'
+            q = 'return($lib.layer.get().getPropArrayCount(ou:org:emails, valu=*))'
             self.eq(0, await core.callStorm(q))
 
             with self.raises(s_exc.NoSuchProp):

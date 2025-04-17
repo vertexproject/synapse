@@ -800,6 +800,7 @@ modeldefs = (
                 'prevnames': ('ou:orgtype',)}, ()),
 
             ('ou:org', {}, (
+                # FIXME discuss :hq property as geo:place / ou:site / entity:site
 
                 ('motto', ('lang:phrase', {}), {
                     'doc': 'The motto used by the organization.'}),

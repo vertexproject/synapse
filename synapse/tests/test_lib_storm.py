@@ -52,7 +52,7 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes03[0].ndef, nodes04[0].ndef)
 
             with self.raises(s_exc.BadTypeValu):
-                await core.nodes('[ ou:org=({"hq": "woot"}) ]')
+                await core.nodes('[ ou:org=({"email": "woot"}) ]')
 
             nodes05 = await core.nodes('[ ou:org=({"name": "vertex", "$props": {"motto": "for the people"}}) ]')
             self.len(1, nodes05)
@@ -119,9 +119,9 @@ class StormTest(s_t_utils.SynTest):
                 await core.nodes('[ ou:org=({"$try": true}) ]')
 
             # $try only affects $props
-            msgs = await core.stormlist('[ ou:org=({"founded": "lolnope", "$try": true}) ]')
+            msgs = await core.stormlist('[ ou:org=({"email": "lolnope", "$try": true}) ]')
             self.len(0, [m for m in msgs if m[0] == 'node'])
-            self.stormIsInErr('Bad value for prop ou:org:founded: Unknown time format for lolnope', msgs)
+            self.stormIsInErr('Bad value for prop ou:org:email: Email address expected', msgs)
 
             msgs = await core.stormlist('[ou:org=({"name": "burrito corp", "$try": true, "$props": {"phone": "lolnope", "desc": "burritos man"}})]')
             nodes = [m for m in msgs if m[0] == 'node']
@@ -149,17 +149,17 @@ class StormTest(s_t_utils.SynTest):
             orgn = nodes[0].ndef
             self.eq(orgn, nodes11[0].ndef)
 
-            q = '[ entity:contact=* :org={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
+            q = '[ entity:contact=* :resolved={ ou:org=({"name": "the vertex project", "type": "lulz"}) } ]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             cont = nodes[0]
-            self.eq(cont.get('org'), orgn[1])
+            self.eq(cont.get('resolved'), orgn)
 
-            nodes = await core.nodes('entity:contact:org=({"name": "the vertex project", "type": "lulz"})')
+            nodes = await core.nodes('entity:contact:resolved={[ ou:org=({"name": "the vertex project", "type": "lulz"})]}')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, cont.ndef)
 
-            self.len(0, await core.nodes('entity:contact:org=({"name": "vertex", "type": "newp"})'))
+            self.len(0, await core.nodes('entity:contact:resolved={[ ou:org=({"name": "vertex", "type": "newp"}) ]}'))
 
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes('inet:flow:from=({"name": "vertex", "type": "newp"})')
@@ -1818,7 +1818,7 @@ class StormTest(s_t_utils.SynTest):
                 :url=https://vertex.link
                 :name=haha
                 :desc=cool
-                :founded=2021
+                :lifespan=(2021, ?)
                 .seen=2022
                 +#one:score=1
                 +#two:score=2
@@ -1852,14 +1852,14 @@ class StormTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'haha')
             self.eq(nodes[0].get('desc'), 'cool')
             self.none(nodes[0].get('url'))
-            self.none(nodes[0].get('founded'))
+            self.none(nodes[0].get('lifespan'))
             self.none(nodes[0].get('.seen'))
             self.eq(nodes[0].getTagProp('three', 'score'), 3)
             self.len(6, await core.nodes('syn:tag'))
 
             await core.nodes('diff | merge --exclude-props ou:org:url ".seen" --apply', opts=altview)
             nodes = await core.nodes('ou:org')
-            self.eq(nodes[0].get('founded'), 1609459200000)
+            self.eq(nodes[0].get('lifespan'), (1609459200000, 9223372036854775807))
             self.none(nodes[0].get('url'))
             self.none(nodes[0].get('.seen'))
 
@@ -2249,13 +2249,13 @@ class StormTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq('hehe', node[1]['embeds']['asn']['name'])
 
-            opts = {'embeds': {'ou:org': {'hq::email': ('user',)}}}
-            msgs = await core.stormlist('[ ou:org=* :country=* :hq=* ] { -> entity:contact [ :email=visi@vertex.link ] }', opts=opts)
+            opts = {'embeds': {'ou:org': {'email::fqdn': ('zone',)}}}
+            msgs = await core.stormlist('[ ou:org=* :place:country=* :email=visi@vertex.link ]', opts=opts)
             nodes = [m[1] for m in msgs if m[0] == 'node']
             node = nodes[0]
 
-            self.eq('visi', node[1]['embeds']['hq::email']['user'])
-            self.eq(5, node[1]['embeds']['hq::email']['*'])
+            self.eq('vertex.link', node[1]['embeds']['email::fqdn']['zone'])
+            self.eq(5, node[1]['embeds']['email::fqdn']['*'])
 
             fork = await core.callStorm('return($lib.view.get().fork().iden)')
 
@@ -2266,8 +2266,8 @@ class StormTest(s_t_utils.SynTest):
             opts['view'] = fork
             opts['show:storage'] = True
             opts['embeds']['ou:org']['lol::nope'] = ('notreal',)
-            opts['embeds']['ou:org']['country::flag'] = ('md5', 'sha1')
-            opts['embeds']['ou:org']['country::tld'] = ('domain',)
+            opts['embeds']['ou:org']['place:country::flag'] = ('md5', 'sha1')
+            opts['embeds']['ou:org']['place:country::tld'] = ('domain',)
 
             await core.stormlist('pol:country [ :flag={[ file:bytes=* :md5=fa818a259cbed7ce8bc2a22d35a464fc ]} ]')
 
@@ -2290,20 +2290,20 @@ class StormTest(s_t_utils.SynTest):
             self.nn(top)
             self.nn(bot)
 
-            self.nn(top.get('country::flag::md5'))
-            self.eq(top['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+            self.nn(top.get('place:country::flag::md5'))
+            self.eq(top['place:country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
 
-            self.nn(top.get('country::flag::sha1'))
-            self.eq(top['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+            self.nn(top.get('place:country::flag::sha1'))
+            self.eq(top['place:country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
 
-            self.nn(top.get('country::tld::domain'))
-            self.eq(top['country::tld::domain'][0], 'uk')
+            self.nn(top.get('place:country::tld::domain'))
+            self.eq(top['place:country::tld::domain'][0], 'uk')
 
-            self.nn(bot.get('hq::email::user'))
-            self.eq(bot['hq::email::user'][0], 'visi')
+            self.nn(bot.get('email::fqdn::zone'))
+            self.eq(bot['email::fqdn::zone'][0], 'vertex.link')
 
-            self.nn(bot.get('country::flag::md5'))
-            self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
+            self.nn(bot.get('place:country::flag::md5'))
+            self.eq(bot['place:country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
             empty = await core.callStorm('return($lib.view.get().fork().iden)', opts=opts)
             opts['view'] = empty
@@ -2321,20 +2321,20 @@ class StormTest(s_t_utils.SynTest):
             self.nn(mid)
             self.nn(bot)
 
-            self.nn(mid.get('country::flag::md5'))
-            self.eq(mid['country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
+            self.nn(mid.get('place:country::flag::md5'))
+            self.eq(mid['place:country::flag::md5'][0], '12345a5758eea935f817dd1490a322a5')
 
-            self.nn(mid.get('country::flag::sha1'))
-            self.eq(mid['country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
+            self.nn(mid.get('place:country::flag::sha1'))
+            self.eq(mid['place:country::flag::sha1'][0], '40b8e76cff472e593bd0ba148c09fec66ae72362')
 
-            self.nn(mid.get('country::tld::domain'))
-            self.eq(mid['country::tld::domain'][0], 'uk')
+            self.nn(mid.get('place:country::tld::domain'))
+            self.eq(mid['place:country::tld::domain'][0], 'uk')
 
-            self.nn(bot.get('hq::email::user'))
-            self.eq(bot['hq::email::user'][0], 'visi')
+            self.nn(bot.get('email::fqdn::zone'))
+            self.eq(bot['email::fqdn::zone'][0], 'vertex.link')
 
-            self.nn(bot.get('country::flag::md5'))
-            self.eq(bot['country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
+            self.nn(bot.get('place:country::flag::md5'))
+            self.eq(bot['place:country::flag::md5'][0], 'fa818a259cbed7ce8bc2a22d35a464fc')
 
             await core.nodes('''
                 [( risk:vulnerable=*

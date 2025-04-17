@@ -54,7 +54,7 @@ _DefaultConfig = {
                     },
                     'rels': (
                         ('attributed-to', 'threat-actor', ':org -> ou:org'),
-                        ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
+                        ('originates-from', 'location', ':org -> ou:org -> geo:place'),
                         ('targets', 'identity', '-> risk:attack -(targets)> ou:org'),
                         ('targets', 'identity', '-> risk:attack -(targets)> ps:person'),
                         ('targets', 'vulnerability', '-> risk:attack -(uses)> risk:vuln'),
@@ -94,7 +94,7 @@ _DefaultConfig = {
                     },
                     'rels': (
                         ('attributed-to', 'identity', ''),
-                        ('located-at', 'location', ':hq -> geo:place'),
+                        ('located-at', 'location', '-> geo:place'),
                         ('targets', 'identity', '-> ou:campaign -> risk:attack -(targets)> ou:org'),
                         ('targets', 'vulnerability', '-> ou:campaign -> risk:attack -(uses)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
@@ -1105,7 +1105,7 @@ class LibStixExport(s_stormtypes.Lib):
                                     },
                                     "rels": (
                                         ("attributed-to", "threat-actor", ":org -> ou:org"),
-                                        ("originates-from", "location", ":org -> ou:org :hq -> geo:place"),
+                                        ("originates-from", "location", ":org -> ou:org -> geo:place"),
                                         ("targets", "identity", "-> risk:attack -(targets)> ou:org"),
                                         ("targets", "identity", "-> risk:attack -(targets)> ps:person"),
                                     ),

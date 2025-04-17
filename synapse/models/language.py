@@ -50,6 +50,7 @@ modeldefs = (
                     'doc': 'The language code for this language.'}),
 
                 ('name', ('meta:name', {}), {
+                    'alts': ('names',),
                     'doc': 'The primary name of the language.'}),
 
                 ('names', ('array', {'type': 'meta:name', 'sorted': True, 'uniq': True}), {

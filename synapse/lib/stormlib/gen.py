@@ -188,13 +188,7 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function orgByName(name, try=$lib.false) {
-            ($ok, $name) = $__maybeCast($try, meta:name, $name)
-            if (not $ok) { return() }
-
-            meta:name=$name -> ou:org
-            return($node)
-
-            [ ou:org=(gen, name, $name) :name=$name ]
+            [ ou:org=({"name": $name, "$try": $try}) ]
             return($node)
         }
 
@@ -210,11 +204,7 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function industryByName(name) {
-            ou:industryname=$name -> ou:industry
-            return($node)
-
-            $name = $lib.cast(ou:industryname, $name)
-            [ ou:industry=(gen, name, $name)  :name=$name ]
+            [ ou:industry=({"name": $name}) ]
             return($node)
         }
 
@@ -339,40 +329,19 @@ class LibGen(s_stormtypes.Lib):
         }
 
         function langByName(name) {
-
-            lang:name=$name -> lang:language
-            return($node)
-
-            $name = $lib.cast(lang:name, $name)
-            [ lang:language=(gen, name, $name) :name=$name ]
+            [ lang:language=({"name": $name}) ]
             return($node)
         }
 
         function langByCode(code, try=$lib.false) {
-            ($ok, $code) = $__maybeCast($try, lang:code, $code)
-            if (not $ok) { return() }
-
-            lang:language:code=$code
-            return($node)
-
-            [ lang:language=(bycode, $code) :code=$code ]
+            [ lang:language=({"code": $code, "$try": $try}) ]
             return($node)
         }
 
         function campaign(name, reporter) {
-
-            ou:campname = $name -> ou:campaign +:reporter:name=$reporter
-            { -:reporter [ :reporter=$orgByName($reporter) ] }
-            return($node)
-
-            $name = $lib.cast(ou:campname, $name)
-            $reporter = $lib.cast(meta:name, $reporter)
-
-            [ ou:campaign=(gen, name, reporter, $name, $reporter)
-                :name=$name
-                :reporter:name=$reporter
-                :reporter=$orgByName($reporter)
-            ]
+            $reporg = {[ ou:org=({"name": $reporter}) ]}
+            [ ou:campaign=({"name": $name, "reporter": $reporg}) ]
+            [ :reporter:name*unset=$reporter ]
             return($node)
         }
 

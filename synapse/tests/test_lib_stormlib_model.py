@@ -58,10 +58,10 @@ class StormlibModelTest(s_test.SynTest):
             mesgs = await core.stormlist('$lib.pprint($lib.model.form(meta:name).type)')
             self.stormIsInPrint("('meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.prop(entity:contact:orgname))')
-            self.stormIsInPrint("model:property: {'name': 'orgname'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.prop(entity:contact:name))')
+            self.stormIsInPrint("model:property: {'name': 'name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:orgname))')
+            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:name))')
             self.stormIsInPrint("'type': ('meta:name'", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
