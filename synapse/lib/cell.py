@@ -4782,16 +4782,18 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         # FIXME define this business logic on the NexusRoot
         client = self.nexsroot.client
         if client is None:
-            logger.info('Cannot reload the mirror loop when the service is not a follower.')
-            return False
+            mesg = 'Cannot reload the mirror loop when the service is not a follower.'
+            logger.info(mesg)
+            return (False, mesg)
         try:
             proxy = await client.proxy(timeout=30)
         except BaseException as e:
-            logger.exception('Failed to get proxy????')
-            return False
+            mesg = 'Failed to get proxy????'
+            logger.exception(mesg)
+            return (False, mesg)
         # This **should** kill the running mirror loop task on the proxy
         await proxy.fini()
-        return True
+        return (True, 'Restarted mirror proxy.')
 
     async def addUserApiKey(self, useriden, name, duration=None):
         '''

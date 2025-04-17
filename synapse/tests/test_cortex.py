@@ -152,12 +152,12 @@ class CortexTest(s_t_utils.SynTest):
                         self.false((await core01.getCellInfo())['cell']['uplink'])
                         # Note: The following mirror may change when SYN-7659 is addressed and greater
                         # control over the topology update is available during the promotion process.
-                        self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://01.cortex.synapse')
+                        self.eq((await core00.getCellInfo())['cell']['mirror'], 'aha://root@cortex...')
                         self.none((await core01.getCellInfo())['cell']['mirror'])
 
                         mods00 = s_common.yamlload(core00.dirn, 'cell.mods.yaml')
                         mods01 = s_common.yamlload(core01.dirn, 'cell.mods.yaml')
-                        self.eq(mods00, {'mirror': 'aha://01.cortex.synapse'})
+                        self.eq(mods00, {'mirror': 'aha://root@cortex...'})
                         self.eq(mods01, {'mirror': None})
 
                         await core00.nodes('[inet:ipv4=5.5.5.5]')

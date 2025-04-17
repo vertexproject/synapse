@@ -250,7 +250,8 @@ class AhaTest(s_test.SynTest):
 
                 info = await cryo.getCellInfo()
 
-                self.eq(info['cell']['aha'], {'name': '0.cryo', 'leader': 'cryo', 'network': 'synapse'})
+                self.eq(info['cell']['aha'],
+                        {'name': '0.cryo', 'leader': 'cryo', 'network': 'synapse', 'user': 'root'})
 
                 await wait01.wait(timeout=2)
 

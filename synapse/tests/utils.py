@@ -995,6 +995,7 @@ class ReloadCell(s_cell.Cell):
     async def postAnit(self):
         self._reloaded = False
         self._reloadevt = None
+        self._reloadfuncs.pop('mirror:loop', None)
 
     async def getCellInfo(self):
         info = await s_cell.Cell.getCellInfo(self)
