@@ -4636,7 +4636,6 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'mirror': mirror,
                 'aha': {
                     'name': self.conf.get('aha:name'),
-                    'user': self.conf.get('aha:user'),
                     'leader': self.conf.get('aha:leader'),
                     'network': self.conf.get('aha:network'),
                 },

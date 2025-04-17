@@ -816,7 +816,7 @@ class CellTest(s_t_utils.SynTest):
                 self.eq(info.get('features', {}).get('testvalu'), 2)
 
                 # Defaults aha data is
-                self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None, 'user': None})
+                self.eq(cnfo.get('aha'), {'name': None, 'leader': None, 'network': None})
 
                 # Synapse information
                 self.eq(snfo.get('version'), s_version.version)
