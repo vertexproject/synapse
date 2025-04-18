@@ -168,7 +168,9 @@ class StormOutput(s_cmds_cortex.StormCmd):
         if self.ctx.pop('storm-fail', None):
             s_cmds_cortex.StormCmd._onErr(self, mesg, opts)
             return
-        raise s_exc.StormRuntimeError(mesg=mesg)
+        (errname, errinfo) = mesg[1]
+        errinfo.setdefault('_errname', errname)
+        raise s_exc.StormRuntimeError(**errinfo)
 
     async def runCmdOpts(self, opts):
 
