@@ -105,6 +105,22 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
     if newline:
         flags |= yyjson.WriterFlags.WRITE_NEWLINE_AT_END
 
+    # Raw strings have to be double-quoted
+    if isinstance(obj, str):
+        obj = ''.join((
+            '"',
+            obj.replace('"', '\\"'),
+            '"',
+        ))
+
+    # Raw bytes have to be double-quoted
+    if isinstance(obj, bytes):
+        obj = b''.join((
+            b'"',
+            obj.replace(b'"', b'\\"'),
+            b'"',
+        ))
+
     try:
         doc = yyjson.Document(obj, default=default)
         return doc.dumps(flags=flags).encode()

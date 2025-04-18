@@ -151,10 +151,7 @@ class JsonTest(s_test.SynTest):
             self.eq(data, b'{\n  "a": "b"\n}')
 
     async def test_lib_json_reqjsonsafe(self):
-        with self.raises(s_exc.MustBeJsonSafe) as exc:
-            self.none(s_json.reqjsonsafe('foo'))
-        self.eq(exc.exception.get('mesg'), "invalid literal, expected a valid literal such as 'false'")
-
+        self.none(s_json.reqjsonsafe('foo'))
         self.none(s_json.reqjsonsafe({'foo': 'bar'}))
         self.none(s_json.reqjsonsafe(['foo', 'bar']))
 
@@ -177,9 +174,11 @@ class JsonTest(s_test.SynTest):
             (None, None),
             (1234, None),
             ('1234', None),
+            ('1234"', None),
             ({'asdf': 'haha'}, None),
             ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
             (b'1234', None),
+            (b'1234"', None),
             # ({'a': 'a', 2: 2}, s_exc.MustBeJsonSafe),
             ({'a': 'a', 2: 2}, SystemError),
             ({'a', 'b', 'c'}, s_exc.MustBeJsonSafe),
@@ -191,6 +190,9 @@ class JsonTest(s_test.SynTest):
             else:
                 with self.raises(eret):
                     s_json.reqjsonsafe(item)
+
+        for text in ['😀', 'asdf', 'asdf"', '"asdf']:
+            s_json.reqjsonsafe(text)
 
         text = ['😀\ud83d\ude47']
         s_json.reqjsonsafe(text)
