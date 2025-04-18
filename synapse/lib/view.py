@@ -1467,8 +1467,6 @@ class View(s_nexus.Pusher):  # type: ignore
         Merge this view into its parent.  All changes made to this view will be applied to the parent.  Parent's
         triggers will be run.
         '''
-        fromlayr = self.layers[0]
-
         if useriden is None:
             user = await self.core.auth.getUserByName('root')
         else:

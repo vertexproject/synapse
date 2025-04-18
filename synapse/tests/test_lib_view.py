@@ -313,22 +313,24 @@ class ViewTest(s_t_utils.SynTest):
             # Nodes with a large number of edge edits may be chunked by iterLayerNodeEdits
             await core.nodes('[ test:str=foo ] for $i in $lib.range(1001) {[ test:int=$i ]}')
 
-            strt = core.view.layers[0].nodeeditlog.index()
-
             vdef2 = await core.view.fork()
             opts = {'view': vdef2['iden']}
             await core.nodes('[ test:str=foo +(refs)> { for $i in $lib.range(1002) { test:int=$i } } ]', opts=opts)
+
+            strt = core.nexsroot.nexslog.index()
             await core.nodes('$lib.view.get().merge()', opts=opts)
 
             self.len(1002, await core.nodes('test:str=foo -(refs)> test:int'))
 
-            edits = [edit for edit in core.view.layers[0].nodeeditlog.iter(strt)]
-            self.len(2, edits)
+            edits = [edit async for edit in core.nexsroot.nexslog.iter(strt)]
+            self.len(1, edits)
+
+            nodeedit = edits[0][1][2][0]
 
             # We should have two chunks of edits for the same buid due to the number of edges
-            self.eq(edits[0][1][0][0][0], edits[1][1][0][0][0])
-            self.len(1000, edits[0][1][0][0][2])
-            self.len(2, edits[1][1][0][0][2])
+            self.eq(nodeedit[0][0], nodeedit[1][0])
+            self.len(1000, nodeedit[0][2])
+            self.len(2, nodeedit[1][2])
 
     async def test_view_merge_ival(self):
 

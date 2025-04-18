@@ -4384,7 +4384,8 @@ class Layer(s_nexus.Pusher):
 
                 if len(edits) >= 1000:
                     yield nodeedit
-                    edits.clear()
+                    edits = []
+                    nodeedit = (buid, form, edits)
 
             yield nodeedit
 
