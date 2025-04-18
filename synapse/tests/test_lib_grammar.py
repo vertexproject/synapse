@@ -749,6 +749,12 @@ Queries = [
     '$foo=(not $x)',
     '$foo=(not($x))',
     '$foo=(not ($x))',
+    '$foo=("a" in $x)',
+    '$foo=(5 in $x.y())',
+    '$foo=("a" not in $x)',
+    '$foo=(5 not in $x)',
+    '$foo=(5 not    in $x)',
+    '$foo=(5 not    in $x.y())',
 ]
 
 # Generated with print_parse_list below
@@ -1398,6 +1404,12 @@ _ParseResults = [
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, VarValue: [Const: x]]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
     'Query: [SetVarOper: [Const: foo, DollarExpr: [UnaryExprNode: [Const: not, DollarExpr: [VarValue: [Const: x]]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: a, Const: in, VarValue: [Const: x]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: 5, Const: in, FuncCall: [VarDeref: [VarValue: [Const: x], Const: y], CallArgs: [], CallKwargs: []]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: a, Const: not in, VarValue: [Const: x]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: 5, Const: not in, VarValue: [Const: x]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: 5, Const: not in, VarValue: [Const: x]]]]]',
+    'Query: [SetVarOper: [Const: foo, DollarExpr: [ExprNode: [Const: 5, Const: not in, FuncCall: [VarDeref: [VarValue: [Const: x], Const: y], CallArgs: [], CallKwargs: []]]]]]',
 ]
 
 class GrammarTest(s_t_utils.SynTest):

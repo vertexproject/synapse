@@ -74,9 +74,9 @@ foo_stormpkg = {
             }
 
             function outer(arg1, add) {
-                $strbase = $lib.str.format("(Run: {c}) we got back ", c=$counter)
+                $strbase = `(Run: {$counter}) we got back `
                 $reti = $inner($arg1, $add)
-                $mesg = $lib.str.concat($strbase, $reti)
+                $mesg = `{$strbase}{$reti}`
                 $counter = $( $counter + $add )
                 $lib.print("foobar is {foobar}", foobar=$foobar)
                 return ($mesg)
@@ -296,7 +296,7 @@ class AstTest(s_test.SynTest):
                 $newvar=:hehe
                 -.created
                 $s.append("yar {x}", x=$newvar)
-                $lib.print($lib.str.join('', $s))
+                $lib.print(('').join($s))
             '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
@@ -2055,7 +2055,7 @@ class AstTest(s_test.SynTest):
             q = '$val=$lib.base64.decode("dmlzaQ==") function x(parm1=$val) { return($parm1) }'
             self.len(0, await core.nodes(q))
 
-            self.eq('foo', await core.callStorm('return($lib.str.format("{func}", func=foo))'))
+            self.eq('foo', await core.callStorm('$template="{func}" return($template.format(func=foo))'))
 
             msgs = await core.stormlist('$lib.null()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
@@ -2546,6 +2546,22 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
 
             scmd = {
+                'name': 'isin',
+                'cmdargs': (
+                    ('--bar', {}),
+                ),
+                'storm': '''
+                    if ('bar' in $cmdopts) { $lib.fire('isin') }
+                ''',
+            }
+            await core.setStormCmd(scmd)
+            msgs = await core.stormlist('isin')
+            self.len(0, [m for m in msgs if m[0] == 'storm:fire'])
+
+            msgs = await core.stormlist('isin --bar yep')
+            self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
+
+            scmd = {
                 'name': 'baz',
                 'cmdargs': (
                     ('--faz', {}),
@@ -2729,6 +2745,49 @@ class AstTest(s_test.SynTest):
 
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '5c293425e676da3823b81093c7cd829e')
+
+            await core.callStorm('$lib.globals.foo = bar')
+            self.true(await core.callStorm("return(('foo' in $lib.globals))"))
+            self.false(await core.callStorm("return(('newp' in $lib.globals))"))
+            self.true(await core.callStorm("$foo=bar return(('foo' in $lib.vars))"))
+            self.false(await core.callStorm("$foo=bar return(('newp' in $lib.vars))"))
+            self.true(await core.callStorm("$foo=$lib.set(bar) return(('bar' in $foo))"))
+            self.false(await core.callStorm("$foo=$lib.set(bar) return(('newp' in $foo))"))
+            self.true(await core.callStorm("$foo=(['bar']) return(('bar' in $foo))"))
+            self.false(await core.callStorm("$foo=(['bar']) return(('newp' in $foo))"))
+            self.true(await core.callStorm("[test:str=foo] return(('.created' in $node.props))"))
+            self.false(await core.callStorm("[test:str=foo] return(('newp' in $node.props))"))
+            self.true(await core.callStorm("test:str=foo $node.data.set(foo, 1) return(('foo' in $node.data))"))
+            self.false(await core.callStorm("test:str=foo return(('newp' in $node.data))"))
+            self.true(await core.callStorm("test:str=foo $path.meta.foo = 1 return(('foo' in $path.meta))"))
+            self.false(await core.callStorm("test:str=foo $path.meta.foo = 1 return(('newp' in $path.meta))"))
+            self.true(await core.callStorm("test:str=foo $foo = 1 return(('foo' in $path.vars))"))
+            self.false(await core.callStorm("test:str=foo $foo = 1 return(('newp' in $path.vars))"))
+            self.true(await core.callStorm("return(('bar' in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+            self.false(await core.callStorm("return(('newp' in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+
+            self.false(await core.callStorm("return(('foo' not in $lib.globals))"))
+            self.true(await core.callStorm("return(('newp' not in $lib.globals))"))
+            self.false(await core.callStorm("$foo=bar return(('foo' not in $lib.vars))"))
+            self.true(await core.callStorm("$foo=bar return(('newp' not in $lib.vars))"))
+            self.false(await core.callStorm("$foo=$lib.set(bar) return(('bar' not in $foo))"))
+            self.true(await core.callStorm("$foo=$lib.set(bar) return(('newp' not in $foo))"))
+            self.false(await core.callStorm("$foo=(['bar']) return(('bar' not in $foo))"))
+            self.true(await core.callStorm("$foo=(['bar']) return(('newp' not in $foo))"))
+            self.false(await core.callStorm("return(('bar' not in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+            self.true(await core.callStorm("return(('newp' not in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return(('newp' in $foo))", opts={'vars': {'foo': 5}})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return(('newp' not in $foo))", opts={'vars': {'foo': 5}})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return((({}) in ({})))")
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return((({}) not in ({})))")
 
     async def test_ast_subgraph_light_edges(self):
         async with self.getTestCore() as core:
@@ -3605,7 +3664,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             init { $foo = bar }
-            init { $baz = $lib.str.format('foo={foo}', foo=$foo) }
+            init { $baz = `foo={$foo}` }
             $lib.print($baz)
             '''
             msgs = await core.stormlist(q)
