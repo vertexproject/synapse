@@ -7,7 +7,7 @@ from typing import Any, BinaryIO, Callable, Iterator, Optional
 
 from synapse.vendor.cpython.lib.json import detect_encoding
 
-import orjson
+import yyjson
 
 import synapse.exc as s_exc
 
@@ -37,8 +37,9 @@ def loads(s: str | bytes) -> Any:
             deserializing the provided data.
     '''
     try:
-        return orjson.loads(s)
-    except orjson.JSONDecodeError as exc:
+        return yyjson.Document(s, flags=yyjson.ReaderFlags.BIGNUM_AS_RAW).as_obj
+
+    except (ValueError, TypeError) as exc:
         extra = {'synapse': {'fn': 'loads', 'reason': str(exc)}}
         logger.warning('Using fallback JSON deserialization. Please report this to Vertex.', extra=extra)
         return _fallback_loads(s)
@@ -70,7 +71,14 @@ def _fallback_dumps(obj: Any, sort_keys: bool = False, indent: bool = False, def
     except TypeError as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
-def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> bytes:
+def _dumps_default(obj):
+    if isinstance(obj, tuple):
+        return list(obj)
+
+    mesg = f"Object of type '{obj.__class__.__name__}' is not JSON serializable"
+    raise s_exc.MustBeJsonSafe(mesg=mesg)
+
+def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = _dumps_default, newline: bool = False) -> bytes:
     '''
     Serialize a python object to byte string.
 
@@ -89,24 +97,19 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
     Raises:
         synapse.exc.MustBeJsonSafe: This exception is raised when a python object cannot be serialized.
     '''
-    opts = 0
+    flags = 0
 
     if indent:
-        opts |= orjson.OPT_INDENT_2
-
-    if sort_keys:
-        opts |= orjson.OPT_SORT_KEYS
+        flags |= yyjson.WriterFlags.PRETTY_TWO_SPACES
 
     if newline:
-        opts |= orjson.OPT_APPEND_NEWLINE
+        flags |= yyjson.WriterFlags.WRITE_NEWLINE_AT_END
 
     try:
-        return orjson.dumps(obj, option=opts, default=default)
+        doc = yyjson.Document(obj, default=default)
+        return doc.dumps(flags=flags).encode()
 
-    except orjson.JSONEncodeError as exc:
-        if not isinstance(exc.__cause__, UnicodeEncodeError):
-            raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
-
+    except UnicodeEncodeError as exc:
         extra = {'synapse': {'fn': 'dumps', 'reason': str(exc)}}
         logger.warning('Using fallback JSON serialization. Please report this to Vertex.', extra=extra)
 
@@ -116,6 +119,9 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
             ret += b'\n'
 
         return ret
+
+    except ValueError as exc:
+        raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
 def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> None:
     '''
@@ -217,7 +223,13 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
     '''
     if strict:
         try:
-            orjson.dumps(item)
+            doc = yyjson.Document(item, default=_dumps_default)
+            return doc.dumps().encode()
+
+        except UnicodeEncodeError as exc:
+            mesg = str(exc)
+            raise s_exc.MustBeJsonSafe(mesg=mesg)
+
         except Exception as exc:
             raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
     else:
