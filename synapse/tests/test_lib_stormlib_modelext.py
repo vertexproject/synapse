@@ -188,7 +188,7 @@ class StormtypesModelextTest(s_test.SynTest):
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadEdgeDef):
-                q = f'''$lib.model.ext.addEdge(*, "_{'a'*201}", *, ({{}}))'''
+                q = f'''$lib.model.ext.addEdge(*, "_{'a' * 201}", *, ({{}}))'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadEdgeDef):

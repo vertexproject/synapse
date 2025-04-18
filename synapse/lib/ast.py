@@ -3709,6 +3709,20 @@ async def expr_re(x, y):
         return True
     return False
 
+async def expr_in(x, y):
+    x = await toprim(x)
+    if hasattr(y, '_storm_contains'):
+        return await y._storm_contains(x)
+
+    return x in await toprim(y)
+
+async def expr_notin(x, y):
+    x = await toprim(x)
+    if hasattr(y, '_storm_contains'):
+        return not (await y._storm_contains(x))
+
+    return x not in await toprim(y)
+
 _ExprFuncMap = {
     '+': expr_add,
     '-': expr_sub,
@@ -3724,6 +3738,8 @@ _ExprFuncMap = {
     '>=': expr_ge,
     '<=': expr_le,
     '^=': expr_prefix,
+    'in': expr_in,
+    'not in': expr_notin,
 }
 
 async def expr_not(x):
@@ -3760,8 +3776,8 @@ class ExprNode(Value):
         assert len(self.kids) == 3
         assert isinstance(self.kids[1], Const)
 
-        oper = self.kids[1].value()
-        self._operfunc = _ExprFuncMap[oper]
+        self.oper = self.kids[1].value()
+        self._operfunc = _ExprFuncMap[self.oper]
 
     async def compute(self, runt, path):
         parm1 = await self.kids[0].compute(runt, path)
@@ -3773,6 +3789,9 @@ class ExprNode(Value):
             raise self.kids[2].addExcInfo(exc)
         except decimal.InvalidOperation:
             exc = s_exc.StormRuntimeError(mesg='Invalid operation on a Number')
+            raise self.addExcInfo(exc)
+        except TypeError as e:
+            exc = s_exc.StormRuntimeError(mesg=f'Error evaluating "{self.oper}" operator: {str(e)}')
             raise self.addExcInfo(exc)
 
 class ExprOrNode(Value):

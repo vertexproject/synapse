@@ -337,7 +337,7 @@ class StormCompleter(prompt_toolkit.completion.Completer):
         else:
             depth = prefix.count('.') + 1
 
-        q = '''
+        q = r'''
         $rslt = ()
         if ($prefix != '') { syn:tag=$lib.regex.replace("\\.$", '', $prefix) }
         syn:tag^=$prefix

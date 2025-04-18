@@ -894,7 +894,7 @@ class StorTypeUtf8(StorType):
 
     def _getIndxByts(self, valu):
 
-        indx = valu.encode('utf8', 'surrogatepass')
+        indx = valu.encode('utf8')
         # cut down an index value to 256 bytes...
         if len(indx) <= 256:
             return indx
@@ -909,7 +909,7 @@ class StorTypeUtf8(StorType):
     def decodeIndx(self, bytz):
         if len(bytz) >= 256:
             return s_common.novalu
-        return bytz.decode('utf8', 'surrogatepass')
+        return bytz.decode('utf8')
 
 class StorTypeHier(StorType):
 
@@ -963,7 +963,7 @@ class StorTypeFqdn(StorTypeUtf8):
     def decodeIndx(self, bytz):
         if len(bytz) >= 256:
             return s_common.novalu
-        return bytz.decode('utf8', 'surrogatepass')[::-1]
+        return bytz.decode('utf8')[::-1]
 
     def __init__(self, layr):
         StorType.__init__(self, layr, STOR_TYPE_UTF8)
@@ -3173,9 +3173,10 @@ class Layer(s_nexus.Pusher):
             await self.layrslab.putmulti(kvpairs, db=self.indxdb)
 
         if self.logedits and nexsitem is not None:
-            nexsindx = nexsitem[0] if nexsitem is not None else None
-            offs = self.nodeeditlog.add(None, indx=nexsindx)
-            [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
+            nexsindx = nexsitem[0]
+            if nexsindx >= self.nodeeditlog.index():
+                offs = self.nodeeditlog.add(None, indx=nexsindx)
+                [(await wind.put((offs, nodeedits, meta))) for wind in tuple(self.windows)]
 
         await asyncio.sleep(0)
         return nodeedits
@@ -3696,6 +3697,7 @@ class Layer(s_nexus.Pusher):
     async def _editNodeDel(self, nid, form, edit, sode, meta):
 
         if (valt := sode.pop('valu', None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         (valu, stortype, virts) = valt
@@ -3777,6 +3779,7 @@ class Layer(s_nexus.Pusher):
     async def _editNodeTombDel(self, nid, form, edit, sode, meta):
 
         if sode.pop('antivalu', None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, None)
@@ -3975,6 +3978,7 @@ class Layer(s_nexus.Pusher):
         prop = edit[1][0]
 
         if (valt := sode['props'].pop(prop, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         valu, stortype, virts = valt
@@ -4085,6 +4089,7 @@ class Layer(s_nexus.Pusher):
         prop = edit[1][0]
 
         if (antiprops := sode.get('antiprops')) is None or antiprops.pop(prop, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
@@ -4195,6 +4200,7 @@ class Layer(s_nexus.Pusher):
         tag = edit[1][0]
 
         if (oldv := sode['tags'].pop(tag, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
@@ -4263,6 +4269,7 @@ class Layer(s_nexus.Pusher):
         tag = edit[1][0]
 
         if (antitags := sode.get('antitags')) is None or antitags.pop(tag, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         abrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
@@ -4371,10 +4378,8 @@ class Layer(s_nexus.Pusher):
 
         tag, prop, _, _ = edit[1]
 
-        if (tp_dict := sode['tagprops'].get(tag)) is None:
-            return ()
-
-        if (oldv := tp_dict.pop(prop, None)) is None:
+        if (tp_dict := sode['tagprops'].get(tag)) is None or (oldv := tp_dict.pop(prop, None)) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         (oldv, oldt) = oldv
@@ -4445,9 +4450,11 @@ class Layer(s_nexus.Pusher):
         tag, prop = edit[1]
 
         if (antitags := sode.get('antitagprops')) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         if (antiprops := antitags.get(tag)) is None or antiprops.pop(prop, None) is None:
+            self.mayDelNid(nid, sode)
             return ()
 
         if len(antiprops) == 0:
@@ -4488,7 +4495,8 @@ class Layer(s_nexus.Pusher):
 
         if self.dataslab.delete(nid + abrv + FLAG_NORM, db=self.nodedata):
             self.dataslab.delete(abrv + FLAG_NORM, nid, db=self.dataname)
-            self.mayDelNid(nid, sode)
+
+        self.mayDelNid(nid, sode)
 
         return ()
 
@@ -4518,6 +4526,7 @@ class Layer(s_nexus.Pusher):
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
         if not self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
@@ -4590,6 +4599,7 @@ class Layer(s_nexus.Pusher):
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
         if not self.layrslab.delete(vabrv + nid + FLAG_NORM, n2nid, db=self.indxdb):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.layrslab.delete(self.edgen1abrv + nid + vabrv + FLAG_NORM, n2nid, db=self.indxdb)
@@ -4675,6 +4685,7 @@ class Layer(s_nexus.Pusher):
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
         if not self.layrslab.delete(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb):
+            self.mayDelNid(nid, sode)
             return ()
 
         self.layrslab.delete(vabrv + nid + FLAG_TOMB, n2nid, db=self.indxdb)

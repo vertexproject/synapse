@@ -598,7 +598,7 @@ class FileTest(s_t_utils.SynTest):
             nodes = await core.nodes(r'''[
                 file:mime:lnk=*
                     :entry:primary="c:\\some\\stuff\\prog~2\\cmd.exe"
-                    :entry:secondary="c:\\some\\stuff\program files\\cmd.exe"
+                    :entry:secondary="c:\\some\\stuff\\program files\\cmd.exe"
                     :entry:extended="c:\\some\\actual\\stuff\\I\\swear\\cmd.exe"
                     :entry:localized="c:\\some\\actual\\archivos\\I\\swear\\cmd.exe"
                     :entry:icon="%windir%\\system32\\notepad.exe"

@@ -89,7 +89,7 @@ class ImapLib(s_stormtypes.Lib):
 
         async def fini():
             # call protocol.logout() so fini() doesn't hang
-            await s_common.wait_for(imap_cli.protocol.logout(), 5)
+            await asyncio.wait_for(imap_cli.protocol.logout(), 5)
 
         self.runt.onfini(fini)
 

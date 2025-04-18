@@ -68,7 +68,7 @@ stormcmds = (
                 if $sname {} else { $sname = 'Unknown' }
                 $svers = $sdef.svcvers
                 if $svers {
-                    $svers = $lib.str.join('.', $svers)
+                    $svers = ('.').join($svers)
                 } else {
                     $svers = 'Unknown'
                 }
@@ -173,9 +173,6 @@ class StormSvcClient(s_base.Base):
                 # push the svciden in the package metadata for later reference.
                 await self.core._addStormPkg(pdef)
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
             except Exception:
                 logger.exception(f'addStormPkg ({name}) failed for service {self.name} ({self.iden})')
 
@@ -190,18 +187,12 @@ class StormSvcClient(s_base.Base):
             if evts is not None:
                 self.sdef = await self.core.setStormSvcEvents(self.iden, evts)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
         except Exception:
             logger.exception(f'setStormSvcEvents failed for service {self.name} ({self.iden})')
 
         try:
             if self.core.isactive:
                 await self.core._runStormSvcAdd(self.iden)
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception:
             logger.exception(f'service.add storm hook failed for service {self.name} ({self.iden})')

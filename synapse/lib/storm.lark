@@ -5,7 +5,7 @@
 %ignore CPPCOMMENT
 %ignore WS
 
-WS: /[\s]/+
+WS.-1: /[\s]/+
 
 // C comment: /* */
 // From https://stackoverflow.com/a/36328890/6518334
@@ -477,7 +477,7 @@ TRIPLEQUOTEDSTRING: /'''.*?'''/s
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
-FORMATTEXT: /[^`{].*?(?<!\\)(\\\\)*?(?=[`{])/s
+FORMATTEXT.-1: /((?<!\\)(\\\\)*\\[`{]|[^`{])+/s
 _formatexpr: "{" expror "}"
 formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
 
@@ -643,12 +643,14 @@ NULL.2: /null(?=$|[\s\),\]}\|\=])/
 NOTOP.2: /not(?=[\s($])/
 OR.2: "or"
 AND.2: "and"
+IN.2: "in"
+NOTIN.2: /not\s+in/
 
 // $ expression rules in increasing order of precedence (modeled on Python's order)
 ?expror: exprand | expror OR exprand
 ?exprand: exprnot | exprand AND exprnot
 ?exprnot: exprcmp | NOTOP exprcmp
-?exprcmp: exprsum | exprcmp (CMPR | EQSPACE | EQNOSPACE) exprsum
+?exprcmp: exprsum | exprcmp (IN | NOTIN | CMPR | EQSPACE | EQNOSPACE) exprsum
 ?exprsum: exprproduct | exprsum (EXPRPLUS | EXPRMINUS) exprproduct
 ?exprproduct: exprunary | exprproduct (EXPRTIMES | EXPRDIVIDE | EXPRMODULO) exprunary
 ?exprunary: exprpow | EXPRNEG exprunary

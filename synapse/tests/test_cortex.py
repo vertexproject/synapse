@@ -1143,7 +1143,7 @@ class CortexTest(s_t_utils.SynTest):
                     $ddef = $lib.dmon.add(${
                         $lib.print(hi)
                         $lib.warn(omg)
-                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $s = `Running {$auto.type} {$auto.iden}`
                         $lib.log.info($s, ({"iden": $auto.iden}))
                         $que = $lib.queue.get(foo)
                         $que.put(done)
@@ -4836,7 +4836,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].getTag('bar'))
 
-            q = '[test:str=yop +#$lib.str.format("{first}.{last}", first=foo, last=bar)]'
+            q = '$t="{first}.{last}" [test:str=yop +#$t.format(first=foo, last=bar)]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.nn(nodes[0].getTag('foo.bar'))
@@ -5314,7 +5314,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
     async def test_storm_order(self):
-        q = '''[test:str=foo :hehe=bar] $tvar=() $tvar.append(1) $tvar.append(:hehe) $lib.print($lib.str.join('', $tvar)) '''
+        q = '''[test:str=foo :hehe=bar] $tvar=() $tvar.append(1) $tvar.append(:hehe) $lib.print(('').join($tvar)) '''
         async with self.getTestCore() as core:
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('1bar', mesgs)
@@ -5507,7 +5507,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                             await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
 
                     # consumer offline
-                    await asyncio.sleep(0)
                     await self.asyncraises(ConnectionRefusedError, core00.callStorm(strim, opts=opts))
 
                     # admin can still cull and break the mirror
@@ -7290,7 +7289,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     $ddef = $lib.dmon.add(${
                         $lib.print(hi)
                         $lib.warn(omg)
-                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $s = `Running {$auto.type} {$auto.iden}`
                         $lib.log.info($s, ({"iden": $auto.iden}))
                     })
                 ''')
