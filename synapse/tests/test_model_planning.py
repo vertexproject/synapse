@@ -19,8 +19,8 @@ class PlanModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.eq('woot cno planner', nodes[0].get('name'))
-            self.eq(1706832000000, nodes[0].get('created'))
-            self.eq(1706918400000, nodes[0].get('updated'))
+            self.eq(1706832000000000, nodes[0].get('created'))
+            self.eq(1706918400000000, nodes[0].get('updated'))
             self.eq(1099511627776, nodes[0].get('version'))
             self.eq('https://vertex.link', nodes[0].get('url'))
 
@@ -94,8 +94,8 @@ class PlanModelTest(s_t_utils.SynTest):
             self.eq('Pwn Some Boxes', nodes[0].get('title'))
             self.eq('Yoink.', nodes[0].get('summary'))
             self.nn(nodes[0].get('author'))
-            self.eq(1706832000000, nodes[0].get('created'))
-            self.eq(1706918400000, nodes[0].get('updated'))
+            self.eq(1706832000000000, nodes[0].get('created'))
+            self.eq(1706918400000000, nodes[0].get('updated'))
             self.eq(1099511627776, nodes[0].get('version'))
 
             self.len(1, await core.nodes('plan:procedure :type -> plan:procedure:type:taxonomy'))

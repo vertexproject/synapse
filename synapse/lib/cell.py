@@ -396,7 +396,7 @@ class CellApi(s_base.Base):
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
                 - backupvolfree - Backup directory volume free space
-                - celluptime - Cell uptime in milliseconds
+                - celluptime - Cell uptime in microseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
                 - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
                 - osversion - OS version/architecture
@@ -731,8 +731,8 @@ class CellApi(s_base.Base):
         Returns:
             (dict) It has the following keys:
                 - currduration - If backup currently running, time in ms since backup started, otherwise None
-                - laststart - Last time (in epoch milliseconds) a backup started
-                - lastend - Last time (in epoch milliseconds) a backup ended
+                - laststart - Last time (in epoch microseconds) a backup started
+                - lastend - Last time (in epoch microseconds) a backup ended
                 - lastduration - How long last backup took in ms
                 - lastsize - Disk usage of last backup completed
                 - lastupload - Time a backup was last completed being uploaded via iter(New)BackupArchive
@@ -1073,8 +1073,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if conf is None:
             conf = {}
 
-        self.starttime = time.monotonic()  # Used for uptime calc
-        self.startms = s_common.now()      # Used to report start time
+        self.starttime = time.monotonic_ns() // 1000  # Used for uptime calc
+        self.startmicros = s_common.now()              # Used to report start time
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
@@ -4317,7 +4317,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'iden': self.getCellIden(),
                 'paused': self.paused,
                 'active': self.isactive,
-                'started': self.startms,
+                'started': self.startmicros,
                 'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,
                 'version': self.VERSION,
@@ -4352,8 +4352,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
                 - backupvolfree - Backup directory volume free space
-                - cellstarttime - Cell start time in epoch milliseconds
-                - celluptime - Cell uptime in milliseconds
+                - cellstarttime - Cell start time in epoch microseconds
+                - celluptime - Cell uptime in microseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
                 - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
                 - osversion - OS version/architecture
@@ -4363,7 +4363,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - cpucount - Number of CPUs on system
                 - tmpdir - The temporary directory interpreted by the Python runtime.
         '''
-        uptime = int((time.monotonic() - self.starttime) * 1000)
+        uptime = time.monotonic_ns() // 1000 - self.starttime
         disk = shutil.disk_usage(self.dirn)
 
         if self.backdirn:
@@ -4385,8 +4385,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'volfree': disk.free,              # Volume where cell is running free bytes
             'backupvolsize': backupvolsize,    # Cell's backup directory volume total bytes
             'backupvolfree': backupvolfree,    # Cell's backup directory volume free bytes
-            'cellstarttime': self.startms,     # cell start time in epoch millis
-            'celluptime': uptime,              # cell uptime in ms
+            'cellstarttime': self.startmicros, # Cell's start time in epoch micros
+            'celluptime': uptime,              # Cell's uptime in micros
             'cellrealdisk': myusage,           # Cell's use of disk, equivalent to du
             'cellapprdisk': myappusage,        # Cell's apparent use of disk, equivalent to ls -l
             'osversion': platform.platform(),  # OS version/architecture
@@ -4479,7 +4479,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Args:
             useriden (str): User iden value.
             name (str): Name of the API key.
-            duration (int or None): Duration of time for the API key to be valid ( in milliseconds ).
+            duration (int or None): Duration of time for the API key to be valid ( in microseconds ).
 
         Returns:
             tuple: A tuple of the secret API key value and the API key metadata information.

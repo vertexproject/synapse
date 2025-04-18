@@ -236,8 +236,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('phone'), '15555555555')
             self.eq(node.get('url'), 'http://www.arrowinc.link')
             self.eq(node.get('us:cage'), '7qe71')
-            self.eq(node.get('founded'), 1420070400000)
-            self.eq(node.get('dissolved'), 1546300800000)
+            self.eq(node.get('founded'), 1420070400000000)
+            self.eq(node.get('dissolved'), 1546300800000000)
             self.eq(node.get('goals'), (goal,))
             self.eq(node.get('ext:id'), 'Foo')
             self.nn(node.get('logo'))
@@ -312,8 +312,8 @@ class OuModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef[1], m0)
             self.eq(node.get('name'), 'working lunch')
-            self.eq(node.get('start'), 1459512000000)
-            self.eq(node.get('end'), 1459515600000)
+            self.eq(node.get('start'), 1459512000000000)
+            self.eq(node.get('end'), 1459515600000000)
             self.eq(node.get('place'), place0)
 
             # ou:conference
@@ -342,8 +342,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('names'), ('arrcon18', 'arrow conference 2018',))
             self.eq(node.get('base'), 'arrowcon')
             self.eq(node.get('org'), guid0)
-            self.eq(node.get('start'), 1519862400000)
-            self.eq(node.get('end'), 1520035200000)
+            self.eq(node.get('start'), 1519862400000000)
+            self.eq(node.get('end'), 1520035200000000)
             self.eq(node.get('place'), place0)
             self.eq(node.get('url'), 'http://arrowcon.org/2018')
 
@@ -373,8 +373,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(node.get('name'), 'arrowcon 2018 dinner')
             self.eq(node.get('desc'), 'arrowcon dinner')
             self.eq(node.get('conference'), confguid)
-            self.eq(node.get('start'), 1519930800000)
-            self.eq(node.get('end'), 1519941600000)
+            self.eq(node.get('start'), 1519930800000000)
+            self.eq(node.get('end'), 1519941600000000)
             self.eq(node.get('contact'), con0)
             self.eq(node.get('place'), place0)
             self.eq(node.get('url'), 'http://arrowcon.org/2018/dinner')
@@ -409,8 +409,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(iden, nodes[0].get('type'))
             self.eq('visi', nodes[0].get('value'))
             self.eq('woot', nodes[0].get('status'))
-            self.eq(1580515200000, nodes[0].get('issued'))
-            self.eq(1609459200000, nodes[0].get('expires'))
+            self.eq(1580515200000000, nodes[0].get('issued'))
+            self.eq(1609459200000000, nodes[0].get('expires'))
             self.len(1, await core.nodes('ou:id:number -> ps:contact +:name=visi'))
 
             opts = {'vars': {'type': iden}}
@@ -418,7 +418,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq((iden, 'visi'), nodes[0].get('number'))
             self.eq('revoked', nodes[0].get('status'))
-            self.eq(1583020800000, nodes[0].get('time'))
+            self.eq(1583020800000000, nodes[0].get('time'))
 
             nodes = await core.nodes('[ ou:org=* :desc=hehe :hq=* :locations=(*, *) :dns:mx=(hehe.com, haha.com)]')
             self.len(1, nodes)
@@ -444,8 +444,8 @@ class OuModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.eq(('staff',), nodes[0].get('roles'))
-            self.eq(1328054400000, nodes[0].get('arrived'))
-            self.eq(1330560000000, nodes[0].get('departed'))
+            self.eq(1328054400000000, nodes[0].get('arrived'))
+            self.eq(1330560000000000, nodes[0].get('departed'))
 
             self.len(1, await core.nodes('ou:attendee -> ps:contact'))
 
@@ -481,8 +481,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('syn101', nodes[0].get('title'))
             self.eq('squeee', nodes[0].get('desc'))
 
-            self.eq(1596844800000, nodes[0].get('time'))
-            self.eq(7200000, nodes[0].get('duration'))
+            self.eq(1596844800000000, nodes[0].get('time'))
+            self.eq(7200000000, nodes[0].get('duration'))
 
             self.eq('http://vertex.link/syn101deck', nodes[0].get('deck:url'))
             self.eq('http://vertex.link/syn101live', nodes[0].get('attendee:url'))
@@ -524,8 +524,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('cyber.ctf.', nodes[0].get('type'))
             self.eq('defcon ctf', nodes[0].get('family'))
 
-            self.eq(1596844800000, nodes[0].get('start'))
-            self.eq(1597104000000, nodes[0].get('end'))
+            self.eq(1596844800000000, nodes[0].get('start'))
+            self.eq(1597104000000000, nodes[0].get('end'))
 
             self.eq('http://vertex.link/contest', nodes[0].get('url'))
 
@@ -550,7 +550,7 @@ class OuModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].get('participant'))
             self.eq(1, nodes[0].get('rank'))
             self.eq(20, nodes[0].get('score'))
-            self.eq((1735689600000, 1735776000000), nodes[0].get('period'))
+            self.eq((1735689600000000, 1735776000000000), nodes[0].get('period'))
             self.eq('http://vertex.link/contest/result', nodes[0].get('url'))
             self.len(1, await core.nodes('ou:contest:result -> ps:contact'))
             self.len(1, await core.nodes('ou:contest:result -> ou:contest'))
@@ -582,8 +582,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(50, nodes[0].get('priority'))
             self.eq('foo.bar.', nodes[0].get('type'))
             self.eq(True, nodes[0].get('optional'))
-            self.eq(1328140800000, nodes[0].get('issued'))
-            self.eq((1672531200000, 9223372036854775807), nodes[0].get('period'))
+            self.eq(1328140800000000, nodes[0].get('issued'))
+            self.eq((1672531200000000, 9223372036854775807), nodes[0].get('period'))
 
             self.len(2, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:requirement'))
             self.len(1, await core.nodes('ou:requirement=50b757fafe4a839ec499023ebcffe7c0 -> ou:goal +:name=pizza'))
@@ -608,7 +608,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :operator={[ ps:contact=* :name=bar ]}
                 ]''')
             self.len(1, nodes)
-            self.eq((1451606400000, 9223372036854775807), nodes[0].get('period'))
+            self.eq((1451606400000000, 9223372036854775807), nodes[0].get('period'))
             self.eq('visi laptop', nodes[0].get('name'))
             self.eq('host.laptop.', nodes[0].get('type'))
             self.eq('deployed.', nodes[0].get('status'))
@@ -647,10 +647,10 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(10, nodes[0].get('status'))
             self.eq(50, nodes[0].get('priority'))
 
-            self.eq(1729209600000, nodes[0].get('due'))
-            self.eq(1729209600000, nodes[0].get('created'))
-            self.eq(1729209600000, nodes[0].get('updated'))
-            self.eq(1729209600000, nodes[0].get('completed'))
+            self.eq(1729209600000000, nodes[0].get('due'))
+            self.eq(1729209600000000, nodes[0].get('created'))
+            self.eq(1729209600000000, nodes[0].get('updated'))
+            self.eq(1729209600000000, nodes[0].get('completed'))
 
             self.eq(visi.iden, nodes[0].get('assignee'))
             self.eq(core.auth.rootuser.iden, nodes[0].get('creator'))
@@ -680,7 +680,7 @@ class OuModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
             self.eq('Hi there!', nodes[0].get('intro'))
-            self.eq(1730678400000, nodes[0].get('submitted'))
+            self.eq(1730678400000000, nodes[0].get('submitted'))
             self.eq('referral.employee.', nodes[0].get('method'))
             self.len(1, await core.nodes('ou:candidate :org -> ou:org +:name=vertex'))
             self.len(1, await core.nodes('ou:candidate :agent -> ps:contact +:name=agent'))
@@ -753,11 +753,11 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq('20', nodes[0].get('award:price'))
             self.eq('21.5', nodes[0].get('budget:price'))
             self.eq('foo.bar.', nodes[0].get('type'))
-            self.eq(1577836800000, nodes[0].get('signed'))
-            self.eq(1580515200000, nodes[0].get('begins'))
-            self.eq(1583020800000, nodes[0].get('expires'))
-            self.eq(1585699200000, nodes[0].get('completed'))
-            self.eq(1588291200000, nodes[0].get('terminated'))
+            self.eq(1577836800000000, nodes[0].get('signed'))
+            self.eq(1580515200000000, nodes[0].get('begins'))
+            self.eq(1583020800000000, nodes[0].get('expires'))
+            self.eq(1585699200000000, nodes[0].get('completed'))
+            self.eq(1588291200000000, nodes[0].get('terminated'))
             self.sorteq((iden1, iden2), nodes[0].get('parties'))
             self.sorteq((goal0, goal1), nodes[0].get('requirements'))
 
@@ -832,8 +832,8 @@ class OuModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('yearlypay'), '20')
             self.eq(nodes[0].get('paycurrency'), 'btc')
             self.eq(nodes[0].get('employment:type'), 'fulltime.salary.')
-            self.eq(nodes[0].get('posted'), 1628294400000)
-            self.eq(nodes[0].get('removed'), 1640995200000)
+            self.eq(nodes[0].get('posted'), 1628294400000000)
+            self.eq(nodes[0].get('removed'), 1640995200000000)
             self.eq(nodes[0].get('postings'), ('https://vertex.link',))
 
             self.nn(nodes[0].get('org'))
@@ -872,7 +872,7 @@ class OuModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.nn(nodes[0].get('org'))
-            self.eq(nodes[0].get('asof'), 1627689600000)
+            self.eq(nodes[0].get('asof'), 1627689600000000)
             self.eq(nodes[0].get('orgname'), 'wootcorp')
             self.eq(nodes[0].get('orgfqdn'), 'wootwoot.com')
             self.eq(nodes[0].get('currency'), 'usd')
@@ -907,8 +907,8 @@ class OuModelTest(s_t_utils.SynTest):
                 ]
             ''')
 
-            self.eq(2493072000000, nodes[0].get('started'))
-            self.eq(2524608000000, nodes[0].get('ended'))
+            self.eq(2493072000000000, nodes[0].get('started'))
+            self.eq(2524608000000000, nodes[0].get('ended'))
             self.eq('World War III', nodes[0].get('name'))
             self.len(1, await core.nodes('ou:conflict -> meta:timeline'))
 
@@ -930,7 +930,7 @@ class OuModelTest(s_t_utils.SynTest):
                     :personnel:count=1
                 ]
             ''')
-            self.eq(1658102400000, nodes[0].get('time'))
+            self.eq(1658102400000000, nodes[0].get('time'))
             self.eq('10', nodes[0].get('value'))
             self.eq('usd', nodes[0].get('currency'))
             self.eq(1, nodes[0].get('material:count'))

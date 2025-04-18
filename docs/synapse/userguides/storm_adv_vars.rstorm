@@ -354,7 +354,7 @@ You can assign the value of a particular node property (secondary or universal) 
 
 .. NOTE::
   
-  In the output above, the variable value is displayed as a pair of epoch milliseconds, which is how Synapse
+  In the output above, the variable value is displayed as a pair of epoch microseconds, which is how Synapse
   stores date/time values.
 
 
@@ -504,7 +504,7 @@ additional details.
 
 .. storm-cli:: $now=$lib.time.now() $lib.print($now)
 
-- Convert an epoch milliseconds integer into a human-readable date/time string using ``$lib.time.format()``:
+- Convert an epoch microseconds integer into a human-readable date/time string using ``$lib.time.format()``:
 
 .. storm-cli:: $now=$lib.time.now() $time=$lib.time.format($now, '%Y/%m/%d %H:%M:%S') $lib.print($time)
 
