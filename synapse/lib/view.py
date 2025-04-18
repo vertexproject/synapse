@@ -449,7 +449,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         s_schemas.reqValidMerge(mergeinfo)
         lkey = self.bidn + b'merge:req'
-        self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
+        await self.core.slab.put(lkey, s_msgpack.en(mergeinfo), db='view:meta')
         await self.core.feedBeholder('view:merge:request:set', {'view': self.iden, 'merge': mergeinfo})
         return mergeinfo
 
@@ -468,7 +468,7 @@ class View(s_nexus.Pusher):  # type: ignore
         merge['comment'] = comment
         s_schemas.reqValidMerge(merge)
         lkey = self.bidn + b'merge:req'
-        self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
+        await self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
 
         await self.core.feedBeholder('view:merge:set', {'view': self.iden, 'merge': merge})
 
@@ -536,10 +536,10 @@ class View(s_nexus.Pusher):  # type: ignore
         bidn = s_common.uhex(merge.get('iden'))
 
         lkey = self.parent.bidn + b'hist:merge:iden' + bidn
-        self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
+        await self.core.slab.put(lkey, s_msgpack.en(merge), db='view:meta')
 
         lkey = self.parent.bidn + b'hist:merge:time' + tick + bidn
-        self.core.slab.put(lkey, bidn, db='view:meta')
+        await self.core.slab.put(lkey, bidn, db='view:meta')
 
         await self.core.feedBeholder('view:merge:init', {'view': self.iden, 'merge': merge, 'votes': votes})
 
@@ -572,7 +572,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
         bidn = s_common.uhex(useriden)
 
-        self.core.slab.put(self.bidn + b'merge:vote' + bidn, s_msgpack.en(vote), db='view:meta')
+        await self.core.slab.put(self.bidn + b'merge:vote' + bidn, s_msgpack.en(vote), db='view:meta')
 
         await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
 
@@ -600,7 +600,7 @@ class View(s_nexus.Pusher):  # type: ignore
         vote = s_msgpack.un(byts)
         vote['updated'] = tick
         vote['comment'] = comment
-        self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
+        await self.core.slab.put(lkey, s_msgpack.en(vote), db='view:meta')
         await self.core.feedBeholder('view:merge:vote:set', {'view': self.iden, 'vote': vote})
 
         return vote

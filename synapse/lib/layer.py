@@ -1969,21 +1969,21 @@ class Layer(s_nexus.Pusher):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.core.setIndxAbrv(INDX_PROP, form, prop)
         for indx in self.stortypes[modlprop.type.stortype].indx(valu):
-            self.layrslab.put(abrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv)
 
     def _testAddPropArrayIndx(self, nid, form, prop, valu):
         modlprop = self.core.model.prop(f'{form}:{prop}')
         abrv = self.core.setIndxAbrv(INDX_ARRAY, form, prop)
         for indx in self.getStorIndx(modlprop.type.stortype, valu):
-            self.layrslab.put(abrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(abrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(abrv)
 
     def _testAddTagIndx(self, nid, form, tag):
         tagabrv = self.core.setIndxAbrv(INDX_TAG, None, tag)
         tagformabrv = self.core.setIndxAbrv(INDX_TAG, form, tag)
-        self.layrslab.put(tagabrv, nid, db=self.indxdb)
-        self.layrslab.put(tagformabrv, nid, db=self.indxdb)
+        self.layrslab._put(tagabrv, nid, db=self.indxdb)
+        self.layrslab._put(tagformabrv, nid, db=self.indxdb)
         self.indxcounts.inc(tagabrv)
         self.indxcounts.inc(tagformabrv)
 
@@ -1993,8 +1993,8 @@ class Layer(s_nexus.Pusher):
 
         tagprop = self.core.model.tagprop(prop)
         for indx in self.stortypes[tagprop.type.stortype].indx(valu):
-            self.layrslab.put(tpabrv + indx, nid, db=self.indxdb)
-            self.layrslab.put(ftpabrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(tpabrv + indx, nid, db=self.indxdb)
+            self.layrslab._put(ftpabrv + indx, nid, db=self.indxdb)
             self.indxcounts.inc(tpabrv)
             self.indxcounts.inc(ftpabrv)
 
@@ -4391,8 +4391,8 @@ class Layer(s_nexus.Pusher):
         name, valu, oldv = edit[1]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
-        self.dataslab.put(nid + abrv + FLAG_NORM, s_msgpack.en(valu), db=self.nodedata)
-        self.dataslab.put(abrv + FLAG_NORM, nid, db=self.dataname)
+        await self.dataslab.put(nid + abrv + FLAG_NORM, s_msgpack.en(valu), db=self.nodedata)
+        await self.dataslab.put(abrv + FLAG_NORM, nid, db=self.dataname)
 
         if oldv is None and self.dataslab.delete(abrv + FLAG_TOMB, nid, db=self.dataname):
             self.dataslab.delete(nid + abrv + FLAG_TOMB, db=self.nodedata)
@@ -4422,10 +4422,10 @@ class Layer(s_nexus.Pusher):
         name = edit[1][0]
         abrv = self.core.setIndxAbrv(INDX_NODEDATA, name)
 
-        if not self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname, overwrite=False):
+        if not await self.dataslab.put(abrv + FLAG_TOMB, nid, db=self.dataname, overwrite=False):
             return ()
 
-        self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
+        await self.dataslab.put(nid + abrv + FLAG_TOMB, s_msgpack.en(None), db=self.nodedata)
         self.dirty[nid] = sode
 
         kvpairs = [(INDX_TOMB + abrv, nid)]
@@ -4563,7 +4563,7 @@ class Layer(s_nexus.Pusher):
 
         vabrv = self.core.setIndxAbrv(INDX_EDGE_VERB, verb)
 
-        if not self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
+        if not await self.layrslab.put(INDX_TOMB + vabrv + nid, n2nid, db=self.indxdb, overwrite=False):
             return ()
 
         n2sode = self._genStorNode(n2nid)
