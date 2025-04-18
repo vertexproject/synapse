@@ -412,7 +412,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     nodeedits.append(nodeedit)
 
-                    if len(nodeedits) == 10:
+                    if len(nodeedits) == 5:
                         yield nodeedits
                         nodeedits.clear()
 
@@ -432,7 +432,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     meta['time'] = s_common.now()
 
-                    await snap.saveNodeEdits(edits, meta)
+                    await snap._applyNodeEdits(edits, meta)
                     await asyncio.sleep(0)
 
                     count += len(edits)
@@ -1467,8 +1467,6 @@ class View(s_nexus.Pusher):  # type: ignore
         Merge this view into its parent.  All changes made to this view will be applied to the parent.  Parent's
         triggers will be run.
         '''
-        fromlayr = self.layers[0]
-
         if useriden is None:
             user = await self.core.auth.getUserByName('root')
         else:
@@ -1481,10 +1479,25 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async with await self.parent.snap(user=user) as snap:
 
+            async def chunked():
+                nodeedits = []
+
+                async for nodeedit in self.layers[0].iterLayerNodeEdits():
+
+                    nodeedits.append(nodeedit)
+
+                    if len(nodeedits) == 5:
+                        yield nodeedits
+                        nodeedits.clear()
+
+                if nodeedits:
+                    yield nodeedits
+
             meta = await snap.getSnapMeta()
-            async for nodeedits in fromlayr.iterLayerNodeEdits():
+            async for edits in chunked():
                 meta['time'] = s_common.now()
-                await snap.saveNodeEdits([nodeedits], meta)
+                await snap._applyNodeEdits(edits, meta)
+                await asyncio.sleep(0)
 
     async def swapLayer(self):
         oldlayr = self.layers[0]
