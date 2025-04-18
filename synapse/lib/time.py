@@ -330,5 +330,5 @@ def toUTC(tick, fromzone):
     except pytz.exceptions.AmbiguousTimeError as e:
         mesg = f'Ambiguous time: {base} {fromzone}'
         raise s_exc.BadArg(mesg=mesg) from e
-        
+
     return total_microseconds(localized.astimezone(pytz.UTC) - EPOCHUTC)
