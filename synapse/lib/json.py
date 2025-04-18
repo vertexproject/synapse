@@ -78,7 +78,8 @@ def _dumps_default(obj):
     mesg = f"Object of type '{obj.__class__.__name__}' is not JSON serializable"
     raise s_exc.MustBeJsonSafe(mesg=mesg)
 
-def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = _dumps_default, newline: bool = False) -> bytes:
+def dumps(obj: Any, sort_keys: bool = False, indent: bool = False,
+          default: Optional[Callable] = _dumps_default, newline: bool = False) -> bytes:
     '''
     Serialize a python object to byte string.
 
@@ -136,10 +137,11 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
 
         return ret
 
-    except ValueError as exc:
+    except (SystemError, ValueError) as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
-def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> None:
+def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False,
+         default: Optional[Callable] = _dumps_default, newline: bool = False) -> None:
     '''
     Serialize a python object to a file-like object opened in binary mode.
 
