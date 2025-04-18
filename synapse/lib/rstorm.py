@@ -73,7 +73,9 @@ class StormCliOutput(s_storm.StormCli):
         if self.ctx.pop('storm-fail', None):
             await s_storm.StormCli.handleErr(self, mesg)
             return
-        raise s_exc.StormRuntimeError(mesg=mesg)
+        (errname, errinfo) = mesg[1]
+        errinfo.setdefault('_errname', errname)
+        raise s_exc.StormRuntimeError(**errinfo)
 
     def _printNodeProp(self, name, valu):
         base = f'        {name} = '
