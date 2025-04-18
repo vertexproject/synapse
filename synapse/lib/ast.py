@@ -4375,13 +4375,6 @@ class CondSetOper(Oper):
         valu = await self.kids[0].compute(runt, path)
         return COND_EDIT_SET.get(valu, valu)
 
-        if (retn := COND_EDIT_SET.get(valu)) is not None:
-            return retn
-
-        mesg = f'Invalid conditional set operator ({valu}).'
-        exc = s_exc.StormRuntimeError(mesg=mesg)
-        raise self.addExcInfo(exc)
-
 class EditCondPropSet(Edit):
 
     async def run(self, runt, genr):
