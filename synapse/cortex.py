@@ -966,7 +966,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         if oldv is not None and oldv.get('iden') != mdef.get('iden'):
             raise s_exc.BadArg(mesg=f'Duplicate macro name: {name}')
 
-        self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        await self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
         await self.feedBeholder('storm:macro:add', {'macro': mdef})
         return mdef
 
@@ -1012,10 +1012,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             if byts is not None:
                 raise s_exc.DupName(mesg=f'A macro named {newname} already exists!', name=newname)
 
-            self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
+            await self.slab.put(newname.encode(), s_msgpack.en(mdef), db=self.macrodb)
             self.slab.pop(name.encode(), db=self.macrodb)
         else:
-            self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+            await self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
         await self.feedBeholder('storm:macro:mod', {'macro': mdef, 'info': info})
         return mdef
@@ -1035,7 +1035,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         reqValidStormMacro(mdef)
 
-        self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
+        await self.slab.put(name.encode(), s_msgpack.en(mdef), db=self.macrodb)
 
         info = {
             'scope': scope,
@@ -1369,7 +1369,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         s_schemas.reqValidStormPoolOpts(opts)
 
         info = (url, opts)
-        self.slab.put(b'storm:pool', s_msgpack.en(info), db='cell:conf')
+        await self.slab.put(b'storm:pool', s_msgpack.en(info), db='cell:conf')
 
         if self.isactive:
             await self.finiStormPool()
@@ -1940,9 +1940,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
     def setNidNdef(self, nid, ndef):
         buid = s_common.buid(ndef)
-        self.v3stor.put(nid, buid, db=self.nid2buid)
-        self.v3stor.put(buid, nid, db=self.buid2nid)
-        self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+        self.v3stor._put(nid, buid, db=self.nid2buid)
+        self.v3stor._put(buid, nid, db=self.buid2nid)
+        self.v3stor._put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
 
         if (nid := s_common.int64un(nid)) >= self.nextnid:
             self.nextnid = nid + 1
@@ -1970,9 +1970,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         nid = s_common.int64en(self.nextnid)
         self.nextnid += 1
 
-        self.v3stor.put(nid, buid, db=self.nid2buid)
-        self.v3stor.put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
-        self.v3stor.put(buid, nid, db=self.buid2nid)
+        self.v3stor._put(nid, buid, db=self.nid2buid)
+        self.v3stor._put(nid, s_msgpack.en(ndef), db=self.nid2ndef)
+        self.v3stor._put(buid, nid, db=self.buid2nid)
 
         return nid
 
@@ -3994,17 +3994,17 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
     @s_nexus.Pusher.onPush('http:api:add')
     async def _addHttpExtApi(self, adef):
         iden = adef.get('iden')
-        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
+        await self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
         order = self.slab.get(self._exthttpapiorder, db=self.httpextapidb)
         if order is None:
-            self.slab.put(self._exthttpapiorder, s_msgpack.en([iden]), db=self.httpextapidb)
+            await self.slab.put(self._exthttpapiorder, s_msgpack.en([iden]), db=self.httpextapidb)
         else:
             order = s_msgpack.un(order)  # type: tuple
             if iden not in order:
                 # Replay safety
                 order = order + (iden, )  # New handlers go to the end of the list of handlers
-                self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+                await self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
 
         # Re-initialize the HTTP API list from the index order
         self._initCortexExtHttpApi()
@@ -4021,7 +4021,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         order = list(s_msgpack.un(byts))
         if iden in order:
             order.remove(iden)
-            self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+            await self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
 
         self._initCortexExtHttpApi()
 
@@ -4058,7 +4058,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         adef[name] = valu
         adef['updated'] = s_common.now()
         adef = s_schemas.reqValidHttpExtAPIConf(adef)
-        self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
+        await self.slab.put(s_common.uhex(iden), s_msgpack.en(adef), db=self.httpextapidb)
 
         self._initCortexExtHttpApi()
 
@@ -4082,7 +4082,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         order.remove(iden)
         # indx values > length of the list end up at the end of the list.
         order.insert(indx, iden)
-        self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
+        await self.slab.put(self._exthttpapiorder, s_msgpack.en(order), db=self.httpextapidb)
         self._initCortexExtHttpApi()
         return order.index(iden)
 
@@ -6409,10 +6409,10 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
             else:
                 tsi = f'{vtype}:{scope}:{owner}'
 
-            self.slab.put(tsi.encode(), bidn, db=self.vaultsbyTSIdb)
+            await self.slab.put(tsi.encode(), bidn, db=self.vaultsbyTSIdb)
 
-        self.slab.put(name.encode(), bidn, db=self.vaultsbynamedb)
-        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        await self.slab.put(name.encode(), bidn, db=self.vaultsbynamedb)
+        await self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return iden
 
     async def setVaultSecrets(self, iden, key, valu):
@@ -6504,7 +6504,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
         else:
             data[key] = valu
 
-        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        await self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return data
 
     async def replaceVaultConfigs(self, iden, valu):
@@ -6576,7 +6576,7 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         vault[obj] = valu
 
-        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        await self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return valu
 
     def listVaults(self):
@@ -6653,9 +6653,9 @@ class Cortex(s_oauth.OAuthMixin, s_cell.Cell):  # type: ignore
 
         if key == 'name':
             self.slab.delete(oldv.encode(), db=self.vaultsbynamedb)
-            self.slab.put(valu.encode(), bidn, db=self.vaultsbynamedb)
+            await self.slab.put(valu.encode(), bidn, db=self.vaultsbynamedb)
 
-        self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
+        await self.slab.put(bidn, s_msgpack.en(vault), db=self.vaultsdb)
         return vault
 
     @s_nexus.Pusher.onPushAuto('vault:del')

@@ -919,8 +919,6 @@ class Axon(s_cell.Cell):
         # TODO: need LMDB to support getting value size without getting value
         for lkey, byts in self.blobslab.scanByFull(db=self.blobs):
 
-            await asyncio.sleep(0)
-
             blobsha = lkey[:32]
 
             if blobsha != cursha:
@@ -929,7 +927,7 @@ class Axon(s_cell.Cell):
 
             offs += len(byts)
 
-            self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
+            await self.blobslab.put(cursha + offs.to_bytes(8, 'big'), lkey[32:], db=self.offsets)
 
         return self._setStorVers(1)
 
@@ -940,7 +938,7 @@ class Axon(s_cell.Cell):
         return int.from_bytes(byts, 'big')
 
     def _setStorVers(self, version):
-        self.blobslab.put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
+        self.blobslab._put(b'version', version.to_bytes(8, 'big'), db=self.metadata)
         return version
 
     def _initAxonHttpApi(self):
@@ -1254,7 +1252,7 @@ class Axon(s_cell.Cell):
         self.axonmetrics.inc('file:count')
         self.axonmetrics.inc('size:bytes', valu=size)
 
-        self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
+        await self.axonslab.put(sha256, size.to_bytes(8, 'big'), db=self.sizes)
         return True
 
     async def _saveFileGenr(self, sha256, genr, size):
@@ -1276,8 +1274,8 @@ class Axon(s_cell.Cell):
         ikey = indx.to_bytes(8, 'big')
         okey = offs.to_bytes(8, 'big')
 
-        self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
-        self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
+        await self.blobslab.put(sha256 + ikey, byts, db=self.blobs)
+        await self.blobslab.put(sha256 + okey, ikey, db=self.offsets)
 
     def _offsToIndx(self, sha256, offs):
         lkey = sha256 + offs.to_bytes(8, 'big')

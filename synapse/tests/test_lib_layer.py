@@ -446,7 +446,7 @@ class LayerTest(s_t_utils.SynTest):
             indxby = s_layer.IndxBy(layr, b'', tmpdb)
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
-                layr.layrslab.put(key[0], val, db=tmpdb)
+                await layr.layrslab.put(key[0], val, db=tmpdb)
 
             retn = [s_msgpack.un(valu[1]) async for valu in stor.indxBy(indxby, '=', minv)]
             self.eq(retn, [minv])
@@ -523,7 +523,7 @@ class LayerTest(s_t_utils.SynTest):
             # TODO self.raises(s_exc.NoSuchImpl, indxby.getNodeValu, s_common.guid())
 
             for key, val in ((stor.indx(v), s_msgpack.en(v)) for v in vals):
-                layr.layrslab.put(key[0], val, db=tmpdb)
+                await layr.layrslab.put(key[0], val, db=tmpdb)
                 self.eqOrNan(s_msgpack.un(val), stor.decodeIndx(key[0]))
 
             # = -99999.9

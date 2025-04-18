@@ -1175,3 +1175,27 @@ bar baz",vv
 
             (size, sha256) = await axon01.put(b'vertex')
             self.eq(await axon00.size(sha256), await axon01.size(sha256))
+
+    async def test_axon_storvers01(self):
+
+        async with self.getTestAxon() as axon:
+
+            axon._setStorVers(0)
+            self.eq(0, axon._getStorVers())
+
+            data = [b'visi', b'vertex', b'synapse']
+            sizes = []
+
+            for byts in data:
+                async with await axon.upload() as fd:
+                    await fd.write(byts)
+                    size, sha256 = await fd.save()
+                    sizes.append(size)
+
+            self.eq(1, await axon._setStorVers01())
+            self.eq(1, axon._getStorVers())
+
+            for i, byts in enumerate(data):
+                sha256 = hashlib.sha256(byts).digest()
+                self.eq(sizes[i], await axon.size(sha256))
+                self.eq(byts, b''.join([chunk async for chunk in axon.get(sha256)]))
