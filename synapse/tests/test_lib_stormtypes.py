@@ -1219,7 +1219,7 @@ class StormTypesTest(s_test.SynTest):
             self.eq(1, nodes[0].ndef[1])
 
             q = 'test:str=woot $lib.fire(name=pode, pode=$node.pack(dorepr=True))'
-            msgs = await core.stormlist(q, opts={'repr': True})
+            msgs = await core.stormlist(q, opts={'node:opts': {'repr': True}})
             pode = [m[1] for m in msgs if m[0] == 'node'][0]
             apode = [m[1].get('data').get('pode') for m in msgs if m[0] == 'storm:fire'][0]
             self.eq(pode[0], ('test:str', 'woot'))

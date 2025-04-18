@@ -4384,19 +4384,15 @@ class CondSetOper(Oper):
         self.isconst = False
         if isinstance(self.kids[0], Const):
             self.isconst = True
-            self.valu = COND_EDIT_SET.get(self.kids[0].value())
+            kidv = self.kids[0].value()
+            self.valu = COND_EDIT_SET.get(kidv, kidv)
 
     async def compute(self, runt, path):
         if self.isconst:
             return self.valu
 
         valu = await self.kids[0].compute(runt, path)
-        if (retn := COND_EDIT_SET.get(valu)) is not None:
-            return retn
-
-        mesg = f'Invalid conditional set operator ({valu}).'
-        exc = s_exc.StormRuntimeError(mesg=mesg)
-        raise self.addExcInfo(exc)
+        return COND_EDIT_SET.get(valu, valu)
 
 class EditCondPropSet(Edit):
 
@@ -4423,6 +4419,20 @@ class EditCondPropSet(Edit):
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
                 runt.confirmPropSet(prop)
+
+            if oper not in (SET_UNSET, SET_ALWAYS):
+                try:
+                    oldv = node.get(name)
+                    valu = await rval.compute(runt, path)
+                    newv, norminfo = prop.type.normVirt(oper, oldv, valu)
+
+                    await node.set(name, newv, norminfo=norminfo)
+                except excignore:
+                    pass
+
+                yield node, path
+                await asyncio.sleep(0)
+                continue
 
             isndef = isinstance(prop.type, s_types.Ndef)
 

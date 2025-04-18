@@ -80,7 +80,6 @@ TerminalPygMap = {
     'TRYMODSET': p_t.Operator,
     'TRYMODSETMULTI': p_t.Operator,
     'UNIVNAME': p_t.Name,
-    'UNSET': p_t.Operator,
     'EXPRUNIVNAME': p_t.Name,
     'VARTOKN': p_t.Name.Variable,
     'EXPRVARTOKN': p_t.Name.Variable,

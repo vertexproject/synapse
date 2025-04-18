@@ -690,6 +690,20 @@ class ProtoNode(s_node.NodeBase):
 
         return defv
 
+    def getWithVirts(self, name, defv=None):
+
+        # get the current value including the pending prop sets
+        if name in self.propdels or name in self.proptombs:
+            return defv, None
+
+        if (curv := self.props.get(name, s_common.novalu)) is not s_common.novalu:
+            return curv
+
+        if self.node is not None:
+            return self.node.getWithVirts(name, defv=defv)
+
+        return defv, None
+
     def getWithLayer(self, name, defv=None):
 
         # get the current value including the pending prop sets
@@ -730,17 +744,18 @@ class ProtoNode(s_node.NodeBase):
             if ndefform.locked:
                 raise s_exc.IsDeprLocked(mesg=f'Prop {prop.full} is locked due to deprecation.', prop=prop.full)
 
-        curv = self.get(prop.name)
-        if curv == valu:
+        virts = norminfo.get('virts')
+        curv = self.getWithVirts(prop.name)
+        if curv == (valu, virts):
             return False
 
-        if not ignore_ro and prop.info.get('ro') and curv is not None:
+        if not ignore_ro and prop.info.get('ro') and curv[0] is not None:
             raise s_exc.ReadOnlyProp(mesg=f'Property is read only: {prop.full}.')
 
         if self.node is not None:
             await self.editor.view.core._callPropSetHook(self.node, prop, valu)
 
-        self.props[prop.name] = (valu, norminfo.get('virts'))
+        self.props[prop.name] = (valu, virts)
         self.propdels.discard(prop.name)
         self.proptombs.discard(prop.name)
 

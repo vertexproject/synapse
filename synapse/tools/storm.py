@@ -425,7 +425,7 @@ class StormCli(s_cli.Cli):
         self.indented = False
         self.cmdprompt = 'storm> '
 
-        self.stormopts = {'repr': True}
+        self.stormopts = {'node:opts': {'repr': True}}
 
         if opts is not None:
 
