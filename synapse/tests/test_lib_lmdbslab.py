@@ -381,7 +381,6 @@ class LmdbSlabTest(s_t_utils.SynTest):
                 byts = b'\x00' * 256
                 for i in range(1000):
                     await slab.put(b'\xff\xff\xff\xff' + s_common.guid(i).encode('utf8'), byts, db=foo)
-                    #await asyncio.sleep(0)
 
             # Let the slab close and then grab its stats
             stats = slab.statinfo()
