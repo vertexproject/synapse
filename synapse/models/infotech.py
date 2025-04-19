@@ -678,63 +678,63 @@ modeldefs = (
                 'doc': "A vulnerability scan result for an asset."}),
 
             ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
-                'doc': 'A MITRE ATT&CK element status.',
                 'ex': 'current',
-            }),
+                'doc': 'A MITRE ATT&CK element status.'}),
+
             ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
-                'doc': 'An enumeration of ATT&CK matrix values.',
                 'ex': 'enterprise',
-            }),
+                'doc': 'An enumeration of ATT&CK matrix values.'}),
+
             ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Group ID.',
                 'ex': 'G0100',
-            }),
+                'doc': 'A MITRE ATT&CK Group ID.'}),
+
             ('it:mitre:attack:tactic', ('str', {'regex': r'^TA[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Tactic ID.',
                 'ex': 'TA0040',
-            }),
+                'doc': 'A MITRE ATT&CK Tactic ID.'}),
+
             ('it:mitre:attack:technique', ('str', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
-                'doc': 'A MITRE ATT&CK Technique ID.',
                 'ex': 'T1548',
-            }),
+                'doc': 'A MITRE ATT&CK Technique ID.'}),
+
             ('it:mitre:attack:mitigation', ('str', {'regex': r'^M[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Mitigation ID.',
                 'ex': 'M1036',
-            }),
+                'doc': 'A MITRE ATT&CK Mitigation ID.'}),
+
             ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Software ID.',
                 'ex': 'S0154',
-            }),
+                'doc': 'A MITRE ATT&CK Software ID.'}),
+
             ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Campaign ID.',
                 'ex': 'C0028',
-            }),
+                'doc': 'A MITRE ATT&CK Campaign ID.'}),
+
             ('it:mitre:attack:datasource', ('str', {'regex': r'^DS[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Datasource ID.',
                 'ex': 'DS0026',
-            }),
+                'doc': 'A MITRE ATT&CK Datasource ID.'}),
+
             ('it:mitre:attack:data:component', ('guid', {}), {
-                    'doc': 'A MITRE ATT&CK data component.',
-            }),
+                'doc': 'A MITRE ATT&CK data component.'}),
+
             ('it:mitre:attack:flow', ('guid', {}), {
-                'doc': 'A MITRE ATT&CK Flow diagram.',
-            }),
+                'doc': 'A MITRE ATT&CK Flow diagram.'}),
+
             ('it:dev:str', ('str', {}), {
-                'doc': 'A developer selected string.'
-            }),
+                'doc': 'A developer selected string.'}),
+
             ('it:dev:pipe', ('str', {}), {
-                'doc': 'A string representing a named pipe.',
-            }),
+                'doc': 'A string representing a named pipe.'}),
+
             ('it:dev:mutex', ('str', {}), {
-                'doc': 'A string representing a mutex.',
-            }),
+                'doc': 'A string representing a mutex.'}),
+
             ('it:dev:int', ('int', {}), {
-                'doc': 'A developer selected integer constant.',
-            }),
+                'doc': 'A developer selected integer constant.'}),
+
             ('it:dev:regkey', ('str', {}), {
-                'doc': 'A Windows registry key.',
                 'ex': 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
-            }),
+                'doc': 'A Windows registry key.'}),
+
             ('it:dev:regval', ('guid', {}), {
                 'doc': 'A Windows registry key/value pair.',
             }),
@@ -1791,7 +1791,7 @@ modeldefs = (
             )),
             ('it:mitre:attack:flow', {}, (
 
-                ('name', ('meta:name', {}), {
+                ('name', ('str', {'strip': True}), {
                     'doc': 'The name of the attack-flow diagram.'}),
 
                 ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {

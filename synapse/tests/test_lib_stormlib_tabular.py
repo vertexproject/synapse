@@ -199,7 +199,7 @@ class TabularTest(s_test.SynTest):
             self.eq([
                 "                      ",
                 " {'bar': 'baz'}       ",
-                " meta:name=cool         ",
+                " meta:name=cool       ",
             ], printlines(mesgs))
 
             # sad

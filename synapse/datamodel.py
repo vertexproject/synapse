@@ -1254,8 +1254,7 @@ class Model:
         self.formsbyiface[name].remove(form.name)
 
         for subname, subinfo in iface.get('interfaces', ()):
-            for subname, subinfo in ifaces:
-                self._delFormIface(form, subname, subinfo)
+            self._delFormIface(form, subname, subinfo)
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)

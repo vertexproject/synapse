@@ -333,7 +333,7 @@ class LibGen(s_stormtypes.Lib):
             return($node)
         }
 
-        function langByCode(code, try=$lib.false) {
+        function langByCode(code, try=(false)) {
             [ lang:language=({"code": $code, "$try": $try}) ]
             return($node)
         }
