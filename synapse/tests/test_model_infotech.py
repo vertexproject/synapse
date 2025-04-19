@@ -158,7 +158,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('references'), ('https://foo.com', 'https://bar.com'))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
             self.eq(nodes[0].get('isnow'), 'S0110')
-            self.len(3, await core.nodes('it:prod:softname=redtree -> it:mitre:attack:software -> it:prod:softname'))
+            self.len(3, await core.nodes('meta:name=redtree -> it:mitre:attack:software -> meta:name'))
 
             nodes = await core.nodes('''[
                 it:mitre:attack:mitigation=M0100
@@ -346,11 +346,11 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:host'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> inet:url'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> inet:fqdn'))
+            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> meta:name'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> file:bytes'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:exec:proc'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:av:signame'))
             self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:prod:softver'))
-            self.len(1, await core.nodes('it:av:scan:result:scanner:name="visi scan" -> it:prod:softname'))
 
             nodes = await core.nodes('it:av:scan:result:scanner:name="visi total"')
             self.len(1, nodes)
@@ -462,7 +462,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             [ it:software:image=(ubuntu, 24.10, amd64, vhdx)
                 :name="ubuntu-24.10-amd64.vhdx"
                 :published=202405170940
-                :publisher={[ ps:contact=(blackout,) :name=blackout ]}
+                :publisher={[ entity:contact=(blackout,) :name=blackout ]}
                 :creator={[ inet:service:account=* :user=visi ]}
                 :parents={[ it:software:image=* :name=zoom ]}
             ]
@@ -491,7 +491,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 'loc': 'us.hehe.haha',
                 'operator': cont0,
                 'org': org0,
-                'ext:id': 'foo123',
+                'id': 'foo123',
                 'image': image.ndef[1],
             }
             q = '''
@@ -505,7 +505,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
                     :name=$p.name :desc=$p.desc :ip=$p.ip :place=$p.place :latlong=$p.latlong
                     :os=$p.os :serial=$p.serial :loc=$p.loc :operator=$p.operator
-                    :org=$p.org :ext:id=$p."ext:id" :image=$p.image
+                    :org=$p.org :id=$p."id" :image=$p.image
                 ]
             '''
             nodes = await core.nodes(q, opts={'vars': {'valu': host0, 'p': props}})
@@ -528,7 +528,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(node.get('loc'), 'us.hehe.haha')
             self.eq(node.get('org'), org0)
             self.eq(node.get('operator'), cont0)
-            self.eq(node.get('ext:id'), 'foo123')
+            self.eq(node.get('id'), 'foo123')
             host = node
 
             q = r'''
@@ -657,7 +657,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     it:account=$acct
                         :host=$host
                         :user=visi
-                        :contact={[ ps:contact=* :email=visi@vertex.link ]}
+                        :contact={[ entity:contact=* :email=visi@vertex.link ]}
                         :domain={[ it:domain=* :org=$org :name=vertex :desc="the vertex project domain" ]}
 
                     (it:logon=* :time=20210314 :logoff:time=202103140201 :account=$acct :host=$host :duration=(:logoff:time - :time))
@@ -704,7 +704,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('for $sid in $sids {[ it:account=* :windows:sid=$sid ]}', opts=opts)
             self.len(88, nodes)
 
-            nodes = await core.nodes('inet:email=visi@vertex.link -> ps:contact -> it:account -> it:logon +:time>=2021 -> it:host')
+            nodes = await core.nodes('inet:email=visi@vertex.link -> entity:contact -> it:account -> it:logon +:time>=2021 -> it:host')
             self.len(1, nodes)
             self.eq('it:host', nodes[0].ndef[0])
 
@@ -776,7 +776,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.true(node.get('islib'))
             self.eq(node.get('url'), url0)
             self.len(1, await core.nodes('it:prod:soft:name="balloon maker" -> it:prod:soft:taxonomy'))
-            self.len(2, await core.nodes('it:prod:softname="balloon maker" -> it:prod:soft -> it:prod:softname'))
+            self.len(2, await core.nodes('meta:name="balloon maker" -> it:prod:soft -> meta:name'))
 
             self.len(1, nodes := await core.nodes('[ it:prod:soft=({"name": "clowns inc"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
@@ -816,7 +816,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             # callback node creation checks
             self.len(1, await core.nodes('it:dev:str=V1.0.1-beta+exp.sha.5114f85'))
             self.len(1, await core.nodes('it:dev:str=amd64'))
-            self.len(2, await core.nodes('it:prod:softname="balloonmaker" -> it:prod:softver -> it:prod:softname'))
+            self.len(2, await core.nodes('meta:name="balloonmaker" -> it:prod:softver -> meta:name'))
             # it:hostsoft
             host0 = s_common.guid()
             nodes = await core.nodes('[it:hostsoft=$valu]', opts={'vars': {'valu': (host0, ver0)}})
@@ -1477,7 +1477,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('''
                 [ it:app:yara:rule=$rule
-                    :ext:id=V-31337
+                    :id=V-31337
                     :url=https://vertex.link/yara-lolz/V-31337
                     :family=Beacon
                     :created=20200202 :updated=20220401
@@ -1486,7 +1486,7 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.len(1, nodes)
             self.eq('foo', nodes[0].get('name'))
-            self.eq('V-31337', nodes[0].get('ext:id'))
+            self.eq('V-31337', nodes[0].get('id'))
             self.eq('https://vertex.link/yara-lolz/V-31337', nodes[0].get('url'))
             self.eq(True, nodes[0].get('enabled'))
             self.eq(1580601600000, nodes[0].get('created'))
@@ -1495,7 +1495,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('beacon', nodes[0].get('family'))
             self.eq(0x10000200003, nodes[0].get('version'))
 
-            self.len(1, await core.nodes('it:app:yara:rule=$rule -> ps:contact', opts=opts))
+            self.len(1, await core.nodes('it:app:yara:rule=$rule -> entity:contact', opts=opts))
 
             nodes = await core.nodes('[ it:app:yara:match=($rule, "*") :version=1.2.3 ]', opts=opts)
             self.len(1, nodes)
@@ -1537,7 +1537,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :engine=1
                 :text=gronk
                 :name=foo
-                :author = {[ ps:contact=* :name=visi ]}
+                :author = {[ entity:contact=* :name=visi ]}
                 :created = 20120101
                 :updated = 20220101
                 :enabled=1
@@ -2127,11 +2127,11 @@ class InfotechModelTest(s_t_utils.SynTest):
                 [ it:sec:vuln:scan=*
                     :time=202308180819
                     :desc="Woot Woot"
-                    :ext:id=FOO-10
+                    :id=FOO-10
                     :ext:url=https://vertex.link/scans/FOO-10
                     :software:name=nessus
                     :software={[ it:prod:softver=* :name=nessus ]}
-                    :operator={[ ps:contact=* :name=visi ]}
+                    :operator={[ entity:contact=* :name=visi ]}
                 ]
             ''')
             self.len(1, nodes)
@@ -2139,13 +2139,13 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1692346740000, nodes[0].get('time'))
             self.eq('nessus', nodes[0].get('software:name'))
             self.eq('Woot Woot', nodes[0].get('desc'))
-            self.eq('FOO-10', nodes[0].get('ext:id'))
+            self.eq('FOO-10', nodes[0].get('id'))
             self.eq('https://vertex.link/scans/FOO-10', nodes[0].get('ext:url'))
 
             self.nn(nodes[0].get('operator'))
             self.nn(nodes[0].get('software'))
 
-            self.len(1, await core.nodes('it:sec:vuln:scan -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('it:sec:vuln:scan -> entity:contact +:name=visi'))
             self.len(1, await core.nodes('it:sec:vuln:scan -> it:prod:softver +:name=nessus'))
 
             nodes = await core.nodes('''
@@ -2153,7 +2153,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :scan={it:sec:vuln:scan}
                     :vuln={[ risk:vuln=* :name="nucsploit9k" ]}
                     :desc="Network service is vulnerable to nucsploit9k"
-                    :ext:id=FOO-10.0
+                    :id=FOO-10.0
                     :ext:url=https://vertex.link/scans/FOO-10/0
                     :time=2023081808190828
                     :mitigated=2023081808190930
@@ -2169,7 +2169,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(1692346748280, nodes[0].get('time'))
             self.eq(1692346749300, nodes[0].get('mitigated'))
             self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
-            self.eq('FOO-10.0', nodes[0].get('ext:id'))
+            self.eq('FOO-10.0', nodes[0].get('id'))
             self.eq('https://vertex.link/scans/FOO-10/0', nodes[0].get('ext:url'))
 
             self.len(1, await core.nodes('it:sec:vuln:scan:result :asset -> * +inet:server'))

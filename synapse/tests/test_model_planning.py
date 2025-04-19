@@ -10,7 +10,7 @@ class PlanModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('''
                 [ plan:system=*
                     :name="Woot CNO Planner"
-                    :author={[ ps:contact=* :name=visi ]}
+                    :author={[ entity:contact=* :name=visi ]}
                     :created=20240202
                     :updated=20240203
                     :version=1.0.0
@@ -24,7 +24,7 @@ class PlanModelTest(s_t_utils.SynTest):
             self.eq(1099511627776, nodes[0].get('version'))
             self.eq('https://vertex.link', nodes[0].get('url'))
 
-            self.len(1, await core.nodes('plan:system :author -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('plan:system :author -> entity:contact +:name=visi'))
 
             nodes = await core.nodes('''
                 [ plan:phase=*
@@ -49,7 +49,7 @@ class PlanModelTest(s_t_utils.SynTest):
                     :system={ plan:system:name="Woot CNO Planner"}
                     :title="Pwn Some Boxes"
                     :summary="Yoink."
-                    :author={ ps:contact:name=visi }
+                    :author={ entity:contact:name=visi }
                     :created=20240202
                     :updated=20240203
                     :version=1.0.0

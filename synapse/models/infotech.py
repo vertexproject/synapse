@@ -580,12 +580,7 @@ async def _onPropSoftverVers(node, oldv):
     # form the semver properly or bruteforce parts
     try:
         valu, info = node.view.core.model.type('it:semver').norm(prop)
-        subs = info.get('subs')
         await node.set('semver', valu)
-        for k, v in subs.items():
-            await node.set(f'semver:{k}', v)
-    except asyncio.CancelledError:  # pragma: no cover
-        raise
     except Exception:
         logger.exception('Failed to brute force version string [%s]', prop)
 
@@ -608,23 +603,34 @@ modeldefs = (
                 'doc': 'The name of a host or system.'}),
 
             ('it:host', ('guid', {}), {
-                'interfaces': ('inet:service:object', 'phys:object'),
-                'template': {'service:base': 'host', 'phys:object': 'physical host'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'host'}}),
+
+                    ('phys:object', {
+                        'template': {'phys:object': 'physical host'}}),
+                ),
                 'doc': 'A GUID that represents a host or system.'}),
 
             ('it:log:event:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of log event types.',
             }),
             ('it:log:event', ('guid', {}), {
                 'doc': 'A GUID representing an individual log event.',
-                'interfaces': ('it:host:activity',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
             }),
             ('it:network', ('guid', {}), {
                 'doc': 'A GUID that represents a logical network.'}),
 
             ('it:network:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of network types.'}),
 
             ('it:domain', ('guid', {}), {
@@ -644,7 +650,9 @@ modeldefs = (
             }),
             ('it:screenshot', ('guid', {}), {
                 'doc': 'A screenshot of a host.',
-                'interfaces': ('it:host:activity',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
             }),
             ('it:sec:cve', ('str', {'lower': True, 'replace': s_chop.unicode_dashes_replace,
                                     'regex': r'(?i)^CVE-[0-9]{4}-[0-9]{4,}$'}), {
@@ -670,145 +678,167 @@ modeldefs = (
                 'doc': "A vulnerability scan result for an asset."}),
 
             ('it:mitre:attack:status', ('str', {'enums': 'current,deprecated,withdrawn'}), {
-                'doc': 'A MITRE ATT&CK element status.',
                 'ex': 'current',
-            }),
+                'doc': 'A MITRE ATT&CK element status.'}),
+
             ('it:mitre:attack:matrix', ('str', {'enums': 'enterprise,mobile,ics'}), {
-                'doc': 'An enumeration of ATT&CK matrix values.',
                 'ex': 'enterprise',
-            }),
+                'doc': 'An enumeration of ATT&CK matrix values.'}),
+
             ('it:mitre:attack:group', ('str', {'regex': r'^G[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Group ID.',
                 'ex': 'G0100',
-            }),
+                'doc': 'A MITRE ATT&CK Group ID.'}),
+
             ('it:mitre:attack:tactic', ('str', {'regex': r'^TA[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Tactic ID.',
                 'ex': 'TA0040',
-            }),
+                'doc': 'A MITRE ATT&CK Tactic ID.'}),
+
             ('it:mitre:attack:technique', ('str', {'regex': r'^T[0-9]{4}(.[0-9]{3})?$'}), {
-                'doc': 'A MITRE ATT&CK Technique ID.',
                 'ex': 'T1548',
-            }),
+                'doc': 'A MITRE ATT&CK Technique ID.'}),
+
             ('it:mitre:attack:mitigation', ('str', {'regex': r'^M[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Mitigation ID.',
                 'ex': 'M1036',
-            }),
+                'doc': 'A MITRE ATT&CK Mitigation ID.'}),
+
             ('it:mitre:attack:software', ('str', {'regex': r'^S[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Software ID.',
                 'ex': 'S0154',
-            }),
+                'doc': 'A MITRE ATT&CK Software ID.'}),
+
             ('it:mitre:attack:campaign', ('str', {'regex': r'^C[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Campaign ID.',
                 'ex': 'C0028',
-            }),
+                'doc': 'A MITRE ATT&CK Campaign ID.'}),
+
             ('it:mitre:attack:datasource', ('str', {'regex': r'^DS[0-9]{4}$'}), {
-                'doc': 'A MITRE ATT&CK Datasource ID.',
                 'ex': 'DS0026',
-            }),
+                'doc': 'A MITRE ATT&CK Datasource ID.'}),
+
             ('it:mitre:attack:data:component', ('guid', {}), {
-                    'doc': 'A MITRE ATT&CK data component.',
-            }),
+                'doc': 'A MITRE ATT&CK data component.'}),
+
             ('it:mitre:attack:flow', ('guid', {}), {
-                'doc': 'A MITRE ATT&CK Flow diagram.',
-            }),
+                'doc': 'A MITRE ATT&CK Flow diagram.'}),
+
             ('it:dev:str', ('str', {}), {
-                'doc': 'A developer selected string.'
-            }),
+                'doc': 'A developer selected string.'}),
+
             ('it:dev:pipe', ('str', {}), {
-                'doc': 'A string representing a named pipe.',
-            }),
+                'doc': 'A string representing a named pipe.'}),
+
             ('it:dev:mutex', ('str', {}), {
-                'doc': 'A string representing a mutex.',
-            }),
+                'doc': 'A string representing a mutex.'}),
+
             ('it:dev:int', ('int', {}), {
-                'doc': 'A developer selected integer constant.',
-            }),
+                'doc': 'A developer selected integer constant.'}),
+
             ('it:dev:regkey', ('str', {}), {
-                'doc': 'A Windows registry key.',
                 'ex': 'HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
-            }),
+                'doc': 'A Windows registry key.'}),
+
             ('it:dev:regval', ('guid', {}), {
                 'doc': 'A Windows registry key/value pair.',
             }),
             ('it:dev:repo:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of repository types.',
-            }),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of repository types.'}),
+
             ('it:dev:repo:label', ('guid', {}), {
-                'doc': 'A developer selected label.',
-            }),
+                'doc': 'A developer selected label.'}),
+
             ('it:dev:repo', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository'},
-                'doc': 'A version control system instance.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository'}}),
+                ),
+                'doc': 'A version control system instance.'}),
+
             ('it:dev:repo:remote', ('guid', {}), {
-                'doc': 'A remote repo that is tracked for changes/branches/etc.',
-            }),
+                'doc': 'A remote repo that is tracked for changes/branches/etc.'}),
+
             ('it:dev:repo:branch', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository branch'},
-                'doc': 'A branch in a version control system instance.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository branch'}}),
+                ),
+                'doc': 'A branch in a version control system instance.'}),
+
             ('it:dev:repo:commit', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository commit'},
-                'doc': 'A commit to a repository.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository commit'}}),
+                ),
+                'doc': 'A commit to a repository.'}),
+
             ('it:dev:repo:diff', ('guid', {}), {
-                'doc': 'A diff of a file being applied in a single commit.',
-            }),
+                'doc': 'A diff of a file being applied in a single commit.'}),
+
             ('it:dev:repo:issue:label', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository issue label'},
-                'doc': 'A label applied to a repository issue.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository issue label'}}),
+                ),
+                'doc': 'A label applied to a repository issue.'}),
+
             ('it:dev:repo:issue', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository issue'},
-                'doc': 'An issue raised in a repository.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository issue'}}),
+                ),
+                'doc': 'An issue raised in a repository.'}),
+
             ('it:dev:repo:issue:comment', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository issue comment'},
-                'doc': 'A comment on an issue in a repository.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository issue comment'}}),
+                ),
+                'doc': 'A comment on an issue in a repository.'}),
+
             ('it:dev:repo:diff:comment', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'repository diff comment'},
-                'doc': 'A comment on a diff in a repository.',
-            }),
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'repository diff comment'}}),
+                ),
+                'doc': 'A comment on a diff in a repository.'}),
+
+            # FIXME
             ('it:prod:soft', ('guid', {}), {
-                'doc': 'A software product.',
-            }),
-            ('it:prod:softname', ('str', {'onespace': True, 'lower': True}), {
-                'doc': 'A software product name.',
-            }),
+                'doc': 'A software product.'}),
+
+            # FIXME
+            ('meta:name', ('str', {'onespace': True, 'lower': True}), {
+                'doc': 'A software product name.'}),
+
+            # FIXME
             ('it:prod:soft:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of software types.',
             }),
             ('it:prod:softid', ('guid', {}), {
                 'doc': 'An identifier issued to a given host by a specific software application.'}),
 
             ('it:prod:hardware', ('guid', {}), {
-                'doc': 'A specification for a piece of IT hardware.',
-            }),
+                'doc': 'A specification for a piece of IT hardware.'}),
+
             ('it:prod:component', ('guid', {}), {
-                'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.',
-            }),
+                'doc': 'A specific instance of an it:prod:hardware most often as part of an it:host.'}),
+
             ('it:prod:hardware:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of IT hardware types.',
-            }),
-            ('it:adid', ('str', {'lower': True, 'strip': True}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of IT hardware types.'}),
+
+            ('it:adid', ('meta:id', {}), {
                 'doc': 'An advertising identification string.'}),
 
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/c92a27b1-c772-4fa7-a432-15df5f1b66a1
             ('it:os:windows:sid', ('str', {'regex': r'^S-1-(?:\d{1,10}|0x[0-9a-fA-F]{12})(?:-(?:\d+|0x[0-9a-fA-F]{2,}))*$'}), {
-                'doc': 'A Microsoft Windows Security Identifier.',
                 'ex': 'S-1-5-21-1220945662-1202665555-839525555-5555',
-            }),
+                'doc': 'A Microsoft Windows Security Identifier.'}),
 
             ('it:os:android:perm', ('str', {}), {
                 'doc': 'An android permission string.'}),
@@ -856,8 +886,7 @@ modeldefs = (
                 'doc': 'The software version is known to be compatible with the given os software version.'}),
 
             ('it:hostsoft', ('comp', {'fields': (('host', 'it:host'), ('softver', 'it:prod:softver'))}), {
-               'doc': 'A version of a software product which is present on a given host.',
-            }),
+               'doc': 'A version of a software product which is present on a given host.'}),
 
             ('it:av:signame', ('str', {'lower': True}), {
                 'doc': 'An antivirus signature name.'}),
@@ -866,24 +895,32 @@ modeldefs = (
                 'doc': 'The result of running an antivirus scanner.'}),
 
             ('it:auth:passwdhash', ('guid', {}), {
-                'doc': 'An instance of a password hash.',
-            }),
+                'doc': 'An instance of a password hash.'}),
+
             ('it:exec:proc', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A process executing on a host. May be an actual (e.g., endpoint) or virtual (e.g., malware sandbox) host.'}),
+
             ('it:exec:thread', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A thread executing in a process.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A thread executing in a process.'}),
+
             ('it:exec:loadlib', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A library load event in a process.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A library load event in a process.'}),
+
             ('it:exec:mmap', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A memory mapped segment located in a process.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A memory mapped segment located in a process.'}),
+
             ('it:cmd', ('str', {'strip': True}), {
                 'doc': 'A unique command-line string.',
                 'ex': 'foo.exe --dostuff bar'}),
@@ -895,107 +932,135 @@ modeldefs = (
                 'doc': 'A single command executed within a session.'}),
 
             ('it:query', ('str', {'strip': True}), {
-                'doc': 'A unique query string.',
-            }),
+                'doc': 'A unique query string.'}),
+
             ('it:exec:query', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of an executed query.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of an executed query.'}),
+
             ('it:exec:mutex', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'A mutex created by a process at runtime.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'A mutex created by a process at runtime.'}),
+
             ('it:exec:pipe', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'doc': 'A named pipe created by a process at runtime.'}),
 
             ('it:exec:url', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
                 'doc': 'An instance of a host requesting a URL using any protocol scheme.'}),
 
             ('it:exec:bind', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host binding a listening port.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host binding a listening port.'}),
+
             ('it:fs:file', ('guid', {}), {
-                'doc': 'A file on a host.'
-            }),
+                'doc': 'A file on a host.'}),
+
             ('it:exec:file:add', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host adding a file to a filesystem.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host adding a file to a filesystem.'}),
+
             ('it:exec:file:del', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host deleting a file from a filesystem.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host deleting a file from a filesystem.'}),
+
             ('it:exec:file:read', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host reading a file from a filesystem.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host reading a file from a filesystem.'}),
+
             ('it:exec:file:write', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host writing a file to a filesystem.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host writing a file to a filesystem.'}),
+
             ('it:exec:reg:get', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host getting a registry key.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host getting a registry key.', }),
             ('it:exec:reg:set', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host creating or setting a registry key.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host creating or setting a registry key.', }),
             ('it:exec:reg:del', ('guid', {}), {
-                'interfaces': ('it:host:activity',),
-                'doc': 'An instance of a host deleting a registry key.',
-            }),
+                'interfaces': (
+                    ('it:host:activity', {}),
+                ),
+                'doc': 'An instance of a host deleting a registry key.', }),
+
             ('it:app:yara:rule', ('guid', {}), {
-                'doc': 'A YARA rule unique identifier.',
-            }),
+                'doc': 'A YARA rule unique identifier.'}),
+
             ('it:sec:stix:bundle', ('guid', {}), {
-                'doc': 'A STIX bundle.',
-            }),
+                'doc': 'A STIX bundle.'}),
+
             ('it:sec:stix:indicator', ('guid', {}), {
-                'doc': 'A STIX indicator pattern.',
-            }),
+                'doc': 'A STIX indicator pattern.'}),
+
             ('it:app:yara:match', ('comp', {'fields': (('rule', 'it:app:yara:rule'), ('file', 'file:bytes'))}), {
-                'doc': 'A YARA rule match to a file.',
-            }),
+                'doc': 'A YARA rule match to a file.'}),
+
             ('it:app:yara:netmatch', ('guid', {}), {
-                'doc': 'An instance of a YARA rule network hunting match.',
-            }),
+                'doc': 'An instance of a YARA rule network hunting match.'}),
+
             ('it:app:yara:procmatch', ('guid', {}), {
-                'doc': 'An instance of a YARA rule match to a process.',
-            }),
+                'doc': 'An instance of a YARA rule match to a process.'}),
+
             ('it:app:snort:rule', ('guid', {}), {
-                'doc': 'A snort rule.',
-            }),
+                'doc': 'A snort rule.'}),
+
             ('it:app:snort:hit', ('guid', {}), {
-                'doc': 'An instance of a snort rule hit.',
-            }),
+                'doc': 'An instance of a snort rule hit.'}),
+
             ('it:reveng:function', ('guid', {}), {
-                'doc': 'A function inside an executable.',
-            }),
+                'doc': 'A function inside an executable.'}),
+
             ('it:reveng:filefunc', ('comp', {'fields': (('file', 'file:bytes'), ('function', 'it:reveng:function'))}), {
-                'doc': 'An instance of a function in an executable.',
-            }),
+                'doc': 'An instance of a function in an executable.'}),
+
             ('it:reveng:impfunc', ('str', {'lower': True}), {
-                'doc': 'A function from an imported library.',
-            }),
+                'doc': 'A function from an imported library.'}),
+
             ('it:sec:c2:config', ('guid', {}), {
                 'doc': 'An extracted C2 config from an executable.'}),
 
             ('it:host:tenancy', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'host tenancy'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'host tenancy'}}),
+                ),
                 'doc': 'A time window where a host was a tenant run by another host.'}),
 
             ('it:software:image:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of software image types.'}),
 
             ('it:software:image', ('guid', {}), {
-                'interfaces': ('inet:service:object',),
-                'template': {'service:base': 'software image'},
+                'interfaces': (
+                    ('inet:service:object', {
+                        'template': {'service:base': 'software image'}}),
+                ),
                 'doc': 'The base image used to create a container or OS.'}),
 
             ('it:storage:mount', ('guid', {}), {
@@ -1006,9 +1071,10 @@ modeldefs = (
 
             ('it:storage:volume:type:taxonomy', ('taxonomy', {}), {
                 'ex': 'network.smb',
-                'interfaces': ('meta:taxonomy',),
-                'doc': 'A hierarchical taxonomy of storage volume types.',
-            }),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
+                'doc': 'A hierarchical taxonomy of storage volume types.'}),
         ),
         'interfaces': (
             ('it:host:activity', {
@@ -1047,6 +1113,7 @@ modeldefs = (
             ('it:hostname', {}, ()),
 
             ('it:host', {}, (
+
                 ('name', ('it:hostname', {}), {
                     'doc': 'The name of the host or system.'}),
 
@@ -1072,7 +1139,7 @@ modeldefs = (
                 ('os', ('it:prod:softver', {}), {
                     'doc': 'The operating system of the host.'}),
 
-                ('os:name', ('it:prod:softname', {}), {
+                ('os:name', ('meta:name', {}), {
                     'doc': 'A software product name for the host operating system. Used for entity resolution.'}),
 
                 ('hardware', ('it:prod:hardware', {}), {
@@ -1081,13 +1148,13 @@ modeldefs = (
                 ('serial', ('str', {}), {
                     'doc': 'The serial number of the host.'}),
 
-                ('operator', ('ps:contact', {}), {
+                ('operator', ('entity:contact', {}), {
                     'doc': 'The operator of the host.'}),
 
                 ('org', ('ou:org', {}), {
                     'doc': 'The org that operates the given host.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An external identifier for the host.'}),
 
                 ('keyboard:layout', ('str', {'lower': True, 'onespace': True}), {
@@ -1113,7 +1180,7 @@ modeldefs = (
             ('it:software:image:type:taxonomy', {}, ()),
             ('it:software:image', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the image.'}),
 
                 ('type', ('it:software:image:type:taxonomy', {}), {
@@ -1122,7 +1189,7 @@ modeldefs = (
                 ('published', ('time', {}), {
                     'doc': 'The time the image was published.'}),
 
-                ('publisher', ('ps:contact', {}), {
+                ('publisher', ('entity:contact', {}), {
                     'doc': 'The contact information of the org or person who published the image.'}),
 
                 ('parents', ('array', {'type': 'it:software:image'}), {
@@ -1132,10 +1199,10 @@ modeldefs = (
             ('it:storage:volume:type:taxonomy', {}, ()),
             ('it:storage:volume', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The unique volume ID.'}),
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the volume.'}),
 
                 ('type', ('it:storage:volume:type:taxonomy', {}), {
@@ -1173,7 +1240,7 @@ modeldefs = (
                 ('data', ('data', {}), {
                     'doc': 'A raw JSON record of the log event.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An external id that uniquely identifies this log entry.'}),
 
                 ('product', ('it:prod:softver', {}), {
@@ -1190,20 +1257,20 @@ modeldefs = (
 
             )),
             ('it:domain', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The name of the domain.',
-                }),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The name of the domain.'}),
+
                 ('desc', ('str', {}), {
-                    'doc': 'A brief description of the domain.',
-                }),
+                    'doc': 'A brief description of the domain.'}),
+
                 ('org', ('ou:org', {}), {
-                    'doc': 'The org that operates the given domain.',
-                }),
+                    'doc': 'The org that operates the given domain.'}),
             )),
             ('it:network:type:taxonomy', {}, ()),
             ('it:network', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the network.'}),
 
                 ('desc', ('str', {}), {
@@ -1225,123 +1292,129 @@ modeldefs = (
                     'doc': 'An array of DNS servers configured to resolve requests for hosts on the network.'})
 
             )),
+            # FIXME it:host:account?
             ('it:account', {}, (
                 ('user', ('inet:user', {}), {
-                    'doc': 'The username associated with the account.',
-                }),
-                ('contact', ('ps:contact', {}), {
-                    'doc': 'Additional contact information associated with this account.',
-                }),
+                    'doc': 'The username associated with the account.'}),
+
+                ('contact', ('entity:contact', {}), {
+                    'doc': 'Additional contact information associated with this account.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host where the account is registered.',
-                }),
+                    'doc': 'The host where the account is registered.'}),
+
                 ('domain', ('it:domain', {}), {
-                    'doc': 'The authentication domain where the account is registered.',
-                }),
+                    'doc': 'The authentication domain where the account is registered.'}),
+
                 ('posix:uid', ('int', {}), {
-                    'doc': 'The user ID of the account.',
                     'ex': '1001',
-                }),
+                    'doc': 'The user ID of the account.'}),
+
                 ('posix:gid', ('int', {}), {
-                    'doc': 'The primary group ID of the account.',
                     'ex': '1001',
-                }),
+                    'doc': 'The primary group ID of the account.'}),
+
                 ('posix:gecos', ('int', {}), {
-                    'doc': 'The GECOS field for the POSIX account.',
-                }),
+                    'doc': 'The GECOS field for the POSIX account.'}),
+
                 ('posix:home', ('file:path', {}), {
-                    'doc': "The path to the POSIX account's home directory.",
                     'ex': '/home/visi',
-                }),
+                    'doc': "The path to the POSIX account's home directory."}),
+
                 ('posix:shell', ('file:path', {}), {
-                    'doc': "The path to the POSIX account's default shell.",
                     'ex': '/bin/bash',
-                }),
+                    'doc': "The path to the POSIX account's default shell."}),
+
                 ('windows:sid', ('it:os:windows:sid', {}), {
-                    'doc': 'The Microsoft Windows Security Identifier of the account.',
-                }),
+                    'doc': 'The Microsoft Windows Security Identifier of the account.'}),
+
                 ('groups', ('array', {'type': 'it:group', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of groups that the account is a member of.',
-                }),
+                    'doc': 'An array of groups that the account is a member of.'}),
             )),
+            # FIXME it:host:group?
             ('it:group', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The name of the group.',
-                }),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The name of the group.'}),
+
                 ('desc', ('str', {}), {
-                    'doc': 'A brief description of the group.',
-                }),
+                    'doc': 'A brief description of the group.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host where the group is registered.',
-                }),
+                    'doc': 'The host where the group is registered.'}),
+
                 ('domain', ('it:domain', {}), {
-                    'doc': 'The authentication domain where the group is registered.',
-                }),
+                    'doc': 'The authentication domain where the group is registered.'}),
+
                 ('groups', ('array', {'type': 'it:group', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Groups that are a member of this group.',
-                }),
+                    'doc': 'Groups that are a member of this group.'}),
+
                 ('posix:gid', ('int', {}), {
-                    'doc': 'The primary group ID of the account.',
                     'ex': '1001',
-                }),
+                    'doc': 'The primary group ID of the account.'}),
+
                 ('windows:sid', ('it:os:windows:sid', {}), {
-                    'doc': 'The Microsoft Windows Security Identifier of the group.',
-                }),
+                    'doc': 'The Microsoft Windows Security Identifier of the group.'}),
             )),
             ('it:logon', {}, (
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the logon occurred.',
-                }),
+                    'doc': 'The time the logon occurred.'}),
+
                 ('success', ('bool', {}), {
-                    'doc': 'Set to false to indicate an unsuccessful logon attempt.',
-                }),
+                    'doc': 'Set to false to indicate an unsuccessful logon attempt.'}),
+
                 ('logoff:time', ('time', {}), {
-                    'doc': 'The time the logon session ended.',
-                }),
+                    'doc': 'The time the logon session ended.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host that the account logged in to.',
-                }),
+                    'doc': 'The host that the account logged in to.'}),
+
                 ('account', ('it:account', {}), {
-                    'doc': 'The account that logged in.',
-                }),
+                    'doc': 'The account that logged in.'}),
+
                 ('creds', ('auth:creds', {}), {
-                    'doc': 'The credentials that were used for the logon.',
-                }),
+                    'doc': 'The credentials that were used for the logon.'}),
+
                 ('duration', ('duration', {}), {
-                    'doc': 'The duration of the logon session.',
-                }),
+                    'doc': 'The duration of the logon session.'}),
+
+                # FIXME client
                 ('client:host', ('it:host', {}), {
-                    'doc': 'The host where the logon originated.',
-                }),
+                    'doc': 'The host where the logon originated.'}),
+
                 ('client:ip', ('inet:ip', {}), {
-                    'doc': 'The IP where the logon originated.',
-                    'prevnames': ('client:ipv4', 'client:ipv6')}),
+                    'prevnames': ('client:ipv4', 'client:ipv6'),
+                    'doc': 'The IP where the logon originated.'}),
             )),
             ('it:hosturl', {}, (
+
                 ('host', ('it:host', {}), {
                     'ro': True,
-                    'doc': 'Host serving a url.',
-                }),
+                    'doc': 'Host serving a url.'}),
+
                 ('url', ('inet:url', {}), {
                     'ro': True,
-                    'doc': 'URL available on the host.',
-                }),
+                    'doc': 'URL available on the host.'}),
             )),
             ('it:screenshot', {}, (
+
                 ('image', ('file:bytes', {}), {
                     'doc': 'The image file.'}),
+
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A brief description of the screenshot.'})
             )),
             ('it:dev:str', {}, (
+
                 ('norm', ('str', {'lower': True}), {
-                    'doc': 'Lower case normalized version of the it:dev:str.',
-                }),
+                    'doc': 'Lower case normalized version of the it:dev:str.'}),
+
             )),
             ('it:sec:cve', {}, (
 
-                ('nist:nvd:source', ('ou:name', {}), {
+                ('nist:nvd:source', ('meta:name', {}), {
                     'doc': 'The name of the organization which reported the vulnerability to NIST.'}),
 
                 ('nist:nvd:published', ('time', {}), {
@@ -1359,10 +1432,10 @@ modeldefs = (
                 ('cisa:kev:action', ('str', {}), {
                     'doc': 'The action to mitigate the vulnerability according to the CISA KEV database.'}),
 
-                ('cisa:kev:vendor', ('ou:name', {}), {
+                ('cisa:kev:vendor', ('meta:name', {}), {
                     'doc': 'The vendor name listed in the CISA KEV database.'}),
 
-                ('cisa:kev:product', ('it:prod:softname', {}), {
+                ('cisa:kev:product', ('meta:name', {}), {
                     'doc': 'The product name listed in the CISA KEV database.'}),
 
                 ('cisa:kev:added', ('time', {}), {
@@ -1370,62 +1443,72 @@ modeldefs = (
 
                 ('cisa:kev:duedate', ('time', {}), {
                     'doc': 'The date the action is due according to the CISA KEV database.'}),
-
             )),
             ('it:sec:cpe', {}, (
+
                 ('v2_2', ('it:sec:cpe:v2_2', {}), {
-                    'doc': 'The CPE 2.2 string which is equivalent to the primary property.',
-                }),
+                    'doc': 'The CPE 2.2 string which is equivalent to the primary property.'}),
+
                 ('part', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "part" field from the CPE 2.3 string.'}),
-                ('vendor', ('ou:name', {}), {
+
+                ('vendor', ('meta:name', {}), {
                     'ro': True,
                     'doc': 'The "vendor" field from the CPE 2.3 string.'}),
+
                 ('product', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "product" field from the CPE 2.3 string.'}),
+
                 ('version', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "version" field from the CPE 2.3 string.'}),
+
                 ('update', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "update" field from the CPE 2.3 string.'}),
+
                 ('edition', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "edition" field from the CPE 2.3 string.'}),
+
                 ('language', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "language" field from the CPE 2.3 string.'}),
+
                 ('sw_edition', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "sw_edition" field from the CPE 2.3 string.'}),
+
                 ('target_sw', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "target_sw" field from the CPE 2.3 string.'}),
+
                 ('target_hw', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "target_hw" field from the CPE 2.3 string.'}),
+
                 ('other', ('str', {'lower': True, 'strip': True}), {
                     'ro': True,
                     'doc': 'The "other" field from the CPE 2.3 string.'}),
             )),
             ('it:sec:cwe', {}, (
+
                 ('name', ('str', {}), {
                     'doc': 'The CWE description field.',
-                    'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)',
-                }),
+                    'ex': 'Buffer Copy without Checking Size of Input (Classic Buffer Overflow)'}),
+
                 ('desc', ('str', {}), {
-                    'doc': 'The CWE description field.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'The CWE description field.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'A URL linking this CWE to a full description.',
-                }),
+                    'doc': 'A URL linking this CWE to a full description.'}),
+
                 ('parents', ('array', {'type': 'it:sec:cwe',
                                        'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ChildOf CWE Relationships.'
-                }),
+                    'doc': 'An array of ChildOf CWE Relationships.'}),
             )),
 
             ('it:sec:metrics', {}, (
@@ -1433,7 +1516,7 @@ modeldefs = (
                 ('org', ('ou:org', {}), {
                     'doc': 'The organization whose security program is being measured.'}),
 
-                ('org:name', ('ou:name', {}), {
+                ('org:name', ('meta:name', {}), {
                     'doc': 'The organization name. Used for entity resolution.'}),
 
                 ('org:fqdn', ('inet:fqdn', {}), {
@@ -1483,7 +1566,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'Description of the scan and scope.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An externally generated ID for the scan.'}),
 
                 ('ext:url', ('inet:url', {}), {
@@ -1492,10 +1575,10 @@ modeldefs = (
                 ('software', ('it:prod:softver', {}), {
                     'doc': 'The scanning software used.'}),
 
-                ('software:name', ('it:prod:softname', {}), {
+                ('software:name', ('meta:name', {}), {
                     'doc': 'The name of the scanner software.'}),
 
-                ('operator', ('ps:contact', {}), {
+                ('operator', ('entity:contact', {}), {
                     'doc': 'Contact information for the scan operator.'}),
 
             )),
@@ -1517,7 +1600,7 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time that the scan result was produced.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An externally generated ID for the scan result.'}),
 
                 ('ext:url', ('inet:url', {}), {
@@ -1537,234 +1620,249 @@ modeldefs = (
             )),
 
             ('it:mitre:attack:group', {}, (
+
+                # FIXME actor?
                 ('org', ('ou:org', {}), {
-                    'doc': 'Used to map an ATT&CK group to a synapse ou:org.',
-                }),
-                ('name', ('ou:name', {}), {
-                    'doc': 'The primary name for the ATT&CK group.',
-                }),
-                ('names', ('array', {'type': 'ou:name', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of alternate names for the ATT&CK group.',
-                }),
+                    'doc': 'Used to map an ATT&CK group to a synapse ou:org.'}),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The primary name for the ATT&CK group.'}),
+
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of alternate names for the ATT&CK group.'}),
+
                 ('desc', ('str', {}), {
-                    'doc': 'A description of the ATT&CK group.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the ATT&CK group.'}),
+
                 ('isnow', ('it:mitre:attack:group', {}), {
-                    'doc': 'If deprecated, this field may contain the current value for the group.',
-                }),
+                    'doc': 'If deprecated, this field may contain the current value for the group.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'The URL that documents the ATT&CK group.',
-                }),
+                    'doc': 'The URL that documents the ATT&CK group.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK group.',
-                }),
+                    'doc': 'An array of URLs that document the ATT&CK group.'}),
+
                 ('techniques', ('array', {'type': 'it:mitre:attack:technique',
                                           'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK technique IDs used by the group.',
-                }),
+                    'doc': 'An array of ATT&CK technique IDs used by the group.'}),
+
                 ('software', ('array', {'type': 'it:mitre:attack:software',
                                         'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK software IDs used by the group.',
-                }),
+                    'doc': 'An array of ATT&CK software IDs used by the group.'}),
             )),
             ('it:mitre:attack:tactic', {}, (
-                ('name', ('str', {'strip': True}), {
-                    'doc': 'The primary name for the ATT&CK tactic.',
-                }),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The primary name for the ATT&CK tactic.'}),
+
                 ('matrix', ('it:mitre:attack:matrix', {}), {
-                    'doc': 'The ATT&CK matrix which defines the tactic.',
-                }),
+                    'doc': 'The ATT&CK matrix which defines the tactic.'}),
+
                 ('desc', ('str', {}), {
-                    'doc': 'A description of the ATT&CK tactic.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the ATT&CK tactic.'}),
+
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL that documents the ATT&CK tactic.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK tactic.',
-                }),
+                    'doc': 'An array of URLs that document the ATT&CK tactic.'}),
             )),
             ('it:mitre:attack:technique', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The primary name for the ATT&CK technique.',
-                }),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The primary name for the ATT&CK technique.'}),
+
                 ('matrix', ('it:mitre:attack:matrix', {}), {
-                    'doc': 'The ATT&CK matrix which defines the technique.',
-                }),
+                    'doc': 'The ATT&CK matrix which defines the technique.'}),
+
                 ('status', ('it:mitre:attack:status', {}), {
-                    'doc': 'The status of this ATT&CK technique.',
-                }),
+                    'doc': 'The status of this ATT&CK technique.'}),
+
                 ('isnow', ('it:mitre:attack:technique', {}), {
-                    'doc': 'If deprecated, this field may contain the current value for the technique.',
-                }),
+                    'doc': 'If deprecated, this field may contain the current value for the technique.'}),
+
                 ('desc', ('str', {'strip': True}), {
-                    'doc': 'A description of the ATT&CK technique.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the ATT&CK technique.'}),
+
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL that documents the ATT&CK technique.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK technique.',
-                }),
+                    'doc': 'An array of URLs that document the ATT&CK technique.'}),
+
                 ('parent', ('it:mitre:attack:technique', {}), {
-                    'doc': 'The parent ATT&CK technique on this sub-technique.',
-                }),
+                    'doc': 'The parent ATT&CK technique on this sub-technique.'}),
+
                 ('tactics', ('array', {'type': 'it:mitre:attack:tactic',
                                        'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK tactics that include this technique.',
-                }),
+                    'doc': 'An array of ATT&CK tactics that include this technique.'}),
+
                 ('data:components', ('array', {'type': 'it:mitre:attack:data:component',
                                                'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.',
-                }),
+                    'doc': 'An array of MITRE ATT&CK data components that detect the ATT&CK technique.'}),
             )),
             ('it:mitre:attack:software', {}, (
                 ('software', ('it:prod:soft', {}), {
-                    'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.',
-                }),
-                ('name', ('it:prod:softname', {}), {
-                    'doc': 'The primary name for the ATT&CK software.',
-                }),
-                ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Associated names for the ATT&CK software.',
-                }),
+                    'doc': 'Used to map an ATT&CK software to a synapse it:prod:soft.'}),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The primary name for the ATT&CK software.'}),
+
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'Associated names for the ATT&CK software.'}),
+
                 ('desc', ('str', {'strip': True}), {
-                    'doc': 'A description of the ATT&CK software.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the ATT&CK software.'}),
+
                 ('isnow', ('it:mitre:attack:software', {}), {
-                    'doc': 'If deprecated, this field may contain the current value for the software.',
-                }),
+                    'doc': 'If deprecated, this field may contain the current value for the software.'}),
+
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL that documents the ATT&CK software.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK software.',
-                }),
+                    'doc': 'An array of URLs that document the ATT&CK software.'}),
+
                 ('techniques', ('array', {'type': 'it:mitre:attack:technique',
                                           'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of techniques used by the software.',
-                }),
+                    'doc': 'An array of techniques used by the software.'}),
             )),
             ('it:mitre:attack:mitigation', {}, (
                 # TODO map to an eventual risk:mitigation
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The primary name for the ATT&CK mitigation.',
-                }),
+                ('name', ('meta:name', {}), {
+                    'doc': 'The primary name for the ATT&CK mitigation.'}),
+
                 ('matrix', ('it:mitre:attack:matrix', {}), {
-                    'doc': 'The ATT&CK matrix which defines the mitigation.',
-                }),
+                    'doc': 'The ATT&CK matrix which defines the mitigation.'}),
+
                 ('desc', ('str', {'strip': True}), {
-                    'doc': 'A description of the ATT&CK mitigation.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the ATT&CK mitigation.'}),
+
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL that documents the ATT&CK mitigation.'}),
 
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK mitigation.',
-                }),
+                    'doc': 'An array of URLs that document the ATT&CK mitigation.'}),
+
                 ('addresses', ('array', {'type': 'it:mitre:attack:technique',
                                          'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.',
-                }),
+                    'doc': 'An array of ATT&CK technique IDs addressed by the mitigation.'}),
             )),
             ('it:mitre:attack:campaign', {}, (
-                ('name', ('ou:campname', {}), {
-                    'doc': 'The primary name for the ATT&CK campaign.',
-                }),
-                ('names', ('array', {'type': 'ou:campname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of alternate names for the ATT&CK campaign.',
-                }),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The primary name for the ATT&CK campaign.'}),
+
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'An array of alternate names for the ATT&CK campaign.'}),
+
                 ('desc', ('str', {'strip': True}), {
-                    'doc': 'A description of the ATT&CK campaign.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the ATT&CK campaign.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'The URL that documents the ATT&CK campaign.',
-                }),
+                    'doc': 'The URL that documents the ATT&CK campaign.'}),
+
                 ('groups', ('array', {'type': 'it:mitre:attack:group',
                                          'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK group IDs attributed to the campaign.',
-                }),
+                    'doc': 'An array of ATT&CK group IDs attributed to the campaign.'}),
+
                 ('software', ('array', {'type': 'it:mitre:attack:software',
                                          'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK software IDs used in the campaign.',
-                }),
+                    'doc': 'An array of ATT&CK software IDs used in the campaign.'}),
+
                 ('techniques', ('array', {'type': 'it:mitre:attack:technique',
                                          'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'An array of ATT&CK technique IDs used in the campaign.',
-                }),
+                    'doc': 'An array of ATT&CK technique IDs used in the campaign.'}),
+
                 ('matrices', ('array', {'type': 'it:mitre:attack:matrix',
                                         'uniq': True, 'sorted': True, 'split': ','}), {
-                    'doc': 'The ATT&CK matrices which define the campaign.',
-                }),
+                    'doc': 'The ATT&CK matrices which define the campaign.'}),
+
                 ('references', ('array', {'type': 'inet:url', 'uniq': True}), {
-                    'doc': 'An array of URLs that document the ATT&CK campaign.',
-                }),
+                    'doc': 'An array of URLs that document the ATT&CK campaign.'}),
+
                 ('period', ('ival', {}), {
                     'doc': 'The time interval when the campaign was active.'}),
+
                 ('created', ('time', {}), {
                     'doc': 'The time that the campaign was created by MITRE.'}),
+
                 ('updated', ('time', {}), {
                     'doc': 'The time that the campaign was last updated by MITRE.'}),
             )),
             ('it:mitre:attack:flow', {}, (
-                ('name', ('str', {}), {
+
+                ('name', ('str', {'strip': True}), {
                     'doc': 'The name of the attack-flow diagram.'}),
+
                 ('data', ('data', {'schema': attack_flow_schema_2_0_0}), {
                     'doc': 'The ATT&CK Flow diagram. Schema version 2.0.0 enforced.'}),
+
                 ('created', ('time', {}), {
                     'doc': 'The time that the diagram was created.'}),
+
                 ('updated', ('time', {}), {
                     'doc': 'The time that the diagram was last updated.'}),
+
+                # FIXME either / or and syn:user as actor
                 ('author:user', ('syn:user', {}), {
                     'doc': 'The Synapse user that created the node.'}),
-                ('author:contact', ('ps:contact', {}), {
+
+                ('author:contact', ('entity:contact', {}), {
                     'doc': 'The contact information for the author of the ATT&CK Flow diagram.'}),
+
             )),
             ('it:mitre:attack:datasource', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the datasource.'}),
+
                 ('description', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the datasource.'}),
+
                 ('references', ('array', {'type': 'inet:url', 'uniq': True, 'sorted': True}), {
-                    'doc': 'An array of URLs that document the datasource.',
-                }),
+                    'doc': 'An array of URLs that document the datasource.'}),
             )),
             ('it:mitre:attack:data:component', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+
+                ('name', ('meta:name', {}), {
                     'ro': True,
                     'doc': 'The name of the data component.'}),
+
                 ('description', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A description of the data component.'}),
+
                 ('datasource', ('it:mitre:attack:datasource', {}), {
                     'ro': True,
                     'doc': 'The datasource this data component belongs to.'}),
             )),
             ('it:dev:int', {}, ()),
+            # FIXME revisit pipes/mutexes
             ('it:dev:pipe', {}, ()),
             ('it:dev:mutex', {}, ()),
             ('it:dev:regkey', {}, ()),
             ('it:dev:regval', {}, (
+
                 ('key', ('it:dev:regkey', {}), {
-                    'doc': 'The Windows registry key.',
-                }),
+                    'doc': 'The Windows registry key.'}),
+
                 ('str', ('it:dev:str', {}), {
-                    'doc': 'The value of the registry key, if the value is a string.',
-                }),
+                    'doc': 'The value of the registry key, if the value is a string.'}),
+
                 ('int', ('it:dev:int', {}), {
-                    'doc': 'The value of the registry key, if the value is an integer.',
-                }),
+                    'doc': 'The value of the registry key, if the value is an integer.'}),
+
                 ('bytes', ('file:bytes', {}), {
-                    'doc': 'The file representing the value of the registry key, if the value is binary data.',
-                }),
+                    'doc': 'The file representing the value of the registry key, if the value is binary data.'}),
             )),
 
             # TODO: all of the `id:dev:repo` forms need to be tied to the TBD inet:service model
@@ -1790,19 +1888,19 @@ modeldefs = (
             )),
 
             ('it:dev:repo:remote', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The name the repo is using for the remote repo.',
-                    'ex': 'origin'
-                }),
+
+                ('name', ('meta:name', {}), {
+                    'ex': 'origin',
+                    'doc': 'The name the repo is using for the remote repo.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'The URL the repo is using to access the remote repo.',
-                }),
+                    'doc': 'The URL the repo is using to access the remote repo.'}),
+
                 ('repo', ('it:dev:repo', {}), {
-                    'doc': 'The repo that is tracking the remote repo.',
-                }),
+                    'doc': 'The repo that is tracking the remote repo.'}),
+
                 ('remote', ('it:dev:repo', {}), {
-                    'doc': 'The instance of the remote repo.',
-                }),
+                    'doc': 'The instance of the remote repo.'}),
             )),
 
             ('it:dev:repo:branch', {}, (
@@ -1824,6 +1922,7 @@ modeldefs = (
             )),
 
             ('it:dev:repo:commit', {}, (
+
                 ('repo', ('it:dev:repo', {}), {
                     'doc': 'The repository the commit lives in.'}),
 
@@ -1837,8 +1936,7 @@ modeldefs = (
                     'disp': {'hint': 'text'},
                     'doc': 'The commit message describing the changes in the commit.'}),
 
-                # we mirror the interface type options...
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The version control system specific commit identifier.'}),
 
                 ('url', ('inet:url', {}), {
@@ -1878,13 +1976,13 @@ modeldefs = (
                 ('url', ('inet:url', {}), {
                     'doc': 'The URL where the issue is hosted.'}),
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID of the issue in the repository system.'}),
             )),
 
             ('it:dev:repo:label', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID of the label.'}),
 
                 ('title', ('str', {'lower': True, 'strip': True}), {
@@ -1953,68 +2051,83 @@ modeldefs = (
             ('it:prod:hardware:type:taxonomy', {
                 'prevnames': ('it:prod:hardwaretype',)}, ()),
 
+            # FIXME it:hardware / it:software
             ('it:prod:hardware', {}, (
-                ('name', ('str', {'lower': True, 'onespace': True}), {
-                    'doc': 'The display name for this hardware specification.'}),
+
+                ('name', ('meta:name', {}), {
+                    'doc': 'The name of this hardware specification.'}),
+
                 ('type', ('it:prod:hardware:type:taxonomy', {}), {
                     'doc': 'The type of hardware.'}),
+
                 ('desc', ('str', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'A brief description of the hardware.'}),
+
                 ('cpe', ('it:sec:cpe', {}), {
                     'doc': 'The NIST CPE 2.3 string specifying this hardware.'}),
+
+                # FIXME actor? phy:manufactured?
                 ('manufacturer', ('ou:org', {}), {
                     'doc': 'The organization that manufactures this hardware.'}),
-                ('manufacturer:name', ('ou:name', {}), {
+
+                ('manufacturer:name', ('meta:name', {}), {
                     'doc': 'The name of the organization that manufactures this hardware.'}),
+
                 ('model', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'The model name or number for this hardware specification.'}),
+
                 ('version', ('str', {'lower': True, 'onespace': True}), {
                     'doc': 'Version string associated with this hardware specification.'}),
+
                 ('released', ('time', {}), {
                     'doc': 'The initial release date for this hardware.'}),
+
                 ('parts', ('array', {'type': 'it:prod:hardware', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of it:prod:hardware parts included in this hardware specification.'}),
             )),
             ('it:prod:component', {}, (
+
                 ('hardware', ('it:prod:hardware', {}), {
                     'doc': 'The hardware specification of this component.'}),
-                ('serial', ('str', {}), {
+
+                ('serial', ('meta:id', {}), {
                     'doc': 'The serial number of this component.'}),
+
                 ('host', ('it:host', {}), {
                     'doc': 'The it:host which has this component installed.'}),
             )),
             ('it:prod:soft:taxonomy', {}, ()),
             ('it:prod:soft', {}, (
 
-                ('id', ('str', {'strip': True}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'An ID for the software.'}),
 
-                ('name', ('it:prod:softname', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
-                    'doc': 'Name of the software.',
-                }),
+                    'doc': 'The name of the software.'}),
+
                 ('type', ('it:prod:soft:taxonomy', {}), {
                     'doc': 'The software type.'}),
-                ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Observed/variant names for this software.',
-                }),
+
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'A list of alternate names for this software.'}),
+
                 ('desc', ('str', {}), {
-                    'doc': 'A description of the software.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the software.'}),
+
                 ('desc:short', ('str', {'lower': True}), {
-                    'doc': 'A short description of the software.',
-                }),
+                    'doc': 'A short description of the software.'}),
+
                 ('cpe', ('it:sec:cpe', {}), {
-                    'doc': 'The NIST CPE 2.3 string specifying this software.',
-                }),
-                ('author', ('ps:contact', {}), {
-                    'doc': 'The contact information of the org or person who authored the software.',
-                }),
+                    'doc': 'The NIST CPE 2.3 string specifying this software.'}),
+
+                ('author', ('entity:actor', {}), {
+                    'doc': 'The contact information of the entity who authored the software.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'URL relevant for the software.',
-                }),
+                    'doc': 'URL relevant for the software.'}),
 
                 ('isos', ('bool', {}), {
                     'doc': 'Set to True if the software is an operating system.'}),
@@ -2023,10 +2136,9 @@ modeldefs = (
                     'doc': 'Set to True if the software is a library.'}),
             )),
 
-            ('it:prod:softname', {}, ()),
             ('it:prod:softid', {}, (
 
-                ('id', ('str', {}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The ID issued by the software to the host.'}),
 
                 ('host', ('it:host', {}), {
@@ -2035,7 +2147,7 @@ modeldefs = (
                 ('soft', ('it:prod:softver', {}), {
                     'doc': 'The software which issued the ID to the host.'}),
 
-                ('soft:name', ('it:prod:softname', {}), {
+                ('soft:name', ('meta:name', {}), {
                     'doc': 'The name of the software which issued the ID to the host.'}),
             )),
 
@@ -2085,35 +2197,37 @@ modeldefs = (
                 ('software', ('it:prod:soft', {}), {
                     'doc': 'Software associated with this version instance.',
                 }),
-                ('name', ('it:prod:softname', {}), {
+                ('name', ('meta:name', {}), {
                     'alts': ('names',),
-                    'doc': 'Name of the software version.',
-                }),
-                ('names', ('array', {'type': 'it:prod:softname', 'uniq': True, 'sorted': True}), {
-                    'doc': 'Observed/variant names for this software version.',
-                }),
+                    'doc': 'Name of the software version.'}),
+
+                ('names', ('array', {'type': 'meta:name', 'uniq': True, 'sorted': True}), {
+                    'doc': 'Observed/variant names for this software version.'}),
+
                 ('desc', ('str', {}), {
-                    'doc': 'A description of the software.',
                     'disp': {'hint': 'text'},
-                }),
+                    'doc': 'A description of the software.'}),
+
                 ('cpe', ('it:sec:cpe', {}), {
-                    'doc': 'The NIST CPE 2.3 string specifying this software version.',
-                }),
+                    'doc': 'The NIST CPE 2.3 string specifying this software version.'}),
+
                 ('cves', ('array', {'type': 'it:sec:cve', 'uniq': True, 'sorted': True}), {
-                    'doc': 'A list of CVEs that apply to this software version.',
-                }),
+                    'doc': 'A list of CVEs that apply to this software version.'}),
+
                 ('vers', ('it:dev:str', {}), {
-                    'doc': 'Version string associated with this version instance.',
-                }),
+                    'doc': 'Version string associated with this version instance.'}),
+
                 ('vers:norm', ('str', {'lower': True}), {
-                    'doc': 'Normalized version of the version string.',
-                }),
+                    'doc': 'Normalized version of the version string.'}),
+
+                # FIXME form?
                 ('arch', ('it:dev:str', {}), {
-                    'doc': 'Software architecture.',
-                }),
+                    'doc': 'Software architecture.'}),
+
                 ('released', ('time', {}), {
                     'doc': 'Timestamp for when this version of the software was released.'}),
 
+                # FIXME semver virtual props even if parsing fails?
                 ('semver', ('it:semver', {}), {
                     'doc': 'System normalized semantic version number.'}),
 
@@ -2122,6 +2236,7 @@ modeldefs = (
 
             )),
 
+            # FIXME depends
             ('it:prod:softlib', {}, (
 
                 ('soft', ('it:prod:softver', {}), {'ro': True,
@@ -2131,6 +2246,7 @@ modeldefs = (
                     'doc': 'The library software version.'}),
             )),
 
+            # FIXME has?
             ('it:prod:softfile', {}, (
 
                 ('soft', ('it:prod:softver', {}), {'ro': True,
@@ -2173,7 +2289,7 @@ modeldefs = (
                 ('scanner', ('it:prod:softver', {}), {
                     'doc': 'The scanner software used to produce the result.'}),
 
-                ('scanner:name', ('it:prod:softname', {}), {
+                ('scanner:name', ('meta:name', {}), {
                     'doc': 'The name of the scanner software.'}),
 
                 ('signame', ('it:av:signame', {}), {
@@ -2277,12 +2393,13 @@ modeldefs = (
                     'doc': 'Used to order the commands when times are not available.'}),
             )),
             ('it:exec:proc', {}, (
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host that executed the process. May be an actual or a virtual / notional host.',
-                }),
+                    'doc': 'The host that executed the process. May be an actual or a virtual / notional host.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.',
-                }),
+                    'doc': 'The file considered the "main" executable for the process. For example, rundll32.exe may be considered the "main" executable for DLLs loaded by that program.'}),
+
                 ('cmd', ('it:cmd', {}), {
                     'disp': {'hint': 'text'},
                     'doc': 'The command string used to launch the process, including any command line parameters.'}),
@@ -2291,35 +2408,34 @@ modeldefs = (
                     'doc': 'The command history entry which caused this process to be run.'}),
 
                 ('pid', ('int', {}), {
-                    'doc': 'The process ID.',
-                }),
+                    'doc': 'The process ID.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The start time for the process.',
-                }),
+                    'doc': 'The start time for the process.'}),
+
                 ('name', ('str', {}), {
-                    'doc': 'The display name specified by the process.',
-                }),
+                    'doc': 'The display name specified by the process.'}),
+
                 ('exited', ('time', {}), {
-                    'doc': 'The time the process exited.',
-                }),
+                    'doc': 'The time the process exited.'}),
+
                 ('exitcode', ('int', {}), {
-                    'doc': 'The exit code for the process.',
-                }),
+                    'doc': 'The exit code for the process.'}),
+
                 ('account', ('it:account', {}), {
-                    'doc': 'The account of the process owner.',
-                }),
+                    'doc': 'The account of the process owner.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The path to the executable of the process.',
-                }),
+                    'doc': 'The path to the executable of the process.'}),
+
                 ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'The process which created the process.'
-                }),
+                    'doc': 'The process which created the process.'}),
+
                 ('killedby', ('it:exec:proc', {}), {
-                    'doc': 'The process which killed this process.',
-                }),
+                    'doc': 'The process which killed this process.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:query', {}, ()),
             ('it:exec:query', {}, (
@@ -2352,362 +2468,366 @@ modeldefs = (
                     'doc': 'The service account which ran the query.'}),
             )),
             ('it:exec:thread', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process which contains the thread.',
-                }),
+                    'doc': 'The process which contains the thread.'}),
+
                 ('created', ('time', {}), {
-                    'doc': 'The time the thread was created.',
-                }),
+                    'doc': 'The time the thread was created.'}),
+
                 ('exited', ('time', {}), {
-                    'doc': 'The time the thread exited.',
-                }),
+                    'doc': 'The time the thread exited.'}),
+
                 ('exitcode', ('int', {}), {
-                    'doc': 'The exit code or return value for the thread.',
-                }),
+                    'doc': 'The exit code or return value for the thread.'}),
+
                 ('src:proc', ('it:exec:proc', {}), {
-                    'doc': 'An external process which created the thread.',
-                }),
+                    'doc': 'An external process which created the thread.'}),
+
                 ('src:thread', ('it:exec:thread', {}), {
-                    'doc': 'The thread which created this thread.',
-                }),
+                    'doc': 'The thread which created this thread.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:loadlib', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process where the library was loaded.',
-                }),
+                    'doc': 'The process where the library was loaded.'}),
+
                 ('va', ('int', {}), {
-                    'doc': 'The base memory address where the library was loaded in the process.',
-                }),
+                    'doc': 'The base memory address where the library was loaded in the process.'}),
+
                 ('loaded', ('time', {}), {
-                    'doc': 'The time the library was loaded.',
-                }),
+                    'doc': 'The time the library was loaded.'}),
+
                 ('unloaded', ('time', {}), {
-                    'doc': 'The time the library was unloaded.',
-                }),
+                    'doc': 'The time the library was unloaded.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The path that the library was loaded from.',
-                }),
+                    'doc': 'The path that the library was loaded from.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The library file that was loaded.',
-                }),
+                    'doc': 'The library file that was loaded.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:mmap', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The process where the memory was mapped.',
-                }),
+                    'doc': 'The process where the memory was mapped.'}),
+
                 ('va', ('int', {}), {
-                    'doc': 'The base memory address where the map was created in the process.',
-                }),
+                    'doc': 'The base memory address where the map was created in the process.'}),
+
                 ('size', ('int', {}), {
-                    'doc': 'The size of the memory map in bytes.',
-                }),
+                    'doc': 'The size of the memory map in bytes.'}),
+
                 ('perms:read', ('bool', {}), {
-                    'doc': 'True if the mmap is mapped with read permissions.',
-                }),
+                    'doc': 'True if the mmap is mapped with read permissions.'}),
+
                 ('perms:write', ('bool', {}), {
-                    'doc': 'True if the mmap is mapped with write permissions.',
-                }),
+                    'doc': 'True if the mmap is mapped with write permissions.'}),
+
                 ('perms:execute', ('bool', {}), {
-                    'doc': 'True if the mmap is mapped with execute permissions.',
-                }),
+                    'doc': 'True if the mmap is mapped with execute permissions.'}),
+
                 ('created', ('time', {}), {
-                    'doc': 'The time the memory map was created.',
-                }),
+                    'doc': 'The time the memory map was created.'}),
+
                 ('deleted', ('time', {}), {
-                    'doc': 'The time the memory map was deleted.',
-                }),
+                    'doc': 'The time the memory map was deleted.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The file path if the mmap is a mapped view of a file.',
-                }),
+                    'doc': 'The file path if the mmap is a mapped view of a file.'}),
+
                 ('hash:sha256', ('hash:sha256', {}), {
-                    'doc': 'A SHA256 hash of the memory map. Bytes may optionally be present in the axon.',
-                }),
+                    'doc': 'A SHA256 hash of the memory map.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:mutex', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that created the mutex.',
-                }),
+                    'doc': 'The main process executing code that created the mutex.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that created the mutex. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that created the mutex.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that created the mutex. May or may not be the same :exe specified in :proc, if present.',
-                }),
+                    'doc': 'The specific file containing code that created the mutex.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the mutex was created.',
-                }),
+                    'doc': 'The time the mutex was created.'}),
+
                 ('name', ('it:dev:mutex', {}), {
-                    'doc': 'The mutex string.',
-                }),
+                    'doc': 'The mutex string.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:pipe', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that created the named pipe.',
-                }),
+                    'doc': 'The main process executing code that created the named pipe.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that created the named pipe. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that created the named pipe.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that created the named pipe. May or may not be the same :exe specified in :proc, if present.',
-                }),
+                    'doc': 'The specific file containing code that created the named pipe.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the named pipe was created.',
-                }),
+                    'doc': 'The time the named pipe was created.'}),
+
                 ('name', ('it:dev:pipe', {}), {
-                    'doc': 'The named pipe string.',
-                }),
+                    'doc': 'The named pipe string.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:url', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that requested the URL.',
-                }),
+                    'doc': 'The main process executing code that requested the URL.'}),
+
                 ('browser', ('it:prod:softver', {}), {
-                    'doc': 'The software version of the browser.',
-                }),
+                    'doc': 'The software version of the browser.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that requested the URL. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that requested the URL.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that requested the URL. May or may not be the same :exe specified in :proc, if present.',
-                }),
+                    'doc': 'The specific file containing code that requested the URL.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the URL was requested.',
-                }),
+                    'doc': 'The time the URL was requested.'}),
+
                 ('url', ('inet:url', {}), {
-                    'doc': 'The URL that was requested.',
-                }),
+                    'doc': 'The URL that was requested.'}),
+
                 ('page:pdf', ('file:bytes', {}), {
-                    'doc': 'The rendered DOM saved as a PDF file.',
-                }),
+                    'doc': 'The rendered DOM saved as a PDF file.'}),
+
                 ('page:html', ('file:bytes', {}), {
-                    'doc': 'The rendered DOM saved as an HTML file.',
-                }),
+                    'doc': 'The rendered DOM saved as an HTML file.'}),
+
                 ('page:image', ('file:bytes', {}), {
-                    'doc': 'The rendered DOM saved as an image.',
-                }),
+                    'doc': 'The rendered DOM saved as an image.'}),
+
                 ('http:request', ('inet:http:request', {}), {
-                    'doc': 'The HTTP request made to retrieve the initial URL contents.',
-                }),
+                    'doc': 'The HTTP request made to retrieve the initial URL contents.'}),
+
                 ('client', ('inet:client', {}), {
-                    'doc': 'The address of the client during the URL retrieval.'
-                }),
+                    'doc': 'The address of the client during the URL retrieval.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:bind', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that bound the listening port.',
-                }),
+                    'doc': 'The main process executing code that bound the listening port.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that bound the listening port. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that bound the listening port.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that bound the listening port. May or may not be the same :exe specified in :proc, if present.',
-                }),
+                    'doc': 'The specific file containing code that bound the listening port.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the port was bound.',
-                }),
+                    'doc': 'The time the port was bound.'}),
+
                 ('server', ('inet:server', {}), {
-                    'doc': 'The socket address of the server when binding the port.'
-                }),
+                    'doc': 'The socket address of the server when binding the port.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:fs:file', {}, (
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host containing the file.',
-                }),
+                    'doc': 'The host containing the file.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The path for the file.',
-                }),
+                    'doc': 'The path for the file.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The file on the host.',
-                }),
+                    'doc': 'The file on the host.'}),
+
                 ('ctime', ('time', {}), {
-                    'doc': 'The file creation time.',
-                }),
+                    'doc': 'The file creation time.'}),
+
                 ('mtime', ('time', {}), {
-                    'doc': 'The file modification time.',
-                }),
+                    'doc': 'The file modification time.'}),
+
                 ('atime', ('time', {}), {
-                    'doc': 'The file access time.',
-                }),
+                    'doc': 'The file access time.'}),
+
                 ('user', ('inet:user', {}), {
-                    'doc': 'The owner of the file.',
-                }),
+                    'doc': 'The owner of the file.'}),
+
                 ('group', ('inet:user', {}), {
-                    'doc': 'The group owner of the file.',
-                }),
+                    'doc': 'The group owner of the file.'}),
             )),
             ('it:exec:file:add', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that created the new file.',
-                 }),
+                    'doc': 'The main process executing code that created the new file.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that created the new file. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that created the new file.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that created the new file. May or may not be the same :exe specified in :proc, if present.'}),
+                    'doc': 'The specific file containing code that created the new file.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the file was created.',
-                }),
+                    'doc': 'The time the file was created.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The path where the file was created.',
-                }),
+                    'doc': 'The path where the file was created.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was created.',
-                }),
+                    'doc': 'The file that was created.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:file:del', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that deleted the file.',
-                }),
+                    'doc': 'The main process executing code that deleted the file.', }),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that deleted the file. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that deleted the file.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that deleted the file. May or may not be the same :exe specified in :proc, if present.'}),
+                    'doc': 'The specific file containing code that deleted the file.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the file was deleted.',
-                }),
+                    'doc': 'The time the file was deleted.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The path where the file was deleted.',
-                }),
+                    'doc': 'The path where the file was deleted.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was deleted.',
-                }),
+                    'doc': 'The file that was deleted.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:file:read', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that read the file.',
-                }),
+                    'doc': 'The main process executing code that read the file.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that read the file. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that read the file.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that read the file. May or may not be the same :exe specified in :proc, if present.'}),
+                    'doc': 'The specific file containing code that read the file.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the file was read.',
-                }),
+                    'doc': 'The time the file was read.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The path where the file was read.',
-                }),
+                    'doc': 'The path where the file was read.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was read.',
-                }),
+                    'doc': 'The file that was read.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:file:write', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that wrote to / modified the existing file.',
-                }),
+                    'doc': 'The main process executing code that wrote to / modified the existing file.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that wrote to the file. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that wrote to the file.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that wrote to the file. May or may not be the same :exe specified in :proc, if present.'}),
+                    'doc': 'The specific file containing code that wrote to the file.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the file was written to/modified.',
-                }),
+                    'doc': 'The time the file was written to/modified.'}),
+
                 ('path', ('file:path', {}), {
-                    'doc': 'The path where the file was written to/modified.',
-                }),
+                    'doc': 'The path where the file was written to/modified.'}),
+
                 ('file', ('file:bytes', {}), {
-                    'doc': 'The file that was modified.',
-                }),
+                    'doc': 'The file that was modified.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:reg:get', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that read the registry.',
-                }),
+                    'doc': 'The main process executing code that read the registry.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that read the registry. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that read the registry.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that read the registry. May or may not be the same :exe referenced in :proc, if present.',
-                }),
+                    'doc': 'The specific file containing code that read the registry.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the registry was read.',
-                }),
+                    'doc': 'The time the registry was read.'}),
+
                 ('reg', ('it:dev:regval', {}), {
-                    'doc': 'The registry key or value that was read.',
-                }),
+                    'doc': 'The registry key or value that was read.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:reg:set', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that wrote to the registry.',
-                }),
+                    'doc': 'The main process executing code that wrote to the registry.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that wrote to the registry. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that wrote to the registry.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that wrote to the registry. May or may not be the same :exe referenced in :proc, if present.',
-                }),
+                    'doc': 'The specific file containing code that wrote to the registry.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the registry was written to.',
-                }),
+                    'doc': 'The time the registry was written to.'}),
+
                 ('reg', ('it:dev:regval', {}), {
-                    'doc': 'The registry key or value that was written to.',
-                }),
+                    'doc': 'The registry key or value that was written to.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
             ('it:exec:reg:del', {}, (
+
                 ('proc', ('it:exec:proc', {}), {
-                    'doc': 'The main process executing code that deleted data from the registry.',
-                }),
+                    'doc': 'The main process executing code that deleted data from the registry.'}),
+
                 ('host', ('it:host', {}), {
-                    'doc': 'The host running the process that deleted data from the registry. Typically the same host referenced in :proc, if present.',
-                }),
+                    'doc': 'The host running the process that deleted data from the registry.'}),
+
                 ('exe', ('file:bytes', {}), {
-                    'doc': 'The specific file containing code that deleted data from the registry. May or may not be the same :exe referenced in :proc, if present.',
-                }),
+                    'doc': 'The specific file containing code that deleted data from the registry.'}),
+
                 ('time', ('time', {}), {
-                    'doc': 'The time the data from the registry was deleted.',
-                }),
+                    'doc': 'The time the data from the registry was deleted.'}),
+
                 ('reg', ('it:dev:regval', {}), {
-                    'doc': 'The registry key or value that was deleted.',
-                }),
+                    'doc': 'The registry key or value that was deleted.'}),
+
                 ('sandbox:file', ('file:bytes', {}), {
-                    'doc': 'The initial sample given to a sandbox environment to analyze.'
-                }),
+                    'doc': 'The initial sample given to a sandbox environment to analyze.'}),
             )),
 
             ('it:app:snort:rule', {}, (
 
-                ('id', ('str', {}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The snort rule id.'}),
 
                 ('text', ('str', {}), {
@@ -2727,7 +2847,7 @@ modeldefs = (
                 ('version', ('it:semver', {}), {
                     'doc': 'The current version of the rule.'}),
 
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:contact', {}), {
                     'doc': 'Contact info for the author of the rule.'}),
 
                 ('created', ('time', {}), {
@@ -2739,23 +2859,31 @@ modeldefs = (
                 ('enabled', ('bool', {}), {
                     'doc': 'The rule enabled status to be used for snort evaluation engines.'}),
 
-                ('family', ('it:prod:softname', {}), {
+                # FIXME family:name?
+                ('family', ('meta:name', {}), {
                     'doc': 'The name of the software family the rule is designed to detect.'}),
             )),
 
             ('it:app:snort:hit', {}, (
+
                 ('rule', ('it:app:snort:rule', {}), {
                     'doc': 'The snort rule that matched the file.'}),
+
                 ('flow', ('inet:flow', {}), {
                     'doc': 'The inet:flow that matched the snort rule.'}),
+
                 ('src', ('inet:sockaddr', {}), {
                     'doc': 'The source address of flow that caused the hit.'}),
+
                 ('dst', ('inet:sockaddr', {}), {
                     'doc': 'The destination address of the trigger.'}),
+
                 ('time', ('time', {}), {
                     'doc': 'The time of the network flow that caused the hit.'}),
+
                 ('sensor', ('it:host', {}), {
                     'doc': 'The sensor host node that produced the hit.'}),
+
                 ('version', ('it:semver', {}), {
                     'doc': 'The version of the rule at the time of match.'}),
 
@@ -2764,54 +2892,68 @@ modeldefs = (
             )),
 
             ('it:sec:stix:bundle', {}, (
-                ('id', ('str', {}), {
+                ('id', ('meta:id', {}), {
                     'doc': 'The id field from the STIX bundle.'}),
             )),
 
             ('it:sec:stix:indicator', {}, (
-                ('id', ('str', {}), {
+
+                ('id', ('meta:id', {}), {
                     'doc': 'The STIX id field from the indicator pattern.'}),
+
                 ('name', ('str', {}), {
                     'doc': 'The name of the STIX indicator pattern.'}),
+
                 ('confidence', ('int', {'min': 0, 'max': 100}), {
                     'doc': 'The confidence field from the STIX indicator.'}),
+
                 ('revoked', ('bool', {}), {
                     'doc': 'The revoked field from the STIX indicator.'}),
+
                 ('description', ('str', {}), {
                     'doc': 'The description field from the STIX indicator.'}),
+
                 ('pattern', ('str', {}), {
                     'doc': 'The STIX indicator pattern text.'}),
+
                 ('pattern_type', ('str', {'strip': True, 'lower': True,
                                           'enums': 'stix,pcre,sigma,snort,suricata,yara'}), {
                     'doc': 'The STIX indicator pattern type.'}),
+
                 ('created', ('time', {}), {
                     'doc': 'The time that the indicator pattern was first created.'}),
+
                 ('updated', ('time', {}), {
                     'doc': 'The time that the indicator pattern was last modified.'}),
+
                 ('labels', ('array', {'type': 'str', 'uniq': True, 'sorted': True}), {
                     'doc': 'The label strings embedded in the STIX indicator pattern.'}),
+
                 ('valid_from', ('time', {}), {
                     'doc': 'The valid_from field from the STIX indicator.'}),
+
                 ('valid_until', ('time', {}), {
                     'doc': 'The valid_until field from the STIX indicator.'}),
             )),
 
             ('it:app:yara:rule', {}, (
 
+                ('id', ('meta:id', {}), {
+                    'prevnames': ('id',),
+                    'doc': 'The YARA rule ID.'}),
+
+                # FIXME id?
+                ('name', ('str', {}), {
+                    'doc': 'The name of the YARA rule.'}),
+
                 ('text', ('str', {}), {
                     'disp': {'hint': 'text', 'syntax': 'yara'},
                     'doc': 'The YARA rule text.'}),
 
-                ('ext:id', ('str', {}), {
-                    'doc': 'The YARA rule ID from an external system.'}),
-
                 ('url', ('inet:url', {}), {
                     'doc': 'A URL which documents the YARA rule.'}),
 
-                ('name', ('str', {}), {
-                    'doc': 'The name of the YARA rule.'}),
-
-                ('author', ('ps:contact', {}), {
+                ('author', ('entity:contact', {}), {
                     'doc': 'Contact info for the author of the YARA rule.'}),
 
                 ('version', ('it:semver', {}), {
@@ -2826,21 +2968,27 @@ modeldefs = (
                 ('enabled', ('bool', {}), {
                     'doc': 'The rule enabled status to be used for YARA evaluation engines.'}),
 
-                ('family', ('it:prod:softname', {}), {
+                # FIXME family:name?
+                ('family', ('meta:name', {}), {
                     'doc': 'The name of the software family the rule is designed to detect.'}),
             )),
 
+            # FIXME unify yara match target interface
             ('it:app:yara:match', {}, (
+
                 ('rule', ('it:app:yara:rule', {}), {
                     'ro': True,
                     'doc': 'The YARA rule that matched the file.'}),
+
                 ('file', ('file:bytes', {}), {
                     'ro': True,
                     'doc': 'The file that matched the YARA rule.'}),
+
                 ('version', ('it:semver', {}), {
                     'doc': 'The most recent version of the rule evaluated as a match.'}),
             )),
 
+            # FIXME netmatch / procmatch go away
             ('it:app:yara:netmatch', {}, (
                 ('rule', ('it:app:yara:rule', {}), {
                     'doc': 'The YARA rule that triggered the match.'}),
@@ -2861,6 +3009,7 @@ modeldefs = (
                     'doc': 'The most recent version of the rule evaluated as a match.'}),
             )),
 
+            # FIXME it:dev:function
             ('it:reveng:function', {}, (
                 ('name', ('str', {}), {
                     'doc': 'The name of the function.'}),
@@ -2874,6 +3023,7 @@ modeldefs = (
                 }),
             )),
 
+            # it:dev:codefile?
             ('it:reveng:filefunc', {}, (
                 ('function', ('it:reveng:function', {}), {
                     'ro': True,
@@ -2892,35 +3042,50 @@ modeldefs = (
                 }),
             )),
 
+            # FIXME rename
             ('it:reveng:impfunc', {}, ()),
 
             ('it:sec:c2:config', {}, (
-                ('family', ('it:prod:softname', {}), {
+
+                ('family', ('meta:name', {}), {
                     'doc': 'The name of the software family which uses the config.'}),
+
                 ('file', ('file:bytes', {}), {
                     'doc': 'The file that the C2 config was extracted from.'}),
+
                 ('decoys', ('array', {'type': 'inet:url'}), {
                     'doc': 'An array of URLs used as decoy connections to obfuscate the C2 servers.'}),
+
                 ('servers', ('array', {'type': 'inet:url'}), {
                     'doc': 'An array of connection URLs built from host/port/passwd combinations.'}),
+
                 ('proxies', ('array', {'type': 'inet:url'}), {
                     'doc': 'An array of proxy URLs used to communicate with the C2 server.'}),
+
                 ('listens', ('array', {'type': 'inet:url'}), {
                     'doc': 'An array of listen URLs that the software should bind.'}),
+
                 ('dns:resolvers', ('array', {'type': 'inet:server'}), {
                     'doc': 'An array of inet:servers to use when resolving DNS names.'}),
+
                 ('mutex', ('it:dev:mutex', {}), {
                     'doc': 'The mutex that the software uses to prevent multiple-installations.'}),
+
                 ('campaigncode', ('it:dev:str', {}), {
                     'doc': 'The operator selected string used to identify the campaign or group of targets.'}),
+
                 ('crypto:key', ('crypto:key', {}), {
                     'doc': 'Static key material used to encrypt C2 communications.'}),
+
                 ('connect:delay', ('duration', {}), {
                     'doc': 'The time delay from first execution to connecting to the C2 server.'}),
+
                 ('connect:interval', ('duration', {}), {
                     'doc': 'The configured duration to sleep between connections to the C2 server.'}),
+
                 ('raw', ('data', {}), {
                     'doc': 'A JSON blob containing the raw config extracted from the binary.'}),
+
                 ('http:headers', ('array', {'type': 'inet:http:header'}), {
                     'doc': 'An array of HTTP headers that the sample should transmit to the C2 server.'}),
             )),

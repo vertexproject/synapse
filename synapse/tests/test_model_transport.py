@@ -6,7 +6,15 @@ class TransportTest(s_test.SynTest):
 
         async with self.getTestCore() as core:
 
-            craft = (await core.nodes('[ transport:air:craft=* :tailnum=FF023 :type=helicopter :built=202002 :model=747 :serial=1234 :operator=*]'))[0]
+            craft = (await core.nodes('''[
+                transport:air:craft=*
+                    :tailnum=FF023
+                    :type=helicopter
+                    :built=202002
+                    :model=747
+                    :serial=1234
+                    :operator={[ entity:contact=* ]}
+            ]'''))[0]
             self.eq('helicopter.', craft.get('type'))
             self.eq(1580515200000, craft.get('built'))
             self.eq('747', craft.get('model'))
@@ -71,7 +79,7 @@ class TransportTest(s_test.SynTest):
                     :built=2020
                     :model="Speed Boat 9000"
                     :beam=10m
-                    :operator=*
+                    :operator={[ entity:contact=* ]}
                 ]'''))[0]
             self.eq('123456789', vessel.get('mmsi'))
             self.eq('slice of life', vessel.get('name'))
@@ -84,7 +92,7 @@ class TransportTest(s_test.SynTest):
             self.nn(vessel.get('operator'))
 
             self.len(1, await core.nodes('transport:sea:vessel:imo^="IMO 123"'))
-            self.len(1, await core.nodes('transport:sea:vessel :name -> entity:name'))
+            self.len(1, await core.nodes('transport:sea:vessel :name -> meta:name'))
             self.len(1, await core.nodes('transport:sea:vessel -> transport:sea:vessel:type:taxonomy'))
 
             seatelem = (await core.nodes('''[
@@ -239,10 +247,10 @@ class TransportTest(s_test.SynTest):
                                 :max:occupants=2
                                 :max:cargo:mass=1000kg
                                 :max:cargo:volume=1000m
-                                :owner={[ ps:contact=* :name="road runner" ]}
+                                :owner={[ entity:contact=* :name="road runner" ]}
                             ]}
                     ]}
-                    :operator={[ ps:contact=* :name="visi" ]}
+                    :operator={[ entity:contact=* :name="visi" ]}
             ]''')
 
             self.eq(10800000, nodes[0].get('duration'))
@@ -292,7 +300,7 @@ class TransportTest(s_test.SynTest):
             nodes = await core.nodes('''[
                 transport:occupant=*
                     :role=passenger
-                    :contact={[ ps:contact=({"name": "visi"}) ]}
+                    :contact={[ entity:contact=({"name": "visi"}) ]}
                     :trip={ transport:rail:train }
                     :vehicle={ transport:rail:consist }
                     :seat=2c

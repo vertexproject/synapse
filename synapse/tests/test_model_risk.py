@@ -13,18 +13,9 @@ class RiskModelTest(s_t_utils.SynTest):
 
         async with self.getTestCore() as core:
 
-            attk = s_common.guid()
-            camp = s_common.guid()
-            vuln = s_common.guid()
-
-            async def addNode(text):
-                nodes = await core.nodes(text)
-                return nodes[0]
-
-            node = await addNode(f'''[
-                    risk:attack={attk}
-
-                    :reporter=*
+            nodes = await core.nodes('''[
+                risk:attack=17eb16247855525d6f9cb1585a59877f
+                    :reporter={[ entity:contact=* ]}
                     :reporter:name=vertex
                     :time=20200202
                     :detected = 20210203
@@ -34,74 +25,66 @@ class RiskModelTest(s_t_utils.SynTest):
                     :type=foo.bar
                     :severity=10
                     :desc=wootwoot
-                    :campaign={camp}
-                    :prev={attk}
-                    :attacker = *
+                    :campaign=*
+                    :prev=*
+                    :attacker = {[ entity:contact=* ]}
                     :sophistication=high
                     :url=https://vertex.link/attacks/CASE-2022-03
-                    :ext:id=CASE-2022-03
+                    :id=CASE-2022-03
             ]''')
-            self.eq(node.ndef, ('risk:attack', attk))
-            self.eq(node.get('time'), 1580601600000)
-            self.eq(node.get('detected'), 1612310400000)
-            self.eq(node.get('desc'), 'wootwoot')
-            self.eq(node.get('type'), 'foo.bar.')
-            self.eq(node.get('success'), True)
-            self.eq(node.get('targeted'), True)
-            self.eq(node.get('campaign'), camp)
-            self.eq(node.get('prev'), attk)
-            self.eq(node.get('reporter:name'), 'vertex')
-            self.eq(node.get('sophistication'), 40)
-            self.eq(node.get('severity'), 10)
-            self.eq(node.get('url'), 'https://vertex.link/attacks/CASE-2022-03')
-            self.eq(node.get('ext:id'), 'CASE-2022-03')
-            self.nn(node.get('goal'))
-            self.nn(node.get('attacker'))
-            self.nn(node.get('reporter'))
+            self.eq(nodes[0].ndef, ('risk:attack', '17eb16247855525d6f9cb1585a59877f'))
+            self.eq(nodes[0].get('time'), 1580601600000)
+            self.eq(nodes[0].get('detected'), 1612310400000)
+            self.eq(nodes[0].get('desc'), 'wootwoot')
+            self.eq(nodes[0].get('type'), 'foo.bar.')
+            self.eq(nodes[0].get('success'), True)
+            self.eq(nodes[0].get('targeted'), True)
+            self.eq(nodes[0].get('reporter:name'), 'vertex')
+            self.eq(nodes[0].get('sophistication'), 40)
+            self.eq(nodes[0].get('severity'), 10)
+            self.eq(nodes[0].get('url'), 'https://vertex.link/attacks/CASE-2022-03')
+            self.eq(nodes[0].get('id'), 'CASE-2022-03')
+            self.nn(nodes[0].get('goal'))
+            self.nn(nodes[0].get('attacker'))
+            self.nn(nodes[0].get('reporter'))
 
             self.len(1, await core.nodes('risk:attack -> risk:attack:type:taxonomy'))
+            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f -> ou:campaign'))
+            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :prev -> risk:attack'))
+            self.len(1, await core.nodes('risk:attack=17eb16247855525d6f9cb1585a59877f :attacker -> entity:contact'))
 
-            node = await addNode(f'''[
-                risk:vuln={vuln}
-                :cvss:v2 ?= "newp2"
-                :cvss:v3 ?= "newp3.1"
-                :priority=high
-                :severity=high
-                :tag=cno.vuln.woot
+            nodes = await core.nodes('''[
+                risk:vuln=17eb16247855525d6f9cb1585a59877f
+                    :cvss:v2 ?= "newp2"
+                    :cvss:v3 ?= "newp3.1"
+                    :priority=high
+                    :severity=high
+                    :tag=cno.vuln.woot
             ]''')
 
-            self.none(node.get('cvss:v2'))
-            self.none(node.get('cvss:v3'))
-            self.eq(40, node.get('severity'))
-            self.eq(40, node.get('priority'))
-            self.eq('cno.vuln.woot', node.get('tag'))
+            self.eq(nodes[0].get('severity'), 40)
+            self.eq(nodes[0].get('priority'), 40)
+            self.eq(nodes[0].get('tag'), 'cno.vuln.woot')
+            self.none(nodes[0].get('cvss:v2'))
+            self.none(nodes[0].get('cvss:v3'))
 
             with self.raises(s_exc.BadTypeValu):
-                node = await addNode(f'''[
-                    risk:vuln={vuln}
-                    :cvss:v2 = "newp2"
-                ]''')
+                await core.nodes('[risk:vuln=17eb16247855525d6f9cb1585a59877f :cvss:v2=newp2 ]')
 
             with self.raises(s_exc.BadTypeValu):
-                node = await addNode(f'''[
-                    risk:vuln={vuln}
-                    :cvss:v3 = "newp3.1"
-                ]''')
+                await core.nodes('[risk:vuln=17eb16247855525d6f9cb1585a59877f :cvss:v3=newp3.1 ]')
 
             cvssv2 = '(AV:N/AC:L/Au:N/C:C/I:N/A:N/E:POC/RL:ND/RC:ND)'
             cvssv3 = 'CVSS:3.1/MAV:X/MAC:X/MPR:X/MUI:X/MS:X/MC:X/MI:X/MA:X/AV:N/AC:H/PR:L/UI:R/S:U/C:L/I:L/A:L/CR:L/IR:X/AR:X'
 
-            node = await addNode(f'''[
-                risk:vuln={vuln}
-                :cvss:v2 = "{cvssv2}"
-                :cvss:v3 = "{cvssv3}"
-            ]''')
+            opts = {'vars': {'v2': cvssv2, 'v3': cvssv3}}
+            nodes = await core.nodes('[ risk:vuln=17eb16247855525d6f9cb1585a59877f :cvss:v2=$v2 :cvss:v3=$v3 ]', opts=opts)
 
-            self.eq(node.get('cvss:v2'), s_chop.cvss2_normalize(cvssv2))
-            self.eq(node.get('cvss:v3'), s_chop.cvss3x_normalize(cvssv3))
+            self.eq(nodes[0].get('cvss:v2'), s_chop.cvss2_normalize(cvssv2))
+            self.eq(nodes[0].get('cvss:v3'), s_chop.cvss3x_normalize(cvssv3))
 
-            node = await addNode(f'''[
-                    risk:vuln={vuln}
+            nodes = await core.nodes('''[
+                risk:vuln=*
                     :name="My Vuln   is Cool"
                     :names=(hehe, haha, haha)
                     :type=mytype
@@ -143,52 +126,50 @@ class RiskModelTest(s_t_utils.SynTest):
                     :cvss:v3_1:score:temporal=3.2
                     :cvss:v3_1:score:environmental=3.3
             ]''')
-            self.eq(node.ndef, ('risk:vuln', vuln))
-            self.eq(node.get('name'), 'my vuln is cool')
-            self.eq(node.get('names'), ('haha', 'hehe'))
-            self.eq(node.get('type'), 'mytype.')
-            self.eq(node.get('desc'), 'mydesc')
+            self.eq(nodes[0].get('name'), 'my vuln is cool')
+            self.eq(nodes[0].get('names'), ('haha', 'hehe'))
+            self.eq(nodes[0].get('type'), 'mytype.')
+            self.eq(nodes[0].get('desc'), 'mydesc')
 
-            self.eq(node.get('exploited'), True)
-            self.eq(node.get('mitigated'), False)
+            self.eq(nodes[0].get('exploited'), True)
+            self.eq(nodes[0].get('mitigated'), False)
 
-            self.nn(node.get('reporter'))
-            self.eq(node.get('reporter:name'), 'vertex')
-            self.eq(node.get('timeline:exploited'), 1578960000000)
-            self.eq(node.get('timeline:discovered'), 1578960000000)
-            self.eq(node.get('timeline:vendor:notified'), 1578960000000)
-            self.eq(node.get('timeline:vendor:fixed'), 1578960000000)
-            self.eq(node.get('timeline:published'), 1578960000000)
+            self.nn(nodes[0].get('reporter'))
+            self.eq(nodes[0].get('reporter:name'), 'vertex')
+            self.eq(nodes[0].get('timeline:exploited'), 1578960000000)
+            self.eq(nodes[0].get('timeline:discovered'), 1578960000000)
+            self.eq(nodes[0].get('timeline:vendor:notified'), 1578960000000)
+            self.eq(nodes[0].get('timeline:vendor:fixed'), 1578960000000)
+            self.eq(nodes[0].get('timeline:published'), 1578960000000)
 
-            self.eq(node.get('id'), 'Vtx-000-1234')
+            self.eq(nodes[0].get('id'), 'Vtx-000-1234')
 
-            self.eq(node.get('cve'), 'cve-2013-0000')
-            self.eq(node.get('cve:desc'), 'Woot Woot')
-            self.eq(node.get('cve:references'), ('http://vertex.link',))
+            self.eq(nodes[0].get('cve'), 'cve-2013-0000')
+            self.eq(nodes[0].get('cve:desc'), 'Woot Woot')
+            self.eq(nodes[0].get('cve:references'), ('http://vertex.link',))
 
-            self.eq(node.get('cvss:v2'), 'AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M')
+            self.eq(nodes[0].get('cvss:v2'), 'AV:A/AC:M/Au:S/C:P/I:P/A:P/E:U/RL:OF/RC:UR/CDP:L/TD:L/CR:M/IR:M/AR:M')
             cvssv3 = 'AV:A/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:L/E:P/RL:T/RC:R/CR:L/IR:M/AR:L/MAV:A/MAC:L/MPR:N/MS:C/MC:N/MI:N/MA:N'
-            self.eq(node.get('cvss:v3'), cvssv3)
+            self.eq(nodes[0].get('cvss:v3'), cvssv3)
 
-            self.eq(node.get('cvss:v2_0:score'), 1.0)
-            self.eq(node.get('cvss:v2_0:score:base'), 1.1)
-            self.eq(node.get('cvss:v2_0:score:temporal'), 1.2)
-            self.eq(node.get('cvss:v2_0:score:environmental'), 1.3)
+            self.eq(nodes[0].get('cvss:v2_0:score'), 1.0)
+            self.eq(nodes[0].get('cvss:v2_0:score:base'), 1.1)
+            self.eq(nodes[0].get('cvss:v2_0:score:temporal'), 1.2)
+            self.eq(nodes[0].get('cvss:v2_0:score:environmental'), 1.3)
 
-            self.eq(node.get('cvss:v3_0:score'), 2.0)
-            self.eq(node.get('cvss:v3_0:score:base'), 2.1)
-            self.eq(node.get('cvss:v3_0:score:temporal'), 2.2)
-            self.eq(node.get('cvss:v3_0:score:environmental'), 2.3)
+            self.eq(nodes[0].get('cvss:v3_0:score'), 2.0)
+            self.eq(nodes[0].get('cvss:v3_0:score:base'), 2.1)
+            self.eq(nodes[0].get('cvss:v3_0:score:temporal'), 2.2)
+            self.eq(nodes[0].get('cvss:v3_0:score:environmental'), 2.3)
 
-            self.eq(node.get('cvss:v3_1:score'), 3.0)
-            self.eq(node.get('cvss:v3_1:score:base'), 3.1)
-            self.eq(node.get('cvss:v3_1:score:temporal'), 3.2)
-            self.eq(node.get('cvss:v3_1:score:environmental'), 3.3)
+            self.eq(nodes[0].get('cvss:v3_1:score'), 3.0)
+            self.eq(nodes[0].get('cvss:v3_1:score:base'), 3.1)
+            self.eq(nodes[0].get('cvss:v3_1:score:temporal'), 3.2)
+            self.eq(nodes[0].get('cvss:v3_1:score:environmental'), 3.3)
 
-            self.len(1, await core.nodes('risk:attack :attacker -> ps:contact'))
+            self.len(1, await core.nodes('risk:attack :attacker -> entity:contact'))
 
-            self.len(1, nodes := await core.nodes('[ risk:vuln=({"name": "hehe"}) ]'))
-            self.eq(node.ndef, nodes[0].ndef)
+            self.eq(nodes[0].ndef, (await core.nodes('[ risk:vuln=({"name": "hehe"}) ]'))[0].ndef)
 
             nodes = await core.nodes('''
                 [ risk:alert=*
@@ -200,9 +181,9 @@ class RiskModelTest(s_t_utils.SynTest):
                     :vuln=*
                     :status=todo
                     :assignee=$lib.user.iden
-                    :ext:assignee = {[ ps:contact=* :email=visi@vertex.link ]}
+                    :ext:assignee = {[ entity:contact=* :email=visi@vertex.link ]}
                     :url=https://vertex.link/alerts/WOOT-20
-                    :ext:id=WOOT-20
+                    :id=WOOT-20
                     :engine={[ it:prod:softver=* :name=visiware ]}
                     :host=*
                     :priority=high
@@ -217,10 +198,10 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq(40, nodes[0].get('priority'))
             self.eq(50, nodes[0].get('severity'))
             self.eq('bazfaz.', nodes[0].get('type'))
-            self.eq('FooBar', nodes[0].get('name'))
+            self.eq('foobar', nodes[0].get('name'))
             self.eq('BlahBlah', nodes[0].get('desc'))
             self.eq(2554848000000, nodes[0].get('detected'))
-            self.eq('WOOT-20', nodes[0].get('ext:id'))
+            self.eq('WOOT-20', nodes[0].get('id'))
             self.eq('https://vertex.link/alerts/WOOT-20', nodes[0].get('url'))
             self.eq(core.auth.rootuser.iden, nodes[0].get('assignee'))
             self.nn(nodes[0].get('host'))
@@ -240,12 +221,12 @@ class RiskModelTest(s_t_utils.SynTest):
                     :desc = "Visi wants a pepperoni and mushroom pizza"
                     :type = when.noms.attack
                     :url=https://vertex.link/pwned
-                    :ext:id=PWN-00
+                    :id=PWN-00
                     :reporter = *
                     :reporter:name = vertex
                     :severity = 10
-                    :target = {[ ps:contact=* :name=ledo ]}
-                    :attacker = {[ ps:contact=* :name=visi ]}
+                    :target = {[ entity:contact=* :name=ledo ]}
+                    :attacker = {[ entity:contact=* :name=visi ]}
                     :campaign = *
                     :time = 20210202
                     :detected = 20210203
@@ -266,7 +247,7 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('Visi wants a pepperoni and mushroom pizza', nodes[0].get('desc'))
             self.eq('when.noms.attack.', nodes[0].get('type'))
             self.eq('vertex', nodes[0].get('reporter:name'))
-            self.eq('PWN-00', nodes[0].get('ext:id'))
+            self.eq('PWN-00', nodes[0].get('id'))
             self.eq('https://vertex.link/pwned', nodes[0].get('url'))
             self.nn(nodes[0].get('target'))
             self.nn(nodes[0].get('attacker'))
@@ -289,12 +270,14 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:compromise -> ou:campaign'))
             self.len(1, await core.nodes('risk:compromise -> risk:compromise:type:taxonomy'))
             self.len(1, await core.nodes('risk:compromise :vector -> risk:attack'))
-            self.len(1, await core.nodes('risk:compromise :target -> ps:contact +:name=ledo'))
-            self.len(1, await core.nodes('risk:compromise :attacker -> ps:contact +:name=visi'))
+            self.len(1, await core.nodes('risk:compromise :target -> entity:contact +:name=ledo'))
+            self.len(1, await core.nodes('risk:compromise :attacker -> entity:contact +:name=visi'))
 
             nodes = await core.nodes('''
                 [ risk:threat=*
-                    :name=VTX-APT1
+                    :id=VTX-APT1
+                    :name=apt1
+                    :names=(comment crew,)
                     :desc=VTX-APT1
                     :tag=cno.threat.apt1
                     :active=(2012,2023)
@@ -303,34 +286,31 @@ class RiskModelTest(s_t_utils.SynTest):
                     :reporter:name=mandiant
                     :reporter:discovered=202202
                     :reporter:published=202302
-                    :org=*
-                    :org:loc=cn.shanghai
-                    :org:name=apt1
-                    :org:names=(comment crew,)
-                    :country={gen.pol.country ua}
-                    :country:code=ua
                     :goals=(*,)
                     :sophistication=high
                     :merged:time = 20230111
                     :merged:isnow = {[ risk:threat=* ]}
                     :mitre:attack:group=G0001
+
+                    :place:loc=cn.shanghai
+                    :place:country={gen.pol.country cn}
+                    :place:country:code=cn
                 ]
             ''')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq('vtx-apt1', nodes[0].get('name'))
+            self.eq('VTX-APT1', nodes[0].get('id'))
+            self.eq('apt1', nodes[0].get('name'))
+            self.eq(('comment crew',), nodes[0].get('names'))
             self.eq('VTX-APT1', nodes[0].get('desc'))
             self.eq(40, nodes[0].get('activity'))
-            self.eq('apt1', nodes[0].get('org:name'))
-            self.eq('ua', nodes[0].get('country:code'))
-            self.eq('cn.shanghai', nodes[0].get('org:loc'))
-            self.eq(('comment crew',), nodes[0].get('org:names'))
+            self.eq('cn', nodes[0].get('place:country:code'))
+            self.eq('cn.shanghai', nodes[0].get('place:loc'))
             self.eq('cno.threat.apt1', nodes[0].get('tag'))
             self.eq('mandiant', nodes[0].get('reporter:name'))
             self.eq(40, nodes[0].get('sophistication'))
-            self.nn(nodes[0].get('org'))
-            self.nn(nodes[0].get('country'))
             self.nn(nodes[0].get('reporter'))
+            self.nn(nodes[0].get('place:country'))
             self.nn(nodes[0].get('merged:isnow'))
             self.eq((1325376000000, 1672531200000), nodes[0].get('active'))
             self.eq(1673395200000, nodes[0].get('merged:time'))
@@ -342,19 +322,19 @@ class RiskModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('risk:threat:merged:isnow -> risk:threat'))
             self.len(1, await core.nodes('risk:threat -> it:mitre:attack:group'))
 
-            self.len(1, nodes := await core.nodes('[ risk:threat=({"org:name": "comment crew"}) ]'))
+            self.len(1, nodes := await core.nodes('[ risk:threat=({"name": "comment crew"}) ]'))
             self.eq(node.ndef, nodes[0].ndef)
 
             nodes = await core.nodes('''[ risk:leak=*
                 :name="WikiLeaks ACME      Leak"
                 :desc="WikiLeaks leaked ACME stuff."
                 :disclosed=20231102
-                :owner={ gen.ou.org.hq acme }
-                :leaker={ gen.ou.org.hq wikileaks }
-                :recipient={ gen.ou.org.hq everyone }
+                :owner={ gen.ou.org acme }
+                :leaker={ gen.ou.org wikileaks }
+                :recipient={ gen.ou.org everyone }
                 :type=public
                 :goal={[ ou:goal=* :name=publicity ]}
-                :compromise={[ risk:compromise=* :target={ gen.ou.org.hq acme } ]}
+                :compromise={[ risk:compromise=* :target={ gen.ou.org acme } ]}
                 :public=(true)
                 :public:url=https://wikileaks.org/acme
                 :reporter={ gen.ou.org vertex }
@@ -378,11 +358,11 @@ class RiskModelTest(s_t_utils.SynTest):
 
             self.len(1, await core.nodes('risk:leak -> risk:extortion'))
             self.len(1, await core.nodes('risk:leak -> risk:leak:type:taxonomy'))
-            self.len(1, await core.nodes('risk:leak :owner -> ps:contact +:orgname=acme'))
-            self.len(1, await core.nodes('risk:leak :leaker -> ps:contact +:orgname=wikileaks'))
-            self.len(1, await core.nodes('risk:leak :recipient -> ps:contact +:orgname=everyone'))
+            self.len(1, await core.nodes('risk:leak :owner -> ou:org +:name=acme'))
+            self.len(1, await core.nodes('risk:leak :leaker -> ou:org +:name=wikileaks'))
+            self.len(1, await core.nodes('risk:leak :recipient -> ou:org +:name=everyone'))
             self.len(1, await core.nodes('risk:leak -> ou:goal +:name=publicity'))
-            self.len(1, await core.nodes('risk:leak -> risk:compromise :target -> ps:contact +:orgname=acme'))
+            self.len(1, await core.nodes('risk:leak -> risk:compromise :target -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:leak :reporter -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''[ risk:extortion=*
@@ -391,13 +371,13 @@ class RiskModelTest(s_t_utils.SynTest):
                 :name="APT99 Extorted     ACME"
                 :desc="APT99 extorted ACME for a zillion vertex coins."
                 :type=fingain
-                :attacker={[ ps:contact=* :name=agent99 ]}
-                :target={ gen.ou.org.hq acme }
+                :attacker={[ entity:contact=* :name=agent99 ]}
+                :target={ gen.ou.org acme }
                 :success=(true)
                 :enacted=(true)
                 :public=(true)
                 :public:url=https://apt99.com/acme
-                :compromise={[ risk:compromise=* :target={ gen.ou.org.hq acme } ]}
+                :compromise={[ risk:compromise=* :target={ gen.ou.org acme } ]}
                 :demanded:payment:price=99.99
                 :demanded:payment:currency=VTC
                 :reporter={ gen.ou.org vertex }
@@ -422,9 +402,9 @@ class RiskModelTest(s_t_utils.SynTest):
             self.eq('12345', nodes[0].get('paid:price'))
 
             self.len(1, await core.nodes('risk:extortion -> econ:acct:payment'))
-            self.len(1, await core.nodes('risk:extortion :target -> ps:contact +:orgname=acme'))
-            self.len(1, await core.nodes('risk:extortion :attacker -> ps:contact +:name=agent99'))
-            self.len(1, await core.nodes('risk:extortion -> risk:compromise :target -> ps:contact +:orgname=acme'))
+            self.len(1, await core.nodes('risk:extortion :target -> ou:org +:name=acme'))
+            self.len(1, await core.nodes('risk:extortion :attacker -> entity:contact +:name=agent99'))
+            self.len(1, await core.nodes('risk:extortion -> risk:compromise :target -> ou:org +:name=acme'))
             self.len(1, await core.nodes('risk:extortion :reporter -> ou:org +:name=vertex'))
 
             nodes = await core.nodes('''[
