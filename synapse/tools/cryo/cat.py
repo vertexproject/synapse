@@ -46,7 +46,7 @@ async def main(argv, outp=s_output.stdout):
             if opts.ingest:
 
                 if opts.msgpack:
-                    items = list(s_msgpack.iterfd(sys.stdin.buffer))
+                    items = list(s_msgpack.iterfd(sys.stdin.buffer, strict=True))
                     await tank.puts(items)
                     return 0
 

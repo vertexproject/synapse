@@ -351,6 +351,18 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoPropForTagPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
 
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('[ test:str=foo +#foo:score=5 ]')
+            await core.nodes('test:str=foo [ -#foo:score ]', opts={'view': viewiden2})
+            await core.nodes('''
+            $layr = $lib.layer.get()
+            for ($iden, $type, $info) in $layr.getTombstones() {
+                $layr.delTombstone($iden, $type, $info)
+            }''', opts={'view': viewiden2})
+
+            errors = [e async for e in core.getView(viewiden2).wlyr.verify()]
+            self.len(0, errors)
+
             scanconf = {'autofix': 'newp'}
 
             with self.raises(s_exc.BadArg):

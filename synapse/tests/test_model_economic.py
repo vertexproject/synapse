@@ -206,8 +206,7 @@ class EconTest(s_utils.SynTest):
             nodes = await core.nodes('''
                 [ econ:acct:balance=*
                     :time = 20211031
-                    :pay:card = *
-                    :crypto:address = btc/12345
+                    :instrument=(econ:bank:account, *)
                     :amount = 123.45
                     :currency = usd
                     :delta = 12.00
@@ -215,14 +214,14 @@ class EconTest(s_utils.SynTest):
                     :total:sent = 15.16
                 ]''')
             self.len(1, nodes)
-            self.nn(nodes[0].get('pay:card'))
+            self.nn(nodes[0].get('instrument'))
             self.eq(nodes[0].get('time'), 1635638400000)
-            self.eq(nodes[0].get('crypto:address'), ('btc', '12345'))
             self.eq(nodes[0].get('amount'), '123.45')
             self.eq(nodes[0].get('currency'), 'usd')
             self.eq(nodes[0].get('delta'), '12')
             self.eq(nodes[0].get('total:received'), '13.14')
             self.eq(nodes[0].get('total:sent'), '15.16')
+            self.len(1, await core.nodes('econ:acct:balance:instrument -> econ:bank:account'))
 
             nodes = await core.nodes('''
                 [ econ:receipt:item=*

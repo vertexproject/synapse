@@ -26,13 +26,13 @@ class TrigTest(s_t_utils.SynTest):
                 self.nn(nodes[0].get('#foo'))
 
                 # test dynamically updating the trigger async to off
-                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.false)')
+                await core.stormlist('$lib.view.get().triggers.0.async = (false)')
                 nodes = await core.nodes('[ inet:ip=5.5.5.5 ]')
                 self.nn(nodes[0].get('#foo'))
                 self.nn(await core.callStorm('return($lib.queue.gen(foo).pop(wait=$lib.true))'))
 
                 # reset the trigger to async...
-                await core.stormlist('$lib.view.get().triggers.0.set(async, $lib.true)')
+                await core.stormlist('$lib.view.get().triggers.0.async = (true)')
 
                 # kill off the async consumer and queue up some requests
                 # to test persistance and proper resuming...
@@ -140,8 +140,7 @@ class TrigTest(s_t_utils.SynTest):
             view = core.view
 
             # node:add case
-            q = '''$s=$lib.str.format("f={f} v={v}", f=$auto.opts.form, v=$auto.opts.valu) $lib.log.info($s)
-                    [ test:guid="*" +#nodeadd]'''
+            q = '$s=`f={$auto.opts.form} v={$auto.opts.valu}` $lib.log.info($s) [ test:guid="*" +#nodeadd]'
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
             with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
@@ -205,7 +204,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int=5'))
 
             # Prop set
-            q = '''$s=$lib.str.format("pf={f} pn={n}", f=$auto.opts.propfull, n=$auto.opts.propname) $lib.log.info($s)
+            q = '''$s=`pf={$auto.opts.propfull} pn={$auto.opts.propname}` $lib.log.info($s)
             [ test:guid="*" +#propset ]'''
             tdef = {'cond': 'prop:set',
                     'storm': q,
@@ -245,7 +244,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int#withiden'))
 
             # iden embedded in vars
-            q = '+test:str~=log $s=$lib.str.format("test {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden}))'
+            q = '+test:str~=log $s=`test {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden}))'
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
             with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:
@@ -517,11 +516,11 @@ class TrigTest(s_t_utils.SynTest):
 
                 with self.raises(s_exc.AuthDeny):
                     opts = {'vars': {'iden': trigiden}}
-                    await proxy.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
+                    await proxy.callStorm('$lib.trigger.get($iden).enabled = (false)', opts=opts)
 
                 await newb.addRule((True, ('trigger', 'set')))
                 opts = {'vars': {'iden': trigiden}}
-                await proxy.callStorm('$lib.trigger.get($iden).set(enabled, $(0))', opts=opts)
+                await proxy.callStorm('$lib.trigger.get($iden).enabled = (false)', opts=opts)
 
                 await newb.addRule((True, ('trigger', 'del')))
                 await proxy.callStorm('$lib.trigger.del($iden)', opts={'vars': {'iden': trigiden}})
@@ -554,7 +553,7 @@ class TrigTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('foo'))
 
             opts = {'vars': {'iden': trig.get('iden'), 'derp': derp.iden}}
-            await core.callStorm('$lib.trigger.get($iden).set(user, $derp)', opts=opts | inview)
+            await core.callStorm('$lib.trigger.get($iden).user = $derp', opts=opts | inview)
 
             nodes = await core.nodes('[ inet:ip=8.8.8.8 ]')
             self.len(1, nodes)

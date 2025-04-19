@@ -321,12 +321,8 @@ modeldefs = (
                 ('time', ('time', {}), {
                     'doc': 'The time the balance was recorded.'}),
 
-                # FIXME fin:instrument
-                ('pay:card', ('econ:pay:card', {}), {
-                    'doc': 'The payment card holding the balance.'}),
-
-                ('crypto:address', ('crypto:currency:address', {}), {
-                    'doc': 'The crypto currency address holding the balance.'}),
+                ('instrument', ('econ:pay:instrument', {}), {
+                    'doc': 'The financial insutrument holding the balance.'}),
 
                 ('amount', ('econ:price', {}), {
                     'doc': 'The account balance at the time.'}),
@@ -343,7 +339,6 @@ modeldefs = (
                 ('total:sent', ('econ:price', {}), {
                     'doc': 'The total amount of currency sent from the account.'}),
             )),
-
 
             ('econ:fin:exchange', {}, (
 

@@ -1764,7 +1764,7 @@ set. The end result can be then rendered in a web browser::
     $api.methods.get = ${
         $duration = $lib.model.type(duration).repr($lib.cell.uptime().uptime)
         $mesg = `The Cortex has been up for {$duration}`
-        $html = $lib.str.format($template, mesg=$mesg)
+        $html = $template.format(mesg=$mesg)
         $buf = $html.encode()
         $headers = ({
             "Content-Type": "text/html",

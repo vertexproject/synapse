@@ -6,6 +6,139 @@
 Synapse Changelog
 *****************
 
+v2.208.0 - 2025-04-17
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Cortex to run Storm package ``onload()`` handlers every time it
+  starts up or upon promotion to being a leader.
+  (`#4237 <https://github.com/vertexproject/synapse/pull/4237>`_)
+- Updated the allowed versions of the ``pycryptodome``, ``fastjsonschema``,
+  ``idna``, ``pygments``, and ``pytz`` libraries.
+  (`#4230 <https://github.com/vertexproject/synapse/pull/4230>`_)
+  (`#4240 <https://github.com/vertexproject/synapse/pull/4240>`_)
+
+Bugfixes
+--------
+- Fixed a bug where ``$lib.storm.run()`` calls would cause a task to be
+  improperly promoted.
+  (`#4186 <https://github.com/vertexproject/synapse/pull/4186>`_)
+- Fixed an issue with ``$lib.time.toUTC()`` conversions by anchoring epoch to
+  UTC instead of local timezone.
+  (`#4230 <https://github.com/vertexproject/synapse/pull/4230>`_)
+- Fixed an issue with backtick format strings where certain combinations of
+  escape characters preceding an expression could cause the substitution to
+  fail.
+  (`#4234 <https://github.com/vertexproject/synapse/pull/4234>`_)
+
+v2.207.0 - 2025-04-10
+=====================
+
+Features and Enhancements
+-------------------------
+- Added a ``join()`` method on the Storm ``str`` object.
+  (`#4227 <https://github.com/vertexproject/synapse/pull/4227>`_)
+
+Bugfixes
+--------
+- Fixed an issue with Storm ``inet:http:resp`` objects containing header values
+  which could fail to save as JSON.
+  (`#4224 <https://github.com/vertexproject/synapse/pull/4224>`_)
+- Fixed an issue where Axon ``wget()`` and ``wput()`` APIs could return header
+  values which could fail to save as JSON.
+  (`#4235 <https://github.com/vertexproject/synapse/pull/4235>`_)
+
+v2.206.0 - 2025-04-04
+=====================
+
+Model Changes
+-------------
+- Added ``tel:mob:tadig`` and ``tel:mob:carrier:tadig`` to track GSM carrier
+  TADIG codes.
+  (`#4216 <https://github.com/vertexproject/synapse/pull/4216>`_)
+- Added ``it:network:dns:resolvers`` to track DNS resolvers for a network.
+  (`#4216 <https://github.com/vertexproject/synapse/pull/4216>`_)
+- Added a ``has`` light edge between ``meta:ruleset`` and the following forms:
+  ``inet:service:rule``, ``it:app:snort:rule``, ``it:app:yara:rule``.
+  (`#4218 <https://github.com/vertexproject/synapse/pull/4218>`_)
+- See :ref:`userguide_model_v2_206_0` for more detailed model changes.
+
+Features and Enhancements
+-------------------------
+- Updated the ``aha.svc.mirror`` command to print the individual service
+  version alongside the Synapse version.
+  (`#4215 <https://github.com/vertexproject/synapse/pull/4215>`_)
+
+Bugfixes
+--------
+- Updated Synapse HTTP APIs to set a non-200 HTTP status code when errors are
+  returned.
+  (`#4169 <https://github.com/vertexproject/synapse/pull/4169>`_)
+- Fixed a bug in storage iteration which could cause an item to be yielded
+  twice if a very narrow race window was encountered.
+  (`#4200 <https://github.com/vertexproject/synapse/pull/4200>`_)
+- Added missing permission declarations for light edges and queues.
+  (`#4214 <https://github.com/vertexproject/synapse/pull/4214>`_)
+
+Deprecations
+------------
+- Deprecated the ``modules`` Cortex configuration option.
+  (`#4188 <https://github.com/vertexproject/synapse/pull/4188>`_)
+- Deprecated support for multiple AHA network names being hosted by one AHA
+  deployment. Synapse 3.0 AHA deployments will be simplified to hosting only
+  one network.
+  (`#4221 <https://github.com/vertexproject/synapse/pull/4221>`_)
+
+v2.205.0 - 2025-03-28
+=====================
+
+Model Changes
+-------------
+- Added a ``uses`` light edge between ``it:prod:soft`` and ``risk:vuln`` forms.
+  (`#4198 <https://github.com/vertexproject/synapse/pull/4198>`_)
+- Added a ``targets`` light edge between ``risk:compromise`` and
+  ``ou:industry`` forms.
+  (`#4198 <https://github.com/vertexproject/synapse/pull/4198>`_)
+- See :ref:`userguide_model_v2_205_0` for more detailed model changes.
+
+v2.204.1 - 2025-03-25
+=====================
+
+Bugfixes
+--------
+- Fixed a regression in the Storm ``parallel`` command where variables
+  containing certain heavy Storm object types were not passed into the parallel
+  runtimes.
+  (`#4197 <https://github.com/vertexproject/synapse/pull/4197>`_)
+
+v2.204.0 - 2025-03-21
+=====================
+
+Model Changes
+-------------
+- See :ref:`userguide_model_v2_204_0` for more detailed model changes.
+
+Bugfixes
+--------
+- Fixed an issue where locked users could still access HTTP endpoints with an
+  existing session cookie. User lock status now invalidates existing sessions
+  across all authenticated endpoints.
+  (`#4180 <https://github.com/vertexproject/synapse/pull/4180>`_)
+- Fixed an issue in Storm where the ``(`` and ``$`` control characters were
+  allowed in unquoted strings.
+  (`#4187 <https://github.com/vertexproject/synapse/pull/4187>`_)
+- Fixed a regression where the Storm ``not`` operator was incorrectly
+  whitespace sensitive.
+  (`#4187 <https://github.com/vertexproject/synapse/pull/4187>`_)
+- Fixed an issue with URL sanitizing where incorrect data was being removed
+  from the URL string.
+  (`#4190 <https://github.com/vertexproject/synapse/pull/4190>`_)
+- Fixed an issue with the Storm ``parallel`` command where variables
+  initialized within a parallel runtime were not properly isolated to that
+  specific runtime.
+  (`#4194 <https://github.com/vertexproject/synapse/pull/4194>`_)
+
 v2.203.0 - 2025-03-14
 =====================
 
@@ -633,6 +766,16 @@ Bugfixes
 - Fix an issue where the Storm ``background`` and ``parallel`` commands could
   incorrectly throw NoSuchVar exceptions when validating query arguments.
   (`#3991 <https://github.com/vertexproject/synapse/pull/3991>`_)
+
+v2.187.1 - 2025-04-14
+=====================
+
+Bugfixes
+--------
+- Fixed a bug in storage iteration which could cause an item to be yielded
+  twice if a very narrow race window was encountered.
+  (`#4207 <https://github.com/vertexproject/synapse/pull/4207>`_)
+  (`#4226 <https://github.com/vertexproject/synapse/pull/4226>`_)
 
 v2.187.0 - 2024-11-01
 =====================

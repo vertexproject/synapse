@@ -1,7 +1,7 @@
 import io
 import os
 import csv
-import sys
+import http
 import base64
 import shutil
 import struct
@@ -19,6 +19,7 @@ import synapse.common as s_common
 import synapse.telepath as s_telepath
 
 import synapse.lib.coro as s_coro
+import synapse.lib.json as s_json
 import synapse.lib.certdir as s_certdir
 import synapse.lib.httpapi as s_httpapi
 import synapse.lib.msgpack as s_msgpack
@@ -573,14 +574,14 @@ bar baz",vv
         # No auth - coverage
         async with self.getHttpSess() as sess:
             async with sess.get(f'{url_dl}/foobar') as resp:
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 info = await resp.json()
                 self.eq('NotAuthenticated', info.get('code'))
             async with sess.head(f'{url_dl}/foobar') as resp:
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 # aiohttp ignores HEAD bodies
             async with sess.delete(f'{url_dl}/foobar') as resp:
-                self.eq(401, resp.status)
+                self.eq(resp.status, http.HTTPStatus.UNAUTHORIZED)
                 info = await resp.json()
                 self.eq('NotAuthenticated', info.get('code'))
 
@@ -588,31 +589,31 @@ bar baz",vv
         async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
 
             async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
-                self.eq(403, resp.status)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
             async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
-                self.eq(403, resp.status)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
             async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
-                self.eq(403, resp.status)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
             async with sess.head(f'{url_dl}/{asdfhash_h}') as resp:
-                self.eq(403, resp.status)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 item = await resp.json()
 
             async with sess.post(url_de) as resp:
-                self.eq(403, resp.status)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
             async with sess.post(url_ul, data=abuf) as resp:
-                self.eq(403, resp.status)
+                self.eq(resp.status, http.HTTPStatus.FORBIDDEN)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
@@ -631,27 +632,27 @@ bar baz",vv
         # Basic
         async with self.getHttpSess(auth=('newb', 'secret'), port=port) as sess:
             async with sess.get(f'{url_dl}/foobar') as resp:
-                self.eq(404, resp.status)
+                self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 info = await resp.json()
                 self.eq('err', info.get('status'))
                 self.eq('BadArg', info.get('code'))
                 self.eq('Hash is not a SHA-256: foobar', info.get('mesg'))
 
             async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
-                self.eq(404, resp.status)
+                self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 info = await resp.json()
                 self.eq('err', info.get('status'))
                 self.eq('NoSuchFile', info.get('code'))
                 self.eq(f'SHA-256 not found: {asdfhash_h}', info.get('mesg'))
 
             async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 self.false(item.get('result'))
 
             async with sess.post(url_ul, data=abuf) as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 result = item.get('result')
@@ -661,13 +662,13 @@ bar baz",vv
                 self.true(await realaxon.has(asdfhash))
 
             async with sess.get(f'{url_hs}/{asdfhash_h}') as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 self.true(item.get('result'))
 
             async with sess.put(url_ul, data=abuf) as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 result = item.get('result')
@@ -676,14 +677,14 @@ bar baz",vv
                 self.true(await realaxon.has(asdfhash))
 
             async with sess.get(f'{url_dl}/{asdfhash_h}') as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq(abuf, await resp.read())
 
             # Streaming upload
             byts = io.BytesIO(bbuf)
 
             async with sess.post(url_ul, data=byts) as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 result = item.get('result')
@@ -694,7 +695,7 @@ bar baz",vv
             byts = io.BytesIO(bbuf)
 
             async with sess.put(url_ul, data=byts) as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 result = item.get('result')
@@ -705,7 +706,7 @@ bar baz",vv
             byts = io.BytesIO(b'')
 
             async with sess.post(url_ul, data=byts) as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 result = item.get('result')
@@ -715,7 +716,7 @@ bar baz",vv
 
             # Streaming download
             async with sess.get(f'{url_dl}/{bbufhash_h}') as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
 
                 byts = []
                 async for bytz in resp.content.iter_chunked(1024):
@@ -726,44 +727,44 @@ bar baz",vv
 
             # HEAD
             async with sess.head(f'{url_dl}/{bbufhash_h}') as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 self.eq('33554437', resp.headers.get('content-length'))
                 self.none(resp.headers.get('content-range'))
 
             async with sess.head(f'{url_dl}/foobar') as resp:
-                self.eq(404, resp.status)
+                self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 self.eq('0', resp.headers.get('content-length'))
 
             # DELETE method by sha256
             async with sess.delete(f'{url_dl}/foobar') as resp:
-                self.eq(404, resp.status)
+                self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 info = await resp.json()
                 self.eq('err', info.get('status'))
                 self.eq('BadArg', info.get('code'))
                 self.eq('Hash is not a SHA-256: foobar', info.get('mesg'))
 
             async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 self.true(item.get('result'))
 
             async with sess.delete(f'{url_dl}/{asdfhash_h}') as resp:
-                self.eq(404, resp.status)
+                self.eq(resp.status, http.HTTPStatus.NOT_FOUND)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
 
             # test /api/v1/axon/file/del API
             data = {'sha256s': (asdfhash_h, asdfhash_h)}
             async with sess.post(url_de, json=data) as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.OK)
                 item = await resp.json()
                 self.eq('ok', item.get('status'))
                 self.eq(((asdfhash_h, False), (asdfhash_h, False)), item.get('result'))
 
             data = {'newp': 'newp'}
             async with sess.post(url_de, json=data) as resp:
-                self.eq(200, resp.status)
+                self.eq(resp.status, http.HTTPStatus.BAD_REQUEST)
                 item = await resp.json()
                 self.eq('err', item.get('status'))
                 self.eq('SchemaViolation', item.get('code'))
@@ -783,7 +784,7 @@ bar baz",vv
 
                 headers = {'range': 'bytes=2-4'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
                     buf = b''
@@ -793,7 +794,7 @@ bar baz",vv
 
                 headers = {'range': 'bytes=,2-'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('10', resp.headers.get('content-length'))
                     self.eq('bytes 2-11/12', resp.headers.get('content-range'))
                     buf = b''
@@ -803,7 +804,7 @@ bar baz",vv
 
                 headers = {'range': 'bytes=0-11'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('12', resp.headers.get('content-length'))
                     self.eq('bytes 0-11/12', resp.headers.get('content-range'))
                     buf = b''
@@ -813,7 +814,7 @@ bar baz",vv
 
                 headers = {'range': 'bytes=10-11'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('2', resp.headers.get('content-length'))
                     self.eq('bytes 10-11/12', resp.headers.get('content-range'))
                     buf = b''
@@ -823,7 +824,7 @@ bar baz",vv
 
                 headers = {'range': 'bytes=11-11'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('1', resp.headers.get('content-length'))
                     self.eq('bytes 11-11/12', resp.headers.get('content-range'))
                     buf = b''
@@ -833,7 +834,7 @@ bar baz",vv
 
                 headers = {'range': 'bytes=2-4,8-11'}
                 async with sess.get(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
                     buf = b''
@@ -844,39 +845,40 @@ bar baz",vv
                 # HEAD tests
                 headers = {'range': 'bytes=2-4'}
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('3', resp.headers.get('content-length'))
                     self.eq('bytes 2-4/12', resp.headers.get('content-range'))
 
                 headers = {'range': 'bytes=10-11'}
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('2', resp.headers.get('content-length'))
                     self.eq('bytes 10-11/12', resp.headers.get('content-range'))
 
                 headers = {'range': 'bytes=11-11'}
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(206, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.PARTIAL_CONTENT)
                     self.eq('1', resp.headers.get('content-length'))
                     self.eq('bytes 11-11/12', resp.headers.get('content-range'))
 
+                # TODO - In python 3.13+ this can be HTTPStatus.RANGE_NOT_SATISFIABLE
                 # Reading past blobsize isn't valid HTTP
                 headers = {'range': 'bytes=10-20'}
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(416, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
 
                 headers = {'range': 'bytes=11-12'}
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(416, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
 
                 headers = {'range': 'bytes=20-40'}
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(416, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
 
                 # Negative size
                 headers = {'range': 'bytes=20-4'}
                 async with sess.head(f'{url_dl}/{shatext}', headers=headers) as resp:
-                    self.eq(416, resp.status)
+                    self.eq(resp.status, http.HTTPStatus.REQUESTED_RANGE_NOT_SATISFIABLE)
 
     async def test_axon_perms(self):
         async with self.getTestAxon() as axon:
@@ -1000,6 +1002,15 @@ bar baz",vv
             opts = {'vars': {'sha256': s_common.ehex(sha256)}}
             q = f'return($lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0)))'
             resp = await core.callStorm(q, opts=opts)
+            self.eq(True, resp['ok'])
+            self.eq(200, resp['code'])
+
+            jsonq = f'''$resp = $lib.axon.wput($sha256, "https://127.0.0.1:{port}/api/v1/pushfile", ssl=(0))
+            return ( $lib.json.save($resp) )
+            '''
+            resp = await core.callStorm(jsonq, opts=opts)
+            self.isinstance(resp, str)
+            resp = s_json.loads(resp)
             self.eq(True, resp['ok'])
             self.eq(200, resp['code'])
 

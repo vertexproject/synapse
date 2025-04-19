@@ -124,7 +124,7 @@ clear_storm_opts = '''
 .. storm-cortex:: default
 .. storm-opts:: {"vars": {"foobar": "bar"}}
 .. storm-clear-http:: true
-.. storm:: $lib.print($lib.str.concat($foobar, "bizboz"))
+.. storm:: $lib.print(`{$foobar}bizboz`)
 '''
 
 stormenv = '''
@@ -365,8 +365,9 @@ class RStormLibTest(s_test.SynTest):
             path = s_common.genpath(dirn, 'clear_storm_opts.rst')
             with s_common.genfile(path) as fd:
                 fd.write(clear_storm_opts.encode())
-            with self.raises(s_exc.StormRuntimeError):
-                text = await get_rst_text(path)
+            with self.raises(s_exc.StormRuntimeError) as cm:
+                await get_rst_text(path)
+            self.eq('Missing variable: foobar', cm.exception.get('mesg'))
 
             # boom1 test
             path = s_common.genpath(dirn, 'boom1.rst')

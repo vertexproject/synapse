@@ -901,9 +901,6 @@ class Slab(s_base.Base):
 
                 await clas.syncLoopOnce()
 
-            except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-                raise
-
             except Exception:  # pragma: no cover
                 logger.exception('Slab.syncLoopTask')
 
@@ -1882,6 +1879,8 @@ class Scan:
         '''
         Returns if the cursor is at the value in atitem
         '''
+        if not self.dupsort:
+            return self.atitem[0] == self.curs.item()[0]
         return self.atitem == self.curs.item()
 
 class ScanKeys(Scan):

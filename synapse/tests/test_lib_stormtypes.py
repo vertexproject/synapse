@@ -156,7 +156,7 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm(q, opts=opts)
 
             # Push a handful of notifications and list a subset of them
-            q = '''$m=$lib.str.format('hello {i}', i=$i) return($lib.auth.users.byname(root).tell($m))'''
+            q = '''$m=`hello {$i}` return($lib.auth.users.byname(root).tell($m))'''
             for i in range(5):
                 opts = {'user': visi.iden, 'vars': {'i': i}}
                 await core.callStorm(q, opts=opts)
@@ -965,7 +965,7 @@ class StormTypesTest(s_test.SynTest):
             iden = s_common.guid()
 
             async def runLongStorm():
-                q = f'[ test:str=foo test:str={"x"*100} ] | sleep 10 | [ test:str=endofquery ]'
+                q = f'[ test:str=foo test:str={"x" * 100} ] | sleep 10 | [ test:str=endofquery ]'
                 async for mesg in core.storm(q, opts={'task': iden}):
                     if mesg[0] == 'init':
                         self.true(mesg[1]['task'] == iden)
@@ -1072,7 +1072,7 @@ class StormTypesTest(s_test.SynTest):
             # exec vars do not populate upwards
             q = '''
             $foo = "that is one neato burrito"
-            $baz = ${ $bar=$lib.str.concat(wompwomp, $lib.guid()) $lib.print("in exec") }
+            $baz = ${ $bar=`wompwomp{$lib.guid()}` $lib.print("in exec") }
             $baz.exec()
             $lib.print("post exec {bar}", bar=$bar)
             [ test:str=$foo ]
@@ -1286,11 +1286,6 @@ class StormTypesTest(s_test.SynTest):
 
     async def test_storm_lib_str(self):
         async with self.getTestCore() as core:
-            q = '$v=vertex $l=link $fqdn=$lib.str.concat($v, ".", $l)' \
-                ' [ inet:email=$lib.str.format("visi@{domain}", domain=$fqdn) ]'
-            nodes = await core.nodes(q)
-            self.len(1, nodes)
-            self.eq('visi@vertex.link', nodes[0].ndef[1])
 
             nodes = await core.nodes('$s = woot [ test:int=$s.startswith(w) ]')
             self.eq(1, nodes[0].ndef[1])
@@ -1313,7 +1308,7 @@ class StormTypesTest(s_test.SynTest):
             sobj = s_stormtypes.Str('beepbeep')
             self.len(8, sobj)
 
-            nodes = await core.nodes('$s = (foo, bar, baz) [ test:str=$lib.str.join(".", $s) ]')
+            nodes = await core.nodes("$s = (foo, bar, baz) [ test:str=('.').join($s) ]")
             self.eq('foo.bar.baz', nodes[0].ndef[1])
 
             nodes = await core.nodes('$s = foo-bar-baz [ test:str=$s.replace("-", ".") ]')
@@ -1408,6 +1403,14 @@ class StormTypesTest(s_test.SynTest):
             self.eq(r'foo\ bar\ baz', await core.callStorm('return($lib.regex.escape("foo bar baz"))'))
 
             self.eq(((1, 2, 3)), await core.callStorm('return(("[1, 2, 3]").json())'))
+
+            self.eq('hehe,haha', await core.callStorm("$sepr=',' $l=(hehe, haha) return( $sepr.join($l) )"))
+            self.eq('hehehaha', await core.callStorm("$sepr='' $l=(hehe, haha) return( $sepr.join($l) )"))
+            self.eq('a|++|b|++|c', await core.callStorm("$sepr='|++|' $l=(a, b, c) return( $sepr.join($l) )"))
+            self.eq('hehe,haha', await core.callStorm("$l=(hehe, haha) return( (',').join($l) )"))
+            self.eq('hehehaha', await core.callStorm("$l=(hehe, haha) return( ('').join($l) )"))
+            self.eq('', await core.callStorm("$sepr=',' $l=() return( $sepr.join($l) )"))
+            self.eq('', await core.callStorm("$sepr='' $l=() return( $sepr.join($l) )"))
 
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm('return(("foo").json())')
@@ -1526,11 +1529,15 @@ class StormTypesTest(s_test.SynTest):
             resp = await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-16'}})
             self.eq(resp, {'k': 'v'})
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.BadJsonText):
                 await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
 
             with self.raises(s_exc.BadJsonText):
                 await core.callStorm(q, opts={'vars': {'buf': b'lol{newp,', 'encoding': None}})
+
+            q = 'return( $buf.json(encoding=$encoding, strict=(true)) )'
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm(q, opts={'vars': {'buf': buf, 'encoding': 'utf-32'}})
 
     async def test_storm_lib_list(self):
         async with self.getTestCore() as core:
@@ -1755,7 +1762,7 @@ class StormTypesTest(s_test.SynTest):
             $ipv4 = $node.repr()
             $loc = $node.repr(loc)
             $latlong = $node.repr(latlong, defv="??")
-            $valu = $lib.str.format("{ipv4} in {loc} at {latlong}", ipv4=$ipv4, loc=$loc, latlong=$latlong)
+            $valu = `{$ipv4} in {$loc} at {$latlong}`
             [ test:str=$valu ]
             +test:str
         '''
@@ -2434,7 +2441,7 @@ class StormTypesTest(s_test.SynTest):
                     self.stormIsInPrint('get valu is 0', mesgs)
 
                     listq = '''for ($key, $valu) in $lib.globals {
-                    $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                    $string = `{$key} is {$valu}`
                     $lib.print($string)
                     }
                     '''
@@ -2475,7 +2482,7 @@ class StormTypesTest(s_test.SynTest):
                     self.len(1, await core.nodes('test:str=hehe'))
 
                     listq = '''for ($key, $valu) in $lib.user.vars {
-                        $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                        $string = `{$key} is {$valu}`
                         $lib.print($string)
                     }
                     '''
@@ -2528,7 +2535,7 @@ class StormTypesTest(s_test.SynTest):
                     # core.vars, they only get the values they can read.
                     corelistq = '''
                     for ($key, $valu) in $lib.globals {
-                        $string = $lib.str.format("{key} is {valu}", key=$key, valu=$valu)
+                        $string = `{$key} is {$valu}`
                         $lib.print($string)
                     }
                     '''
@@ -2642,16 +2649,6 @@ class StormTypesTest(s_test.SynTest):
             self.len(1, ernfos)
             self.isin('Cannot format a timestamp for ongoing/future time.', ernfos[0][1].get('mesg'))
 
-            # strftime fail - taken from
-            # https://github.com/python/cpython/blob/3.7/Lib/test/datetimetester.py#L1404
-            query = r'''[test:str=1234 :tick=20190917]
-            $lib.print($lib.time.format(:tick, "%y\ud800%m"))
-            '''
-            mesgs = await core.stormlist(query)
-            ernfos = [m[1] for m in mesgs if m[0] == 'err']
-            self.len(1, ernfos)
-            self.isin('Error during time format', ernfos[0][1].get('mesg'))
-
             # Get time parts
             self.eq(2021, await core.callStorm('return($lib.time.year(20211031020304))'))
             self.eq(10, await core.callStorm('return($lib.time.month(20211031020304))'))
@@ -2671,6 +2668,54 @@ class StormTypesTest(s_test.SynTest):
             valu = await core.callStorm('return($lib.time.toUTC(2020, VISI))')
             self.false(valu[0])
             self.eq(valu[1]['err'], 'BadArg')
+
+            query = '''$valu="2020-10-01 01:30:00"
+            $parsed=$lib.time.parse($valu, "%Y-%m-%d %H:%M:%S")
+            $lib.print($lib.time.toUTC($parsed, US/Eastern))
+            '''
+            mesgs = await core.stormlist(query)
+            self.stormIsInPrint('1601530200000', mesgs)
+
+            # Test with different timezone abbreviations
+
+            # EST (Eastern Standard Time) - UTC-5
+            tick = s_time.parse('2020-02-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, EST))')
+            self.eq(valu, (True, tick + (s_time.onehour * 5)))
+
+            # PST (Pacific Standard Time) - UTC-8
+            tick = s_time.parse('2020-02-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, US/Pacific))')
+            self.eq(valu, (True, tick + (s_time.onehour * 8)))
+
+            # America/Los_Angeles - during DST - UTC-7
+            tick = s_time.parse('2020-07-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-07-11@14:08:00.123, America/Los_Angeles))')
+            self.eq(valu, (True, tick + (s_time.onehour * 7)))
+
+            # America/New_York - during DST - UTC-4
+            tick = s_time.parse('2020-07-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-07-11@14:08:00.123, America/New_York))')
+            self.eq(valu, (True, tick + (s_time.onehour * 4)))
+
+            # America/New_York - not during DST - UTC-5
+            tick = s_time.parse('2020-02-11 14:08:00.123')
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, America/New_York))')
+            self.eq(valu, (True, tick + (s_time.onehour * 5)))
+
+            # Invalid timezone
+            valu = await core.callStorm('return($lib.time.toUTC(2020-02-11@14:08:00.123, InvalidTZ))')
+            self.false(valu[0])
+            self.isin('Unknown timezone', valu[1]['errinfo']['mesg'])
+
+            # Ambiguous time
+            query = '''$valu="2020-11-01 01:30:00"
+            $parsed=$lib.time.parse($valu, "%Y-%m-%d %H:%M:%S")
+            return($lib.time.toUTC($parsed, America/New_York))
+            '''
+            mesgs = await core.callStorm(query)
+            self.false(mesgs[0])
+            self.isin('Ambiguous time', mesgs[1]['errinfo']['mesg'])
 
     async def test_storm_lib_time_ticker(self):
 
@@ -3141,19 +3186,18 @@ class StormTypesTest(s_test.SynTest):
 
             # Mismatch surrogates from real world data
             surrogate_data = "FOO\ufffd\ufffd\ufffd\udfab\ufffd\ufffdBAR"
-            resp = await core.callStorm('$buf=$s.encode() return ( ($buf, $buf.decode() ) )',
-                                        opts={'vars': {'s': surrogate_data}})
-            self.eq(resp[0], surrogate_data.encode('utf-8', 'surrogatepass'))
-            self.eq(resp[1], surrogate_data)
+            with self.raises(s_exc.StormRuntimeError):
+                resp = await core.callStorm('$buf=$s.encode() return ( ($buf, $buf.decode() ) )',
+                                                opts={'vars': {'s': surrogate_data}})
 
             # Encoding/decoding errors are caught
-            q = '$valu="valu" $valu.encode("utf16").decode()'
+            q = '$valu="valu" $valu.encode("utf16").decode(strict=(true))'
             msgs = await core.stormlist(q)
             errs = [m for m in msgs if m[0] == 'err']
             self.len(1, errs)
             self.eq(errs[0][1][0], 'StormRuntimeError')
 
-            q = '$lib.print($byts.decode(errors=ignore))'
+            q = '$lib.print($byts.decode())'
             msgs = await core.stormlist(q, opts={'vars': {'byts': b'foo\x80'}})
             self.stormHasNoErr(msgs)
             self.stormIsInPrint('foo', msgs)
@@ -4371,16 +4415,16 @@ class StormTypesTest(s_test.SynTest):
             tdef = await core.callStorm(q)
             self.eq(tdef.get('doc'), 'some trigger')
             trig = tdef.get('iden')
-            q = '''$t = $lib.trigger.get($trig) $t.set("doc", "awesome trigger") return ( $t )'''
+            q = '''$t = $lib.trigger.get($trig) $t.doc = "awesome trigger" return ( $t )'''
             tdef = await core.callStorm(q, opts={'vars': {'trig': trig}})
             self.eq(tdef.get('doc'), 'awesome trigger')
 
             with self.raises(s_exc.BadArg):
-                q = '$t = $lib.trigger.get($trig) $t.set("created", "woot") return ( $t )'
+                q = '$t = $lib.trigger.get($trig) $t.created = "woot" return ( $t )'
                 await core.callStorm(q, opts={'vars': {'trig': trig}})
 
             with self.raises(s_exc.BadArg):
-                q = '$t = $lib.trigger.get($trig) $t.set("foo", "bar")'
+                q = '$t = $lib.trigger.get($trig) $t.foo = "bar"'
                 await core.callStorm(q, opts={'vars': {'trig': trig}})
 
             nodes = await core.nodes('[ test:str=test1 ]')
@@ -4403,7 +4447,7 @@ class StormTypesTest(s_test.SynTest):
 
             # mess with things to make a bad trigger and make sure move doesn't delete it
             core.views[forkview].triggers.triggers[othr].tdef.pop('storm')
-            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).move({mainview})')
+            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).view = {mainview}')
             self.stormIsInErr('Cannot move invalid trigger', mesgs)
 
             mesgs = await core.stormlist('trigger.list')
@@ -4414,7 +4458,7 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(othr, mesgs)
 
             core.views[forkview].triggers.triggers[othr].tdef['storm'] = '[ +#naughty.trigger'
-            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).move({mainview})')
+            mesgs = await core.stormlist(f'$lib.trigger.get({othr}).view = {mainview}')
             self.stormIsInErr('Cannot move invalid trigger', mesgs)
 
             mesgs = await core.stormlist('trigger.list')
@@ -4430,11 +4474,11 @@ class StormTypesTest(s_test.SynTest):
             self.eq('[ +#neato.trigger ]', othrtrig['storm'])
 
             # now we can move it while being in a different view
-            await core.nodes(f'$lib.trigger.get({othr}).move({mainview})')
+            await core.nodes(f'$lib.trigger.get({othr}).view = {mainview}')
             # but still retrieve it from the other view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))', opts=forkopts))
 
-            await core.nodes(f'$lib.trigger.get({trig}).move({forkview})')
+            await core.nodes(f'$lib.trigger.get({trig}).view = {forkview}')
 
             nodes = await core.nodes('[ test:str=test2 ]')
             self.none(nodes[0].get('#tagged'))
@@ -4442,12 +4486,12 @@ class StormTypesTest(s_test.SynTest):
             nodes = await core.nodes('[ test:str=test3 ]', opts=forkopts)
             self.nn(nodes[0].get('#tagged'))
 
-            await core.nodes(f'$lib.trigger.get({trig}).move({mainview})', opts=forkopts)
+            await core.nodes(f'$lib.trigger.get({trig}).view = {mainview}', opts=forkopts)
             nodes = await core.nodes('[ test:str=test4 ]')
             self.nn(nodes[0].get('#tagged'))
 
             with self.raises(s_exc.NoSuchView):
-                await core.nodes(f'$lib.trigger.get({trig}).move(newp)')
+                await core.nodes(f'$lib.trigger.get({trig}).view = newp')
 
             q = '''
                 $tdef = ({
@@ -4540,7 +4584,7 @@ class StormTypesTest(s_test.SynTest):
                 await prox.delUserRule(bond.iden, (True, ('trigger', 'add')))
                 await prox.delUserRule(bond.iden, (True, ('trigger', 'del')))
 
-                q = f'$lib.trigger.get({trig}).move({forkview})'
+                q = f'$lib.trigger.get({trig}).view = {forkview}'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('must have permission view.read', mesgs)
 
@@ -4577,14 +4621,14 @@ class StormTypesTest(s_test.SynTest):
             iden = cdef.get('iden')
             opts = {'vars': {'iden': iden}}
 
-            cdef = await core.callStorm('return($lib.cron.get($iden).set(name, foobar))', opts=opts)
+            cdef = await core.callStorm('$cron = $lib.cron.get($iden) $cron.name = foobar return($cron)', opts=opts)
             self.eq('foobar', cdef.get('name'))
 
-            cdef = await core.callStorm('return($lib.cron.get($iden).set(doc, foodoc))', opts=opts)
+            cdef = await core.callStorm('$cron = $lib.cron.get($iden) $cron.doc = foodoc return($cron)', opts=opts)
             self.eq('foodoc', cdef.get('doc'))
 
             with self.raises(s_exc.BadOptValu):
-                await core.callStorm('return($lib.cron.get($iden).set(hehe, haha))', opts=opts)
+                await core.callStorm('$lib.cron.get($iden).hehe = haha', opts=opts)
 
             mesgs = await core.stormlist('cron.add --hour +1 {[tel:mob:telem=*]} --name myname --doc mydoc')
             for mesg in mesgs:
@@ -4597,16 +4641,6 @@ class StormTypesTest(s_test.SynTest):
             self.false(await core.killCronTask('newp'))
             self.false(await core._killCronTask('newp'))
             self.false(await core.callStorm(f'return($lib.cron.get({iden0}).kill())'))
-
-            cdef = await core.callStorm('return($lib.cron.get($iden))', opts=opts)
-            self.eq('mydoc', cdef.get('doc'))
-            self.eq('myname', cdef.get('name'))
-
-            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(name, lolz) )', opts=opts)
-            self.eq('lolz', cdef.get('name'))
-
-            cdef = await core.callStorm('$cron=$lib.cron.get($iden) return ( $cron.set(doc, zoinks) )', opts=opts)
-            self.eq('zoinks', cdef.get('doc'))
 
     async def test_storm_lib_cron(self):
 
@@ -4773,7 +4807,7 @@ class StormTypesTest(s_test.SynTest):
                 unixtime = datetime.datetime(year=2018, month=12, day=5, hour=7, minute=10,
                                              tzinfo=tz.utc).timestamp()
 
-                q = '{$lib.queue.get(foo).put(m3) $s=$lib.str.format("m3 {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden})) }'
+                q = '{$lib.queue.get(foo).put(m3) $s=`m3 {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden})) }'
                 text = f'cron.add --minute 17 {q}'
                 async with getCronJob(text) as guid:
                     with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'm3 cron') as stream:
@@ -5894,13 +5928,13 @@ class StormTypesTest(s_test.SynTest):
             self.eq({'d', 'c'}, ret)
 
             # str join
-            ret = await core.callStorm('$x=(foo,bar,baz) $y=$lib.str.join("-", $x) return($y)')
+            ret = await core.callStorm('$x=(foo,bar,baz) $y=("-").join($x) return($y)')
             self.eq('foo-bar-baz', ret)
 
-            ret = await core.callStorm('$y=$lib.str.join("-", (foo, bar, baz)) return($y)')
+            ret = await core.callStorm('$y=("-").join((foo, bar, baz)) return($y)')
             self.eq('foo-bar-baz', ret)
 
-            ret = await core.callStorm('$x=abcd $y=$lib.str.join("-", $x) return($y)')
+            ret = await core.callStorm('$x=abcd $y=("-").join($x) return($y)')
             self.eq('a-b-c-d', ret)
 
     async def test_storm_lib_axon(self):
@@ -5914,7 +5948,7 @@ class StormTypesTest(s_test.SynTest):
 
             opts = {'user': visi.iden, 'vars': {'port': port}}
             wget = '''
-               $url = $lib.str.format("https://visi:secret@127.0.0.1:{port}/api/v1/healthcheck", port=$port)
+               $url = `https://visi:secret@127.0.0.1:{$port}/api/v1/healthcheck`
                return($lib.axon.wget($url, ssl=$lib.false))
            '''
             with self.raises(s_exc.AuthDeny):

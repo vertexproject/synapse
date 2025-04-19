@@ -493,7 +493,7 @@ stormcmds = (
                         if ( $defv = $lib.null ) {
                             $defv = $lib.false
                         }
-                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
+                        $text = `{('.').join($permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
                         $lib.print($text)
                     }
                 } else {
@@ -580,7 +580,7 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $headers = ({'X-Synapse-Version': $lib.str.join('.', $lib.version.synapse())})
+                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse())})
 
                 $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
@@ -615,7 +615,7 @@ stormcmds = (
             $synv = $lib.version.synapse()
 
             if $synv {
-                $synv = $lib.str.join('.', $synv)
+                $synv = ('.').join($synv)
             }
 
             if $comm {
@@ -918,10 +918,9 @@ stormcmds = (
                                   monthly=$cmdopts.monthly,
                                   yearly=$cmdopts.yearly,
                                   iden=$cmdopts.iden,
-                                  view=$cmdopts.view,)
-
-            if $cmdopts.doc { $cron.set(doc, $cmdopts.doc) }
-            if $cmdopts.name { $cron.set(name, $cmdopts.name) }
+                                  view=$cmdopts.view,
+                                  doc=$cmdopts.doc,
+                                  name=$cmdopts.name)
 
             $lib.print("Created cron job: {iden}", iden=$cron.iden)
         ''',
@@ -1091,8 +1090,8 @@ stormcmds = (
                     $lib.print('entries:         incunit    incval required')
 
                     for $rec in $job.recs {
-                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
-                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+                        $incunit = (`{$rec.incunit}`).ljust(10)
+                        $incval = (`{$rec.incval}`).ljust(6)
 
                         $lib.print('                 {incunit} {incval} {reqdict}',
                                    incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
@@ -2433,7 +2432,7 @@ class Parser:
                 desc = endpoint.get('desc', '')
                 base = f'    {path}'
                 wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
-                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                self._printf(f'{base:<{base_w - 2}}: {wrap_desc[0]}')
                 for ln in wrap_desc[1:]:
                     self._printf(f'{"":<{base_w}}{ln}')
 
@@ -2529,7 +2528,7 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
@@ -5463,9 +5462,12 @@ class ParallelCmd(Cmd):
 
             yield item
 
-    async def pipeline(self, runt, query, inq, outq):
+    async def pipeline(self, runt, query, inq, outq, runtvars):
+
+        opts = {'vars': runtvars}
+
         try:
-            async with runt.getSubRuntime(query) as subr:
+            async with runt.getCmdRuntime(query, opts=opts) as subr:
                 async for item in subr.execute(genr=self.nextitem(inq)):
                     await outq.put(item)
 
@@ -5496,11 +5498,13 @@ class ParallelCmd(Cmd):
             inq = asyncio.Queue(maxsize=size)
             outq = asyncio.Queue(maxsize=size)
 
+            runtvars = self.runt.getScopeVars()
+
             tsks = 0
             try:
                 while tsks < size:
                     await inq.put(await genr.__anext__())
-                    base.schedCoro(self.pipeline(runt, query, inq, outq))
+                    base.schedCoro(self.pipeline(runt, query, inq, outq, runtvars))
                     tsks += 1
             except StopAsyncIteration:
                 [await inq.put(None) for i in range(tsks)]
@@ -5521,7 +5525,7 @@ class ParallelCmd(Cmd):
             elif tsks == 0:
                 tsks = size
                 for i in range(size):
-                    base.schedCoro(self.pipeline(runt, query, inq, outq))
+                    base.schedCoro(self.pipeline(runt, query, inq, outq, runtvars))
                 [await inq.put(None) for i in range(tsks)]
 
             exited = 0

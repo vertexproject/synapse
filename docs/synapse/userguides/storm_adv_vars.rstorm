@@ -504,7 +504,7 @@ additional details.
 
 .. storm-cli:: $now=$lib.time.now() $lib.print($now)
 
-- Convert an epoch milliseconds integer into a human-readable date/time string using ``$lib.str.format()``:
+- Convert an epoch milliseconds integer into a human-readable date/time string using ``$lib.time.format()``:
 
 .. storm-cli:: $now=$lib.time.now() $time=$lib.time.format($now, '%Y/%m/%d %H:%M:%S') $lib.print($time)
 

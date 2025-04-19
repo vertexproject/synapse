@@ -1337,6 +1337,10 @@ class InetModelTest(s_t_utils.SynTest):
                 'port': 12345,
                 'proto': 'host',
             }),
+            ((4, 2130706433), 'tcp://127.0.0.1', {
+                'ip': (4, 2130706433),
+                'proto': 'tcp',
+            }),
         )
 
         async with self.getTestCore() as core:
@@ -1347,6 +1351,18 @@ class InetModelTest(s_t_utils.SynTest):
                 self.eq(node.ndef, ('inet:server', expected_valu))
                 for p, v in props.items():
                     self.eq(node.get(p), v)
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=(([4, 1]),)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://0.0.0.1:53',))
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=(([6, 1]),)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=("::1",)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
+
+            nodes = await core.nodes('[ it:network=* :dns:resolvers=("[::1]",)]')
+            self.eq(nodes[0].get('dns:resolvers'), ('udp://[::1]:53',))
 
     async def test_servfile(self):
         async with self.getTestCore() as core:
@@ -2930,3 +2946,21 @@ class InetModelTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('inet:service:subscription -> inet:service:subscription:level:taxonomy'))
             self.len(1, await core.nodes('inet:service:subscription :pay:instrument -> econ:bank:account'))
             self.len(1, await core.nodes('inet:service:subscription :subscriber -> inet:service:tenant'))
+
+    async def test_ipv4_fallback(self):
+
+        async with self.getTestCore() as core:
+            self.len(1, await core.nodes('[inet:ip=192.168.1.1]'))
+
+            self.len(1, await core.nodes('[inet:ip=3.0.000.115]'))
+            self.len(1, await core.nodes('[inet:ip=192.168.001.001]'))
+            self.len(1, await core.nodes('[inet:ip=10.0.0.001]'))
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=256.256.256.256]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=192.168.001.001.001]')
+
+            with self.raises(s_exc.BadTypeValu):
+                await core.nodes('[inet:ip=192.168.001.001.abc]')

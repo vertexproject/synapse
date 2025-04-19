@@ -370,6 +370,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                 :net="10.1.0.0/16"
                 :org={ gen.ou.org "Vertex Project" }
                 :type=virtual.sdn
+                :dns:resolvers=(1.2.3.4, tcp://1.2.3.4:99)
             ]
             '''
             nodes = await core.nodes(q)
@@ -379,6 +380,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('name'), 'opslan.lax.vertex.link')
             self.eq(nodes[0].get('net'), ((4, 167837696), (4, 167903231)))
             self.eq(nodes[0].get('type'), 'virtual.sdn.')
+            self.eq(nodes[0].get('dns:resolvers'), ('tcp://1.2.3.4:99', 'udp://1.2.3.4:53'))
 
             nodes = await core.nodes('''[
                 it:sec:stix:indicator=*
@@ -1668,7 +1670,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             with self.raises(s_exc.BadTypeValu):
                 await core.nodes("[ it:sec:cpe='cpe:2.3:a:openbsd:openssh:7.4\r\n:*:*:*:*:*:*:*' ]")
 
-            nodes = await core.nodes(r'[ it:sec:cpe="cpe:2.3:o:cisco:ios:12.1\(22\)ea1a:*:*:*:*:*:*:*" ]')
+            nodes = await core.nodes(r'[ it:sec:cpe="cpe:2.3:o:cisco:ios:12.1\\(22\\)ea1a:*:*:*:*:*:*:*" ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('it:sec:cpe', r'cpe:2.3:o:cisco:ios:12.1\(22\)ea1a:*:*:*:*:*:*:*'))
             self.eq(nodes[0].get('part'), 'o')
@@ -1723,7 +1725,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(norm, 'cpe:2.3:a:b\\\\b:*:*:*:*:*:*:*:*:*')
 
             # Examples based on customer reports
-            q = '''
+            q = r'''
             [
                 it:sec:cpe="cpe:/a:10web:social_feed_for_instagram:1.0.0::~~premium~wordpress~~"
                 it:sec:cpe="cpe:/a:1c:1c%3aenterprise:-"
@@ -1735,7 +1737,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.stormHasNoWarnErr(msgs)
 
             # Examples based on customer reports
-            q = '''
+            q = r'''
             [
                 it:sec:cpe="cpe:2.3:a:x1c:1c\\:enterprise:-:*:*:*:*:*:*:*"
                 it:sec:cpe="cpe:2.3:a:xacurax:under_construction_\\/_maintenance_mode:-:*:*:*:*:wordpress:*:*"

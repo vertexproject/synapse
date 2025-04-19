@@ -592,7 +592,7 @@ You must use explicit syntax to specify both the source and target properties.
 *Pivot from a set of DNS A records (inet:dns:a nodes) to any network flows (inet:flow) or service banners (inet:banner) associated with the IPs:*
 
 .. storm-pre:: [ inet:dns:a=(woot.com,8.8.8.8) (inet:flow=* :dst=tcp://8.8.8.8) (inet:banner=('tcp://8.8.8.8:1234','woo haha')) ]
-.. storm-pre:: inet:dns:a :ip -> ( inet:flow:dst, inet:banner:server )
+.. storm-pre:: inet:dns:a :ip -> ( inet:flow:dst*ip, inet:banner:server*ip )
 
 ::
   
