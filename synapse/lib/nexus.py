@@ -506,6 +506,7 @@ class NexsRoot(s_base.Base):
 
     async def runMirrorLoop(self, proxy):
 
+        cellinfo = None
         try:
             cellinfo = await proxy.getCellInfo()
             features = cellinfo.get('features', {})
@@ -535,6 +536,11 @@ class NexsRoot(s_base.Base):
             await proxy.fini()
 
         while not proxy.isfini:
+
+            if cellinfo:
+                ahaname = cellinfo.get('cell').get('aha', {}).get('name')
+                if ahaname:
+                    logger.info(f'Mirror communicating with aha service {ahaname}')
 
             try:
 
