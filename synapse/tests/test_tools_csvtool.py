@@ -85,7 +85,7 @@ class CsvToolTest(s_t_utils.SynTest):
 
             q = '''
             for ($ipv4, $fqdn, $note) in $rows {
-                $note = $lib.str.format('{n} - {h}', n=$note, h=$hehe)
+                $note = `{$node} - {$hehe}`
                 [ inet:dns:a?=($fqdn,$ipv4) ]  { | note.add $note }
             }'''
             with s_common.genfile(stormpath) as fd:

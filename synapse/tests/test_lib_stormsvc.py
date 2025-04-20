@@ -347,6 +347,9 @@ class StormvarServiceCell(s_cell.Cell):
                 'bar': {
                     'type': 'string',
                 },
+                'name': {
+                    'type': 'string',
+                },
             },
             'required': ['name', ],
             'additionalProperties': False,
