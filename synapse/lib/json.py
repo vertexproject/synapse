@@ -249,7 +249,7 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
             _dumps(item)
 
         except s_exc.MustBeJsonSafe:
-            raise 
+            raise
 
         except UnicodeEncodeError as exc:
             mesg = str(exc)
