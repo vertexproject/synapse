@@ -136,11 +136,7 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
 
         return ret
 
-    except SystemError as exc:
-        mesg = 'Error while attempting to serialize JSON data'
-        raise s_exc.MustBeJsonSafe(mesg=mesg) from None
-
-    except ValueError as exc:
+    except (TypeError, ValueError) as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
 def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> None:
