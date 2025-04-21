@@ -98,11 +98,8 @@ def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
 
     # Raw strings have to be double-quoted
     if isinstance(obj, str) and obj not in ('null', 'true', 'false'):
-        obj = ''.join((
-            '"',
-            obj.replace('"', '\\"'),
-            '"',
-        ))
+        escaped = obj.replace('"', '\\"')
+        obj = f'"{escaped}"'
 
     doc = yyjson.Document(obj, default=_dumps_default(default))
     return doc.dumps(flags=flags).encode()
