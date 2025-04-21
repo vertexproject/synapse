@@ -177,6 +177,7 @@ class JsonTest(s_test.SynTest):
             ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
             (b'1234', s_exc.MustBeJsonSafe),
             (b'1234"', s_exc.MustBeJsonSafe),
+            ({'a': float('nan')}, s_exc.MustBeJsonSafe),
             ({'a': 'a', 2: 2}, s_exc.MustBeJsonSafe),
             ({'a', 'b', 'c'}, s_exc.MustBeJsonSafe),
             (s_common.novalu, s_exc.MustBeJsonSafe),
@@ -196,6 +197,10 @@ class JsonTest(s_test.SynTest):
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.reqjsonsafe(text, strict=True)
         self.eq(exc.exception.get('mesg'), "'utf-8' codec can't encode characters in position 1-2: surrogates not allowed")
+
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.reqjsonsafe(b'1234', strict=True)
+        self.eq(exc.exception.get('mesg'), 'Object of type bytes is not JSON serializable')
 
     async def test_lib_json_data_at_rest(self):
         async with self.getRegrCore('json-data') as core:
