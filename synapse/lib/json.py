@@ -71,15 +71,22 @@ def _fallback_dumps(obj: Any, sort_keys: bool = False, indent: bool = False, def
     except TypeError as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
-def _dumps_default(obj):
-    if isinstance(obj, tuple):
-        return list(obj)
+def _dumps_default(default=None):
+    def inner(obj):
+        if isinstance(obj, tuple):
+            return list(obj)
 
-    mesg = f"Object of type '{obj.__class__.__name__}' is not JSON serializable"
-    raise s_exc.MustBeJsonSafe(mesg=mesg)
+        if default is not None:
+            return default(obj)
 
-def dumps(obj: Any, sort_keys: bool = False, indent: bool = False,
-          default: Optional[Callable] = _dumps_default, newline: bool = False) -> bytes:
+        # if isinstance(obj, bytes):
+        #     return obj.decode().replace('"', '\\"')
+
+        mesg = f"Object of type '{obj.__class__.__name__}' is not JSON serializable"
+        raise s_exc.MustBeJsonSafe(mesg=mesg)
+    return inner
+
+def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> bytes:
     '''
     Serialize a python object to byte string.
 
@@ -107,23 +114,15 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False,
         flags |= yyjson.WriterFlags.WRITE_NEWLINE_AT_END
 
     # Raw strings have to be double-quoted
-    if isinstance(obj, str):
+    if isinstance(obj, str) and obj not in ('null', 'true', 'false'):
         obj = ''.join((
             '"',
             obj.replace('"', '\\"'),
             '"',
         ))
 
-    # Raw bytes have to be double-quoted
-    if isinstance(obj, bytes):
-        obj = b''.join((
-            b'"',
-            obj.replace(b'"', b'\\"'),
-            b'"',
-        ))
-
     try:
-        doc = yyjson.Document(obj, default=default)
+        doc = yyjson.Document(obj, default=_dumps_default(default))
         return doc.dumps(flags=flags).encode()
 
     except UnicodeEncodeError as exc:
@@ -140,8 +139,7 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False,
     except (SystemError, ValueError) as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
-def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False,
-         default: Optional[Callable] = _dumps_default, newline: bool = False) -> None:
+def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> None:
     '''
     Serialize a python object to a file-like object opened in binary mode.
 
@@ -241,7 +239,7 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
     '''
     if strict:
         try:
-            doc = yyjson.Document(item, default=_dumps_default)
+            doc = yyjson.Document(item, default=_dumps_default())
             return doc.dumps().encode()
 
         except UnicodeEncodeError as exc:

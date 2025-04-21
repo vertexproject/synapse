@@ -91,18 +91,16 @@ class JsonTest(s_test.SynTest):
             s_json.dumps({}.items())
         self.eq(exc.exception.get('mesg'), "Object of type 'dict_items' is not JSON serializable")
 
-        # FIXME: This should not be a SystemError, fix when yyjson is updated:
-        # https://github.com/TkTech/py_yyjson/issues/12
-        # with self.raises(s_exc.MustBeJsonSafe) as exc:
-        with self.raises(SystemError) as exc:
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({1: 'foo'})
+        # FIXME: This should have a proper error message, fix when yyjson is updated:
+        # https://github.com/TkTech/py_yyjson/issues/12
         # self.eq(exc.exception.get('mesg'), 'Dict key must be str')
 
-        # FIXME: This should not be a SystemError, fix when yyjson is updated:
-        # https://github.com/TkTech/py_yyjson/issues/12
-        # with self.raises(s_exc.MustBeJsonSafe) as exc:
-        with self.raises(SystemError) as exc:
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({'\ud83d\ude47': {}.items()})
+        # FIXME: This should have a proper error message, fix when yyjson is updated:
+        # https://github.com/TkTech/py_yyjson/issues/12
         # self.eq(exc.exception.get('mesg'), "Object of type 'dict_items' is not JSON serializable")
 
         self.eq(b'"dict_items([])"', s_json.dumps({}.items(), default=str))
