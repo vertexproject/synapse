@@ -175,10 +175,9 @@ class JsonTest(s_test.SynTest):
             ('1234"', None),
             ({'asdf': 'haha'}, None),
             ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
-            (b'1234', None),
-            (b'1234"', None),
-            # ({'a': 'a', 2: 2}, s_exc.MustBeJsonSafe),
-            ({'a': 'a', 2: 2}, SystemError),
+            (b'1234', s_exc.MustBeJsonSafe),
+            (b'1234"', s_exc.MustBeJsonSafe),
+            ({'a': 'a', 2: 2}, s_exc.MustBeJsonSafe),
             ({'a', 'b', 'c'}, s_exc.MustBeJsonSafe),
             (s_common.novalu, s_exc.MustBeJsonSafe),
         )

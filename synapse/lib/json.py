@@ -79,12 +79,33 @@ def _dumps_default(default=None):
         if default is not None:
             return default(obj)
 
-        # if isinstance(obj, bytes):
-        #     return obj.decode().replace('"', '\\"')
-
         mesg = f"Object of type '{obj.__class__.__name__}' is not JSON serializable"
         raise s_exc.MustBeJsonSafe(mesg=mesg)
     return inner
+
+def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
+    flags = 0
+
+    if indent:
+        flags |= yyjson.WriterFlags.PRETTY_TWO_SPACES
+
+    if newline:
+        flags |= yyjson.WriterFlags.WRITE_NEWLINE_AT_END
+
+    if isinstance(obj, bytes):
+        mesg = 'Object of type bytes is not JSON serializable'
+        raise s_exc.MustBeJsonSafe(mesg=mesg)
+
+    # Raw strings have to be double-quoted
+    if isinstance(obj, str) and obj not in ('null', 'true', 'false'):
+        obj = ''.join((
+            '"',
+            obj.replace('"', '\\"'),
+            '"',
+        ))
+
+    doc = yyjson.Document(obj, default=_dumps_default(default))
+    return doc.dumps(flags=flags).encode()
 
 def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> bytes:
     '''
@@ -105,26 +126,8 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
     Raises:
         synapse.exc.MustBeJsonSafe: This exception is raised when a python object cannot be serialized.
     '''
-    flags = 0
-
-    if indent:
-        flags |= yyjson.WriterFlags.PRETTY_TWO_SPACES
-
-    if newline:
-        flags |= yyjson.WriterFlags.WRITE_NEWLINE_AT_END
-
-    # Raw strings have to be double-quoted
-    if isinstance(obj, str) and obj not in ('null', 'true', 'false'):
-        obj = ''.join((
-            '"',
-            obj.replace('"', '\\"'),
-            '"',
-        ))
-
     try:
-        doc = yyjson.Document(obj, default=_dumps_default(default))
-        return doc.dumps(flags=flags).encode()
-
+        return _dumps(obj, sort_keys=sort_keys, indent=indent, default=default, newline=newline)
     except UnicodeEncodeError as exc:
         extra = {'synapse': {'fn': 'dumps', 'reason': str(exc)}}
         logger.warning('Using fallback JSON serialization. Please report this to Vertex.', extra=extra)
@@ -136,7 +139,11 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
 
         return ret
 
-    except (SystemError, ValueError) as exc:
+    except SystemError as exc:
+        mesg = 'Error while attempting to serialize JSON data'
+        raise s_exc.MustBeJsonSafe(mesg=mesg) from None
+
+    except ValueError as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
 def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> None:
@@ -239,8 +246,10 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
     '''
     if strict:
         try:
-            doc = yyjson.Document(item, default=_dumps_default())
-            return doc.dumps().encode()
+            _dumps(item)
+
+        except s_exc.MustBeJsonSafe:
+            raise 
 
         except UnicodeEncodeError as exc:
             mesg = str(exc)

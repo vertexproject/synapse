@@ -870,7 +870,7 @@ class HttpReflector(s_httpapi.Handler):
         resp = {}
         params = self._decode_params()
         if params:
-            resp['params'] = params
+            resp['params'] = dict(params)
 
         resp['headers'] = dict(self.request.headers)
         resp['path'] = self.request.path
@@ -892,7 +892,7 @@ class HttpReflector(s_httpapi.Handler):
         resp = {}
         params = self._decode_params()
         if params:
-            resp['params'] = params
+            resp['params'] = dict(params)
 
         resp['headers'] = dict(self.request.headers)
         resp['path'] = self.request.path
