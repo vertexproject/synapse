@@ -1,0 +1,5 @@
+---
+desc: Updated JSON library backend from orjson to py_yyjson which has large integer support.
+prs: []
+type: feat
+...
