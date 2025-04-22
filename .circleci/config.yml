@@ -43,7 +43,7 @@ commands:
             python3 -m venv --copies venv
             . venv/bin/activate
             python3 -m pip install -U wheel pip setuptools
-            python3 -m pip install -U -r requirements_dev.txt
+            python3 -m pip install -U -r requirements_dev.txt --upgrade-strategy=eager
 
       - run:
           name: install synapse
