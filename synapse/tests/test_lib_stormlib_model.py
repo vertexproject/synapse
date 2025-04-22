@@ -46,23 +46,23 @@ class StormlibModelTest(s_test.SynTest):
 
             self.true(await core.callStorm('return(($lib.model.prop(".created").form = $lib.null))'))
 
-            mesgs = await core.stormlist('$lib.print($lib.model.form(ou:name))')
-            self.stormIsInPrint("model:form: {'name': 'ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.form(meta:name))')
+            self.stormIsInPrint("model:form: {'name': 'meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name))')
-            self.stormIsInPrint("{'name': 'ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(meta:name))')
+            self.stormIsInPrint("{'name': 'meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.form(ou:name).type)')
-            self.stormIsInPrint("model:type: ('ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.form(meta:name).type)')
+            self.stormIsInPrint("model:type: ('meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.form(ou:name).type)')
-            self.stormIsInPrint("('ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.form(meta:name).type)')
+            self.stormIsInPrint("('meta:name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.print($lib.model.prop(ps:contact:orgname))')
-            self.stormIsInPrint("model:property: {'name': 'orgname'", mesgs)
+            mesgs = await core.stormlist('$lib.print($lib.model.prop(entity:contact:name))')
+            self.stormIsInPrint("model:property: {'name': 'name'", mesgs)
 
-            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(ps:contact:orgname))')
-            self.stormIsInPrint("'type': ('ou:name'", mesgs)
+            mesgs = await core.stormlist('$lib.pprint($lib.model.prop(entity:contact:name))')
+            self.stormIsInPrint("'type': ('meta:name'", mesgs)
 
             mesgs = await core.stormlist('$lib.print($lib.model.tagprop(score))')
             self.stormIsInPrint("model:tagprop: {'name': 'score'", mesgs)

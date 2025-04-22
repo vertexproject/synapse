@@ -299,7 +299,9 @@ testmodel = (
                     ('seen', ('ival', {}), {}),
                     ('names', ('array', {'type': 'str'}), {}),
                 ),
-                'interfaces': ('inet:proto:request',)
+                'interfaces': (
+                    ('inet:proto:request', {}),
+                ),
             }),
             ('test:virtarray', {
                 'doc': 'test interface',
@@ -328,7 +330,11 @@ testmodel = (
             ('test:auto', ('str', {}), {}),
             ('test:guid', ('guid', {}), {}),
             ('test:data', ('data', {}), {}),
-            ('test:taxonomy', ('taxonomy', {}), {'interfaces': ('meta:taxonomy',)}),
+            ('test:taxonomy', ('taxonomy', {}), {
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                )
+            }),
             ('test:hugenum', ('hugenum', {}), {}),
 
             ('test:arrayprop', ('guid', {}), {}),
@@ -364,21 +370,14 @@ testmodel = (
             ('test:cycle1', ('str', {}), {}),
 
             ('test:ndef', ('ndef', {}), {}),
-            ('test:ndef:formfilter1', ('ndef', {
-                'forms': ('inet:ip',)
-            }), {}),
-            ('test:ndef:formfilter2', ('ndef', {
-                'interfaces': ('meta:taxonomy',)
-            }), {}),
-            ('test:ndef:formfilter3', ('ndef', {
-                'forms': ('inet:ip',),
-                'interfaces': ('file:mime:msoffice',)
-            }), {}),
+            ('test:ndef:formfilter1', ('ndef', {'forms': ('inet:ip',)}), {}),
+            ('test:ndef:formfilter2', ('ndef', {'interfaces': ('meta:taxonomy',)}), {}),
+            ('test:ndef:formfilter3', ('ndef', {'forms': ('inet:ip',), 'interfaces': ('file:mime:msoffice',)}), {}),
 
-            ('test:hasiface', ('str', {}), {'interfaces': ('test:interface',)}),
-            ('test:hasiface2', ('str', {}), {'interfaces': ('test:interface',)}),
-            ('test:virtiface', ('guid', {}), {'interfaces': ('test:virtarray',)}),
-            ('test:virtiface2', ('guid', {}), {'interfaces': ('test:virtarray',)}),
+            ('test:hasiface', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:hasiface2', ('str', {}), {'interfaces': (('test:interface', {}),)}),
+            ('test:virtiface', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
+            ('test:virtiface2', ('guid', {}), {'interfaces': (('test:virtarray', {}),)}),
         ),
 
         'univs': (

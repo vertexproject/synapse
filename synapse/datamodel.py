@@ -982,8 +982,8 @@ class Model:
 
         # interfaces are listed in typeinfo for the form to
         # maintain backward compatibility for populated models
-        for ifname in form.type.info.get('interfaces', ()):
-            self._addFormIface(form, ifname)
+        for ifname, ifinfo in form.type.info.get('interfaces', ()):
+            self._addFormIface(form, ifname, ifinfo)
 
         if checks:
             self._checkFormDisplay(form)
@@ -1009,7 +1009,12 @@ class Model:
                 propname = colopts.get('name')
                 parts = propname.split('::')
 
-                for partname in parts:
+                for i, partname in enumerate(parts):
+
+                    if curf is None and i == (len(parts) - 1):
+                        mesg = f'No form named {prop.type.name} for property {prop.full}.'
+                        raise s_exc.NoSuchForm(mesg=mesg)
+
                     prop = curf.prop(partname)
                     if prop is None:
                         mesg = (f'Form {form.name} defines prop column {propname}'
@@ -1047,8 +1052,8 @@ class Model:
         if isinstance(form.type, s_types.Array):
             self.arraysbytype[form.type.arraytype.name].pop(form.name, None)
 
-        for ifname in form.type.info.get('interfaces', ()):
-            self._delFormIface(form, ifname)
+        for ifname, ifinfo in form.type.info.get('interfaces', ()):
+            self._delFormIface(form, ifname, ifinfo)
 
         self.forms.pop(formname, None)
         self.props.pop(formname, None)
@@ -1140,10 +1145,28 @@ class Model:
 
         return prop
 
-    def _prepFormIface(self, form, iface):
+    def _prepIfaceTemplate(self, iface, ifinfo, template=None):
 
-        template = s_msgpack.deepcopy(iface.get('template', {}))
-        template.update(form.type.info.get('template', {}))
+        # outer interface templates take precedence
+        if template is None:
+            template = {}
+
+        for subname, subinfo in iface.get('interfaces', ()):
+            subi = self.ifaces.get(subname)
+            self._prepIfaceTemplate(subi, subinfo, template=template)
+
+        template.update(iface.get('template', {}))
+        template.update(ifinfo.get('template', {}))
+
+        return template
+
+    def _prepFormIface(self, form, iface, ifinfo):
+
+        prefix = iface.get('prefix')
+        prefix = ifinfo.get('prefix', prefix)
+
+        # TODO decide if/how to handle subinterface prefixes
+        template = self._prepIfaceTemplate(iface, ifinfo)
 
         def convert(item):
 
@@ -1169,9 +1192,25 @@ class Model:
 
             return item
 
-        return convert(iface)
+        iface = convert(iface)
 
-    def _addFormIface(self, form, name, subifaces=None):
+        if prefix:
+
+            props = []
+            for propname, typeinfo, propinfo in iface.get('props'):
+
+                if propname:
+                    propname = f'{prefix}:{propname}'
+                else:
+                    propname = prefix
+
+                props.append((propname, typeinfo, propinfo))
+
+            iface['props'] = tuple(props)
+
+        return iface
+
+    def _addFormIface(self, form, name, ifinfo):
 
         iface = self.ifaces.get(name)
 
@@ -1183,7 +1222,7 @@ class Model:
             mesg = f'Form {form.name} depends on deprecated interface {name} which will be removed in 4.0.0'
             logger.warning(mesg)
 
-        iface = self._prepFormIface(form, iface)
+        iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
 
@@ -1193,53 +1232,29 @@ class Model:
 
             self.ifaceprops[f'{name}:{propname}'].append(prop.full)
 
-            if subifaces is not None:
-                for subi in subifaces:
-                    self.ifaceprops[f'{subi}:{propname}'].append(prop.full)
-
         form.ifaces[name] = iface
         self.formsbyiface[name].append(form.name)
 
-        if (ifaces := iface.get('interfaces')) is not None:
-            if subifaces is None:
-                subifaces = []
-            else:
-                subifaces = list(subifaces)
+        for subname, subinfo in iface.get('interfaces', ()):
+            self._addFormIface(form, subname, subinfo)
 
-            subifaces.append(name)
-
-            for ifname in ifaces:
-                self._addFormIface(form, ifname, subifaces=subifaces)
-
-    def _delFormIface(self, form, name, subifaces=None):
+    def _delFormIface(self, form, name, ifinfo):
 
         if (iface := self.ifaces.get(name)) is None:
             return
 
-        iface = self._prepFormIface(form, iface)
+        iface = self._prepFormIface(form, iface, ifinfo)
 
         for propname, typedef, propinfo in iface.get('props', ()):
             fullprop = f'{form.name}:{propname}'
             self.delFormProp(form.name, propname)
             self.ifaceprops[f'{name}:{propname}'].remove(fullprop)
 
-            if subifaces is not None:
-                for subi in subifaces:
-                    self.ifaceprops[f'{subi}:{propname}'].remove(fullprop)
-
         form.ifaces.pop(name, None)
         self.formsbyiface[name].remove(form.name)
 
-        if (ifaces := iface.get('interfaces')) is not None:
-            if subifaces is None:
-                subifaces = []
-            else:
-                subifaces = list(subifaces)
-
-            subifaces.append(name)
-
-            for ifname in ifaces:
-                self._delFormIface(form, ifname, subifaces=subifaces)
+        for subname, subinfo in iface.get('interfaces', ()):
+            self._delFormIface(form, subname, subinfo)
 
     def delTagProp(self, name):
         return self.tagprops.pop(name)

@@ -14,8 +14,8 @@ class DocModelTest(s_tests.SynTest):
                     :file=*
                     :created=20241018
                     :updated=20241018
-                    :author={[ ps:contact=* :name=visi ]}
-                    :contributors={[ ps:contact=* :name=shuka ]}
+                    :author={[ entity:contact=* :name=visi ]}
+                    :contributors={[ entity:contact=* :name=shuka ]}
                     :version=1.2.3
                     :supersedes={[ doc:policy=* doc:policy=* ]}
                 ]
@@ -36,8 +36,8 @@ class DocModelTest(s_tests.SynTest):
 
             self.len(1, await core.nodes('doc:policy:id=V-41 :file -> file:bytes'))
             self.len(2, await core.nodes('doc:policy:id=V-41 :supersedes -> doc:policy'))
-            self.len(1, await core.nodes('doc:policy:id=V-41 :author -> ps:contact +:name=visi'))
-            self.len(1, await core.nodes('doc:policy:id=V-41 :contributors -> ps:contact +:name=shuka'))
+            self.len(1, await core.nodes('doc:policy:id=V-41 :author -> entity:contact +:name=visi'))
+            self.len(1, await core.nodes('doc:policy:id=V-41 :contributors -> entity:contact +:name=shuka'))
 
             nodes = await core.nodes('''
                 [ doc:standard=*
@@ -69,7 +69,7 @@ class DocModelTest(s_tests.SynTest):
             nodes = await core.nodes('''
                 [ doc:resume=*
                     :id=V-99
-                    :contact={[ ps:contact=* :name=visi ]}
+                    :contact={[ entity:contact=* :name=visi ]}
                     :summary="Thought leader seeks..."
                     :workhist={[ ps:workhist=* ]}
                     :education={[ ps:education=* ]}
@@ -83,7 +83,7 @@ class DocModelTest(s_tests.SynTest):
             self.len(1, nodes[0].get('education'))
             self.len(1, nodes[0].get('achievements'))
 
-            self.len(1, await core.nodes('doc:resume :contact -> ps:contact'))
+            self.len(1, await core.nodes('doc:resume :contact -> entity:contact'))
             self.len(1, await core.nodes('doc:resume :workhist -> ps:workhist'))
             self.len(1, await core.nodes('doc:resume :education -> ps:education'))
             self.len(1, await core.nodes('doc:resume :achievements -> ps:achievement'))

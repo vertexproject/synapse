@@ -54,7 +54,7 @@ _DefaultConfig = {
                     },
                     'rels': (
                         ('attributed-to', 'threat-actor', ':org -> ou:org'),
-                        ('originates-from', 'location', ':org -> ou:org :hq -> geo:place'),
+                        ('originates-from', 'location', ':org -> ou:org -> geo:place'),
                         ('targets', 'identity', '-> risk:attack -(targets)> ou:org'),
                         ('targets', 'identity', '-> risk:attack -(targets)> ps:person'),
                         ('targets', 'vulnerability', '-> risk:attack -(uses)> risk:vuln'),
@@ -94,7 +94,7 @@ _DefaultConfig = {
                     },
                     'rels': (
                         ('attributed-to', 'identity', ''),
-                        ('located-at', 'location', ':hq -> geo:place'),
+                        ('located-at', 'location', '-> geo:place'),
                         ('targets', 'identity', '-> ou:campaign -> risk:attack -(targets)> ou:org'),
                         ('targets', 'vulnerability', '-> ou:campaign -> risk:attack -(uses)> risk:vuln'),
                         # ('impersonates', 'identity', ''),
@@ -117,7 +117,7 @@ _DefaultConfig = {
             },
         },
 
-        'ps:contact': {
+        'entity:contact': {
             'default': 'identity',
             'stix': {
                 'identity': {
@@ -209,7 +209,7 @@ _DefaultConfig = {
                 'email-addr': {
                     'props': {
                         'value': 'return($node.repr())',
-                        'display_name': '-> ps:contact +:name return(:name)',
+                        'display_name': '-> entity:contact +:name return(:name)',
                         'belongs_to_ref': '-> inet:service:account return($bundle.add($node))',
                     },
                 }
@@ -698,10 +698,10 @@ stixingest = {
     'objects': {
         'intrusion-set': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(ou:name, $object.name)
+                ($ok, $name) = $lib.trycast(meta:name, $object.name)
                 if $ok {
 
-                    ou:name=$name -> ou:org
+                    meta:name=$name -> ou:org
                     { for $alias in $object.aliases { [ :names?+=$alias ] } }
                     return($node)
 
@@ -714,18 +714,18 @@ stixingest = {
         'identity': {
             'storm': '''
                 switch $object.identity_class {
-                    group: {[ ps:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
-                    organization: {[ ps:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
-                    individual: {[ ps:contact=(stix, identity, $object.id) :name?=$object.name ]}
+                    group: {[ entity:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
+                    organization: {[ entity:contact=(stix, identity, $object.id) :orgname?=$object.name ]}
+                    individual: {[ entity:contact=(stix, identity, $object.id) :name?=$object.name ]}
                     system: {[ it:host=(stix, identity, $object.id) :name?=$object.name ]}
                 }
             ''',
         },
         'tool': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(it:prod:softname, $object.name)
+                ($ok, $name) = $lib.trycast(meta:name, $object.name)
                 if $ok {
-                    it:prod:softname=$name -> it:prod:soft
+                    meta:name=$name -> it:prod:soft
                     return($node)
                     [ it:prod:soft=* :name=$name ]
                     return($node)
@@ -734,7 +734,7 @@ stixingest = {
         },
         'threat-actor': {
             'storm': '''
-                [ ps:contact=(stix, threat-actor, $object.id)
+                [ entity:contact=(stix, threat-actor, $object.id)
                     :name?=$object.name
                     :desc?=$object.description
                     :names?=$object.aliases
@@ -767,9 +767,9 @@ stixingest = {
         },
         'malware': {
             'storm': '''
-                ($ok, $name) = $lib.trycast(it:prod:softname, $object.name)
+                ($ok, $name) = $lib.trycast(meta:name, $object.name)
                 if $ok {
-                    it:prod:softname=$name -> it:prod:soft
+                    meta:name=$name -> it:prod:soft
                     return($node)
                     [ it:prod:soft=* :name=$name ]
                     return($node)
@@ -1105,7 +1105,7 @@ class LibStixExport(s_stormtypes.Lib):
                                     },
                                     "rels": (
                                         ("attributed-to", "threat-actor", ":org -> ou:org"),
-                                        ("originates-from", "location", ":org -> ou:org :hq -> geo:place"),
+                                        ("originates-from", "location", ":org -> ou:org -> geo:place"),
                                         ("targets", "identity", "-> risk:attack -(targets)> ou:org"),
                                         ("targets", "identity", "-> risk:attack -(targets)> ps:person"),
                                     ),

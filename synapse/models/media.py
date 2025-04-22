@@ -30,7 +30,7 @@ modeldefs = (
                 ('publisher', ('ou:org', {}), {
                     'doc': 'The organization which published the news.'}),
 
-                ('publisher:name', ('ou:name', {}), {
+                ('publisher:name', ('meta:name', {}), {
                     'doc': 'The name of the publishing org used to publish the news.'}),
 
                 ('published', ('time', {}), {
@@ -41,13 +41,13 @@ modeldefs = (
                     'ex': '20161201180433',
                     'doc': 'The last time the news item was updated.'}),
 
-                ('authors', ('array', {'type': 'ps:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
+                ('authors', ('array', {'type': 'entity:contact', 'split': ',', 'uniq': True, 'sorted': True}), {
                     'doc': 'An array of authors of the news item.'}),
 
                 ('rss:feed', ('inet:url', {}), {
                     'doc': 'The RSS feed that published the news.'}),
 
-                ('ext:id', ('str', {}), {
+                ('id', ('str', {}), {
                     'doc': 'An external identifier specified by the publisher.'}),
 
                 ('topics', ('array', {'type': 'media:topic', 'uniq': True, 'sorted': True}), {
@@ -65,7 +65,9 @@ modeldefs = (
                 'doc': 'A GUID for a news article or report.'}),
 
             ('media:news:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of news types.',
             }),
 

@@ -33,6 +33,7 @@ modeldefs = (
         ),
 
         'forms': (
+            # FIXME ?
             ('iso:oid', {}, (
                 ('descr', ('str', {}), {
                     'doc': 'A description of the value or meaning of the OID.'}),
@@ -43,6 +44,7 @@ modeldefs = (
     }),
     ('gov:us', {
         'types': (
+            # FIXME
             ('gov:us:ssn', ('int', {}), {'doc': 'A US Social Security Number (SSN).'}),
             ('gov:us:zip', ('int', {}), {'doc': 'A US Postal Zip Code.'}),
             ('gov:us:cage', ('str', {'lower': True}), {'doc': 'A Commercial and Government Entity (CAGE) code.'}),
@@ -50,7 +52,8 @@ modeldefs = (
 
         'forms': (
             ('gov:us:cage', {}, (
-                ('name0', ('ou:name', {}), {'doc': 'The name of the organization.'}),
+                ('org', ('ou:org', {}), {'doc': 'The organization which was issued the CAGE code.'}),
+                ('name0', ('meta:name', {}), {'doc': 'The name of the organization.'}),
                 ('name1', ('str', {'lower': True}), {'doc': 'Name Part 1.'}),
                 ('street', ('str', {'lower': True}), {}),
                 ('city', ('str', {'lower': True}), {}),

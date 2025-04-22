@@ -336,19 +336,13 @@ class NexusTest(s_t_utils.SynTest):
         evnt = asyncio.Event()
 
         async with self.getTestCore() as core:
-            orig = core._nexshands['view:delwithlayer'][0]
-
-            async def holdlock(self, viewiden, layriden, nexsitem, newparent=None):
-                evnt.set()
-                await asyncio.sleep(1)
-                await orig(self, viewiden, layriden, nexsitem, newparent=newparent)
-
-            core._nexshands['view:delwithlayer'] = (holdlock, True)
-
             forkiden = await core.callStorm('return($lib.view.get().fork().iden)')
 
-            core.schedCoro(core.delViewWithLayer(forkiden))
-            await asyncio.wait_for(evnt.wait(), timeout=10)
+            # Remove the nexus handler for the fork's write layer to simulate a view delete/edit race
+            layriden = core.getView(forkiden).layers[0].iden
+            layr = core.nexsroot._nexskids.pop(layriden)
 
-            with self.raises(s_exc.NoSuchLayer):
+            with self.raises(s_exc.NoSuchIden):
                 await core.nodes('[ it:dev:str=foo ]', opts={'view': forkiden})
+
+            core.nexsroot._nexskids[layriden] = layr

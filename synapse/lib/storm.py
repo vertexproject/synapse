@@ -493,7 +493,7 @@ stormcmds = (
                         if ( $defv = $lib.null ) {
                             $defv = $lib.false
                         }
-                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
+                        $text = `{('.').join($permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
                         $lib.print($text)
                     }
                 } else {
@@ -580,7 +580,7 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $headers = ({'X-Synapse-Version': $lib.str.join('.', $lib.version.synapse())})
+                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse())})
 
                 $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
@@ -615,7 +615,7 @@ stormcmds = (
             $synv = $lib.version.synapse()
 
             if $synv {
-                $synv = $lib.str.join('.', $synv)
+                $synv = ('.').join($synv)
             }
 
             if $comm {
@@ -1090,8 +1090,8 @@ stormcmds = (
                     $lib.print('entries:         incunit    incval required')
 
                     for $rec in $job.recs {
-                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
-                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+                        $incunit = (`{$rec.incunit}`).ljust(10)
+                        $incval = (`{$rec.incval}`).ljust(6)
 
                         $lib.print('                 {incunit} {incval} {reqdict}',
                                    incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)

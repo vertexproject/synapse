@@ -87,7 +87,7 @@ class DataModelTest(s_t_utils.SynTest):
             ('hehe', {
                 'types': (
                     ('test:derp', ('int', {}), {
-                        'interfaces': ('foo:bar',),
+                        'interfaces': (('foo:bar', {}),),
                     }),
                 ),
                 'forms': (
@@ -131,7 +131,7 @@ class DataModelTest(s_t_utils.SynTest):
         modl.addIface('test:iface', {})
 
         modl.addType('bar', 'int', {}, {})
-        modl.addType('foo:foo', 'int', {}, {'interfaces': ('test:iface',)})
+        modl.addType('foo:foo', 'int', {}, {'interfaces': (('test:iface', {}),)})
 
         modl.addForm('foo:foo', {}, ())
         modl.addFormProp('foo:foo', 'bar', ('bar', {}), {})
@@ -151,7 +151,7 @@ class DataModelTest(s_t_utils.SynTest):
         modl.addIface('depr:iface', {'deprecated': True})
 
         with self.getAsyncLoggerStream('synapse.datamodel') as dstream:
-            modl.addType('foo:bar', 'int', {}, {'interfaces': ('depr:iface',)})
+            modl.addType('foo:bar', 'int', {}, {'interfaces': (('depr:iface', {}),)})
             modl.addForm('foo:bar', {}, ())
 
         dstream.seek(0)
@@ -278,7 +278,7 @@ class DataModelTest(s_t_utils.SynTest):
         '''
         modl = s_datamodel.Model()
         modl.addIface('test:iface', {})
-        modl.addType('foo:foo', 'int', {}, {'interfaces': ('test:iface',)})
+        modl.addType('foo:foo', 'int', {}, {'interfaces': (('test:iface', {}),)})
         modl.addForm('foo:foo', {}, ())
         mdef = modl.getModelDefs()
         modl2 = s_datamodel.Model()
@@ -290,7 +290,7 @@ class DataModelTest(s_t_utils.SynTest):
             syn:type:subof=comp $opts=:opts
             -> syn:form:type $valu=$node.value()
             for ($name, $thing) in $opts.fields {
-                $v=$lib.str.format('{v}:{t}', v=$valu, t=$name)  syn:prop=$v
+                $v=`{$valu}:{$name}`  syn:prop=$v
             }
             +syn:prop
             -:ro=1

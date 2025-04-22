@@ -6,7 +6,9 @@ modeldefs = (
                 'doc': 'A mathematical algorithm.'}),
 
             ('math:algorithm:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A hierarchical taxonomy of algorithm types.'}),
         ),
         'edges': (
@@ -29,7 +31,7 @@ modeldefs = (
 
             ('math:algorithm', {}, (
 
-                ('name', ('str', {'lower': True, 'onespace': True}), {
+                ('name', ('meta:name', {}), {
                     'doc': 'The name of the algorithm.'}),
 
                 ('type', ('math:algorithm:type:taxonomy', {}), {

@@ -272,7 +272,7 @@ stormcmds = (
                         $levels.append($key)
                     }
 
-                    $levels = $lib.str.join(", ", $levels)
+                    $levels = (', ').join($levels)
 
                     $lib.exit(`Invalid level specified: {$cmdopts.level}. Level must be one of: {$levels}.`)
                 }

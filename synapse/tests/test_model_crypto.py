@@ -89,7 +89,7 @@ class CryptoModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('iden'), '1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2')
 
             # these would explode if the model was wrong
-            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact="*" ] -> ps:contact'))
+            self.len(1, await core.nodes('crypto:currency:address [ :desc="woot woot" :contact=(entity:contact, *) ] -> entity:contact'))
             self.len(1, await core.nodes('crypto:currency:address:iden=1BvBMSEYstWetqTFn5Au4m4GFg7xJaNVN2'))
             self.len(1, await core.nodes('crypto:currency:address:coin=btc'))
             self.len(1, await core.nodes('crypto:currency:client:inetaddr=1.2.3.4'))
