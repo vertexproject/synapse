@@ -62,20 +62,20 @@ from nodes of those forms.
 
 Examples:
     # Adds a tag to every inet:ipv4 added
-    trigger.add node:add --form inet:ipv4 --query {[ +#mytag ]}
+    trigger.add node:add --form inet:ipv4 --storm {[ +#mytag ]}
 
     # Adds a tag #todo to every node as it is tagged #aka
-    trigger.add tag:add --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --tag aka --storm {[ +#todo ]}
 
     # Adds a tag #todo to every inet:ipv4 as it is tagged #aka
-    trigger.add tag:add --form inet:ipv4 --tag aka --query {[ +#todo ]}
+    trigger.add tag:add --form inet:ipv4 --tag aka --storm {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every refs edge add
-    trigger.add edge:add --verb refs --query {[ +#todo ]}
+    trigger.add edge:add --verb refs --storm {[ +#todo ]}
 
     # Adds a tag #todo to the N1 node of every seen edge delete, provided that
     # both nodes are of form file:bytes
-    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --query {[ +#todo ]}
+    trigger.add edge:del --verb seen --form file:bytes --n2form file:bytes --storm {[ +#todo ]}
 '''
 
 addcrondescr = '''
