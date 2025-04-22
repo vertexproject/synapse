@@ -421,7 +421,7 @@ class Trigger:
         '''
         Set one of the dynamic elements of the trigger definition.
         '''
-        if name not in ('enabled', 'user', 'storm', 'doc', 'name', 'async'):
+        if name not in ('enabled', 'user', 'storm', 'doc', 'name', 'async', 'view'):
             raise s_exc.BadArg(mesg=f'Invalid key name provided: {name}')
 
         if valu == self.tdef.get(name):
@@ -432,6 +432,9 @@ class Trigger:
 
         if name == 'storm':
             await self.view.core.getStormQuery(valu)
+
+        if name == 'view':
+            self.view.core.reqView(valu)
 
         self.tdef[name] = valu
         self.view.trigdict.set(self.iden, self.tdef)

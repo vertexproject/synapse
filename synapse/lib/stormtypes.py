@@ -8250,9 +8250,9 @@ class LibTrigger(Lib):
                   'args': (
                       {'name': 'prefix', 'type': 'str',
                        'desc': 'A prefix to match in order to identify a trigger to modify. '
-                               'Only a single matching prefix will be modified.', },
-                      {'name': 'query', 'type': ['str', 'storm:query'],
-                       'desc': 'The new Storm query to set as the trigger query.', }
+                               'Only a single matching prefix will be modified.'},
+                      {'name': 'edits', 'type': 'dict',
+                       'desc': 'A dictionary of properties and their values to update on the Trigger.'}
                   ),
                   'returns': {'type': 'str', 'desc': 'The iden of the modified Trigger', }}},
     )
@@ -8374,16 +8374,16 @@ class LibTrigger(Lib):
 
         return iden
 
-    async def _methTriggerMod(self, prefix, query):
-        useriden = self.runt.user.iden
-        query = await tostr(query)
+    async def _methTriggerMod(self, prefix, edits):
         trig = await self._matchIdens(prefix)
         iden = trig.iden
-        gatekeys = ((useriden, ('trigger', 'set'), iden),)
-        todo = s_common.todo('setTriggerInfo', iden, 'storm', query)
-        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
+        edits = await toprim(edits)
 
-        return iden
+        if 'user' in edits:
+            self.runt.confirm(('trigger', 'set', 'user'))
+
+        trigview = self.runt.view.core.getView(trig.view.iden)
+        return await trigview.setTriggerInfo(iden, edits)
 
     @stormfunc(readonly=True)
     async def _methTriggerList(self, all=False):
@@ -8436,7 +8436,7 @@ class LibTrigger(Lib):
 
         useriden = self.runt.user.iden
         gatekeys = ((useriden, ('trigger', 'set'), iden),)
-        todo = s_common.todo('setTriggerInfo', iden, 'enabled', state)
+        todo = s_common.todo('setTriggerInfo', iden, {'enabled': state})
         await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
 
         return iden
@@ -8499,7 +8499,7 @@ class Trigger(Prim):
             self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
 
         view = self.runt.view.core.reqView(viewiden)
-        await view.setTriggerInfo(self.valu.get('iden'), name, valu)
+        await view.setTriggerInfo(self.valu.get('iden'), {name: valu})
 
         self.valu[name] = valu
 

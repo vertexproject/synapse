@@ -736,7 +736,7 @@ stormcmds = (
             ('--prop', {'help': 'Property to fire on.'}),
             ('--verb', {'help': 'Edge verb to fire on.'}),
             ('--n2form', {'help': 'The form of the n2 node to fire on.'}),
-            ('--query', {'help': 'Query for the trigger to execute.', 'required': True,
+            ('--storm', {'help': 'Storm query for the trigger to execute.', 'required': True,
                          'dest': 'storm', }),
             ('--async', {'default': False, 'action': 'store_true',
                          'help': 'Make the trigger run in the background.'}),
@@ -768,14 +768,25 @@ stormcmds = (
     },
     {
         'name': 'trigger.mod',
-        'descr': "Modify an existing trigger's query.",
+        'descr': "Modify an existing trigger.",
         'cmdargs': (
             ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-            ('query', {'help': 'New storm query for the trigger.'}),
+            ('--view', {'help': 'View to move the trigger to.'}),
+            ('--storm', {'help': 'New Storm query for the trigger.'}),
+            ('--async', {'help': 'Make the trigger run in the background.'}),
+            ('--enabled', {'help': 'Enable the trigger.'}),
+            ('--name', {'help': 'Human friendly name of the trigger.'}),
+            ('--form', {'help': 'Form to fire on.'}),
+            ('--tag', {'help': 'Tag to fire on.'}),
+            ('--prop', {'help': 'Property to fire on.'}),
         ),
         'storm': '''
-            $iden = $lib.trigger.mod($cmdopts.iden, $cmdopts.query)
-            $lib.print("Modified trigger: {iden}", iden=$iden)
+            $iden = $cmdopts.iden
+            $edits = $lib.copy($cmdopts)
+            $edits.help = $lib.undef
+            $edits.iden = $lib.undef
+            $cdef = $lib.trigger.mod($iden, $edits)
+            $lib.print(`Modified trigger: {$cdef.iden}`)
         ''',
     },
     {
