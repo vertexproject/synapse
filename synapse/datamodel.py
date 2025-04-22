@@ -890,15 +890,22 @@ class Model:
         for form in self.forms.values():
             self._checkFormDisplay(form)
 
+    def _getFormsMaybeIface(self, name):
+
+        form = self.forms.get(name)
+        if form is not None:
+            return (name,)
+
+        forms = self.formsbyiface.get(name)
+        if forms is None:
+            mesg = f'No form or interface named {name}.'
+            raise s_exc.NoSuchForm(mesg=mesg, name=name)
+
+        return tuple(forms)
+
     def addEdge(self, edgetype, edgeinfo):
 
         n1form, verb, n2form = edgetype
-
-        if n1form is not None:
-            self._reqFormName(n1form)
-
-        if n2form is not None:
-            self._reqFormName(n2form)
 
         if not isinstance(verb, str):
             mesg = f'Edge definition verb must be a string: {edgetype}.'
@@ -908,21 +915,39 @@ class Model:
             mesg = f'Duplicate edge declared: {edgetype}.'
             raise s_exc.BadArg(mesg=mesg)
 
-        edge = Edge(self, edgetype, edgeinfo)
+        n1forms = (None,)
+        if n1form is not None:
+            n1forms = self._getFormsMaybeIface(n1form)
 
+        n2forms = (None,)
+        if n2form is not None:
+            n2forms = self._getFormsMaybeIface(n2form)
+
+        edge = Edge(self, edgetype, edgeinfo)
         self.edges[edgetype] = edge
-        self.edgesbyn1[n1form].add(edge)
-        self.edgesbyn2[n2form].add(edge)
+        [self.edgesbyn1[n1form].add(edge) for n1form in n1forms]
+        [self.edgesbyn2[n2form].add(edge) for n2form in n2forms]
 
     def delEdge(self, edgetype):
-        if self.edges.get(edgetype) is None:
+
+        edge = self.edges.get(edgetype)
+        if edge is None:
             return
 
         n1form, verb, n2form = edgetype
 
+        n1forms = (None,)
+        if n1form is not None:
+            n1forms = self._getFormsMaybeIface(n1form)
+
+        n2forms = (None,)
+        if n2form is not None:
+            n2forms = self._getFormsMaybeIface(n2form)
+
         self.edges.pop(edgetype, None)
-        self.edgesbyn1[n1form].discard(edgetype)
-        self.edgesbyn2[n2form].discard(edgetype)
+
+        [self.edgesbyn1[n1form].discard(edge) for n1form in n1forms]
+        [self.edgesbyn2[n2form].discard(edge) for n2form in n2forms]
 
     def _reqFormName(self, name):
         form = self.forms.get(name)
