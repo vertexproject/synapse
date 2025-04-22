@@ -4592,6 +4592,9 @@ class StormTypesTest(s_test.SynTest):
 
                 await prox.addUserRule(bond.iden, (True, ('trigger', 'del')))
 
+                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} --user {rootiden}').list()
+                self.stormIsInPrint('Modified trigger', mesgs)
+
                 mesgs = await asbond.storm(f'trigger.del {goodbuid2}').list()
                 self.stormIsInPrint('Deleted trigger', mesgs)
 

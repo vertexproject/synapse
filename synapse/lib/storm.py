@@ -773,6 +773,7 @@ stormcmds = (
             ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
             ('--view', {'help': 'View to move the trigger to.'}),
             ('--storm', {'help': 'New Storm query for the trigger.'}),
+            ('--user', {'help': 'User to run the trigger as.'}),
             ('--async', {'help': 'Make the trigger run in the background.'}),
             ('--enabled', {'help': 'Enable the trigger.'}),
             ('--name', {'help': 'Human friendly name of the trigger.'}),
