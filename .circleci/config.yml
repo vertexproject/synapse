@@ -43,7 +43,7 @@ commands:
             python3 -m venv --copies venv
             . venv/bin/activate
             python3 -m pip install -U wheel pip setuptools
-            python3 -m pip install -U -r requirements_dev.txt --upgrade-strategy=eager
+            python3 -m pip install -U -r requirements_dev.txt
 
       - run:
           name: install synapse
@@ -137,14 +137,14 @@ commands:
 
       - restore_cache:
           keys:
-            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+            - v6-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - do_venv_setup
 
       - save_cache:
           paths:
             - ./venv
-          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+          key: v6-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - do_test_execution
 
@@ -168,7 +168,7 @@ commands:
 
       - restore_cache:
           keys:
-            - v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+            - v6-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: install python dependencies
@@ -181,7 +181,7 @@ commands:
       - save_cache:
           paths:
             - ./venv
-          key: v5-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
+          key: v6-venv-{{ .Environment.CIRCLE_JOB }}-{{ .Branch }}-{{ checksum "pyproject.toml" }}-{{ checksum "/tmp/python.version" }}
 
       - run:
           name: init .pypirc
