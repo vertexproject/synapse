@@ -796,7 +796,13 @@ class InfotechModelTest(s_t_utils.SynTest):
             }
             q = '''[(it:prod:softver=$valu :vers=$p.vers :released=$p.released :url=$p.url :software=$p.software
                 :arch=$p.arch :name=$p.name :names=$p.names :desc=$p.desc)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': ver0, 'p': props}})
+
+            with self.getLoggerStream('synapse.models.infotech') as stream:
+                nodes = await core.nodes(q, opts={'vars': {'valu': ver0, 'p': props}})
+
+            stream.seek(0)
+            self.notin('NoSuchProp', stream.read())
+
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:prod:softver', ver0))
