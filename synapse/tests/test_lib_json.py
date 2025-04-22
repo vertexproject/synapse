@@ -151,7 +151,7 @@ class JsonTest(s_test.SynTest):
 
         buf = io.BytesIO()
 
-        msg = "Object of type 'BytesIO' is not JSON serializable"
+        msg = "Object of type '_io.BytesIO' is not JSON serializable"
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.reqjsonsafe(buf)
         self.isin(msg, exc.exception.get('mesg'))

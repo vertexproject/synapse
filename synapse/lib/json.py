@@ -71,18 +71,6 @@ def _fallback_dumps(obj: Any, sort_keys: bool = False, indent: bool = False, def
     except TypeError as exc:
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
-def _dumps_default(default=None):
-    def inner(obj):
-        if isinstance(obj, tuple):
-            return list(obj)
-
-        if default is not None:
-            return default(obj)
-
-        mesg = f"Object of type '{obj.__class__.__name__}' is not JSON serializable"
-        raise s_exc.MustBeJsonSafe(mesg=mesg)
-    return inner
-
 def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
     flags = 0
 
@@ -101,7 +89,7 @@ def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
         escaped = obj.replace('"', '\\"')
         obj = f'"{escaped}"'
 
-    doc = yyjson.Document(obj, default=_dumps_default(default))
+    doc = yyjson.Document(obj, default=default)
     return doc.dumps(flags=flags).encode()
 
 def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> bytes:
