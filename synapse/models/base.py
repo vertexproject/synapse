@@ -33,7 +33,7 @@ modeldefs = (
                               'ou:campname', 'ou:goalname', 'lang:name',
                               'risk:vulnname', 'meta:name', 'it:prod:softname',
                               'entity:name', 'geo:name'),
-                'doc': 'A name used to refer to a node.'}),
+                'doc': 'A name used to refer to a entity or event.'}),
 
             ('meta:feed', ('guid', {}), {
                 'doc': 'A data feed provided by a specific source.'}),
