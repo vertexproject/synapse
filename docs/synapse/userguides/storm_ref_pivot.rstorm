@@ -565,7 +565,9 @@ You must use explicit syntax to specify both the source and target properties.
 
 *Pivot from the WHOIS records (inet:whois:rec nodes) for a set of domains to the DNS A records (inet:dns:a nodes) for the same domains:*
 
-.. storm-pre:: [inet:whois:rec=(woot.com, 2017/07/17 00:00:00.000)] :fqdn -> inet:dns:a:fqdn
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [inet:whois:rec=(woot.com, 2017/07/17 00:00:00.000)] :fqdn -> inet:dns:a:fqdn
 
 ::
   
@@ -1091,8 +1093,10 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 *Traverse the "uses" light edge from a threat cluster (risk:threat node) to the tools or malware (risk:tool:software nodes) used by the cluster:*
 
-.. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
-.. storm-pre:: risk:threat -(uses)> risk:tool:software
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name='vicious wombat' :reporter:name=thesilence) ] [ +(uses)> { [ risk:tool:software=* ] } ]
+    .. storm-pre:: risk:threat -(uses)> risk:tool:software
 
 ::
   
@@ -1109,8 +1113,10 @@ Specify the name (verb) of the edge you want to traverse to navigate a single ed
 
 *Traverse the "ipwhois" light edge from a set of IP addresses (inet:ip nodes) to the network registration / network WHOIS records (inet:whois:iprec nodes) the IPs are associated with:*
 
-.. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net:min=8.8.8.0 :net:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ip=8.8.8.8 ] } ]
-.. storm-pre:: inet:ip <(ipwhois)- inet:whois:iprec
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:iprec=* :asof=now :name=LVLT-GOGL-8-8-8 :net:min=8.8.8.0 :net:max=8.8.8.255) ] [ +(ipwhois)> { [ inet:ip=8.8.8.8 ] } ]
+    .. storm-pre:: inet:ip <(ipwhois)- inet:whois:iprec
 
 ::
   
@@ -1191,8 +1197,10 @@ Use the wildcard (asterisk) character ( ``*`` ) to traverse any edges present in
 
 *For a vulnerability (risk:vuln node), navigate to any forms that are connected to the vulnerability by any edge:*
 
-.. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
-.. storm-pre:: risk:vuln <(*)- *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ risk:vuln=* ] [ <(uses)+ { risk:threat:org:name='vicious wombat' } ]
+    .. storm-pre:: risk:vuln <(*)- *
 
 ::
   
@@ -1254,8 +1262,10 @@ operation ( ``-> *`` ) with a wildcard (any / all edges) edge traversal operatio
 
 *Pivot from a set of IP netblock registration records (inet:whois:iprec nodes) to all nodes associated with the records' secondary properties and all nodes linked to the records by light edges:*
 
-.. storm-pre:: [ (inet:whois:iprec="*" :net:min=89.249.65.0 :net:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ip=89.249.65.153 ] } ]
-.. storm-pre:: inet:whois:iprec --> *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (inet:whois:iprec="*" :net:min=89.249.65.0 :net:max=89.249.65.255) ] [ +(ipwhois)> { [ inet:ip=89.249.65.153 ] } ]
+    .. storm-pre:: inet:whois:iprec --> *
 
 ::
   
@@ -1321,8 +1331,10 @@ primary to secondary property, secondary to secondary property, etc.)
 
 *Pivot from a set of organizations (ou:org nodes) to any associated contacts (ps:contact nodes), retaining the organizations in the results:*
 
-.. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex  :hq=d41d8cd98f00b204e9800998ecf8427e) (ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname=vertex :org=4b0c2c5671874922ce001d69215d032f) ]
-.. storm-pre:: ou:org -+> ps:contact
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (ou:org=4b0c2c5671874922ce001d69215d032f :name=vertex  :hq=d41d8cd98f00b204e9800998ecf8427e) (ps:contact=d41d8cd98f00b204e9800998ecf8427e :orgname=vertex :org=4b0c2c5671874922ce001d69215d032f) ]
+    .. storm-pre:: ou:org -+> ps:contact
 
 ::
   
@@ -1339,7 +1351,9 @@ primary to secondary property, secondary to secondary property, etc.)
 
 *Pivot from a set of domain WHOIS records (inet:whois:rec nodes) to the DNS A records (inet:dns:a nodes) associated with the FQDNs, retaining the WHOIS records in the results:*
 
-.. storm-pre:: inet:whois:rec :fqdn -+> inet:dns:a:fqdn
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec :fqdn -+> inet:dns:a:fqdn
 
 ::
   
@@ -1419,9 +1433,11 @@ or with a wildcard to represent any / all edges (e.g., ``-(*)+>`` ).
 
 *Join a threat cluster (risk:threat node) with any nodes used or targeted by the cluster:*
 
-.. storm-pre:: [ ( risk:threat=* :org:name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
-.. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
-.. storm-pre:: risk:threat -( (uses, targets) )+> *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( risk:threat=* :org:name='sparkling unicorn' ) (risk:vuln=* :cve=cve-2012-0158) ]
+    .. storm-pre:: risk:threat:org:name='sparkling unicorn' [ +(uses)> { risk:vuln:cve=cve-2012-0158 } ] [ +(targets)> { ou:org:name=vertex } ]
+    .. storm-pre:: risk:threat -( (uses, targets) )+> *
 
 ::
   

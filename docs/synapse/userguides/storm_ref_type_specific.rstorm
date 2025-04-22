@@ -235,8 +235,9 @@ the ``:identities:fqdns`` array property):
 Pivot from a set of ``ou:name`` nodes to any nodes that reference those names (this would include ``ou:org``
 nodes where the ``ou:name`` is present in the ``:name`` property or as an element in the ``:names`` array):
 
-
-.. storm-cli:: ou:name^=acme <- *
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: ou:name^=acme <- *
 
 
 .. _type-duration:
@@ -785,8 +786,10 @@ It is also possible to lift and filter guid nodes using a "sufficiently unique" 
 
 Lift a ``ps:contact`` node by a partial prefix match:
 
-.. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
-.. storm-cli:: ps:contact ^= 13c9663e
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ps:contact=13c9663e5f553014eb50d00bb7c6945a :orgname="kaspersky lab" :name="seongsu park" ]
+    .. storm-cli:: ps:contact ^= 13c9663e
 
 The length of the value that is "sufficiently unique" will vary depending on the data in your instance of Synapse.
 If your selection criteria matches more than one node, Synapse will return all matches.
@@ -800,9 +803,11 @@ set for the secondary property.
 Set the ``:org`` property for a ``ps:contact`` node to the guid value of the associated ``ou:org`` node using
 a Storm query:
 
-.. storm-pre:: [ ps:contact=* :name='ron the cat' :title='cattribution analyst' ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ps:contact=* :name='ron the cat' :title='cattribution analyst' ]
 
-.. storm-cli:: ps:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
+    .. storm-cli:: ps:contact:name = 'ron the cat' [ :org = { ou:org:name = vertex } ]
 
 .. NOTE::
   
@@ -1064,8 +1069,10 @@ When adding or modifying integer values, Synapse will accept integer, hex (prece
 
 Set the ``:count`` of the ``biz:bundle`` to 42:
 
-.. storm-pre:: [ biz:bundle=(350,) ]
-.. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ biz:bundle=(350,) ]
+    .. storm-cli:: biz:bundle=9688955d141aae88194277e74d82084d [ :count=42 ]
 
 Use a hex value to set the ``:ip:proto`` property for the ``inet:flow`` node to 6:
 
@@ -1338,8 +1345,10 @@ level of resolution within the dotted hierarchy:
 
 Lift all organizations located in Turkey (``tr``):
 
-.. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
-.. storm-cli:: ou:org:loc ^= tr
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ( ou:org=* :name='republic of turkey ministry of foreign affairs' :loc=tr.ankara ) ( ou:org=* :name='adeo it consulting services' :loc=tr.istanbul ) ]
+    .. storm-cli:: ou:org:loc ^= tr
 
 
 Lift all IP addresses geolocated in the province of Ontario, Canada (``ca.on``):
@@ -1373,8 +1382,9 @@ be the final character in the expression (e.g., expressions such as ``:loc = us.
 invalid; the expressions will not generate an error but will fail to return any nodes).
 
 Lift all organizations located in Turkey:
-
-.. storm-cli:: ou:org:loc = tr.*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: ou:org:loc = tr.*
 
 Lift all IP addresses geolocated in the province of Ontario, Canada:
 
@@ -1544,8 +1554,10 @@ Lift all tags in the computer network operations (``cno``) tree:
 Lift all threats (``risk:threat`` nodes) whose ``:tag`` value is associated with Dell Secureworks threats
 whose name begins with "br":
 
-.. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
-.. storm-cli:: risk:threat:tag ^=rep.secureworks.br
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name='bronze elgin' :reporter:name=secureworks :tag=rep.secureworks.bronze_elgin) (risk:threat=* :org:name='bronze president' :reporter:name=secureworks :tag=rep.secureworks.bronze_president) ]
+    .. storm-cli:: risk:threat:tag ^=rep.secureworks.br
 
 **Usage notes:**
 
