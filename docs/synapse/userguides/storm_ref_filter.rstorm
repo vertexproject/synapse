@@ -208,12 +208,18 @@ Filter by Secondary Property
 
 *Filter the current working set to only include threats (risk:threat nodes) that have an assessed country of origin (:country:code property):*
 
-.. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +risk:threat:country:code
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +risk:threat:country:code
+
 ::
   
   <query> +risk:threat:country:code
 
-.. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +:country:code
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (risk:threat=* :org:name=unc1234 ) (risk:threat=* :org:name='peach sandstorm' :country:code=ir) (risk:threat=* :org:name='bronze butler' :country:code=cn) ] +:country:code
+
 ::
   
   <query> +:country:code
@@ -795,13 +801,18 @@ of times and intervals.
 
 *Filter results to include only those domain WHOIS records (inet:whois:rec nodes) where the domain was registered (created) exactly on March 19, 2019 at 5:00 UTC:*
 
-.. storm-pre:: inet:whois:rec +inet:whois:rec:created @= '2019/03/19 05:00:00'
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec +inet:whois:rec:created @= '2019/03/19 05:00:00'
+
 ::
   
   <query> +inet:whois:rec:created @= '2019/03/19 05:00:00'
 
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: inet:whois:rec +:created @= '2019/03/19 05:00:00'
 
-.. storm-pre:: inet:whois:rec +:created @= '2019/03/19 05:00:00'
 ::
   
   <query> +:created @= '2019/03/19 05:00:00'
@@ -936,13 +947,18 @@ fall within a specified range of values. The comparator can be used with types s
   <query> +:_virustotal:reputation *range= ( -20, 20 )
 
 *Filter the current working set to exclude domain WHOIS records (inet:whois:rec nodes) that were captured / retrieved between November 29, 2013 and June 14, 2016:*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 ::
   
   <query> -inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -:asof *range= ( 2013/11/29, 2016/06/14 )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ] -:asof *range= ( 2013/11/29, 2016/06/14 )
+
 ::
   
   <query> -:asof *range= ( 2013/11/29, 2016/06/14 )
@@ -1010,7 +1026,10 @@ The set membership extended comparator (``*in=``) supports filtering nodes whose
 
 *Filter the current working set to exclude organization names (ou:name nodes) matching any of the specified values:*
 
-.. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ] -ou:name *in= ( fsb, gru, svr )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ] -ou:name *in= ( fsb, gru, svr )
+
 ::
   
   <query> -ou:name *in= ( fsb, gru, svr )

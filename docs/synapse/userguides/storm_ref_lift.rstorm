@@ -458,8 +458,11 @@ Lift by Secondary Property Value
 
 *Lift domain WHOIS records for FQDNs registered (created) after January 1, 2023:*
 
-.. storm-pre:: [ inet:whois:rec=(financialtimes365.com, '2023/01/01 21:46:23') :created='2023/01/01 19:31:29' ]
-.. storm-pre:: inet:whois:rec:created > 2023/01/01
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:whois:rec=(financialtimes365.com, '2023/01/01 21:46:23') :created='2023/01/01 19:31:29' ]
+    .. storm-pre:: inet:whois:rec:created > 2023/01/01
+
 ::
   
   inet:whois:rec:created > 2023/01/01
@@ -474,8 +477,11 @@ Lift by Secondary Property Value
 
 *Lift contact data (ps:contact nodes) for individuals where the date of birth (:dob property) is January 1, 1990 or later:*
 
-.. storm-pre:: [ (ps:contact='*' :name='pavel evgenyevich prigozhin' :dob=1998/06/18) ]
-.. storm-pre:: ps:contact:dob >= 1990/01/01
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ (ps:contact='*' :name='pavel evgenyevich prigozhin' :dob=1998/06/18) ]
+    .. storm-pre:: ps:contact:dob >= 1990/01/01
+
 ::
   
   ps:contact:dob >= 1990/01/01
@@ -909,9 +915,11 @@ within a specified range of values. The comparator can be used with types such a
   file:bytes:_virustotal:reputation *range= ( -20, 20 )
 
 *Lift all domain WHOIS records that were captured / retrieved between November 29, 2013 and June 14, 2016:*
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ]
+    .. storm-pre:: inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 
-.. storm-pre:: [ inet:whois:rec=( marsbrother.com, 2013/12/02 00:00:00.000 ) ]
-.. storm-pre:: inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
 ::
   
   inet:whois:rec:asof *range= ( 2013/11/29, 2016/06/14 )
@@ -960,8 +968,11 @@ The set membership extended comparator (``*in=``) supports lifting nodes whose *
 
 *Lift organization names matching any of the specified values:*
 
-.. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ]
-.. storm-pre:: ou:name *in= ( fsb, gru, svr )
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-pre:: [ ou:name=fsb ou:name=gru ou:name=svr ]
+    .. storm-pre:: ou:name *in= ( fsb, gru, svr )
+
 ::
   
   ou:name *in= ( fsb, gru, svr )

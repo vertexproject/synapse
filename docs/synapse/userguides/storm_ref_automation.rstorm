@@ -645,7 +645,9 @@ is set as the ``:email`` property of an ``inet:whois:contact`` node and tag the 
 (``#cno.infra.dns.sink.holed``). Because the trigger is a simple one, you want it to run inline (i.e., you do
 not need the ``--async`` option).
 
-.. storm-cli:: trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkholer email' --prop inet:whois:contact:email --query { +{ :email-> inet:email +#cno.infra.dns.sink.hole } -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
+..
+    FIXME - Correct this for 3.0.0 model changes when it is stable
+    .. storm-cli:: trigger.add prop:set --name 'Tag sinkholed FQDNs based on known sinkholer email' --prop inet:whois:contact:email --query { +{ :email-> inet:email +#cno.infra.dns.sink.hole } -> inet:whois:rec -> inet:fqdn [ +#cno.infra.dns.sink.holed ] }
 
 .. TIP::
   

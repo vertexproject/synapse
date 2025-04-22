@@ -297,6 +297,7 @@ def convert_rstorm(_):
 
     cwd = os.getcwd()
     for fdir, dirs, fns in os.walk(cwd):
+        fns = sorted(fns)
         for fn in fns:
             if fn.endswith('.rstorm'):
 
