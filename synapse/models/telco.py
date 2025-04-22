@@ -152,7 +152,9 @@ modeldefs = (
                 'doc': 'A guid for a telephone call record.'}),
 
             ('tel:phone:type:taxonomy', ('taxonomy', {}), {
-                'interfaces': ('meta:taxonomy',),
+                'interfaces': (
+                    ('meta:taxonomy', {}),
+                ),
                 'doc': 'A taxonomy of phone number types.'}),
 
             ('tel:txtmesg', ('guid', {}), {
