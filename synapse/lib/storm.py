@@ -174,6 +174,16 @@ Examples:
     cron.at --dt 20181231Z2359 {[inet:ipv4=1]}
 '''
 
+viewdeldescr = '''
+Delete a view from the cortex.
+
+Notes:
+    Deleting a view will delete all unmerged changes in that view.
+
+    Deleting a view does not delete the associated layer. If you
+    want to delete the layer, you must run `layer.del` separately.
+'''
+
 wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.
 
 Examples:
@@ -656,7 +666,7 @@ stormcmds = (
     },
     {
         'name': 'view.del',
-        'descr': 'Delete a view from the cortex.',
+        'descr': viewdeldescr,
         'cmdargs': (
             ('iden', {'help': 'Iden of the view to delete.'}),
         ),

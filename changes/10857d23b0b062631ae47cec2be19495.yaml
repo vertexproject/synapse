@@ -1,0 +1,6 @@
+---
+desc: Updated documentation to clarify `view.del` only deletes the view, not the associated
+  layer.
+prs: []
+type: doc
+...
