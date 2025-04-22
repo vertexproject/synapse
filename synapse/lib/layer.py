@@ -264,6 +264,10 @@ EDIT_NODEDATA_TOMB_DEL = 21  # (<etyp>, (<name>))
 EDIT_EDGE_TOMB = 22          # (<etyp>, (<verb>, <destnodeiden>))
 EDIT_EDGE_TOMB_DEL = 23      # (<etyp>, (<verb>, <destnodeiden>))
 
+# Overwrite edits are converted to normal edits during deconfliction
+EDIT_PROP_OVERWRITE = 24
+EDIT_TAG_OVERWRITE = 25
+
 EDIT_PROGRESS = 100   # (used by syncIndexEvents) (<etyp>, ())
 
 INDX_PROP = b'\x00\x00'
@@ -1969,6 +1973,9 @@ class Layer(s_nexus.Pusher):
             self._calcNodeDataTombDel,
             self._calcNodeEdgeTomb,
             self._calcNodeEdgeTombDel,
+
+            self._calcPropOverwrite,
+            self._calcTagOverwrite,
         ]
 
         self.canrev = True
@@ -3306,6 +3313,23 @@ class Layer(s_nexus.Pusher):
             (EDIT_PROP_SET, (prop, valu, oldv, stortype, virts)),
         )
 
+    async def _calcPropOverwrite(self, nid, edit, sode, newsode):
+
+        prop, valu, _, stortype, virts = edit[1]
+
+        if sode is None or (props := sode.get('props')) is None:
+            oldv = None
+
+        else:
+            oldv, oldt, oldvirts = props.get(prop, (None, None, None))
+
+            if valu == oldv and virts == oldvirts:
+                return
+
+        return (
+            (EDIT_PROP_SET, (prop, valu, oldv, stortype, virts)),
+        )
+
     async def _calcPropDel(self, nid, edit, sode, newsode):
 
         if sode is None or (props := sode.get('props')) is None:
@@ -3359,6 +3383,21 @@ class Layer(s_nexus.Pusher):
                 allv = oldv + valu
                 valu = (min(allv), max(allv))
 
+            if oldv == valu:
+                return
+
+        return (
+            (EDIT_TAG_SET, (tag, valu, oldv)),
+        )
+
+    async def _calcTagOverwrite(self, nid, edit, sode, newsode):
+
+        tag, valu, _ = edit[1]
+
+        if sode is None or (tags := sode.get('tags')) is None:
+            oldv = None
+
+        elif (oldv := tags.get(tag)) is not None:
             if oldv == valu:
                 return
 

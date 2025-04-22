@@ -493,6 +493,46 @@ class AstTest(s_test.SynTest):
                 q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
                 nodes = await core.nodes(q)
 
+            await core.nodes('[test:str=bar .seen=(2021, 2023)]')
+
+            nodes = await core.nodes('[test:str=bar .seen*overwrite=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar -.seen .seen*overwrite=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen=2020]')
+            nodes = await core.nodes('[test:str=bar .seen*min=2021]')
+            self.eq((1609459200000000, 1640995200000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen*min=2027]')
+            self.eq((1798761600000000, 1798761600000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar -.seen .seen*min=2027]')
+            self.eq((1798761600000000, 1798761600000001), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen=(2022, 2027)]')
+            nodes = await core.nodes('[test:str=bar .seen*max=2024]')
+            self.eq((1640995200000000, 1704067200000000), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar .seen*max=2019]')
+            self.eq((1546300799999999, 1546300800000000), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar -.seen .seen*max=2019]')
+            self.eq((1546300799999999, 1546300800000000), nodes[0].get('.seen'))
+
+            nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
+            nodes = await core.nodes('[test:str=bar +#foo*overwrite=2022]')
+            self.eq((1640995200000000, 1640995200000001), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
+            nodes = await core.nodes('[test:str=bar +#foo*min=2022]')
+            self.eq((1640995200000000, 1672531200000000), nodes[0].get('#foo'))
+
+            nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
+            nodes = await core.nodes('[test:str=bar +#foo*max=2022]')
+            self.eq((1609459200000000, 1640995200000000), nodes[0].get('#foo'))
+
     async def test_ast_setmultioper(self):
         async with self.getTestCore() as core:
 

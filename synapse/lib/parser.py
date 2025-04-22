@@ -689,6 +689,7 @@ ruleClassMap = {
     'edittagdel': lambda astinfo, kids: s_ast.EditTagDel(astinfo, kids[1:]),
     'edittagpropset': s_ast.EditTagPropSet,
     'edittagpropdel': lambda astinfo, kids: s_ast.EditTagPropDel(astinfo, kids[1:]),
+    'edittagvirtset': s_ast.EditTagVirtSet,
     'editunivdel': lambda astinfo, kids: s_ast.EditUnivDel(astinfo, kids[1:]),
     'expror': s_ast.ExprOrNode,
     'exprand': s_ast.ExprAndNode,

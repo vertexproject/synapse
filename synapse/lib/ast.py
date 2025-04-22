@@ -31,11 +31,17 @@ from synapse.lib.stormtypes import tobool, toint, toprim, tostr, tonumber, tocmp
 SET_ALWAYS = 0
 SET_UNSET = 1
 SET_NEVER = 2
+SET_MIN = 3
+SET_MAX = 4
+SET_OVERWRITE = 5
 
 COND_EDIT_SET = {
     'always': SET_ALWAYS,
     'unset': SET_UNSET,
     'never': SET_NEVER,
+    'min': SET_MIN,
+    'max': SET_MAX,
+    'overwrite': SET_OVERWRITE,
 }
 
 logger = logging.getLogger(__name__)
@@ -4396,12 +4402,105 @@ class CondSetOper(Oper):
 
 class EditCondPropSet(Edit):
 
+    def __init__(self, astinfo, kids=()):
+        Edit.__init__(self, astinfo, kids=kids)
+
+        self.rval = kids[2]
+        self.funcs = {
+            SET_ALWAYS: self._setAlways,
+            SET_UNSET: self._setUnset,
+            SET_NEVER: None,
+            SET_MIN: self._setMin,
+            SET_MAX: self._setMax,
+            SET_OVERWRITE: self._setOverwrite,
+        }
+
+    async def _setAlways(self, runt, node, path, prop, oper):
+        name = prop.name
+        isndef = isinstance(prop.type, s_types.Ndef)
+        valu = await self.rval.compute(runt, path)
+        valu = await s_stormtypes.tostor(valu, isndef=isndef)
+
+        if isinstance(prop.type, s_types.Ival) and (oldv := node.get(name)) is not None:
+            valu, _ = prop.type.norm(valu)
+            valu = prop.type.merge(oldv, valu)
+
+        await node.set(name, valu)
+
+    async def _setUnset(self, runt, node, path, prop, oper):
+        name = prop.name
+        if (oldv := node.get(name)) is not None:
+            return
+
+        isndef = isinstance(prop.type, s_types.Ndef)
+        valu = await self.rval.compute(runt, path)
+        valu = await s_stormtypes.tostor(valu, isndef=isndef)
+        await node.set(name, valu)
+
+    async def _setMin(self, runt, node, path, prop, oper):
+        if not isinstance(prop.type, s_types.Ival):
+            await self.setVirt(runt, node, path, prop, oper)
+            return
+
+        valu = await self.rval.compute(runt, path)
+        valu = await s_stormtypes.tostor(valu)
+        valu, norminfo = prop.type.norm(valu)
+
+        name = prop.name
+        if (oldv := node.get(name)) is None:
+            await node.set(name, valu, norminfo=norminfo)
+            return
+
+        newv = (valu[0], max(valu[1], oldv[1]))
+        await node.set(prop.name, newv, norminfo=norminfo, overwrite=True)
+
+    async def _setMax(self, runt, node, path, prop, oper):
+        if not isinstance(prop.type, s_types.Ival):
+            await self.setVirt(runt, node, path, prop, oper)
+            return
+
+        valu = await self.rval.compute(runt, path)
+        valu = await s_stormtypes.tostor(valu)
+
+        maxv, _ = prop.type.tocktype.norm(valu)
+        minv, _ = prop.type.ticktype.norm(maxv - 1)
+        valu, norminfo = prop.type.norm((minv, maxv))
+
+        name = prop.name
+        if (oldv := node.get(name)) is None:
+            await node.set(name, valu, norminfo=norminfo)
+            return
+
+        newv = (min(valu[0], oldv[0]), valu[1])
+        await node.set(prop.name, newv, norminfo=norminfo, overwrite=True)
+
+    async def _setOverwrite(self, runt, node, path, prop, oper):
+        if not isinstance(prop.type, s_types.Ival):
+            await self.setVirt(runt, node, path, prop, oper)
+            return
+
+        valu = await self.rval.compute(runt, path)
+        valu = await s_stormtypes.tostor(valu)
+        valu, norminfo = prop.type.norm(valu)
+        await node.set(prop.name, valu, norminfo=norminfo, overwrite=True)
+
+    async def _setVirt(self, runt, node, path, prop, oper):
+        name = prop.name
+        if (oldv := node.get(name)) is None:
+            mesg = f'Cannot set virtual prop {oper} on property {name} with no value.'
+            raise self.addExcInfo(s_exc.BadTypeValu(mesg=mesg, virt=oper, prop=name))
+
+        valu = await self.rval.compute(runt, path)
+        valu = await s_stormtypes.tostor(valu)
+        newv, norminfo = prop.type.normVirt(oper, oldv, valu)
+
+        await node.set(name, newv, norminfo=norminfo)
+
     async def run(self, runt, genr):
 
         self.reqNotReadOnly(runt)
 
         excignore = (s_exc.BadTypeValu,) if self.kids[1].errok else ()
-        rval = self.kids[2]
 
         async for node, path in genr:
 
@@ -4410,47 +4509,18 @@ class EditCondPropSet(Edit):
 
             prop = node.form.reqProp(name, extra=self.kids[0].addExcInfo)
 
-            oper = await self.kids[1].compute(runt, path)
-            if oper == SET_NEVER or (oper == SET_UNSET and (oldv := node.get(name)) is not None):
-                yield node, path
-                await asyncio.sleep(0)
-                continue
-
             if not node.form.isrunt:
                 # runt node property permissions are enforced by the callback
                 runt.confirmPropSet(prop)
 
-            if oper not in (SET_UNSET, SET_ALWAYS):
+            oper = await self.kids[1].compute(runt, path)
+            if (func := self.funcs.get(oper, self._setVirt)) is not None:
                 try:
-                    oldv = node.get(name)
-                    valu = await rval.compute(runt, path)
-                    newv, norminfo = prop.type.normVirt(oper, oldv, valu)
-
-                    await node.set(name, newv, norminfo=norminfo)
+                    await func(runt, node, path, prop, oper)
                 except excignore:
                     pass
 
-                yield node, path
-                await asyncio.sleep(0)
-                continue
-
-            isndef = isinstance(prop.type, s_types.Ndef)
-
-            try:
-                valu = await rval.compute(runt, path)
-                valu = await s_stormtypes.tostor(valu, isndef=isndef)
-
-                if isinstance(prop.type, s_types.Ival) and oldv is not None:
-                    valu, _ = prop.type.norm(valu)
-                    valu = prop.type.merge(oldv, valu)
-
-                await node.set(name, valu)
-
-            except excignore:
-                pass
-
             yield node, path
-
             await asyncio.sleep(0)
 
 class EditPropSet(Edit):
@@ -5025,6 +5095,108 @@ class EditTagAdd(Edit):
 
             yield node, path
 
+            await asyncio.sleep(0)
+
+class EditTagVirtSet(Edit):
+
+    def __init__(self, astinfo, kids=()):
+        Edit.__init__(self, astinfo, kids=kids)
+
+        self.funcs = {
+            SET_ALWAYS: self._setAlways,
+            SET_UNSET: self._setUnset,
+            SET_NEVER: None,
+            SET_MIN: self._setMin,
+            SET_MAX: self._setMax,
+            SET_OVERWRITE: self._setOverwrite,
+        }
+
+    async def _setAlways(self, runt, node, path, name, valu):
+        await node.addTag(name, valu=valu)
+
+    async def _setUnset(self, runt, node, path, name, valu):
+        if (oldv := node.getTag(name)) is not None:
+            return
+        await node.addTag(name, valu=valu)
+
+    async def _setMin(self, runt, node, path, name, valu):
+
+        if (oldv := node.getTag(name)) is None:
+            await node.addTag(name, valu=valu)
+            return
+
+        valu, norminfo = self.ivaltype.norm(valu)
+
+        newv = (valu[0], max(valu[1], oldv[1]))
+        await node.addTag(name, valu=newv, overwrite=True)
+
+    async def _setMax(self, runt, node, path, name, valu):
+
+        maxv, _ = self.timetype.norm(valu)
+        minv, _ = self.timetype.norm(maxv - 1)
+        valu, norminfo = self.ivaltype.norm((minv, maxv))
+
+        if (oldv := node.getTag(name)) is None:
+            await node.addTag(name, valu=valu)
+            return
+
+        newv = (min(valu[0], oldv[0]), valu[1])
+        await node.addTag(name, valu=newv, overwrite=True)
+
+    async def _setOverwrite(self, runt, node, path, name, valu):
+        await node.addTag(name, valu=valu, overwrite=True)
+
+    async def run(self, runt, genr):
+
+        self.reqNotReadOnly(runt)
+
+        if isinstance(self.kids[0], Const) and (await self.kids[0].compute(runt, None)) == '?':
+            oper_offset = 1
+        else:
+            oper_offset = 0
+
+        excignore = (s_exc.BadTypeValu,) if oper_offset == 1 else ()
+
+        self.timetype = runt.model.type('time')
+        self.ivaltype = runt.model.type('ival')
+
+        namekid = self.kids[oper_offset]
+        operkid = self.kids[oper_offset + 1]
+        valukid = self.kids[oper_offset + 2]
+
+        async for node, path in genr:
+
+            oper = await operkid.compute(runt, path)
+            if (func := self.funcs.get(oper, s_common.novalu)) is None:
+                continue
+
+            elif func is s_common.novalu:
+                mesg = f'No editable virtual prop named {oper} on tag ival type.'
+                raise operkid.addExcInfo(s_exc.NoSuchVirt(mesg=mesg, name=oper))
+
+            try:
+                names = await namekid.computeTagArray(runt, path, excignore=excignore)
+            except excignore:
+                yield node, path
+                await asyncio.sleep(0)
+                continue
+
+            for name in names:
+
+                try:
+                    parts = name.split('.')
+
+                    runt.layerConfirm(('node', 'tag', 'add', *parts))
+
+                    valu = await valukid.compute(runt, path)
+                    valu = await s_stormtypes.toprim(valu)
+
+                    await func(runt, node, path, name, valu)
+
+                except excignore:
+                    pass
+
+            yield node, path
             await asyncio.sleep(0)
 
 class EditTagDel(Edit):
