@@ -8,6 +8,7 @@ import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.snap as s_snap
+import synapse.lib.task as s_task
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
 import synapse.lib.scope as s_scope
@@ -411,7 +412,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     nodeedits.append(nodeedit)
 
-                    if len(nodeedits) == 10:
+                    if len(nodeedits) == 5:
                         yield nodeedits
                         nodeedits.clear()
 
@@ -431,7 +432,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
                     meta['time'] = s_common.now()
 
-                    await snap.saveNodeEdits(edits, meta)
+                    await snap._applyNodeEdits(edits, meta)
                     await asyncio.sleep(0)
 
                     count += len(edits)
@@ -1000,7 +1001,11 @@ class View(s_nexus.Pusher):  # type: ignore
         keepalive = opts.get('keepalive')
         if keepalive is not None and keepalive <= 0:
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
-        synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+        if (synt := s_task.current()) is None:
+            # we only want to promote if we aren't already a syntask because we're probably a worker task that shouldn't
+            # show up in the main task list
+            synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
 
@@ -1462,8 +1467,6 @@ class View(s_nexus.Pusher):  # type: ignore
         Merge this view into its parent.  All changes made to this view will be applied to the parent.  Parent's
         triggers will be run.
         '''
-        fromlayr = self.layers[0]
-
         if useriden is None:
             user = await self.core.auth.getUserByName('root')
         else:
@@ -1476,10 +1479,25 @@ class View(s_nexus.Pusher):  # type: ignore
 
         async with await self.parent.snap(user=user) as snap:
 
+            async def chunked():
+                nodeedits = []
+
+                async for nodeedit in self.layers[0].iterLayerNodeEdits():
+
+                    nodeedits.append(nodeedit)
+
+                    if len(nodeedits) == 5:
+                        yield nodeedits
+                        nodeedits.clear()
+
+                if nodeedits:
+                    yield nodeedits
+
             meta = await snap.getSnapMeta()
-            async for nodeedits in fromlayr.iterLayerNodeEdits():
+            async for edits in chunked():
                 meta['time'] = s_common.now()
-                await snap.saveNodeEdits([nodeedits], meta)
+                await snap._applyNodeEdits(edits, meta)
+                await asyncio.sleep(0)
 
     async def swapLayer(self):
         oldlayr = self.layers[0]
