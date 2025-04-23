@@ -1,0 +1,6 @@
+---
+desc: Added support for removing layer mirror and upstream configurations to the
+  ``layer.set`` Storm command.
+prs: []
+type: feat
+...
