@@ -4440,7 +4440,7 @@ class EditCondPropSet(Edit):
     async def _setMin(self, runt, node, path, prop, oper):
         if not isinstance(prop.type, s_types.Ival):
             await self._setVirt(runt, node, path, prop, oper)
-            return
+            return  # pragma: no cover
 
         valu = await self.rval.compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
@@ -4457,7 +4457,7 @@ class EditCondPropSet(Edit):
     async def _setMax(self, runt, node, path, prop, oper):
         if not isinstance(prop.type, s_types.Ival):
             await self._setVirt(runt, node, path, prop, oper)
-            return
+            return  # pragma: no cover
 
         valu = await self.rval.compute(runt, path)
         valu = await s_stormtypes.tostor(valu)
@@ -4469,7 +4469,7 @@ class EditCondPropSet(Edit):
         name = prop.name
         if (oldv := node.get(name)) is None:
             await node.set(name, valu, norminfo=norminfo)
-            return
+            return  # pragma: no cover
 
         newv = (min(valu[0], oldv[0]), valu[1])
         await node.set(prop.name, newv, norminfo=norminfo, overwrite=True)

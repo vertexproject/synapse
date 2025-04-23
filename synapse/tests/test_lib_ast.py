@@ -527,6 +527,9 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[test:str=bar +#foo*always=(2021, 2023)]')
             self.eq((1609459200000000, 1672531200000000), nodes[0].get('#foo'))
 
+            nodes = await core.nodes('[test:str=bar +#foo*unset=2030]')
+            self.eq((1609459200000000, 1672531200000000), nodes[0].get('#foo'))
+
             nodes = await core.nodes('[test:str=bar +#foo*overwrite=2022]')
             self.eq((1640995200000000, 1640995200000001), nodes[0].get('#foo'))
 
