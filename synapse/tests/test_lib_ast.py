@@ -500,9 +500,6 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[test:str=bar .seen*overwrite=2022]')
             self.eq((1640995200000000, 1640995200000001), nodes[0].get('.seen'))
 
-            nodes = await core.nodes('[test:str=bar .seen*overwrite=2022]')
-            self.eq((1640995200000000, 1640995200000001), nodes[0].get('.seen'))
-
             nodes = await core.nodes('[test:str=bar -.seen .seen*overwrite=2022]')
             self.eq((1640995200000000, 1640995200000001), nodes[0].get('.seen'))
 
@@ -533,9 +530,6 @@ class AstTest(s_test.SynTest):
             nodes = await core.nodes('[test:str=bar +#foo*overwrite=2022]')
             self.eq((1640995200000000, 1640995200000001), nodes[0].get('#foo'))
 
-            nodes = await core.nodes('[test:str=bar +#foo*overwrite=2022]')
-            self.eq((1640995200000000, 1640995200000001), nodes[0].get('#foo'))
-
             nodes = await core.nodes('[test:str=bar +#foo=(2021, 2023)]')
             nodes = await core.nodes('[test:str=bar +#foo*min=2022]')
             self.eq((1640995200000000, 1672531200000000), nodes[0].get('#foo'))
@@ -561,6 +555,9 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[test:str=bar -#baz +#baz +#baz*unset=2022]')
             self.eq((1640995200000000, 1640995200000001), nodes[0].get('#baz'))
+
+            nodes = await core.nodes('$foo=(null) [test:str=notag +?#foo.$foo*min=2025]')
+            self.len(0, nodes[0].getTagNames())
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('[test:str=foo :hehe*min=newp]')
