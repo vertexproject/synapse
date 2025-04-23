@@ -4439,7 +4439,7 @@ class EditCondPropSet(Edit):
 
     async def _setMin(self, runt, node, path, prop, oper):
         if not isinstance(prop.type, s_types.Ival):
-            await self.setVirt(runt, node, path, prop, oper)
+            await self._setVirt(runt, node, path, prop, oper)
             return
 
         valu = await self.rval.compute(runt, path)
@@ -4456,7 +4456,7 @@ class EditCondPropSet(Edit):
 
     async def _setMax(self, runt, node, path, prop, oper):
         if not isinstance(prop.type, s_types.Ival):
-            await self.setVirt(runt, node, path, prop, oper)
+            await self._setVirt(runt, node, path, prop, oper)
             return
 
         valu = await self.rval.compute(runt, path)
@@ -4476,7 +4476,7 @@ class EditCondPropSet(Edit):
 
     async def _setOverwrite(self, runt, node, path, prop, oper):
         if not isinstance(prop.type, s_types.Ival):
-            await self.setVirt(runt, node, path, prop, oper)
+            await self._setVirt(runt, node, path, prop, oper)
             return
 
         valu = await self.rval.compute(runt, path)
@@ -5115,7 +5115,7 @@ class EditTagVirtSet(Edit):
         await node.addTag(name, valu=valu)
 
     async def _setUnset(self, runt, node, path, name, valu):
-        if (oldv := node.getTag(name)) is not None:
+        if (oldv := node.getTag(name)) not in (None, (None, None)):
             return
         await node.addTag(name, valu=valu)
 
@@ -5168,6 +5168,8 @@ class EditTagVirtSet(Edit):
 
             oper = await operkid.compute(runt, path)
             if (func := self.funcs.get(oper, s_common.novalu)) is None:
+                yield node, path
+                await asyncio.sleep(0)
                 continue
 
             elif func is s_common.novalu:
