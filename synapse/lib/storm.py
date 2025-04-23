@@ -178,10 +178,8 @@ viewdeldescr = '''
 Delete a view from the cortex.
 
 Notes:
-    Deleting a view will delete all unmerged changes in that view.
-
-    Deleting a view does not delete the associated layer. If you
-    want to delete the layer, you must run `layer.del` separately.
+    Deleting a view with the `view.del` command does not delete the associated layer.
+    To delete the layer, you must use the `layer.del` command separately.
 '''
 
 wgetdescr = '''Retrieve bytes from a URL and store them in the axon. Yields inet:urlfile nodes.
