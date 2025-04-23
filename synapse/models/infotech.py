@@ -580,10 +580,7 @@ async def _onPropSoftverVers(node, oldv):
     # form the semver properly or bruteforce parts
     try:
         valu, info = node.view.core.model.type('it:semver').norm(prop)
-        subs = info.get('subs')
         await node.set('semver', valu)
-        for k, v in subs.items():
-            await node.set(f'semver:{k}', v)
     except asyncio.CancelledError:  # pragma: no cover
         raise
     except Exception:
