@@ -88,8 +88,8 @@ def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
     #  is to attempt to parse the string as a serialized JSON string into objects, so we escape string
     # values so we can get the JSON encoded string as output.
     if isinstance(obj, str) and obj not in ('null', 'true', 'false'):
-        escaped = obj.replace('"', '\\"')
-        obj = f'"{escaped}"'
+        # TODO in 3xx convert this into obj = f'''"{obj.replace('"', '\\"')}"'''
+        obj = ''.join(('"', obj.replace('"', '\\"'), '"'))
 
     doc = yyjson.Document(obj, default=default)
     return doc.dumps(flags=flags).encode()
