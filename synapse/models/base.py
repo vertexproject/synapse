@@ -98,6 +98,7 @@ modeldefs = (
                 ),
                 'doc': 'A hierarchical taxonomy of rule types.'}),
 
+            # FIXME todo meta:rule:match?
             ('meta:rule', ('guid', {}), {
                 'doc': 'A generic rule linked to matches with -(matches)> edges.'}),
 
@@ -158,6 +159,43 @@ modeldefs = (
                         'doc': 'The taxonomy parent.'}),
                 ),
             }),
+            ('meta:ruleish', {
+                'doc': 'Properties which are common to rules used in evaluation systems.',
+                'template': {'document': 'rule'},
+                'interfaces': (
+                    ('doc:document', {}),
+                ),
+                'props': (
+
+                    ('desc', ('str', {}), {
+                        'disp': {'hint': 'text'},
+                        'doc': 'A description of the {document}.'}),
+
+                    ('url', ('inet:url', {}), {
+                        'doc': 'A URL which documents the {document}.'}),
+
+                    ('enabled', ('bool', {}), {
+                        'doc': 'The enabled status of the {document}.'}),
+                ),
+            }),
+            ('meta:matchish', {
+                'doc': 'Properties which are common to matches based on rules.',
+                'template': {'rule': 'rule', 'ruletype': 'rule:type',
+                             'match:iface': 'match:iface'},
+                'props': (
+
+                    ('rule', ('{rule:type}', {}), {
+                        'doc': 'The rule which matched the target node.'}),
+
+                    ('target', ('ndef', {'interface': '{match:iface}'}), {
+                        'doc': 'The target node which matched the {rule}.',
+
+                    ('version', ('it:semver', {}), {
+                        'doc': 'The most recent version of the rule evaluated as a match.'}),
+
+                    ('matched', ('time', {}), {
+                        'doc': 'The time that the rule was evaluated to generate the match.'}),
+            }),
         ),
         'edges': (
             ((None, 'refs', None), {
@@ -172,17 +210,17 @@ modeldefs = (
             (('meta:note', 'about', None), {
                 'doc': 'The meta:note is about the target node.'}),
 
-            (('meta:ruleset', 'has', 'meta:rule'), {
-                'doc': 'The meta:ruleset includes the meta:rule.'}),
+            (('meta:ruleset', 'has', 'meta:ruleish'), {
+                'doc': 'The meta:ruleset includes the rule.'}),
 
-            (('meta:ruleset', 'has', 'inet:service:rule'), {
-                'doc': 'The meta:ruleset includes the inet:service:rule.'}),
+            #(('meta:ruleset', 'has', 'inet:service:rule'), {
+                #'doc': 'The meta:ruleset includes the inet:service:rule.'}),
 
-            (('meta:ruleset', 'has', 'it:app:snort:rule'), {
-                'doc': 'The meta:ruleset includes the it:app:snort:rule.'}),
+            #(('meta:ruleset', 'has', 'it:app:snort:rule'), {
+                #'doc': 'The meta:ruleset includes the it:app:snort:rule.'}),
 
-            (('meta:ruleset', 'has', 'it:app:yara:rule'), {
-                'doc': 'The meta:ruleset includes the it:app:yara:rule.'}),
+            #(('meta:ruleset', 'has', 'it:app:yara:rule'), {
+                #'doc': 'The meta:ruleset includes the it:app:yara:rule.'}),
 
             (('meta:rule', 'matches', None), {
                 'doc': 'The meta:rule has matched on target node.'}),
@@ -347,35 +385,35 @@ modeldefs = (
             # FIXME doc:document interface
             ('meta:rule', {}, (
 
-                ('id', ('meta:id', {}), {
-                    'prevnames': ('id',),
-                    'doc': 'The rule ID.'}),
+                #('id', ('meta:id', {}), {
+                    #'prevnames': ('id',),
+                    #'doc': 'The rule ID.'}),
 
-                ('name', ('meta:name', {}), {
-                    'doc': 'A name for the rule.'}),
+                #('name', ('meta:name', {}), {
+                    #'doc': 'A name for the rule.'}),
 
                 ('type', ('meta:rule:type:taxonomy', {}), {
                     'doc': 'The rule type.'}),
 
-                ('desc', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'A description of the rule.'}),
+                #('desc', ('str', {}), {
+                    #'disp': {'hint': 'text'},
+                    #'doc': 'A description of the rule.'}),
 
-                ('text', ('str', {}), {
-                    'disp': {'hint': 'text'},
-                    'doc': 'The text of the rule logic.'}),
+                #('text', ('str', {}), {
+                    #'disp': {'hint': 'text'},
+                    #'doc': 'The text of the {rule}.'}),
 
-                ('author', ('entity:actor', {}), {
-                    'doc': 'The contact information of the rule author.'}),
+                #('author', ('entity:actor', {}), {
+                    #'doc': 'The contact information of the rule author.'}),
 
-                ('created', ('time', {}), {
-                    'doc': 'The time the rule was initially created.'}),
+                #('created', ('time', {}), {
+                    #'doc': 'The time the rule was initially created.'}),
 
-                ('updated', ('time', {}), {
-                    'doc': 'The time the rule was most recently modified.'}),
+                #('updated', ('time', {}), {
+                    #'doc': 'The time the rule was most recently modified.'}),
 
-                ('url', ('inet:url', {}), {
-                    'doc': 'A URL which documents the rule.'}),
+                #('url', ('inet:url', {}), {
+                    #'doc': 'A URL which documents the rule.'}),
             )),
 
             ('meta:aggregate:type:taxonomy', {}, ()),

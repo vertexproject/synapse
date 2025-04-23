@@ -1174,46 +1174,39 @@ modeldefs = (
         'ctors': (
 
             ('inet:ip', 'synapse.models.inet.IPAddr', {}, {
-                'doc': 'An IPv4 or IPv6 address.',
-                'ex': '1.2.3.4'
-            }),
+                'ex': '1.2.3.4',
+                'doc': 'An IPv4 or IPv6 address.'}),
 
             ('inet:iprange', 'synapse.models.inet.IPRange', {}, {
-                'doc': 'An IPv4 or IPv6 address range.',
-                'ex': '1.2.3.4-1.2.3.8'
-            }),
+                'ex': '1.2.3.4-1.2.3.8',
+                'doc': 'An IPv4 or IPv6 address range.'}),
 
             ('inet:sockaddr', 'synapse.models.inet.SockAddr', {}, {
-                'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.',
-                'ex': 'tcp://1.2.3.4:80'
-            }),
+                'ex': 'tcp://1.2.3.4:80',
+                'doc': 'A network layer URL-like format to represent tcp/udp/icmp clients and servers.'}),
 
             ('inet:cidr', 'synapse.models.inet.Cidr', {}, {
-                'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.',
-                'ex': '1.2.3.0/24'
-            }),
+                'ex': '1.2.3.0/24',
+                'doc': 'An IP address block in Classless Inter-Domain Routing (CIDR) notation.'}),
 
             ('inet:email', 'synapse.models.inet.Email', {}, {
                 'doc': 'An e-mail address.'}),
 
             ('inet:fqdn', 'synapse.models.inet.Fqdn', {}, {
-                'doc': 'A Fully Qualified Domain Name (FQDN).',
-                'ex': 'vertex.link'}),
+                'ex': 'vertex.link',
+                'doc': 'A Fully Qualified Domain Name (FQDN).'}),
 
             ('inet:rfc2822:addr', 'synapse.models.inet.Rfc2822Addr', {}, {
-                'doc': 'An RFC 2822 Address field.',
-                'ex': '"Visi Kenshoto" <visi@vertex.link>'
-            }),
+                'ex': '"Visi Kenshoto" <visi@vertex.link>',
+                'doc': 'An RFC 2822 Address field.'}),
 
             ('inet:url', 'synapse.models.inet.Url', {}, {
-                'doc': 'A Universal Resource Locator (URL).',
-                'ex': 'http://www.woot.com/files/index.html'
-            }),
+                'ex': 'http://www.woot.com/files/index.html',
+                'doc': 'A Universal Resource Locator (URL).'}),
 
             ('inet:http:cookie', 'synapse.models.inet.HttpCookie', {}, {
-                'doc': 'An individual HTTP cookie string.',
                 'ex': 'PHPSESSID=el4ukv0kqbvoirg7nkp4dncpk3',
-            }),
+                'doc': 'An individual HTTP cookie string.'}),
         ),
 
         'edges': (

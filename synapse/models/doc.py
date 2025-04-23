@@ -3,12 +3,17 @@ import synapse.exc as s_exc
 modeldefs = (
     ('doc', {
         'interfaces': (
+
             ('doc:document', {
 
                 'doc': 'A common interface for documents.',
+                'interfaces': (
+                    ('doc:authored', {}),
+                ),
 
                 'template': {
                     'type': 'NEWP',
+                    'syntax': '',
                     'document': 'document',
                     'documents': 'documents'},
 
@@ -17,17 +22,15 @@ modeldefs = (
                     ('id', ('meta:id', {}), {
                         'doc': 'The {document} ID.'}),
 
-                    ('name', ('str', {'lower': True, 'onespace': True}), {
+                    ('name', ('base:name', {}), {
                         'doc': 'The {document} name.'}),
 
                     ('type', ('{type}', {}), {
                         'doc': 'The type of {document}.'}),
 
                     ('text', ('str', {}), {
+                        'disp': {'hint': 'text', 'syntax': '{syntax}'},
                         'doc': 'The text of the {document}.'}),
-
-                    ('file', ('file:bytes', {}), {
-                        'doc': 'The file which contains the {document}.'}),
 
                     ('created', ('time', {}), {
                         'doc': 'The time that the {document} was created.'}),
@@ -35,10 +38,10 @@ modeldefs = (
                     ('updated', ('time', {}), {
                         'doc': 'The time that the {document} was last updated.'}),
 
-                    ('author', ('entity:contact', {}), {
+                    ('author', ('entity:actor', {}), {
                         'doc': 'The contact information of the primary author.'}),
 
-                    ('contributors', ('array', {'type': 'entity:contact', 'sorted': True, 'uniq': True}), {
+                    ('contributors', ('array', {'type': 'entity:actor', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of contacts which contributed to the {document}.'}),
 
                     ('version', ('it:semver', {}), {
@@ -46,6 +49,10 @@ modeldefs = (
 
                     ('supersedes', ('array', {'type': '$self', 'sorted': True, 'uniq': True}), {
                         'doc': 'An array of {documents} which are superseded by this {document}.'}),
+
+                    ('file', ('file:bytes', {}), {
+                        'doc': 'The file which contains the {document}.'}),
+
                 ),
             }),
         ),

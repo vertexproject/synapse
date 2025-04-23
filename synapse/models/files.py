@@ -264,11 +264,12 @@ modeldefs = (
                 'props': (
                     ('file', ('file:bytes', {}), {
                         'doc': 'The file that the mime info was parsed from.'}),
+
                     ('file:offs', ('int', {}), {
                         'doc': 'The optional offset where the mime info was parsed from.'}),
+
                     ('file:data', ('data', {}), {
-                        'doc': 'A mime specific arbitrary data structure for non-indexed data.',
-                    }),
+                        'doc': 'A mime specific arbitrary data structure for non-indexed data.'}),
                 ),
                 'doc': 'Properties common to mime specific file metadata types.',
             }),
@@ -332,8 +333,7 @@ modeldefs = (
         'types': (
 
             ('file:subfile', ('comp', {'fields': (('parent', 'file:bytes'), ('child', 'file:bytes'))}), {
-                'doc': 'A parent file that fully contains the specified child file.',
-            }),
+                'doc': 'A parent file that fully contains the specified child file.'}),
 
             ('file:attachment', ('guid', {}), {
                 'display': {
@@ -349,17 +349,14 @@ modeldefs = (
                 'doc': 'An archive entry representing a file and metadata within a parent archive file.'}),
 
             ('file:filepath', ('comp', {'fields': (('file', 'file:bytes'), ('path', 'file:path'))}), {
-                'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.',
-            }),
+                'doc': 'The fused knowledge of the association of a file:bytes node and a file:path.'}),
 
             ('file:mime', ('str', {'lower': True}), {
-                'doc': 'A file mime name string.',
                 'ex': 'text/plain',
-            }),
+                'doc': 'A file mime name string.'}),
 
             ('file:ismime', ('comp', {'fields': (('file', 'file:bytes'), ('mime', 'file:mime'))}), {
-                'doc': 'Records one, of potentially multiple, mime types for a given file.',
-            }),
+                'doc': 'Records one, of potentially multiple, mime types for a given file.'}),
 
             ('file:mime:msdoc', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a Microsoft Word file.',
@@ -376,18 +373,16 @@ modeldefs = (
             }),
 
             ('file:mime:msppt', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.',
                 'interfaces': (
                     ('file:mime:msoffice', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a Microsoft Powerpoint file.'}),
 
             ('file:mime:rtf', ('guid', {}), {
-                'doc': 'The GUID of a set of mime metadata for a .rtf file.',
                 'interfaces': (
                     ('file:mime:meta', {}),
                 ),
-            }),
+                'doc': 'The GUID of a set of mime metadata for a .rtf file.'}),
 
             ('file:mime:jpg', ('guid', {}), {
                 'doc': 'The GUID of a set of mime metadata for a .jpg file.',
