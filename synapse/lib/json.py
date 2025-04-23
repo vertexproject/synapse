@@ -127,7 +127,8 @@ def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Opti
         return ret
 
     except (TypeError, ValueError) as exc:
-        raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
+        mesg = f'{exc.__class__.__name__}: {exc}'
+        raise s_exc.MustBeJsonSafe(mesg=mesg)
 
 def dump(obj: Any, fp: BinaryIO, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> None:
     '''
@@ -239,6 +240,7 @@ def reqjsonsafe(item: Any, strict: bool = False) -> None:
             raise s_exc.MustBeJsonSafe(mesg=mesg)
 
         except Exception as exc:
-            raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
+            mesg = f'{exc.__class__.__name__}: {exc}'
+            raise s_exc.MustBeJsonSafe(mesg=mesg)
     else:
         dumps(item)

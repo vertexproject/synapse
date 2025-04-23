@@ -89,15 +89,15 @@ class JsonTest(s_test.SynTest):
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({}.items())
-        self.eq(exc.exception.get('mesg'), "Object of type 'dict_items' is not JSON serializable")
+        self.eq(exc.exception.get('mesg'), "TypeError: Object of type 'dict_items' is not JSON serializable")
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({1: 'foo'})
-        self.eq(exc.exception.get('mesg'), "Dictionary keys must be strings")
+        self.eq(exc.exception.get('mesg'), "TypeError: Dictionary keys must be strings")
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({'\ud83d\ude47': {}.items()})
-        self.eq(exc.exception.get('mesg'), "Dictionary keys must be strings")
+        self.eq(exc.exception.get('mesg'), "TypeError: Dictionary keys must be strings")
 
         self.eq(b'"dict_items([])"', s_json.dumps({}.items(), default=str))
 
