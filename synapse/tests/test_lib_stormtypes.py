@@ -3802,7 +3802,6 @@ class StormTypesTest(s_test.SynTest):
         async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
 
-                await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
                 url = core2.getLocalUrl('*/layer')
 
                 layriden = core2.view.layers[0].iden
@@ -3819,8 +3818,35 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                evnt = await layr.waitUpstreamOffs(layriden, offs)
-                self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                async def query(q):
+                    '''
+                    Run a query on core2 and wait for it to sync to layr from core
+                    '''
+                    nodes = await core2.nodes(q)
+                    offs = await core2.view.layers[0].getEditIndx()
+                    evnt = await layr.waitUpstreamOffs(layriden, offs)
+                    self.true(await asyncio.wait_for(evnt.wait(), timeout=6))
+                    return nodes
+
+                vdef = {
+                    'layers': [layr.iden]
+                }
+
+                view00 = await core.addView(vdef)
+                self.nn(view00)
+
+                # No foobar in core
+                opts = {'view': view00.get('iden')}
+                nodes = await core.nodes('it:dev:str=foobar', opts=opts)
+                self.len(0, nodes)
+
+                # Add foobar in core2
+                nodes = await query('[ it:dev:str=foobar ]')
+                self.len(1, nodes)
+
+                # foobar shows up in core
+                nodes = await core.nodes('it:dev:str=foobar', opts=opts)
+                self.len(1, nodes)
 
                 self.len(1, layr.activetasks)
 
@@ -3842,13 +3868,18 @@ class StormTypesTest(s_test.SynTest):
                 self.len(0, layr.activetasks)
                 self.none(layr.layrinfo.get('upstream'))
 
+                with self.raises(TimeoutError):
+                    await query('[ it:dev:str=newp ]')
+
+                # No newp in core because layer upstream is disabled
+                nodes = await core.nodes('it:dev:str=newp', opts=opts)
+                self.len(0, nodes)
+
     async def test_storm_lib_layer_mirror(self):
         async with self.getTestCore() as core:
             async with self.getTestCore() as core2:
 
-                await core2.nodes('[ inet:ipv4=1.2.3.4 ]')
                 url = core2.getLocalUrl('*/layer')
-                offs = await core2.view.layers[0].getEditOffs()
 
                 layers = set(core.layers.keys())
                 q = f'layer.add --mirror {url}'
@@ -3861,7 +3892,34 @@ class StormTypesTest(s_test.SynTest):
 
                 layr = core.getLayer(uplayr)
 
-                self.true(await layr.waitEditOffs(offs, timeout=10))
+                async def query(q):
+                    '''
+                    Run a query on core2 and wait for it to sync to layr from core
+                    '''
+                    nodes = await core2.nodes(q)
+                    offs = await core2.view.layers[0].getEditOffs()
+                    self.true(await layr.waitEditOffs(offs, timeout=10))
+                    return nodes
+
+                vdef = {
+                    'layers': [layr.iden]
+                }
+
+                view00 = await core.addView(vdef)
+                self.nn(view00)
+
+                # No foobar in core
+                opts = {'view': view00.get('iden')}
+                nodes = await core.nodes('it:dev:str=foobar', opts=opts)
+                self.len(0, nodes)
+
+                # Add foobar in core2
+                nodes = await query('[ it:dev:str=foobar ]')
+                self.len(1, nodes)
+
+                # foobar shows up in core
+                nodes = await core.nodes('it:dev:str=foobar', opts=opts)
+                self.len(1, nodes)
 
                 self.true(layr.ismirror)
                 self.nn(layr.leadtask)
@@ -3887,6 +3945,14 @@ class StormTypesTest(s_test.SynTest):
                 self.none(layr.leadtask)
                 self.none(layr.leader)
                 self.false(layr.ismirror)
+
+                # Add newp in core2
+                nodes = await query('[ it:dev:str=newp ]')
+                self.len(1, nodes)
+
+                # No newp in core because layer mirroring is disabled
+                nodes = await core.nodes('it:dev:str=newp', opts=opts)
+                self.len(0, nodes)
 
     async def test_storm_lib_view(self):
 
