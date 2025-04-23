@@ -297,8 +297,8 @@ def parseprec(text, base=None, chop=False):
 
     Args:
         text (str): Time string to parse
-        base (int or None): Milliseconds to offset the time from
-        chop (bool): Whether to chop the digit-only string to 17 chars
+        base (int or None): Microseconds to offset the time from
+        chop (bool): Whether to chop the digit-only string to 20 chars
 
     Returns:
         tuple: Epoch microseconds timestamp and precision enum value if present.
