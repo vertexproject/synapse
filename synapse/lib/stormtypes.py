@@ -2724,26 +2724,26 @@ class LibTime(Lib):
     A Storm Library for interacting with timestamps.
     '''
     _storm_locals = (
-        {'name': 'now', 'desc': 'Get the current epoch time in milliseconds.',
+        {'name': 'now', 'desc': 'Get the current epoch time in microseconds.',
          'type': {
              'type': 'function', '_funcname': '_now',
-             'returns': {'desc': 'Epoch time in milliseconds.', 'type': 'int', }}},
+             'returns': {'desc': 'Epoch time in microseconds.', 'type': 'int', }}},
         {'name': 'fromunix',
          'desc': '''
-            Normalize a timestamp from a unix epoch time in seconds to milliseconds.
+            Normalize a timestamp from a unix epoch time in seconds to microseconds.
 
             Examples:
-                Convert a timestamp from seconds to millis and format it::
+                Convert a timestamp from seconds to micros and format it::
 
-                    storm> $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
-                         $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
+                    storm> $seconds=1594684800 $micros=$lib.time.fromunix($seconds)
+                         $str=$lib.time.format($micros, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
          'type': {'type': 'function', '_funcname': '_fromunix',
                   'args': (
                       {'name': 'secs', 'type': 'int', 'desc': 'Unix epoch time in seconds.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The normalized time in milliseconds.', }}},
+                  'returns': {'type': 'int', 'desc': 'The normalized time in microseconds.', }}},
         {'name': 'parse', 'desc': '''
             Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
 
@@ -2752,7 +2752,7 @@ class LibTime(Lib):
 
                     storm> $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
 
-                    1590969600000''',
+                    1590969600000000''',
          'type': {'type': 'function', '_funcname': '_parse',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The timestamp string to parse.', },
@@ -2772,7 +2772,7 @@ class LibTime(Lib):
                     Tuesday 14, July 2020''',
          'type': {'type': 'function', '_funcname': '_format',
                   'args': (
-                      {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch milliseconds.', },
+                      {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch microseconds.', },
                       {'name': 'format', 'type': 'str', 'desc': 'The strftime format string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The formatted time string.', }}},
@@ -2888,7 +2888,7 @@ class LibTime(Lib):
                   ),
                   'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
         {'name': 'toUTC', 'desc': '''
-        Adjust an epoch milliseconds timestamp to UTC from the given timezone.
+        Adjust an epoch microseconds timestamp to UTC from the given timezone.
         ''',
          'type': {'type': 'function', '_funcname': 'toUTC',
                   'args': (
@@ -3026,7 +3026,7 @@ class LibTime(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, format=format)
 
         try:
-            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=norm)
+            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=norm)
             ret = dt.strftime(format)
         except Exception as e:
             mesg = f'Error during time format - {str(e)}'
@@ -3049,7 +3049,7 @@ class LibTime(Lib):
         if dt.tzinfo is not None:
             # Convert the aware dt to UTC, then strip off the tzinfo
             dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        return int((dt - s_time.EPOCH).total_seconds() * 1000)
+        return s_time.total_microseconds(dt - s_time.EPOCH)
 
     @stormfunc(readonly=True)
     async def _sleep(self, valu):
@@ -3073,7 +3073,7 @@ class LibTime(Lib):
 
     async def _fromunix(self, secs):
         secs = float(secs)
-        return int(secs * 1000)
+        return int(secs * 1000000)
 
 @registry.registerLib
 class LibRegx(Lib):
@@ -9159,7 +9159,7 @@ class LibCron(Lib):
             for optval in opts.split(','):
                 try:
                     arg = f'{optval} {optname}'
-                    ts = now + s_time.delta(arg) / 1000.0
+                    ts = now + s_time.delta(arg) / 1000000.0
                     tslist.append(ts)
                 except (ValueError, s_exc.BadTypeValu):
                     mesg = f'Trouble parsing "{arg}"'
@@ -9169,7 +9169,7 @@ class LibCron(Lib):
         if dts:
             for dt in dts.split(','):
                 try:
-                    ts = s_time.parse(dt) / 1000.0
+                    ts = s_time.parse(dt) / 1000000.0
                     tslist.append(ts)
                 except (ValueError, s_exc.BadTypeValu):
                     mesg = f'Trouble parsing "{dt}"'
