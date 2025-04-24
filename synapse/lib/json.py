@@ -72,13 +72,17 @@ def _fallback_dumps(obj: Any, sort_keys: bool = False, indent: bool = False, def
         raise s_exc.MustBeJsonSafe(mesg=exc.args[0])
 
 def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
-    flags = 0
+    rflags = 0
+    wflags = 0
+
+    if sort_keys:
+        rflags |= yyjson.ReaderFlags.SORT_KEYS
 
     if indent:
-        flags |= yyjson.WriterFlags.PRETTY_TWO_SPACES
+        wflags |= yyjson.WriterFlags.PRETTY_TWO_SPACES
 
     if newline:
-        flags |= yyjson.WriterFlags.WRITE_NEWLINE_AT_END
+        wflags |= yyjson.WriterFlags.WRITE_NEWLINE_AT_END
 
     if isinstance(obj, bytes):
         mesg = 'Object of type bytes is not JSON serializable'
@@ -91,8 +95,8 @@ def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
         # TODO in 3xx convert this into obj = f'''"{obj.replace('"', '\\"')}"'''
         obj = ''.join(('"', obj.replace('"', '\\"'), '"'))
 
-    doc = yyjson.Document(obj, default=default)
-    return doc.dumps(flags=flags).encode()
+    doc = yyjson.Document(obj, default=default, flags=rflags)
+    return doc.dumps(flags=wflags).encode()
 
 def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> bytes:
     '''

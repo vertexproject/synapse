@@ -79,11 +79,8 @@ class JsonTest(s_test.SynTest):
 
     async def test_lib_json_dumps(self):
         self.eq(b'{"c":"d","a":"b"}', s_json.dumps({'c': 'd', 'a': 'b'}))
-        dump = s_json.dumps({'c': 'd', 'a': 'b'})
-        self.isin(b'"a":"b"', dump)
-        self.isin(b'"c":"d"', dump)
-        self.true(dump.startswith(b'{'))
-        self.true(dump.endswith(b'}'))
+        dump = s_json.dumps({'c': 'd', 'a': 'b'}, sort_keys=True)
+        self.eq(dump, b'{"a":"b","c":"d"}')
         self.eq(b'{\n  "c": "d",\n  "a": "b"\n}', s_json.dumps({'c': 'd', 'a': 'b'}, indent=True))
         self.eq(b'{"c":"d","a":"b"}\n', s_json.dumps({'c': 'd', 'a': 'b'}, newline=True))
 
