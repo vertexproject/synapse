@@ -2514,6 +2514,11 @@ class Layer(s_nexus.Pusher):
     async def setLayerInfo(self, name, valu):
         if name != 'readonly':
             self._reqNotReadOnly()
+
+        if name in ('mirror', 'upstream') and valu is not None:
+            mesg = 'Layer only supports setting "mirror" and "upstream" to None.'
+            raise s_exc.BadOptValu(mesg=mesg)
+
         return await self._push('layer:set', name, valu)
 
     @s_nexus.Pusher.onPush('layer:set')
@@ -2521,16 +2526,24 @@ class Layer(s_nexus.Pusher):
         '''
         Set a mutable layer property.
         '''
-        if name not in ('name', 'desc', 'logedits', 'readonly'):
+        if name not in ('name', 'desc', 'logedits', 'readonly', 'mirror', 'upstream'):
             mesg = f'{name} is not a valid layer info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
         if name == 'logedits':
             valu = bool(valu)
             self.logedits = valu
+
         elif name == 'readonly':
             valu = bool(valu)
             self.readonly = valu
+
+        elif name == 'mirror' and valu is None:
+            await self._stopMirror()
+            self.ismirror = False
+
+        elif name == 'upstream' and valu is None:
+            self._stopUpstream()
 
         # TODO when we can set more props, we may need to parse values.
         if valu is None:
@@ -5268,7 +5281,8 @@ class Layer(s_nexus.Pusher):
             form = ndef[0]
 
             edits = []
-            nodeedit = (s_common.int64un(nid), form, edits)
+            intnid = s_common.int64un(nid)
+            nodeedit = (intnid, form, edits)
 
             valt = sode.get('valu')
             if valt is not None:
@@ -5312,6 +5326,11 @@ class Layer(s_nexus.Pusher):
                     edits.append((EDIT_EDGE_TOMB, (verb, s_common.int64un(n2nid))))
                 else:
                     edits.append((EDIT_EDGE_ADD, (verb, s_common.int64un(n2nid))))
+
+                if len(edits) >= 100:
+                    yield nodeedit
+                    edits = []
+                    nodeedit = (intnid, form, edits)
 
             yield nodeedit
 
