@@ -115,6 +115,20 @@ class JsonTest(s_test.SynTest):
         s_json.dump({'c': 'd', 'a': 'b'}, buf)
         self.eq(b'{"c":"d","a":"b"}', buf.getvalue())
 
+    async def test_lib_json_large_integers(self):
+        valu = [
+            1, 2,
+            -1, -2,
+            1.0, 2.0,
+            -1.0, -2.0,
+            2**63, -2**63, -2**63 - 1,
+            2**64, -2**64, 2**64 + 1,
+            2**128, 2**128 + 1,
+            -2**128, -2**128 - 1,
+        ]
+
+        self.eq(valu, s_json.loads(s_json.dumps(valu)))
+
     async def test_jsload(self):
         with self.getTestDir() as dirn:
             with s_common.genfile(dirn, 'jsload.json') as fp:
