@@ -2634,6 +2634,11 @@ class LayerTest(s_t_utils.SynTest):
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:arrayform*size*newp=(2, 3)')
 
+            self.len(1, await core.nodes('[ test:arrayvirtform=(2021?, 2022?) ]'))
+            self.len(1, await core.nodes('test:arrayvirtform'))
+            await core.nodes('test:arrayvirtform=(2021, 2022) | delnode')
+            self.len(0, await core.nodes('test:arrayvirtform'))
+
     async def test_layer_readahead(self):
 
         async with self.getTestCore() as core:

@@ -41,8 +41,151 @@ timeunits = {
     'days': oneday,
 }
 
+PREC_YEAR = 4
+PREC_MONTH = 8
+PREC_DAY = 12
+PREC_HOUR = 16
+PREC_MINUTE = 20
+PREC_SECOND = 24
+PREC_MILLI = 27
+PREC_MICRO = 30
+
+MAX_TIME = 253402300799999999
+
 def total_microseconds(delta):
     return (delta.days * oneday) + (delta.seconds * onesec) + delta.microseconds
+
+def yearprec(ts, maxfill=False):
+    dtime = EPOCH + datetime.timedelta(microseconds=ts)
+    if maxfill:
+        try:
+            return total_microseconds(datetime.datetime(dtime.year + 1, 1, 1) - EPOCH) - 1
+        except (ValueError, OverflowError):
+            return MAX_TIME
+    return total_microseconds(datetime.datetime(dtime.year, 1, 1) - EPOCH)
+
+def monthprec(ts, maxfill=False):
+    dtime = EPOCH + datetime.timedelta(microseconds=ts)
+
+    subv = 0
+    if maxfill:
+        try:
+            dtime += relativedelta(months=1)
+        except (ValueError, OverflowError):
+            return MAX_TIME
+        subv = 1
+
+    newdt = datetime.datetime(dtime.year, dtime.month, 1)
+    return total_microseconds(newdt - EPOCH) - subv
+
+def dayprec(ts, maxfill=False):
+    dtime = EPOCH + datetime.timedelta(microseconds=ts)
+
+    subv = 0
+    if maxfill:
+        try:
+            dtime += relativedelta(days=1)
+        except (ValueError, OverflowError):
+            return MAX_TIME
+        subv = 1
+
+    newdt = datetime.datetime(dtime.year, dtime.month, dtime.day)
+    return total_microseconds(newdt - EPOCH) - subv
+
+def hourprec(ts, maxfill=False):
+    dtime = EPOCH + datetime.timedelta(microseconds=ts)
+
+    subv = 0
+    if maxfill:
+        try:
+            dtime += relativedelta(hours=1)
+        except (ValueError, OverflowError):
+            return MAX_TIME
+        subv = 1
+
+    newdt = datetime.datetime(dtime.year, dtime.month, dtime.day, dtime.hour)
+    return total_microseconds(newdt - EPOCH) - subv
+
+def minuteprec(ts, maxfill=False):
+    dtime = EPOCH + datetime.timedelta(microseconds=ts)
+
+    subv = 0
+    if maxfill:
+        try:
+            dtime += relativedelta(minutes=1)
+        except (ValueError, OverflowError):
+            return MAX_TIME
+        subv = 1
+
+    newdt = datetime.datetime(dtime.year, dtime.month, dtime.day, dtime.hour, dtime.minute)
+    return total_microseconds(newdt - EPOCH) - subv
+
+def secprec(ts, maxfill=False):
+    dtime = EPOCH + datetime.timedelta(microseconds=ts)
+
+    subv = 0
+    if maxfill:
+        try:
+            dtime += relativedelta(seconds=1)
+        except (ValueError, OverflowError):
+            return MAX_TIME
+        subv = 1
+
+    newdt = datetime.datetime(dtime.year, dtime.month, dtime.day, dtime.hour, dtime.minute, dtime.second)
+    return total_microseconds(newdt - EPOCH) - subv
+
+def milliprec(ts, maxfill=False):
+    dtime = EPOCH + datetime.timedelta(microseconds=ts)
+
+    subv = 0
+    if maxfill:
+        try:
+            dtime += relativedelta(microseconds=1000)
+        except (ValueError, OverflowError):
+            return MAX_TIME
+        subv = 1
+
+    millis = (dtime.microsecond // 1000) * 1000
+    newdt = datetime.datetime(dtime.year, dtime.month, dtime.day, dtime.hour, dtime.minute, dtime.second, millis)
+    return total_microseconds(newdt - EPOCH) - subv
+
+precfuncs = {
+    PREC_YEAR: yearprec,
+    PREC_MONTH: monthprec,
+    PREC_DAY: dayprec,
+    PREC_HOUR: hourprec,
+    PREC_MINUTE: minuteprec,
+    PREC_SECOND: secprec,
+    PREC_MILLI: milliprec,
+    PREC_MICRO: lambda x, maxfill=False: x
+}
+
+precisions = {
+    'year': PREC_YEAR,
+    'month': PREC_MONTH,
+    'day': PREC_DAY,
+    'hour': PREC_HOUR,
+    'minute': PREC_MINUTE,
+    'second': PREC_SECOND,
+    'millisecond': PREC_MILLI,
+    'microsecond': PREC_MICRO,
+}
+
+preclookup = {valu: vstr for vstr, valu in precisions.items()}
+preclen = {
+    4: PREC_YEAR,
+    6: PREC_MONTH,
+    8: PREC_DAY,
+    10: PREC_HOUR,
+    12: PREC_MINUTE,
+    14: PREC_SECOND,
+    15: PREC_MILLI,
+    16: PREC_MILLI,
+    17: PREC_MILLI,
+    18: PREC_MICRO,
+    19: PREC_MICRO,
+    20: PREC_MICRO,
+}
 
 tzcat = '|'.join(sorted(s_l_timezones.getTzNames(), key=lambda x: len(x), reverse=True))
 unitcat = '|'.join(sorted(timeunits.keys(), key=lambda x: len(x), reverse=True))
@@ -147,6 +290,23 @@ def parse(text, base=None, chop=False):
     '''
     dtraw, base, tlen = _rawparse(text, base=base, chop=chop)
     return total_microseconds(dtraw - EPOCH) + base
+
+def parseprec(text, base=None, chop=False):
+    '''
+    Parse a time string (which may have an implicit precision) into an epoch micros value and precision tuple.
+
+    Args:
+        text (str): Time string to parse
+        base (int or None): Microseconds to offset the time from
+        chop (bool): Whether to chop the digit-only string to 20 chars
+
+    Returns:
+        tuple: Epoch microseconds timestamp and precision enum value if present.
+    '''
+    dtraw, base, tlen = _rawparse(text, base=base, chop=chop)
+    if text.endswith('?'):
+        return (total_microseconds(dtraw - EPOCH) + base, preclen[tlen])
+    return (total_microseconds(dtraw - EPOCH) + base, None)
 
 def wildrange(text):
     '''

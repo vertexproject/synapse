@@ -636,11 +636,10 @@ class TypesTest(s_t_utils.SynTest):
 
         self.eq(('2016-01-01T00:00:00Z', '2017-01-01T00:00:00Z'), ival.repr(ival.norm(('2016', '2017'))[0]))
 
-        self.gt(s_common.now(), ival._normRelStr('-1 min'))
-
         self.eq((0, 5356800000000), ival.norm((0, '1970-03-04'))[0])
         self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
         self.eq((1451606400000000, 1451606400000001), ival.norm(1451606400000000)[0])
+        self.eq((1451606400000000, 1451606400000001), ival.norm(decimal.Decimal(1451606400000000))[0])
         self.eq((1451606400000000, 1451606400000001), ival.norm(s_stormtypes.Number(1451606400000000))[0])
         self.eq((1451606400000000, 1451606400000001), ival.norm('2016')[0])
         self.eq((1451606400000000, 1483228800000000), ival.norm(('2016', '  2017'))[0])
@@ -902,6 +901,37 @@ class TypesTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchVirt):
                 ival.getVirtGetr(['min', 'newp'])
+
+            ityp = core.model.type('ival')
+            styp = core.model.type('timeprecision').stortype
+            valu = ityp.norm('2025-04-05 12:34:56.123456')[0]
+
+            exp = ((1743856496123456, 1743856496123457), {})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MICRO), exp)
+
+            exp = ((1743856496123000, 1743856496123999), {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MILLI), exp)
+
+            exp = ((1743856496000000, 1743856496999999), {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_SECOND), exp)
+
+            exp = ((1743856440000000, 1743856499999999), {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MINUTE), exp)
+
+            exp = ((1743854400000000, 1743857999999999), {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_HOUR), exp)
+
+            exp = ((1743811200000000, 1743897599999999), {'virts': {'precision': (s_time.PREC_DAY, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_DAY), exp)
+
+            exp = ((1743465600000000, 1746057599999999), {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_MONTH), exp)
+
+            exp = ((1735689600000000, 1767225599999999), {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(ityp.normVirt('precision', valu, s_time.PREC_YEAR), exp)
+
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_newp', ('ival', {'precision': 'newp'}), {})
 
     async def test_loc(self):
         model = s_datamodel.Model()
@@ -1269,6 +1299,9 @@ class TypesTest(s_t_utils.SynTest):
             self.eq(t.norm('9999-12-31T23:59:59.999999Z')[0], maxtime)
             self.raises(s_exc.BadTypeValu, t.norm, maxtime + 1)
 
+            tmax = t.clone({'maxfill': True})
+            self.eq(tmax.norm('9999-12-31T23:59:59.999999Z')[0], maxtime)
+
             tick = t.norm('2014')[0]
             self.eq(t.repr(tick), '2014-01-01T00:00:00Z')
 
@@ -1276,6 +1309,110 @@ class TypesTest(s_t_utils.SynTest):
 
             self.raises(s_exc.BadCmprValu,
                         t.cmpr, '2015', 'range=', tick)
+
+            prec = core.model.type('timeprecision')
+            styp = prec.stortype
+
+            self.eq(prec.norm(4), (s_time.PREC_YEAR, {}))
+            self.eq(prec.norm('4'), (s_time.PREC_YEAR, {}))
+            self.eq(prec.norm('year'), (s_time.PREC_YEAR, {}))
+            self.eq(prec.repr(s_time.PREC_YEAR), 'year')
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.norm('123')
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.norm(123)
+
+            with self.raises(s_exc.BadTypeValu):
+                prec.repr(123)
+
+            self.eq(t.norm('2025?'), (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}}))
+            self.eq(t.norm('2025-04?'), (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}}))
+            self.eq(t.norm('2025-04-05?'), (1743811200000000, {'virts': {'precision': (s_time.PREC_DAY, styp)}}))
+            self.eq(t.norm('2025-04-05 12?'), (1743854400000000, {'virts': {'precision': (s_time.PREC_HOUR, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34?'), (1743856440000000, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56?'), (1743856496000000, {'virts': {'precision': (s_time.PREC_SECOND, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56.1?'), (1743856496100000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56.12?'), (1743856496120000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56.123?'), (1743856496123000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}}))
+            self.eq(t.norm('2025-04-05 12:34:56.1234?'), (1743856496123400, {}))
+            self.eq(t.norm('2025-04-05 12:34:56.12345?'), (1743856496123450, {}))
+            self.eq(t.norm('2025-04-05 12:34:56.123456?'), (1743856496123456, {}))
+            self.eq(t.norm('2025-04-05 12:34:56.123456'), (1743856496123456, {}))
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(1743856496123456, prec=s_time.PREC_YEAR), exp)
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(decimal.Decimal(1743856496123456), prec=s_time.PREC_YEAR), exp)
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm(s_stormtypes.Number(1743856496123456), prec=s_time.PREC_YEAR), exp)
+
+            exp = (1743856496123456, {})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
+
+            exp = (1743856496123000, {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
+
+            exp = (1743856496000000, {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
+
+            exp = (1743856440000000, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
+
+            exp = (1743854400000000, {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
+
+            exp = (1743811200000000, {'virts': {'precision': (s_time.PREC_DAY, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
+
+            exp = (1743465600000000, {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
+
+            exp = (1735689600000000, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(t.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+
+            tmax = t.clone({'maxfill': True})
+
+            exp = (1743856496123456, {})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MICRO), exp)
+
+            exp = (1743856496123999, {'virts': {'precision': (s_time.PREC_MILLI, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MILLI), exp)
+
+            exp = (1743856496999999, {'virts': {'precision': (s_time.PREC_SECOND, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_SECOND), exp)
+
+            exp = (1743856499999999, {'virts': {'precision': (s_time.PREC_MINUTE, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MINUTE), exp)
+
+            exp = (1743857999999999, {'virts': {'precision': (s_time.PREC_HOUR, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_HOUR), exp)
+
+            exp = (1743897599999999, {'virts': {'precision': (s_time.PREC_DAY, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_DAY), exp)
+
+            exp = (1746057599999999, {'virts': {'precision': (s_time.PREC_MONTH, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_MONTH), exp)
+
+            exp = (1767225599999999, {'virts': {'precision': (s_time.PREC_YEAR, styp)}})
+            self.eq(tmax.norm('2025-04-05 12:34:56.123456', prec=s_time.PREC_YEAR), exp)
+
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_YEAR)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MONTH)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_DAY)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_HOUR)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MINUTE)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_SECOND)[0])
+            self.eq(maxtime, tmax.norm('9999-12-31T23:59:59.999999Z', prec=s_time.PREC_MILLI)[0])
+
+            with self.raises(s_exc.BadTypeValu):
+                tmax.norm('2025-04-05 12:34:56.123456', prec=123)
+
+            with self.raises(s_exc.BadTypeDef):
+                await core.addFormProp('test:int', '_newp', ('time', {'precision': 'newp'}), {})
 
             self.len(1, await core.nodes('[(test:str=a :tick=2014)]'))
             self.len(1, await core.nodes('[(test:str=b :tick=2015)]'))
