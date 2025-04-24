@@ -7321,10 +7321,18 @@ class Layer(Prim):
                 valu = None
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
+
         elif name == 'logedits':
             valu = await tobool(valu)
+
         elif name == 'readonly':
             valu = await tobool(valu)
+
+        elif name in ('mirror', 'upstream'):
+            if (valu := await toprim(valu)) is not None:
+                mesg = 'Layer only supports setting "mirror" and "upstream" to null.'
+                raise s_exc.BadOptValu(mesg=mesg)
+
         else:
             mesg = f'Layer does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
