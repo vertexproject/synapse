@@ -172,7 +172,7 @@ The **delete icon** in the Optic `View Task Bar`_ will delete a forked view and,
 layer. The Optic `Admin Tool`_ can also be used to manage views.
 
 The Storm :ref:`storm-view-del` command can be used to delete a forked view. However, this command does not delete the
-associated topmost layer; if you want to remove the layer as well, you must run :ref:`storm-layer-del` command
+associated topmost layer; if you want to remove the layer as well, you must run the :ref:`storm-layer-del` command
 separately.
 
 
