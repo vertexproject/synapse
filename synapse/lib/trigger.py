@@ -433,9 +433,6 @@ class Trigger:
         if name == 'storm':
             await self.view.core.getStormQuery(valu)
 
-        if name == 'view':
-            self.view.core.reqView(valu)
-
         self.tdef[name] = valu
         self.view.trigdict.set(self.iden, self.tdef)
 
