@@ -2750,8 +2750,8 @@ class CellTest(s_t_utils.SynTest):
             # Verify duration arg for expiration is applied
             with self.raises(s_exc.BadArg):
                 await cell.addUserApiKey(root, 'newp', duration=0)
-            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200)
-            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200)
+            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200000)
+            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200000)
 
             isok, info = await cell.checkUserApiKey(rtk1)
             self.true(isok)
@@ -3105,11 +3105,15 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell() as cell:
 
             self.none(await cell.getAhaProxy())
-            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
 
-            # coverage for failure of aha client to connect
-            with self.raises(TimeoutError):
-                self.none(await cell.getAhaProxy(timeout=0.1))
+            class MockClient:
+                async def proxy(self, timeout=None):
+                    raise s_exc.LinkShutDown(mesg='client connection failed')
+
+            cell.ahaclient = MockClient()
+
+            with self.raises(s_exc.LinkShutDown):
+                self.none(await cell.getAhaProxy())
 
     async def test_stream_backup_exception(self):
 

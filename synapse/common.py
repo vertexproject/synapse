@@ -75,25 +75,25 @@ if Loader == yaml.SafeLoader:  # pragma: no cover
 
 def now():
     '''
-    Get the current epoch time in milliseconds.
+    Get the current epoch time in microseconds.
 
     This relies on time.time_ns(), which is system-dependent in terms of resolution.
 
     Returns:
-        int: Epoch time in milliseconds.
+        int: Epoch time in microseconds.
     '''
-    return time.time_ns() // 1000000
+    return time.time_ns() // 1000
 
 def mononow():
     '''
-    Get the current monotonic clock time in milliseconds.
+    Get the current monotonic clock time in microseconds.
 
     This relies on time.monotonic_ns(), which is a relative time.
 
     Returns:
-        int: Monotonic clock time in milliseconds.
+        int: Monotonic clock time in microseconds.
     '''
-    return time.monotonic_ns() // 1000000
+    return time.monotonic_ns() // 1000
 
 def guid(valu=None):
     '''

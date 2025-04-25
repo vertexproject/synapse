@@ -274,12 +274,13 @@ class Node(NodeBase):
     def intnid(self):
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False):
+    def pack(self, dorepr=False, virts=False):
         '''
         Return the serializable/packed version of the node.
 
         Args:
             dorepr (bool): Include repr information for human readable versions of properties.
+            virts (bool): Include virtual properties.
 
         Returns:
             (tuple): An (ndef, info) node tuple.
@@ -289,7 +290,7 @@ class Node(NodeBase):
             'nid': s_common.int64un(self.nid),
             'iden': self.iden(),
             'tags': self._getTagsDict(),
-            'props': self.getProps(),
+            'props': self.getProps(virts=virts),
             'tagprops': self._getTagPropsDict(),
         })
 
@@ -389,7 +390,7 @@ class Node(NodeBase):
 
         return retn
 
-    async def set(self, name, valu, init=False):
+    async def set(self, name, valu, init=False, norminfo=None):
         '''
         Set a property on the node.
 
@@ -406,7 +407,7 @@ class Node(NodeBase):
             raise s_exc.IsReadOnly(mesg=mesg)
 
         async with self.view.getNodeEditor(self) as editor:
-            return await editor.set(name, valu)
+            return await editor.set(name, valu, norminfo=norminfo)
 
     def has(self, name, virts=None):
 
@@ -511,6 +512,31 @@ class Node(NodeBase):
                 return valt[0]
 
         return defv
+
+    def getWithVirts(self, name, defv=None):
+        '''
+        Return a secondary property with virtual property information from the Node.
+
+        Args:
+            name (str): The name of a secondary property.
+
+        Returns:
+            (tuple): The secondary property and virtual property information or (defv, None).
+        '''
+        for sode in self.sodes:
+            if sode.get('antivalu') is not None:
+                return defv, None
+
+            if (proptomb := sode.get('antiprops')) is not None and proptomb.get(name):
+                return defv, None
+
+            if (item := sode.get('props')) is None:
+                continue
+
+            if (valt := item.get(name)) is not None:
+                return valt[0], valt[2]
+
+        return defv, None
 
     def getWithLayer(self, name, defv=None):
         '''
@@ -672,7 +698,7 @@ class Node(NodeBase):
     def getPropNames(self):
         return list(self.getProps().keys())
 
-    def getProps(self):
+    def getProps(self, virts=False):
         retn = {}
 
         for sode in reversed(self.sodes):
@@ -687,8 +713,15 @@ class Node(NodeBase):
             if (props := sode.get('props')) is None:
                 continue
 
-            for name, valt in props.items():
-                retn[name] = valt[0]
+            if virts:
+                for name, valt in props.items():
+                    retn[name] = valt[0]
+                    if (vprops := valt[2]) is not None:
+                        for vname, valu in vprops.items():
+                            retn[f'{name}*{vname}'] = valu[0]
+            else:
+                for name, valt in props.items():
+                    retn[name] = valt[0]
 
         return retn
 
@@ -1021,7 +1054,7 @@ class RuntNode(NodeBase):
             return None
         return s_common.int64un(self.nid)
 
-    def pack(self, dorepr=False):
+    def pack(self, dorepr=False, virts=False):
         pode = s_msgpack.deepcopy(self.pode)
         if dorepr:
             self._addPodeRepr(pode)

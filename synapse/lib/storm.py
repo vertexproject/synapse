@@ -2007,16 +2007,19 @@ class Runtime(s_base.Base):
         info.update({'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden})
         self.view.core._logStormQuery(self.query.text, self.user, info=info)
 
+        nodeopts = self.opts.get('node:opts', {})
+
         # { form: ( embedprop, ... ) }
-        embeds = self.opts.get('embeds')
-        dorepr = self.opts.get('repr', False)
-        dopath = self.opts.get('path', False)
-        dolink = self.opts.get('links', False)
-        show_storage = self.opts.get('show:storage', False)
+        embeds = nodeopts.get('embeds')
+        dorepr = nodeopts.get('repr', False)
+        dopath = nodeopts.get('path', False)
+        dolink = nodeopts.get('links', False)
+        virts = nodeopts.get('virts', False)
+        show_storage = nodeopts.get('show:storage', False)
 
         async for node, path in self.execute():
 
-            pode = node.pack(dorepr=dorepr)
+            pode = node.pack(dorepr=dorepr, virts=virts)
             pode[1]['path'] = await path.pack(path=dopath)
 
             if (nodedata := path.getData(node.nid)) is not None:
