@@ -1,6 +1,0 @@
----
-desc: Updated view merge behavior to be less greedy with the IO loop, particularly
-  in cases involving nodes with a large number of edges.
-prs: []
-type: feat
-...
