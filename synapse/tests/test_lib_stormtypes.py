@@ -4452,8 +4452,12 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint('Modified trigger', mesgs)
 
             mesgs = await core.stormlist('trigger.list', opts=forkopts)
-            self.stormIsInPrint(mainview[:8], mesgs)
-            self.stormNotInPrint(forkview[:8], mesgs)
+            self.stormIsInPrint('No triggers found', mesgs)
+            self.stormNotInPrint(othr, mesgs)
+
+            mesgs = await core.stormlist('trigger.list')
+            self.stormIsInPrint(othr, mesgs)
+            self.stormNotInPrint('No triggers found', mesgs)
 
             mesgs = await core.stormlist(f'trigger.mod {othr} --view {forkview}')
             self.stormIsInPrint('Modified trigger', mesgs)

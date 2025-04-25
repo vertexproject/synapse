@@ -8387,10 +8387,15 @@ class LibTrigger(Lib):
         iden = trig.iden
         edits = await toprim(edits)
 
-        if 'user' in edits:
-            self.runt.confirm(('trigger', 'set', 'user'))
+        viewiden = trig.view.iden
+        for name in edits:
+            self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
 
-        trigview = self.runt.view.core.getView(trig.view.iden)
+        if 'view' in edits:
+            stormtrig = Trigger(self.runt, trig.tdef)
+            return await stormtrig.setitem('view', edits['view'])
+
+        trigview = self.runt.view.core.getView(viewiden)
         return await trigview.setTriggerInfo(iden, edits)
 
     @stormfunc(readonly=True)

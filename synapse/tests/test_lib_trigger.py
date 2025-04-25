@@ -303,9 +303,9 @@ class TrigTest(s_t_utils.SynTest):
             await view.addTrigger(tdef)
             trigger = await view.getTrigger(trigiden)
             self.eq(trigger.get('view'), view.iden)
-            with self.raises(s_exc.NoSuchView) as exc:
+            with self.raises(s_exc.BadArg) as exc:
                 await view.setTriggerInfo(trigiden, {'view': viewiden})
-            self.eq(exc.exception.get('mesg'), f'No view with iden: {viewiden}')
+            self.eq(exc.exception.get('mesg'), f'Invalid key name provided: view')
             await view.delTrigger(trigiden)
 
             # Trigger list
