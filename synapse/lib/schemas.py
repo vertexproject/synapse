@@ -670,6 +670,7 @@ datamodel_basetypes = [
     'taxon',
     'taxonomy',
     'velocity',
+    'timeprecision',
 ]
 
 _reqValidPkgdefSchema = {

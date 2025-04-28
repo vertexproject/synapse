@@ -24,8 +24,8 @@ class DocModelTest(s_tests.SynTest):
             self.eq('V-41', nodes[0].get('id'))
             self.eq('rule 41', nodes[0].get('name'))
             self.eq('If you can AAAAAAAA...', nodes[0].get('text'))
-            self.eq(1729209600000, nodes[0].get('created'))
-            self.eq(1729209600000, nodes[0].get('updated'))
+            self.eq(1729209600000000, nodes[0].get('created'))
+            self.eq(1729209600000000, nodes[0].get('updated'))
             self.eq(1099513724931, nodes[0].get('version'))
 
             self.nn(nodes[0].get('file'))
