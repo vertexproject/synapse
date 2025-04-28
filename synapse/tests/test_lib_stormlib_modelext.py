@@ -38,14 +38,14 @@ class StormtypesModelextTest(s_test.SynTest):
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('tick'), 1609459200000)
+            self.eq(nodes[0].get('tick'), 1609459200000000)
             self.eq(nodes[0].get('._woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000)
+            self.eq(nodes[0].get('_tick'), 1609459200000000)
 
             nodes = await core.nodes('[_test:typeform="  FoO BaR  "]')
             self.len(1, nodes)
@@ -188,7 +188,7 @@ class StormtypesModelextTest(s_test.SynTest):
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadEdgeDef):
-                q = f'''$lib.model.ext.addEdge(*, "_{'a'*201}", *, ({{}}))'''
+                q = f'''$lib.model.ext.addEdge(*, "_{'a' * 201}", *, ({{}}))'''
                 await core.callStorm(q)
 
             with self.raises(s_exc.BadEdgeDef):
@@ -248,14 +248,14 @@ class StormtypesModelextTest(s_test.SynTest):
             nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('tick'), 1609459200000)
+            self.eq(nodes[0].get('tick'), 1609459200000000)
             self.eq(nodes[0].get('._woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000)
+            self.eq(nodes[0].get('_tick'), 1609459200000000)
 
             # Reloading the same data works fine
             opts = {'vars': {'model_defs': model_defs}}
@@ -348,14 +348,14 @@ class StormtypesModelextTest(s_test.SynTest):
             nodes = await core.nodes('[ _visi:int=10 :tick=20210101 ._woot=30 +#lol:score=99 ]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('_visi:int', 10))
-            self.eq(nodes[0].get('tick'), 1609459200000)
+            self.eq(nodes[0].get('tick'), 1609459200000000)
             self.eq(nodes[0].get('._woot'), 30)
             self.eq(nodes[0].getTagProp('lol', 'score'), 99)
 
             nodes = await core.nodes('[test:int=1234 :_tick=20210101]')
             self.len(1, nodes)
             self.eq(nodes[0].ndef, ('test:int', 1234))
-            self.eq(nodes[0].get('_tick'), 1609459200000)
+            self.eq(nodes[0].get('_tick'), 1609459200000000)
 
             self.nn(core.model.edge(('inet:user', '_copies', None)))
 

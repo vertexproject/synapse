@@ -1179,7 +1179,7 @@ Repr
 
 Short for "representation". The repr of a :ref:`gloss-prop` defines how the property should be displayed in cases where
 the display format differs from the storage format. For example, date/time values in Synapse are stored in epoch
-milliseconds but are displayed in human-friendly "yyyy/mm/dd hh:mm:ss.mmm" format.
+microseconds but are displayed in ISO 8601 "yyyy-mm-ddThh:mm:ss.mmmmmmZ" format.
 
 .. _gloss-research-tool:
 

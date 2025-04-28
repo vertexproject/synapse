@@ -6,6 +6,44 @@
 Synapse Changelog
 *****************
 
+v2.209.0 - 2025-04-23
+=====================
+
+Features and Enhancements
+-------------------------
+- Added support for removing layer mirror and upstream configurations to the
+  ``layer.set`` Storm command.
+  (`#4238 <https://github.com/vertexproject/synapse/pull/4238>`_)
+- Updated view merge behavior to be less greedy with the IO loop, particularly
+  in cases involving nodes with a large number of edges.
+  (`#4250 <https://github.com/vertexproject/synapse/pull/4250>`_)
+
+v2.208.0 - 2025-04-17
+=====================
+
+Features and Enhancements
+-------------------------
+- Updated Cortex to run Storm package ``onload()`` handlers every time it
+  starts up or upon promotion to being a leader.
+  (`#4237 <https://github.com/vertexproject/synapse/pull/4237>`_)
+- Updated the allowed versions of the ``pycryptodome``, ``fastjsonschema``,
+  ``idna``, ``pygments``, and ``pytz`` libraries.
+  (`#4230 <https://github.com/vertexproject/synapse/pull/4230>`_)
+  (`#4240 <https://github.com/vertexproject/synapse/pull/4240>`_)
+
+Bugfixes
+--------
+- Fixed a bug where ``$lib.storm.run()`` calls would cause a task to be
+  improperly promoted.
+  (`#4186 <https://github.com/vertexproject/synapse/pull/4186>`_)
+- Fixed an issue with ``$lib.time.toUTC()`` conversions by anchoring epoch to
+  UTC instead of local timezone.
+  (`#4230 <https://github.com/vertexproject/synapse/pull/4230>`_)
+- Fixed an issue with backtick format strings where certain combinations of
+  escape characters preceding an expression could cause the substitution to
+  fail.
+  (`#4234 <https://github.com/vertexproject/synapse/pull/4234>`_)
+
 v2.207.0 - 2025-04-10
 =====================
 
@@ -740,6 +778,16 @@ Bugfixes
 - Fix an issue where the Storm ``background`` and ``parallel`` commands could
   incorrectly throw NoSuchVar exceptions when validating query arguments.
   (`#3991 <https://github.com/vertexproject/synapse/pull/3991>`_)
+
+v2.187.1 - 2025-04-14
+=====================
+
+Bugfixes
+--------
+- Fixed a bug in storage iteration which could cause an item to be yielded
+  twice if a very narrow race window was encountered.
+  (`#4207 <https://github.com/vertexproject/synapse/pull/4207>`_)
+  (`#4226 <https://github.com/vertexproject/synapse/pull/4226>`_)
 
 v2.187.0 - 2024-11-01
 =====================

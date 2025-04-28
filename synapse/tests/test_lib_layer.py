@@ -351,6 +351,18 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(errors[0][0], 'NoPropForTagPropIndex')
             self.eq(errors[1][0], 'NoPropForTagPropIndex')
 
+            viewiden2 = await core.callStorm('return($lib.view.get().fork().iden)')
+            await core.nodes('[ test:str=foo +#foo:score=5 ]')
+            await core.nodes('test:str=foo [ -#foo:score ]', opts={'view': viewiden2})
+            await core.nodes('''
+            $layr = $lib.layer.get()
+            for ($iden, $type, $info) in $layr.getTombstones() {
+                $layr.delTombstone($iden, $type, $info)
+            }''', opts={'view': viewiden2})
+
+            errors = [e async for e in core.getView(viewiden2).wlyr.verify()]
+            self.len(0, errors)
+
             scanconf = {'autofix': 'newp'}
 
             with self.raises(s_exc.BadArg):
@@ -649,7 +661,7 @@ class LayerTest(s_t_utils.SynTest):
             self.eq(tagv, nodes[0].getTag('foo.bar'))
 
             nodes = await core.nodes('inet:ip=1.2.3.4 [ +#foo.bar=2015 ]')
-            self.eq((1325376000000, 1420070400001), nodes[0].getTag('foo.bar'))
+            self.eq((1325376000000000, 1420070400000001), nodes[0].getTag('foo.bar'))
 
             await core.addTagProp('tval', ('ival', {}), {})
             await core.addTagProp('mintime', ('time', {'ismin': True}), {})
@@ -2621,6 +2633,11 @@ class LayerTest(s_t_utils.SynTest):
 
             with self.raises(s_exc.NoSuchCmpr):
                 await core.nodes('test:arrayform*size*newp=(2, 3)')
+
+            self.len(1, await core.nodes('[ test:arrayvirtform=(2021?, 2022?) ]'))
+            self.len(1, await core.nodes('test:arrayvirtform'))
+            await core.nodes('test:arrayvirtform=(2021, 2022) | delnode')
+            self.len(0, await core.nodes('test:arrayvirtform'))
 
     async def test_layer_readahead(self):
 

@@ -1143,7 +1143,7 @@ class CortexTest(s_t_utils.SynTest):
                     $ddef = $lib.dmon.add(${
                         $lib.print(hi)
                         $lib.warn(omg)
-                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $s = `Running {$auto.type} {$auto.iden}`
                         $lib.log.info($s, ({"iden": $auto.iden}))
                         $que = $lib.queue.get(foo)
                         $que.put(done)
@@ -1459,7 +1459,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await wcore.nodes('[test:str=foo +#lol=(2015,?)]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq((1420070400000, 0x7fffffffffffffff), node.getTag('lol'))
+            self.eq((1420070400000000, 0x7fffffffffffffff), node.getTag('lol'))
 
             self.len(0, await core.nodes('test:str=foo +#lol@=2014'))
             self.len(1, await core.nodes('test:str=foo +#lol@=2016'))
@@ -1694,15 +1694,15 @@ class CortexTest(s_t_utils.SynTest):
 
             await core.nodes('for $x in $lib.range(5) {[ ou:org=* :founded=`202{$x}` ]}')
 
-            self.eq((1609459200000, 1640995200000),
+            self.eq((1609459200000000, 1640995200000000),
                     await nodeVals('ou:org:founded@=(2021, 2023)', prop='founded'))
-            self.eq((1640995200000, 1609459200000),
+            self.eq((1640995200000000, 1609459200000000),
                     await nodeVals('reverse(ou:org:founded@=(2021, 2023))', prop='founded'))
 
             await core.nodes('for $x in $lib.range(5) {[ test:str=$x .seen=`202{$x}` ]}')
 
-            i2021 = (1609459200000, 1609459200001)
-            i2022 = (1640995200000, 1640995200001)
+            i2021 = (1609459200000000, 1609459200000001)
+            i2022 = (1640995200000000, 1640995200000001)
             self.eq([i2021, i2022], await nodeVals('test:str.seen@=(2021, 2023)', prop='.seen'))
             self.eq([i2022, i2021], await nodeVals('reverse(test:str.seen@=(2021, 2023))', prop='.seen'))
 
@@ -1755,7 +1755,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await wcore.nodes('[(test:str=one +#foo.bar=(2016, 2017))]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq((1451606400000, 1483228800000), node.getTag('foo.bar', ('2016', '2017')))
+            self.eq((1451606400000000, 1483228800000000), node.getTag('foo.bar', ('2016', '2017')))
 
             nodes = await wcore.nodes('[(test:comp=(10, hehe) +#foo.bar)]')
             self.len(1, nodes)
@@ -1941,7 +1941,7 @@ class CortexTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.get('bar'), ('test:auto', 'autothis'))
             self.eq(node.get('baz'), ('test:type10:strprop', 'woot'))
-            self.eq(node.get('tick'), 1462406400000)
+            self.eq(node.get('tick'), 1462406400000000)
             self.len(1, await wcore.nodes('test:auto=autothis'))
             # add some time range bumper nodes
             self.len(1, await wcore.nodes('[test:str=toolow :tick=2015]'))
@@ -1980,7 +1980,7 @@ class CortexTest(s_t_utils.SynTest):
 
             nodes = await core.nodes('[ test:str="foo bar" :tick=2018]')
             self.len(1, nodes)
-            self.eq(1514764800000, nodes[0].get('tick'))
+            self.eq(1514764800000000, nodes[0].get('tick'))
             self.eq('foo bar', nodes[0].ndef[1])
 
             nodes = await core.nodes('test:str="foo bar" [ -:tick ]')
@@ -2505,7 +2505,7 @@ class CortexTest(s_t_utils.SynTest):
             nodes = await core.nodes('test:str=woot')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('.seen'), (1388534400000, 1420070400000))
+            self.eq(node.get('.seen'), (1388534400000000, 1420070400000000))
 
     async def test_cortex_storm_set_tag(self):
 
@@ -3617,7 +3617,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             '''
             nodes = await core.nodes(text)
             self.len(1, nodes)
-            self.eq(nodes[0].ndef[1], 1388534400000)
+            self.eq(nodes[0].ndef[1], 1388534400000000)
 
     async def test_storm_selfrefs(self):
 
@@ -4342,7 +4342,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             nodes = await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $seen=.seen :fqdn -> inet:fqdn [ .seen=$seen ]')
             self.len(1, nodes)
             node = nodes[0]
-            self.eq(node.get('.seen'), (1420070400000, 1514764800000))
+            self.eq(node.get('.seen'), (1420070400000000, 1514764800000000))
 
             with self.raises(s_exc.NoSuchProp):
                 await core.nodes('inet:dns:a=(woot.com,1.2.3.4) $newp=.newp')
@@ -4826,7 +4826,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.true(s_node.tagged(pode, '#timetag'))
 
             mesgs = await core.stormlist('test:str=foo $var=$node.value() [+#$var=2019] $lib.print(#$var)')
-            self.stormIsInPrint('(1546300800000, 1546300800001)', mesgs)
+            self.stormIsInPrint('(1546300800000000, 1546300800000001)', mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
@@ -4836,7 +4836,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.nn(nodes[0].getTag('bar'))
 
-            q = '[test:str=yop +#$lib.str.format("{first}.{last}", first=foo, last=bar)]'
+            q = '$t="{first}.{last}" [test:str=yop +#$t.format(first=foo, last=bar)]'
             nodes = await core.nodes(q)
             self.len(1, nodes)
             self.nn(nodes[0].getTag('foo.bar'))
@@ -4866,7 +4866,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.nn(nodes[0].getTag('tag3'))
 
             mesgs = await core.stormlist('test:str=foo $var=$node.value() [+?#$var=2019] $lib.print(#$var)')
-            self.stormIsInPrint('(1546300800000, 1546300800001)', mesgs)
+            self.stormIsInPrint('(1546300800000000, 1546300800000001)', mesgs)
             podes = [m[1] for m in mesgs if m[0] == 'node']
             self.len(1, podes)
             pode = podes[0]
@@ -5195,7 +5195,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             q = '''
             [ file:bytes=sha256:2d168c4020ba0136cd8808934c29bf72cbd85db52f5686ccf84218505ba5552e
-                :mime:pe:compiled="1992/06/19 22:22:17.000"
+                :mime:pe:compiled="1992/06/19 22:22:17.000000"
             ]
             -(file:bytes:size <= 16384 and file:bytes:mime:pe:compiled < 2014/01/01)'''
             self.len(1, await core.nodes(q))
@@ -5314,7 +5314,7 @@ class CortexBasicTest(s_t_utils.SynTest):
             self.len(1, nodes)
 
     async def test_storm_order(self):
-        q = '''[test:str=foo :hehe=bar] $tvar=() $tvar.append(1) $tvar.append(:hehe) $lib.print($lib.str.join('', $tvar)) '''
+        q = '''[test:str=foo :hehe=bar] $tvar=() $tvar.append(1) $tvar.append(:hehe) $lib.print(('').join($tvar)) '''
         async with self.getTestCore() as core:
             mesgs = await core.stormlist(q)
             self.stormIsInPrint('1bar', mesgs)
@@ -5507,7 +5507,6 @@ class CortexBasicTest(s_t_utils.SynTest):
                             await self.asyncraises(s_exc.SynErr, core00.callStorm(strim, opts=opts))
 
                     # consumer offline
-                    await asyncio.sleep(0)
                     await self.asyncraises(ConnectionRefusedError, core00.callStorm(strim, opts=opts))
 
                     # admin can still cull and break the mirror
@@ -5698,7 +5697,7 @@ class CortexBasicTest(s_t_utils.SynTest):
 
             # getPropNorm can norm sub props
             norm, info = await core.getPropNorm('test:str:tick', '3001')
-            self.eq(norm, 32535216000000)
+            self.eq(norm, 32535216000000000)
             self.eq(info, {})
             # but getTypeNorm won't handle that
             await self.asyncraises(s_exc.NoSuchType, core.getTypeNorm('test:str:tick', '3001'))
@@ -7290,7 +7289,7 @@ class CortexBasicTest(s_t_utils.SynTest):
                     $ddef = $lib.dmon.add(${
                         $lib.print(hi)
                         $lib.warn(omg)
-                        $s = $lib.str.format('Running {t} {i}', t=$auto.type, i=$auto.iden)
+                        $s = `Running {$auto.type} {$auto.iden}`
                         $lib.log.info($s, ({"iden": $auto.iden}))
                     })
                 ''')

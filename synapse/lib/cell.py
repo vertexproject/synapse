@@ -147,8 +147,7 @@ async def _doIterBackup(path, chunksize=1024):
     link0, file1 = await s_link.linkfile()
 
     def dowrite(fd):
-        # TODO: When we are 3.12+ convert this back to w|gz - see https://github.com/python/cpython/pull/2962
-        with tarfile.open(output_filename, 'w:gz', fileobj=fd, compresslevel=1) as tar:
+        with tarfile.open(output_filename, 'w|gz', fileobj=fd, compresslevel=1) as tar:
             tar.add(path, arcname=os.path.basename(path))
         fd.close()
 
@@ -397,7 +396,7 @@ class CellApi(s_base.Base):
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
                 - backupvolfree - Backup directory volume free space
-                - celluptime - Cell uptime in milliseconds
+                - celluptime - Cell uptime in microseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
                 - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
                 - osversion - OS version/architecture
@@ -732,8 +731,8 @@ class CellApi(s_base.Base):
         Returns:
             (dict) It has the following keys:
                 - currduration - If backup currently running, time in ms since backup started, otherwise None
-                - laststart - Last time (in epoch milliseconds) a backup started
-                - lastend - Last time (in epoch milliseconds) a backup ended
+                - laststart - Last time (in epoch microseconds) a backup started
+                - lastend - Last time (in epoch microseconds) a backup ended
                 - lastduration - How long last backup took in ms
                 - lastsize - Disk usage of last backup completed
                 - lastupload - Time a backup was last completed being uploaded via iter(New)BackupArchive
@@ -1074,8 +1073,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         if conf is None:
             conf = {}
 
-        self.starttime = time.monotonic()  # Used for uptime calc
-        self.startms = s_common.now()      # Used to report start time
+        self.starttime = time.monotonic_ns() // 1000  # Used for uptime calc
+        self.startmicros = s_common.now()              # Used to report start time
         s_telepath.Aware.__init__(self)
 
         self.dirn = s_common.gendir(dirn)
@@ -1368,7 +1367,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
             for i, lmdbpath in enumerate(lmdbs):
 
-                logger.warning(f'... {i+1}/{size} {lmdbpath}')
+                logger.warning(f'... {i + 1}/{size} {lmdbpath}')
 
                 with self.getTempDir() as backpath:
 
@@ -3718,7 +3717,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
 
                         content_length = int(resp.headers.get('content-length', 0))
                         if content_length > 100:
-                            logger.warning(f'Downloading {content_length/s_const.megabyte:.3f} MB of data.')
+                            logger.warning(f'Downloading {content_length / s_const.megabyte:.3f} MB of data.')
                             pvals = [int((content_length * 0.01) * i) for i in range(1, 100)]
                         else:  # pragma: no cover
                             logger.warning(f'Odd content-length encountered: {content_length}')
@@ -3734,7 +3733,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                             if pvals and tsize > pvals[0]:
                                 pvals.pop(0)
                                 percentage = (tsize / content_length) * 100
-                                logger.warning(f'Downloaded {tsize/s_const.megabyte:.3f} MB, {percentage:.3f}%')
+                                logger.warning(f'Downloaded {tsize / s_const.megabyte:.3f} MB, {percentage:.3f}%')
 
             logger.warning(f'Extracting {tarpath} to {dirn}')
 
@@ -3744,7 +3743,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         continue
                     memb.name = memb.name.split('/', 1)[1]
                     logger.warning(f'Extracting {memb.name}')
-                    tgz.extract(memb, dirn)
+                    tgz.extract(memb, dirn, filter='data')
 
             # and record the rurliden
             with s_common.genfile(donepath) as fd:
@@ -3943,7 +3942,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                         if memb.name.find('/') == -1:
                             continue
                         memb.name = memb.name.split('/', 1)[1]
-                        tgz.extract(memb, self.dirn)
+                        tgz.extract(memb, self.dirn, filter='data')
 
         finally:
 
@@ -4362,7 +4361,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 'iden': self.getCellIden(),
                 'paused': self.paused,
                 'active': self.isactive,
-                'started': self.startms,
+                'started': self.startmicros,
                 'ready': self.nexsroot.ready.is_set(),
                 'commit': self.COMMIT,
                 'version': self.VERSION,
@@ -4397,8 +4396,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - volfree - Volume where cell is running free space
                 - backupvolsize - Backup directory volume total space
                 - backupvolfree - Backup directory volume free space
-                - cellstarttime - Cell start time in epoch milliseconds
-                - celluptime - Cell uptime in milliseconds
+                - cellstarttime - Cell start time in epoch microseconds
+                - celluptime - Cell uptime in microseconds
                 - cellrealdisk - Cell's use of disk, equivalent to du
                 - cellapprdisk - Cell's apparent use of disk, equivalent to ls -l
                 - osversion - OS version/architecture
@@ -4408,7 +4407,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
                 - cpucount - Number of CPUs on system
                 - tmpdir - The temporary directory interpreted by the Python runtime.
         '''
-        uptime = int((time.monotonic() - self.starttime) * 1000)
+        uptime = time.monotonic_ns() // 1000 - self.starttime
         disk = shutil.disk_usage(self.dirn)
 
         if self.backdirn:
@@ -4430,8 +4429,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             'volfree': disk.free,              # Volume where cell is running free bytes
             'backupvolsize': backupvolsize,    # Cell's backup directory volume total bytes
             'backupvolfree': backupvolfree,    # Cell's backup directory volume free bytes
-            'cellstarttime': self.startms,     # cell start time in epoch millis
-            'celluptime': uptime,              # cell uptime in ms
+            'cellstarttime': self.startmicros, # Cell's start time in epoch micros
+            'celluptime': uptime,              # Cell's uptime in micros
             'cellrealdisk': myusage,           # Cell's use of disk, equivalent to du
             'cellapprdisk': myappusage,        # Cell's apparent use of disk, equivalent to ls -l
             'osversion': platform.platform(),  # OS version/architecture
@@ -4524,7 +4523,7 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
         Args:
             useriden (str): User iden value.
             name (str): Name of the API key.
-            duration (int or None): Duration of time for the API key to be valid ( in milliseconds ).
+            duration (int or None): Duration of time for the API key to be valid ( in microseconds ).
 
         Returns:
             tuple: A tuple of the secret API key value and the API key metadata information.
@@ -4792,6 +4791,8 @@ class Cell(s_nexus.Pusher, s_telepath.Aware):
             sslctx = s_common.getSslCtx(cadir, purpose=ssl.Purpose.SERVER_AUTH)
         else:
             sslctx = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
+
+        sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
 
         if not opts['verify']:
             sslctx.check_hostname = False

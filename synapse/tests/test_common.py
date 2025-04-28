@@ -432,7 +432,7 @@ class CommonTest(s_t_utils.SynTest):
 
         await footask
 
-        self.eq(123, await s_common.wait_for(footask, timeout=-1))
+        self.eq(123, await asyncio.wait_for(footask, timeout=-1))
 
     def test_trim_text(self):
         tvs = (

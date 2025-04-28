@@ -5,7 +5,7 @@
 %ignore CPPCOMMENT
 %ignore WS
 
-WS: /[\s]/+
+WS.-1: /[\s]/+
 
 // C comment: /* */
 // From https://stackoverflow.com/a/36328890/6518334
@@ -39,7 +39,7 @@ _editblock: "[" _editoper* "]"
 
 // A single edit operation
 _editoper: editnodeadd
-            | editpropset | editunivset | edittagpropset | edittagadd | editcondpropset
+            | editpropset | edittagpropset | edittagadd | editcondpropset
             | editpropsetmulti | editpropdel | editunivdel | edittagpropdel | edittagdel
             | editparens | edgeaddn1 | edgedeln1 | edgeaddn2 | edgedeln2
 
@@ -48,11 +48,10 @@ editparens: "(" editnodeadd _editoper* ")"
 edittagadd: "+" [SETTAGOPER] tagname [(EQSPACE | EQNOSPACE) _valu]
 editunivdel: EXPRMINUS univprop
 edittagdel: EXPRMINUS tagname
-editpropset: relprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
-editcondpropset: relprop condsetoper _valu
+editpropset: (relprop | univprop) (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
+editcondpropset: (relprop | univprop) condsetoper _valu
 editpropsetmulti: relprop (MODSETMULTI | TRYMODSETMULTI) _valu
 editpropdel: EXPRMINUS relprop
-editunivset: univprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 editnodeadd: formname (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 edittagpropset: "+" tagprop (EQSPACE | EQNOSPACE | MODSET | TRYSET | TRYMODSET) _valu
 edittagpropdel: EXPRMINUS tagprop
@@ -65,9 +64,8 @@ TRYMODSETMULTI.1: "?++=" | "?--="
 TRYSET.1: "?="
 SETTAGOPER: "?"
 
-condsetoper: ("*" UNSET | _DEREF "$" _condvarvaluatom) "="
-    | ("*" UNSET | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
-UNSET: "unset"
+condsetoper: ("*" VIRTNAME | _DEREF "$" _condvarvaluatom) "="
+    | ("*" VIRTNAME | _DEREF "$" _condvarvaluatom) "?=" -> condtrysetoper
 _condvarvaluatom: condvarvalue | condvarderef | condfunccall
 condvarvalue: VARTOKN -> varvalue
 
@@ -479,7 +477,7 @@ TRIPLEQUOTEDSTRING: /'''.*?'''/s
 DOUBLEQUOTEDSTRING: ESCAPED_STRING
 SINGLEQUOTEDSTRING: /'[^']*'(?!')/
 
-FORMATTEXT: /[^`{].*?(?<!\\)(\\\\)*?(?=[`{])/s
+FORMATTEXT.-1: /((?<!\\)(\\\\)*\\[`{]|[^`{])+/s
 _formatexpr: "{" expror "}"
 formatstring: "`" (_formatexpr | FORMATTEXT)* "`"
 

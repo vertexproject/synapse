@@ -1822,7 +1822,7 @@ class CellTest(s_t_utils.SynTest):
                     await asyncio.wait_for(task, 5)
 
             with tarfile.open(bkuppath, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn = os.path.join(dirn, 'bkup')
             async with self.getTestCore(dirn=bkupdirn) as core:
@@ -1833,7 +1833,7 @@ class CellTest(s_t_utils.SynTest):
                 self.len(0, nodes)
 
             with tarfile.open(bkuppath2, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn2 = os.path.join(dirn, 'bkup2')
             async with self.getTestCore(dirn=bkupdirn2) as core:
@@ -1841,7 +1841,7 @@ class CellTest(s_t_utils.SynTest):
                 self.len(1, nodes)
 
             with tarfile.open(bkuppath3, 'r:gz') as tar:
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn3 = os.path.join(dirn, 'bkup3')
             async with self.getTestCore(dirn=bkupdirn3) as core:
@@ -1850,7 +1850,7 @@ class CellTest(s_t_utils.SynTest):
 
             with tarfile.open(bkuppath4, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn4 = os.path.join(dirn, bkupname)
             async with self.getTestCore(dirn=bkupdirn4) as core:
@@ -1873,7 +1873,7 @@ class CellTest(s_t_utils.SynTest):
 
             with tarfile.open(bkuppath5, 'r:gz') as tar:
                 bkupname = os.path.commonprefix(tar.getnames())
-                tar.extractall(path=dirn)
+                tar.extractall(path=dirn, filter='data')
 
             bkupdirn5 = os.path.join(dirn, bkupname)
             async with self.getTestCore(dirn=bkupdirn5) as core:
@@ -2475,10 +2475,12 @@ class CellTest(s_t_utils.SynTest):
                     viewiden = view.get('iden')
 
                     opts = {'view': viewiden}
-                    with self.getLoggerStream('synapse.lib.lmdbslab',
-                                              'Error during slab resize callback - foo') as stream:
+                    with self.getAsyncLoggerStream('synapse.lib.lmdbslab',
+                                                   'Error during slab resize callback - foo') as stream:
                         nodes = await core.stormlist('for $x in $lib.range(200) {[inet:ip=([4, $x])]}', opts=opts)
-                        self.true(stream.wait(1))
+                        await stream.wait(timeout=10)
+                    stream.seek(0)
+                    self.isin('Error during slab resize callback - foo', stream.read())
 
         async with self.getTestCore() as core:
 
@@ -2800,8 +2802,8 @@ class CellTest(s_t_utils.SynTest):
             # Verify duration arg for expiration is applied
             with self.raises(s_exc.BadArg):
                 await cell.addUserApiKey(root, 'newp', duration=0)
-            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200)
-            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200)
+            rtk1, rtdf1 = await cell.addUserApiKey(root, 'Expiring Token', duration=200000)
+            self.eq(rtdf1.get('expires'), rtdf1.get('updated') + 200000)
 
             isok, info = await cell.checkUserApiKey(rtk1)
             self.true(isok)
@@ -3155,11 +3157,15 @@ class CellTest(s_t_utils.SynTest):
         async with self.getTestCell() as cell:
 
             self.none(await cell.getAhaProxy())
-            cell.ahaclient = await s_telepath.Client.anit('cell:///tmp/newp')
 
-            # coverage for failure of aha client to connect
-            with self.raises(TimeoutError):
-                self.none(await cell.getAhaProxy(timeout=0.1))
+            class MockClient:
+                async def proxy(self, timeout=None):
+                    raise s_exc.LinkShutDown(mesg='client connection failed')
+
+            cell.ahaclient = MockClient()
+
+            with self.raises(s_exc.LinkShutDown):
+                self.none(await cell.getAhaProxy())
 
     async def test_stream_backup_exception(self):
 

@@ -606,6 +606,10 @@ class Model:
         item = s_types.Velocity(self, 'velocity', info, {})
         self.addBaseType(item)
 
+        info = {'doc': 'A time precision value.'}
+        item = s_types.TimePrecision(self, 'timeprecision', info, {})
+        self.addBaseType(item)
+
         # add the base universal properties...
         self.addUnivProp('seen', ('ival', {}), {
             'doc': 'The time interval for first/last observation of the node.',

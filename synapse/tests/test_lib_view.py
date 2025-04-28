@@ -273,6 +273,28 @@ class ViewTest(s_t_utils.SynTest):
             # But not the same layer twice
             await self.asyncraises(s_exc.DupIden, core.view.addLayer(layriden))
 
+            # Nodes with a large number of edge edits may be chunked by iterLayerNodeEdits
+            await core.nodes('[ test:str=foo ] for $i in $lib.range(102) {[ test:int=$i ]}')
+
+            vdef2 = await core.view.fork()
+            opts = {'view': vdef2['iden']}
+            await core.nodes('[ test:str=foo +(refs)> { for $i in $lib.range(102) { test:int=$i } } ]', opts=opts)
+
+            strt = core.nexsroot.nexslog.index()
+            await core.nodes('$lib.view.get().merge()', opts=opts)
+
+            self.len(102, await core.nodes('test:str=foo -(refs)> test:int'))
+
+            edits = [edit async for edit in core.nexsroot.nexslog.iter(strt)]
+            self.len(1, edits)
+
+            nodeedit = edits[0][1][2][0]
+
+            # We should have two chunks of edits for the same buid due to the number of edges
+            self.eq(nodeedit[0][0], nodeedit[1][0])
+            self.len(100, nodeedit[0][2])
+            self.len(2, nodeedit[1][2])
+
     async def test_view_merge_ival(self):
 
         async with self.getTestCore() as core:
@@ -641,7 +663,7 @@ class ViewTest(s_t_utils.SynTest):
                 puller_iden, puller_view, puller_layr = await core2.callStorm('''
                     $lyr = $lib.layer.add()
                     $view = $lib.view.add(($lyr.iden,))
-                    $pdef = $lyr.addPull($lib.str.concat($baseurl, "/", $baseiden))
+                    $pdef = $lyr.addPull(`{$baseurl}/{$baseiden}`)
                     return(($pdef.iden, $view.iden, $lyr.iden))
                 ''', opts=opts)
 
@@ -659,7 +681,7 @@ class ViewTest(s_t_utils.SynTest):
                 opts['vars']['pushiden'] = pushee_layr
                 pushee_iden = await core.callStorm('''
                     $lyr = $lib.layer.get()
-                    $pdef = $lyr.addPush($lib.str.concat($syncurl, "/", $pushiden))
+                    $pdef = $lyr.addPush(`{$syncurl}/{$pushiden}`)
                     return($pdef.iden)
                 ''', opts=opts)
 

@@ -10,6 +10,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.ast as s_ast
 import synapse.lib.view as s_view
 import synapse.lib.json as s_json
+import synapse.lib.time as s_time
 
 import synapse.tests.utils as s_test
 
@@ -74,9 +75,9 @@ foo_stormpkg = {
             }
 
             function outer(arg1, add) {
-                $strbase = $lib.str.format("(Run: {c}) we got back ", c=$counter)
+                $strbase = `(Run: {$counter}) we got back `
                 $reti = $inner($arg1, $add)
-                $mesg = $lib.str.concat($strbase, $reti)
+                $mesg = `{$strbase}{$reti}`
                 $counter = $( $counter + $add )
                 $lib.print("foobar is {foobar}", foobar=$foobar)
                 return ($mesg)
@@ -178,10 +179,10 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:str=foo :tick?=2019 ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), 1546300800000)
+            self.eq(nodes[0].get('tick'), 1546300800000000)
             nodes = await core.nodes('[ test:str=foo :tick?=notatime ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), 1546300800000)
+            self.eq(nodes[0].get('tick'), 1546300800000000)
 
     async def test_ast_autoadd(self):
 
@@ -296,7 +297,7 @@ class AstTest(s_test.SynTest):
                 $newvar=:hehe
                 -.created
                 $s.append("yar {x}", x=$newvar)
-                $lib.print($lib.str.join('', $s))
+                $lib.print(('').join($s))
             '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
@@ -488,7 +489,7 @@ class AstTest(s_test.SynTest):
                 q = '[test:str=foo :newp*unset=heval]'
                 nodes = await core.nodes(q)
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.NoSuchVirt):
                 q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
                 nodes = await core.nodes(q)
 
@@ -2055,7 +2056,7 @@ class AstTest(s_test.SynTest):
             q = '$val=$lib.base64.decode("dmlzaQ==") function x(parm1=$val) { return($parm1) }'
             self.len(0, await core.nodes(q))
 
-            self.eq('foo', await core.callStorm('return($lib.str.format("{func}", func=foo))'))
+            self.eq('foo', await core.callStorm('$template="{func}" return($template.format(func=foo))'))
 
             msgs = await core.stormlist('$lib.null()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
@@ -3664,7 +3665,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             init { $foo = bar }
-            init { $baz = $lib.str.format('foo={foo}', foo=$foo) }
+            init { $baz = `foo={$foo}` }
             $lib.print($baz)
             '''
             msgs = await core.stormlist(q)
@@ -3861,7 +3862,7 @@ class AstTest(s_test.SynTest):
             )
 
             for query in queries:
-                self.eq(1577836800000, await core.callStorm(query))
+                self.eq(1577836800000000, await core.callStorm(query))
 
             await core.nodes('test:ival +test:ival*min=2020 | delnode')
             self.len(0, await core.nodes('test:ival +test:ival*min=2020'))
@@ -3883,6 +3884,20 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('ou:campaign $lib.print(:period*newp)')
+
+            self.eq(s_time.PREC_MICRO, await core.callStorm('[ it:exec:query=* :time=now ] return(:time*precision)'))
+            self.eq(s_time.PREC_MICRO, await core.callStorm('it:exec:query  [ :time*precision?=newp ] return(:time*precision)'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('it:exec:query [ :time*precision=day ] return(:time*precision)'))
+            self.len(1, await core.nodes('it:exec:query +:time*precision=day'))
+            self.eq(s_time.PREC_HOUR, await core.callStorm('it:exec:query [ :time*precision=hour ] return(:time*precision)'))
+            self.none(await core.callStorm('it:exec:query [ -:time ] return(:time*precision)'))
+            self.eq(s_time.PREC_MONTH, await core.callStorm('[ it:exec:query=* :time=2024-03? ] return(:time*precision)'))
+
+            self.eq(s_time.PREC_MICRO, await core.callStorm('[ ou:asset=* .seen=now ] return(.seen*precision)'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset [ .seen*precision=day ] return(.seen*precision)'))
+            self.len(1, await core.nodes('ou:asset +.seen*precision=day'))
+            self.len(1, await core.nodes('ou:asset [ .seen*precision=month ] +.seen*precision=month'))
+            self.none(await core.callStorm('ou:asset [ -.seen ] return(.seen*precision)'))
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:
@@ -4106,10 +4121,10 @@ class AstTest(s_test.SynTest):
                 self.lt(eidx, len(links))
                 self.eq(links[eidx], (src.intnid(), edge))
 
-            opts = {'links': True}
+            opts = {'node:opts': {'links': True}, 'vars': {'form': 'inet:ip'}}
 
             # non-runtsafe lift could be anything
-            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts={'links': True, 'vars': {'form': 'inet:ip'}})
+            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'runtime'}, nidx=1)
 
             # FormPivot

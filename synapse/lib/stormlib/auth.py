@@ -589,7 +589,7 @@ stormcmds = (
         'storm': '''
 
             for $pdef in $lib.auth.getPermDefs() {
-                $perm = $lib.str.join(".", $pdef.perm)
+                $perm = ('.').join($pdef.perm)
 
                 if $cmdopts.find {
                     $find = $cmdopts.find.lower()
@@ -1058,7 +1058,7 @@ class User(s_stormtypes.Prim):
                       {'name': 'name', 'type': 'str',
                        'desc': 'The name of the API key.'},
                       {'name': 'duration', 'type': 'integer', 'default': None,
-                       'desc': 'Duration of time for the API key to be valid, in milliseconds.'},
+                       'desc': 'Duration of time for the API key to be valid, in microseconds.'},
                   ),
                   'returns': {'type': 'list',
                               'desc': 'A list, containing the secret API key and a dictionary containing metadata about the key.'}}},

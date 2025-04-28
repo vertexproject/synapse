@@ -140,8 +140,7 @@ class TrigTest(s_t_utils.SynTest):
             view = core.view
 
             # node:add case
-            q = '''$s=$lib.str.format("f={f} v={v}", f=$auto.opts.form, v=$auto.opts.valu) $lib.log.info($s)
-                    [ test:guid="*" +#nodeadd]'''
+            q = '$s=`f={$auto.opts.form} v={$auto.opts.valu}` $lib.log.info($s) [ test:guid="*" +#nodeadd]'
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
             with self.getAsyncLoggerStream('synapse.storm.log', 'f=') as stream:
@@ -205,7 +204,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(0, await core.nodes('test:int=5'))
 
             # Prop set
-            q = '''$s=$lib.str.format("pf={f} pn={n}", f=$auto.opts.propfull, n=$auto.opts.propname) $lib.log.info($s)
+            q = '''$s=`pf={$auto.opts.propfull} pn={$auto.opts.propname}` $lib.log.info($s)
             [ test:guid="*" +#propset ]'''
             tdef = {'cond': 'prop:set',
                     'storm': q,
@@ -245,7 +244,7 @@ class TrigTest(s_t_utils.SynTest):
             self.len(1, await core.nodes('test:int#withiden'))
 
             # iden embedded in vars
-            q = '+test:str~=log $s=$lib.str.format("test {t} {i}", t=$auto.type, i=$auto.iden) $lib.log.info($s, ({"iden": $auto.iden}))'
+            q = '+test:str~=log $s=`test {$auto.type} {$auto.iden}` $lib.log.info($s, ({"iden": $auto.iden}))'
             tdef = {'cond': 'node:add', 'form': 'test:str', 'storm': q}
             await view.addTrigger(tdef)
             with self.getStructuredAsyncLoggerStream('synapse.storm.log', 'test trigger') as stream:
