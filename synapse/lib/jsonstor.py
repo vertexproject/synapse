@@ -42,7 +42,7 @@ class JsonStor(s_base.Base):
     async def _syncDirtyItems(self, mesg):
         todo = list(self.dirty.items())
         for buid, item in todo:
-            await self.slab.put(buid, s_msgpack.en(item), db=self.itemdb)
+            self.slab._put(buid, s_msgpack.en(item), db=self.itemdb)
             self.dirty.pop(buid, None)
 
     async def _incRefObj(self, buid, valu=1):
@@ -65,7 +65,6 @@ class JsonStor(s_base.Base):
 
         # remove the item data
         self.slab.pop(buid, db=self.itemdb)
-        await asyncio.sleep(0)
         self.dirty.pop(buid, None)
 
     async def copyPathObj(self, oldp, newp):
