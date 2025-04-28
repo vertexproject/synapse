@@ -167,9 +167,11 @@ Deleting a Forked View
 ~~~~~~~~~~~~~~~~~~~~~~
 
 Some merge methods in the Optic UI can automatically or optionally delete the associated view after merging (see above).
+This only applies to forked views. Views constructed from an arbitrary list of layers (i.e., without a parent view) do not
+support merging from the UI.
 
 The **delete icon** in the Optic `View Task Bar`_ will delete a forked view and, if possible, also delete the associated
-layer. The Optic `Admin Tool`_ can also be used to manage views.
+layer limited to the forked view. The Optic `Admin Tool`_ can also be used to manage views.
 
 The Storm :ref:`storm-view-del` command can be used to delete a forked view. However, this command does not delete the
 associated topmost layer; if you want to remove the layer as well, you must run the :ref:`storm-layer-del` command
@@ -178,7 +180,8 @@ separately.
 
 .. NOTE::
   
-  Deleting a view and its associated layer will delete all unmerged changes in that view.
+  Deleting a layer will delete all unmerged changes stored in that layer, whether the layer is part of a forked view or
+  any other view.
 
 
 .. _ug_best_practices:
