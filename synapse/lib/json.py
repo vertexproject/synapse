@@ -86,6 +86,33 @@ def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
         mesg = f'{exc.__class__.__name__}: {exc}'
         raise s_exc.MustBeJsonSafe(mesg=mesg)
 
+def _dumps(obj, sort_keys=False, indent=False, default=None, newline=False):
+    rflags = 0
+    wflags = 0
+
+    if sort_keys:
+        rflags |= yyjson.ReaderFlags.SORT_KEYS
+
+    if indent:
+        wflags |= yyjson.WriterFlags.PRETTY_TWO_SPACES
+
+    if newline:
+        wflags |= yyjson.WriterFlags.WRITE_NEWLINE_AT_END
+
+    if isinstance(obj, bytes):
+        mesg = 'Object of type bytes is not JSON serializable'
+        raise s_exc.MustBeJsonSafe(mesg=mesg)
+
+    # Raw strings have to be double-quoted. This is because the default behavior for `yyjson.Document`
+    #  is to attempt to parse the string as a serialized JSON string into objects, so we escape string
+    # values so we can get the JSON encoded string as output.
+    if isinstance(obj, str) and obj not in ('null', 'true', 'false'):
+        # TODO in 3xx convert this into obj = f'''"{obj.replace('"', '\\"')}"'''
+        obj = ''.join(('"', obj.replace('"', '\\"'), '"'))
+
+    doc = yyjson.Document(obj, default=default, flags=rflags)
+    return doc.dumps(flags=wflags).encode()
+
 def dumps(obj: Any, sort_keys: bool = False, indent: bool = False, default: Optional[Callable] = None, newline: bool = False) -> bytes:
     '''
     Serialize a python object to byte string.
