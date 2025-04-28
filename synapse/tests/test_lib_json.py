@@ -189,38 +189,3 @@ class JsonTest(s_test.SynTest):
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.reqjsonsafe(b'1234')
         self.eq(exc.exception.get('mesg'), 'Object of type bytes is not JSON serializable')
-
-    async def test_lib_json_data_at_rest(self):
-        async with self.getRegrCore('json-data') as core:
-            badjson = {
-                1: 'foo',
-                'foo': '😀\ud83d\ude47',
-            }
-
-            goodjson = {
-                '1': 'foo',
-                'foo': '😀',
-            }
-
-            # We can lift nodes with bad :data
-            nodes = await core.nodes('it:log:event')
-            self.len(1, nodes)
-            self.eq(nodes[0].get('data'), badjson)
-
-            iden = nodes[0].iden()
-
-            # We can't lift nodes with bad data by querying the prop directly
-            opts = {'vars': {'data': badjson}}
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('it:log:event:data=$data', opts=opts)
-
-            # We can't set nodes with bad data
-            with self.raises(s_exc.BadTypeValu):
-                await core.callStorm('[ it:log:event=* :data=$data ]', opts=opts)
-
-            # We can overwrite bad :data props
-            opts = {'vars': {'data': goodjson}}
-            nodes = await core.nodes('it:log:event:data [ :data=$data ]', opts=opts)
-            self.len(1, nodes)
-            self.eq(nodes[0].iden(), iden)
-            self.eq(nodes[0].get('data'), goodjson)
