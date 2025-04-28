@@ -55,7 +55,7 @@ class Hist:
     A class for storing items in a slab by time.
 
     Each added item is inserted into the specified db within
-    the slab using the current epoch-millis time stamp as the key.
+    the slab using the current epoch-micros time stamp as the key.
     '''
 
     def __init__(self, slab, name):
@@ -862,7 +862,7 @@ class Slab(s_base.Base):
     COMMIT_PERIOD = float(os.environ.get('SYN_SLAB_COMMIT_PERIOD', '0.2'))
 
     # warn if commit takes too long
-    WARN_COMMIT_TIME_MS = int(float(os.environ.get('SYN_SLAB_COMMIT_WARN', '1.0')) * 1000)
+    WARN_COMMIT_TIME_MICROS = int(float(os.environ.get('SYN_SLAB_COMMIT_WARN', '1.0')) * 1000000)
 
     DEFAULT_MAPSIZE = s_const.gibibyte
     DEFAULT_GROWSIZE = None
@@ -1745,7 +1745,7 @@ class Slab(s_base.Base):
 
         self.commitstats.append((starttime, xactopslen, delta))
 
-        if self.WARN_COMMIT_TIME_MS and delta > self.WARN_COMMIT_TIME_MS:
+        if self.WARN_COMMIT_TIME_MICROS and delta > self.WARN_COMMIT_TIME_MICROS:
 
             extra = {
                 'delta': delta,
@@ -1754,7 +1754,7 @@ class Slab(s_base.Base):
                 'xactopslen': xactopslen,
             }
 
-            mesg = f'Commit with {xactopslen} items in {self!r} took {delta} ms - performance may be degraded.'
+            mesg = f'Commit with {xactopslen} items in {self!r} took {delta} microseconds - performance may be degraded.'
             logger.warning(mesg, extra={'synapse': extra})
 
         self._initCoXact()

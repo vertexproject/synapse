@@ -342,7 +342,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
         return self._nowtime
 
     async def test_lmdbslab_commit_warn(self):
-        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1), \
+        with self.getTestDir() as dirn, patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MICROS', 1), \
                 patch('synapse.common.now', self.simplenow):
             path = os.path.join(dirn, 'test.lmdb')
             with self.getStructuredAsyncLoggerStream('synapse.lib.lmdbslab', 'Commit with') as stream:
@@ -370,7 +370,7 @@ class LmdbSlabTest(s_t_utils.SynTest):
 
         # Make sure that we don't confuse the periodic commit with the max replay log commit
         with (self.getTestDir() as dirn,
-              patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MS', 1),
+              patch('synapse.lib.lmdbslab.Slab.WARN_COMMIT_TIME_MICROS', 1),
               patch('synapse.lib.lmdbslab.Slab.COMMIT_PERIOD', 100)
               ):
             path = os.path.join(dirn, 'test.lmdb')

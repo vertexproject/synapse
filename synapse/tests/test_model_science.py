@@ -29,7 +29,7 @@ class SciModelTest(s_t_utils.SynTest):
                 ]
             ''')
             self.len(1, nodes)
-            self.eq(1710806400000, nodes[0].get('time'))
+            self.eq(1710806400000000, nodes[0].get('time'))
             self.eq('lab.light.', nodes[0].get('type'))
             self.eq('double-slit', nodes[0].get('name'))
             self.eq('Foo bar baz.', nodes[0].get('summary'))
@@ -55,5 +55,5 @@ class SciModelTest(s_t_utils.SynTest):
             nodes = await core.nodes('sci:observation')
             self.len(1, nodes)
             self.nn(nodes[0].get('experiment'))
-            self.eq(1710806400000, nodes[0].get('time'))
+            self.eq(1710806400000000, nodes[0].get('time'))
             self.eq("Shadows cast on the wall in a diffusion pattern.", nodes[0].get('summary'))

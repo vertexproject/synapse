@@ -22,7 +22,7 @@ class BeliefModelTest(s_test.SynTest):
             self.eq(nodes[0].get('name'), 'woot woot')
             self.eq(nodes[0].get('desc'), 'Lulz Gronk')
             self.eq(nodes[0].get('type'), 'hehe.haha.')
-            self.eq(nodes[0].get('began'), 1675900800000)
+            self.eq(nodes[0].get('began'), 1675900800000000)
 
             self.len(2, await core.nodes('belief:system -(has)> belief:tenet +:desc=Lol'))
 
@@ -38,7 +38,7 @@ class BeliefModelTest(s_test.SynTest):
             self.nn(nodes[0].get('system'))
             self.nn(nodes[0].get('contact'))
 
-            self.eq(nodes[0].get('began'), 1675900800000)
-            self.eq(nodes[0].get('ended'), 1675987200000)
+            self.eq(nodes[0].get('began'), 1675900800000000)
+            self.eq(nodes[0].get('ended'), 1675987200000000)
 
             self.len(1, await core.nodes('belief:subscriber -(follows)> belief:tenet'))
