@@ -6,8 +6,8 @@ import synapse.tests.utils as s_test
 class StormlibSpooledTest(s_test.SynTest):
     async def test_lib_spooled_set(self):
         async with self.getTestCore() as core:
-            await core.nodes('[inet:ipv4=1.2.3.4 :asn=20]')
-            await core.nodes('[inet:ipv4=5.6.7.8 :asn=30]')
+            await core.nodes('[inet:ip=1.2.3.4 :asn=20]')
+            await core.nodes('[inet:ip=5.6.7.8 :asn=30]')
 
             q = '''
                 $set = $lib.spooled.set()
@@ -27,7 +27,7 @@ class StormlibSpooledTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.spooled.set()
-                inet:ipv4 $set.add(:asn)
+                inet:ip $set.add(:asn)
                 $set.rems((:asn,:asn))
                 [ tel:mob:telem="*" ] +tel:mob:telem [ :data=$set.list() ]
             '''
@@ -161,7 +161,7 @@ class StormlibSpooledTest(s_test.SynTest):
 
             q = '''
                 $set = $lib.spooled.set()
-                $form = $lib.model.form('inet:ipv4')
+                $form = $lib.model.form('inet:ip')
                 $set.adds(($stormnode, $form, $form))
                 return($set)
             '''
@@ -178,7 +178,7 @@ class StormlibSpooledTest(s_test.SynTest):
             # type not msgpack-able
             q = '''
                 $set = $lib.spooled.set()
-                $set.add($lib.model.form("inet:ipv4"))
+                $set.add($lib.model.form("inet:ip"))
                 return($set)
             '''
             await self.asyncraises(s_exc.StormRuntimeError, core.callStorm(q))

@@ -62,8 +62,8 @@ async def main(argv, outp=s_output.stdout):
 
                 if opts.action == 'add':
                     if (duration := opts.duration) is not None:
-                        # Convert from seconds to milliseconds
-                        duration *= 1000
+                        # Convert from seconds to microseconds
+                        duration *= 1000000
 
                     apikey, info = await cell.addUserApiKey(opts.name, duration=duration, useriden=useriden)
                     outp.printf(f'Successfully added API key with name={opts.name}.')
