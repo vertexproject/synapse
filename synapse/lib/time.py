@@ -55,6 +55,14 @@ MAX_TIME = 253402300799999999
 def total_microseconds(delta):
     return (delta.days * oneday) + (delta.seconds * onesec) + delta.microseconds
 
+def timestamp(dt):
+    '''
+    Convert a naive or aware datetime object to an epoch micros timestamp.
+    '''
+    if dt.tzinfo is not None:
+        return total_microseconds(dt.astimezone(pytz.UTC) - EPOCHUTC)
+    return total_microseconds(dt - EPOCH)
+
 def yearprec(ts, maxfill=False):
     dtime = EPOCH + datetime.timedelta(microseconds=ts)
     if maxfill:
