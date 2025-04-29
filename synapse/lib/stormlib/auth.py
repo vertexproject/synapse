@@ -901,14 +901,14 @@ class User(s_stormtypes.Prim):
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'tell', 'desc': 'Send a tell notification to a user.',
-         'deprecated': {'eolvers': 'v3.0.0', 'curv': 'v2.210.0'},
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methUserTell',
                   'args': (
                       {'name': 'text', 'type': 'str', 'desc': 'The text of the message to send.', },
                   ),
                   'returns': {'type': 'null', }}},
         {'name': 'notify', 'desc': 'Send an arbitrary user notification.',
-         'deprecated': {'eolvers': 'v3.0.0', 'curv': 'v2.210.0'},
+         'deprecated': {'eolvers': 'v3.0.0'},
          'type': {'type': 'function', '_funcname': '_methUserNotify',
                   'args': (
                       {'name': 'mesgtype', 'type': 'str', 'desc': 'The notification type.', },
