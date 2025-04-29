@@ -3802,7 +3802,7 @@ class InetModule(s_module.CoreModule):
                         ('attachments', ('array', {'type': 'inet:service:message:attachment', 'uniq': True, 'sorted': True}), {
                             'doc': 'An array of files attached to the message.'}),
 
-                        ('hashtags', ('array', {'type': 'media:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
+                        ('hashtags', ('array', {'type': 'inet:web:hashtag', 'uniq': True, 'sorted': True, 'split': ','}), {
                             'doc': 'An array of hashtags mentioned within the message.'}),
 
                         ('place', ('geo:place', {}), {
