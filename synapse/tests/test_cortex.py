@@ -6473,9 +6473,9 @@ class CortexBasicTest(s_t_utils.SynTest):
                     tdef = {'cond': 'node:add', 'storm': '[test:str="foobar"]', 'form': 'test:int'}
                     opts = {'vars': {'tdef': tdef}}
                     trig = await core.callStorm('return($lib.trigger.add($tdef))', opts=opts)
-                    opts = {'vars': {'trig': trig['iden']}}
+                    opts = {'vars': {'trig': trig['iden'], 'edits': {'enabled': False}}}
 
-                    await core.callStorm('$lib.trigger.disable($trig)', opts=opts)
+                    await core.callStorm('$lib.trigger.mod($trig, $edits)', opts=opts)
                     await core.callStorm('return($lib.trigger.del($trig))', opts=opts)
 
                     async with self.getTestDmon() as dmon:

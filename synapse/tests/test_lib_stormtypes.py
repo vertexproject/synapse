@@ -4296,7 +4296,7 @@ class StormTypesTest(s_test.SynTest):
             # Trigger is created disabled, so no nodes yet
             self.len(0, await core.nodes('test:int=6'))
 
-            await core.nodes(f'trigger.enable {goodbuid2}')
+            await core.nodes(f'trigger.mod {goodbuid2} --enabled (true)')
 
             # Trigger is enabled, so it should fire
             await core.nodes('[ test:type10=1 :intprop=25 ]')
@@ -4308,17 +4308,17 @@ class StormTypesTest(s_test.SynTest):
             q = 'trigger.del deadbeef12341234'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            q = 'trigger.enable deadbeef12341234'
+            q = 'trigger.mod deadbeef12341234 --enabled (true)'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            q = 'trigger.disable deadbeef12341234'
+            q = 'trigger.mod deadbeef12341234 --enabled (false)'
             await self.asyncraises(s_exc.StormRuntimeError, core.nodes(q))
 
-            mesgs = await core.stormlist(f'trigger.disable {goodbuid2}')
-            self.stormIsInPrint('Disabled trigger', mesgs)
+            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} --enabled (false)')
+            self.stormIsInPrint('Modified trigger', mesgs)
 
-            mesgs = await core.stormlist(f'trigger.enable {goodbuid2}')
-            self.stormIsInPrint('Enabled trigger', mesgs)
+            mesgs = await core.stormlist(f'trigger.mod {goodbuid2} --enabled (true)')
+            self.stormIsInPrint('Modified trigger', mesgs)
 
             mesgs = await core.stormlist(f'trigger.mod {goodbuid2} --storm {{[ test:str=different ]}}')
             self.stormIsInPrint('Modified trigger', mesgs)
@@ -4459,8 +4459,11 @@ class StormTypesTest(s_test.SynTest):
             self.stormIsInPrint(othr, mesgs)
             self.stormNotInPrint('No triggers found', mesgs)
 
-            mesgs = await core.stormlist(f'trigger.mod {othr} --view {forkview}')
+            mesgs = await core.stormlist(f'trigger.mod {othr} --view {forkview} --name "foobar"')
             self.stormIsInPrint('Modified trigger', mesgs)
+
+            trigs = await core.callStorm('return($lib.trigger.list())', opts=forkopts)
+            self.eq(trigs[0].get('name'), 'foobar')
 
             # fetch a trigger from another view
             self.nn(await core.callStorm(f'return($lib.trigger.get({othr}))'))
@@ -4527,11 +4530,11 @@ class StormTypesTest(s_test.SynTest):
                 await core.callStorm(q, opts={'view': forkview, 'vars': {'trig': trig}})
 
             # toggle trigger in other view
-            mesgs = await core.stormlist(f'trigger.disable {othr}')
-            self.stormIsInPrint(f'Disabled trigger: {othr}', mesgs)
+            mesgs = await core.stormlist(f'trigger.mod {othr} --enabled (false)')
+            self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
 
-            mesgs = await core.stormlist(f'trigger.enable {othr}')
-            self.stormIsInPrint(f'Enabled trigger: {othr}', mesgs)
+            mesgs = await core.stormlist(f'trigger.mod {othr} --enabled (true)')
+            self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
 
             mesgs = await core.stormlist(f'trigger.mod {othr} --storm {{ [ +#burrito ] }}')
             self.stormIsInPrint(f'Modified trigger: {othr}', mesgs)
@@ -4552,11 +4555,11 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
-                q = f'trigger.disable {goodbuid2}'
+                q = f'trigger.mod {goodbuid2} --enabled (false)'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
-                q = f'trigger.enable {goodbuid2}'
+                q = f'trigger.mod {goodbuid2} --enabled (true)'
                 mesgs = await asbond.storm(q).list()
                 self.stormIsInErr('iden does not match any', mesgs)
 
@@ -4588,11 +4591,11 @@ class StormTypesTest(s_test.SynTest):
                 mesgs = await asbond.storm(f'trigger.mod {goodbuid2} --storm {{[ test:str=yep ]}}').list()
                 self.stormIsInPrint('Modified trigger', mesgs)
 
-                mesgs = await asbond.storm(f'trigger.disable {goodbuid2}').list()
-                self.stormIsInPrint('Disabled trigger', mesgs)
+                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} --enabled (false)').list()
+                self.stormIsInPrint('Modified trigger', mesgs)
 
-                mesgs = await asbond.storm(f'trigger.enable {goodbuid2}').list()
-                self.stormIsInPrint('Enabled trigger', mesgs)
+                mesgs = await asbond.storm(f'trigger.mod {goodbuid2} --enabled (true)').list()
+                self.stormIsInPrint('Modified trigger', mesgs)
 
                 await prox.addUserRule(bond.iden, (True, ('trigger', 'del')))
 

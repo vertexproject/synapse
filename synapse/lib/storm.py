@@ -875,28 +875,6 @@ stormcmds = (
         ''',
     },
     {
-        'name': 'trigger.enable',
-        'descr': 'Enable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.enable($cmdopts.iden)
-            $lib.print("Enabled trigger: {iden}", iden=$iden)
-        ''',
-    },
-    {
-        'name': 'trigger.disable',
-        'descr': 'Disable a trigger in the cortex.',
-        'cmdargs': (
-            ('iden', {'help': 'Any prefix that matches exactly one valid trigger iden is accepted.'}),
-        ),
-        'storm': '''
-            $iden = $lib.trigger.disable($cmdopts.iden)
-            $lib.print("Disabled trigger: {iden}", iden=$iden)
-        ''',
-    },
-    {
         'name': 'cron.add',
         'descr': addcrondescr,
         'cmdargs': (

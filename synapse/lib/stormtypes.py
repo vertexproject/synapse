@@ -8237,22 +8237,6 @@ class LibTrigger(Lib):
                       {'name': 'iden', 'type': 'str', 'desc': 'The iden of the Trigger to get.', },
                   ),
                   'returns': {'type': 'trigger', 'desc': 'The requested ``trigger`` object.', }}},
-        {'name': 'enable', 'desc': 'Enable a Trigger in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methTriggerEnable',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a trigger to enable. '
-                               'Only a single matching prefix will be enabled.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the trigger that was enabled.', }}},
-        {'name': 'disable', 'desc': 'Disable a Trigger in the Cortex.',
-         'type': {'type': 'function', '_funcname': '_methTriggerDisable',
-                  'args': (
-                      {'name': 'prefix', 'type': 'str',
-                       'desc': 'A prefix to match in order to identify a trigger to disable. '
-                               'Only a single matching prefix will be disabled.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The iden of the trigger that was disabled.', }}},
         {'name': 'mod', 'desc': 'Modify an existing Trigger in the Cortex.',
          'type': {'type': 'function', '_funcname': '_methTriggerMod',
                   'args': (
@@ -8272,8 +8256,6 @@ class LibTrigger(Lib):
          'desc': 'Controls deleting triggers.'},
         {'perm': ('trigger', 'get'), 'gate': 'trigger',
          'desc': 'Controls listing/retrieving triggers.'},
-        {'perm': ('trigger', 'set'), 'gate': 'view',
-         'desc': 'Controls enabling, disabling, and modifying the query of a trigger.'},
         {'perm': ('trigger', 'set', 'doc'), 'gate': 'trigger',
          'desc': 'Controls modifying the doc property of triggers.'},
         {'perm': ('trigger', 'set', 'name'), 'gate': 'trigger',
@@ -8290,8 +8272,6 @@ class LibTrigger(Lib):
             'del': self._methTriggerDel,
             'list': self._methTriggerList,
             'get': self._methTriggerGet,
-            'enable': self._methTriggerEnable,
-            'disable': self._methTriggerDisable,
             'mod': self._methTriggerMod,
         }
 
@@ -8391,12 +8371,19 @@ class LibTrigger(Lib):
         for name in edits:
             self.runt.confirm(('trigger', 'set', name), gateiden=viewiden)
 
+        viewedit = None
         if 'view' in edits:
-            stormtrig = Trigger(self.runt, trig.tdef)
-            return await stormtrig.setitem('view', edits['view'])
+            viewedit = edits.pop('view')
 
-        trigview = self.runt.view.core.getView(viewiden)
-        return await trigview.setTriggerInfo(iden, edits)
+        if edits:
+            trigview = self.runt.view.core.getView(viewiden)
+            trigmods = await trigview.setTriggerInfo(iden, edits)
+
+        if viewedit:
+            trigmods = Trigger(self.runt, trig.tdef)
+            await trigmods.setitem('view', viewedit)
+
+        return trigmods
 
     @stormfunc(readonly=True)
     async def _methTriggerList(self, all=False):
@@ -8436,23 +8423,6 @@ class LibTrigger(Lib):
         self.runt.confirm(('trigger', 'get'), gateiden=iden)
 
         return Trigger(self.runt, trigger.pack())
-
-    async def _methTriggerEnable(self, prefix):
-        return await self._triggerendisable(prefix, True)
-
-    async def _methTriggerDisable(self, prefix):
-        return await self._triggerendisable(prefix, False)
-
-    async def _triggerendisable(self, prefix, state):
-        trig = await self._matchIdens(prefix)
-        iden = trig.iden
-
-        useriden = self.runt.user.iden
-        gatekeys = ((useriden, ('trigger', 'set'), iden),)
-        todo = s_common.todo('setTriggerInfo', iden, {'enabled': state})
-        await self.dyncall(trig.view.iden, todo, gatekeys=gatekeys)
-
-        return iden
 
 @registry.registerType
 class Trigger(Prim):
