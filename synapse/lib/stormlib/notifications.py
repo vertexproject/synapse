@@ -67,8 +67,6 @@ class NotifyLib(s_stormtypes.Lib):
             'get': self.get,
             'del': self._del,
             'list': self.list,
-            # 'bytime':
-            # 'bytype':
         }
 
     @s_stormtypes.stormfunc(readonly=True)
