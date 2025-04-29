@@ -180,8 +180,7 @@ separately.
 
 .. NOTE::
   
-  Deleting a layer will delete all unmerged changes stored in that layer, whether the layer is part of a forked view or
-  any other view.
+  Deleting a layer will delete all unmerged changes stored in that layer.
 
 
 .. _ug_best_practices:
