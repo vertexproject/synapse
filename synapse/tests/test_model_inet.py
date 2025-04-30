@@ -3243,12 +3243,18 @@ class InetModelTest(s_t_utils.SynTest):
                     :group=$devsiden
                     :public=$lib.false
                     :repost=*
+                    :mentions=(
+                        (inet:service:group, $devsiden),
+                        (inet:service:account, $blckiden),
+                        (inet:service:account, $blckiden),
+                    )
                 )
 
                 (inet:service:message=(blackout, visi, 1715856900000, vertex, slack)
                     :type=chat.direct
                     :to=$visiiden
                     :public=$lib.false
+                    :mentions?=((inet:service:message:attachment, $atchiden),)
                 )
 
                 (inet:service:message=(blackout, general, 1715856900000, vertex, slack)
@@ -3296,10 +3302,15 @@ class InetModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('group'), devsgrp.ndef[1])
             self.false(nodes[0].get('public'))
             self.eq(nodes[0].get('type'), 'chat.group.')
+            self.eq(
+                nodes[0].get('mentions'),
+                (('inet:service:account', blckacct.ndef[1]), ('inet:service:group', devsgrp.ndef[1]))
+            )
 
             self.eq(nodes[1].get('to'), visiacct.ndef[1])
             self.false(nodes[1].get('public'))
             self.eq(nodes[1].get('type'), 'chat.direct.')
+            self.none(nodes[1].get('mentions'))
 
             self.eq(nodes[2].get('channel'), gnrlchan.ndef[1])
             self.true(nodes[2].get('public'))
