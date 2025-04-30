@@ -318,6 +318,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             core.model.addEdge(('inet:fqdn', 'zip', 'phys:object'), {})
             edges = core.model.edgesbyn2.get('transport:air:craft')
+            self.true(core.model.edgeIsValid('inet:fqdn', 'zip', 'transport:air:craft'))
             self.isin(('inet:fqdn', 'zip', 'phys:object'), [e.edgetype for e in edges])
 
             core.model.addEdge(('phys:object', 'zop', 'inet:fqdn'), {})
@@ -326,6 +327,7 @@ class DataModelTest(s_t_utils.SynTest):
 
             core.model.delEdge(('inet:fqdn', 'zip', 'phys:object'))
             edges = core.model.edgesbyn2.get('transport:air:craft')
+            self.false(core.model.edgeIsValid('inet:fqdn', 'zip', 'transport:air:craft'))
             self.notin(('inet:fqdn', 'zip', 'phys:object'), [e.edgetype for e in edges])
 
             core.model.delEdge(('phys:object', 'zop', 'inet:fqdn'))
