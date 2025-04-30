@@ -68,7 +68,7 @@ class WebSocket(s_base.Base, s_stormtypes.StormType):
     async def rx(self, timeout=None):
 
         try:
-            _type, data, extra = await s_common.wait_for(self.resp.receive(), timeout=timeout)
+            _type, data, extra = await asyncio.wait_for(self.resp.receive(), timeout=timeout)
             if _type in (aiohttp.WSMsgType.BINARY, aiohttp.WSMsgType.TEXT):
                 return (True, s_json.loads(data))
             if _type == aiohttp.WSMsgType.CLOSED:  # pragma: no cover
@@ -521,15 +521,20 @@ class HttpResp(s_stormtypes.Prim):
          'type': {'type': 'function', '_funcname': '_httpRespJson',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.', 'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'boolean', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
                    ),
                    'returns': {'type': 'prim'}
                  }
         },
         {'name': 'msgpack', 'desc': 'Yield the msgpack deserialized objects.',
-            'type': {'type': 'function', '_funcname': '_httpRespMsgpack',
-                     'returns': {'name': 'Yields', 'type': 'prim', 'desc': 'Unpacked values.'}
-                     }
+         'type': {'type': 'function', '_funcname': '_httpRespMsgpack',
+                  'args': (
+                      {'name': 'strict', 'type': 'boolean', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
+                   ),
+                   'returns': {'name': 'Yields', 'type': 'prim', 'desc': 'Unpacked values.'}
+                 }
         },
     )
     _storm_typename = 'inet:http:resp'
@@ -554,10 +559,11 @@ class HttpResp(s_stormtypes.Prim):
             'msgpack': self._httpRespMsgpack,
         }
 
-    async def _httpRespJson(self, encoding=None, errors='surrogatepass'):
+    async def _httpRespJson(self, encoding=None, strict=False):
         try:
             valu = self.valu.get('body')
-            errors = await s_stormtypes.tostr(errors)
+            strict = await s_stormtypes.tobool(strict)
+            errors = 'strict' if strict else 'replace'
 
             if encoding is None:
                 encoding = s_json.detect_encoding(valu)
@@ -573,9 +579,11 @@ class HttpResp(s_stormtypes.Prim):
             mesg = f'Unable to decode HTTP response as json: {e.get("mesg")}'
             raise s_exc.BadJsonText(mesg=mesg)
 
-    async def _httpRespMsgpack(self):
+    async def _httpRespMsgpack(self, strict=False):
+        strict = await s_stormtypes.tobool(strict)
+
         byts = self.valu.get('body')
-        unpk = s_msgpack.Unpk()
+        unpk = s_msgpack.Unpk(strict=strict)
         for _, item in unpk.feed(byts):
             yield item
 

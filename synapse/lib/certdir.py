@@ -38,8 +38,8 @@ NSCERTTYPE_CLIENT = b'\x03\x02\x07\x80'   # client
 NSCERTTYPE_SERVER = b'\x03\x02\x06@'      # server
 NSCERTTYPE_OBJSIGN = b'\x03\x02\x04\x10'  # objsign
 
-TEN_YEARS = 10 * s_const.year  # 10 years in milliseconds
-TEN_YEARS_TD = datetime.timedelta(milliseconds=TEN_YEARS)
+TEN_YEARS = 10 * s_const.year  # 10 years in microseconds
+TEN_YEARS_TD = datetime.timedelta(microseconds=TEN_YEARS)
 
 StrOrNone = Union[str | None]
 BytesOrNone = Union[bytes | None]
@@ -186,6 +186,7 @@ def getServerSSLContext() -> ssl.SSLContext:
         ssl.SSLContext: The context object.
     '''
     sslctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
     sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
     sslctx.set_ciphers(TLS_SERVER_CIPHERS)
     # Disable client renegotiation if available.
@@ -1336,6 +1337,7 @@ class CertDir:
              A SSLContext object.
         '''
         sslctx = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+        sslctx.verify_flags &= ~ssl.VERIFY_X509_STRICT
         sslctx.minimum_version = ssl.TLSVersion.TLSv1_2
         self._loadCasIntoSSLContext(sslctx)
 

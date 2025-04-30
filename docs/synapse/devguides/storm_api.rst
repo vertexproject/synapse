@@ -64,11 +64,11 @@ task
     The task identifier (which can be used for task cancellation).
 
 tick
-    The epoch time the query execution started (in milliseconds). This value is computed from the host time and may
+    The epoch time the query execution started (in microseconds). This value is computed from the host time and may
     be affected by any changes in the host clock.
 
 abstick
-    The relative time that the query execution started (in milliseconds). This value is computed from a monotonic
+    The relative time that the query execution started (in microseconds). This value is computed from a monotonic
     clock and can be used as a reference time.
 
 text
@@ -219,15 +219,15 @@ any sort of rollup of messages.
 It includes the following keys:
 
 tock
-    The epoch time the query execution finished (in milliseconds). This value is computed from adding the ``took``
+    The epoch time the query execution finished (in microseconds). This value is computed from adding the ``took``
     value to the ``tick`` value from the ``init`` message.
 
 took
-    The amount of time it took for the query to execute (in milliseconds). This value is computed from the ``abstick``
+    The amount of time it took for the query to execute (in microseconds). This value is computed from the ``abstick``
     and ``abstock`` values.
 
 abstock
-    The relative time that the query execution finished at (in milliseconds). This value is computed from a monotonic
+    The relative time that the query execution finished at (in microseconds). This value is computed from a monotonic
     clock and should always be equal to or greater than the ``abstick`` value from the ``init`` message.
 
 count
@@ -235,7 +235,7 @@ count
 
 Example::
 
-    ('fini', {'count': 1, 'tock': 1539221715240, 'took': 36381})
+    ('fini', {'count': 1, 'tock': 1539221715240000, 'took': 36381000})
 
 .. note::
 

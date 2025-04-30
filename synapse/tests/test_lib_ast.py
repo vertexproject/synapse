@@ -10,6 +10,7 @@ import synapse.datamodel as s_datamodel
 import synapse.lib.ast as s_ast
 import synapse.lib.view as s_view
 import synapse.lib.json as s_json
+import synapse.lib.time as s_time
 
 import synapse.tests.utils as s_test
 
@@ -74,9 +75,9 @@ foo_stormpkg = {
             }
 
             function outer(arg1, add) {
-                $strbase = $lib.str.format("(Run: {c}) we got back ", c=$counter)
+                $strbase = `(Run: {$counter}) we got back `
                 $reti = $inner($arg1, $add)
-                $mesg = $lib.str.concat($strbase, $reti)
+                $mesg = `{$strbase}{$reti}`
                 $counter = $( $counter + $add )
                 $lib.print("foobar is {foobar}", foobar=$foobar)
                 return ($mesg)
@@ -178,10 +179,10 @@ class AstTest(s_test.SynTest):
 
             nodes = await core.nodes('[ test:str=foo :tick?=2019 ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), 1546300800000)
+            self.eq(nodes[0].get('tick'), 1546300800000000)
             nodes = await core.nodes('[ test:str=foo :tick?=notatime ]')
             self.len(1, nodes)
-            self.eq(nodes[0].get('tick'), 1546300800000)
+            self.eq(nodes[0].get('tick'), 1546300800000000)
 
     async def test_ast_autoadd(self):
 
@@ -296,7 +297,7 @@ class AstTest(s_test.SynTest):
                 $newvar=:hehe
                 -.created
                 $s.append("yar {x}", x=$newvar)
-                $lib.print($lib.str.join('', $s))
+                $lib.print(('').join($s))
             '''
             mesgs = await core.stormlist(q)
             prints = [m[1]['mesg'] for m in mesgs if m[0] == 'print']
@@ -488,7 +489,7 @@ class AstTest(s_test.SynTest):
                 q = '[test:str=foo :newp*unset=heval]'
                 nodes = await core.nodes(q)
 
-            with self.raises(s_exc.StormRuntimeError):
+            with self.raises(s_exc.NoSuchVirt):
                 q = '$foo=newp [test:str=foo :hehe*$foo=heval]'
                 nodes = await core.nodes(q)
 
@@ -2055,7 +2056,7 @@ class AstTest(s_test.SynTest):
             q = '$val=$lib.base64.decode("dmlzaQ==") function x(parm1=$val) { return($parm1) }'
             self.len(0, await core.nodes(q))
 
-            self.eq('foo', await core.callStorm('return($lib.str.format("{func}", func=foo))'))
+            self.eq('foo', await core.callStorm('$template="{func}" return($template.format(func=foo))'))
 
             msgs = await core.stormlist('$lib.null()')
             erfo = [m for m in msgs if m[0] == 'err'][0]
@@ -2546,6 +2547,22 @@ class AstTest(s_test.SynTest):
             self.len(1, nodes)
 
             scmd = {
+                'name': 'isin',
+                'cmdargs': (
+                    ('--bar', {}),
+                ),
+                'storm': '''
+                    if ('bar' in $cmdopts) { $lib.fire('isin') }
+                ''',
+            }
+            await core.setStormCmd(scmd)
+            msgs = await core.stormlist('isin')
+            self.len(0, [m for m in msgs if m[0] == 'storm:fire'])
+
+            msgs = await core.stormlist('isin --bar yep')
+            self.len(1, [m for m in msgs if m[0] == 'storm:fire'])
+
+            scmd = {
                 'name': 'baz',
                 'cmdargs': (
                     ('--faz', {}),
@@ -2729,6 +2746,49 @@ class AstTest(s_test.SynTest):
 
             guid = await core.callStorm('return($lib.guid((1.23)))')
             self.eq(guid, '5c293425e676da3823b81093c7cd829e')
+
+            await core.callStorm('$lib.globals.foo = bar')
+            self.true(await core.callStorm("return(('foo' in $lib.globals))"))
+            self.false(await core.callStorm("return(('newp' in $lib.globals))"))
+            self.true(await core.callStorm("$foo=bar return(('foo' in $lib.vars))"))
+            self.false(await core.callStorm("$foo=bar return(('newp' in $lib.vars))"))
+            self.true(await core.callStorm("$foo=$lib.set(bar) return(('bar' in $foo))"))
+            self.false(await core.callStorm("$foo=$lib.set(bar) return(('newp' in $foo))"))
+            self.true(await core.callStorm("$foo=(['bar']) return(('bar' in $foo))"))
+            self.false(await core.callStorm("$foo=(['bar']) return(('newp' in $foo))"))
+            self.true(await core.callStorm("[test:str=foo] return(('.created' in $node.props))"))
+            self.false(await core.callStorm("[test:str=foo] return(('newp' in $node.props))"))
+            self.true(await core.callStorm("test:str=foo $node.data.set(foo, 1) return(('foo' in $node.data))"))
+            self.false(await core.callStorm("test:str=foo return(('newp' in $node.data))"))
+            self.true(await core.callStorm("test:str=foo $path.meta.foo = 1 return(('foo' in $path.meta))"))
+            self.false(await core.callStorm("test:str=foo $path.meta.foo = 1 return(('newp' in $path.meta))"))
+            self.true(await core.callStorm("test:str=foo $foo = 1 return(('foo' in $path.vars))"))
+            self.false(await core.callStorm("test:str=foo $foo = 1 return(('newp' in $path.vars))"))
+            self.true(await core.callStorm("return(('bar' in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+            self.false(await core.callStorm("return(('newp' in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+
+            self.false(await core.callStorm("return(('foo' not in $lib.globals))"))
+            self.true(await core.callStorm("return(('newp' not in $lib.globals))"))
+            self.false(await core.callStorm("$foo=bar return(('foo' not in $lib.vars))"))
+            self.true(await core.callStorm("$foo=bar return(('newp' not in $lib.vars))"))
+            self.false(await core.callStorm("$foo=$lib.set(bar) return(('bar' not in $foo))"))
+            self.true(await core.callStorm("$foo=$lib.set(bar) return(('newp' not in $foo))"))
+            self.false(await core.callStorm("$foo=(['bar']) return(('bar' not in $foo))"))
+            self.true(await core.callStorm("$foo=(['bar']) return(('newp' not in $foo))"))
+            self.false(await core.callStorm("return(('bar' not in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+            self.true(await core.callStorm("return(('newp' not in $foo))", opts={'vars': {'foo': {'bar': 'baz'}}}))
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return(('newp' in $foo))", opts={'vars': {'foo': 5}})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return(('newp' not in $foo))", opts={'vars': {'foo': 5}})
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return((({}) in ({})))")
+
+            with self.raises(s_exc.StormRuntimeError):
+                await core.callStorm("return((({}) not in ({})))")
 
     async def test_ast_subgraph_light_edges(self):
         async with self.getTestCore() as core:
@@ -3605,7 +3665,7 @@ class AstTest(s_test.SynTest):
 
             q = '''
             init { $foo = bar }
-            init { $baz = $lib.str.format('foo={foo}', foo=$foo) }
+            init { $baz = `foo={$foo}` }
             $lib.print($baz)
             '''
             msgs = await core.stormlist(q)
@@ -3802,7 +3862,7 @@ class AstTest(s_test.SynTest):
             )
 
             for query in queries:
-                self.eq(1577836800000, await core.callStorm(query))
+                self.eq(1577836800000000, await core.callStorm(query))
 
             await core.nodes('test:ival +test:ival*min=2020 | delnode')
             self.len(0, await core.nodes('test:ival +test:ival*min=2020'))
@@ -3824,6 +3884,20 @@ class AstTest(s_test.SynTest):
 
             with self.raises(s_exc.NoSuchVirt):
                 await core.nodes('ou:campaign $lib.print(:period*newp)')
+
+            self.eq(s_time.PREC_MICRO, await core.callStorm('[ it:exec:query=* :time=now ] return(:time*precision)'))
+            self.eq(s_time.PREC_MICRO, await core.callStorm('it:exec:query  [ :time*precision?=newp ] return(:time*precision)'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('it:exec:query [ :time*precision=day ] return(:time*precision)'))
+            self.len(1, await core.nodes('it:exec:query +:time*precision=day'))
+            self.eq(s_time.PREC_HOUR, await core.callStorm('it:exec:query [ :time*precision=hour ] return(:time*precision)'))
+            self.none(await core.callStorm('it:exec:query [ -:time ] return(:time*precision)'))
+            self.eq(s_time.PREC_MONTH, await core.callStorm('[ it:exec:query=* :time=2024-03? ] return(:time*precision)'))
+
+            self.eq(s_time.PREC_MICRO, await core.callStorm('[ ou:asset=* .seen=now ] return(.seen*precision)'))
+            self.eq(s_time.PREC_DAY, await core.callStorm('ou:asset [ .seen*precision=day ] return(.seen*precision)'))
+            self.len(1, await core.nodes('ou:asset +.seen*precision=day'))
+            self.len(1, await core.nodes('ou:asset [ .seen*precision=month ] +.seen*precision=month'))
+            self.none(await core.callStorm('ou:asset [ -.seen ] return(.seen*precision)'))
 
     async def test_ast_righthand_relprop(self):
         async with self.getTestCore() as core:
@@ -4047,10 +4121,10 @@ class AstTest(s_test.SynTest):
                 self.lt(eidx, len(links))
                 self.eq(links[eidx], (src.intnid(), edge))
 
-            opts = {'links': True}
+            opts = {'node:opts': {'links': True}, 'vars': {'form': 'inet:ip'}}
 
             # non-runtsafe lift could be anything
-            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts={'links': True, 'vars': {'form': 'inet:ip'}})
+            msgs = await core.stormlist('test:str=foobar $newform=$node.props.bar.0 *$newform', opts=opts)
             _assert_edge(msgs, tstr, {'type': 'runtime'}, nidx=1)
 
             # FormPivot

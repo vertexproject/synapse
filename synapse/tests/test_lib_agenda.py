@@ -1087,6 +1087,8 @@ class AgendaTest(s_t_utils.SynTest):
 
                     self.true(await asyncio.wait_for(evt.wait(), timeout=12))
 
+                    await core01.sync()
+
                     cdef00 = await core00.callStorm(get_cron, opts=opts)
                     self.false(cdef00.get('isrunning'))
 

@@ -260,9 +260,6 @@ class NexsRoot(s_base.Base):
         try:
             await self._apply(*indxitem)
 
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
-
         except Exception:
             logger.exception(f'Exception while replaying log: {s_common.trimText(repr(indxitem))}')
 
@@ -332,7 +329,7 @@ class NexsRoot(s_base.Base):
         with self._getResponseFuture(iden=meta.get('resp')) as (iden, futu):
             meta['resp'] = iden
             await client.issue(nexsiden, event, args, kwargs, meta=meta)
-            return await s_common.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
+            return await asyncio.wait_for(futu, timeout=FOLLOWER_WRITE_WAIT_S)
 
     async def getIssueProxy(self):
 
@@ -637,9 +634,6 @@ class NexsRoot(s_base.Base):
             ahavers = ahainfo['synapse']['version']
             if self.cell.ahasvcname is not None and ahavers >= (2, 95, 0):
                 await proxy.modAhaSvcInfo(self.cell.ahasvcname, {'ready': status})
-
-        except asyncio.CancelledError:  # pragma: no cover  TODO:  remove once >= py 3.8 only
-            raise
 
         except Exception as e: # pragma: no cover
             logger.exception(f'Error trying to set aha ready: {status}')

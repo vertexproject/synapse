@@ -1810,7 +1810,7 @@ class LibBase(Lib):
         for line in lines:
             fline = f'{prefix}{line}'
             if clamp and len(fline) > clamp:
-                await self.runt.printf(f'{fline[:clamp-3]}...')
+                await self.runt.printf(f'{fline[:clamp - 3]}...')
             else:
                 await self.runt.printf(fline)
 
@@ -2001,77 +2001,6 @@ class LibPs(Lib):
     async def _list(self):
         todo = s_common.todo('ps', self.runt.user)
         return await self.dyncall('cell', todo)
-
-@registry.registerLib
-class LibStr(Lib):
-    '''
-    A Storm Library for interacting with strings.
-    '''
-    _storm_locals = (
-        {'name': 'join', 'desc': '''
-            Join items into a string using a separator.
-
-            Examples:
-                Join together a list of strings with a dot separator::
-
-                    storm> $foo=$lib.str.join('.', ('rep', 'vtx', 'tag')) $lib.print($foo)
-
-                    rep.vtx.tag''',
-         'type': {'type': 'function', '_funcname': 'join',
-                  'args': (
-                      {'name': 'sepr', 'type': 'str', 'desc': 'The separator used to join strings with.', },
-                      {'name': 'items', 'type': 'list', 'desc': 'A list of items to join together.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
-        {'name': 'concat', 'desc': 'Concatenate a set of strings together.',
-         'type': {'type': 'function', '_funcname': 'concat',
-                  'args': (
-                      {'name': '*args', 'type': 'any', 'desc': 'Items to join together.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The joined string.', }}},
-        {'name': 'format', 'desc': '''
-            Format a text string.
-
-            Examples:
-                Format a string with a fixed argument and a variable::
-
-                    storm> $list=(1,2,3,4)
-                         $str=$lib.str.format('Hello {name}, your list is {list}!', name='Reader', list=$list)
-                         $lib.print($str)
-
-                    Hello Reader, your list is ['1', '2', '3', '4']!''',
-         'type': {'type': 'function', '_funcname': 'format',
-                  'args': (
-                      {'name': 'text', 'type': 'str', 'desc': 'The base text string.', },
-                      {'name': '**kwargs', 'type': 'any',
-                       'desc': 'Keyword values which are substituted into the string.', },
-                  ),
-                  'returns': {'type': 'str', 'desc': 'The new string.', }}},
-    )
-    _storm_lib_path = ('str',)
-
-    def getObjLocals(self):
-        return {
-            'join': self.join,
-            'concat': self.concat,
-            'format': self.format,
-        }
-
-    @stormfunc(readonly=True)
-    async def concat(self, *args):
-        strs = [await tostr(a) for a in args]
-        return ''.join(strs)
-
-    @stormfunc(readonly=True)
-    async def format(self, text, **kwargs):
-        text = await kwarg_format(text, **kwargs)
-
-        return text
-
-    @stormfunc(readonly=True)
-    async def join(self, sepr, items):
-        strs = [await tostr(item) async for item in toiter(items)]
-        return sepr.join(strs)
 
 @registry.registerLib
 class LibAxon(Lib):
@@ -2795,26 +2724,26 @@ class LibTime(Lib):
     A Storm Library for interacting with timestamps.
     '''
     _storm_locals = (
-        {'name': 'now', 'desc': 'Get the current epoch time in milliseconds.',
+        {'name': 'now', 'desc': 'Get the current epoch time in microseconds.',
          'type': {
              'type': 'function', '_funcname': '_now',
-             'returns': {'desc': 'Epoch time in milliseconds.', 'type': 'int', }}},
+             'returns': {'desc': 'Epoch time in microseconds.', 'type': 'int', }}},
         {'name': 'fromunix',
          'desc': '''
-            Normalize a timestamp from a unix epoch time in seconds to milliseconds.
+            Normalize a timestamp from a unix epoch time in seconds to microseconds.
 
             Examples:
-                Convert a timestamp from seconds to millis and format it::
+                Convert a timestamp from seconds to micros and format it::
 
-                    storm> $seconds=1594684800 $millis=$lib.time.fromunix($seconds)
-                         $str=$lib.time.format($millis, '%A %d, %B %Y') $lib.print($str)
+                    storm> $seconds=1594684800 $micros=$lib.time.fromunix($seconds)
+                         $str=$lib.time.format($micros, '%A %d, %B %Y') $lib.print($str)
 
                     Tuesday 14, July 2020''',
          'type': {'type': 'function', '_funcname': '_fromunix',
                   'args': (
                       {'name': 'secs', 'type': 'int', 'desc': 'Unix epoch time in seconds.', },
                   ),
-                  'returns': {'type': 'int', 'desc': 'The normalized time in milliseconds.', }}},
+                  'returns': {'type': 'int', 'desc': 'The normalized time in microseconds.', }}},
         {'name': 'parse', 'desc': '''
             Parse a timestamp string using ``datetime.strptime()`` into an epoch timestamp.
 
@@ -2823,7 +2752,7 @@ class LibTime(Lib):
 
                     storm> $s='06/01/2020' $ts=$lib.time.parse($s, '%m/%d/%Y') $lib.print($ts)
 
-                    1590969600000''',
+                    1590969600000000''',
          'type': {'type': 'function', '_funcname': '_parse',
                   'args': (
                       {'name': 'valu', 'type': 'str', 'desc': 'The timestamp string to parse.', },
@@ -2843,7 +2772,7 @@ class LibTime(Lib):
                     Tuesday 14, July 2020''',
          'type': {'type': 'function', '_funcname': '_format',
                   'args': (
-                      {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch milliseconds.', },
+                      {'name': 'valu', 'type': 'int', 'desc': 'A timestamp in epoch microseconds.', },
                       {'name': 'format', 'type': 'str', 'desc': 'The strftime format string.', },
                   ),
                   'returns': {'type': 'str', 'desc': 'The formatted time string.', }}},
@@ -2959,7 +2888,7 @@ class LibTime(Lib):
                   ),
                   'returns': {'type': 'int', 'desc': 'The index of the month within year.', }}},
         {'name': 'toUTC', 'desc': '''
-        Adjust an epoch milliseconds timestamp to UTC from the given timezone.
+        Adjust an epoch microseconds timestamp to UTC from the given timezone.
         ''',
          'type': {'type': 'function', '_funcname': 'toUTC',
                   'args': (
@@ -3097,7 +3026,7 @@ class LibTime(Lib):
             raise s_exc.StormRuntimeError(mesg=mesg, valu=valu, format=format)
 
         try:
-            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(milliseconds=norm)
+            dt = datetime.datetime(1970, 1, 1) + datetime.timedelta(microseconds=norm)
             ret = dt.strftime(format)
         except Exception as e:
             mesg = f'Error during time format - {str(e)}'
@@ -3120,7 +3049,7 @@ class LibTime(Lib):
         if dt.tzinfo is not None:
             # Convert the aware dt to UTC, then strip off the tzinfo
             dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        return int((dt - s_time.EPOCH).total_seconds() * 1000)
+        return s_time.total_microseconds(dt - s_time.EPOCH)
 
     @stormfunc(readonly=True)
     async def _sleep(self, valu):
@@ -3144,7 +3073,7 @@ class LibTime(Lib):
 
     async def _fromunix(self, secs):
         secs = float(secs)
-        return int(secs * 1000)
+        return int(secs * 1000000)
 
 @registry.registerLib
 class LibRegx(Lib):
@@ -4520,7 +4449,7 @@ class Str(Prim):
     @stormfunc(readonly=True)
     async def _methEncode(self, encoding='utf8'):
         try:
-            return self.valu.encode(encoding, 'surrogatepass')
+            return self.valu.encode(encoding)
         except UnicodeEncodeError as e:
             raise s_exc.StormRuntimeError(mesg=f'{e}: {s_common.trimText(repr(self.valu))}') from None
 
@@ -4614,7 +4543,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methDecode',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'The encoding to use.', 'default': 'utf8', },
-                      {'name': 'errors', 'type': 'str', 'desc': 'The error handling scheme to use.', 'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid values rather than replacing the character.'},
                   ),
                   'returns': {'type': 'str', 'desc': 'The decoded string.', }}},
         {'name': 'bunzip', 'desc': '''
@@ -4666,8 +4596,8 @@ class Bytes(Prim):
          'type': {'type': 'function', '_funcname': '_methJsonLoad',
                   'args': (
                       {'name': 'encoding', 'type': 'str', 'desc': 'Specify an encoding to use.', 'default': None, },
-                      {'name': 'errors', 'type': 'str', 'desc': 'Specify an error handling scheme to use.',
-                       'default': 'surrogatepass', },
+                      {'name': 'strict', 'type': 'str', 'default': False,
+                       'desc': 'If True, raise an exception on invalid string encoding rather than replacing the character.'},
                   ),
                   'returns': {'type': 'prim', 'desc': 'The deserialized object.', }}},
 
@@ -4762,9 +4692,10 @@ class Bytes(Prim):
             raise s_exc.BadArg(mesg=f'unpack() error: {e}')
 
     @stormfunc(readonly=True)
-    async def _methDecode(self, encoding='utf8', errors='surrogatepass'):
+    async def _methDecode(self, encoding='utf8', strict=False):
         encoding = await tostr(encoding)
-        errors = await tostr(errors)
+        strict = await tobool(strict)
+        errors = 'strict' if strict else 'replace'
         try:
             return self.valu.decode(encoding, errors)
         except UnicodeDecodeError as e:
@@ -4785,10 +4716,11 @@ class Bytes(Prim):
         return gzip.compress(self.valu)
 
     @stormfunc(readonly=True)
-    async def _methJsonLoad(self, encoding=None, errors='surrogatepass'):
+    async def _methJsonLoad(self, encoding=None, strict=False):
         try:
             valu = self.valu
-            errors = await tostr(errors)
+            strict = await tobool(strict)
+            errors = 'strict' if strict else 'replace'
 
             if encoding is None:
                 encoding = s_json.detect_encoding(valu)
@@ -4814,6 +4746,10 @@ class Dict(Prim):
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
+
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        return item in self.valu
 
     async def iter(self):
         for item in tuple(self.valu.items()):
@@ -4861,6 +4797,11 @@ class CmdOpts(Dict):
     def __hash__(self):
         valu = vars(self.valu.opts)
         return hash((self._storm_typename, tuple(valu.items())))
+
+    async def _storm_contains(self, item):
+        item = await toprim(item)
+        valu = getattr(self.valu.opts, item, s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def setitem(self, name, valu):
@@ -4962,6 +4903,9 @@ class Set(Prim):
 
     def __len__(self):
         return len(self.valu)
+
+    async def _storm_contains(self, item):
+        return item in self.valu
 
     async def _methSetSize(self):
         return len(self)
@@ -5141,6 +5085,9 @@ class List(Prim):
     async def _storm_copy(self):
         item = await s_coro.ornot(self.value)
         return s_msgpack.deepcopy(item, use_list=True)
+
+    async def _storm_contains(self, item):
+        return await self._methListHas(item)
 
     async def _derefGet(self, name):
         return await self._methListIndex(name)
@@ -5505,6 +5452,13 @@ class GlobalVars(Prim):
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.confirm(('globals', 'get', item))
+        valu = await runt.view.core.getStormVar(item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def deref(self, name):
         name = await tostr(name)
         runt = s_scope.get('runt')
@@ -5546,6 +5500,18 @@ class EnvVars(Prim):
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        runt.reqAdmin(mesg='$lib.env requires admin privileges.')
+
+        if not item.startswith('SYN_STORM_ENV_'):
+            mesg = f'Environment variable must start with SYN_STORM_ENV_ : {item}'
+            raise s_exc.BadArg(mesg=mesg)
+
+        valu = os.getenv(item, default=s_common.novalu)
+        return valu is not s_common.novalu
+
     @stormfunc(readonly=True)
     async def deref(self, name):
         runt = s_scope.get('runt')
@@ -5584,6 +5550,12 @@ class RuntVars(Prim):
 
     def __init__(self, path=None):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        runt = s_scope.get('runt')
+        valu = runt.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     @stormfunc(readonly=True)
     async def deref(self, name):
@@ -5723,7 +5695,13 @@ class NodeProps(Prim):
         Prim.__init__(self, node, path=path)
         self.locls.update(self.getObjLocals())
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.valu.get(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
+
     async def _derefGet(self, name):
+        name = await tostr(name)
         return self.valu.get(name)
 
     async def setitem(self, name, valu):
@@ -5861,6 +5839,10 @@ class NodeData(Prim):
     async def cacheset(self, name, valu):
         envl = {'asof': s_common.now(), 'data': valu}
         return await self._setNodeData(name, envl)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return await self.valu.hasData(item)
 
     @stormfunc(readonly=True)
     async def _hasNodeData(self, name):
@@ -6258,6 +6240,10 @@ class PathMeta(Prim):
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
 
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        return item in self.path.metadata
+
     async def deref(self, name):
         name = await tostr(name)
         return self.path.metadata.get(name)
@@ -6285,6 +6271,11 @@ class PathVars(Prim):
 
     def __init__(self, path):
         Prim.__init__(self, None, path=path)
+
+    async def _storm_contains(self, item):
+        item = await tostr(item)
+        valu = self.path.getVar(item, defv=s_common.novalu)
+        return valu is not s_common.novalu
 
     async def deref(self, name):
         name = await tostr(name)
@@ -7330,10 +7321,18 @@ class Layer(Prim):
                 valu = None
             else:
                 valu = await tostr(await toprim(valu), noneok=True)
+
         elif name == 'logedits':
             valu = await tobool(valu)
+
         elif name == 'readonly':
             valu = await tobool(valu)
+
+        elif name in ('mirror', 'upstream'):
+            if (valu := await toprim(valu)) is not None:
+                mesg = 'Layer only supports setting "mirror" and "upstream" to null.'
+                raise s_exc.BadOptValu(mesg=mesg)
+
         else:
             mesg = f'Layer does not support setting: {name}'
             raise s_exc.BadOptValu(mesg=mesg)
@@ -9168,7 +9167,7 @@ class LibCron(Lib):
             for optval in opts.split(','):
                 try:
                     arg = f'{optval} {optname}'
-                    ts = now + s_time.delta(arg) / 1000.0
+                    ts = now + s_time.delta(arg) / 1000000.0
                     tslist.append(ts)
                 except (ValueError, s_exc.BadTypeValu):
                     mesg = f'Trouble parsing "{arg}"'
@@ -9178,7 +9177,7 @@ class LibCron(Lib):
         if dts:
             for dt in dts.split(','):
                 try:
-                    ts = s_time.parse(dt) / 1000.0
+                    ts = s_time.parse(dt) / 1000000.0
                     tslist.append(ts)
                 except (ValueError, s_exc.BadTypeValu):
                     mesg = f'Trouble parsing "{dt}"'
@@ -9539,7 +9538,7 @@ async def tostr(valu, noneok=False):
 
     try:
         if isinstance(valu, bytes):
-            return valu.decode('utf8', 'surrogatepass')
+            return valu.decode('utf8')
 
         if isinstance(valu, s_node.Node):
             return valu.repr()

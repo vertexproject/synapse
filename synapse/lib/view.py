@@ -10,6 +10,7 @@ import synapse.common as s_common
 
 import synapse.lib.cell as s_cell
 import synapse.lib.node as s_node
+import synapse.lib.task as s_task
 import synapse.lib.cache as s_cache
 import synapse.lib.layer as s_layer
 import synapse.lib.nexus as s_nexus
@@ -659,7 +660,7 @@ class View(s_nexus.Pusher):  # type: ignore
 
             async def chunked():
                 nodeedits = []
-                editor = s_editor.NodeEditor(self.parent, merge.get('creator'))
+                editor = s_editor.NodeEditor(self.parent, merge.get('creator'), meta=meta)
 
                 async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
                     nid = s_common.int64en(intnid)
@@ -738,7 +739,7 @@ class View(s_nexus.Pusher):  # type: ignore
                             else:
                                 nodeedits.append((intnid, form, realedits))
 
-                    if len(nodeedits) >= 10:
+                    if len(nodeedits) == 5:
                         yield nodeedits
                         nodeedits.clear()
 
@@ -1548,7 +1549,11 @@ class View(s_nexus.Pusher):  # type: ignore
         keepalive = opts.get('keepalive')
         if keepalive is not None and keepalive <= 0:
             raise s_exc.BadArg(mesg=f'keepalive must be > 0; got {keepalive}')
-        synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
+
+        if (synt := s_task.current()) is None:
+            # we only want to promote if we aren't already a syntask because we're probably a worker task that shouldn't
+            # show up in the main task list
+            synt = await self.core.boss.promote('storm', user=user, info=taskinfo, taskiden=taskiden)
 
         show = opts.get('show', set())
 
@@ -1702,8 +1707,7 @@ class View(s_nexus.Pusher):  # type: ignore
         '''
         Set a mutable view property.
         '''
-        if name not in ('name', 'desc', 'parent', 'nomerge', 'protected', 'quorum'):
-            # TODO: Remove nomerge after Synapse 3.x.x
+        if name not in ('name', 'desc', 'parent', 'protected', 'quorum'):
             mesg = f'{name} is not a valid view info key'
             raise s_exc.BadOptValu(mesg=mesg)
 
@@ -2025,86 +2029,100 @@ class View(s_nexus.Pusher):  # type: ignore
             'user': user.iden
         }
 
-        editor = s_editor.NodeEditor(self.parent, user, meta=meta)
+        async def chunked():
+            nodeedits = []
+            editor = s_editor.NodeEditor(self.parent, user, meta=meta)
 
-        async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
-            nid = s_common.int64en(intnid)
+            async for (intnid, form, edits) in self.wlyr.iterLayerNodeEdits():
+                nid = s_common.int64en(intnid)
 
-            if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
-                protonode = await editor.getNodeByNid(nid)
-                if protonode is None:
-                    continue
-
-                await protonode.delEdgesN2(meta=meta)
-                await protonode.delete()
-
-                await editor.flushEdits()
-                continue
-
-            realedits = []
-
-            protonode = None
-            for edit in edits:
-                etyp, parms = edit
-
-                if etyp == s_layer.EDIT_PROP_TOMB:
+                if len(edits) == 1 and edits[0][0] == s_layer.EDIT_NODE_TOMB:
+                    protonode = await editor.getNodeByNid(nid)
                     if protonode is None:
-                        if (protonode := await editor.getNodeByNid(nid)) is None:
+                        continue
+
+                    await protonode.delEdgesN2(meta=meta)
+                    await protonode.delete()
+
+                    nodeedits.extend(editor.getNodeEdits())
+                    editor.protonodes.clear()
+                else:
+                    realedits = []
+
+                    protonode = None
+                    for edit in edits:
+                        etyp, parms = edit
+
+                        if etyp == s_layer.EDIT_PROP_TOMB:
+                            if protonode is None:
+                                if (protonode := await editor.getNodeByNid(nid)) is None:
+                                    continue
+
+                            await protonode.pop(parms[0])
                             continue
 
-                    await protonode.pop(parms[0])
-                    continue
+                        if etyp == s_layer.EDIT_TAG_TOMB:
+                            if protonode is None:
+                                if (protonode := await editor.getNodeByNid(nid)) is None:
+                                    continue
 
-                if etyp == s_layer.EDIT_TAG_TOMB:
-                    if protonode is None:
-                        if (protonode := await editor.getNodeByNid(nid)) is None:
+                            await protonode.delTag(parms[0])
                             continue
 
-                    await protonode.delTag(parms[0])
-                    continue
+                        if etyp == s_layer.EDIT_TAGPROP_TOMB:
+                            if protonode is None:
+                                if (protonode := await editor.getNodeByNid(nid)) is None:
+                                    continue
 
-                if etyp == s_layer.EDIT_TAGPROP_TOMB:
-                    if protonode is None:
-                        if (protonode := await editor.getNodeByNid(nid)) is None:
+                            (tag, prop) = parms
+
+                            await protonode.delTagProp(tag, prop)
                             continue
 
-                    (tag, prop) = parms
+                        if etyp == s_layer.EDIT_NODEDATA_TOMB:
+                            if protonode is None:
+                                if (protonode := await editor.getNodeByNid(nid)) is None:
+                                    continue
 
-                    await protonode.delTagProp(tag, prop)
-                    continue
-
-                if etyp == s_layer.EDIT_NODEDATA_TOMB:
-                    if protonode is None:
-                        if (protonode := await editor.getNodeByNid(nid)) is None:
+                            await protonode.popData(parms[0])
                             continue
 
-                    await protonode.popData(parms[0])
-                    continue
+                        if etyp == s_layer.EDIT_EDGE_TOMB:
+                            if protonode is None:
+                                if (protonode := await editor.getNodeByNid(nid)) is None:
+                                    continue
 
-                if etyp == s_layer.EDIT_EDGE_TOMB:
-                    if protonode is None:
-                        if (protonode := await editor.getNodeByNid(nid)) is None:
+                            (verb, n2nid) = parms
+
+                            await protonode.delEdge(verb, s_common.int64en(n2nid))
                             continue
 
-                    (verb, n2nid) = parms
+                        realedits.append(edit)
 
-                    await protonode.delEdge(verb, s_common.int64en(n2nid))
-                    continue
+                    if protonode is None:
+                        nodeedits.append((intnid, form, realedits))
+                    else:
+                        deledits = editor.getNodeEdits()
+                        editor.protonodes.clear()
+                        if deledits:
+                            deledits[0][2].extend(realedits)
+                            nodeedits.extend(deledits)
+                        else:
+                            nodeedits.append((intnid, form, realedits))
 
-                realedits.append(edit)
+                if len(nodeedits) == 5:
+                    yield nodeedits
+                    nodeedits.clear()
 
-            if protonode is None:
-                await self.parent.storNodeEdits([(intnid, form, realedits)], meta)
-                continue
+            if nodeedits:
+                yield nodeedits
 
-            deledits = editor.getNodeEdits()
-            editor.protonodes.clear()
+        async for edits in chunked():
 
-            if deledits:
-                deledits[0][2].extend(realedits)
-                await self.parent.storNodeEdits(deledits, meta)
-            else:
-                await self.parent.storNodeEdits(((intnid, form, realedits),), meta)
+            meta['time'] = s_common.now()
+
+            await self.parent.saveNodeEdits(edits, meta)
+            await asyncio.sleep(0)
 
     async def swapLayer(self):
         oldlayr = self.layers[0]

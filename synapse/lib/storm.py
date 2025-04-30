@@ -493,7 +493,7 @@ stormcmds = (
                         if ( $defv = $lib.null ) {
                             $defv = $lib.false
                         }
-                        $text = `{$lib.str.join('.', $permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
+                        $text = `{('.').join($permdef.perm).ljust(32)} : {$permdef.desc} ( default: {$defv} )`
                         $lib.print($text)
                     }
                 } else {
@@ -580,7 +580,7 @@ stormcmds = (
                 $ssl = $lib.true
                 if $cmdopts.ssl_noverify { $ssl = $lib.false }
 
-                $headers = ({'X-Synapse-Version': $lib.str.join('.', $lib.version.synapse())})
+                $headers = ({'X-Synapse-Version': ('.').join($lib.version.synapse())})
 
                 $resp = $lib.inet.http.get($cmdopts.url, ssl_verify=$ssl, headers=$headers)
 
@@ -615,7 +615,7 @@ stormcmds = (
             $synv = $lib.version.synapse()
 
             if $synv {
-                $synv = $lib.str.join('.', $synv)
+                $synv = ('.').join($synv)
             }
 
             if $comm {
@@ -1090,8 +1090,8 @@ stormcmds = (
                     $lib.print('entries:         incunit    incval required')
 
                     for $rec in $job.recs {
-                        $incunit = $lib.str.format('{incunit}', incunit=$rec.incunit).ljust(10)
-                        $incval = $lib.str.format('{incval}', incval=$rec.incval).ljust(6)
+                        $incunit = (`{$rec.incunit}`).ljust(10)
+                        $incval = (`{$rec.incval}`).ljust(6)
 
                         $lib.print('                 {incunit} {incval} {reqdict}',
                                    incunit=$incunit, incval=$incval, reqdict=$rec.reqdict)
@@ -1995,16 +1995,19 @@ class Runtime(s_base.Base):
         info.update({'mode': self.opts.get('mode', 'storm'), 'view': self.view.iden})
         self.view.core._logStormQuery(self.query.text, self.user, info=info)
 
+        nodeopts = self.opts.get('node:opts', {})
+
         # { form: ( embedprop, ... ) }
-        embeds = self.opts.get('embeds')
-        dorepr = self.opts.get('repr', False)
-        dopath = self.opts.get('path', False)
-        dolink = self.opts.get('links', False)
-        show_storage = self.opts.get('show:storage', False)
+        embeds = nodeopts.get('embeds')
+        dorepr = nodeopts.get('repr', False)
+        dopath = nodeopts.get('path', False)
+        dolink = nodeopts.get('links', False)
+        virts = nodeopts.get('virts', False)
+        show_storage = nodeopts.get('show:storage', False)
 
         async for node, path in self.execute():
 
-            pode = node.pack(dorepr=dorepr)
+            pode = node.pack(dorepr=dorepr, virts=virts)
             pode[1]['path'] = await path.pack(path=dopath)
 
             if (nodedata := path.getData(node.nid)) is not None:
@@ -2432,7 +2435,7 @@ class Parser:
                 desc = endpoint.get('desc', '')
                 base = f'    {path}'
                 wrap_desc = self._wrap_text(desc, wrap_w) if desc else ['']
-                self._printf(f'{base:<{base_w-2}}: {wrap_desc[0]}')
+                self._printf(f'{base:<{base_w - 2}}: {wrap_desc[0]}')
                 for ln in wrap_desc[1:]:
                     self._printf(f'{"":<{base_w}}{ln}')
 
@@ -2528,7 +2531,7 @@ class Parser:
 
         first = helplst[0][min_space:]
         wrap_first = self._wrap_text(first, wrap_w)
-        self._printf(f'{base:<{base_w-2}}: {wrap_first[0]}')
+        self._printf(f'{base:<{base_w - 2}}: {wrap_first[0]}')
 
         for ln in wrap_first[1:]: self._printf(f'{"":<{base_w}}{ln}')
         for ln in helplst[1:]:
