@@ -202,9 +202,9 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('groups'), ('G0100',))
             self.eq(nodes[0].get('software'), ('S0100',))
             self.eq(nodes[0].get('techniques'), ('T0100', 'T0200'))
-            self.eq(nodes[0].get('created'), 1698796800000)
-            self.eq(nodes[0].get('updated'), 1698883200000)
-            self.eq(nodes[0].get('period'), (1448928000000, 1451606400000))
+            self.eq(nodes[0].get('created'), 1698796800000000)
+            self.eq(nodes[0].get('updated'), 1698883200000000)
+            self.eq(nodes[0].get('period'), (1448928000000000, 1451606400000000))
 
             nodes = await core.nodes('''[
                 it:exec:thread=*
@@ -218,8 +218,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             ]''')
             self.len(1, nodes)
             self.nn(nodes[0].ndef[1])
-            self.eq(nodes[0].get('created'), 1612224000000)
-            self.eq(nodes[0].get('exited'), 1612310400000)
+            self.eq(nodes[0].get('created'), 1612224000000000)
+            self.eq(nodes[0].get('exited'), 1612310400000000)
             self.eq(nodes[0].get('exitcode'), 0)
             self.len(1, await core.nodes('it:exec:thread:created :proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:thread:created :src:proc -> it:exec:proc'))
@@ -240,8 +240,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].ndef[1])
             self.nn(nodes[0].get('proc'))
             self.eq(nodes[0].get('va'), 0x00a000)
-            self.eq(nodes[0].get('loaded'), 1612224000000)
-            self.eq(nodes[0].get('unloaded'), 1612310400000)
+            self.eq(nodes[0].get('loaded'), 1612224000000000)
+            self.eq(nodes[0].get('unloaded'), 1612310400000000)
             self.len(1, await core.nodes('it:exec:loadlib :file -> file:bytes'))
             self.len(1, await core.nodes('it:exec:loadlib :proc -> it:exec:proc'))
             self.len(1, await core.nodes('it:exec:loadlib -> file:path +file:path=/home/invisigoth/rootkit.so'))
@@ -269,8 +269,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].get('perms:read'), 1)
             self.eq(nodes[0].get('perms:write'), 0)
             self.eq(nodes[0].get('perms:execute'), 1)
-            self.eq(nodes[0].get('created'), 1612224000000)
-            self.eq(nodes[0].get('deleted'), 1612310400000)
+            self.eq(nodes[0].get('created'), 1612224000000000)
+            self.eq(nodes[0].get('deleted'), 1612310400000000)
             self.eq(nodes[0].get('hash:sha256'), 'ad9f4fe922b61e674a09530831759843b1880381de686a43460a76864ca0340c')
             self.len(1, await core.nodes('it:exec:mmap -> hash:sha256'))
             self.len(1, await core.nodes('it:exec:mmap :proc -> it:exec:proc'))
@@ -290,7 +290,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef[1], '80e6c59d9c349ac15f716eaa825a23fa')
             self.nn(nodes[0].get('killedby'))
             self.eq(nodes[0].get('exitcode'), 0)
-            self.eq(nodes[0].get('exited'), 1612224000000)
+            self.eq(nodes[0].get('exited'), 1612224000000000)
             self.eq(nodes[0].get('name'), 'RunDLL32')
             self.eq(nodes[0].get('path'), 'c:/windows/system32/rundll32.exe')
             self.len(1, await core.nodes('it:exec:proc:path*base=rundll32.exe'))
@@ -307,7 +307,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.nn(nodes[0].ndef[1])
             self.nn(nodes[0].get('proc'))
             self.nn(nodes[0].get('rule'))
-            self.eq(nodes[0].get('time'), 1612224000000)
+            self.eq(nodes[0].get('time'), 1612224000000000)
             self.len(1, await core.nodes('it:app:yara:procmatch -> it:exec:proc'))
             self.len(1, await core.nodes('it:app:yara:procmatch -> it:app:yara:rule'))
 
@@ -334,7 +334,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                         :multi:count:malicious=2
                     ]}
             ]''')
-            self.eq(1700179200000, nodes[0].get('time'))
+            self.eq(1700179200000000, nodes[0].get('time'))
             self.eq(30, nodes[0].get('verdict'))
             self.eq('visi scan', nodes[0].get('scanner:name'))
             self.eq('vertex.link', nodes[0].get('target:fqdn'))
@@ -406,10 +406,10 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('some rule text', nodes[0].get('pattern'))
             self.eq('yara', nodes[0].get('pattern_type'))
             self.eq(('haha', 'hehe'), nodes[0].get('labels'))
-            self.eq(1723680000000, nodes[0].get('created'))
-            self.eq(1723680000000, nodes[0].get('updated'))
-            self.eq(1723680000000, nodes[0].get('valid_from'))
-            self.eq(1723680000000, nodes[0].get('valid_until'))
+            self.eq(1723680000000000, nodes[0].get('created'))
+            self.eq(1723680000000000, nodes[0].get('updated'))
+            self.eq(1723680000000000, nodes[0].get('valid_from'))
+            self.eq(1723680000000000, nodes[0].get('valid_until'))
 
     async def test_infotech_android(self):
 
@@ -472,7 +472,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes[0].get('parents'))
             self.eq(nodes[0].ndef, ('it:software:image', s_common.guid(('ubuntu', '24.10', 'amd64', 'vhdx'))))
             self.eq(nodes[0].get('name'), 'ubuntu-24.10-amd64.vhdx')
-            self.eq(nodes[0].get('published'), 1715938800000)
+            self.eq(nodes[0].get('published'), 1715938800000000)
             self.eq(nodes[0].get('publisher'), s_common.guid(('blackout',)))
             image = nodes[0]
 
@@ -595,15 +595,15 @@ class InfotechModelTest(s_t_utils.SynTest):
             node = nodes[0]
             self.eq(node.ndef, ('it:sec:cve', 'cve-2013-9999'))
             self.eq(node.get('nist:nvd:source'), 'nistsource')
-            self.eq(node.get('nist:nvd:published'), 1633910400000)
-            self.eq(node.get('nist:nvd:modified'), 1633910400000)
+            self.eq(node.get('nist:nvd:published'), 1633910400000000)
+            self.eq(node.get('nist:nvd:modified'), 1633910400000000)
             self.eq(node.get('cisa:kev:name'), 'KevName')
             self.eq(node.get('cisa:kev:desc'), 'KevDesc')
             self.eq(node.get('cisa:kev:action'), 'KevAction')
             self.eq(node.get('cisa:kev:vendor'), 'kevvendor')
             self.eq(node.get('cisa:kev:product'), 'kevproduct')
-            self.eq(node.get('cisa:kev:added'), 1641081600000)
-            self.eq(node.get('cisa:kev:duedate'), 1641081600000)
+            self.eq(node.get('cisa:kev:added'), 1641081600000000)
+            self.eq(node.get('cisa:kev:duedate'), 1641081600000000)
 
             nodes = await core.nodes('[it:sec:cve=$valu]', opts={'vars': {'valu': 'CVE\u20122013\u20131138'}})
             self.len(1, nodes)
@@ -671,10 +671,10 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.nn(nodes[1].get('host'))
             self.nn(nodes[1].get('account'))
-            self.eq(1615680000000, nodes[1].get('time'))
-            self.eq(1615687260000, nodes[1].get('logoff:time'))
-            self.eq(7260000, nodes[1].get('duration'))
-            self.eq('02:01:00.000', nodes[1].repr('duration'))
+            self.eq(1615680000000000, nodes[1].get('time'))
+            self.eq(1615687260000000, nodes[1].get('logoff:time'))
+            self.eq(7260000000, nodes[1].get('duration'))
+            self.eq('02:01:00', nodes[1].repr('duration'))
 
             # Sample SIDs from here:
             # https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-dtyp/81d92bba-d22b-4a8c-908a-554ab29148ab
@@ -796,12 +796,18 @@ class InfotechModelTest(s_t_utils.SynTest):
             }
             q = '''[(it:prod:softver=$valu :vers=$p.vers :released=$p.released :url=$p.url :software=$p.software
                 :arch=$p.arch :name=$p.name :names=$p.names :desc=$p.desc)]'''
-            nodes = await core.nodes(q, opts={'vars': {'valu': ver0, 'p': props}})
+
+            with self.getLoggerStream('synapse.models.infotech') as stream:
+                nodes = await core.nodes(q, opts={'vars': {'valu': ver0, 'p': props}})
+
+            stream.seek(0)
+            self.notin('NoSuchProp', stream.read())
+
             self.len(1, nodes)
             node = nodes[0]
             self.eq(node.ndef, ('it:prod:softver', ver0))
             self.eq(node.get('arch'), 'amd64')
-            self.eq(node.get('released'), 1522745062000)
+            self.eq(node.get('released'), 1522745062000000)
             self.eq(node.get('software'), prod0)
             self.eq(node.get('vers'), 'V1.0.1-beta+exp.sha.5114f85')
             self.eq(node.get('vers:norm'), 'v1.0.1-beta+exp.sha.5114f85')
@@ -1039,7 +1045,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('xps13', nodes[0].get('model'))
             self.eq('alpha', nodes[0].get('version'))
             self.eq('cpe:2.3:h:dell:xps13:*:*:*:*:*:*:*:*', nodes[0].get('cpe'))
-            self.eq(1643760000000, nodes[0].get('released'))
+            self.eq(1643760000000000, nodes[0].get('released'))
             self.len(1, await core.nodes('it:prod:hardware :type -> it:prod:hardware:type:taxonomy'))
             self.len(2, await core.nodes('it:prod:hardware:model=XPS13 -> it:prod:hardware'))
             self.eq('dell', nodes[0].get('manufacturer:name'))
@@ -1128,24 +1134,24 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(nodes[0].ndef, ('it:host', hostguid))
             self.eq(nodes[1].ndef, ('it:cmd:session', s_common.guid(('202405170900', '202405171000', 'bash', hostguid))))
             self.eq(nodes[1].get('host'), hostguid)
-            self.eq(nodes[1].get('period'), (1715936400000, 1715940000000))
+            self.eq(nodes[1].get('period'), (1715936400000000, 1715940000000000))
             cmdsess = nodes[1]
 
             q = '''
             [
-                (it:cmd:history=(1715936400001, $sessiden)
+                (it:cmd:history=(1715936400000001, $sessiden)
                     :cmd="ls -la"
-                    :time=(1715936400001)
+                    :time=(1715936400000001)
                 )
 
-                (it:cmd:history=(1715936400002, $sessiden)
+                (it:cmd:history=(1715936400000002, $sessiden)
                     :cmd="cd /"
-                    :time=(1715936400002)
+                    :time=(1715936400000002)
                 )
 
-                (it:cmd:history=(1715936400003, $sessiden)
+                (it:cmd:history=(1715936400000003, $sessiden)
                     :cmd="ls -laR"
-                    :time=(1715936400003)
+                    :time=(1715936400000003)
                 )
 
                 :session=$sessiden
@@ -1154,19 +1160,19 @@ class InfotechModelTest(s_t_utils.SynTest):
             opts = {'vars': {'sessiden': cmdsess.ndef[1]}}
             nodes = await core.nodes(q, opts=opts)
             self.len(3, nodes)
-            self.eq(nodes[0].ndef, ('it:cmd:history', s_common.guid(('1715936400001', cmdsess.ndef[1]))))
+            self.eq(nodes[0].ndef, ('it:cmd:history', s_common.guid(('1715936400000001', cmdsess.ndef[1]))))
             self.eq(nodes[0].get('cmd'), 'ls -la')
-            self.eq(nodes[0].get('time'), 1715936400001)
+            self.eq(nodes[0].get('time'), 1715936400000001)
             self.eq(nodes[0].get('session'), cmdsess.ndef[1])
 
-            self.eq(nodes[1].ndef, ('it:cmd:history', s_common.guid(('1715936400002', cmdsess.ndef[1]))))
+            self.eq(nodes[1].ndef, ('it:cmd:history', s_common.guid(('1715936400000002', cmdsess.ndef[1]))))
             self.eq(nodes[1].get('cmd'), 'cd /')
-            self.eq(nodes[1].get('time'), 1715936400002)
+            self.eq(nodes[1].get('time'), 1715936400000002)
             self.eq(nodes[1].get('session'), cmdsess.ndef[1])
 
-            self.eq(nodes[2].ndef, ('it:cmd:history', s_common.guid(('1715936400003', cmdsess.ndef[1]))))
+            self.eq(nodes[2].ndef, ('it:cmd:history', s_common.guid(('1715936400000003', cmdsess.ndef[1]))))
             self.eq(nodes[2].get('cmd'), 'ls -laR')
-            self.eq(nodes[2].get('time'), 1715936400003)
+            self.eq(nodes[2].get('time'), 1715936400000003)
             self.eq(nodes[2].get('session'), cmdsess.ndef[1])
 
             m0 = s_common.guid()
@@ -1489,8 +1495,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('V-31337', nodes[0].get('ext:id'))
             self.eq('https://vertex.link/yara-lolz/V-31337', nodes[0].get('url'))
             self.eq(True, nodes[0].get('enabled'))
-            self.eq(1580601600000, nodes[0].get('created'))
-            self.eq(1648771200000, nodes[0].get('updated'))
+            self.eq(1580601600000000, nodes[0].get('created'))
+            self.eq(1648771200000000, nodes[0].get('updated'))
             self.eq('gronk', nodes[0].get('text'))
             self.eq('beacon', nodes[0].get('family'))
             self.eq(0x10000200003, nodes[0].get('version'))
@@ -1553,8 +1559,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('redtree', nodes[0].get('family'))
             self.eq(True, nodes[0].get('enabled'))
             self.eq(0x10000200003, nodes[0].get('version'))
-            self.eq(1325376000000, nodes[0].get('created'))
-            self.eq(1640995200000, nodes[0].get('updated'))
+            self.eq(1325376000000000, nodes[0].get('created'))
+            self.eq(1640995200000000, nodes[0].get('updated'))
             self.nn(nodes[0].get('author'))
 
             nodes = await core.nodes('''[ it:app:snort:hit=$hit
@@ -1566,7 +1572,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq(rule, nodes[0].get('rule'))
             self.eq(flow, nodes[0].get('flow'))
             self.eq(host, nodes[0].get('sensor'))
-            self.eq(1420070400000, nodes[0].get('time'))
+            self.eq(1420070400000000, nodes[0].get('time'))
 
             self.eq('tcp://[::ffff:1.2.3.4]:0', nodes[0].get('src'))
             self.eq('tcp://[::ffff:5.5.5.5]:80', nodes[0].get('dst'))
@@ -1823,8 +1829,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.eq('beacon', node.get('family'))
             self.eq('WootWoot', node.get('campaigncode'))
             self.eq(('http://1.2.3.4', 'tcp://visi:secret@vertex.link'), node.get('servers'))
-            self.eq(3600000, node.get('connect:delay'))
-            self.eq(28800000, node.get('connect:interval'))
+            self.eq(3600000000, node.get('connect:delay'))
+            self.eq(28800000000, node.get('connect:interval'))
             self.eq({'hehe': 'haha'}, node.get('raw'))
             self.eq(('https://0.0.0.0:443',), node.get('listens'))
             self.eq(('socks5://visi:secret@1.2.3.4:1234',), node.get('proxies'))
@@ -1851,7 +1857,7 @@ class InfotechModelTest(s_t_utils.SynTest):
                     :service:account = *
                 ]
             ''', opts=opts)
-            self.eq(1658275200000, nodes[0].get('time'))
+            self.eq(1658275200000000, nodes[0].get('time'))
             self.eq(99, nodes[0].get('offset'))
             self.eq('sql', nodes[0].get('language'))
             self.eq({"foo": "bar"}, nodes[0].get('opts'))
@@ -2136,7 +2142,7 @@ class InfotechModelTest(s_t_utils.SynTest):
             ''')
             self.len(1, nodes)
 
-            self.eq(1692346740000, nodes[0].get('time'))
+            self.eq(1692346740000000, nodes[0].get('time'))
             self.eq('nessus', nodes[0].get('software:name'))
             self.eq('Woot Woot', nodes[0].get('desc'))
             self.eq('FOO-10', nodes[0].get('ext:id'))
@@ -2166,8 +2172,8 @@ class InfotechModelTest(s_t_utils.SynTest):
             self.len(1, nodes)
             self.eq(40, nodes[0].get('priority'))
             self.eq(50, nodes[0].get('severity'))
-            self.eq(1692346748280, nodes[0].get('time'))
-            self.eq(1692346749300, nodes[0].get('mitigated'))
+            self.eq(1692346748280000, nodes[0].get('time'))
+            self.eq(1692346749300000, nodes[0].get('mitigated'))
             self.eq('Network service is vulnerable to nucsploit9k', nodes[0].get('desc'))
             self.eq('FOO-10.0', nodes[0].get('ext:id'))
             self.eq('https://vertex.link/scans/FOO-10/0', nodes[0].get('ext:url'))
@@ -2208,11 +2214,11 @@ class InfotechModelTest(s_t_utils.SynTest):
 
             self.eq('vertex', nodes[0].get('org:name'))
             self.eq('vertex.link', nodes[0].get('org:fqdn'))
-            self.eq((1688169600000, 1690848000000), nodes[0].get('period'))
+            self.eq((1688169600000000, 1690848000000000), nodes[0].get('period'))
 
             self.eq(100, nodes[0].get('alerts:count'))
             self.eq(90, nodes[0].get('alerts:falsepos'))
-            self.eq(7200000, nodes[0].get('alerts:meantime:triage'))
+            self.eq(7200000000, nodes[0].get('alerts:meantime:triage'))
 
             self.eq(13, nodes[0].get('assets:users'))
             self.eq(123, nodes[0].get('assets:hosts'))

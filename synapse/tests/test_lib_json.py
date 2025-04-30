@@ -1,6 +1,6 @@
 import io
 
-import orjson
+import yyjson
 
 import synapse.exc as s_exc
 import synapse.common as s_common
@@ -16,7 +16,7 @@ class JsonTest(s_test.SynTest):
 
         with self.raises(s_exc.BadJsonText) as exc:
             s_json.loads('newp')
-        self.eq(exc.exception.get('mesg'), 'invalid literal: line 1 column 1 (char 0)')
+        self.eq(exc.exception.get('mesg'), "invalid literal, expected a valid literal such as 'null'")
 
     async def test_lib_json_load(self):
         with self.getTestDir() as dirn:
@@ -30,7 +30,7 @@ class JsonTest(s_test.SynTest):
             with s_common.genfile(dirn, 'empty') as empty:
                 with self.raises(s_exc.BadJsonText) as exc:
                     s_json.load(empty)
-                self.eq(exc.exception.get('mesg'), 'Input is a zero-length, empty document: line 1 column 1 (char 0)')
+                self.eq(exc.exception.get('mesg'), 'input length is 0')
 
             buf = io.BytesIO(b'{"a": "b"}')
             self.eq({'a': 'b'}, s_json.load(buf))
@@ -41,9 +41,9 @@ class JsonTest(s_test.SynTest):
     async def test_lib_json_load_surrogates(self):
         inval = '{"a": "😀\ud83d\ude47"}'
 
-        # orjson.loads fails because of the surrogate pairs
-        with self.raises(s_exc.BadJsonText):
-            s_json.loads(inval)
+        # yyjson.loads fails because of the surrogate pairs
+        with self.raises(ValueError):
+            yyjson.loads(inval)
 
         with self.raises(s_exc.BadJsonText):
             buf = io.StringIO(inval)
@@ -52,9 +52,9 @@ class JsonTest(s_test.SynTest):
     async def test_lib_json_dump_surrogates(self):
         inval = {'a': '😀\ud83d\ude47'}
 
-        # orjson.dumps fails because of the surrogate pairs
-        with self.raises(s_exc.MustBeJsonSafe):
-            s_json.dumps(inval)
+        # yyjson.dumps fails because of the surrogate pairs
+        with self.raises(UnicodeEncodeError):
+            yyjson.dumps(inval)
 
         with self.raises(s_exc.MustBeJsonSafe):
             buf = io.BytesIO()
@@ -68,11 +68,17 @@ class JsonTest(s_test.SynTest):
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({}.items())
-        self.eq(exc.exception.get('mesg'), 'Type is not JSON serializable: dict_items')
+        self.eq(exc.exception.get('mesg'), "TypeError: Object of type 'dict_items' is not JSON serializable")
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.dumps({1: 'foo'})
-        self.eq(exc.exception.get('mesg'), 'Dict key must be str')
+        self.eq(exc.exception.get('mesg'), "TypeError: Dictionary keys must be strings")
+
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.dumps({'\ud83d\ude47': {}.items()})
+        self.eq(exc.exception.get('mesg'), "TypeError: Dictionary keys must be strings")
+
+        self.eq(b'"dict_items([])"', s_json.dumps({}.items(), default=str))
 
     async def test_lib_json_dump(self):
         with self.getTestDir() as dirn:
@@ -87,6 +93,20 @@ class JsonTest(s_test.SynTest):
         buf = io.BytesIO()
         s_json.dump({'c': 'd', 'a': 'b'}, buf)
         self.eq(b'{"c":"d","a":"b"}', buf.getvalue())
+
+    async def test_lib_json_large_integers(self):
+        valu = [
+            1, 2,
+            -1, -2,
+            1.0, 2.0,
+            -1.0, -2.0,
+            2**63, -2**63, -2**63 - 1,
+            2**64, -2**64, 2**64 + 1,
+            2**128, 2**128 + 1,
+            -2**128, -2**128 - 1,
+        ]
+
+        self.eq(valu, s_json.loads(s_json.dumps(valu)))
 
     async def test_jsload(self):
         with self.getTestDir() as dirn:
@@ -124,37 +144,48 @@ class JsonTest(s_test.SynTest):
 
         buf = io.BytesIO()
 
+        msg = "Object of type '_io.BytesIO' is not JSON serializable"
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.reqjsonsafe(buf)
-        self.isin('Type is not JSON serializable: _io.BytesIO', exc.exception.get('mesg'))
+        self.isin(msg, exc.exception.get('mesg'))
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.reqjsonsafe({'foo': buf})
-        self.isin('Type is not JSON serializable: _io.BytesIO', exc.exception.get('mesg'))
+        self.isin(msg, exc.exception.get('mesg'))
 
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.reqjsonsafe(['foo', buf])
-        self.isin('Type is not JSON serializable: _io.BytesIO', exc.exception.get('mesg'))
+        self.isin(msg, exc.exception.get('mesg'))
 
         items = (
             (None, None),
             (1234, None),
             ('1234', None),
+            ('1234"', None),
             ({'asdf': 'haha'}, None),
             ({'a': (1,), 'b': [{'': 4}, 56, None, {'t': True, 'f': False}, 'oh my']}, None),
             (b'1234', s_exc.MustBeJsonSafe),
+            (b'1234"', s_exc.MustBeJsonSafe),
+            ({'a': float('nan')}, s_exc.MustBeJsonSafe),
             ({'a': 'a', 2: 2}, s_exc.MustBeJsonSafe),
             ({'a', 'b', 'c'}, s_exc.MustBeJsonSafe),
             (s_common.novalu, s_exc.MustBeJsonSafe),
         )
         for (item, eret) in items:
             if eret is None:
-                self.none(s_json.reqjsonsafe(item))
+                self.none(s_json.reqjsonsafe(item), msg=item)
             else:
                 with self.raises(eret):
                     s_json.reqjsonsafe(item)
 
-        text = '😀\ud83d\ude47'
+        for text in ['😀', 'asdf', 'asdf"', '"asdf']:
+            s_json.reqjsonsafe(text)
+
+        text = ['😀\ud83d\ude47']
         with self.raises(s_exc.MustBeJsonSafe) as exc:
             s_json.reqjsonsafe(text)
-        self.eq(exc.exception.get('mesg'), 'str is not valid UTF-8: surrogates not allowed')
+        self.eq(exc.exception.get('mesg'), "'utf-8' codec can't encode characters in position 1-2: surrogates not allowed")
+
+        with self.raises(s_exc.MustBeJsonSafe) as exc:
+            s_json.reqjsonsafe(b'1234')
+        self.eq(exc.exception.get('mesg'), 'Object of type bytes is not JSON serializable')
